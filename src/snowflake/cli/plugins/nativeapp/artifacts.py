@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import itertools
 import os
+import shutil
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
@@ -544,11 +545,17 @@ def symlink_or_copy(
     else:
         # 1. Create an empty shell directory in the deploy root
         dst.mkdir(exist_ok=True)
-        # 2. Get all children of the current directory, files and sub-directories
-        for child in sorted(absolute_src.iterdir()):
-            child_path = Path(absolute_src, child.name)
-            dest_path = Path(dst, child.name)
-            symlink_or_copy(src=child_path, dst=dest_path, deploy_root=deploy_root)
+        for root, _, files in sorted(os.walk(absolute_src, followlinks=True)):
+            relative_root = Path(root).relative_to(absolute_src)
+            absolute_root_in_deploy = Path(dst, relative_root)
+            absolute_root_in_deploy.mkdir(parents=True, exist_ok=True)
+            for file in files:
+                absolute_file_in_project = Path(absolute_src, relative_root, file)
+                absolute_file_in_deploy = Path(absolute_root_in_deploy, file)
+                try:
+                    os.symlink(absolute_file_in_project, absolute_file_in_deploy)
+                except OSError:
+                    shutil.copy(absolute_file_in_project, absolute_file_in_deploy)
 
 
 def resolve_without_follow(path: Path) -> Path:
