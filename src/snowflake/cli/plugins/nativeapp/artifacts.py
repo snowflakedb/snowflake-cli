@@ -118,7 +118,7 @@ class _ArtifactPathMap:
         self.__src_to_dest: Dict[Path, List[Path]] = {}
         self.__dest_to_src: Dict[Path, List[Path]] = {}
 
-        # This dictionary accumulates keys for each directory or file to be  created in
+        # This dictionary accumulates keys for each directory or file to be created in
         # the deploy root for any artifact mapping rule being processed. This includes
         # children of directories that are copied to the deploy root. Having this
         # information available is critical to detect possible clashes between rules.
