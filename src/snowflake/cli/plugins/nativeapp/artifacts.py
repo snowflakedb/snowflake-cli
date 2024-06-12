@@ -56,7 +56,7 @@ class SourceNotFoundError(ClickException):
 
 class TooManyFilesError(ClickException):
     """
-    Multiple files were mapped to one output file.
+    Multiple file or directories were mapped to one output destination.
     """
 
     dest_path: Path
@@ -142,6 +142,8 @@ class _ArtifactPathMap:
         current_sources = self.__dest_to_src.get(dest, [])
         src_is_dir = absolute_src.is_dir()
         if dest_is_dir:
+            assert src_is_dir  # file -> directory is not possible here given how rules are processed
+
             # directory -> directory
             # Check that dest is currently unmapped
             current_is_dir = self._dest_is_dir.get(dest, False)
@@ -196,6 +198,16 @@ class _ArtifactPathMap:
         return iter(self.__src_dest_pairs)
 
     def _update_dest_is_dir(self, dest: Path, is_dir: bool) -> None:
+        """
+        Recursively marks seen destination paths as either files or folders, raising an error if any inconsistencies
+        from previous invocations of this method are encountered.
+
+        Arguments:
+            dest {Path} -- the destination path, in canonical form.
+            is_dir {bool} -- whether the destination path is a directory.
+        """
+        assert not dest.is_absolute()  # dest must be in canonical relative form
+
         current_is_dir = self._dest_is_dir.get(dest, None)
         if current_is_dir is not None and current_is_dir != is_dir:
             raise ArtifactError(
