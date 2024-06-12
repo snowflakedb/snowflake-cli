@@ -168,7 +168,7 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
 
 
 @pytest.mark.parametrize(
-    "input, expected",
+    "identifier, expected",
     [
         ("my_app", "MY_APP"),
         ('"My App"', "My%20App"),
@@ -177,8 +177,8 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
         ('"Mailorder *App* is /cool/"', "Mailorder%20*App*%20is%20%2Fcool%2F"),
     ],
 )
-def test_identifier_for_url(input, expected):
-    assert identifier_for_url(input) == expected
+def test_identifier_for_url(identifier, expected):
+    assert identifier_for_url(identifier) == expected
 
 
 @patch("snowflake.cli.plugins.connection.util.get_account")
