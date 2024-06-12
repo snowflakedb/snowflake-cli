@@ -23,6 +23,10 @@ from snowflake.connector.cursor import DictCursor
 
 STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
 
+skip_python_3_12 = pytest.mark.skipif(
+    sys.version_info <= (3, 12), reason="Snowpark is not supported in Python >= 3.12"
+)
+
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_list(mock_execute, runner, mock_cursor):
@@ -738,6 +742,7 @@ def test_execute(
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+@skip_python_3_12
 def test_execute_with_variables(mock_bootstrap, mock_execute, mock_cursor, runner):
     mock_execute.return_value = mock_cursor(
         [{"name": "exe/s1.sql"}, {"name": "exe/s2.py"}], []
@@ -863,6 +868,7 @@ def test_execute_no_files_for_stage_path(
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+@skip_python_3_12
 def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner):
     error_message = "Error"
     mock_execute.side_effect = [
@@ -897,9 +903,7 @@ def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
-@pytest.mark.skipif(
-    sys.version_info >= (3, 12), reason="Snowpark is not supported in Python >= 3.12"
-)
+@skip_python_3_12
 def test_execute_continue_on_error(
     mock_bootstrap, mock_execute, mock_cursor, runner, snapshot
 ):
