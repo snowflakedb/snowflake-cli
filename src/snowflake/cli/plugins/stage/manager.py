@@ -22,7 +22,7 @@ import sys
 from contextlib import nullcontext
 from dataclasses import dataclass
 from os import path
-from pathlib import Path
+from pathlib import Path, PosixPath
 from tempfile import TemporaryDirectory
 from textwrap import dedent
 from typing import Dict, List, Optional, Union
@@ -401,7 +401,7 @@ class StageManager(SqlExecutionMixin):
 
         # Construct all possible path for requirements file for this context
         req_file_name = "requirements.txt"
-        current_file = Path(stage_path_parts.path) / req_file_name
+        current_file = PosixPath(stage_path_parts.path) / req_file_name
         possible_req_files = []
 
         while (
