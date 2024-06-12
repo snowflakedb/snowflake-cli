@@ -1,0 +1,91 @@
+# serializer version: 1
+# name: test_full_lifecycle_with_codegen
+  '''
+  call codegen_nativeapp_af3d785601654fa0a9a105883b626866_app.ext_code_schema.py_echo_proc('test')
+  +-----------------+
+  | PY_ECHO_PROC    |
+  |-----------------|
+  | echo_proc: test |
+  +-----------------+
+  
+  '''
+# ---
+# name: test_full_lifecycle_with_codegen.1
+  '''
+  select codegen_nativeapp_af3d785601654fa0a9a105883b626866_app.ext_code_schema.py_echo_fn('test')
+  +------------------------------------------------------------------------------+
+  | CODEGEN_NATIVEAPP_AF3D785601654FA0A9A105883B626866_APP.EXT_CODE_SCHEMA.PY_EC |
+  | HO_FN('TEST')                                                                |
+  |------------------------------------------------------------------------------|
+  | echo_fn: test                                                                |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_full_lifecycle_with_codegen.2
+  '''
+  select codegen_nativeapp_af3d785601654fa0a9a105883b626866_app.ext_code_schema.echo_fn_2('test')
+  +------------------------------------------------------------------------------+
+  | CODEGEN_NATIVEAPP_AF3D785601654FA0A9A105883B626866_APP.EXT_CODE_SCHEMA.ECHO_ |
+  | FN_2('TEST')                                                                 |
+  |------------------------------------------------------------------------------|
+  | echo_fn: test                                                                |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_full_lifecycle_with_codegen.3
+  '''
+  select codegen_nativeapp_af3d785601654fa0a9a105883b626866_app.ext_code_schema.echo_fn_4('test')
+  +------------------------------------------------------------------------------+
+  | CODEGEN_NATIVEAPP_AF3D785601654FA0A9A105883B626866_APP.EXT_CODE_SCHEMA.ECHO_ |
+  | FN_4('TEST')                                                                 |
+  |------------------------------------------------------------------------------|
+  | echo_fn: test                                                                |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_full_lifecycle_with_codegen.4
+  '''
+  call codegen_nativeapp_af3d785601654fa0a9a105883b626866_app.ext_code_schema.add_sp(1, 2)
+  +--------+
+  | ADD_SP |
+  |--------|
+  | 3      |
+  +--------+
+  
+  '''
+# ---
+# name: test_full_lifecycle_with_codegen.5
+  '''
+  select codegen_nativeapp_af3d785601654fa0a9a105883b626866_app.ext_code_schema.sum_int_dec(10)
+  +------------------------------------------------------------------------------+
+  | CODEGEN_NATIVEAPP_AF3D785601654FA0A9A105883B626866_APP.EXT_CODE_SCHEMA.SUM_I |
+  | NT_DEC(10)                                                                   |
+  |------------------------------------------------------------------------------|
+  | 10                                                                           |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_full_lifecycle_with_codegen.6
+  '''
+  select * from TABLE(codegen_nativeapp_af3d785601654fa0a9a105883b626866_app.ext_code_schema.alt_int(10))
+  +--------+
+  | NUMBER |
+  |--------|
+  | 1      |
+  | -1     |
+  | 1      |
+  | -1     |
+  | 1      |
+  | -1     |
+  | 1      |
+  | -1     |
+  | 1      |
+  | -1     |
+  +--------+
+  
+  '''
+# ---

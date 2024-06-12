@@ -1,9 +1,21 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import subprocess
 import uuid
 from pathlib import Path
 from textwrap import dedent
-
-# from fixtures import project_directory
 
 
 def subprocess_check_output_with(sql_stmt: str, config_path: Path, snowcli) -> str:
@@ -89,50 +101,6 @@ def test_full_lifecycle_with_codegen(
 
             app_name_and_schema = f"{app_name}.ext_code_schema"
 
-            # Enable debug mode to explore app structure
-            result = subprocess.run(
-                [
-                    snowcli,
-                    "--config-file",
-                    config_path,
-                    "sql",
-                    "-q",
-                    f"alter application {app_name} set debug_mode = true",
-                    # "-c",
-                    # "integration",
-                ],
-                encoding="utf-8",
-            )
-            assert result.returncode == 0
-
-            output = subprocess_check_output_with(
-                sql_stmt=f"show schemas in application {app_name}",
-                config_path=config_path,
-                snowcli=snowcli,
-            )
-            snapshot.assert_match(output)
-
-            output = subprocess_check_output_with(
-                sql_stmt=f"show application roles in application {app_name}",
-                config_path=config_path,
-                snowcli=snowcli,
-            )
-            snapshot.assert_match(output)
-
-            output = subprocess_check_output_with(
-                sql_stmt=f"show functions in {app_name_and_schema}",
-                config_path=config_path,
-                snowcli=snowcli,
-            )
-            snapshot.assert_match(output)
-
-            output = subprocess_check_output_with(
-                sql_stmt=f"show procedures in {app_name_and_schema}",
-                config_path=config_path,
-                snowcli=snowcli,
-            )
-            snapshot.assert_match(output)
-
             # Disable debug mode to call functions and procedures
             result = subprocess.run(
                 [
@@ -167,6 +135,13 @@ def test_full_lifecycle_with_codegen(
 
             # User wrote ext code using codegen feature
             output = subprocess_check_output_with(
+                sql_stmt=f"select {app_name_and_schema}.echo_fn_1('test')",
+                config_path=config_path,
+                snowcli=snowcli,
+            )
+            snapshot.assert_match(output)
+
+            output = subprocess_check_output_with(
                 sql_stmt=f"select {app_name_and_schema}.echo_fn_2('test')",
                 config_path=config_path,
                 snowcli=snowcli,
@@ -198,6 +173,48 @@ def test_full_lifecycle_with_codegen(
             # code gen UDTF
             output = subprocess_check_output_with(
                 sql_stmt=f"select * from TABLE({app_name_and_schema}.alt_int(10))",
+                config_path=config_path,
+                snowcli=snowcli,
+            )
+            snapshot.assert_match(output)
+
+            # Bundle is idempotent if no changes made to source files.
+            result = subprocess.run(
+                [
+                    snowcli,
+                    "--config-file",
+                    config_path,
+                    "app",
+                    "run",
+                    # "-c",
+                    # "integration",
+                ],
+                encoding="utf-8",
+                capture_output=True,
+                text=True,
+            )
+
+            assert result.stderr == ""
+            assert result.returncode == 0
+
+            output = subprocess_check_output_with(
+                sql_stmt=f"select {app_name_and_schema}.echo_fn_1('test')",
+                config_path=config_path,
+                snowcli=snowcli,
+            )
+            snapshot.assert_match(output)
+
+            # UDTF should exist as only its deploy/root file was de-annotated, but the source should be discovered always
+            output = subprocess_check_output_with(
+                sql_stmt=f"select * from TABLE({app_name_and_schema}.alt_int(10))",
+                config_path=config_path,
+                snowcli=snowcli,
+            )
+            snapshot.assert_match(output)
+
+            # code gen UDAF
+            output = subprocess_check_output_with(
+                sql_stmt=f"select {app_name_and_schema}.sum_int_dec(10)",
                 config_path=config_path,
                 snowcli=snowcli,
             )
