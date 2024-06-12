@@ -367,6 +367,7 @@
   |                  | App project. It contains minimal code meant to help you   |
   |                  | set up your first application object in your account      |
   |                  | quickly.                                                  |
+  | spcs-basic       | 1. Install Docker                                         |
   | streamlit-java   | This is an example template for a Snowflake Native App    |
   |                  | project which demonstrates the use of Java extension code |
   |                  | and adding Streamlit code. This template is meant to      |
