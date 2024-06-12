@@ -21,6 +21,7 @@ from unittest.mock import patch
 import pytest
 import snowflake.cli.plugins.snowpark.models
 import snowflake.cli.plugins.snowpark.package.utils
+from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
 from snowflake.cli.plugins.connection.util import make_snowsight_url
@@ -180,14 +181,14 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
         ),
         (
             "host",
-            "some+account",
-            "Quoted App Name",
-            "https://app.snowflake.com/host/some%2Baccount/Quoted%20App%20Name",
+            identifier_for_url("some$account"),
+            identifier_for_url('"Quoted App Name"'),
+            "https://app.snowflake.com/host/SOME%24ACCOUNT/Quoted%20App%20Name",
         ),
         (
             "a",
             "b",
-            "/some/path/on the server",
+            f"""/some/path/{identifier_for_url('"on the server"')}""",
             "https://app.snowflake.com/a/b/some/path/on%20the%20server",
         ),
         (

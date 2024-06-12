@@ -35,6 +35,7 @@ from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     extract_schema,
+    identifier_for_url,
     to_identifier,
     unquote_identifier,
 )
@@ -487,7 +488,7 @@ class NativeAppManager(SqlExecutionMixin):
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
-        name = unquote_identifier(self.app_name)
+        name = identifier_for_url(self.app_name)
         return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
 
     def create_app_package(self) -> None:
