@@ -304,7 +304,7 @@ class BundleMap:
         """
         self._add_mapping(mapping.src, mapping.dest)
 
-    def _yield_all(
+    def _expand_artifact_mapping(
         self,
         src: Path,
         dest: Path,
@@ -369,7 +369,7 @@ class BundleMap:
           An iterator over all matching deployed artifacts.
         """
         for src, dest in self._artifact_map:
-            for deployed_src, deployed_dest in self._yield_all(
+            for deployed_src, deployed_dest in self._expand_artifact_mapping(
                 src,
                 dest,
                 absolute=absolute,
