@@ -617,10 +617,10 @@ class NativeAppManager(SqlExecutionMixin):
                 cc.warning(_validation_item_to_str(warning))
 
             # Then print errors
-            for warning in validation_result.get("errors", []):
+            for error in validation_result.get("errors", []):
                 # Print them as warnings for now since we're going to be
                 # revamping CLI output soon
-                cc.warning(_validation_item_to_str(warning))
+                cc.warning(_validation_item_to_str(error))
 
             # Then raise an exception if validation failed
             if validation_result["status"] == "FAIL":
