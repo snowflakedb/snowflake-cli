@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import logging
+from urllib.parse import quote
 
 from click.exceptions import ClickException
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 
 LOCAL_DEPLOYMENT: str = "us-west-2"
+SAFE_PATH_CHARS = "/#"
 
 log = logging.getLogger(__name__)
 
@@ -112,7 +114,9 @@ def get_snowsight_host(conn: SnowflakeConnection) -> str:
 def make_snowsight_url(conn: SnowflakeConnection, path: str) -> str:
     """Returns a URL on the correct Snowsight instance for the connected account."""
     snowsight_host = get_snowsight_host(conn)
-    deployment = get_context(conn)
-    account = get_account(conn)
-    path_with_slash = path if path.startswith("/") else f"/{path}"
-    return f"{snowsight_host}/{deployment}/{account}{path_with_slash}"
+    deployment = quote(get_context(conn))
+    account = quote(get_account(conn))
+    path_without_slash = quote(
+        path[1:] if path.startswith("/") else path, safe=SAFE_PATH_CHARS
+    )
+    return f"{snowsight_host}/{deployment}/{account}/{path_without_slash}"

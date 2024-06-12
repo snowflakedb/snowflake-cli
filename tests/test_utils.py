@@ -23,6 +23,7 @@ import snowflake.cli.plugins.snowpark.models
 import snowflake.cli.plugins.snowpark.package.utils
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
+from snowflake.cli.plugins.connection.util import make_snowsight_url
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
@@ -163,3 +164,45 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
         )
 
     assert "pip failed with return code 42" in caplog.text
+
+
+@patch("snowflake.cli.plugins.connection.util.get_account")
+@patch("snowflake.cli.plugins.connection.util.get_context")
+@patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
+@pytest.mark.parametrize(
+    "context, account, path, expected",
+    [
+        (
+            "org",
+            "account",
+            "UNQUOTED",
+            "https://app.snowflake.com/org/account/UNQUOTED",
+        ),
+        (
+            "host",
+            "some+account",
+            "Quoted App Name",
+            "https://app.snowflake.com/host/some%2Baccount/Quoted%20App%20Name",
+        ),
+        (
+            "a",
+            "b",
+            "/some/path/on the server",
+            "https://app.snowflake.com/a/b/some/path/on%20the%20server",
+        ),
+        (
+            "myorg",
+            "myacct",
+            "/#/apps/application/MAILORDER_CGORRIE",
+            "https://app.snowflake.com/myorg/myacct/#/apps/application/MAILORDER_CGORRIE",
+        ),
+    ],
+)
+def test_make_snowsight_url(
+    get_snowsight_host, get_context, get_account, context, account, path, expected
+):
+    get_snowsight_host.return_value = "https://app.snowflake.com"
+    get_context.return_value = context
+    get_account.return_value = account
+    actual = make_snowsight_url(None, path)  # all uses of conn are mocked
+    assert actual == expected
