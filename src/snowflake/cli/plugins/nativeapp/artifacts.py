@@ -117,6 +117,11 @@ class _ArtifactPathMap:
         # built-in dict instances are ordered as of Python 3.7
         self.__src_to_dest: Dict[Path, List[Path]] = {}
         self.__dest_to_src: Dict[Path, List[Path]] = {}
+
+        # This dictionary accumulates keys for each directory or file to be  created in
+        # the deploy root for any artifact mapping rule being processed. This includes
+        # children of directories that are copied to the deploy root. Having this
+        # information available is critical to detect possible clashes between rules.
         self._dest_is_dir: Dict[Path, bool] = {}
 
     def put(self, src: Path, dest: Path, dest_is_dir: bool) -> None:
@@ -160,7 +165,7 @@ class _ArtifactPathMap:
                 for f in files:
                     self._update_dest_is_dir(canonical_dest_subdir / f, is_dir=False)
 
-        # make sure we check of dest_is_dir consistency regardless of whether the
+        # make sure we check for dest_is_dir consistency regardless of whether the
         # insertion happened. This update can fail, so we need to do it first to
         # avoid applying partial updates to the underlying data storage.
         self._update_dest_is_dir(dest, dest_is_dir)
