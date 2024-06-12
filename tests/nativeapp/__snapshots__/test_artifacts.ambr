@@ -262,12 +262,6 @@
   Text GrandA/ParentA/ChildC
   '''
 # ---
-# name: test_symlink_or_copy_with_no_symlinks_in_project_root.25
-  '''
-  ===== Contents of: output/deploy/Grand4/Parent3/ChildC =====
-  Text GrandA/ParentA/ChildC
-  '''
-# ---
 # name: test_symlink_or_copy_with_no_symlinks_in_project_root.3
   '''
   ===== Contents of: GrandA/ParentA/ChildB.py =====
