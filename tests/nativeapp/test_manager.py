@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 from textwrap import dedent
 from unittest import mock
+from unittest.mock import call
 
 import pytest
 from snowflake.cli.api.project.definition_manager import DefinitionManager
@@ -955,12 +956,15 @@ def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor):
     native_app_manager = _get_na_manager()
     with pytest.raises(
         SetupScriptFailedValidation,
-        match=rf"{error['message']} \(error code {error['errorCode']}\)",
+        match="Snowflake Native App setup script failed validation.",
     ):
         native_app_manager.validate()
 
     warn_message = f"{warning['message']} (error code {warning['errorCode']})"
-    mock_warning.assert_called_once_with(warn_message)
+    error_message = f"{error['message']} (error code {error['errorCode']})"
+    mock_warning.assert_has_calls(
+        [call(warn_message), call(error_message)], any_order=False
+    )
     assert mock_execute.mock_calls == expected
 
 
@@ -1122,7 +1126,7 @@ def test_validate_failing_drops_scratch_stage(
     native_app_manager = _get_na_manager()
     with pytest.raises(
         SetupScriptFailedValidation,
-        match=rf"{error['message']} \(error code {error['errorCode']}\)",
+        match="Snowflake Native App setup script failed validation.",
     ):
         native_app_manager.validate(use_scratch_stage=True)
 

@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from textwrap import dedent
-from typing import Iterable
 
 import jinja2
 from click.exceptions import ClickException
@@ -94,6 +93,5 @@ class CouldNotDropApplicationPackageWithVersions(ClickException):
 class SetupScriptFailedValidation(ClickException):
     """Snowflake Native App setup script failed validation."""
 
-    def __init__(self, error_messages: Iterable[str]):
-        error_message = "\n".join(error_messages)
-        super().__init__(f"{self.__doc__}\n{error_message}")
+    def __init__(self):
+        super().__init__(self.__doc__)

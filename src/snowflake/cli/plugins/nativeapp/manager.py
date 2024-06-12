@@ -609,20 +609,22 @@ class NativeAppManager(SqlExecutionMixin):
 
     def validate(self, use_scratch_stage: bool = False):
         """Validates Native App setup script SQL."""
-        cc.step(f"Validating Snowflake Native App setup script.")
-        validation_result = self.get_validation_result(use_scratch_stage)
+        with cc.phase(f"Validating Snowflake Native App setup script."):
+            validation_result = self.get_validation_result(use_scratch_stage)
 
-        # First print warnings, regardless of the outcome of validation
-        for warning in validation_result.get("warnings", []):
-            cc.warning(_validation_item_to_str(warning))
+            # First print warnings, regardless of the outcome of validation
+            for warning in validation_result.get("warnings", []):
+                cc.warning(_validation_item_to_str(warning))
 
-        # Then raise an exception if validation failed
-        if validation_result["status"] == "FAIL":
-            messages = [
-                _validation_item_to_str(error)
-                for error in validation_result.get("errors", [])
-            ]
-            raise SetupScriptFailedValidation(messages)
+            # Then print errors
+            for warning in validation_result.get("errors", []):
+                # Print them as warnings for now since we're going to be
+                # revamping CLI output soon
+                cc.warning(_validation_item_to_str(warning))
+
+            # Then raise an exception if validation failed
+            if validation_result["status"] == "FAIL":
+                raise SetupScriptFailedValidation()
 
     def get_validation_result(self, use_scratch_stage: bool):
         """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
