@@ -299,6 +299,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         patch: Optional[int] = None,
         from_release_directive: bool = False,
         is_interactive: bool = False,
+        validate: bool = True,
         *args,
         **kwargs,
     ):
@@ -328,5 +329,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             )
             return
 
-        diff = self.deploy(bundle_map=bundle_map, prune=True, recursive=True)
+        diff = self.deploy(
+            bundle_map=bundle_map, prune=True, recursive=True, validate=validate
+        )
         self._create_dev_app(diff)
