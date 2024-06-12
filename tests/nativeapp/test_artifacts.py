@@ -999,37 +999,33 @@ def test_symlink_or_copy_raises_error(temp_dir, snapshot):
     assert file_in_deploy_root.exists() and file_in_deploy_root.is_symlink()
     assert file_in_deploy_root.read_text(encoding="utf-8") == snapshot
 
-    # overwrite = False, but since file_in_deploy_root is a symlink
+    # Since file_in_deploy_root is a symlink
     # it resolves to project_dir/GrandA/ParentA/ChildA, which is not in deploy root
     with pytest.raises(NotInDeployRootError):
         symlink_or_copy(
             src=Path("GrandA", "ParentA", "ChildA"),
             dst=file_in_deploy_root,
             deploy_root=deploy_root,
-            overwrite=False,
         )
 
     # Unlink the symlink file and create a file with the same name and path
-    # overwrite = False
+    # This should pass since src.is_file() always begins by deleting the dst.
     os.unlink(file_in_deploy_root)
     touch(file_in_deploy_root)
-    with pytest.raises(FileExistsError):
-        symlink_or_copy(
-            src=Path("GrandA", "ParentA", "ChildA"),
-            dst=file_in_deploy_root,
-            deploy_root=deploy_root,
-            overwrite=False,
-        )
-
-    # overwrite = True
-    touch("GrandA/ParentA/ChildB")
-    with open(Path(temp_dir, "GrandA/ParentA/ChildB"), "w") as f:
-        f.write("Test 2")
     symlink_or_copy(
-        src=Path("GrandA/ParentA/ChildB"),
+        src=Path("GrandA", "ParentA", "ChildA"),
         dst=file_in_deploy_root,
         deploy_root=deploy_root,
     )
+
+    # dst is an existing symlink, will resolve to the src during NotInDeployRootError check.
+    touch("GrandA/ParentA/ChildB")
+    with pytest.raises(NotInDeployRootError):
+        symlink_or_copy(
+            src=Path("GrandA/ParentA/ChildB"),
+            dst=file_in_deploy_root,
+            deploy_root=deploy_root,
+        )
     assert file_in_deploy_root.exists() and file_in_deploy_root.is_symlink()
     assert file_in_deploy_root.read_text(encoding="utf-8") == snapshot
 
@@ -1134,15 +1130,16 @@ def test_symlink_or_copy_with_no_symlinks_in_project_root(snapshot):
 
             # Special case:
             # Delete an existing directory (not the deploy root dir) in the deploy root by overwriting
-            symlink_or_copy(
-                src=Path("GrandA/ParentB"),
-                dst=Path(deploy_root, "Grand4/Parent3"),
-                deploy_root=deploy_root,
-            )
+            with pytest.raises(FileExistsError):
+                symlink_or_copy(
+                    src=Path("GrandA/ParentB"),
+                    dst=Path(deploy_root, "Grand4/Parent3"),
+                    deploy_root=deploy_root,
+                )
             assert not Path(deploy_root, "Grand4/Parent3").is_symlink()
-            assert Path(deploy_root, "Grand4/Parent3/ChildA").is_symlink()
+            assert not Path(deploy_root, "Grand4/Parent3/ChildA").is_symlink()
             assert Path(deploy_root, "Grand4/Parent3/ChildB.py").is_symlink()
-            assert not Path(deploy_root, "Grand4/Parent3/ChildC").is_symlink()
+            assert Path(deploy_root, "Grand4/Parent3/ChildC").is_symlink()
             assert not Path(
                 deploy_root, "Grand4/Parent3/ChildC/GrandChildA"
             ).is_symlink()

@@ -509,9 +509,7 @@ def delete(path: Path) -> None:
         spath.rmdir(recursive=True)  # remove dir and all contains
 
 
-def symlink_or_copy(
-    src: Path, dst: Path, deploy_root: Path, makedirs=True, overwrite=True
-) -> None:
+def symlink_or_copy(src: Path, dst: Path, deploy_root: Path, makedirs=True) -> None:
     """
     Symlinks files from src to dst. If the src contains parent directories, then copies the empty directory shell to the deploy root.
     If makedirs is True, the directory hierarchy above dst is created if any
@@ -531,13 +529,9 @@ def symlink_or_copy(
     if (not dst_is_deploy_root) and (resolved_deploy_root not in resolved_dst.parents):
         raise NotInDeployRootError(dest_path=dst, deploy_root=deploy_root, src_path=src)
 
-    if (not dst_is_deploy_root) and overwrite:
-        # TODO Verify: We do not want to delete if dst_is_deploy_root as it may contain artifacts from other runs of bundle map
-        # But this will treat deploy_root as a special dst, as compared to another dst directory that may also have other artifacts from a prev run
-        delete(dst)
-
     absolute_src = resolve_without_follow(src)
     if absolute_src.is_file():
+        delete(dst)
         try:
             os.symlink(absolute_src, dst)
         except OSError:
