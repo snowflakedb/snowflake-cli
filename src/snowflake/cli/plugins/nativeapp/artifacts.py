@@ -126,7 +126,10 @@ class _ArtifactPathMap:
 
     def put(self, src: Path, dest: Path, dest_is_dir: bool) -> None:
         """
-        Adds a new source-destination mapping pair to this map, if necessary.
+        Adds a new source-destination mapping pair to this map, if necessary. Note that
+        this is internal logic that assumes that src-dest pairs have already been preprocessed
+        by the enclosing BundleMap (for example, only file -> file and
+        directory -> directory mappings are possible here due to the preprocessing step).
 
         Arguments:
             src {Path} -- the source path, in canonical form.
