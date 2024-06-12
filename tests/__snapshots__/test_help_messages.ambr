@@ -87,7 +87,8 @@
   │                                          locally. If set, the command        │
   │                                          deletes files that exist in the     │
   │                                          stage, but not in the local         │
-  │                                          filesystem.                         │
+  │                                          filesystem. This option cannot be   │
+  │                                          used when files are specified.      │
   │                                          [default: no-prune]                 │
   │ --recursive  -r  --no-recursive          Whether to traverse and deploy      │
   │                                          files from subdirectories. If set,  │

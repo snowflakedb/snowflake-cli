@@ -194,6 +194,12 @@ class _ArtifactPathMap:
         """
         return self.__src_to_dest.get(src, [])
 
+    def all_sources(self) -> Iterable[Path]:
+        """
+        Returns all source paths associated with this map, in insertion order.
+        """
+        return self.__src_to_dest.keys()
+
     def __iter__(self) -> Iterator[Tuple[Path, Path]]:
         """
         Returns all (source, destination) pairs known to this map, in insertion order.
@@ -448,7 +454,7 @@ class BundleMap:
         Returns:
           An iterator over all artifact mapping source paths.
         """
-        for src in self._src_to_dest.keys():
+        for src in self._artifact_map.all_sources():
             yield self._to_output_src(src, absolute)
 
     def _absolute_src(self, src: Path) -> Path:

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
+from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
@@ -268,7 +269,7 @@ def app_teardown(
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
-        help=f"""Whether to delete specified files from the stage if they don't exist locally. If set, the command deletes files that exist in the stage, but not in the local filesystem.""",
+        help=f"""Whether to delete specified files from the stage if they don't exist locally. If set, the command deletes files that exist in the stage, but not in the local filesystem. This option cannot be used when files are specified.""",
     ),
     recursive: Optional[bool] = typer.Option(
         None,
@@ -297,6 +298,9 @@ def app_deploy(
             prune = False
         if recursive is None:
             recursive = False
+
+    if has_files and prune:
+        raise ClickException("--prune cannot be used when files are also specified")
 
     manager = NativeAppManager(
         project_definition=cli_context.project_definition,

@@ -15,6 +15,8 @@
 import os
 import uuid
 
+import yaml
+
 from snowflake.cli.api.project.util import generate_user_env
 
 
@@ -461,8 +463,18 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
     )
     assert result.exit_code == 0
 
-    with pushd(Path(os.getcwd(), project_dir)):
+    project_dir = Path(os.getcwd(), project_dir)
+    with pushd(project_dir):
         try:
+            snowflake_yml = project_dir / "snowflake.yml"
+            project_definition_file = yaml.load(
+                snowflake_yml.read_text(), yaml.BaseLoader
+            )
+            project_definition_file["native_app"]["artifacts"].append("src")
+            snowflake_yml.write_text(yaml.dump(project_definition_file))
+
+            touch(str(project_dir / "src/main.py"))
+
             result = runner.invoke_with_connection_json(
                 ["app", "deploy", "-r", "app"],
                 env=TEST_ENV,
@@ -480,6 +492,7 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
                 stage_files.json, {"name": "stage/setup_script.sql"}
             )
             assert contains_row_with(stage_files.json, {"name": "stage/README.md"})
+            assert not_contains_row_with(stage_files.json, {"name": "src/main.py"})
 
         finally:
             result = runner.invoke_with_connection_json(
