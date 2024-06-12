@@ -101,3 +101,5 @@ class RegistryManager(SqlExecutionMixin):
             )
         except subprocess.CalledProcessError as e:
             raise ClickException(f"Login Failed: {e.stderr}".strip())
+        except FileNotFoundError:
+            raise ClickException("Docker is not installed.")

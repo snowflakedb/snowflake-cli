@@ -216,3 +216,25 @@ def test_docker_registry_login_subprocess_error(
         RegistryManager().docker_registry_login()
 
     assert e.value.message == snapshot
+
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_token"
+)
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
+)
+@mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.subprocess.check_output")
+def test_docker_registry_login_docker_not_installed_error(
+    mock_check_output, mock_get_url, mock_get_token
+):
+    mock_get_token.return_value = {
+        "token": "ver:1-hint:abc",
+        "expires_in": 3600,
+    }
+
+    mock_check_output.side_effect = FileNotFoundError()
+    with pytest.raises(ClickException) as e:
+        RegistryManager().docker_registry_login()
+
+    assert e.value.message == "Docker is not installed."
