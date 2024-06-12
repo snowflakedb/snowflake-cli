@@ -24,7 +24,7 @@ from snowflake.connector.cursor import DictCursor
 STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
 
 skip_python_3_12 = pytest.mark.skipif(
-    sys.version_info <= (3, 12), reason="Snowpark is not supported in Python >= 3.12"
+    sys.version_info >= (3, 12), reason="Snowpark is not supported in Python >= 3.12"
 )
 
 
