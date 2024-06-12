@@ -143,6 +143,7 @@ select = [
   "F401",   # unused imports
   "F403",   # star imports
   "FA100",  # Missing from __future__ import annotations
+  "W605",   # Invalid escape sequences
 ]
 
 [tool.pytest.ini_options]
