@@ -993,7 +993,12 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
         ),
     ],
 )
-def test_stage_manager_check_for_requirements_file(files, selected, packages):
+@pytest.mark.parametrize(
+    "input_path", ["@db.schema.my_stage/dir/files", "@db.schema.my_stage/dir/files/"]
+)
+def test_stage_manager_check_for_requirements_file(
+    files, selected, packages, input_path
+):
     class _MockGetter:
         def __init__(self):
             self.download_file = None
@@ -1009,9 +1014,7 @@ def test_stage_manager_check_for_requirements_file(files, selected, packages):
     ):
         with mock.patch.object(StageManager, "get", get_mock) as get_mock:
             result = sm._check_for_requirements_file(  # noqa: SLF001
-                stage_path_parts=sm._split_stage_path(  # noqa: SLF001
-                    "@db.schema.my_stage/dir/files"
-                )
+                stage_path_parts=sm._split_stage_path(input_path)  # noqa: SLF001
             )
 
     assert result == packages

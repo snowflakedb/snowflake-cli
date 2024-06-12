@@ -22,7 +22,7 @@ import sys
 from contextlib import nullcontext
 from dataclasses import dataclass
 from os import path
-from pathlib import Path, PosixPath
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from textwrap import dedent
 from typing import Dict, List, Optional, Union
@@ -400,15 +400,15 @@ class StageManager(SqlExecutionMixin):
             return []
 
         # Construct all possible path for requirements file for this context
+        # We don't use os.path or pathlib to preserve compatibility on Windows
         req_file_name = "requirements.txt"
-        current_file = PosixPath(stage_path_parts.path) / req_file_name
+        path_parts = stage_path_parts.path.split("/")
         possible_req_files = []
 
-        while (
-            current_file.parent != current_file
-        ):  # At some point .parent will return same root value
-            possible_req_files.append(str(current_file.parent / req_file_name))
-            current_file = current_file.parent
+        while path_parts:
+            current_file = "/".join([*path_parts, req_file_name])
+            possible_req_files.append(str(current_file))
+            path_parts = path_parts[:-1]
 
         # Now for every possible path check if the file exists on stage,
         # if yes break, we use the first possible file
