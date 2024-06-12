@@ -39,6 +39,7 @@
 * Fixed MFA caching
 * Fixed `DeprerationWarning`/`SyntaxWarning` due to invalid escape sequences
 * Improved error message in `snow spcs image-registry login` when docker is not installed.
+* Improved detection of conflicts between artifact rules for native application projects
 
 # v2.4.0
 ## Backward incompatibility
