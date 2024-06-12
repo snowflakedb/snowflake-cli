@@ -167,6 +167,20 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
     assert "pip failed with return code 42" in caplog.text
 
 
+@pytest.mark.parametrize(
+    "input, expected",
+    [
+        ("my_app", "MY_APP"),
+        ('"My App"', "My%20App"),
+        ("SYSTEM$GET", "SYSTEM%24GET"),
+        ("mailorder_!@#$%^&*()/_app", "MAILORDER_!%40%23%24%25%5E%26*()%2F_APP"),
+        ('"Mailorder *App* is /cool/"', "Mailorder%20*App*%20is%20%2Fcool%2F"),
+    ],
+)
+def test_identifier_for_url(input, expected):
+    assert identifier_for_url(input) == expected
+
+
 @patch("snowflake.cli.plugins.connection.util.get_account")
 @patch("snowflake.cli.plugins.connection.util.get_context")
 @patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
