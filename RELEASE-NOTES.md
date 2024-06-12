@@ -34,6 +34,7 @@
 * Fixed ZIP packaging of Snowpark project dependencies containing implicit namespace packages like `snowflake`.
 * Deploying function/procedure with `--replace` flag now copies all grants
 * Fixed MFA caching
+* Fixed `DeprerationWarning`/`SyntaxWarning` due to invalid escape sequences
 
 # v2.4.0
 ## Backward incompatibility
