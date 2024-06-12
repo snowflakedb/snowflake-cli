@@ -43,6 +43,10 @@ from snowflake.cli.api.utils.path_utils import path_resolver
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
+if sys.version_info < PYTHON_3_12:
+    # Because Snowpark works only below 3.12 and to use @sproc Session must be imported here.
+    from snowflake.snowpark import Session
+
 log = logging.getLogger(__name__)
 
 
@@ -436,7 +440,6 @@ class StageManager(SqlExecutionMixin):
                 f"Executing python files is not supported in Python >= 3.12. Current version: {sys.version}"
             )
 
-        from snowflake.snowpark import Session
         from snowflake.snowpark.functions import sproc
 
         self.snowpark_session.add_packages("snowflake-snowpark-python")

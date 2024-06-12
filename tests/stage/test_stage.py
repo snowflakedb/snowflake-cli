@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
@@ -20,7 +20,6 @@ import pytest
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
-from snowflake.snowpark.exceptions import SnowparkSQLException
 
 STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
 
@@ -898,9 +897,14 @@ def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+@pytest.mark.skipif(
+    sys.version_info >= (3, 12), reason="Snowpark is not supported in Python >= 3.12"
+)
 def test_execute_continue_on_error(
     mock_bootstrap, mock_execute, mock_cursor, runner, snapshot
 ):
+    from snowflake.snowpark.exceptions import SnowparkSQLException
+
     mock_execute.side_effect = [
         mock_cursor(
             [
