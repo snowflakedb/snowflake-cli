@@ -106,6 +106,8 @@ def _python_path(venv_path: Path) -> Path:
     return venv_path / "bin" / "python"
 
 
+# Inspired by project_directory fixture in tests_integration/conftest.py
+# This is a simpler implementation of that fixture, i.e. does not include supporting local PDFs.
 @pytest.fixture
 def project_directory(temp_dir, test_root_path):
     @contextmanager

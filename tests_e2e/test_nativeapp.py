@@ -17,6 +17,10 @@ import uuid
 from pathlib import Path
 from textwrap import dedent
 
+import pytest
+
+from tests.nativeapp.utils import assert_dir_snapshot
+
 
 def subprocess_check_output_with(sql_stmt: str, config_path: Path, snowcli) -> str:
     return subprocess.check_output(
@@ -27,19 +31,20 @@ def subprocess_check_output_with(sql_stmt: str, config_path: Path, snowcli) -> s
             "sql",
             "-q",
             sql_stmt,
-            # "-c",
-            # "integration",
+            "-c",
+            "integration",
         ],
         encoding="utf-8",
     )
 
 
-# @pytest.mark.e2e
+@pytest.mark.e2e
 def test_full_lifecycle_with_codegen(
     snowcli, test_root_path, project_directory, snapshot
 ):
-    # config_path = test_root_path/ "config"/ "config.toml"
-    config_path = Path("/Users/bgoel/.snowflake/config.toml")
+    config_path = test_root_path / "config" / "config.toml"
+    # FYI: when testing locally and you want to quickly get this running without all the setup,
+    # remove the e2e marker and reroute the config path to the config.toml on your filesystem.
 
     project_name = "nativeapp"
     base_name = f"codegen_nativeapp_{uuid.uuid4().hex}"
@@ -87,8 +92,8 @@ def test_full_lifecycle_with_codegen(
                     config_path,
                     "app",
                     "run",
-                    # "-c",
-                    # "integration",
+                    "-c",
+                    "integration",
                 ],
                 encoding="utf-8",
                 capture_output=True,
@@ -97,11 +102,12 @@ def test_full_lifecycle_with_codegen(
 
             assert result.stderr == ""
             assert result.returncode == 0
-            # assert_dir_snapshot(project_dir, snapshot)
+            assert_dir_snapshot(project_dir, snapshot)
 
             app_name_and_schema = f"{app_name}.ext_code_schema"
 
-            # Disable debug mode to call functions and procedures
+            # Disable debug mode to call functions and procedures.
+            # This ensures all usage permissions have been granted accordingly.
             result = subprocess.run(
                 [
                     snowcli,
@@ -110,8 +116,8 @@ def test_full_lifecycle_with_codegen(
                     "sql",
                     "-q",
                     f"alter application {app_name} set debug_mode = false",
-                    # "-c",
-                    # "integration",
+                    "-c",
+                    "integration",
                 ],
                 encoding="utf-8",
             )
@@ -186,8 +192,8 @@ def test_full_lifecycle_with_codegen(
                     config_path,
                     "app",
                     "run",
-                    # "-c",
-                    # "integration",
+                    "-c",
+                    "integration",
                 ],
                 encoding="utf-8",
                 capture_output=True,
@@ -230,8 +236,8 @@ def test_full_lifecycle_with_codegen(
                     "app",
                     "teardown",
                     "--force",
-                    #     "-c",
-                    #     "integration",
+                    "-c",
+                    "integration",
                 ],
                 encoding="utf-8",
             )
