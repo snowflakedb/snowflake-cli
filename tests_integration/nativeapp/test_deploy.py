@@ -97,13 +97,6 @@ def test_nativeapp_deploy(
             assert result.exit_code == 0
             assert "Successfully uploaded chunk 0 of file" not in result.output
 
-            # make sure we always delete the package
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
-
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection_json(
@@ -449,6 +442,41 @@ def test_nativeapp_deploy_path_with_no_mapping(
             assert result.exit_code == 0
 
 
+# Tests that specifying a path and pruning result in an error
+@pytest.mark.integration
+def test_nativeapp_deploy_rejectes_pruning_when_path_is_specified(
+    runner,
+    temporary_working_directory,
+):
+    project_name = "myapp"
+    project_dir = "app root"
+    result = runner.invoke_json(
+        ["app", "init", project_dir, "--name", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_dir)):
+        try:
+            os.unlink("app/README.md")
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "app/README.md", "--prune"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 1
+            assert (
+                "--prune cannot be used when paths are also specified" in result.output
+            )
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
 # Tests that specifying a path with no direct mapping falls back to search for prefix matches
 @pytest.mark.integration
 def test_nativeapp_deploy_looks_for_prefix_matches(
@@ -502,7 +530,7 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
             assert result.exit_code == 0
 
 
-# Tests that snow app deploy . -r --prune is the same as the default deploy command
+# Tests that snow app deploy -r . deploys all changes
 @pytest.mark.integration
 def test_nativeapp_deploy_dot(
     runner,
@@ -534,22 +562,6 @@ def test_nativeapp_deploy_dot(
             assert contains_row_with(
                 stage_files.json, {"name": "stage/setup_script.sql"}
             )
-            assert contains_row_with(stage_files.json, {"name": "stage/README.md"})
-
-            os.remove(os.path.join("app", "README.md"))
-
-            # deploy
-            result = runner.invoke_with_connection_json(
-                ["app", "deploy", "-r", "--prune", "."],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
-
-            stage_files = runner.invoke_with_connection_json(
-                ["stage", "list-files", f"{package_name}.{stage_name}"],
-                env=TEST_ENV,
-            )
-
             assert contains_row_with(stage_files.json, {"name": "stage/README.md"})
 
         finally:

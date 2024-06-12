@@ -300,7 +300,7 @@ def app_deploy(
             recursive = False
 
     if has_files and prune:
-        raise ClickException("--prune cannot be used when files are also specified")
+        raise ClickException("--prune cannot be used when paths are also specified")
 
     manager = NativeAppManager(
         project_definition=cli_context.project_definition,
