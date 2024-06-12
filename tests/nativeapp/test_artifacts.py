@@ -962,34 +962,17 @@ def test_symlink_or_copy_raises_error(temp_dir, snapshot):
     deploy_root = Path(temp_dir, "output", "deploy")
     os.makedirs(deploy_root)
 
-    # makedirs = False, incorrect path
+    # Incorrect dst path
     with pytest.raises(NotInDeployRootError):
         symlink_or_copy(
             src=Path("GrandA", "ParentA", "ChildA"),
             dst=Path("output", "ParentA", "ChildA"),
             deploy_root=deploy_root,
-            makedirs=False,
         )
 
-    # makedirs = True, incorrect path
-    with pytest.raises(NotInDeployRootError):
-        symlink_or_copy(
-            src=Path("GrandA/ParentA/ChildA"),
-            dst=Path("output", "ParentA", "ChildA"),
-            deploy_root=deploy_root,
-        )
-
-    # makedirs = False, correct path but parent directories don't exist
     file_in_deploy_root = Path("output", "deploy", "ParentA", "ChildA")
-    with pytest.raises(FileNotFoundError):
-        symlink_or_copy(
-            src=Path("GrandA", "ParentA", "ChildA"),
-            dst=file_in_deploy_root,
-            deploy_root=deploy_root,
-            makedirs=False,
-        )
 
-    # makedirs = True, correct path and parent directories exist
+    # Correct path and parent directories are automatically created
     symlink_or_copy(
         src=Path("GrandA", "ParentA", "ChildA"),
         dst=file_in_deploy_root,
@@ -1128,9 +1111,8 @@ def test_symlink_or_copy_with_no_symlinks_in_project_root(snapshot):
 
             assert_dir_snapshot(Path("./output/deploy"), snapshot)
 
-            # Special case:
-            # Delete an existing directory (not the deploy root dir) in the deploy root by overwriting
-            with pytest.raises(FileExistsError):
+            # This is because the dst can be symlinks, which resolves to project src and hence outside deploy root.
+            with pytest.raises(NotInDeployRootError):
                 symlink_or_copy(
                     src=Path("GrandA/ParentB"),
                     dst=Path(deploy_root, "Grand4/Parent3"),

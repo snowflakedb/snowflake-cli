@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import itertools
 import os
-import shutil
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
@@ -509,16 +508,14 @@ def delete(path: Path) -> None:
         spath.rmdir(recursive=True)  # remove dir and all contains
 
 
-def symlink_or_copy(src: Path, dst: Path, deploy_root: Path, makedirs=True) -> None:
+def symlink_or_copy(src: Path, dst: Path, deploy_root: Path) -> None:
     """
     Symlinks files from src to dst. If the src contains parent directories, then copies the empty directory shell to the deploy root.
-    If makedirs is True, the directory hierarchy above dst is created if any
-    of those directories do not exist.
+    The directory hierarchy above dst is created if any of those directories do not exist.
     """
     ssrc = SecurePath(src)
     sdst = SecurePath(dst)
-    if makedirs:
-        sdst.parent.mkdir(parents=True, exist_ok=True)
+    sdst.parent.mkdir(parents=True, exist_ok=True)
 
     # Verify that the mapping isn't accidentally trying to create a file in the project source through symlinks.
     # We need to ensure we're resolving symlinks for this check to be effective.
@@ -537,8 +534,9 @@ def symlink_or_copy(src: Path, dst: Path, deploy_root: Path, makedirs=True) -> N
         except OSError:
             ssrc.copy(dst)
     else:
-        # 1. Create an empty shell directory in the deploy root
+        # 1. Create a new directory in the deploy root
         dst.mkdir(exist_ok=True)
+        # 2. For all children of src, create their counterparts in dst now that it exists
         for root, _, files in sorted(os.walk(absolute_src, followlinks=True)):
             relative_root = Path(root).relative_to(absolute_src)
             absolute_root_in_deploy = Path(dst, relative_root)
@@ -546,10 +544,11 @@ def symlink_or_copy(src: Path, dst: Path, deploy_root: Path, makedirs=True) -> N
             for file in files:
                 absolute_file_in_project = Path(absolute_src, relative_root, file)
                 absolute_file_in_deploy = Path(absolute_root_in_deploy, file)
-                try:
-                    os.symlink(absolute_file_in_project, absolute_file_in_deploy)
-                except OSError:
-                    shutil.copy(absolute_file_in_project, absolute_file_in_deploy)
+                symlink_or_copy(
+                    src=absolute_file_in_project,
+                    dst=absolute_file_in_deploy,
+                    deploy_root=deploy_root,
+                )
 
 
 def resolve_without_follow(path: Path) -> Path:
