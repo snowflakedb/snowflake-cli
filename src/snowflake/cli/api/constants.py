@@ -20,6 +20,7 @@ from pathlib import Path
 
 TEMPLATES_PATH = Path(__file__).parent.parent / "templates"
 DEPLOYMENT_STAGE = "deployments"
+PYTHON_3_12 = (3, 12)
 
 
 @dataclass(frozen=True)

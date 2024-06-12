@@ -18,6 +18,7 @@ import fnmatch
 import glob
 import logging
 import re
+import sys
 from contextlib import nullcontext
 from dataclasses import dataclass
 from os import path
@@ -33,6 +34,7 @@ from snowflake.cli.api.commands.flags import (
     parse_key_value_variables,
 )
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.constants import PYTHON_3_12
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
@@ -40,7 +42,6 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import path_resolver
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
-from snowflake.snowpark import Session
 
 log = logging.getLogger(__name__)
 
@@ -389,7 +390,7 @@ class StageManager(SqlExecutionMixin):
     ) -> List[str]:
         """Looks for requirements.txt file on stage."""
         req_files_on_stage = self._get_files_list_from_stage(
-            stage_path_parts, pattern=".*requirements\.txt$"
+            stage_path_parts, pattern=r".*requirements\.txt$"
         )
         if not req_files_on_stage:
             return []
@@ -430,6 +431,12 @@ class StageManager(SqlExecutionMixin):
         self, stage_path_parts: StagePathParts
     ):
         """Prepares Snowpark session for executing Python code remotely."""
+        if sys.version_info >= PYTHON_3_12:
+            raise ClickException(
+                f"Executing python files is not supported in Python >= 3.12. Current version: {sys.version}"
+            )
+
+        from snowflake.snowpark import Session
         from snowflake.snowpark.functions import sproc
 
         self.snowpark_session.add_packages("snowflake-snowpark-python")

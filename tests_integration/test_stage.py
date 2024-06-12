@@ -14,6 +14,7 @@
 
 import glob
 import os
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -232,6 +233,9 @@ def test_stage_execute(runner, test_database, test_root_path, snapshot):
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(
+    sys.version_info >= (3, 12), reason="Snowpark is not supported in Python >= 3.12"
+)
 def test_stage_execute_python(
     snowflake_session, runner, test_database, test_root_path, snapshot
 ):
