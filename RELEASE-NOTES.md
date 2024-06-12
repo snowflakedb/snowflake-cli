@@ -35,6 +35,7 @@
 * Deploying function/procedure with `--replace` flag now copies all grants
 * Fixed MFA caching
 * Fixed `DeprerationWarning`/`SyntaxWarning` due to invalid escape sequences
+* Improved error message in `snow spcs image-registry login` when docker is not installed.
 
 # v2.4.0
 ## Backward incompatibility
