@@ -96,6 +96,10 @@
   │                                          files in the current directory are  │
   │                                          deployed.                           │
   │                                          [default: no-recursive]             │
+  │ --validate       --no-validate           When enabled, this option triggers  │
+  │                                          validation of a deployed Snowflake  │
+  │                                          Native App's setup script SQL       │
+  │                                          [default: validate]                 │
   │ --project    -p                    TEXT  Path where the Snowflake Native App │
   │                                          project resides. Defaults to        │
   │                                          current working directory.          │
@@ -194,9 +198,9 @@
   │                                modes of authentication.                      │
   │                                [default: None]                               │
   │ --template               TEXT  A specific template name within the template  │
-  │                                repo to use as template for the Native Apps   │
-  │                                project. Example: Default is basic if         │
-  │                                `--template-repo` is                          │
+  │                                repo to use as template for the Snowflake     │
+  │                                Native App project. Example: Default is basic │
+  │                                if `--template-repo` is                       │
   │                                https://github.com/snowflakedb/native-apps-t… │
   │                                and None if any other --template-repo is      │
   │                                specified.                                    │
@@ -386,6 +390,13 @@
   │                                                        perform potentially   │
   │                                                        destructive actions.  │
   │                                                        Defaults to unset.    │
+  │ --validate                --no-validate                When enabled, this    │
+  │                                                        option triggers       │
+  │                                                        validation of a       │
+  │                                                        deployed Snowflake    │
+  │                                                        Native App's setup    │
+  │                                                        script SQL            │
+  │                                                        [default: validate]   │
   │ --project             -p                      TEXT     Path where the        │
   │                                                        Snowflake Native App  │
   │                                                        project resides.      │
@@ -482,6 +493,73 @@
   │                                              App project resides. Defaults   │
   │                                              to current working directory.   │
   │ --help         -h                            Show this message and exit.     │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Connection configuration ───────────────────────────────────────────────────╮
+  │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
+  │                                           in your `config.toml`. Default:    │
+  │                                           `default`.                         │
+  │ --account,--accountname             TEXT  Name assigned to your Snowflake    │
+  │                                           account. Overrides the value       │
+  │                                           specified for the connection.      │
+  │ --user,--username                   TEXT  Username to connect to Snowflake.  │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --password                          TEXT  Snowflake password. Overrides the  │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --authenticator                     TEXT  Snowflake authenticator. Overrides │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --private-key-path                  TEXT  Snowflake private key path.        │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --database,--dbname                 TEXT  Database to use. Overrides the     │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --schema,--schemaname               TEXT  Database schema to use. Overrides  │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --role,--rolename                   TEXT  Role to use. Overrides the value   │
+  │                                           specified for the connection.      │
+  │ --warehouse                         TEXT  Warehouse to use. Overrides the    │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --temporary-connection      -x            Uses connection defined with       │
+  │                                           command line parameters, instead   │
+  │                                           of one defined in config           │
+  │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
+  │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Global configuration ───────────────────────────────────────────────────────╮
+  │ --format           [TABLE|JSON]  Specifies the output format.                │
+  │                                  [default: TABLE]                            │
+  │ --verbose  -v                    Displays log entries for log levels `info`  │
+  │                                  and higher.                                 │
+  │ --debug                          Displays log entries for log levels `debug` │
+  │                                  and higher; debug logs contains additional  │
+  │                                  information.                                │
+  │ --silent                         Turns off intermediate output to console.   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
+# name: test_help_messages[app.validate]
+  '''
+                                                                                  
+   Usage: default app validate [OPTIONS]                                          
+                                                                                  
+   Validates a deployed Snowflake Native App's setup script.                      
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --project  -p      TEXT  Path where the Snowflake Native App project         │
+  │                          resides. Defaults to current working directory.     │
+  │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
@@ -860,6 +938,7 @@
   │            object from the application package.                              │
   │ teardown   Attempts to drop both the application object and application      │
   │            package as defined in the project definition file.                │
+  │ validate   Validates a deployed Snowflake Native App's setup script.         │
   │ version    Manages versions defined in an application package                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
@@ -7581,6 +7660,7 @@
   │            object from the application package.                              │
   │ teardown   Attempts to drop both the application object and application      │
   │            package as defined in the project definition file.                │
+  │ validate   Validates a deployed Snowflake Native App's setup script.         │
   │ version    Manages versions defined in an application package                │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   

@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 from pathlib import Path
 from textwrap import dedent
 from unittest import mock
+from unittest.mock import call
 
 import pytest
 from snowflake.cli.api.project.definition_manager import DefinitionManager
@@ -28,6 +30,8 @@ from snowflake.cli.plugins.nativeapp.constants import (
 )
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
+    ApplicationPackageDoesNotExistError,
+    SetupScriptFailedValidation,
     UnexpectedOwnerError,
 )
 from snowflake.cli.plugins.nativeapp.manager import (
@@ -48,6 +52,8 @@ from tests.nativeapp.patch_utils import (
     mock_get_app_pkg_distribution_in_sf,
 )
 from tests.nativeapp.utils import (
+    NATIVEAPP_MANAGER_BUILD_BUNDLE,
+    NATIVEAPP_MANAGER_DEPLOY,
     NATIVEAPP_MANAGER_EXECUTE,
     NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO,
     NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME,
@@ -105,7 +111,11 @@ def test_sync_deploy_root_with_stage(
     assert mock_diff_result.has_changes()
     mock_bundle_map = mock.Mock(spec=BundleMap)
     native_app_manager.sync_deploy_root_with_stage(
-        bundle_map=mock_bundle_map, role="new_role", prune=True, recursive=True
+        bundle_map=mock_bundle_map,
+        role="new_role",
+        prune=True,
+        recursive=True,
+        stage_fqn=native_app_manager.stage_fqn,
     )
 
     expected = [
@@ -171,7 +181,11 @@ def test_sync_deploy_root_with_stage_prune(
 
     mock_bundle_map = mock.Mock(spec=BundleMap)
     native_app_manager.sync_deploy_root_with_stage(
-        bundle_map=mock_bundle_map, role="new_role", prune=prune, recursive=True
+        bundle_map=mock_bundle_map,
+        role="new_role",
+        prune=prune,
+        recursive=True,
+        stage_fqn=native_app_manager.stage_fqn,
     )
 
     if expected_warn:
@@ -826,3 +840,351 @@ def test_get_paths_to_sync(
     paths_to_sync = [Path(p) for p in paths_to_sync]
     result = _get_stage_paths_to_sync(paths_to_sync, Path("deploy/"))
     assert result.sort() == [StagePath(p) for p in expected_result].sort()
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_validate_passing(mock_execute, temp_dir, mock_cursor):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    success_data = dict(status="SUCCESS")
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([[json.dumps(success_data)]], []),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage')"
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    native_app_manager.validate()
+
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+def test_validate_passing_with_warnings(
+    mock_warning, mock_execute, temp_dir, mock_cursor
+):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    warning_file = "@STAGE/setup_script.sql"
+    warning_cause = "APPLICATION ROLE should be created with IF NOT EXISTS."
+    warning = dict(
+        message=f"Warning in file {warning_file}: {warning_cause}",
+        cause=warning_cause,
+        errorCode="093352",
+        fileName=warning_file,
+        line=11,
+        column=35,
+    )
+    failure_data = dict(status="SUCCESS", errors=[], warnings=[warning])
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([[json.dumps(failure_data)]], []),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage')"
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    native_app_manager.validate()
+
+    warn_message = f"{warning['message']} (error code {warning['errorCode']})"
+    mock_warning.assert_called_once_with(warn_message)
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    error_file = "@STAGE/empty.sql"
+    error_cause = "Empty SQL statement."
+    error = dict(
+        message=f"Error in file {error_file}: {error_cause}",
+        cause=error_cause,
+        errorCode="000900",
+        fileName=error_file,
+        line=-1,
+        column=-1,
+    )
+    warning_file = "@STAGE/setup_script.sql"
+    warning_cause = "APPLICATION ROLE should be created with IF NOT EXISTS."
+    warning = dict(
+        message=f"Warning in file {warning_file}: {warning_cause}",
+        cause=warning_cause,
+        errorCode="093352",
+        fileName=warning_file,
+        line=11,
+        column=35,
+    )
+    failure_data = dict(status="FAIL", errors=[error], warnings=[warning])
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([[json.dumps(failure_data)]], []),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage')"
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    with pytest.raises(
+        SetupScriptFailedValidation,
+        match="Snowflake Native App setup script failed validation.",
+    ):
+        native_app_manager.validate()
+
+    warn_message = f"{warning['message']} (error code {warning['errorCode']})"
+    error_message = f"{error['message']} (error code {error['errorCode']})"
+    mock_warning.assert_has_calls(
+        [call(warn_message), call(error_message)], any_order=False
+    )
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_validate_query_error(mock_execute, temp_dir, mock_cursor):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage')"
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    with pytest.raises(SnowflakeSQLExecutionError):
+        native_app_manager.validate()
+
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_validate_not_deployed(mock_execute, temp_dir, mock_cursor):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(
+                    msg="Application package app_pkg does not exist or not authorized.",
+                    errno=2003,
+                ),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage')"
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    with pytest.raises(ApplicationPackageDoesNotExistError, match="app_pkg"):
+        native_app_manager.validate()
+
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_BUILD_BUNDLE)
+@mock.patch(NATIVEAPP_MANAGER_DEPLOY)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_validate_use_scratch_stage(
+    mock_execute, mock_deploy, mock_build_bundle, temp_dir, mock_cursor
+):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    success_data = dict(status="SUCCESS")
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([[json.dumps(success_data)]], []),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage_snowflake_cli_scratch')"
+                ),
+            ),
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    f"drop stage if exists app_pkg.app_src.stage_snowflake_cli_scratch"
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    native_app_manager.validate(use_scratch_stage=True)
+
+    mock_build_bundle.assert_called_once()
+    mock_deploy.assert_called_with(
+        bundle_map=mock_build_bundle.return_value,
+        prune=True,
+        recursive=True,
+        stage_fqn=native_app_manager.scratch_stage_fqn,
+        validate=False,
+    )
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_BUILD_BUNDLE)
+@mock.patch(NATIVEAPP_MANAGER_DEPLOY)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_validate_failing_drops_scratch_stage(
+    mock_execute, mock_deploy, mock_build_bundle, temp_dir, mock_cursor
+):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    error_file = "@STAGE/empty.sql"
+    error_cause = "Empty SQL statement."
+    error = dict(
+        message=f"Error in file {error_file}: {error_cause}",
+        cause=error_cause,
+        errorCode="000900",
+        fileName=error_file,
+        line=-1,
+        column=-1,
+    )
+    failure_data = dict(status="FAIL", errors=[error], warnings=[])
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([[json.dumps(failure_data)]], []),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage_snowflake_cli_scratch')"
+                ),
+            ),
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    f"drop stage if exists app_pkg.app_src.stage_snowflake_cli_scratch"
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    with pytest.raises(
+        SetupScriptFailedValidation,
+        match="Snowflake Native App setup script failed validation.",
+    ):
+        native_app_manager.validate(use_scratch_stage=True)
+
+    mock_build_bundle.assert_called_once()
+    mock_deploy.assert_called_with(
+        bundle_map=mock_build_bundle.return_value,
+        prune=True,
+        recursive=True,
+        stage_fqn=native_app_manager.scratch_stage_fqn,
+        validate=False,
+    )
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    error_file = "@STAGE/empty.sql"
+    error_cause = "Empty SQL statement."
+    error = dict(
+        message=f"Error in file {error_file}: {error_cause}",
+        cause=error_cause,
+        errorCode="000900",
+        fileName=error_file,
+        line=-1,
+        column=-1,
+    )
+    warning_file = "@STAGE/setup_script.sql"
+    warning_cause = "APPLICATION ROLE should be created with IF NOT EXISTS."
+    warning = dict(
+        message=f"Warning in file {warning_file}: {warning_cause}",
+        cause=warning_cause,
+        errorCode="093352",
+        fileName=warning_file,
+        line=11,
+        column=35,
+    )
+    failure_data = dict(status="FAIL", errors=[error], warnings=[warning])
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([[json.dumps(failure_data)]], []),
+                mock.call(
+                    "call system$validate_native_app_setup('@app_pkg.app_src.stage')"
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    assert (
+        native_app_manager.get_validation_result(use_scratch_stage=False)
+        == failure_data
+    )
+    assert mock_execute.mock_calls == expected

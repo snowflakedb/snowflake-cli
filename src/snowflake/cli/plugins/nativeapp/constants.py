@@ -26,5 +26,6 @@ PATCH_COL = "patch"
 INTERNAL_DISTRIBUTION = "internal"
 EXTERNAL_DISTRIBUTION = "external"
 
+ERROR_MESSAGE_2003 = "does not exist or not authorized"
 ERROR_MESSAGE_2043 = "Object does not exist, or operation cannot be performed."
 ERROR_MESSAGE_606 = "No active warehouse selected in the current session."

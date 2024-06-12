@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from abc import ABC, abstractmethod
 from functools import cached_property
@@ -51,6 +52,7 @@ from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
     ERROR_MESSAGE_606,
+    ERROR_MESSAGE_2003,
     ERROR_MESSAGE_2043,
     INTERNAL_DISTRIBUTION,
     NAME_COL,
@@ -59,8 +61,10 @@ from snowflake.cli.plugins.nativeapp.constants import (
 )
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
+    ApplicationPackageDoesNotExistError,
     InvalidPackageScriptError,
     MissingPackageScriptError,
+    SetupScriptFailedValidation,
     UnexpectedOwnerError,
 )
 from snowflake.cli.plugins.nativeapp.feature_flags import FeatureFlag
@@ -73,6 +77,7 @@ from snowflake.cli.plugins.stage.diff import (
     sync_local_diff_with_stage,
     to_stage_path,
 )
+from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -195,6 +200,10 @@ class NativeAppManager(SqlExecutionMixin):
     @cached_property
     def stage_fqn(self) -> str:
         return f"{self.package_name}.{self.definition.source_stage}"
+
+    @cached_property
+    def scratch_stage_fqn(self) -> str:
+        return f"{self.package_name}.{self.definition.scratch_stage}"
 
     @cached_property
     def stage_schema(self) -> Optional[str]:
@@ -349,6 +358,7 @@ class NativeAppManager(SqlExecutionMixin):
         role: str,
         prune: bool,
         recursive: bool,
+        stage_fqn: str,
         local_paths_to_sync: List[Path] | None = None,
     ) -> DiffResult:
         """
@@ -356,13 +366,13 @@ class NativeAppManager(SqlExecutionMixin):
         the local filesystem.
 
         Args:
+            bundle_map (BundleMap): The artifact mapping computed by the `build_bundle` function.
             role (str): The name of the role to use for queries and commands.
             prune (bool): Whether to prune artifacts from the stage that don't exist locally.
             recursive (bool): Whether to traverse directories recursively.
+            stage_fqn (str): The name of the stage to diff against and upload to.
             local_paths_to_sync (List[Path], optional): List of local paths to sync. Defaults to None to sync all
              local paths. Note that providing an empty list here is equivalent to None.
-            bundle_map: the artifact mapping computed during the `bundle` step. Required when local_paths_to_sync is
-             provided.
 
         Returns:
             A `DiffResult` instance describing the changes that were performed.
@@ -370,14 +380,16 @@ class NativeAppManager(SqlExecutionMixin):
 
         # Does a stage already exist within the application package, or we need to create one?
         # Using "if not exists" should take care of either case.
-        cc.step("Checking if stage exists, or creating a new one if none exists.")
+        cc.step(
+            f"Checking if stage {stage_fqn} exists, or creating a new one if none exists."
+        )
         with self.use_role(role):
             self._execute_query(
                 f"create schema if not exists {self.package_name}.{self.stage_schema}"
             )
             self._execute_query(
                 f"""
-                    create stage if not exists {self.stage_fqn}
+                    create stage if not exists {stage_fqn}
                     encryption = (TYPE = 'SNOWFLAKE_SSE')
                     DIRECTORY = (ENABLE = TRUE)"""
             )
@@ -387,7 +399,7 @@ class NativeAppManager(SqlExecutionMixin):
             "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
             % self.deploy_root
         )
-        diff: DiffResult = compute_stage_diff(self.deploy_root, self.stage_fqn)
+        diff: DiffResult = compute_stage_diff(self.deploy_root, stage_fqn)
 
         files_not_removed = []
         if local_paths_to_sync:
@@ -438,7 +450,7 @@ class NativeAppManager(SqlExecutionMixin):
                 role=role,
                 deploy_root_path=self.deploy_root,
                 diff_result=diff,
-                stage_fqn=self.stage_fqn,
+                stage_fqn=stage_fqn,
             )
         return diff
 
@@ -566,7 +578,9 @@ class NativeAppManager(SqlExecutionMixin):
         bundle_map: BundleMap,
         prune: bool,
         recursive: bool,
+        stage_fqn: Optional[str] = None,
         local_paths_to_sync: List[Path] | None = None,
+        validate: bool = True,
     ) -> DiffResult:
         """app deploy process"""
 
@@ -578,12 +592,77 @@ class NativeAppManager(SqlExecutionMixin):
             self._apply_package_scripts()
 
             # 3. Upload files from deploy root local folder to the above stage
+            stage_fqn = stage_fqn or self.stage_fqn
             diff = self.sync_deploy_root_with_stage(
                 bundle_map=bundle_map,
                 role=self.package_role,
                 prune=prune,
                 recursive=recursive,
+                stage_fqn=stage_fqn,
                 local_paths_to_sync=local_paths_to_sync,
             )
 
+        if validate:
+            self.validate(use_scratch_stage=False)
+
         return diff
+
+    def validate(self, use_scratch_stage: bool = False):
+        """Validates Native App setup script SQL."""
+        with cc.phase(f"Validating Snowflake Native App setup script."):
+            validation_result = self.get_validation_result(use_scratch_stage)
+
+            # First print warnings, regardless of the outcome of validation
+            for warning in validation_result.get("warnings", []):
+                cc.warning(_validation_item_to_str(warning))
+
+            # Then print errors
+            for error in validation_result.get("errors", []):
+                # Print them as warnings for now since we're going to be
+                # revamping CLI output soon
+                cc.warning(_validation_item_to_str(error))
+
+            # Then raise an exception if validation failed
+            if validation_result["status"] == "FAIL":
+                raise SetupScriptFailedValidation()
+
+    def get_validation_result(self, use_scratch_stage: bool):
+        """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
+        stage_fqn = self.stage_fqn
+        if use_scratch_stage:
+            stage_fqn = self.scratch_stage_fqn
+            bundle_map = self.build_bundle()
+            self.deploy(
+                bundle_map=bundle_map,
+                prune=True,
+                recursive=True,
+                stage_fqn=stage_fqn,
+                validate=False,
+            )
+        prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
+        try:
+            cursor = self._execute_query(
+                f"call system$validate_native_app_setup('{prefixed_stage_fqn}')"
+            )
+        except ProgrammingError as err:
+            if err.errno == 2003 and ERROR_MESSAGE_2003 in err.msg:
+                raise ApplicationPackageDoesNotExistError(self.package_name)
+            generic_sql_error_handler(err)
+        else:
+            if not cursor.rowcount:
+                raise SnowflakeSQLExecutionError()
+            return json.loads(cursor.fetchone()[0])
+        finally:
+            if use_scratch_stage:
+                cc.step(f"Dropping stage {self.scratch_stage_fqn}.")
+                with self.use_role(self.package_role):
+                    self._execute_query(
+                        f"drop stage if exists {self.scratch_stage_fqn}"
+                    )
+
+
+def _validation_item_to_str(item: dict[str, str | int]):
+    s = item["message"]
+    if item["errorCode"]:
+        s = f"{s} (error code {item['errorCode']})"
+    return s
