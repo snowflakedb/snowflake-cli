@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
 from subprocess import PIPE, CalledProcessError
 from unittest import mock
@@ -202,3 +216,25 @@ def test_docker_registry_login_subprocess_error(
         RegistryManager().docker_registry_login()
 
     assert e.value.message == snapshot
+
+
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_token"
+)
+@mock.patch(
+    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
+)
+@mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.subprocess.check_output")
+def test_docker_registry_login_docker_not_installed_error(
+    mock_check_output, mock_get_url, mock_get_token
+):
+    mock_get_token.return_value = {
+        "token": "ver:1-hint:abc",
+        "expires_in": 3600,
+    }
+
+    mock_check_output.side_effect = FileNotFoundError()
+    with pytest.raises(ClickException) as e:
+        RegistryManager().docker_registry_login()
+
+    assert e.value.message == "Docker is not installed."

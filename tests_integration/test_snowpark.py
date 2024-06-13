@@ -1,9 +1,24 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from pkg_resources._vendor.packaging.requirements import InvalidRequirement
 
 from tests_integration.testing_utils import (
     SnowparkTestSteps,
@@ -13,7 +28,6 @@ from tests_integration.testing_utils.snowpark_utils import (
 )
 from typing import List
 from zipfile import ZipFile
-from pkg_resources.extern.packaging.requirements import InvalidRequirement
 
 
 STAGE_NAME = "dev_deployment"
@@ -84,6 +98,36 @@ def test_snowpark_flow(
             identifier="hello_function(VARCHAR)",
             signature="(NAME VARCHAR)",
             returns="VARCHAR(16777216)",
+        )
+
+        # Grants are given correctly
+
+        _test_steps.set_grants_on_selected_object(
+            object_type="procedure",
+            object_name="hello_procedure(VARCHAR)",
+            privillege="USAGE",
+            role="test_role",
+        )
+
+        _test_steps.set_grants_on_selected_object(
+            object_type="function",
+            object_name="hello_function(VARCHAR)",
+            privillege="USAGE",
+            role="test_role",
+        )
+
+        _test_steps.assert_that_object_has_expected_grant(
+            object_type="procedure",
+            object_name="hello_procedure(VARCHAR)",
+            expected_privillege="USAGE",
+            expected_role="test_role",
+        )
+
+        _test_steps.assert_that_object_has_expected_grant(
+            object_type="function",
+            object_name="hello_function(VARCHAR)",
+            expected_privillege="USAGE",
+            expected_role="test_role",
         )
 
         # Created objects can be executed
@@ -213,6 +257,22 @@ def test_snowpark_flow(
 
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
+        )
+
+        # Grants are preserved after updates
+
+        _test_steps.assert_that_object_has_expected_grant(
+            object_type="procedure",
+            object_name="hello_procedure(VARCHAR)",
+            expected_privillege="USAGE",
+            expected_role="test_role",
+        )
+
+        _test_steps.assert_that_object_has_expected_grant(
+            object_type="function",
+            object_name="hello_function(VARCHAR)",
+            expected_privillege="USAGE",
+            expected_role="test_role",
         )
 
         # Check if objects can be dropped

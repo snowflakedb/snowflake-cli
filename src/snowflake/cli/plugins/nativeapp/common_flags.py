@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import typer
 from snowflake.cli.plugins.nativeapp.utils import is_tty_interactive
 
@@ -20,5 +34,11 @@ ForceOption = typer.Option(
     "--force",
     help=f"""When enabled, this option causes the command to implicitly approve any prompts that arise.
     You should enable this option if interactive mode is not specified and if you want perform potentially destructive actions. Defaults to unset.""",
+    is_flag=True,
+)
+ValidateOption = typer.Option(
+    True,
+    "--validate/--no-validate",
+    help="""When enabled, this option triggers validation of a deployed Snowflake Native App's setup script SQL""",
     is_flag=True,
 )

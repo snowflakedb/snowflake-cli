@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
 import re
@@ -212,6 +226,7 @@ class _CliGlobalContextManager:
         self._experimental = False
         self._project_definition = None
         self._project_root = None
+        self._template_context = None
         self._silent: bool = False
 
     def reset(self):
@@ -258,6 +273,13 @@ class _CliGlobalContextManager:
 
     def set_project_root(self, project_root: Path):
         self._project_root = project_root
+
+    @property
+    def template_context(self) -> dict:
+        return self._template_context
+
+    def set_template_context(self, template_context: dict):
+        self._template_context = template_context
 
     @property
     def connection_context(self) -> _ConnectionContext:
@@ -310,6 +332,10 @@ class _CliGlobalContextAccess:
     @property
     def project_root(self):
         return self._manager.project_root
+
+    @property
+    def template_context(self) -> dict:
+        return self._manager.template_context
 
     @property
     def silent(self) -> bool:

@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
 import logging
@@ -9,14 +23,20 @@ from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,
+    ObjectResult,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.plugins.nativeapp.common_flags import ForceOption, InteractiveOption
+from snowflake.cli.plugins.nativeapp.common_flags import (
+    ForceOption,
+    InteractiveOption,
+    ValidateOption,
+)
 from snowflake.cli.plugins.nativeapp.init import (
     OFFICIAL_TEMPLATES_GITHUB_URL,
     nativeapp_init,
@@ -37,7 +57,7 @@ from snowflake.cli.plugins.nativeapp.utils import (
 )
 from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="app",
     help="Manages a Snowflake Native App",
 )
@@ -68,7 +88,7 @@ def app_init(
     ),
     template: str = typer.Option(
         None,
-        help="A specific template name within the template repo to use as template for the Native Apps project. Example: Default is basic if `--template-repo` is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
+        help="A specific template name within the template repo to use as template for the Snowflake Native App project. Example: Default is basic if `--template-repo` is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
     ),
     **options,
 ) -> CommandResult:
@@ -161,6 +181,7 @@ def app_run(
     ),
     interactive: bool = InteractiveOption,
     force: Optional[bool] = ForceOption,
+    validate: bool = ValidateOption,
     **options,
 ) -> CommandResult:
     """
@@ -189,6 +210,7 @@ def app_run(
         patch=patch,
         from_release_directive=from_release_directive,
         is_interactive=is_interactive,
+        validate=validate,
     )
     return MessageResult(
         f"Your application object ({processor.app_name}) is now available:\n"
@@ -259,6 +281,7 @@ def app_deploy(
         show_default=False,
         help=f"""Paths, relative to the the project root, of files you want to upload to a stage. The paths must match one of the artifacts src pattern entries in snowflake.yml. If unspecified, the command syncs all local changes to the stage.""",
     ),
+    validate: bool = ValidateOption,
     **options,
 ) -> CommandResult:
     """
@@ -286,8 +309,26 @@ def app_deploy(
         prune=prune,
         recursive=recursive,
         local_paths_to_sync=files,
+        validate=validate,
     )
 
     return MessageResult(
         f"Deployed successfully. Application package and stage are up-to-date."
     )
+
+
+@app.command("validate", requires_connection=True)
+@with_project_definition("native_app")
+def app_validate(**options):
+    """
+    Validates a deployed Snowflake Native App's setup script.
+    """
+    manager = NativeAppManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    if cli_context.output_format == OutputFormat.JSON:
+        return ObjectResult(manager.get_validation_result(use_scratch_stage=True))
+
+    manager.validate(use_scratch_stage=True)
+    return MessageResult("Snowflake Native App validation succeeded.")

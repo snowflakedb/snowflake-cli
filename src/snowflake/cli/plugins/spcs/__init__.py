@@ -1,4 +1,18 @@
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.plugins.spcs.compute_pool.commands import (
     app as compute_pools_app,
 )
@@ -9,7 +23,7 @@ from snowflake.cli.plugins.spcs.image_repository.commands import (
 from snowflake.cli.plugins.spcs.jobs.commands import app as jobs_app
 from snowflake.cli.plugins.spcs.services.commands import app as services_app
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="spcs",
     help="Manages Snowpark Container Services compute pools, services, image registries, and image repositories.",
 )

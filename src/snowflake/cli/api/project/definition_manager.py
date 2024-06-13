@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
 import functools
@@ -6,8 +20,10 @@ from pathlib import Path
 from typing import List, Optional
 
 from snowflake.cli.api.exceptions import MissingConfiguration
-from snowflake.cli.api.project.definition import load_project_definition
+from snowflake.cli.api.project.definition import ProjectProperties, load_project
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+from snowflake.cli.api.utils.rendering import CONTEXT_KEY
+from snowflake.cli.api.utils.types import Context
 
 
 def _compat_is_mount(path: Path):
@@ -101,5 +117,15 @@ class DefinitionManager:
         )
 
     @functools.cached_property
+    def _project_properties(self) -> ProjectProperties:
+        return load_project(self._project_config_paths)
+
+    @functools.cached_property
     def project_definition(self) -> ProjectDefinition:
-        return load_project_definition(self._project_config_paths)
+        return self._project_properties.project_definition
+
+    @functools.cached_property
+    def template_context(self) -> Context:
+        definition = self._project_properties.raw_project_definition
+
+        return {CONTEXT_KEY: definition}

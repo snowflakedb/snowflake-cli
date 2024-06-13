@@ -1,9 +1,24 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
 import codecs
 import os
 import re
 from typing import Optional
+from urllib.parse import quote
 
 IDENTIFIER = r'((?:"[^"]*(?:""[^"]*)*")|(?:[A-Za-z_][\w$]{0,254}))'
 IDENTIFIER_NO_LENGTH = r'((?:"[^"]*(?:""[^"]*)*")|(?:[A-Za-z_][\w$]*))'
@@ -18,6 +33,13 @@ SINGLE_QUOTED_STRING_LITERAL_REGEX = r"'((?:\\.|''|[^'\n])+?)'"
 UNQUOTED_IDENTIFIER_REGEX = r"([a-zA-Z_])([a-zA-Z0-9_$]{0,254})"
 QUOTED_IDENTIFIER_REGEX = r'"((""|[^"]){0,255})"'
 VALID_IDENTIFIER_REGEX = f"(?:{UNQUOTED_IDENTIFIER_REGEX}|{QUOTED_IDENTIFIER_REGEX})"
+
+
+def encode_uri_component(s: str) -> str:
+    """
+    Implementation of JavaScript's encodeURIComponent.
+    """
+    return quote(s, safe="!~*'()")
 
 
 def clean_identifier(input_: str):
@@ -92,14 +114,21 @@ def append_to_identifier(identifier: str, suffix: str) -> str:
 
 def unquote_identifier(identifier: str) -> str:
     """
-    Returns a version of this identifier that can be used inside of a URL,
-    inside of a string for a LIKE clause, or to match an identifier passed
-    back as a value from a SQL statement.
+    Returns a version of this identifier that can be used inside of a
+    string for a LIKE clause, or to match an identifier passed back as
+    a value from a SQL statement.
     """
     if match := re.fullmatch(QUOTED_IDENTIFIER_REGEX, identifier):
         return match.group(1).replace('""', '"')
     # unquoted identifiers are internally represented as uppercase
     return identifier.upper()
+
+
+def identifier_for_url(identifier: str) -> str:
+    """
+    Returns a version of this identifier that can be used as part of a URL.
+    """
+    return encode_uri_component(unquote_identifier(identifier))
 
 
 def is_valid_string_literal(literal: str) -> bool:

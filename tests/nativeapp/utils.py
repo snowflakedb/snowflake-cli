@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
 import os
@@ -30,6 +44,9 @@ NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO = (
 NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION = (
     f"{NATIVEAPP_MANAGER}.get_objects_owned_by_application"
 )
+NATIVEAPP_MANAGER_BUILD_BUNDLE = f"{NATIVEAPP_MANAGER}.build_bundle"
+NATIVEAPP_MANAGER_DEPLOY = f"{NATIVEAPP_MANAGER}.deploy"
+NATIVEAPP_MANAGER_VALIDATE = f"{NATIVEAPP_MANAGER}.validate"
 
 TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO = f"{TEARDOWN_PROCESSOR}.get_existing_app_info"
 TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO = (

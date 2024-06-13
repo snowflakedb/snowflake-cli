@@ -1,8 +1,23 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
+import dataclasses
 import logging
 from functools import wraps
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import typer
 from snowflake.cli.api.commands.decorators import (
@@ -111,3 +126,77 @@ class SnowTyper(typer.Typer):
 
         log.debug("Executing command post execution callback")
         flush_telemetry()
+
+
+@dataclasses.dataclass
+class SnowTyperCommandData:
+    """
+    Class for storing data of commands to be registered in SnowTyper instances created by SnowTyperFactory.
+    """
+
+    func: Callable
+    args: Tuple[Any, ...]
+    kwargs: Dict[str, Any]
+
+
+class SnowTyperFactory:
+    """
+    SnowTyper factory. Usage is similar to SnowTyper, except that create_instance()
+    creates actual SnowTyper instance.
+    """
+
+    def __init__(
+        self,
+        /,
+        name: Optional[str] = None,
+        help: Optional[str] = None,  # noqa: A002
+        short_help: Optional[str] = None,
+        is_hidden: Optional[Callable[[], bool]] = None,
+        deprecated: bool = False,
+    ):
+        self.name = name
+        self.help = help
+        self.short_help = short_help
+        self.is_hidden = is_hidden
+        self.deprecated = deprecated
+        self.commands_to_register: List[SnowTyperCommandData] = []
+        self.subapps_to_register: List[SnowTyperFactory] = []
+        self.callbacks_to_register: List[Callable] = []
+
+    def create_instance(self) -> SnowTyper:
+        app = SnowTyper(
+            name=self.name,
+            help=self.help,
+            short_help=self.short_help,
+            hidden=self.is_hidden() if self.is_hidden else False,
+            deprecated=self.deprecated,
+        )
+        # register commands
+        for command in self.commands_to_register:
+            app.command(*command.args, **command.kwargs)(command.func)
+        # register callbacks
+        for callback in self.callbacks_to_register:
+            app.callback()(callback)
+        # add subgroups
+        for subapp in self.subapps_to_register:
+            app.add_typer(subapp.create_instance())
+        return app
+
+    def command(self, *args, **kwargs):
+        def decorator(command):
+            self.commands_to_register.append(
+                SnowTyperCommandData(command, args=args, kwargs=kwargs)
+            )
+            return command
+
+        return decorator
+
+    def add_typer(self, snow_typer: SnowTyperFactory) -> None:
+        self.subapps_to_register.append(snow_typer)
+
+    def callback(self):
+        def decorator(callback):
+            self.callbacks_to_register.append(callback)
+            return callback
+
+        return decorator

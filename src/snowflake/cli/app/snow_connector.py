@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
 import contextlib
@@ -16,7 +30,6 @@ from snowflake.cli.api.exceptions import (
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.app.constants import (
     PARAM_APPLICATION_NAME,
-    PARAM_INTERNAL_APPLICATION_NAME,
 )
 from snowflake.cli.app.telemetry import command_info
 from snowflake.connector import SnowflakeConnection
@@ -24,7 +37,6 @@ from snowflake.connector.errors import DatabaseError, ForbiddenError
 
 log = logging.getLogger(__name__)
 
-from snowflake.cli.__about__ import VERSION
 
 ENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN ENCRYPTED PRIVATE KEY-----"
 UNENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN PRIVATE KEY-----"
@@ -83,6 +95,9 @@ def connect_to_snowflake(
 
     if mfa_passcode:
         connection_parameters["passcode"] = mfa_passcode
+
+    if connection_parameters.get("authenticator") == "username_password_mfa":
+        connection_parameters["client_request_mfa_token"] = True
 
     if enable_diag:
         connection_parameters["enable_connection_diag"] = enable_diag
@@ -157,8 +172,6 @@ def _update_connection_application_name(connection_parameters: Dict):
     """Update version and name of app handling connection."""
     connection_application_params = {
         "application_name": PARAM_APPLICATION_NAME,
-        "internal_application_name": PARAM_INTERNAL_APPLICATION_NAME,
-        "internal_application_version": VERSION,
     }
     connection_parameters.update(connection_application_params)
 
