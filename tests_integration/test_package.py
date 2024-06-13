@@ -19,7 +19,7 @@ from typing import List
 from zipfile import ZipFile
 
 import pytest
-from pkg_resources.extern.packaging.requirements import InvalidRequirement
+from pkg_resources._vendor.packaging.requirements import InvalidRequirement
 
 
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session

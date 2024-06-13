@@ -18,6 +18,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from pkg_resources._vendor.packaging.requirements import InvalidRequirement
 
 from tests_integration.testing_utils import (
     SnowparkTestSteps,
@@ -27,7 +28,6 @@ from tests_integration.testing_utils.snowpark_utils import (
 )
 from typing import List
 from zipfile import ZipFile
-from pkg_resources.extern.packaging.requirements import InvalidRequirement
 
 
 STAGE_NAME = "dev_deployment"
