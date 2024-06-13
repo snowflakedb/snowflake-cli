@@ -149,6 +149,7 @@ def streamlit_deploy(
         replace=replace,
         query_warehouse=streamlit.query_warehouse,
         additional_source_files=streamlit.additional_source_files,
+        title=streamlit.title,
         **options,
     )
 
