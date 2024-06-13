@@ -68,7 +68,6 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     SetupScriptFailedValidation,
     UnexpectedOwnerError,
 )
-from snowflake.cli.plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli.plugins.nativeapp.utils import verify_exists, verify_no_directories
 from snowflake.cli.plugins.stage.diff import (
     DiffResult,
@@ -343,14 +342,13 @@ class NativeAppManager(SqlExecutionMixin):
         Populates the local deploy root from artifact sources.
         """
         mapped_files = build_bundle(self.project_root, self.deploy_root, self.artifacts)
-        if FeatureFlag.ENABLE_SETUP_SCRIPT_GENERATION.is_enabled():
-            compiler = NativeAppCompiler(
-                project_definition=self._project_definition,
-                project_root=self.project_root,
-                deploy_root=self.deploy_root,
-                generated_root=self.generated_root,
-            )
-            compiler.compile_artifacts()
+        compiler = NativeAppCompiler(
+            project_definition=self._project_definition,
+            project_root=self.project_root,
+            deploy_root=self.deploy_root,
+            generated_root=self.generated_root,
+        )
+        compiler.compile_artifacts()
         return mapped_files
 
     def sync_deploy_root_with_stage(

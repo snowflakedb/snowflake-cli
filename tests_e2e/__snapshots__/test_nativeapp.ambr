@@ -1,0 +1,102 @@
+# serializer version: 1
+# name: test_full_lifecycle_with_codegen
+  dict_values(['echo_proc: test'])
+# ---
+# name: test_full_lifecycle_with_codegen.1
+  dict_values(['echo_fn: test'])
+# ---
+# name: test_full_lifecycle_with_codegen.10
+  dict_values([10])
+# ---
+# name: test_full_lifecycle_with_codegen.2
+  dict_values(['echo_fn: infile: test'])
+# ---
+# name: test_full_lifecycle_with_codegen.3
+  dict_values(['echo_fn: test'])
+# ---
+# name: test_full_lifecycle_with_codegen.4
+  dict_values(['echo_fn: test'])
+# ---
+# name: test_full_lifecycle_with_codegen.5
+  dict_values([3])
+# ---
+# name: test_full_lifecycle_with_codegen.6
+  dict_values([10])
+# ---
+# name: test_full_lifecycle_with_codegen.7
+  '''
+  [
+      {
+          "NUMBER": 1
+      },
+      {
+          "NUMBER": -1
+      },
+      {
+          "NUMBER": 1
+      },
+      {
+          "NUMBER": -1
+      },
+      {
+          "NUMBER": 1
+      },
+      {
+          "NUMBER": -1
+      },
+      {
+          "NUMBER": 1
+      },
+      {
+          "NUMBER": -1
+      },
+      {
+          "NUMBER": 1
+      },
+      {
+          "NUMBER": -1
+      }
+  ]
+  
+  '''
+# ---
+# name: test_full_lifecycle_with_codegen.8
+  dict_values(['echo_fn: infile: test'])
+# ---
+# name: test_full_lifecycle_with_codegen.9
+  '''
+  [
+      {
+          "NUMBER": 1
+      },
+      {
+          "NUMBER": -1
+      },
+      {
+          "NUMBER": 1
+      },
+      {
+          "NUMBER": -1
+      },
+      {
+          "NUMBER": 1
+      },
+      {
+          "NUMBER": -1
+      },
+      {
+          "NUMBER": 1
+      },
+      {
+          "NUMBER": -1
+      },
+      {
+          "NUMBER": 1
+      },
+      {
+          "NUMBER": -1
+      }
+  ]
+  
+  '''
+# ---
