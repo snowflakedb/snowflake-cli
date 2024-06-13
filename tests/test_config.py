@@ -137,7 +137,9 @@ def test_get_all_connections(test_snowcli_config):
 
 
 @mock.patch("snowflake.cli.api.config.CONFIG_MANAGER")
-def test_create_default_config_if_not_exists(mock_config_manager):
+def test_create_default_config_if_not_exists_with_proper_permissions(
+    mock_config_manager,
+):
     with TemporaryDirectory() as tmp_dir:
         config_path = Path(f"{tmp_dir}/snowflake/config.toml")
         mock_config_manager.file_path = config_path
@@ -146,6 +148,8 @@ def test_create_default_config_if_not_exists(mock_config_manager):
         config_init(None)
 
         assert config_path.exists()
+        assert_file_permissions_are_strict(config_path.parent)
+        assert_file_permissions_are_strict(config_path)
 
 
 @mock.patch.dict(
