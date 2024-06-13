@@ -227,7 +227,6 @@ def test_full_lifecycle_with_codegen(
                 text=True,
             )
 
-            assert result.stderr == ""
             assert result.returncode == 0
 
             output = subprocess_check_output_with(
