@@ -46,6 +46,10 @@ class NativeApp(UpdatableModel):
         title="Identifier of the stage that stores the application artifacts.",
         default="app_src.stage",
     )
+    scratch_stage: Optional[str] = Field(
+        title="Identifier of the stage that stores temporary scratch data used by the Snowflake CLI.",
+        default="app_src.stage_snowflake_cli_scratch",
+    )
     package: Optional[Package] = Field(title="PackageSchema", default=None)
     application: Optional[Application] = Field(title="Application info", default=None)
 

@@ -116,9 +116,13 @@ def test_nativeapp_deploy(
     "command,contains,not_contains",
     [
         # deploy --prune removes remote-only files
-        ["app deploy --prune", ["stage/manifest.yml"], ["stage/README.md"]],
+        [
+            "app deploy --prune --no-validate",
+            ["stage/manifest.yml"],
+            ["stage/README.md"],
+        ],
         # deploy removes remote-only files (--prune is the default value)
-        ["app deploy", ["stage/manifest.yml"], ["stage/README.md"]],
+        ["app deploy --no-validate", ["stage/manifest.yml"], ["stage/README.md"]],
         # deploy --no-prune does not delete remote-only files
         ["app deploy --no-prune", ["stage/README.md"], []],
     ],
@@ -200,7 +204,13 @@ def test_nativeapp_deploy_files(
     with pushd(Path(os.getcwd(), project_name)):
         # sync only two specific files to stage
         result = runner.invoke_with_connection_json(
-            ["app", "deploy", "app/manifest.yml", "app/setup_script.sql"],
+            [
+                "app",
+                "deploy",
+                "app/manifest.yml",
+                "app/setup_script.sql",
+                "--no-validate",
+            ],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
@@ -254,7 +264,7 @@ def test_nativeapp_deploy_nested_directories(
         touch("app/nested/dir/file.txt")
 
         result = runner.invoke_with_connection_json(
-            ["app", "deploy", "app/nested/dir/file.txt"],
+            ["app", "deploy", "app/nested/dir/file.txt", "--no-validate"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
@@ -303,7 +313,7 @@ def test_nativeapp_deploy_directory(
     with pushd(Path(os.getcwd(), project_dir)):
         touch("app/dir/file.txt")
         result = runner.invoke_with_connection(
-            ["app", "deploy", "app/dir", "--no-recursive"],
+            ["app", "deploy", "app/dir", "--no-recursive", "--no-validate"],
             env=TEST_ENV,
         )
         assert_that_result_failed_with_message_containing(
@@ -311,7 +321,7 @@ def test_nativeapp_deploy_directory(
         )
 
         result = runner.invoke_with_connection_json(
-            ["app", "deploy", "app/dir", "-r"],
+            ["app", "deploy", "app/dir", "-r", "--no-validate"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
@@ -359,7 +369,7 @@ def test_nativeapp_deploy_directory_no_recursive(
         try:
             touch("app/nested/dir/file.txt")
             result = runner.invoke_with_connection_json(
-                ["app", "deploy", "app/nested"],
+                ["app", "deploy", "app/nested", "--no-validate"],
                 env=TEST_ENV,
             )
             assert result.exit_code == 1, result.output
@@ -390,7 +400,7 @@ def test_nativeapp_deploy_unknown_path(
     with pushd(Path(os.getcwd(), project_dir)):
         try:
             result = runner.invoke_with_connection_json(
-                ["app", "deploy", "does_not_exist"],
+                ["app", "deploy", "does_not_exist", "--no-validate"],
                 env=TEST_ENV,
             )
             assert result.exit_code == 1
@@ -422,7 +432,7 @@ def test_nativeapp_deploy_path_with_no_mapping(
     with pushd(Path(os.getcwd(), project_dir)):
         try:
             result = runner.invoke_with_connection_json(
-                ["app", "deploy", "snowflake.yml"],
+                ["app", "deploy", "snowflake.yml", "--no-validate"],
                 env=TEST_ENV,
             )
             assert result.exit_code == 1

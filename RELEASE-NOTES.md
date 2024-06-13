@@ -21,6 +21,9 @@
 
 ## New additions
 * Added `snow app bundle` command that prepares a local folder in the project directory with artifacts to be uploaded to a stage as part of creating a Snowflake Native App.
+* Added `snow app validate` command that validates the setup script SQL used to create a Snowflake Native App for syntax validity, invalid object references, and best practices
+  * Added new `native_app.scratch_stage` field to `snowflake.yml` schema to allow customizing the stage that the CLI uses to run the validation
+* Changed `snow app deploy` and `snow app run` to trigger validation of the uploaded setup script SQL and block uploads on validation failure, pass `--no-validate` to disable
 * Changed `snow app version create --patch` to require an integer patch number, aligning with what Snowflake expects
 * Added `snow notebook` commands:
   * `snow notebook execute` enabling head-less execution of a notebook.
@@ -36,6 +39,8 @@
 * Fixed MFA caching
 * Fixed `DeprerationWarning`/`SyntaxWarning` due to invalid escape sequences
 * Improved error message in `snow spcs image-registry login` when docker is not installed.
+* Improved detection of conflicts between artifact rules for native application projects
+* Fixed URL generation for applications, streamlits, and notebooks that use a quoted identifier with spaces.
 
 # v2.4.0
 ## Backward incompatibility

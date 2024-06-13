@@ -47,7 +47,7 @@ def test_quoted_identifier():
         ),
         (
             FQN(name='"quoted name"', database="database_name", schema="schema_name"),
-            "DATABASE_NAME.SCHEMA_NAME.quoted name",
+            "DATABASE_NAME.SCHEMA_NAME.quoted%20name",
         ),
     ],
 )

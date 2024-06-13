@@ -31,6 +31,7 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     TooManyFilesError,
     build_bundle,
     resolve_without_follow,
+    symlink_or_copy,
 )
 
 from tests.nativeapp.utils import assert_dir_snapshot, touch
@@ -395,10 +396,16 @@ def test_bundle_map_handles_missing_dest(bundle_map):
     )
 
 
-def test_bundle_map_disallows_conflicting_dest_types(bundle_map):
+def test_bundle_map_disallows_mapping_files_as_directories(bundle_map):
     bundle_map.add(PathMapping(src="app", dest="deployed/"))
     with pytest.raises(ArtifactError):
         bundle_map.add(PathMapping(src="**/main.py", dest="deployed"))
+
+
+def test_bundle_map_disallows_mapping_directories_as_files(bundle_map):
+    bundle_map.add(PathMapping(src="**/main.py", dest="deployed"))
+    with pytest.raises(ArtifactError):
+        bundle_map.add(PathMapping(src="app", dest="deployed"))
 
 
 def test_bundle_map_allows_deploying_other_sources_to_renamed_directory(bundle_map):
@@ -468,6 +475,76 @@ def test_bundle_map_disallows_absolute_dest(bundle_map):
         absolute_dest = bundle_map.deploy_root() / "deployed"
         assert absolute_dest.is_absolute()
         bundle_map.add(PathMapping(src="app", dest=str(absolute_dest)))
+
+
+def test_bundle_map_disallows_clobbering_parent_directories(bundle_map):
+    # one level of nesting
+    with pytest.raises(TooManyFilesError):
+        bundle_map.add(PathMapping(src="snowflake.yml", dest="./app/"))
+        # Adding a new rule to populate ./app/ from an existing directory. This would
+        # clobber the output of the previous rule, so it's disallowed
+        bundle_map.add(PathMapping(src="./app", dest="./"))
+
+    # same as above but with multiple levels of nesting
+    with pytest.raises(TooManyFilesError):
+        bundle_map.add(PathMapping(src="snowflake.yml", dest="./src/snowpark/a/"))
+        bundle_map.add(PathMapping(src="./src/snowpark", dest="./src/"))
+
+
+def test_bundle_map_disallows_clobbering_child_directories(bundle_map):
+    with pytest.raises(TooManyFilesError):
+        bundle_map.add(PathMapping(src="./src/snowpark", dest="./python/"))
+        bundle_map.add(PathMapping(src="./app", dest="./python/snowpark/a"))
+
+
+def test_bundle_map_allows_augmenting_dest_directories(bundle_map):
+    # one level of nesting
+    # First populate {deploy}/app from an existing directory
+    bundle_map.add(PathMapping(src="./app", dest="./"))
+    # Then add a new file to that directory
+    bundle_map.add(PathMapping(src="snowflake.yml", dest="./app/"))
+
+    # verify that when iterating over mappings, the base directory rule appears first,
+    # followed by the file. This is important for correctness, and should be
+    # deterministic
+    ordered_dests = [
+        dest for (_, dest) in bundle_map.all_mappings(expand_directories=True)
+    ]
+    file_index = ordered_dests.index(Path("app/snowflake.yml"))
+    dir_index = ordered_dests.index(Path("app"))
+    assert dir_index < file_index
+
+
+def test_bundle_map_allows_augmenting_dest_directories_nested(bundle_map):
+    # same as above but with multiple levels of nesting
+    bundle_map.add(PathMapping(src="./src/snowpark", dest="./src/"))
+    bundle_map.add(PathMapping(src="snowflake.yml", dest="./src/snowpark/a/"))
+
+    ordered_dests = [
+        dest for (_, dest) in bundle_map.all_mappings(expand_directories=True)
+    ]
+    file_index = ordered_dests.index(Path("src/snowpark/a/snowflake.yml"))
+    dir_index = ordered_dests.index(Path("src/snowpark"))
+    assert dir_index < file_index
+
+
+def test_bundle_map_returns_mappings_in_insertion_order(bundle_map):
+    # this behaviour is important to make sure the deploy root is populated in a
+    # deterministic manner, so verify it here
+    bundle_map.add(PathMapping(src="./app", dest="./"))
+    bundle_map.add(PathMapping(src="snowflake.yml", dest="./app/"))
+    bundle_map.add(PathMapping(src="./src/snowpark", dest="./src/"))
+    bundle_map.add(PathMapping(src="snowflake.yml", dest="./src/snowpark/a/"))
+
+    ordered_dests = [
+        dest for (_, dest) in bundle_map.all_mappings(expand_directories=False)
+    ]
+    assert ordered_dests == [
+        Path("app"),
+        Path("app/snowflake.yml"),
+        Path("src/snowpark"),
+        Path("src/snowpark/a/snowflake.yml"),
+    ]
 
 
 def test_bundle_map_all_mappings_can_generates_absolute_directories_when_requested(
@@ -874,3 +951,318 @@ def test_source_path_to_deploy_path(
         assert result == [resolve_without_follow(Path(expected_path))]
     else:
         assert result == []
+
+
+def test_symlink_or_copy_raises_error(temp_dir, snapshot):
+    touch("GrandA/ParentA/ChildA")
+    with open(Path(temp_dir, "GrandA/ParentA/ChildA"), "w") as f:
+        f.write("Test 1")
+
+    # Create the deploy root
+    deploy_root = Path(temp_dir, "output", "deploy")
+    os.makedirs(deploy_root)
+
+    # Incorrect dst path
+    with pytest.raises(NotInDeployRootError):
+        symlink_or_copy(
+            src=Path("GrandA", "ParentA", "ChildA"),
+            dst=Path("output", "ParentA", "ChildA"),
+            deploy_root=deploy_root,
+        )
+
+    file_in_deploy_root = Path("output", "deploy", "ParentA", "ChildA")
+
+    # Correct path and parent directories are automatically created
+    symlink_or_copy(
+        src=Path("GrandA", "ParentA", "ChildA"),
+        dst=file_in_deploy_root,
+        deploy_root=deploy_root,
+    )
+
+    assert file_in_deploy_root.exists() and file_in_deploy_root.is_symlink()
+    assert file_in_deploy_root.read_text(encoding="utf-8") == snapshot
+
+    # Since file_in_deploy_root is a symlink
+    # it resolves to project_dir/GrandA/ParentA/ChildA, which is not in deploy root
+    with pytest.raises(NotInDeployRootError):
+        symlink_or_copy(
+            src=Path("GrandA", "ParentA", "ChildA"),
+            dst=file_in_deploy_root,
+            deploy_root=deploy_root,
+        )
+
+    # Unlink the symlink file and create a file with the same name and path
+    # This should pass since src.is_file() always begins by deleting the dst.
+    os.unlink(file_in_deploy_root)
+    touch(file_in_deploy_root)
+    symlink_or_copy(
+        src=Path("GrandA", "ParentA", "ChildA"),
+        dst=file_in_deploy_root,
+        deploy_root=deploy_root,
+    )
+
+    # dst is an existing symlink, will resolve to the src during NotInDeployRootError check.
+    touch("GrandA/ParentA/ChildB")
+    with pytest.raises(NotInDeployRootError):
+        symlink_or_copy(
+            src=Path("GrandA/ParentA/ChildB"),
+            dst=file_in_deploy_root,
+            deploy_root=deploy_root,
+        )
+    assert file_in_deploy_root.exists() and file_in_deploy_root.is_symlink()
+    assert file_in_deploy_root.read_text(encoding="utf-8") == snapshot
+
+
+def test_symlink_or_copy_with_no_symlinks_in_project_root(snapshot):
+    test_dir_structure = {
+        "GrandA/ParentA/ChildA/GrandChildA": "Text GrandA/ParentA/ChildA/GrandChildA",
+        "GrandA/ParentA/ChildA/GrandChildB.py": "Text GrandA/ParentA/ChildA/GrandChildB.py",
+        "GrandA/ParentA/ChildA/GrandChildC": None,  # dir
+        "GrandA/ParentA/ChildB.py": "Text GrandA/ParentA/ChildB.py",
+        "GrandA/ParentA/ChildC": "Text GrandA/ParentA/ChildC",
+        "GrandA/ParentA/ChildD": None,  # dir
+        "GrandA/ParentB/ChildA": "Text GrandA/ParentB/ChildA",
+        "GrandA/ParentB/ChildB.py": "Text GrandA/ParentB/ChildB.py",
+        "GrandA/ParentB/ChildC/GrandChildA": None,  # dir
+        "GrandA/ParentC": None,  # dir
+        "GrandB/ParentA/ChildA": "Text GrandB/ParentA/ChildA",
+        "output/deploy": None,  # dir
+    }
+    with temp_local_dir(test_dir_structure) as project_root:
+        with pushd(project_root):
+            # Sanity Check
+            assert_dir_snapshot(Path("."), snapshot)
+
+            deploy_root = Path(project_root, "output/deploy")
+
+            # "GrandB" dir
+            symlink_or_copy(
+                src=Path("GrandB/ParentA/ChildA"),
+                dst=Path(deploy_root, "Grand1/Parent1/Child1"),
+                deploy_root=deploy_root,
+            )
+            assert not Path(deploy_root, "Grand1").is_symlink()
+            assert not Path(deploy_root, "Grand1/Parent1").is_symlink()
+            assert Path(deploy_root, "Grand1/Parent1/Child1").is_symlink()
+
+            # "GrandA/ParentC" dir
+            symlink_or_copy(
+                src=Path("GrandA/ParentC"),
+                dst=Path(deploy_root, "Grand2"),
+                deploy_root=deploy_root,
+            )
+            assert not Path(deploy_root, "Grand2").is_symlink()
+
+            # "GrandA/ParentB" dir
+            symlink_or_copy(
+                src=Path("GrandA/ParentB/ChildA"),
+                dst=Path(deploy_root, "Grand3"),
+                deploy_root=deploy_root,
+            )
+            assert Path(deploy_root, "Grand3").is_symlink()
+            symlink_or_copy(
+                src=Path("GrandA/ParentB/ChildB.py"),
+                dst=Path(deploy_root, "Grand4/Parent1.py"),
+                deploy_root=deploy_root,
+            )
+            assert not Path(deploy_root, "Grand4").is_symlink()
+            assert Path(deploy_root, "Grand4/Parent1.py").is_symlink()
+            symlink_or_copy(
+                src=Path("GrandA/ParentB/ChildC"),
+                dst=Path(deploy_root, "Grand4/Parent2"),
+                deploy_root=deploy_root,
+            )
+            assert not Path(deploy_root, "Grand4").is_symlink()
+            assert not Path(deploy_root, "Grand4/Parent2").is_symlink()
+            assert not Path(deploy_root, "Grand4/Parent2/GrandChildA").is_symlink()
+
+            # "GrandA/ParentA" dir (1)
+            symlink_or_copy(
+                src=Path("GrandA/ParentA"), dst=deploy_root, deploy_root=deploy_root
+            )
+            assert not deploy_root.is_symlink()
+            assert not Path(deploy_root, "ChildA").is_symlink()
+            assert Path(deploy_root, "ChildA/GrandChildA").is_symlink()
+            assert Path(deploy_root, "ChildA/GrandChildB.py").is_symlink()
+            assert not Path(deploy_root, "ChildA/GrandChildC").is_symlink()
+            assert Path(deploy_root, "ChildB.py").is_symlink()
+            assert Path(deploy_root, "ChildC").is_symlink()
+            assert not Path(deploy_root, "ChildD").is_symlink()
+
+            # "GrandA/ParentA" dir (2)
+            symlink_or_copy(
+                src=Path("GrandA/ParentA"),
+                dst=Path(deploy_root, "Grand4/Parent3"),
+                deploy_root=deploy_root,
+            )
+            # Other children of Grand4 will be verified by a full assert_dir_snapshot(project_root) below
+            assert not Path(deploy_root, "Grand4/Parent3").is_symlink()
+            assert not Path(deploy_root, "Grand4/Parent3/ChildA").is_symlink()
+            assert Path(deploy_root, "Grand4/Parent3/ChildA/GrandChildA").is_symlink()
+            assert Path(
+                deploy_root, "Grand4/Parent3/ChildA/GrandChildB.py"
+            ).is_symlink()
+            assert not Path(
+                deploy_root, "Grand4/Parent3/ChildA/GrandChildC"
+            ).is_symlink()
+            assert Path(deploy_root, "Grand4/Parent3/ChildB.py").is_symlink()
+            assert Path(deploy_root, "Grand4/Parent3/ChildC").is_symlink()
+            assert not Path(deploy_root, "Grand4/Parent3/ChildD").is_symlink()
+
+            assert_dir_snapshot(Path("./output/deploy"), snapshot)
+
+            # This is because the dst can be symlinks, which resolves to project src and hence outside deploy root.
+            with pytest.raises(NotInDeployRootError):
+                symlink_or_copy(
+                    src=Path("GrandA/ParentB"),
+                    dst=Path(deploy_root, "Grand4/Parent3"),
+                    deploy_root=deploy_root,
+                )
+            assert not Path(deploy_root, "Grand4/Parent3").is_symlink()
+            assert not Path(deploy_root, "Grand4/Parent3/ChildA").is_symlink()
+            assert Path(deploy_root, "Grand4/Parent3/ChildB.py").is_symlink()
+            assert Path(deploy_root, "Grand4/Parent3/ChildC").is_symlink()
+            assert not Path(
+                deploy_root, "Grand4/Parent3/ChildC/GrandChildA"
+            ).is_symlink()
+
+            assert_dir_snapshot(Path("./output/deploy/Grand4/Parent3"), snapshot)
+
+
+def test_symlink_or_copy_with_symlinks_in_project_root(snapshot):
+    test_dir_structure = {
+        "GrandA/ParentA": "Do not use as src of a symlink",
+        "GrandA/ParentB": "Use as src of a symlink: GrandA/ParentB",
+        "GrandA/ParentC/ChildA/GrandChildA": "Do not use as src of a symlink",
+        "GrandA/ParentC/ChildA/GrandChildB": "Use as src of a symlink: GrandA/ParentC/ChildA/GrandChildB",
+        "GrandB/ParentA/ChildA/GrandChildA": "Do not use as src of a symlink",
+        "GrandB/ParentA/ChildB/GrandChildA": None,
+        "symlinks/Grand1/Parent3/Child1": None,
+        "symlinks/Grand2": None,
+        "output/deploy": None,  # dir
+    }
+    with temp_local_dir(test_dir_structure) as project_root:
+        with pushd(project_root):
+            # Sanity Check
+            assert_dir_snapshot(Path("."), snapshot)
+
+            os.symlink(
+                Path("GrandA/ParentB").resolve(),
+                Path(project_root, "symlinks/Grand1/Parent2"),
+            )
+            os.symlink(
+                Path("GrandA/ParentC/ChildA/GrandChildB").resolve(),
+                Path(project_root, "symlinks/Grand1/Parent3/Child1/GrandChild2"),
+            )
+            os.symlink(
+                Path("GrandB/ParentA").resolve(),
+                Path(project_root, "symlinks/Grand2/Parent1"),
+                target_is_directory=True,
+            )
+            assert Path("symlinks").is_dir() and not Path("symlinks").is_symlink()
+            assert (
+                Path("GrandA/ParentB").is_file()
+                and not Path("GrandA/ParentB").is_symlink()
+            )
+            assert (
+                Path("symlinks/Grand1/Parent2").is_symlink()
+                and Path("symlinks/Grand1/Parent2").is_file()
+            )
+            assert (
+                Path("symlinks/Grand1/Parent3/Child1/GrandChild2").is_symlink()
+                and Path("symlinks/Grand1/Parent3/Child1/GrandChild2").is_file()
+            )
+            assert (
+                Path("symlinks/Grand2/Parent1").is_symlink()
+                and Path("symlinks/Grand2/Parent1").is_dir()
+            )
+
+            # Sanity Check
+            assert_dir_snapshot(Path("./symlinks"), snapshot)
+
+            deploy_root = Path(project_root, "output/deploy")
+
+            symlink_or_copy(
+                src=Path("GrandA"),
+                dst=Path(deploy_root, "TestA"),
+                deploy_root=deploy_root,
+            )
+            assert not Path(deploy_root, "TestA").is_symlink()
+            assert Path(deploy_root, "TestA/ParentA").is_symlink()
+            assert Path(deploy_root, "TestA/ParentB").is_symlink()
+            assert not Path(deploy_root, "TestA/ParentC").is_symlink()
+            assert not Path(deploy_root, "TestA/ParentC/ChildA").is_symlink()
+            assert Path(deploy_root, "TestA/ParentC/ChildA/GrandChildA").is_symlink()
+            assert Path(deploy_root, "TestA/ParentC/ChildA/GrandChildB").is_symlink()
+
+            symlink_or_copy(
+                src=Path("GrandB"),
+                dst=Path(deploy_root, "TestB"),
+                deploy_root=deploy_root,
+            )
+            assert not Path(deploy_root, "TestB").is_symlink()
+            assert not Path(deploy_root, "TestB/ParentA").is_symlink()
+            assert not Path(deploy_root, "TestB/ParentA/ChildA").is_symlink()
+            assert not Path(deploy_root, "TestB/ParentA/ChildB").is_symlink()
+            assert not Path(
+                deploy_root, "TestB/ParentA/ChildB/GrandChildA"
+            ).is_symlink()
+            assert Path(deploy_root, "TestB/ParentA/ChildA/GrandChildA").is_symlink()
+
+            symlink_or_copy(
+                src=Path("symlinks"),
+                dst=Path(deploy_root, "symlinks"),
+                deploy_root=deploy_root,
+            )
+            assert (
+                Path(deploy_root, "symlinks/Grand1").is_dir()
+                and not Path(deploy_root, "symlinks/Grand1").is_symlink()
+            )
+            assert (
+                Path(deploy_root, "symlinks/Grand1/Parent2").is_file()
+                and Path(deploy_root, "symlinks/Grand1/Parent2").is_symlink()
+            )
+            assert (
+                Path(deploy_root, "symlinks/Grand1/Parent3").is_dir()
+                and not Path(deploy_root, "symlinks/Grand1/Parent3").is_symlink()
+            )
+            assert (
+                Path(deploy_root, "symlinks/Grand1/Parent3/Child1").is_dir()
+                and not Path(deploy_root, "symlinks/Grand1/Parent3/Child1").is_symlink()
+            )
+            assert (
+                Path(
+                    deploy_root, "symlinks/Grand1/Parent3/Child1/GrandChild2"
+                ).is_file()
+                and Path(
+                    deploy_root, "symlinks/Grand1/Parent3/Child1/GrandChild2"
+                ).is_symlink()
+            )
+            assert (
+                Path(deploy_root, "symlinks/Grand2").is_dir()
+                and not Path(deploy_root, "symlinks/Grand2").is_symlink()
+            )
+            assert (
+                Path(deploy_root, "symlinks/Grand2/Parent1").is_dir()
+                and not Path(deploy_root, "symlinks/Grand2/Parent1").is_symlink()
+            )
+            assert (
+                Path(deploy_root, "symlinks/Grand2/Parent1/ChildA").is_dir()
+                and not Path(deploy_root, "symlinks/Grand2/Parent1/ChildA").is_symlink()
+            )
+            assert (
+                Path(
+                    deploy_root, "symlinks/Grand2/Parent1/ChildA/GrandChildA"
+                ).is_file()
+                and Path(
+                    deploy_root, "symlinks/Grand2/Parent1/ChildA/GrandChildA"
+                ).is_symlink()
+            )
+            assert (
+                Path(deploy_root, "symlinks/Grand2/Parent1/ChildB/GrandChildA").is_dir()
+                and not Path(
+                    deploy_root, "symlinks/Grand2/Parent1/ChildB/GrandChildA"
+                ).is_symlink()
+            )
+
+            assert_dir_snapshot(Path("./output/deploy"), snapshot)
