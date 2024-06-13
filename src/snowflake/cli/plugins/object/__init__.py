@@ -1,11 +1,13 @@
-from snowflake.cli.api.commands.snow_typer import SnowTyper
-from snowflake.cli.plugins.object.commands import app as show_app
-from snowflake.cli.plugins.stage.commands import app as stage_app
-
-app = SnowTyper(
-    name="object",
-    help="Manages Snowflake objects like warehouses and stages",
-)
-
-app.add_typer(stage_app)  # type: ignore
-app.add_typer(show_app)  # type: ignore
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.

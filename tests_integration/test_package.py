@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import tempfile
 from pathlib import Path
@@ -5,7 +19,7 @@ from typing import List
 from zipfile import ZipFile
 
 import pytest
-from pkg_resources.extern.packaging.requirements import InvalidRequirement
+from pkg_resources._vendor.packaging.requirements import InvalidRequirement
 
 
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session

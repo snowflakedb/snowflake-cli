@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import logging
 
 from click.exceptions import ClickException
@@ -96,7 +110,13 @@ def get_snowsight_host(conn: SnowflakeConnection) -> str:
 
 
 def make_snowsight_url(conn: SnowflakeConnection, path: str) -> str:
-    """Returns a URL on the correct Snowsight instance for the connected account."""
+    """
+    Returns a URL on the correct Snowsight instance for the connected account.
+    The path that is passed in must already be properly URL-encoded, and
+    can optionally contain a hash/fragment (e.g. #).
+
+    See also identifier_for_url.
+    """
     snowsight_host = get_snowsight_host(conn)
     deployment = get_context(conn)
     account = get_account(conn)

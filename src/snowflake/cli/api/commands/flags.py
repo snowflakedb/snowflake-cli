@@ -1,5 +1,20 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
+import os
 import tempfile
 from dataclasses import dataclass
 from enum import Enum
@@ -14,6 +29,7 @@ from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.output.formats import OutputFormat
+from snowflake.cli.api.utils.rendering import CONTEXT_KEY
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
@@ -441,7 +457,7 @@ PatternOption = typer.Option(
     "--pattern",
     help=(
         "Regex pattern for filtering files by name."
-        ' For example --pattern ".*\.txt" will filter only files with .txt extension.'
+        r' For example --pattern ".*\.txt" will filter only files with .txt extension.'
     ),
     show_default=False,
     callback=_pattern_option_callback,
@@ -499,6 +515,7 @@ def project_type_option(project_name: str):
 
         cli_context_manager.set_project_definition(project_definition)
         cli_context_manager.set_project_root(project_root)
+        cli_context_manager.set_template_context(dm.template_context)
         return project_definition
 
     if project_name == "native_app":
@@ -527,14 +544,17 @@ def project_definition_option(optional: bool = False):
             dm = DefinitionManager(project_path)
             project_definition = dm.project_definition
             project_root = dm.project_root
+            template_context = dm.template_context
         except MissingConfiguration:
             if optional:
                 project_definition = None
                 project_root = None
+                template_context = {CONTEXT_KEY: {"env": os.environ}}
             else:
                 raise
         cli_context_manager.set_project_definition(project_definition)
         cli_context_manager.set_project_root(project_root)
+        cli_context_manager.set_template_context(template_context)
         return project_definition
 
     return typer.Option(

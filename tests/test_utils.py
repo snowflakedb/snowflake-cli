@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import logging
 import os
 from pathlib import Path
@@ -7,8 +21,10 @@ from unittest.mock import patch
 import pytest
 import snowflake.cli.plugins.snowpark.models
 import snowflake.cli.plugins.snowpark.package.utils
+from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
+from snowflake.cli.plugins.connection.util import make_snowsight_url
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
@@ -149,3 +165,59 @@ def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
         )
 
     assert "pip failed with return code 42" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "identifier, expected",
+    [
+        ("my_app", "MY_APP"),
+        ('"My App"', "My%20App"),
+        ("SYSTEM$GET", "SYSTEM%24GET"),
+        ("mailorder_!@#$%^&*()/_app", "MAILORDER_!%40%23%24%25%5E%26*()%2F_APP"),
+        ('"Mailorder *App* is /cool/"', "Mailorder%20*App*%20is%20%2Fcool%2F"),
+    ],
+)
+def test_identifier_for_url(identifier, expected):
+    assert identifier_for_url(identifier) == expected
+
+
+@patch("snowflake.cli.plugins.connection.util.get_account")
+@patch("snowflake.cli.plugins.connection.util.get_context")
+@patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
+@pytest.mark.parametrize(
+    "context, account, path, expected",
+    [
+        (
+            "org",
+            "account",
+            "UNQUOTED",
+            "https://app.snowflake.com/org/account/UNQUOTED",
+        ),
+        (
+            "host",
+            identifier_for_url("some$account"),
+            identifier_for_url('"Quoted App Name"'),
+            "https://app.snowflake.com/host/SOME%24ACCOUNT/Quoted%20App%20Name",
+        ),
+        (
+            "a",
+            "b",
+            f"""/some/path/{identifier_for_url('"on the server"')}""",
+            "https://app.snowflake.com/a/b/some/path/on%20the%20server",
+        ),
+        (
+            "myorg",
+            "myacct",
+            "/#/apps/application/MAILORDER_CGORRIE",
+            "https://app.snowflake.com/myorg/myacct/#/apps/application/MAILORDER_CGORRIE",
+        ),
+    ],
+)
+def test_make_snowsight_url(
+    get_snowsight_host, get_context, get_account, context, account, path, expected
+):
+    get_snowsight_host.return_value = "https://app.snowflake.com"
+    get_context.return_value = context
+    get_account.return_value = account
+    actual = make_snowsight_url(None, path)  # all uses of conn are mocked
+    assert actual == expected

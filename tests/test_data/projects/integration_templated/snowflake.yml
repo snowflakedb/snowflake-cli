@@ -1,0 +1,16 @@
+definition_version: '1.1'
+native_app:
+  name: integration_<% ctx.env.INTERMEDIATE_CI_ENV %>
+
+  artifacts:
+    - src: <% ctx.env.APP_DIR %>/*
+      dest: ./
+
+  package:
+    scripts:
+      - package/001-shared.sql
+      - package/002-shared.sql
+    
+env:
+  INTERMEDIATE_CI_ENV: '<% ctx.env.CI_ENV %>'
+  CI_ENV: 'dev'

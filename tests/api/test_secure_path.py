@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import re
 import shutil
@@ -43,7 +57,7 @@ def _read_logs(logs_path: Path) -> str:
 def _assert_count_matching_logs(
     save_logs, expected_count, log_prefix, filename, log_suffix=""
 ):
-    regex = f"INFO \[snowflake\.cli\.api\.secure_path\] {log_prefix} \S+{filename}{log_suffix}"
+    regex = rf"INFO \[snowflake\.cli\.api\.secure_path\] {log_prefix} \S+{filename}{log_suffix}"
     logs = _read_logs(save_logs).splitlines()
     count = sum(1 for line in logs if re.search(regex, line) is not None)
     assert count == expected_count
@@ -196,7 +210,7 @@ def test_permissions(temp_dir, save_logs):
 def test_mkdir(temp_dir, save_logs, _widen_umask_for_testing):
     dir1 = SecurePath(temp_dir) / "dir1"
     dir2 = SecurePath(temp_dir) / "dir2" / "a" / "b" / "c" / "d"
-    dir2_regex = "[\/]".join(["dir2", "a", "b", "c", "d"])
+    dir2_regex = r"[\/]".join(["dir2", "a", "b", "c", "d"])
 
     dir1.mkdir()
     _assert_count_matching_logs(save_logs, 1, "Creating directory", "dir1")
@@ -248,7 +262,7 @@ def test_move(temp_dir, save_logs):
     assert moved_file.path.exists() and not file.exists()
     assert moved_file.path == Path("moved_file.txt")
     _assert_count_matching_logs(
-        save_logs, 1, "Moving", "file.txt", " to \S+moved_file.txt"
+        save_logs, 1, "Moving", "file.txt", r" to \S+moved_file.txt"
     )
 
     file = SecurePath(_get_new_file())
@@ -261,7 +275,7 @@ def test_move(temp_dir, save_logs):
     assert moved_file.exists() and not file.exists()
     assert moved_file.path.resolve() == (Path("dir") / "file.txt").resolve()
     _assert_count_matching_logs(
-        save_logs, 1, "Moving", "file.txt", " to \S+dir[\/]file.txt"
+        save_logs, 1, "Moving", "file.txt", r" to \S+dir[\/]file.txt"
     )
 
     file = SecurePath(_get_new_file())
@@ -275,7 +289,7 @@ def test_move(temp_dir, save_logs):
     assert moved_dir.exists() and not dir_.exists()
     assert moved_dir.path == Path("moved_dir")
     _check_dir_moved("moved_dir")
-    _assert_count_matching_logs(save_logs, 1, "Moving", "dir", " to \S+moved_dir")
+    _assert_count_matching_logs(save_logs, 1, "Moving", "dir", r" to \S+moved_dir")
 
     dir_ = SecurePath(_get_new_dir())
     moved_dir = dir_.move("moved_dir")
@@ -283,7 +297,7 @@ def test_move(temp_dir, save_logs):
     assert moved_dir.path == Path("moved_dir") / "dir"
     _check_dir_moved(Path("moved_dir") / "dir")
     _assert_count_matching_logs(
-        save_logs, 1, "Moving", "dir", " to \S+moved_dir[\/]dir"
+        save_logs, 1, "Moving", "dir", r" to \S+moved_dir[\/]dir"
     )
 
     dir_ = SecurePath(_get_new_dir())
@@ -312,10 +326,10 @@ def test_copy_file(temp_dir, save_logs, _widen_umask_for_testing):
     assert_file_permissions_are_strict(copied_file.path)
 
     _assert_count_matching_logs(
-        save_logs, 1, "Copying file", "file.txt", " into \S+file.copy.txt"
+        save_logs, 1, "Copying file", "file.txt", r" into \S+file.copy.txt"
     )
     _assert_count_matching_logs(
-        save_logs, 1, "Copying file", "file.txt", " into \S+a_directory[\/]file.txt"
+        save_logs, 1, "Copying file", "file.txt", r" into \S+a_directory[\/]file.txt"
     )
 
 
@@ -485,7 +499,7 @@ def test_rm(temp_dir, save_logs):
     with pytest.raises(DirectoryIsNotEmptyError):
         SecurePath(full_dir).rmdir()
     SecurePath(full_dir).rmdir(recursive=True)
-    _assert_count_matching_logs(save_logs, 1, "Removing directory", "base[\/]full")
+    _assert_count_matching_logs(save_logs, 1, "Removing directory", r"base[\/]full")
 
     with pytest.raises(FileNotFoundError):
         SecurePath(full_dir).rmdir(recursive=True)

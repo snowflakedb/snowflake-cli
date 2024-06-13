@@ -1,6 +1,22 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
+import shutil
 import subprocess
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -88,3 +104,16 @@ def _install_snowcli_with_external_plugin(
 
 def _python_path(venv_path: Path) -> Path:
     return venv_path / "bin" / "python"
+
+
+# Inspired by project_directory fixture in tests_integration/conftest.py
+# This is a simpler implementation of that fixture, i.e. does not include supporting local PDFs.
+@pytest.fixture
+def project_directory(temp_dir, test_root_path):
+    @contextmanager
+    def _temporary_project_directory(project_name):
+        test_data_file = test_root_path / "test_data" / project_name
+        shutil.copytree(test_data_file, temp_dir, dirs_exist_ok=True)
+        yield Path(temp_dir)
+
+    return _temporary_project_directory

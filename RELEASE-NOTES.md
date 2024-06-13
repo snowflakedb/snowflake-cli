@@ -1,3 +1,19 @@
+<!--
+ Copyright (c) 2024 Snowflake Inc.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
 # Unreleased version
 ## Backward incompatibility
 
@@ -6,13 +22,27 @@
 ## New additions
 * Add `snow object create` command
 * Added `snow app bundle` command that prepares a local folder in the project directory with artifacts to be uploaded to a stage as part of creating a Snowflake Native App.
+  * Snowflake Native App projects can now optionally generate CREATE FUNCTION or CREATE PROCEDURE declarations in setup scripts from Snowpark python code that includes decorators (e.g. @sproc, @udf).
+* Added `snow app validate` command that validates the setup script SQL used to create a Snowflake Native App for syntax validity, invalid object references, and best practices
+  * Added new `native_app.scratch_stage` field to `snowflake.yml` schema to allow customizing the stage that the CLI uses to run the validation
+* Changed `snow app deploy` and `snow app run` to trigger validation of the uploaded setup script SQL and block uploads on validation failure, pass `--no-validate` to disable
 * Changed `snow app version create --patch` to require an integer patch number, aligning with what Snowflake expects
 * Added `snow notebook` commands:
   * `snow notebook execute` enabling head-less execution of a notebook.
   * `snow notebook create` proving an option to create a Snowflake Notebook from a file on stage.
+* Added templating support for project definition file.
+  * Template variables can now be used anywhere in the project definition file.
+* Added `--default` flag to `snow connection add` commands allowing users to mark the new connection as default.
 
 ## Fixes and improvements
-
+* Fixed error handling for malformatted `config.toml`
+* Fixed ZIP packaging of Snowpark project dependencies containing implicit namespace packages like `snowflake`.
+* Deploying function/procedure with `--replace` flag now copies all grants
+* Fixed MFA caching
+* Fixed `DeprerationWarning`/`SyntaxWarning` due to invalid escape sequences
+* Improved error message in `snow spcs image-registry login` when docker is not installed.
+* Improved detection of conflicts between artifact rules for native application projects
+* Fixed URL generation for applications, streamlits, and notebooks that use a quoted identifier with spaces.
 
 # v2.4.0
 ## Backward incompatibility

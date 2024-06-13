@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
 import os
 from pathlib import Path
@@ -27,6 +41,29 @@ def test_new_connection_can_be_added(runner, snapshot):
                 "account1",
                 "--port",
                 "8080",
+            ],
+        )
+        content = tmp_file.read()
+    assert result.exit_code == 0, result.output
+    assert content == snapshot
+
+
+def test_new_connection_can_be_added_as_default(runner, snapshot):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+                "--connection-name",
+                "default-conn",
+                "--username",
+                "user1",
+                "--password",
+                "password1",
+                "--account",
+                "account1",
+                "--default",
             ],
         )
         content = tmp_file.read()
@@ -368,8 +405,6 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
         schema="PUBLIC",
         warehouse="xsmall",
         application_name="snowcli",
-        internal_application_name="snowcli",
-        internal_application_version="0.0.0-test_patched",
     )
 
 
@@ -450,8 +485,6 @@ def test_key_pair_authentication(mock_connector, mock_ctx, runner):
         schema="PUBLIC",
         warehouse="xsmall",
         application_name="snowcli",
-        internal_application_name="snowcli",
-        internal_application_version="0.0.0-test_patched",
     )
 
 
@@ -500,8 +533,6 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
         warehouse="xsmall",
         server_session_keep_alive=True,
         application_name="snowcli",
-        internal_application_name="snowcli",
-        internal_application_version="0.0.0-test_patched",
     )
 
 
@@ -549,8 +580,6 @@ def test_key_pair_authentication_from_config(
         authenticator="SNOWFLAKE_JWT",
         private_key="secret value",
         application_name="snowcli",
-        internal_application_name="snowcli",
-        internal_application_version="0.0.0-test_patched",
     )
 
 
@@ -636,6 +665,18 @@ def test_no_mfa_passcode(mock_connect, runner):
     assert kwargs.get("passcode") is None
 
 
+@mock.patch("snowflake.connector.connect")
+def test_mfa_cache(mock_connect, runner):
+    result = runner.invoke(
+        ["sql", "-q", "select 1", "--authenticator", "username_password_mfa"]
+    )
+
+    assert result.exit_code == 0, result.output
+    args, kwargs = mock_connect.call_args
+    assert kwargs["authenticator"] == "username_password_mfa"
+    assert kwargs["client_request_mfa_token"]
+
+
 @pytest.mark.parametrize(
     "env",
     [
@@ -676,8 +717,6 @@ def test_connection_details_are_resolved_using_environment_variables(
             "role": "role",
             "password": "dummy",
             "application_name": "snowcli",
-            "internal_application_name": "snowcli",
-            "internal_application_version": "0.0.0-test_patched",
         }
 
 
@@ -737,8 +776,6 @@ def test_flags_take_precedence_before_environment_variables(
             "password": "password_from_flag",
             "role": "role_from_flag",
             "application_name": "snowcli",
-            "internal_application_name": "snowcli",
-            "internal_application_version": "0.0.0-test_patched",
         }
 
 
@@ -776,8 +813,6 @@ def test_source_precedence(mock_connect, runner):
         "database": "database_from_connection_env",
         "role": "role_from_global_env",
         "application_name": "snowcli",
-        "internal_application_name": "snowcli",
-        "internal_application_version": "0.0.0-test_patched",
     }
 
 

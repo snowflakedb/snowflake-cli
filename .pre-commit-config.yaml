@@ -76,3 +76,57 @@ repos:
           ^import requirements.*
         pass_filenames: true
         exclude: ^src/snowflake/cli/plugins/snowpark/models.py$
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.5
+    hooks:
+      - id: insert-license
+        name: Add license for all SQL files
+        files: \.sql$
+        exclude: |
+          (?x)
+          ^\.github/|
+          tests/test_data/projects/.*|
+          tests_integration/test_data/projects/.*
+        args:
+          - --comment-style
+          - "/*||*/"
+          - --license-filepath
+          - scripts/LICENSE.txt
+          - --fuzzy-match-generates-todo
+      - id: insert-license
+        name: Add license for all toml files
+        files: \.toml$
+        args:
+          - --comment-style
+          - "|#|"
+          - --license-filepath
+          - scripts/LICENSE.txt
+          - --fuzzy-match-generates-todo
+      - id: insert-license
+        name: Add license for all Python files
+        exclude: |
+          (?x)
+          ^\.github/|
+          tests/test_data/projects/.*|
+          tests_integration/test_data/projects/.*
+        files: \.py$|\.pyi$
+        args:
+          - --comment-style
+          - "|#|"
+          - --license-filepath
+          - scripts/LICENSE.txt
+          - --fuzzy-match-generates-todo
+      - id: insert-license
+        name: Add license for all Markdown files
+        exclude: |
+          (?x)
+          ^\.github/|
+          tests/test_data/projects/.*|
+          tests_integration/test_data/projects/.*
+        files: \.md$
+        args:
+          - --comment-style
+          - "<!--|| -->"
+          - --license-filepath
+          - scripts/LICENSE.txt
+          - --fuzzy-match-generates-todo

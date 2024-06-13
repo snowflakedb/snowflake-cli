@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import os.path
 import uuid
@@ -41,9 +55,9 @@ def template_setup(runner, temporary_working_directory):
     return project_root, runner
 
 
-# Tests that we disallow polluting the project source through symlinks
+# Tests that we copy files/directories directly to the deploy root instead of creating symlinks.
 @pytest.mark.integration
-def test_nativeapp_bundle_does_not_create_files_outside_deploy_root(
+def test_nativeapp_bundle_does_explicit_copy(
     template_setup,
 ):
     project_root, runner = template_setup
@@ -70,11 +84,26 @@ def test_nativeapp_bundle_does_not_create_files_outside_deploy_root(
             ["app", "bundle"],
             env=TEST_ENV,
         )
-        assert result.exit_code == 1
-        assert_that_result_failed_with_message_containing(
-            result, "The specified destination path is outside of the deploy root"
-        )
+        assert result.exit_code == 0
         assert not os.path.exists("app/snowflake.yml")
+        app_path = Path("output", "deploy", "app")
+        assert app_path.exists() and not app_path.is_symlink()
+        assert (
+            Path(app_path, "manifest.yml").exists()
+            and Path(app_path, "manifest.yml").is_symlink()
+        )
+        assert (
+            Path(app_path, "setup_script.sql").exists()
+            and Path(app_path, "setup_script.sql").is_symlink()
+        )
+        assert (
+            Path(app_path, "README.md").exists()
+            and Path(app_path, "README.md").is_symlink()
+        )
+        assert (
+            Path(app_path, "snowflake.yml").exists()
+            and Path(app_path, "snowflake.yml").is_symlink()
+        )
 
 
 # Tests restrictions on the deploy root: It must be a sub-directory within the project directory
@@ -176,6 +205,7 @@ def test_nativeapp_bundle_throws_error_on_incorrect_src_glob(template_setup):
 
 
 # Tests restrictions on the src spec that it must be relative to project root
+@pytest.mark.integration
 def test_nativeapp_bundle_throws_error_on_bad_src(template_setup):
     project_root, runner = template_setup
 
@@ -287,7 +317,8 @@ def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup)
         )
         assert result.exit_code == 1
         assert_that_result_failed_with_message_containing(
-            result, "Multiple files were mapped to one output file."
+            result,
+            "Multiple file or directories were mapped to one output destination.",
         )
 
 
