@@ -12,13 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import unique
 
-from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlagMixin
+def echo_fn(data):
+    return "echo_fn: " + data
 
 
-@unique
-class FeatureFlag(FeatureFlagMixin):
-    ENABLE_SETUP_SCRIPT_GENERATION = BooleanFlag(
-        "ENABLE_SETUP_SCRIPT_GENERATION", False
-    )
+def echo_proc(session, data):
+    return "echo_proc: " + data
