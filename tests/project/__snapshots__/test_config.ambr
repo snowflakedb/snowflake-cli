@@ -824,6 +824,7 @@
       'query_warehouse': 'test_warehouse',
       'schema_name': None,
       'stage': 'streamlit',
+      'title': None,
     }),
   })
 # ---

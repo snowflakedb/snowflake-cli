@@ -196,6 +196,7 @@ def test_deploy_only_streamlit_file_replace(
             ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
+            TITLE = 'My Fancy Streamlit'
             """
         ).strip(),
         "select system$get_snowsight_host()",
@@ -263,6 +264,7 @@ def test_deploy_streamlit_and_environment_files(
             ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
+            TITLE = 'My Fancy Streamlit'
             """
         ).strip(),
         f"select system$get_snowsight_host()",
@@ -303,6 +305,7 @@ def test_deploy_streamlit_and_pages_files(
             ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
+            TITLE = 'My Fancy Streamlit'
             """
         ).strip(),
         f"select system$get_snowsight_host()",
@@ -388,6 +391,7 @@ def test_deploy_put_files_on_stage(
             ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
+            TITLE = 'My Fancy Streamlit'
             """
         ).strip(),
         f"select system$get_snowsight_host()",
@@ -465,6 +469,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
             CREATE STREAMLIT IF NOT EXISTS MockDatabase.MockSchema.{STREAMLIT_NAME}
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
+            TITLE = 'My Fancy Streamlit'
             """
         ).strip(),
         f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT",
@@ -530,6 +535,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
             CREATE STREAMLIT IF NOT EXISTS MockDatabase.MockSchema.{STREAMLIT_NAME}
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
+            TITLE = 'My Fancy Streamlit'
             """
         ).strip(),
         _put_query("streamlit_app.py", root_path),
@@ -611,6 +617,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
             CREATE OR REPLACE STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME}
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
+            TITLE = 'My Fancy Streamlit'
             """
         ).strip(),
         f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT",
