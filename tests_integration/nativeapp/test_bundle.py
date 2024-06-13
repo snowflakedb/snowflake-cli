@@ -55,9 +55,9 @@ def template_setup(runner, temporary_working_directory):
     return project_root, runner
 
 
-# Tests that we disallow polluting the project source through symlinks
+# Tests that we copy files/directories directly to the deploy root instead of creating symlinks.
 @pytest.mark.integration
-def test_nativeapp_bundle_does_not_create_files_outside_deploy_root(
+def test_nativeapp_bundle_does_explicit_copy(
     template_setup,
 ):
     project_root, runner = template_setup
@@ -84,11 +84,26 @@ def test_nativeapp_bundle_does_not_create_files_outside_deploy_root(
             ["app", "bundle"],
             env=TEST_ENV,
         )
-        assert result.exit_code == 1
-        assert_that_result_failed_with_message_containing(
-            result, "The specified destination path is outside of the deploy root"
-        )
+        assert result.exit_code == 0
         assert not os.path.exists("app/snowflake.yml")
+        app_path = Path("output", "deploy", "app")
+        assert app_path.exists() and not app_path.is_symlink()
+        assert (
+            Path(app_path, "manifest.yml").exists()
+            and Path(app_path, "manifest.yml").is_symlink()
+        )
+        assert (
+            Path(app_path, "setup_script.sql").exists()
+            and Path(app_path, "setup_script.sql").is_symlink()
+        )
+        assert (
+            Path(app_path, "README.md").exists()
+            and Path(app_path, "README.md").is_symlink()
+        )
+        assert (
+            Path(app_path, "snowflake.yml").exists()
+            and Path(app_path, "snowflake.yml").is_symlink()
+        )
 
 
 # Tests restrictions on the deploy root: It must be a sub-directory within the project directory
@@ -190,6 +205,7 @@ def test_nativeapp_bundle_throws_error_on_incorrect_src_glob(template_setup):
 
 
 # Tests restrictions on the src spec that it must be relative to project root
+@pytest.mark.integration
 def test_nativeapp_bundle_throws_error_on_bad_src(template_setup):
     project_root, runner = template_setup
 
