@@ -2,6 +2,8 @@
 # name: test_execute[@db.schema.repo/branches/main/-@db.schema.repo/branches/main/-expected_files2]
   '''
   SUCCESS - @db.schema.repo/branches/main/s1.sql
+  SUCCESS - @db.schema.repo/branches/main/s1.sql
+  SUCCESS - @db.schema.repo/branches/main/a/s3.sql
   SUCCESS - @db.schema.repo/branches/main/a/s3.sql
   +----------------------------------------------------------+
   | File                                   | Status  | Error |
@@ -15,6 +17,7 @@
 # name: test_execute[@db.schema.repo/branches/main/s1.sql-@db.schema.repo/branches/main/-expected_files3]
   '''
   SUCCESS - @db.schema.repo/branches/main/s1.sql
+  SUCCESS - @db.schema.repo/branches/main/s1.sql
   +--------------------------------------------------------+
   | File                                 | Status  | Error |
   |--------------------------------------+---------+-------|
@@ -26,6 +29,8 @@
 # name: test_execute[@repo/branches/main/-@repo/branches/main/-expected_files0]
   '''
   SUCCESS - @repo/branches/main/s1.sql
+  SUCCESS - @repo/branches/main/s1.sql
+  SUCCESS - @repo/branches/main/a/s3.sql
   SUCCESS - @repo/branches/main/a/s3.sql
   +------------------------------------------------+
   | File                         | Status  | Error |
@@ -38,6 +43,7 @@
 # ---
 # name: test_execute[@repo/branches/main/a-@repo/branches/main/-expected_files1]
   '''
+  SUCCESS - @repo/branches/main/a/s3.sql
   SUCCESS - @repo/branches/main/a/s3.sql
   +------------------------------------------------+
   | File                         | Status  | Error |

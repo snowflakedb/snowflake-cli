@@ -41,9 +41,10 @@
 * Added templating support for project definition file.
   * Template variables can now be used anywhere in the project definition file.
 * Added `--default` flag to `snow connection add` commands allowing users to mark the new connection as default.
+* Support for Python remote execution via `snow stage execute` and `snow git execute` similar to existing EXECUTE IMMEDIATE support.
 
 ## Fixes and improvements
-* Fixed error handling for malformatted `config.toml`
+* Fixed error handling for malformed `config.toml`
 * Fixed ZIP packaging of Snowpark project dependencies containing implicit namespace packages like `snowflake`.
 * Deploying function/procedure with `--replace` flag now copies all grants
 * Fixed MFA caching
