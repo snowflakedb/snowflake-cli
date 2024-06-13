@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import typer
 from click import ClickException
@@ -129,35 +129,6 @@ def describe(
     return QueryResult(
         ObjectManager().describe(object_type=object_type, name=object_name)
     )
-
-
-def _parse_object_definition(object_definition: List[str]) -> Dict[str, Any]:
-    import json
-
-    def _parse_list_to_dict(object_definition: List[str]) -> Dict[str, Any]:
-        payload = {}
-        for item in object_definition:
-            try:
-                key, value = item.split("=", 1)
-                # try to parse non-string values
-                payload[key] = json.loads(value)
-            except json.JSONDecodeError:
-                payload[key] = value
-            except ValueError:
-                raise ClickException(f"expected key=value format, got {item}")
-        return payload
-
-    if len(object_definition) != 1:
-        return _parse_list_to_dict(object_definition)
-
-    # for list of length 1, prefer json error message
-    try:
-        return json.loads(object_definition[0])
-    except json.JSONDecodeError as json_err:
-        try:
-            return _parse_list_to_dict(object_definition)
-        except ClickException:
-            raise json_err
 
 
 @app.command(name="create", requires_connection=True, hidden=True)
