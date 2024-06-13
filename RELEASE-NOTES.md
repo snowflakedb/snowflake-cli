@@ -21,6 +21,15 @@
 
 ## New additions
 * Add `snow object create` command
+
+## Fixes and improvements
+
+# v2.5.0
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
 * Added `snow app bundle` command that prepares a local folder in the project directory with artifacts to be uploaded to a stage as part of creating a Snowflake Native App.
   * Snowflake Native App projects can now optionally generate CREATE FUNCTION or CREATE PROCEDURE declarations in setup scripts from Snowpark python code that includes decorators (e.g. @sproc, @udf).
 * Added `snow app validate` command that validates the setup script SQL used to create a Snowflake Native App for syntax validity, invalid object references, and best practices
@@ -50,7 +59,6 @@
 ## Deprecations
 
 ## New additions
->>>>>>> main
 * Added the `--cascade` option to `snow app teardown` command that drops all application objects owned by the application.
  * Add external access integration to snow object commands
  * Add aliases for `snow object list/describe/drop` commands under:
