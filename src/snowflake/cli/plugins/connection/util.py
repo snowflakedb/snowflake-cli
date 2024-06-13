@@ -110,7 +110,13 @@ def get_snowsight_host(conn: SnowflakeConnection) -> str:
 
 
 def make_snowsight_url(conn: SnowflakeConnection, path: str) -> str:
-    """Returns a URL on the correct Snowsight instance for the connected account."""
+    """
+    Returns a URL on the correct Snowsight instance for the connected account.
+    The path that is passed in must already be properly URL-encoded, and
+    can optionally contain a hash/fragment (e.g. #).
+
+    See also identifier_for_url.
+    """
     snowsight_host = get_snowsight_host(conn)
     deployment = get_context(conn)
     account = get_account(conn)

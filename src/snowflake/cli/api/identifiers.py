@@ -20,7 +20,7 @@ from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.exceptions import FQNInconsistencyError, FQNNameError
 from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierBaseModel
-from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, unquote_identifier
+from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, identifier_for_url
 
 
 class FQN:
@@ -62,7 +62,7 @@ class FQN:
 
     @property
     def url_identifier(self) -> str:
-        return ".".join(unquote_identifier(part) for part in self.identifier.split("."))
+        return ".".join(identifier_for_url(part) for part in self.identifier.split("."))
 
     def __str__(self):
         return self.identifier
