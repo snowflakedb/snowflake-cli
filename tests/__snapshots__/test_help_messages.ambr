@@ -2223,34 +2223,34 @@
 # name: test_help_messages[object.create]
   '''
                                                                                   
-   Usage: default object create [OPTIONS] OBJECT_TYPE OBJECT_DEFINITION...        
+   Usage: default object create [OPTIONS] OBJECT_TYPE [OBJECT_ATTRIBUTES]...      
                                                                                   
    Create an object of a given type. List of supported objects and parameters:    
    https://docs.snowflake.com/LIMITEDACCESS/rest-api/reference/                   
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │ *    object_type            TEXT                  Type of object. For        │
-  │                                                   example table, procedure,  │
-  │                                                   streamlit.                 │
-  │                                                   [required]                 │
-  │ *    object_definition      OBJECT_DEFINITION...  Object definition in JSON  │
-  │                                                   format, for example        │
-  │                                                   '{"name": "my_db",         │
-  │                                                   "comment": "created with   │
-  │                                                   Snowflake CLI"}', or       │
-  │                                                   provided as a list of      │
-  │                                                   key=value pairs, for       │
-  │                                                   example: name=my_db        │
-  │                                                   'comment=created with      │
-  │                                                   Snowflake CLI'.            │
-  │                                                   Check documentation for    │
-  │                                                   the full list of available │
-  │                                                   parameters for every       │
-  │                                                   object.                    │
-  │                                                   [required]                 │
+  │ *    object_type            TEXT                    Type of object. For      │
+  │                                                     example table,           │
+  │                                                     procedure, streamlit.    │
+  │                                                     [required]               │
+  │      object_attributes      [OBJECT_ATTRIBUTES]...  Object attributes        │
+  │                                                     provided as a list of    │
+  │                                                     key=value pairs, for     │
+  │                                                     example name=my_db       │
+  │                                                     'comment=created with    │
+  │                                                     Snowflake CLI'.          │
+  │                                                     Check documentation for  │
+  │                                                     the full list of         │
+  │                                                     available parameters for │
+  │                                                     every object.            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --help  -h        Show this message and exit.                                │
+  │ --json          TEXT  Object definition in JSON format, for example          │
+  │                       '{"name": "my_db", "comment": "created with Snowflake  │
+  │                       CLI"}'.                                                │
+  │                       Check documentation for the full list of available     │
+  │                       parameters for every object.                           │
+  │ --help  -h            Show this message and exit.                            │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │

@@ -182,7 +182,7 @@ def test_create(object_type, object_definition, runner, test_database):
 
     # test json param
     with _cleanup_object():
-        _test_create([json.dumps(object_definition)])
+        _test_create(["--json", json.dumps(object_definition)])
     # test key=value format
     with _cleanup_object():
         list_definition = [f"{key}={value}" for key, value in object_definition.items()]

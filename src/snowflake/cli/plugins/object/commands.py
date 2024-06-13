@@ -14,11 +14,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.flags import like_option
+from snowflake.cli.api.commands.flags import like_option, parse_key_value_variables
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
 from snowflake.cli.api.output.types import MessageResult, QueryResult
@@ -38,10 +38,21 @@ ObjectArgument = typer.Argument(
     show_default=False,
 )
 # TODO: add documentation link
-ObjectDefinitionArgument = typer.Argument(
+ObjectAttributesArgument = typer.Argument(
+    None,
+    help="""Object attributes provided as a list of key=value pairs,
+for example name=my_db 'comment=created with Snowflake CLI'.
+
+Check documentation for the full list of available parameters
+for every object.
+""",
+    show_default=False,
+)
+ObjectDefinitionJsonOption = typer.Option(
+    None,
+    "--json",
     help="""Object definition in JSON format, for example
-\'{"name": "my_db", "comment": "created with Snowflake CLI"}\', or provided as a list of key=value pairs,
-for example: name=my_db 'comment=created with Snowflake CLI'.
+\'{"name": "my_db", "comment": "created with Snowflake CLI"}\'.
 
 Check documentation for the full list of available parameters
 for every object.
@@ -152,11 +163,31 @@ def _parse_object_definition(object_definition: List[str]) -> Dict[str, Any]:
 @app.command(name="create", requires_connection=True, hidden=True)
 def create(
     object_type: str = ObjectArgument,
-    object_definition: List[str] = ObjectDefinitionArgument,
+    object_attributes: Optional[List[str]] = ObjectAttributesArgument,
+    object_json: str = ObjectDefinitionJsonOption,
     **options,
 ):
     """Create an object of a given type. List of supported objects
     and parameters: https://docs.snowflake.com/LIMITEDACCESS/rest-api/reference/"""
-    object_data = _parse_object_definition(object_definition)
+    if object_attributes and object_json:
+        raise ClickException(
+            "Conflict: both object attributes and JSON definition are provided"
+        )
+
+    if object_json:
+        import json
+
+        object_data = json.loads(object_json)
+
+    elif object_attributes:
+        object_data = {
+            v.key: v.value for v in parse_key_value_variables(object_attributes)
+        }
+
+    else:
+        raise ClickException(
+            "Provide either list of object attributes, or object definition in JSON format"
+        )
+
     result = ObjectManager().create(object_type=object_type, object_data=object_data)
     return MessageResult(result)
