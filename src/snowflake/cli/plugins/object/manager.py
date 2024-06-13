@@ -16,10 +16,14 @@ from __future__ import annotations
 
 import json
 from textwrap import dedent
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from click import ClickException
-from snowflake.cli.api.constants import OBJECT_TO_NAMES, ObjectNames
+from snowflake.cli.api.constants import (
+    OBJECT_TO_NAMES,
+    SF_REST_API_URL_PREFIX,
+    ObjectNames,
+)
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -31,6 +35,16 @@ def _get_object_names(object_type: str) -> ObjectNames:
     if object_type.lower() not in OBJECT_TO_NAMES:
         raise ClickException(f"Object of type {object_type} is not supported.")
     return OBJECT_TO_NAMES[object_type]
+
+
+def _pluralize_object_type(object_type: str) -> str:
+    """
+    Pluralize object type without depending on OBJECT_TO_NAMES.
+    """
+    if object_type.endswith("y"):
+        return object_type[:-1].lower() + "ies"
+    else:
+        return object_type.lower() + "s"
 
 
 class ObjectManager(SqlExecutionMixin):
@@ -50,7 +64,7 @@ class ObjectManager(SqlExecutionMixin):
             query += f" in {scope[0].replace('-', ' ')} {scope[1]}"
         return self._execute_query(query, **kwargs)
 
-    def drop(self, *, object_type, name: str) -> SnowflakeCursor:
+    def drop(self, *, object_type: str, name: str) -> SnowflakeCursor:
         object_name = _get_object_names(object_type).sf_name
         return self._execute_query(f"drop {object_name} {name}")
 
@@ -100,7 +114,7 @@ class ObjectManager(SqlExecutionMixin):
             no_retry=True,
         )
 
-    def _url_exists(self, url):
+    def _url_exists(self, url: str) -> bool:
         try:
             result = self._send_rest_request(url, method="get")
             return bool(result) or result == []
@@ -109,27 +123,36 @@ class ObjectManager(SqlExecutionMixin):
                 return False
             raise err
 
-    def _get_rest_api_create_url(self, object_type: str):
-        if object_type.endswith("y"):
-            plural_object_type = object_type[:-1].lower() + "ies"
-        else:
-            plural_object_type = object_type.lower() + "s"
+    def _get_rest_api_create_url(self, object_type: str) -> Optional[str]:
+        """
+        Get url for creating an object in REST API.
+        The function return None if URL cannot be determined.
 
-        url_prefix = "/api/v2"
+        We check for
+         * /api/v2/<type>
+         * /api/v2/databases/<database>/<type>/
+         * /api/v2/databases/<database>/schemas/<schema>/<type>
+        """
 
-        url = f"{url_prefix}/{plural_object_type}/"
-        if self._url_exists(url):
-            return url
+        plural_object_type = _pluralize_object_type(object_type)
 
-        db = self._conn.database
-        url = f"{url_prefix}/databases/{db}/{plural_object_type}/"
-        if self._url_exists(url):
-            return url
+        urls_to_be_checked: List[Optional[str]] = [
+            f"{SF_REST_API_URL_PREFIX}/{plural_object_type}/",
+            (
+                f"{SF_REST_API_URL_PREFIX}/databases/{self._conn.database}/{plural_object_type}/"
+                if self._conn.database
+                else None
+            ),
+            (
+                f"{SF_REST_API_URL_PREFIX}/databases/{self._conn.database}/schemas/{self._conn.schema}/{plural_object_type}/"
+                if self._conn.database and self._conn.schema
+                else None
+            ),
+        ]
 
-        schema = self._conn.schema
-        url = f"{url_prefix}/databases/{db}/schemas/{schema}/{plural_object_type}/"
-        if self._url_exists(url):
-            return url
+        for url in urls_to_be_checked:
+            if url and self._url_exists(url):
+                return url
 
         return None
 
@@ -139,6 +162,7 @@ class ObjectManager(SqlExecutionMixin):
             return f"Create operation for type {object_type} is not supported. Try using `sql -q 'CREATE ...'` command"
         try:
             response = self._send_rest_request(url=url, method="post", data=object_data)
+            # workaround as SnowflakeRestful class ignores some errors, dropping their info and returns {} instead.
             if not response:
                 raise ClickException(
                     dedent(
@@ -150,4 +174,6 @@ class ObjectManager(SqlExecutionMixin):
                 )
             return response["status"]
         except BadRequest:
-            raise ClickException("Incorrect object definition.")
+            raise ClickException(
+                "Incorrect object definition (arguments misspelled or malformatted)."
+            )

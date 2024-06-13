@@ -41,13 +41,14 @@ ObjectArgument = typer.Argument(
 ObjectAttributesArgument = typer.Argument(
     None,
     help="""Object attributes provided as a list of key=value pairs,
-for example name=my_db 'comment=created with Snowflake CLI'.
+for example name=my_db comment='created with Snowflake CLI'.
 
 Check documentation for the full list of available parameters
 for every object.
 """,
     show_default=False,
 )
+# TODO: add documentation link
 ObjectDefinitionJsonOption = typer.Option(
     None,
     "--json",
@@ -138,21 +139,30 @@ def create(
     object_json: str = ObjectDefinitionJsonOption,
     **options,
 ):
-    """Create an object of a given type. List of supported objects
-    and parameters: https://docs.snowflake.com/LIMITEDACCESS/rest-api/reference/"""
+    """
+    Create an object of a given type. Check documentation for the list of supported objects
+    and parameters.
+    """
+    import json
+
     if object_attributes and object_json:
         raise ClickException(
             "Conflict: both object attributes and JSON definition are provided"
         )
 
     if object_json:
-        import json
-
         object_data = json.loads(object_json)
-
     elif object_attributes:
+
+        def _parse_if_json(value: str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return value
+
         object_data = {
-            v.key: v.value for v in parse_key_value_variables(object_attributes)
+            v.key: _parse_if_json(v.value)
+            for v in parse_key_value_variables(object_attributes)
         }
 
     else:
