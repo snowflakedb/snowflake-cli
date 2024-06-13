@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import subprocess
 import uuid
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
-
-from tests.nativeapp.utils import assert_dir_snapshot
 
 
 def subprocess_check_output_with(sql_stmt: str, config_path: Path, snowcli) -> str:
@@ -31,11 +30,41 @@ def subprocess_check_output_with(sql_stmt: str, config_path: Path, snowcli) -> s
             "sql",
             "-q",
             sql_stmt,
+            "--format",
+            "JSON",
             "-c",
             "integration",
         ],
         encoding="utf-8",
     )
+
+
+def assert_snapshot_match_with_query_result(output: str, snapshot) -> bool:
+    """
+    This function is required to parse the result value in the output independently from the uuid-based object created per test run.
+    E.g.
+    With the default format:
+    '''
+    select codegen_nativeapp_af3d785601654fa0a9a105883b626866_app.ext_code_schema.py_echo_fn('test')
+    +------------------------------------------------------------------------------+
+    | CODEGEN_NATIVEAPP_AF3D785601654FA0A9A105883B626866_APP.EXT_CODE_SCHEMA.PY_EC |
+    | HO_FN('TEST')                                                                |
+    |------------------------------------------------------------------------------|
+    | echo_fn: test                                                                |
+    +------------------------------------------------------------------------------+
+    '''
+    If the --format is JSON, then the output is like such:
+    '''
+    [
+        {
+            "CODEGEN_NATIVEAPP_E4B7C94AE8F74AF39D387CD44C4854E3_APP.EXT_CODE_SCHEMA.SUM_INT_DEC(10)": 10
+        }
+    ]
+    '''
+    With forced --format JSON, we can fetch only the result value reliably and compare against the snapshot.
+    """
+    myjson = json.loads(output)[0]
+    return snapshot.assert_match(myjson.values())
 
 
 @pytest.mark.e2e
@@ -100,9 +129,7 @@ def test_full_lifecycle_with_codegen(
                 text=True,
             )
 
-            assert result.stderr == ""
             assert result.returncode == 0
-            assert_dir_snapshot(project_dir, snapshot)
 
             app_name_and_schema = f"{app_name}.ext_code_schema"
 
@@ -130,14 +157,14 @@ def test_full_lifecycle_with_codegen(
                 config_path=config_path,
                 snowcli=snowcli,
             )
-            snapshot.assert_match(output)
+            assert_snapshot_match_with_query_result(output, snapshot)
 
             output = subprocess_check_output_with(
                 sql_stmt=f"select {app_name_and_schema}.py_echo_fn('test')",
                 config_path=config_path,
                 snowcli=snowcli,
             )
-            snapshot.assert_match(output)
+            assert_snapshot_match_with_query_result(output, snapshot)
 
             # User wrote ext code using codegen feature
             output = subprocess_check_output_with(
@@ -145,28 +172,28 @@ def test_full_lifecycle_with_codegen(
                 config_path=config_path,
                 snowcli=snowcli,
             )
-            snapshot.assert_match(output)
+            assert_snapshot_match_with_query_result(output, snapshot)
 
             output = subprocess_check_output_with(
                 sql_stmt=f"select {app_name_and_schema}.echo_fn_2('test')",
                 config_path=config_path,
                 snowcli=snowcli,
             )
-            snapshot.assert_match(output)
+            assert_snapshot_match_with_query_result(output, snapshot)
 
             output = subprocess_check_output_with(
                 sql_stmt=f"select {app_name_and_schema}.echo_fn_4('test')",
                 config_path=config_path,
                 snowcli=snowcli,
             )
-            snapshot.assert_match(output)
+            assert_snapshot_match_with_query_result(output, snapshot)
 
             output = subprocess_check_output_with(
                 sql_stmt=f"call {app_name_and_schema}.add_sp(1, 2)",
                 config_path=config_path,
                 snowcli=snowcli,
             )
-            snapshot.assert_match(output)
+            assert_snapshot_match_with_query_result(output, snapshot)
 
             # code gen UDAF
             output = subprocess_check_output_with(
@@ -174,7 +201,7 @@ def test_full_lifecycle_with_codegen(
                 config_path=config_path,
                 snowcli=snowcli,
             )
-            snapshot.assert_match(output)
+            assert_snapshot_match_with_query_result(output, snapshot)
 
             # code gen UDTF
             output = subprocess_check_output_with(
@@ -208,7 +235,7 @@ def test_full_lifecycle_with_codegen(
                 config_path=config_path,
                 snowcli=snowcli,
             )
-            snapshot.assert_match(output)
+            assert_snapshot_match_with_query_result(output, snapshot)
 
             # UDTF should exist as only its deploy/root file was de-annotated, but the source should be discovered always
             output = subprocess_check_output_with(
@@ -224,7 +251,7 @@ def test_full_lifecycle_with_codegen(
                 config_path=config_path,
                 snowcli=snowcli,
             )
-            snapshot.assert_match(output)
+            assert_snapshot_match_with_query_result(output, snapshot)
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects

@@ -102,7 +102,6 @@ def __snowflake_internal_create_extension_fn_registration_callback():
 
     def __snowflake_internal_extension_fn_to_json(extension_fn):
         if not (isinstance(extension_fn.func, Callable) or isinstance(extension_fn.func, Tuple)):
-            # Unsupported case: extension function is a tuple
             return
 
         if extension_fn.anonymous:
