@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for `title` field in Streamlit definition in `snowflake.yml` project file.
 
 ## Fixes and improvements
 
