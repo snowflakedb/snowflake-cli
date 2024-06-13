@@ -286,12 +286,12 @@ def sync_local_diff_with_stage(
 
 
 def _to_source_file(bundle_map: BundleMap, dest_file: StagePath) -> Optional[Path]:
-    sources = bundle_map.to_source_paths(to_local_path(dest_file))
+    sources = bundle_map.to_project_paths(to_local_path(dest_file))
     if not sources:
         return None
     if len(sources) == 1:
         return sources[0]
-    raise RuntimeError(f"Too many sources for {dest_file}!")
+    raise RuntimeError(f"Too many project sources for {dest_file}!")
 
 
 def print_diff_to_console(
@@ -307,10 +307,10 @@ def print_diff_to_console(
 
         messages_to_output = []
         for p in diff.different:
-            src = str(_to_source_file(bundle_map, p) or "<generated>")
+            src = str(_to_source_file(bundle_map, p) or "?")
             messages_to_output.append((src, f"modified: {src} -> {p}"))
         for p in diff.only_local:
-            src = str(_to_source_file(bundle_map, p) or "<generated>")
+            src = str(_to_source_file(bundle_map, p) or "?")
             messages_to_output.append((src, f"added:    {src} -> {p}"))
 
         for key, message in sorted(messages_to_output, key=lambda pair: pair[0]):
@@ -319,5 +319,4 @@ def print_diff_to_console(
     if diff.only_on_stage:
         console.message("Deleted paths to remove from your stage:")
         for p in sorted(diff.only_on_stage):
-            prefix = "deleted:  "
             console.message(f"{indent}{p}")

@@ -407,10 +407,14 @@ class BundleMap:
     def to_deploy_paths(self, src: Path) -> List[Path]:
         """
         Converts a source path to its corresponding deploy root path. If the input path is relative to the project root,
-        a path relative to the deploy root is returned. If the input path is absolute, an absolute path is returned.
+        paths relative to the deploy root are returned. If the input path is absolute, absolute path are returned.
+
         Note that the provided source path must be part of a mapping. If the source path is not part of any mapping,
         an empty list is returned. For example, if `app/*` is specified as the source of a mapping,
         `to_deploy_paths(Path("app"))` will not yield any result.
+
+        Arguments:
+            src {Path} -- the source path within the project root, in canonical or absolute form.
 
         Returns:
             The deploy root paths for the given source path, or an empty list if no such path exists.
@@ -457,7 +461,18 @@ class BundleMap:
         for src in self._artifact_map.all_sources():
             yield self._to_output_src(src, absolute)
 
-    def to_source_paths(self, dest: Path) -> List[Path]:
+    def to_project_paths(self, dest: Path) -> List[Path]:
+        """
+        Converts a deploy root path to its corresponding project source paths. If the input path is relative to the
+        deploy root, paths relative to the project root are returned. If the input path is absolute, absolute paths are
+        returned.
+
+        Arguments:
+            dest {Path} -- the destination path within the deploy root, in canonical or absolute form.
+
+        Returns:
+            The project root paths for the given deploy root path, or an empty list if no such path exists.
+        """
         is_absolute = dest.is_absolute()
         try:
             canonical_dest = self._canonical_dest(dest)
@@ -466,15 +481,16 @@ class BundleMap:
             return []
 
         output_sources: List[Path] = []
-        canonical_srcs = self._dest_to_src.get(canonical_dest)
+        canonical_srcs = self._artifact_map.get_sources(canonical_dest)
         if canonical_srcs is not None:
+            # Look for an exact match
             for src in canonical_srcs:
-                output_sources.append(self._to_output_src(src, is_absolute))
+                return [self._to_output_src(src, is_absolute) for src in canonical_srcs]
 
         canonical_parent = canonical_dest.parent
         if canonical_parent == canonical_dest:
-            return output_sources
-        canonical_parent_srcs = self.to_source_paths(canonical_parent)
+            return []
+        canonical_parent_srcs = self.to_project_paths(canonical_parent)
         if canonical_parent_srcs:
             canonical_child = canonical_dest.relative_to(canonical_parent)
             for src in canonical_parent_srcs:
