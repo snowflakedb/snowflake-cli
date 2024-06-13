@@ -40,6 +40,7 @@
 * Fixed `DeprerationWarning`/`SyntaxWarning` due to invalid escape sequences
 * Improved error message in `snow spcs image-registry login` when docker is not installed.
 * Improved detection of conflicts between artifact rules for native application projects
+* Fixed URL generation for applications, streamlits, and notebooks that use a quoted identifier with spaces.
 
 # v2.4.0
 ## Backward incompatibility
