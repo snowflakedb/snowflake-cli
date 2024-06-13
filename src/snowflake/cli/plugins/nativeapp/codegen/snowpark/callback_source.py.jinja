@@ -169,7 +169,7 @@ try:
     import importlib
     with contextlib.redirect_stdout(None):
         with contextlib.redirect_stderr(None):
-            __snowflake_internal_spec = importlib.util.spec_from_file_location("<string>", "{{py_file}}")
+            __snowflake_internal_spec = importlib.util.spec_from_file_location("<string>", r"{{py_file}}")
             __snowflake_internal_module = importlib.util.module_from_spec(__snowflake_internal_spec)
             __snowflake_internal_spec.loader.exec_module(__snowflake_internal_module)
 except Exception as exc:  # Catch any error
