@@ -95,6 +95,7 @@ def test_deploy_only_streamlit_file(
             ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
+            TITLE = 'My Fancy Streamlit'
             """
         ).strip(),
         "select system$get_snowsight_host()",
