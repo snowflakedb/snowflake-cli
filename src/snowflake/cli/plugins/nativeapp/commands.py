@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from textwrap import dedent
 from typing import List, Optional
 
 import typer
@@ -269,7 +270,7 @@ def app_teardown(
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
-        help=f"""Whether to delete specified files from the stage if they don't exist locally. If set, the command deletes files that exist in the stage, but not in the local filesystem. This option cannot be used when files are specified.""",
+        help=f"""Whether to delete specified files from the stage if they don't exist locally. If set, the command deletes files that exist in the stage, but not in the local filesystem. This option cannot be used when paths are specified.""",
     ),
     recursive: Optional[bool] = typer.Option(
         None,
@@ -277,10 +278,16 @@ def app_deploy(
         "-r",
         help=f"""Whether to traverse and deploy files from subdirectories. If set, the command deploys all files and subdirectories; otherwise, only files in the current directory are deployed.""",
     ),
-    files: Optional[List[Path]] = typer.Argument(
+    paths: Optional[List[Path]] = typer.Argument(
         default=None,
         show_default=False,
-        help=f"""Paths, relative to the the project root, of files you want to upload to a stage. The paths must match one of the artifacts src pattern entries in snowflake.yml. If unspecified, the command syncs all local changes to the stage.""",
+        help=dedent(
+            f"""
+            Paths, relative to the the project root, of files or directories you want to upload to a stage. If a file is
+            specified, it must match one of the artifacts src pattern entries in snowflake.yml. If a directory is
+            specified, it will be searched for subfolders or files to deploy based on artifacts src pattern entries. If
+            unspecified, the command syncs all local changes to the stage."""
+        ).strip(),
     ),
     validate: bool = ValidateOption,
     **options,
@@ -289,8 +296,8 @@ def app_deploy(
     Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
     Running this command with no arguments at all, as in `snow app deploy`, is a shorthand for `snow app deploy --prune --recursive`.
     """
-    has_files = files is not None and len(files) > 0
-    if prune is None and recursive is None and not has_files:
+    has_paths = paths is not None and len(paths) > 0
+    if prune is None and recursive is None and not has_paths:
         prune = True
         recursive = True
     else:
@@ -299,7 +306,7 @@ def app_deploy(
         if recursive is None:
             recursive = False
 
-    if has_files and prune:
+    if has_paths and prune:
         raise ClickException("--prune cannot be used when paths are also specified")
 
     manager = NativeAppManager(
@@ -312,7 +319,7 @@ def app_deploy(
         bundle_map=bundle_map,
         prune=prune,
         recursive=recursive,
-        local_paths_to_sync=files,
+        local_paths_to_sync=paths,
         validate=validate,
     )
 

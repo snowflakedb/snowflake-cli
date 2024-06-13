@@ -499,9 +499,16 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
                 snowflake_yml.read_text(), yaml.BaseLoader
             )
             project_definition_file["native_app"]["artifacts"].append("src")
+            project_definition_file["native_app"]["artifacts"].append(
+                "lib/parent/child"
+            )
             snowflake_yml.write_text(yaml.dump(project_definition_file))
 
             touch(str(project_dir / "src/main.py"))
+
+            touch(str(project_dir / "lib/parent/child/a.py"))
+            touch(str(project_dir / "lib/parent/child/b.py"))
+            touch(str(project_dir / "lib/parent/child/c/c.py"))
 
             result = runner.invoke_with_connection_json(
                 ["app", "deploy", "-r", "app"],
@@ -521,6 +528,51 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
             )
             assert contains_row_with(stage_files.json, {"name": "stage/README.md"})
             assert not_contains_row_with(stage_files.json, {"name": "src/main.py"})
+
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "-r", "lib/parent/child/c"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+            assert contains_row_with(
+                stage_files.json, {"name": "lib/parent/child/c/c.py"}
+            )
+            assert not_contains_row_with(
+                stage_files.json, {"name": "lib/parent/child/a.py"}
+            )
+            assert not_contains_row_with(
+                stage_files.json, {"name": "lib/parent/child/b.py"}
+            )
+
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "lib/parent/child/a.py"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+            assert contains_row_with(
+                stage_files.json, {"name": "lib/parent/child/c/c.py"}
+            )
+            assert contains_row_with(
+                stage_files.json, {"name": "lib/parent/child/a.py"}
+            )
+            assert not_contains_row_with(
+                stage_files.json, {"name": "lib/parent/child/b.py"}
+            )
+
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "lib", "-r"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+            assert contains_row_with(
+                stage_files.json, {"name": "lib/parent/child/c/c.py"}
+            )
+            assert contains_row_with(
+                stage_files.json, {"name": "lib/parent/child/a.py"}
+            )
+            assert contains_row_with(
+                stage_files.json, {"name": "lib/parent/child/b.py"}
+            )
 
         finally:
             result = runner.invoke_with_connection_json(
