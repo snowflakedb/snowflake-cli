@@ -2225,8 +2225,8 @@
                                                                                   
    Usage: default object create [OPTIONS] OBJECT_TYPE [OBJECT_ATTRIBUTES]...      
                                                                                   
-   Create an object of a given type. List of supported objects and parameters:    
-   https://docs.snowflake.com/LIMITEDACCESS/rest-api/reference/                   
+   Create an object of a given type. Check documentation for the list of          
+   supported objects and parameters.                                              
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type            TEXT                    Type of object. For      │
@@ -2237,7 +2237,7 @@
   │                                                     provided as a list of    │
   │                                                     key=value pairs, for     │
   │                                                     example name=my_db       │
-  │                                                     'comment=created with    │
+  │                                                     comment='created with    │
   │                                                     Snowflake CLI'.          │
   │                                                     Check documentation for  │
   │                                                     the full list of         │
