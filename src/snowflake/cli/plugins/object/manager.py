@@ -14,20 +14,19 @@
 
 from __future__ import annotations
 
-import json
 from textwrap import dedent
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 from click import ClickException
 from snowflake.cli.api.constants import (
     OBJECT_TO_NAMES,
-    SF_REST_API_URL_PREFIX,
     ObjectNames,
 )
+from snowflake.cli.api.rest_api import RestApi
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
-from snowflake.connector.errors import BadRequest, InterfaceError
+from snowflake.connector.errors import BadRequest
 
 
 def _get_object_names(object_type: str) -> ObjectNames:
@@ -84,84 +83,15 @@ class ObjectManager(SqlExecutionMixin):
         except ProgrammingError:
             return False
 
-    def _send_rest_request(
-        self, url: str, method: str, data: Optional[Dict[str, Any]] = None
-    ):
-        # SnowflakeRestful.request assumes that API response is always a dict,
-        # which is not true in case of this API, so we need to do this workaround:
-        from snowflake.connector.network import (
-            CONTENT_TYPE_APPLICATION_JSON,
-            HTTP_HEADER_ACCEPT,
-            HTTP_HEADER_CONTENT_TYPE,
-            HTTP_HEADER_USER_AGENT,
-            PYTHON_CONNECTOR_USER_AGENT,
-        )
-
-        self._log.debug(f"Sending {method} request to {url}")
-        rest = self._conn.rest
-        full_url = f"{rest.server_url}{url}"
-        headers = {
-            HTTP_HEADER_CONTENT_TYPE: CONTENT_TYPE_APPLICATION_JSON,
-            HTTP_HEADER_ACCEPT: CONTENT_TYPE_APPLICATION_JSON,
-            HTTP_HEADER_USER_AGENT: PYTHON_CONNECTOR_USER_AGENT,
-        }
-        return rest.fetch(
-            method=method,
-            full_url=full_url,
-            headers=headers,
-            token=rest.token,
-            data=json.dumps(data if data else {}),
-            no_retry=True,
-        )
-
-    def _url_exists(self, url: str) -> bool:
-        try:
-            result = self._send_rest_request(url, method="get")
-            return bool(result) or result == []
-        except InterfaceError as err:
-            if "404 Not Found" in str(err):
-                return False
-            raise err
-
-    def _get_rest_api_create_url(self, object_type: str) -> Optional[str]:
-        """
-        Get url for creating an object in REST API.
-        The function return None if URL cannot be determined.
-
-        We check for
-         * /api/v2/<type>
-         * /api/v2/databases/<database>/<type>/
-         * /api/v2/databases/<database>/schemas/<schema>/<type>
-        """
-
-        plural_object_type = _pluralize_object_type(object_type)
-
-        urls_to_be_checked: List[Optional[str]] = [
-            f"{SF_REST_API_URL_PREFIX}/{plural_object_type}/",
-            (
-                f"{SF_REST_API_URL_PREFIX}/databases/{self._conn.database}/{plural_object_type}/"
-                if self._conn.database
-                else None
-            ),
-            (
-                f"{SF_REST_API_URL_PREFIX}/databases/{self._conn.database}/schemas/{self._conn.schema}/{plural_object_type}/"
-                if self._conn.database and self._conn.schema
-                else None
-            ),
-        ]
-
-        for url in urls_to_be_checked:
-            if url and self._url_exists(url):
-                return url
-
-        return None
-
     def create(self, object_type: str, object_data: Dict[str, Any]) -> str:
-        url = self._get_rest_api_create_url(object_type)
+        rest = RestApi(self._conn)
+        url = rest.determine_url_for_create_query(
+            plural_object_type=_pluralize_object_type(object_type)
+        )
         if not url:
             return f"Create operation for type {object_type} is not supported. Try using `sql -q 'CREATE ...'` command"
         try:
-            response = self._send_rest_request(url=url, method="post", data=object_data)
+            response = rest.send_rest_request(url=url, method="post", data=object_data)
             # workaround as SnowflakeRestful class ignores some errors, dropping their info and returns {} instead.
             if not response:
                 raise ClickException(
