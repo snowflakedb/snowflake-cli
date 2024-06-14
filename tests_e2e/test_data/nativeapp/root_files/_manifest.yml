@@ -1,0 +1,10 @@
+manifest_version: 1
+
+version:
+  name: v1
+  label: Version One
+
+artifacts:
+  readme: README.md
+  setup_script: setup_scripts/setup.sql
+  extension_code: true
