@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Optional
+from typing import Callable, Iterator, Optional
 
 from rich.style import Style
 from rich.text import Text
@@ -44,22 +44,27 @@ class CliConsole(AbstractConsole):
     """
 
     _indentation_level: int = INDENTATION_LEVEL
+    _extra_indent: int = 0
     _styles: dict = {
         "default": "",
         Output.PHASE: PHASE_STYLE,
         Output.STEP: STEP_STYLE,
-        Output.INFO: INFO_STYLE,
+        Output.INFO: None,
         Output.IMPORTANT: IMPORTANT_STYLE,
     }
 
     def _format_message(self, message: str, output: Output) -> Text:
         """Wraps message in rich Text object and applies formatting."""
         style = self._styles.get(output, "default")
-        text = Text(message, style=style)
+        if style is not None:
+            text = Text(message, style=style)
+        else:
+            text = Text.from_markup(message)
 
+        current_indent = self._extra_indent
         if self.in_phase and output in {Output.STEP, Output.INFO, Output.IMPORTANT}:
-            text.pad_left(self._indentation_level)
-
+            current_indent += 1
+        text.pad_left(current_indent * self._indentation_level)
         return text
 
     @contextmanager
@@ -67,6 +72,10 @@ class CliConsole(AbstractConsole):
         """A context manager for organising steps into logical group."""
         if self.in_phase:
             raise CliConsoleNestingProhibitedError("Only one phase allowed at a time.")
+        if self._extra_indent > 0:
+            raise CliConsoleNestingProhibitedError(
+                "Phase cannot be used in an indented block."
+            )
 
         self._print(self._format_message(enter_message, Output.PHASE))
         self._in_phase = True
@@ -78,11 +87,24 @@ class CliConsole(AbstractConsole):
             if exit_message:
                 self._print(self._format_message(exit_message, Output.PHASE))
 
+    @contextmanager
+    def indented(self) -> Iterator[Callable[[str], None]]:
+        """A context manager for indenting phase or step messages"""
+        self._extra_indent += 1
+        try:
+            yield self.message
+        finally:
+            self._extra_indent -= 1
+
     def step(self, message: str):
         """Displays a message to output.
 
         If called within a phase, the output will be indented.
         """
+        if self._extra_indent > 0:
+            raise CliConsoleNestingProhibitedError(
+                "Step cannot be used in an indented block."
+            )
         text = self._format_message(message, Output.STEP)
         self._print(text)
 
