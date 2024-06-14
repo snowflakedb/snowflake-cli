@@ -478,7 +478,7 @@ class BundleMap:
         is_absolute = dest.is_absolute()
         try:
             canonical_dest = self._canonical_dest(dest)
-        except ArtifactError:
+        except NotInDeployRootError:
             # No mapping possible for the dest path
             return None
 
@@ -497,9 +497,9 @@ class BundleMap:
         canonical_parent_src = self.to_project_path(canonical_parent)
         if canonical_parent_src is not None:
             canonical_child = canonical_dest.relative_to(canonical_parent)
-            return self._to_output_src(
-                canonical_parent_src / canonical_child, is_absolute
-            )
+            canonical_child_candidate = canonical_parent_src / canonical_child
+            if self._absolute_src(canonical_child_candidate).exists():
+                return self._to_output_src(canonical_child_candidate, is_absolute)
 
         # No mapping for this destination path
         return None
