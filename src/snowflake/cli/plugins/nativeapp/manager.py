@@ -341,7 +341,7 @@ class NativeAppManager(SqlExecutionMixin):
         """
         Populates the local deploy root from artifact sources.
         """
-        mapped_files = build_bundle(self.project_root, self.deploy_root, self.artifacts)
+        bundle_map = build_bundle(self.project_root, self.deploy_root, self.artifacts)
         compiler = NativeAppCompiler(
             project_definition=self._project_definition,
             project_root=self.project_root,
@@ -349,7 +349,7 @@ class NativeAppManager(SqlExecutionMixin):
             generated_root=self.generated_root,
         )
         compiler.compile_artifacts()
-        return mapped_files
+        return bundle_map
 
     def sync_deploy_root_with_stage(
         self,
