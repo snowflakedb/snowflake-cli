@@ -22,6 +22,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Passing a directory to `snow app deploy` will now deploy any contained file or subfolder specified in the application's artifact rules
 
 # v2.5.0
 ## Backward incompatibility
@@ -51,8 +52,6 @@
 * Improved error message in `snow spcs image-registry login` when docker is not installed.
 * Improved detection of conflicts between artifact rules for native application projects
 * Fixed URL generation for applications, streamlits, and notebooks that use a quoted identifier with spaces.
-* Passing a directory to `snow app deploy` will now deploy any contained file or subfolder specified in the application's artifact rules
-
 
 # v2.4.0
 ## Backward incompatibility
