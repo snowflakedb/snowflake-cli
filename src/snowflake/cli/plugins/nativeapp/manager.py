@@ -400,7 +400,6 @@ class NativeAppManager(SqlExecutionMixin):
         )
         diff: DiffResult = compute_stage_diff(self.deploy_root, stage_fqn)
 
-        files_not_removed = []
         if local_paths_to_sync:
             # Deploying specific files/directories
             resolved_paths_to_sync = [
@@ -414,6 +413,17 @@ class NativeAppManager(SqlExecutionMixin):
                 verify_exists(resolved_path)
                 deploy_paths = bundle_map.to_deploy_paths(resolved_path)
                 if not deploy_paths:
+                    if resolved_path.is_dir() and recursive:
+                        # No direct artifact mapping found for this path. Check to see
+                        # if there are subpaths of this directory that are matches. We
+                        # loop over sources because it's likely a much smaller list
+                        # than the project directory.
+                        for src in bundle_map.all_sources(absolute=True):
+                            if resolved_path in src.parents:
+                                # There is a source that contains this path, get its dest path(s)
+                                deploy_paths.extend(bundle_map.to_deploy_paths(src))
+
+                if not deploy_paths:
                     raise ClickException(f"No artifact found for {resolved_path}")
                 deploy_paths_to_sync.extend(deploy_paths)
 
@@ -424,8 +434,7 @@ class NativeAppManager(SqlExecutionMixin):
         else:
             # Full deploy
             if not recursive:
-                deploy_files = [p for p in self.deploy_root.resolve().iterdir()]
-                verify_no_directories(deploy_files)
+                verify_no_directories(self.deploy_root.resolve().iterdir())
 
         if not prune:
             files_not_removed = [str(path) for path in diff.only_on_stage]

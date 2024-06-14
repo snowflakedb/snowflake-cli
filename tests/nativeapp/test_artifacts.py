@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 import pytest
 from snowflake.cli.api.project.definition import load_project
@@ -135,9 +135,19 @@ def verify_mappings(
     assert actual_path_mappings == normalized_expected_mappings
 
 
+def verify_sources(
+    bundle_map: BundleMap, expected_sources: Iterable[Union[str, Path]], **kwargs
+) -> None:
+    actual_sources = sorted(bundle_map.all_sources(**kwargs))
+    expected_sources = sorted([ensure_path(src) for src in expected_sources])
+    assert actual_sources == expected_sources
+
+
 def test_empty_bundle_map(bundle_map):
     mappings = list(bundle_map.all_mappings())
     assert mappings == []
+
+    verify_sources(bundle_map, [])
 
     verify_mappings(
         bundle_map,
@@ -163,36 +173,46 @@ def test_bundle_map_handles_file_to_file_mappings(bundle_map):
         },
     )
 
+    verify_sources(bundle_map, ["README.md", "app/setup.sql", "app/manifest.yml"])
+
 
 def test_bundle_map_supports_double_star_glob(bundle_map):
     bundle_map.add(PathMapping(src="src/snowpark/**/*.py", dest="deployed/"))
 
-    verify_mappings(
-        bundle_map,
-        {
-            "src/snowpark/main.py": "deployed/main.py",
-            "src/snowpark/a/file1.py": "deployed/file1.py",
-            "src/snowpark/a/file2.py": "deployed/file2.py",
-            "src/snowpark/a/b/file3.py": "deployed/file3.py",
-            "src/snowpark/a/b/file4.py": "deployed/file4.py",
-            "src/snowpark/a/c/file5.py": "deployed/file5.py",
-        },
-    )
+    expected_mappings = {
+        "src/snowpark/main.py": "deployed/main.py",
+        "src/snowpark/a/file1.py": "deployed/file1.py",
+        "src/snowpark/a/file2.py": "deployed/file2.py",
+        "src/snowpark/a/b/file3.py": "deployed/file3.py",
+        "src/snowpark/a/b/file4.py": "deployed/file4.py",
+        "src/snowpark/a/c/file5.py": "deployed/file5.py",
+    }
+
+    verify_mappings(bundle_map, expected_mappings)
+
+    verify_sources(bundle_map, expected_mappings.keys())
 
 
 def test_bundle_map_supports_complex_globbing(bundle_map):
     bundle_map.add(PathMapping(src="src/s*/**/file[3-5].py", dest="deployed/"))
 
+    expected_mappings = {
+        "src/snowpark/main.py": None,
+        "src/snowpark/a/file1.py": None,
+        "src/snowpark/a/file2.py": None,
+        "src/snowpark/a/b/file3.py": "deployed/file3.py",
+        "src/snowpark/a/b/file4.py": "deployed/file4.py",
+        "src/snowpark/a/c/file5.py": "deployed/file5.py",
+    }
+
     verify_mappings(
         bundle_map,
-        {
-            "src/snowpark/main.py": None,
-            "src/snowpark/a/file1.py": None,
-            "src/snowpark/a/file2.py": None,
-            "src/snowpark/a/b/file3.py": "deployed/file3.py",
-            "src/snowpark/a/b/file4.py": "deployed/file4.py",
-            "src/snowpark/a/c/file5.py": "deployed/file5.py",
-        },
+        expected_mappings,
+    )
+
+    verify_sources(
+        bundle_map,
+        [src for src in expected_mappings.keys() if expected_mappings[src] is not None],
     )
 
 
@@ -547,7 +567,7 @@ def test_bundle_map_returns_mappings_in_insertion_order(bundle_map):
     ]
 
 
-def test_bundle_map_all_mappings_can_generates_absolute_directories_when_requested(
+def test_bundle_map_all_mappings_generates_absolute_directories_when_requested(
     bundle_map,
 ):
     project_root = bundle_map.project_root()
@@ -604,6 +624,29 @@ def test_bundle_map_all_mappings_can_generates_absolute_directories_when_request
         },
         absolute=True,
         expand_directories=True,
+    )
+
+
+def test_bundle_map_all_sources_generates_absolute_directories_when_requested(
+    bundle_map,
+):
+    project_root = bundle_map.project_root()
+    assert project_root.is_absolute()
+
+    bundle_map.add(PathMapping(src="app", dest="deployed_app"))
+    bundle_map.add(PathMapping(src="README.md", dest="deployed_README.md"))
+    bundle_map.add(PathMapping(src="src/streamlit", dest="deployed_streamlit"))
+
+    verify_sources(bundle_map, ["app", "README.md", "src/streamlit"])
+
+    verify_sources(
+        bundle_map,
+        [
+            project_root / "app",
+            project_root / "README.md",
+            project_root / "src/streamlit",
+        ],
+        absolute=True,
     )
 
 
