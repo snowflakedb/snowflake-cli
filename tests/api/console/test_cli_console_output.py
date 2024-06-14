@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from textwrap import dedent
 from typing import Generator
 
 import pytest
@@ -85,6 +86,71 @@ def test_phase_is_cleaned_up_on_exception(cli_console):
         with cli_console.phase("Enter 1"):
             raise RuntimeError("Phase failed")
 
-    # If the phase is cleaned up correctly, this will no raise any exception
+    # If the phase is cleaned up correctly, this will not raise any exception
     with cli_console.phase("Enter 2") as step:
         pass
+
+
+def test_phase_cannot_be_indented(cli_console):
+    with cli_console.indented():
+        with pytest.raises(CliConsoleNestingProhibitedError):
+            with cli_console.phase("Enter"):
+                pass
+
+
+def test_step_cannot_be_indented(cli_console):
+    with cli_console.indented():
+        with pytest.raises(CliConsoleNestingProhibitedError):
+            with cli_console.step("Operation"):
+                pass
+
+
+def test_indented(cli_console, capsys):
+    with cli_console.phase("42"):
+        cli_console.step("73")
+        cli_console.message("Not indented message")
+        cli_console.warning("Not indented warning")
+        with cli_console.indented() as msg:
+            cli_console.message("Indented message")
+            msg("Indented message using context manager instance")
+            cli_console.warning("Indented warning")
+            with cli_console.indented():
+                cli_console.message("Double indented message")
+                cli_console.warning("Double indented warning")
+            cli_console.message("Message with single indentation again")
+            cli_console.warning("Warning with single indentation again")
+        cli_console.message("No longer indented message")
+        cli_console.warning("No longer indented warning")
+    cli_console.warning("OPS")
+
+    expected_output = dedent(
+        f"""\
+    42
+      73
+      Not indented message
+      Not indented warning
+        Indented message
+        Indented message using context manager instance
+        Indented warning
+          Double indented message
+          Double indented warning
+        Message with single indentation again
+        Warning with single indentation again
+      No longer indented message
+      No longer indented warning
+    OPS
+    """
+    )
+
+    assert_output_matches(expected_output, capsys)
+
+
+def test_indented_cleans_up_on_exception(cli_console, capsys):
+    with pytest.raises(RuntimeError):
+        with cli_console.indented():
+            raise RuntimeError("Failure")
+
+    # If the phase is cleaned up correctly, this will not raise any exception
+    cli_console.message("Not indented message")
+
+    assert_output_matches("Not indented message\n", capsys)
