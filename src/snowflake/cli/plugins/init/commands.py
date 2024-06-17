@@ -17,41 +17,52 @@ from __future__ import annotations
 from typing import Optional
 
 import typer
+from click import ClickException
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
 )
+from snowflake.cli.api.secure_path import SecurePath
 
 # simple Typer with defaults because it won't become a command group as it contains only one command
 app = SnowTyperFactory()
 
+# TODO: create repo and override this parameter
 DEFAULT_SOURCE = "undefined"
 
 
-def _source_argument_callback(value):
-    return value if value is not None else DEFAULT_SOURCE
-
-
-SourceArgument = typer.Argument(
-    None,
-    help=f"local path to template directory or URL to git repository with templates. Default: {DEFAULT_SOURCE}",
-    callback=_source_argument_callback,
-    show_default=False,
-)
-NameOption = typer.Option(
-    ...,
+NameArgument = typer.Argument(
     help="which subdirectory of SOURCE should be used to create a template",
     show_default=False,
+)
+SourceOption = typer.Option(
+    default=DEFAULT_SOURCE,
+    help=f"local path to template directory or URL to git repository with templates. Default: {DEFAULT_SOURCE}",
 )
 
 
 @app.command(no_args_is_help=True)
 def init(
-    source: Optional[str] = SourceArgument, name: str = NameOption
+    name: str = NameArgument,
+    template_source: Optional[str] = SourceOption,
+    **options,
 ) -> CommandResult:
     """
     Creates project from template.
     """
+    with SecurePath.temporary_directory() as tmpdir:
+        if not (local_template_dir := SecurePath(template_source)).exists():
+            # assume template is URL
+            raise NotImplementedError("urls not supported")
 
+        else:
+            if not (template_origin := (local_template_dir / name)).exists():
+                raise ClickException(
+                    f"Template {name} cannot be found under {local_template_dir}"
+                )
+            template_origin.copy(tmpdir.path)
+            path_for_rendering = tmpdir / name
+
+        path_for_rendering.copy(".")
     return MessageResult("OK")

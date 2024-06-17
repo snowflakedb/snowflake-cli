@@ -27,6 +27,8 @@ from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 CONTEXT_KEY = "ctx"
 _YML_TEMPLATE_START = "<%"
 _YML_TEMPLATE_END = "%>"
+_PROJECT_TEMPLATE_START = "<!"
+_PROJECT_TEMPLATE_END = "!>"
 
 
 def read_file_content(file_name: str):
@@ -86,6 +88,21 @@ def get_sql_cli_jinja_env():
             keep_trailing_newline=True,
             variable_start_string="&{",
             variable_end_string="}",
+            block_start_string=_random_block,
+            block_end_string=_random_block,
+            undefined=StrictUndefined,
+        )
+    )
+
+
+def get_project_template_cli_jinja_env() -> Environment:
+    _random_block = "___very___unique___block___to___disable___logic___blocks___"
+    return _env_bootstrap(
+        Environment(
+            loader=loaders.BaseLoader(),
+            keep_trailing_newline=True,
+            variable_start_string=_PROJECT_TEMPLATE_START,
+            variable_end_string=_PROJECT_TEMPLATE_END,
             block_start_string=_random_block,
             block_end_string=_random_block,
             undefined=StrictUndefined,
