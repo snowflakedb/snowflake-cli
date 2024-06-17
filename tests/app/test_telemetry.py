@@ -53,6 +53,7 @@ def test_executing_command_sends_telemetry_data(
             "command_flags": {"diag_log_path": "DEFAULT", "format": "DEFAULT"},
             "command_output_type": "TABLE",
             "type": "executing_command",
+            "project_definition_version": "no_definition",
             "config_feature_flags": {
                 "dummy_flag": "True",
                 "foo": "False",
@@ -61,3 +62,20 @@ def test_executing_command_sends_telemetry_data(
         },
         "timestamp": "123",
     }
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli.plugins.streamlit.commands.StreamlitManager")
+def test_executing_command_sends_project_definition_in_telemetry_data(
+    _, mock_conn, project_directory, runner
+):
+
+    with project_directory("streamlit_full_definition"):
+        result = runner.invoke(["streamlit", "deploy"], catch_exceptions=False)
+    assert result.exit_code == 0, result.output
+
+    # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+    actual_call = mock_conn.return_value._telemetry.try_add_log_to_batch.call_args.args[  # noqa: SLF001
+        0
+    ].to_dict()
+    assert actual_call["message"]["project_definition_version"] == "1"

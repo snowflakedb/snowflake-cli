@@ -128,7 +128,7 @@ def deploy(
     By default, if any of the objects exist already the commands will fail unless `--replace` flag is provided.
     All deployed objects use the same artifact which is deployed only once.
     """
-    snowpark = cli_context.project_definition
+    snowpark = cli_context.project_definition.snowpark
     paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
         snowpark_project_definition=snowpark,
@@ -400,7 +400,7 @@ def build(
         ignore_anaconda = True
     snowpark_paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
-        snowpark_project_definition=cli_context.project_definition,
+        snowpark_project_definition=cli_context.project_definition.snowpark,
     )
     log.info("Building package using sources from: %s", snowpark_paths.source.path)
 

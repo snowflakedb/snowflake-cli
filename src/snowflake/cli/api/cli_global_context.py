@@ -264,7 +264,7 @@ class _CliGlobalContextManager:
     def project_definition(self) -> Optional[Dict]:
         return self._project_definition
 
-    def set_project_definition(self, value: Dict):
+    def set_project_definition(self, value: ProjectDefinition):
         self._project_definition = value
 
     @property

@@ -51,6 +51,8 @@ class CLITelemetryField(Enum):
     EVENT = "event"
     ERROR_MSG = "error_msg"
     ERROR_TYPE = "error_type"
+    # Project context
+    PROJECT_DEFINITION_VERSION = "project_definition_version"
 
 
 class TelemetryEvent(Enum):
@@ -74,7 +76,16 @@ def _find_command_info() -> TelemetryDict:
         CLITelemetryField.COMMAND_OUTPUT_TYPE: ctx.params.get(
             "format", OutputFormat.TABLE
         ).value,
+        CLITelemetryField.PROJECT_DEFINITION_VERSION: _get_definition_version(),
     }
+
+
+def _get_definition_version() -> str:
+    from snowflake.cli.api.cli_global_context import cli_context
+
+    if cli_context.project_definition:
+        return cli_context.project_definition.definition_version
+    return "no_definition"
 
 
 def command_info() -> str:
