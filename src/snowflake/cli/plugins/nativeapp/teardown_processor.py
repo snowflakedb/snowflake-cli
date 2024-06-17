@@ -103,30 +103,28 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
 
         # 3. Check if created by the Snowflake CLI
         row_comment = show_obj_row[COMMENT_COL]
-        if row_comment in ALLOWED_SPECIAL_COMMENTS:
-            # No confirmation needed before dropping
-            needs_confirm = False
-        else:
-            if needs_confirmation(needs_confirm, auto_yes):
-                should_drop_object = typer.confirm(
-                    dedent(
-                        f"""\
-                            Application object {self.app_name} was not created by Snowflake CLI.
-                            Application object details:
-                            Name: {self.app_name}
-                            Created on: {show_obj_row["created_on"]}
-                            Source: {show_obj_row["source"]}
-                            Owner: {show_obj_row[OWNER_COL]}
-                            Comment: {show_obj_row[COMMENT_COL]}
-                            Version: {show_obj_row["version"]}
-                            Patch: {show_obj_row["patch"]}
-                            Are you sure you want to drop it?
-                        """
-                    )
+        if row_comment not in ALLOWED_SPECIAL_COMMENTS and needs_confirmation(
+            needs_confirm, auto_yes
+        ):
+            should_drop_object = typer.confirm(
+                dedent(
+                    f"""\
+                        Application object {self.app_name} was not created by Snowflake CLI.
+                        Application object details:
+                        Name: {self.app_name}
+                        Created on: {show_obj_row["created_on"]}
+                        Source: {show_obj_row["source"]}
+                        Owner: {show_obj_row[OWNER_COL]}
+                        Comment: {show_obj_row[COMMENT_COL]}
+                        Version: {show_obj_row["version"]}
+                        Patch: {show_obj_row["patch"]}
+                        Are you sure you want to drop it?
+                    """
                 )
-                if not should_drop_object:
-                    cc.message(f"Did not drop application object {self.app_name}.")
-                    return  # The user desires to keep the app, therefore exit gracefully
+            )
+            if not should_drop_object:
+                cc.message(f"Did not drop application object {self.app_name}.")
+                return  # The user desires to keep the app, therefore exit gracefully
 
         # 4. Check for application objects owned by the application
         application_objects = self.get_objects_owned_by_application()
