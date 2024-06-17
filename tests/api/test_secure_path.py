@@ -45,9 +45,9 @@ def save_logs(snowflake_home):
 
 @pytest.fixture()
 def _widen_umask_for_testing():
-    os.umask(0o000)
+    original_mask = os.umask(0o000)
     yield
-    os.umask(0o077)
+    os.umask(original_mask)
 
 
 def _read_logs(logs_path: Path) -> str:
