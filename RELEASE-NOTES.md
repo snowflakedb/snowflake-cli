@@ -23,6 +23,7 @@
 * Added support for `title` field in Streamlit definition in `snowflake.yml` project file.
 
 ## Fixes and improvements
+* Passing a directory to `snow app deploy` will now deploy any contained file or subfolder specified in the application's artifact rules
 
 # v2.5.0
 ## Backward incompatibility
