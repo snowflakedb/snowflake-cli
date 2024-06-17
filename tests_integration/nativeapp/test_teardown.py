@@ -154,3 +154,55 @@ def test_nativeapp_teardown_cascade(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("force", [True, False])
+def test_nativeapp_teardown_unowned_app(
+    runner,
+    snowflake_session,
+    temporary_working_directory,
+    force,
+):
+    project_name = "myapp"
+    app_name = f"{project_name}_{USER_NAME}"
+
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        result = runner.invoke_with_connection_json(
+            ["app", "run"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            result = runner.invoke_with_connection_json(
+                ["sql", "-q", f"alter application {app_name} set comment = 'foo'"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            if force:
+                result = runner.invoke_with_connection_json(
+                    ["app", "teardown", "--force"],
+                    env=TEST_ENV,
+                )
+                assert result.exit_code == 0
+            else:
+                result = runner.invoke_with_connection_json(
+                    ["app", "teardown"],
+                    env=TEST_ENV,
+                )
+                assert result.exit_code == 1
+
+        finally:
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
