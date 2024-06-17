@@ -66,7 +66,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             cc.message(f"Dropped {object_type} {object_name} successfully.")
 
     def _application_objects_to_str(
-        self, application_objects: ApplicationOwnedObject
+        self, application_objects: list[ApplicationOwnedObject]
     ) -> str:
         """
         Returns a list in an "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
