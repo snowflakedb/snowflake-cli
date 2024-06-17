@@ -67,7 +67,7 @@
 # name: test_help_messages[app.deploy]
   '''
                                                                                   
-   Usage: default app deploy [OPTIONS] [FILES]...                                 
+   Usage: default app deploy [OPTIONS] [PATHS]...                                 
                                                                                   
    Creates an application package in your Snowflake account and syncs the local   
    changes to the stage without creating or updating the application. Running     
@@ -75,11 +75,14 @@
    for `snow app deploy --prune --recursive`.                                     
                                                                                   
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-  │   files      [FILES]...  Paths, relative to the the project root, of files   │
-  │                          you want to upload to a stage. The paths must match │
-  │                          one of the artifacts src pattern entries in         │
-  │                          snowflake.yml. If unspecified, the command syncs    │
-  │                          all local changes to the stage.                     │
+  │   paths      [PATHS]...  Paths, relative to the the project root, of files   │
+  │                          or directories you want to upload to a stage. If a  │
+  │                          file is specified, it must match one of the         │
+  │                          artifacts src pattern entries in snowflake.yml. If  │
+  │                          a directory is specified, it will be searched for   │
+  │                          subfolders or files to deploy based on artifacts    │
+  │                          src pattern entries. If unspecified, the command    │
+  │                          syncs all local changes to the stage.               │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --prune          --no-prune              Whether to delete specified files   │
@@ -87,7 +90,8 @@
   │                                          locally. If set, the command        │
   │                                          deletes files that exist in the     │
   │                                          stage, but not in the local         │
-  │                                          filesystem.                         │
+  │                                          filesystem. This option cannot be   │
+  │                                          used when paths are specified.      │
   │                                          [default: no-prune]                 │
   │ --recursive  -r  --no-recursive          Whether to traverse and deploy      │
   │                                          files from subdirectories. If set,  │
