@@ -46,7 +46,7 @@ snow --help
 Requires [Homebrew](https://brew.sh/).
 
 ```bash
-brew tap Snowflake-Labs/snowflake-cli
+brew tap snowflakedb/snowflake-cli
 brew install snowflake-cli
 snow --help
 ```
