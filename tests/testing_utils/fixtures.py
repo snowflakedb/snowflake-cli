@@ -252,6 +252,11 @@ def test_root_path():
     return TEST_DIR
 
 
+@pytest.fixture(scope="session")
+def test_projects_path(test_root_path):
+    return test_root_path / "test_data" / "projects"
+
+
 @pytest.fixture
 def txt_file_in_a_subdir(temp_dir: str) -> Generator:
     subdir = tempfile.TemporaryDirectory(dir=temp_dir)
@@ -259,12 +264,12 @@ def txt_file_in_a_subdir(temp_dir: str) -> Generator:
 
 
 @pytest.fixture
-def project_directory(temp_dir, test_root_path):
+def project_directory(temp_dir, test_projects_path):
     @contextmanager
     def _temporary_project_directory(
         project_name, merge_project_definition: Optional[dict] = None
     ):
-        test_data_file = test_root_path / "test_data" / "projects" / project_name
+        test_data_file = test_projects_path / project_name
         shutil.copytree(test_data_file, temp_dir, dirs_exist_ok=True)
         if merge_project_definition:
             project_definition = yaml.load(
