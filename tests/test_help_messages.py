@@ -14,13 +14,19 @@
 
 from __future__ import annotations
 
+import sys
 from typing import List
 
 import pytest
+from snowflake.cli.api.constants import PYTHON_3_12
 from snowflake.cli.app.commands_registration.command_plugins_loader import (
     load_only_builtin_command_plugins,
 )
 from typer.core import TyperGroup
+
+SNOW_CORTEX_SEARCH = "Performs query search using Cortex Search Services."
+SNOW_CORTEX_COMPLETE = "Given a prompt, the command generates"
+SNOW_CORTEX_HELP = "cortex [OPTIONS] COMMAND [ARGS]..."
 
 
 def iter_through_all_commands(command_groups_only: bool = False):
@@ -77,3 +83,51 @@ def test_help_messages_no_help_flag(runner, snapshot, command):
     result = runner.invoke(command)
     assert result.exit_code == 0
     assert result.output == snapshot
+
+
+@pytest.mark.skipif(
+    sys.version_info < PYTHON_3_12,
+    reason="It tests if cortex search command is hidden when run using Python 3.12",
+)
+def test_cortex_help_messages_for_312(runner, snapshot):
+    result = runner.invoke(["cortex", "--help"])
+    assert result.exit_code == 0
+    assert SNOW_CORTEX_HELP in result.output
+    assert SNOW_CORTEX_COMPLETE in result.output
+    assert SNOW_CORTEX_SEARCH not in result.output
+
+
+@pytest.mark.skipif(
+    sys.version_info < PYTHON_3_12,
+    reason="It tests if cortex search command is hidden when run using Python 3.12",
+)
+def test_cortex_help_messages_for_312_no_help_flag(runner, snapshot):
+    result = runner.invoke(["cortex"])
+    assert result.exit_code == 0
+    assert SNOW_CORTEX_HELP in result.output
+    assert SNOW_CORTEX_COMPLETE in result.output
+    assert SNOW_CORTEX_SEARCH not in result.output
+
+
+@pytest.mark.skipif(
+    sys.version_info >= PYTHON_3_12,
+    reason="Snow Cortex Search should be only visible in Python version 3.11 and older",
+)
+def test_cortex_help_messages_for_311_and_less(runner, snapshot):
+    result = runner.invoke(["cortex", "--help"])
+    assert result.exit_code == 0
+    assert SNOW_CORTEX_HELP in result.output
+    assert SNOW_CORTEX_COMPLETE in result.output
+    assert SNOW_CORTEX_SEARCH in result.output
+
+
+@pytest.mark.skipif(
+    sys.version_info >= PYTHON_3_12,
+    reason="Snow Cortex Search should be only visible in Python version 3.11 and older",
+)
+def test_cortex_help_messages_for_311_and_less_no_help_flag(runner, snapshot):
+    result = runner.invoke(["cortex"])
+    assert result.exit_code == 0
+    assert SNOW_CORTEX_HELP in result.output
+    assert SNOW_CORTEX_COMPLETE in result.output
+    assert SNOW_CORTEX_SEARCH in result.output

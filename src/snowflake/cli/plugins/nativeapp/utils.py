@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from sys import stdin, stdout
-from typing import List, Optional, Union
+from typing import Iterable, Optional, Union
 
 from click import ClickException
 
@@ -85,7 +85,7 @@ def shallow_git_clone(url: Union[str, os.PathLike], to_path: Union[str, os.PathL
     return repo
 
 
-def verify_no_directories(paths_to_sync: List[Path]):
+def verify_no_directories(paths_to_sync: Iterable[Path]):
     for path in paths_to_sync:
         if path.is_dir():
             raise ClickException(
