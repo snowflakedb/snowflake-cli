@@ -40,3 +40,6 @@ class Streamlit(UpdatableModel, ObjectIdentifierModel(object_name="Streamlit")):
         title="List of additional files which should be included into deployment artifacts",
         default=None,
     )
+    title: Optional[str] = Field(
+        title="Human-readable title for the Streamlit dashboard", default=None
+    )
