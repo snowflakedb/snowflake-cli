@@ -66,7 +66,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             cc.message(f"Dropped {object_type} {object_name} successfully.")
 
     def _application_objects_to_str(
-        self, application_objects: ApplicationOwnedObject
+        self, application_objects: list[ApplicationOwnedObject]
     ) -> str:
         """
         Returns a list in an "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
@@ -103,30 +103,28 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
 
         # 3. Check if created by the Snowflake CLI
         row_comment = show_obj_row[COMMENT_COL]
-        if row_comment in ALLOWED_SPECIAL_COMMENTS:
-            # No confirmation needed before dropping
-            needs_confirm = False
-        else:
-            if needs_confirmation(needs_confirm, auto_yes):
-                should_drop_object = typer.confirm(
-                    dedent(
-                        f"""\
-                            Application object {self.app_name} was not created by Snowflake CLI.
-                            Application object details:
-                            Name: {self.app_name}
-                            Created on: {show_obj_row["created_on"]}
-                            Source: {show_obj_row["source"]}
-                            Owner: {show_obj_row[OWNER_COL]}
-                            Comment: {show_obj_row[COMMENT_COL]}
-                            Version: {show_obj_row["version"]}
-                            Patch: {show_obj_row["patch"]}
-                            Are you sure you want to drop it?
-                        """
-                    )
+        if row_comment not in ALLOWED_SPECIAL_COMMENTS and needs_confirmation(
+            needs_confirm, auto_yes
+        ):
+            should_drop_object = typer.confirm(
+                dedent(
+                    f"""\
+                        Application object {self.app_name} was not created by Snowflake CLI.
+                        Application object details:
+                        Name: {self.app_name}
+                        Created on: {show_obj_row["created_on"]}
+                        Source: {show_obj_row["source"]}
+                        Owner: {show_obj_row[OWNER_COL]}
+                        Comment: {show_obj_row[COMMENT_COL]}
+                        Version: {show_obj_row["version"]}
+                        Patch: {show_obj_row["patch"]}
+                        Are you sure you want to drop it?
+                    """
                 )
-                if not should_drop_object:
-                    cc.message(f"Did not drop application object {self.app_name}.")
-                    return  # The user desires to keep the app, therefore exit gracefully
+            )
+            if not should_drop_object:
+                cc.message(f"Did not drop application object {self.app_name}.")
+                return  # The user desires to keep the app, therefore exit gracefully
 
         # 4. Check for application objects owned by the application
         application_objects = self.get_objects_owned_by_application()
@@ -143,18 +141,17 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                     f"The following objects are owned by application {self.app_name}:\n{application_objects_str}"
                 )
             elif interactive:
-                if interactive:
-                    user_response = typer.prompt(
-                        f"The following objects are owned by application {self.app_name}:\n{application_objects_str}\n\nWould you like to drop these objects in addition to the application? [y/n/ABORT]",
-                        show_default=False,
-                        default="ABORT",
-                    )
-                    if user_response in ["y", "yes", "Y", "Yes", "YES"]:
-                        cascade = True
-                    elif user_response in ["n", "no", "N", "No", "NO"]:
-                        cascade = False
-                    else:
-                        raise typer.Abort()
+                user_response = typer.prompt(
+                    f"The following objects are owned by application {self.app_name}:\n{application_objects_str}\n\nWould you like to drop these objects in addition to the application? [y/n/ABORT]",
+                    show_default=False,
+                    default="ABORT",
+                ).lower()
+                if user_response in ["y", "yes"]:
+                    cascade = True
+                elif user_response in ["n", "no"]:
+                    cascade = False
+                else:
+                    raise typer.Abort()
             else:
                 cc.message(
                     f"The following application objects are owned by application {self.app_name}:\n{application_objects_str}\n\nRe-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application."
