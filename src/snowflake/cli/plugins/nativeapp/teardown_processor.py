@@ -143,18 +143,17 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                     f"The following objects are owned by application {self.app_name}:\n{application_objects_str}"
                 )
             elif interactive:
-                if interactive:
-                    user_response = typer.prompt(
-                        f"The following objects are owned by application {self.app_name}:\n{application_objects_str}\n\nWould you like to drop these objects in addition to the application? [y/n/ABORT]",
-                        show_default=False,
-                        default="ABORT",
-                    )
-                    if user_response in ["y", "yes", "Y", "Yes", "YES"]:
-                        cascade = True
-                    elif user_response in ["n", "no", "N", "No", "NO"]:
-                        cascade = False
-                    else:
-                        raise typer.Abort()
+                user_response = typer.prompt(
+                    f"The following objects are owned by application {self.app_name}:\n{application_objects_str}\n\nWould you like to drop these objects in addition to the application? [y/n/ABORT]",
+                    show_default=False,
+                    default="ABORT",
+                ).lower()
+                if user_response in ["y", "yes"]:
+                    cascade = True
+                elif user_response in ["n", "no"]:
+                    cascade = False
+                else:
+                    raise typer.Abort()
             else:
                 cc.message(
                     f"The following application objects are owned by application {self.app_name}:\n{application_objects_str}\n\nRe-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application."
