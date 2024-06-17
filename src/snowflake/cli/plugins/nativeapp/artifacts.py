@@ -194,6 +194,12 @@ class _ArtifactPathMap:
         """
         return self.__src_to_dest.get(src, [])
 
+    def all_sources(self) -> Iterable[Path]:
+        """
+        Returns all source paths associated with this map, in insertion order.
+        """
+        return self.__src_to_dest.keys()
+
     def __iter__(self) -> Iterator[Tuple[Path, Path]]:
         """
         Returns all (source, destination) pairs known to this map, in insertion order.
@@ -402,6 +408,9 @@ class BundleMap:
         """
         Converts a source path to its corresponding deploy root path. If the input path is relative to the project root,
         a path relative to the deploy root is returned. If the input path is absolute, an absolute path is returned.
+        Note that the provided source path must be part of a mapping. If the source path is not part of any mapping,
+        an empty list is returned. For example, if `app/*` is specified as the source of a mapping,
+        `to_deploy_paths(Path("app"))` will not yield any result.
 
         Returns:
             The deploy root paths for the given source path, or an empty list if no such path exists.
@@ -434,6 +443,19 @@ class BundleMap:
                 )
 
         return output_destinations
+
+    def all_sources(self, absolute: bool = False) -> Iterator[Path]:
+        """
+        Yields each registered artifact source in the project.
+
+        Arguments:
+            self: this instance
+            absolute (bool): Specifies whether the yielded paths should be joined with the absolute project root.
+        Returns:
+          An iterator over all artifact mapping source paths.
+        """
+        for src in self._artifact_map.all_sources():
+            yield self._to_output_src(src, absolute)
 
     def _absolute_src(self, src: Path) -> Path:
         if src.is_absolute():
