@@ -541,7 +541,7 @@ def symlink_or_copy(src: Path, dst: Path, deploy_root: Path) -> None:
             relative_root = Path(root).relative_to(absolute_src)
             absolute_root_in_deploy = Path(dst, relative_root)
             absolute_root_in_deploy.mkdir(parents=True, exist_ok=True)
-            for file in files:
+            for file in sorted(files):
                 absolute_file_in_project = Path(absolute_src, relative_root, file)
                 absolute_file_in_deploy = Path(absolute_root_in_deploy, file)
                 symlink_or_copy(
