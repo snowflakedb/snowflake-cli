@@ -19,7 +19,6 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from jinja2 import UndefinedError
 from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
 from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
@@ -106,7 +105,7 @@ def test_resolve_variables_in_project_cross_project_dependencies():
     {
         "lowercase": "new_lowercase_value",
         "UPPERCASE": "new_uppercase_value",
-        "should_be_replace_by_env": "test succeeded",
+        "should_be_replaced_by_env": "test succeeded",
         "value_from_env": "this comes from os.environ",
     },
     clear=True,
@@ -115,7 +114,7 @@ def test_resolve_variables_in_project_environment_variables_precedence():
     definition = {
         "definition_version": "1.1",
         "env": {
-            "should_be_replace_by_env": "test failed",
+            "should_be_replaced_by_env": "test failed",
             "test_variable": "<% ctx.env.lowercase %> and <% ctx.env.UPPERCASE %>",
             "test_variable_2": "<% ctx.env.value_from_env %>",
         },
@@ -125,14 +124,15 @@ def test_resolve_variables_in_project_environment_variables_precedence():
     assert result == {
         "definition_version": "1.1",
         "env": {
-            "UPPERCASE": "new_uppercase_value",
-            "lowercase": "new_lowercase_value",
-            "should_be_replace_by_env": "test succeeded",
+            "should_be_replaced_by_env": "test failed",
             "test_variable": "new_lowercase_value and new_uppercase_value",
             "test_variable_2": "this comes from os.environ",
-            "value_from_env": "this comes from os.environ",
         },
     }
+    assert result["env"]["lowercase"] == "new_lowercase_value"
+    assert result["env"]["UPPERCASE"] == "new_uppercase_value"
+    assert result["env"]["should_be_replaced_by_env"] == "test succeeded"
+    assert result["env"]["value_from_env"] == "this comes from os.environ"
 
 
 @mock.patch.dict(os.environ, {"env_var": "<% ctx.definition_version %>"}, clear=True)
@@ -155,9 +155,10 @@ def test_env_variables_do_not_get_resolved():
         },
         "env": {
             "reference_to_name": "test_source_<% ctx.definition_version %>",
-            "env_var": "<% ctx.definition_version %>",
         },
     }
+
+    assert result["env"]["env_var"] == "<% ctx.definition_version %>"
 
 
 @pytest.mark.parametrize(
@@ -230,7 +231,7 @@ def test_resolve_variables_error_on_cycle(definition):
     ],
 )
 def test_resolve_variables_reference_non_scalar(definition, error_var):
-    with pytest.raises(UndefinedError) as err:
+    with pytest.raises(InvalidTemplate) as err:
         render_definition_template(definition)
 
     assert (
@@ -259,11 +260,12 @@ def test_resolve_variables_blank_is_ok():
         "definition_version": "1.1",
         "native_app": {"name": "", "source_stage": "", "deploy_root": ""},
         "env": {
-            "blank_env": "",
             "blank_default_env": "",
             "refers_to_blank": "",
         },
     }
+
+    assert result["env"]["blank_env"] == ""
 
 
 @pytest.mark.parametrize(
@@ -282,7 +284,7 @@ def test_resolve_variables_fails_if_referencing_unknown_variable(env, msg):
         "definition_version": "1.1",
         "env": env,
     }
-    with pytest.raises(UndefinedError) as err:
+    with pytest.raises(InvalidTemplate) as err:
         render_definition_template(definition)
     assert msg in str(err.value)
 
@@ -331,9 +333,10 @@ def test_injected_yml_in_env_should_not_be_expanded():
         "definition_version": "1.1",
         "env": {
             "test_env": "    - app/*\n    - src\n",
-            "var_with_yml": "    - app/*\n    - src\n",
         },
     }
+
+    assert result["env"]["var_with_yml"] == "    - app/*\n    - src\n"
 
 
 @pytest.mark.parametrize(
@@ -357,3 +360,33 @@ def test_invalid_templating_syntax(template_value):
         render_definition_template(definition)
 
     assert err.value.message == f"Unexpected templating syntax in {template_value}"
+
+
+def test_invalid_type_for_env_section():
+    definition = {
+        "definition_version": "1.1",
+        "env": ["test_env", "array_val1"],
+    }
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition)
+
+    assert (
+        err.value.message
+        == "env section in project definition file should be a mapping"
+    )
+
+
+def test_invalid_type_for_env_variable():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "test_env": ["array_val1"],
+        },
+    }
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition)
+
+    assert (
+        err.value.message
+        == "Variable test_env in env section or project definition file should be a scalar"
+    )

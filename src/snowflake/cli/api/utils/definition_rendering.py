@@ -18,11 +18,12 @@ import copy
 import os
 from typing import Any, Optional
 
-from jinja2 import Environment, UndefinedError, nodes
+from jinja2 import Environment, nodes
 from packaging.version import Version
 from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
-from snowflake.cli.api.utils.dict_utils import deep_merge_dicts, traverse
+from snowflake.cli.api.utils.dict_utils import traverse
 from snowflake.cli.api.utils.graph import Graph, Node
+from snowflake.cli.api.utils.models import EnvironWithDefinedDictFallback
 from snowflake.cli.api.utils.rendering import CONTEXT_KEY, get_snowflake_cli_jinja_env
 from snowflake.cli.api.utils.types import Context, Definition
 
@@ -146,7 +147,7 @@ class TemplateVar:
 
         Returns the value in that location.
 
-        Raise UndefinedError if the variable is None or not found.
+        Raise InvalidTemplate if the variable is None or not found.
         """
         current_dict_level = context
         for key in self._vars_chain:
@@ -154,12 +155,12 @@ class TemplateVar:
                 not isinstance(current_dict_level, dict)
                 or key not in current_dict_level
             ):
-                raise UndefinedError(f"Could not find template variable {self.key}")
+                raise InvalidTemplate(f"Could not find template variable {self.key}")
             current_dict_level = current_dict_level[key]
 
         value = current_dict_level
         if value is None or isinstance(value, (dict, list)):
-            raise UndefinedError(
+            raise InvalidTemplate(
                 f"Template variable {self.key} does not contain a valid value"
             )
 
@@ -263,6 +264,8 @@ def render_definition_template(original_definition: Definition) -> Definition:
         definition,
         update_action=lambda val: template_env.render(val, final_context),
     )
-    deep_merge_dicts(definition, {"env": dict(os.environ)})
+
+    current_env = definition.setdefault("env", {})
+    definition["env"] = EnvironWithDefinedDictFallback(current_env)
 
     return definition
