@@ -53,7 +53,7 @@ def test_executing_command_sends_telemetry_data(
             "command_flags": {"diag_log_path": "DEFAULT", "format": "DEFAULT"},
             "command_output_type": "TABLE",
             "type": "executing_command",
-            "project_definition_version": "no_definition",
+            "project_definition_version": "None",
             "config_feature_flags": {
                 "dummy_flag": "True",
                 "foo": "False",

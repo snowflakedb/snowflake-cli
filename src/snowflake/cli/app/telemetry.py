@@ -76,16 +76,16 @@ def _find_command_info() -> TelemetryDict:
         CLITelemetryField.COMMAND_OUTPUT_TYPE: ctx.params.get(
             "format", OutputFormat.TABLE
         ).value,
-        CLITelemetryField.PROJECT_DEFINITION_VERSION: _get_definition_version(),
+        CLITelemetryField.PROJECT_DEFINITION_VERSION: str(_get_definition_version()),
     }
 
 
-def _get_definition_version() -> str:
+def _get_definition_version() -> str | None:
     from snowflake.cli.api.cli_global_context import cli_context
 
     if cli_context.project_definition:
         return cli_context.project_definition.definition_version
-    return "no_definition"
+    return None
 
 
 def command_info() -> str:
