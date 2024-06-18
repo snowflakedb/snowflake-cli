@@ -17,8 +17,26 @@ from __future__ import annotations
 import os
 from typing import Any, Dict
 
+from snowflake.cli.api.exceptions import InvalidTemplate
+
+
+def _validate_env(current_env: dict):
+    if not isinstance(current_env, dict):
+        raise InvalidTemplate(
+            "env section in project definition file should be a mapping"
+        )
+    for variable, value in current_env.items():
+        if value is None or isinstance(value, (dict, list)):
+            raise InvalidTemplate(
+                f"Variable {variable} in env section or project definition file should be a scalar"
+            )
+
 
 class EnvironWithDefinedDictFallback(Dict):
+    def __init__(self, dict_input: dict):
+        _validate_env(dict_input)
+        super().__init__(dict_input)
+
     def __getattr__(self, item):
         try:
             return self[item]
