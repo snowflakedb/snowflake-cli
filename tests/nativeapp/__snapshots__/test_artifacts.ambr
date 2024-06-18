@@ -226,42 +226,6 @@
   Text GrandA/ParentA/ChildA/GrandChildB.py
   '''
 # ---
-# name: test_symlink_or_copy_with_no_symlinks_in_project_root.20
-  '''
-  d output/deploy/Grand4/Parent3
-  d output/deploy/Grand4/Parent3/ChildA
-  f output/deploy/Grand4/Parent3/ChildA/GrandChildA
-  f output/deploy/Grand4/Parent3/ChildA/GrandChildB.py
-  d output/deploy/Grand4/Parent3/ChildA/GrandChildC
-  f output/deploy/Grand4/Parent3/ChildB.py
-  f output/deploy/Grand4/Parent3/ChildC
-  d output/deploy/Grand4/Parent3/ChildD
-  '''
-# ---
-# name: test_symlink_or_copy_with_no_symlinks_in_project_root.21
-  '''
-  ===== Contents of: output/deploy/Grand4/Parent3/ChildA/GrandChildA =====
-  Text GrandA/ParentA/ChildA/GrandChildA
-  '''
-# ---
-# name: test_symlink_or_copy_with_no_symlinks_in_project_root.22
-  '''
-  ===== Contents of: output/deploy/Grand4/Parent3/ChildA/GrandChildB.py =====
-  Text GrandA/ParentA/ChildA/GrandChildB.py
-  '''
-# ---
-# name: test_symlink_or_copy_with_no_symlinks_in_project_root.23
-  '''
-  ===== Contents of: output/deploy/Grand4/Parent3/ChildB.py =====
-  Text GrandA/ParentA/ChildB.py
-  '''
-# ---
-# name: test_symlink_or_copy_with_no_symlinks_in_project_root.24
-  '''
-  ===== Contents of: output/deploy/Grand4/Parent3/ChildC =====
-  Text GrandA/ParentA/ChildC
-  '''
-# ---
 # name: test_symlink_or_copy_with_no_symlinks_in_project_root.3
   '''
   ===== Contents of: GrandA/ParentA/ChildB.py =====
