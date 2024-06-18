@@ -187,3 +187,46 @@ def test_create(object_type, object_definition, runner, test_database):
     with _cleanup_object():
         list_definition = [f"{key}={value}" for key, value in object_definition.items()]
         _test_create(list_definition)
+
+
+@pytest.mark.integration
+def test_create_errors(runner, test_database, caplog):
+
+    # conflict - an object already exists
+    schema_name = "schema_noble_knight"
+    result = runner.invoke_with_connection(
+        ["object", "create", "schema", f"name={schema_name}"]
+    )
+    assert result.exit_code == 0, result.output
+    result = runner.invoke_with_connection(
+        ["object", "create", "schema", f"name={schema_name}", "--debug"]
+    )
+    assert result.exit_code == 1
+    assert "An unexpected error occurred while creating the object." in result.output
+    assert "object you are trying to create already exists" in result.output
+    assert "409 Conflict" in caplog.text
+    caplog.clear()
+
+    # misspelled argument
+    schema_name = "another_schema_name"
+    result = runner.invoke_with_connection(
+        ["object", "create", "schema", f"named={schema_name}", "--debug"]
+    )
+    assert result.exit_code == 1
+    assert (
+        "Incorrect object definition (arguments misspelled or malformatted)."
+        in result.output
+    )
+    assert "HTTP 400: Bad Request" in caplog.text
+    caplog.clear()
+
+    # object type that don't exist
+    result = runner.invoke_with_connection(
+        ["object", "create", "type_that_does_not_exist", "name=anything", "--debug"]
+    )
+    assert result.exit_code == 0
+    assert (
+        "Create operation for type type_that_does_not_exist is not supported. Try using `sql -q 'CREATE ...'` command"
+        in result.output
+    )
+    assert "404 Not Found" in caplog.text
