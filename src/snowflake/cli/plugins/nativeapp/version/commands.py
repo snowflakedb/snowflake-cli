@@ -89,7 +89,7 @@ def create(
         git_policy = AllowAlwaysPolicy()
 
     processor = NativeAppVersionCreateProcessor(
-        project_definition=cli_context.project_definition,
+        project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
     )
 
@@ -115,7 +115,7 @@ def version_list(
     Lists all versions defined in an application package.
     """
     processor = NativeAppRunProcessor(
-        project_definition=cli_context.project_definition,
+        project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
     )
     cursor = processor.get_all_existing_versions()
@@ -147,7 +147,7 @@ def drop(
         policy = DenyAlwaysPolicy()
 
     processor = NativeAppVersionDropProcessor(
-        project_definition=cli_context.project_definition,
+        project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
     )
     processor.process(version, policy, is_interactive)
