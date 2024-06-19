@@ -151,12 +151,12 @@ def test_sync_deploy_root_with_stage(
     [
         [
             True,
-            ["only-stage.txt"],
+            [StagePath("only-stage.txt")],
             False,
         ],
         [
             False,
-            ["only-stage-1.txt", "only-stage-2.txt"],
+            [StagePath("only-stage-1.txt"), StagePath("only-stage-2.txt")],
             True,
         ],
     ],
@@ -189,7 +189,7 @@ def test_sync_deploy_root_with_stage_prune(
     )
 
     if expected_warn:
-        files_str = "\n".join(only_on_stage_files)
+        files_str = "\n".join([str(f) for f in only_on_stage_files])
         warn_message = f"""The following files exist only on the stage:
 {files_str}
 
