@@ -505,10 +505,10 @@ def project_type_option(project_name: str):
 
     def _callback(project_path: Optional[str]):
         dm = DefinitionManager(project_path)
-        project_definition = getattr(dm.project_definition, project_name, None)
+        project_definition = dm.project_definition
         project_root = dm.project_root
 
-        if not project_definition:
+        if not getattr(project_definition, project_name, None):
             raise NoProjectDefinitionError(
                 project_type=project_name, project_file=project_path
             )
