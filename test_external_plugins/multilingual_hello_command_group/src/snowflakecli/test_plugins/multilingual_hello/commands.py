@@ -13,19 +13,14 @@
 # limitations under the License.
 
 import typer
-from snowflake.cli.api.commands.decorators import (
-    global_options_with_connection,
-    with_output,
-)
-from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
+from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflakecli.test_plugins.multilingual_hello.hello_language import HelloLanguage
 from snowflakecli.test_plugins.multilingual_hello.manager import (
     MultilingualHelloManager,
 )
 
-app = typer.Typer(
-    context_settings=DEFAULT_CONTEXT_SETTINGS,
+app = SnowTyper(
     name="multilingual-hello",
     help="Says hello in various languages",
 )
@@ -40,9 +35,7 @@ def _hello(
     return SingleQueryResult(cursor)
 
 
-@app.command("hello-en")
-@with_output
-@global_options_with_connection
+@app.command("hello-en", requires_connection=True)
 def hello_en(
     name: str = typer.Argument(help="Your name"),
     **options,
@@ -53,9 +46,7 @@ def hello_en(
     return _hello(name, HelloLanguage.en)
 
 
-@app.command("hello-fr")
-@with_output
-@global_options_with_connection
+@app.command("hello-fr", requires_connection=True)
 def hello_fr(
     name: str = typer.Argument(help="Your name"),
     **options,
@@ -66,9 +57,7 @@ def hello_fr(
     return _hello(name, HelloLanguage.fr)
 
 
-@app.command("hello")
-@with_output
-@global_options_with_connection
+@app.command("hello", requires_connection=True)
 def hello(
     name: str = typer.Argument(help="Your name"),
     language: HelloLanguage = typer.Option(..., "--language", help="Your language"),

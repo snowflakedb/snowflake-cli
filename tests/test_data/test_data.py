@@ -15,9 +15,9 @@
 from snowflake.cli.plugins.snowpark.models import Requirement
 
 requirements = [
-    "simplefakename==1.0.0",
-    "dashed-fake-name>=3.2.1",
-    "Underscore_Fake_Name<3.3.3",
+    "pytest==1.0.0",
+    "snowflake-sqlalchemy>=3.2.1",
+    "Snowflake_Connector_Python<3.3.3",
 ]
 
 packages = [

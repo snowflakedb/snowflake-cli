@@ -54,6 +54,7 @@ def test_streamlit_deploy(
             f"describe streamlit {streamlit_name}"
         )
         assert contains_row_with(result.json, row_from_snowflake_session(expect)[0])
+        assert contains_row_with(result.json, {"title": "My Fancy Streamlit"})
 
         result = runner.invoke_with_connection_json(
             ["streamlit", "get-url", streamlit_name]

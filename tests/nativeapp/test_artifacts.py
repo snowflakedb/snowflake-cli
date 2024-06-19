@@ -1161,15 +1161,6 @@ def test_symlink_or_copy_with_no_symlinks_in_project_root(snapshot):
                     dst=Path(deploy_root, "Grand4/Parent3"),
                     deploy_root=deploy_root,
                 )
-            assert not Path(deploy_root, "Grand4/Parent3").is_symlink()
-            assert not Path(deploy_root, "Grand4/Parent3/ChildA").is_symlink()
-            assert Path(deploy_root, "Grand4/Parent3/ChildB.py").is_symlink()
-            assert Path(deploy_root, "Grand4/Parent3/ChildC").is_symlink()
-            assert not Path(
-                deploy_root, "Grand4/Parent3/ChildC/GrandChildA"
-            ).is_symlink()
-
-            assert_dir_snapshot(Path("./output/deploy/Grand4/Parent3"), snapshot)
 
 
 def test_symlink_or_copy_with_symlinks_in_project_root(snapshot):

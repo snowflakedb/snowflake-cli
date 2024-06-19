@@ -153,7 +153,7 @@ def app_bundle(
     Prepares a local folder with configured app artifacts.
     """
     manager = NativeAppManager(
-        project_definition=cli_context.project_definition,
+        project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
     )
     manager.build_bundle()
@@ -201,7 +201,7 @@ def app_run(
         policy = DenyAlwaysPolicy()
 
     processor = NativeAppRunProcessor(
-        project_definition=cli_context.project_definition,
+        project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
     )
     bundle_map = processor.build_bundle()
@@ -230,7 +230,7 @@ def app_open(
     once it has been installed in your account.
     """
     manager = NativeAppManager(
-        project_definition=cli_context.project_definition,
+        project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
     )
     if manager.get_existing_app_info():
@@ -258,7 +258,7 @@ def app_teardown(
     Attempts to drop both the application object and application package as defined in the project definition file.
     """
     processor = NativeAppTeardownProcessor(
-        project_definition=cli_context.project_definition,
+        project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
     )
     processor.process(interactive, force, cascade)
@@ -310,7 +310,7 @@ def app_deploy(
         raise ClickException("--prune cannot be used when paths are also specified")
 
     manager = NativeAppManager(
-        project_definition=cli_context.project_definition,
+        project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
     )
 
@@ -335,7 +335,7 @@ def app_validate(**options):
     Validates a deployed Snowflake Native App's setup script.
     """
     manager = NativeAppManager(
-        project_definition=cli_context.project_definition,
+        project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
     )
     if cli_context.output_format == OutputFormat.JSON:

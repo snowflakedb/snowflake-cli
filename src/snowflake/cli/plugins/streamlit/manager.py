@@ -78,6 +78,7 @@ class StreamlitManager(SqlExecutionMixin):
         experimental: Optional[bool] = None,
         query_warehouse: Optional[str] = None,
         from_stage_name: Optional[str] = None,
+        title: Optional[str] = None,
     ):
         query = []
         if replace:
@@ -98,6 +99,8 @@ class StreamlitManager(SqlExecutionMixin):
 
         if query_warehouse:
             query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
+        if title:
+            query.append(f"TITLE = '{title}'")
 
         self._execute_query("\n".join(query))
 
@@ -111,6 +114,7 @@ class StreamlitManager(SqlExecutionMixin):
         query_warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
         additional_source_files: Optional[List[str]] = None,
+        title: Optional[str] = None,
         **options,
     ):
         # for backwards compatibility - quoted stage path might be case-sensitive
@@ -134,6 +138,7 @@ class StreamlitManager(SqlExecutionMixin):
                 replace=replace,
                 query_warehouse=query_warehouse,
                 experimental=True,
+                title=title,
             )
             try:
                 self._execute_query(f"ALTER streamlit {fully_qualified_name} CHECKOUT")
@@ -187,6 +192,7 @@ class StreamlitManager(SqlExecutionMixin):
                 query_warehouse=query_warehouse,
                 from_stage_name=root_location,
                 experimental=False,
+                title=title,
             )
 
         return self.get_url(fully_qualified_name)
