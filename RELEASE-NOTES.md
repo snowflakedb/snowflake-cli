@@ -52,6 +52,7 @@
 * Improved error message in `snow spcs image-registry login` when docker is not installed.
 * Improved detection of conflicts between artifact rules for native application projects
 * Fixed URL generation for applications, streamlits, and notebooks that use a quoted identifier with spaces.
+* Fixes markup escaping errors in `snow sql` that may occur when users use unintentionally markup-like escape tags.
 
 # v2.4.0
 ## Backward incompatibility
