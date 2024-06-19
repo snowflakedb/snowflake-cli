@@ -51,6 +51,7 @@ def test_nativeapp_deploy(
     snowflake_session,
     temporary_working_directory,
     snapshot,
+    print_paths_as_posix,
 ):
     project_name = "myapp"
     result = runner.invoke_json(
@@ -139,6 +140,7 @@ def test_nativeapp_deploy_prune(
     snowflake_session,
     temporary_working_directory,
     snapshot,
+    print_paths_as_posix,
 ):
     project_name = "myapp"
     result = runner.invoke_json(
@@ -200,6 +202,7 @@ def test_nativeapp_deploy_files(
     runner,
     temporary_working_directory,
     snapshot,
+    print_paths_as_posix,
 ):
     project_name = "myapp"
     result = runner.invoke_json(
@@ -259,6 +262,7 @@ def test_nativeapp_deploy_nested_directories(
     runner,
     temporary_working_directory,
     snapshot,
+    print_paths_as_posix,
 ):
     project_name = "myapp"
     project_dir = "app root"
@@ -498,6 +502,7 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
     runner,
     temporary_working_directory,
     snapshot,
+    print_paths_as_posix,
 ):
     project_name = "myapp"
     project_dir = "app root"
@@ -622,6 +627,7 @@ def test_nativeapp_deploy_dot(
     runner,
     temporary_working_directory,
     snapshot,
+    print_paths_as_posix,
 ):
     project_name = "myapp"
     project_dir = "app root"

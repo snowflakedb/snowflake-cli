@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from tests_integration.testing_utils.assertions.test_file_assertions import *
-from tests_integration.testing_utils.assertions.test_result_assertions import *
-from tests_integration.testing_utils.naming_utils import *
-from tests_integration.testing_utils.path_utils import *
-from tests_integration.testing_utils.snowpark_utils import *
-from tests_integration.testing_utils.sql_utils import *
-from tests_integration.testing_utils.working_directory_utils import *
+import pytest
+import unittest.mock as mock
+
+from pathlib import PurePosixPath
+
+
+@pytest.fixture
+def print_paths_as_posix():
+    with mock.patch("pathlib.WindowsPath.__str__", autospec=True) as mock_str:
+        mock_str.side_effect = lambda path: str(PurePosixPath(*path.parts))
+        yield mock_str

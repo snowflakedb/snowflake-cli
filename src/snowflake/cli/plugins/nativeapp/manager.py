@@ -397,7 +397,7 @@ class NativeAppManager(SqlExecutionMixin):
         # Perform a diff operation and display results to the user for informational purposes
         cc.step(
             "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
-            % self.deploy_root
+            % self.deploy_root.resolve()
         )
         diff: DiffResult = compute_stage_diff(self.deploy_root, stage_fqn)
 
@@ -453,7 +453,7 @@ class NativeAppManager(SqlExecutionMixin):
         if diff.has_changes():
             cc.step(
                 "Updating the Snowflake stage from your local %s directory."
-                % self.deploy_root,
+                % self.deploy_root.resolve(),
             )
             sync_local_diff_with_stage(
                 role=role,
