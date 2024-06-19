@@ -42,6 +42,9 @@ NO_ITEMS_FOUND: str = "No data"
 # ensure we do not break URLs that wrap lines
 get_console().soft_wrap = True
 
+# Disable markup to avoid escaping errors
+get_console()._markup = False  # noqa: SLF001
+
 
 class CustomJSONEncoder(JSONEncoder):
     """Custom JSON encoder handling serialization of non-standard types"""
