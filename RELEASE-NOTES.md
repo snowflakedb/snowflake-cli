@@ -21,6 +21,7 @@
 
 ## New additions
 * Added support for `title` field in Streamlit definition in `snowflake.yml` project file.
+* Added `--auto-compress` flag to `snow stage copy` command enabling use of gzip to compress files during upload.
 
 ## Fixes and improvements
 * Passing a directory to `snow app deploy` will now deploy any contained file or subfolder specified in the application's artifact rules
