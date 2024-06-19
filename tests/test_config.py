@@ -218,7 +218,7 @@ def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_ho
     }
 
 
-@pytest.mark.parametrize(
+parametrize_chmod = pytest.mark.parametrize(
     "chmod",
     [
         0o777,
@@ -245,7 +245,12 @@ def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_ho
         0o601,
     ],
 )
-def test_too_wide_permissions_on_config_file(snowflake_home: Path, chmod):
+
+
+@parametrize_chmod
+def test_too_wide_permissions_on_default_config_file_causes_error(
+    snowflake_home: Path, chmod
+):
     config_path = snowflake_home / "config.toml"
     config_path.touch()
     config_path.chmod(chmod)
@@ -263,26 +268,27 @@ def test_too_wide_permissions_on_config_file(snowflake_home: Path, chmod):
         0o744,
         0o740,
         0o704,
-        0o722,
-        0o720,
-        0o702,
-        0o711,
-        0o710,
-        0o701,
         0o677,
         0o670,
         0o644,
         0o640,
         0o604,
-        0o622,
-        0o620,
-        0o602,
-        0o611,
-        0o610,
-        0o601,
     ],
 )
-def test_too_wide_permissions_on_connections_file(snowflake_home: Path, chmod):
+def test_too_wide_permissions_on_custom_config_file_causes_warning(
+    snowflake_home: Path, chmod
+):
+    with NamedTemporaryFile(suffix=".toml") as tmp:
+        config_path = Path(tmp.name)
+        config_path.chmod(chmod)
+        with pytest.warns(UserWarning, match="Bad owner or permissions on"):
+            config_init(config_file=config_path)
+
+
+@parametrize_chmod
+def test_too_wide_permissions_on_default_connections_file_causes_error(
+    snowflake_home: Path, chmod
+):
     config_path = snowflake_home / "config.toml"
     config_path.touch()
     connections_path = snowflake_home / "connections.toml"
