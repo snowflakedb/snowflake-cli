@@ -209,13 +209,14 @@ def test_stage_copy_local_to_remote(mock_execute, runner, mock_cursor):
                 "--overwrite",
                 "--parallel",
                 42,
+                "--auto-compress",
                 str(tmp_dir),
                 "@stageName",
             ]
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f"put file://{Path(tmp_dir).resolve()}/* @stageName auto_compress=false parallel=42 overwrite=True"
+        f"put file://{Path(tmp_dir).resolve()}/* @stageName auto_compress=true parallel=42 overwrite=True"
     )
 
 

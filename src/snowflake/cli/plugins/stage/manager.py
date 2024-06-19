@@ -161,6 +161,7 @@ class StageManager(SqlExecutionMixin):
         parallel: int = 4,
         overwrite: bool = False,
         role: Optional[str] = None,
+        auto_compress: bool = False,
     ) -> SnowflakeCursor:
         """
         This method will take a file path from the user's system and put it into a Snowflake stage,
@@ -174,7 +175,7 @@ class StageManager(SqlExecutionMixin):
             log.info("Uploading %s to %s", local_resolved_path, stage_path)
             cursor = self._execute_query(
                 f"put {self._to_uri(local_resolved_path)} {self.quote_stage_name(stage_path)} "
-                f"auto_compress=false parallel={parallel} overwrite={overwrite}"
+                f"auto_compress={str(auto_compress).lower()} parallel={parallel} overwrite={overwrite}"
             )
         return cursor
 
