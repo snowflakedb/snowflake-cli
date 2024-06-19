@@ -26,8 +26,9 @@ def test_broken_command_path_plugin(runner, test_root_path, _install_plugin, cap
     result = runner.invoke(["--config-file", config_path, "connection", "list"])
     assert result.exit_code == 0, result.output
 
+    assert caplog.messages[0] == "Loaded external plugin: broken_plugin"
     assert (
-        caplog.messages[0]
+        caplog.messages[1]
         == "Cannot register plugin [broken_plugin]: Invalid command path [snow broken run]. Command group [broken] does not exist."
     )
     assert result.output == dedent(

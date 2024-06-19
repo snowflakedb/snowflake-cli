@@ -15,8 +15,12 @@
 import logging
 import os
 
+from snowflake.cli.app import loggers
+
 # Suppress logging from Snowflake connector
 logging.getLogger("snowflake").setLevel(logging.ERROR)
+
+loggers.create_initial_loggers()
 
 # Restrict permissions of all created files
 os.umask(0o077)
