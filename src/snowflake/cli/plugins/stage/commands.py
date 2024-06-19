@@ -21,6 +21,7 @@ from typing import List, Optional
 
 import click
 import typer
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import (
     OnErrorOption,
     PatternOption,
@@ -30,9 +31,11 @@ from snowflake.cli.api.commands.flags import (
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
+    EmptyResult,
     ObjectResult,
     QueryResult,
     SingleQueryResult,
@@ -42,7 +45,11 @@ from snowflake.cli.plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
 )
-from snowflake.cli.plugins.stage.diff import DiffResult, compute_stage_diff
+from snowflake.cli.plugins.stage.diff import (
+    DiffResult,
+    compute_stage_diff,
+    print_diff_to_console,
+)
 from snowflake.cli.plugins.stage.manager import OnErrorType, StageManager
 
 app = SnowTyperFactory(
@@ -173,12 +180,18 @@ def stage_diff(
         show_default=False,
     ),
     **options,
-) -> ObjectResult:
+) -> CommandResult:
     """
     Diffs a stage with a local folder.
     """
-    diff: DiffResult = compute_stage_diff(Path(folder_name), stage_name)
-    return ObjectResult(str(diff))
+    diff: DiffResult = compute_stage_diff(
+        local_root=Path(folder_name), stage_fqn=stage_name
+    )
+    if cli_context.output_format == OutputFormat.JSON:
+        return ObjectResult(diff.to_json())
+    else:
+        print_diff_to_console(diff)
+        return EmptyResult()
 
 
 @app.command("execute", requires_connection=True)

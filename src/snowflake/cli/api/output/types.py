@@ -27,6 +27,15 @@ class CommandResult:
         raise NotImplementedError()
 
 
+class EmptyResult(CommandResult):
+    def __init__(self):
+        pass
+
+    @property
+    def result(self):
+        return ""
+
+
 class ObjectResult(CommandResult):
     def __init__(self, element: t.Dict):
         self._element = element

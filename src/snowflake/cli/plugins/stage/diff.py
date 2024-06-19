@@ -19,7 +19,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Collection, Dict, List, Optional
+from typing import Collection, Dict, List, Optional, Tuple
 
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.abc import AbstractConsole
@@ -64,6 +64,13 @@ class DiffResult:
             or len(self.only_local) > 0
             or len(self.only_on_stage) > 0
         )
+
+    def to_json(self) -> dict:
+        return {
+            "modified": [str(p) for p in sorted(self.different)],
+            "added": [str(p) for p in sorted(self.only_local)],
+            "deleted": [str(p) for p in sorted(self.only_on_stage)],
+        }
 
 
 def is_valid_md5sum(checksum: str) -> bool:
@@ -285,12 +292,37 @@ def sync_local_diff_with_stage(
         raise SnowflakeSQLExecutionError()
 
 
-def _to_source_file(bundle_map: BundleMap, dest_file: StagePath) -> Optional[Path]:
-    return bundle_map.to_project_path(to_local_path(dest_file))
+def _to_src_dest_pair(
+    stage_path: StagePath, bundle_map: Optional[BundleMap]
+) -> Tuple[Optional[Path], Path]:
+    dest_path = to_local_path(stage_path)
+    if not bundle_map:
+        return None, dest_path
+
+    src = bundle_map.to_project_path(dest_path)
+    if src:
+        return src, dest_path
+
+    return Path("?"), dest_path
+
+
+def _to_diff_line(status: str, src: Optional[Path], dest: Path) -> str:
+    if src is None:
+        src_prefix = ""
+    else:
+        src_prefix = f"{src} -> "
+
+    longest_status = "modified"
+    padding = " " * (len(longest_status) - len(status))
+    status_prefix = f"[red]{status}[/red]: {padding}"
+
+    return f"{status_prefix}{src_prefix}{dest}"
 
 
 def print_diff_to_console(
-    diff: DiffResult, bundle_map: BundleMap, console: AbstractConsole = cc
+    diff: DiffResult,
+    bundle_map: Optional[BundleMap] = None,
+    console: AbstractConsole = cc,
 ):
     if not diff.different and not diff.only_local and not diff.only_on_stage:
         console.message("Your stage is up-to-date with your local deploy root")
@@ -300,18 +332,29 @@ def print_diff_to_console(
         console.message("Local changes to be deployed:")
         messages_to_output = []
         for p in diff.different:
-            src = str(_to_source_file(bundle_map, p) or "?")
-            messages_to_output.append((src, f"[red]modified:[/red] {src} -> {p}"))
+            src_dest_pair = _to_src_dest_pair(p, bundle_map)
+            messages_to_output.append(
+                (
+                    src_dest_pair,
+                    _to_diff_line("modified", src_dest_pair[0], src_dest_pair[1]),
+                )
+            )
         for p in diff.only_local:
-            src = str(_to_source_file(bundle_map, p) or "?")
-            messages_to_output.append((src, f"[red]added:[/red]    {src} -> {p}"))
+            src_dest_pair = _to_src_dest_pair(p, bundle_map)
+            messages_to_output.append(
+                (
+                    src_dest_pair,
+                    _to_diff_line("added", src_dest_pair[0], src_dest_pair[1]),
+                )
+            )
 
         with console.indented() as msg:
             for key, message in sorted(messages_to_output, key=lambda pair: pair[0]):
-                msg(f"{message}")
+                msg(message)
 
     if diff.only_on_stage:
-        console.message("Deleted paths to remove from your stage:")
+        console.message("Deleted paths to be removed from your stage:")
         with console.indented() as msg:
             for p in sorted(diff.only_on_stage):
-                msg(f"{p}")
+                diff_line = _to_diff_line("deleted", src=None, dest=to_local_path(p))
+                msg(diff_line)
