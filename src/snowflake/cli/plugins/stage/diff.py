@@ -294,19 +294,19 @@ def sync_local_diff_with_stage(
 
 def _to_src_dest_pair(
     stage_path: StagePath, bundle_map: Optional[BundleMap]
-) -> Tuple[Optional[Path], Path]:
-    dest_path = to_local_path(stage_path)
+) -> Tuple[Optional[str], str]:
     if not bundle_map:
-        return None, dest_path
+        return None, str(stage_path)
 
+    dest_path = to_local_path(stage_path)
     src = bundle_map.to_project_path(dest_path)
     if src:
-        return src, dest_path
+        return str(src), str(stage_path)
 
-    return Path("?"), dest_path
+    return "?", str(stage_path)
 
 
-def _to_diff_line(status: str, src: Optional[Path], dest: Path) -> str:
+def _to_diff_line(status: str, src: Optional[str], dest: str) -> str:
     if src is None:
         src_prefix = ""
     else:
@@ -356,5 +356,5 @@ def print_diff_to_console(
         console.message("Deleted paths to be removed from your stage:")
         with console.indented() as msg:
             for p in sorted(diff.only_on_stage):
-                diff_line = _to_diff_line("deleted", src=None, dest=to_local_path(p))
+                diff_line = _to_diff_line("deleted", src=None, dest=str(p))
                 msg(diff_line)
