@@ -96,6 +96,10 @@ def copy(
         False,
         help="Copy files recursively with directory structure.",
     ),
+    auto_compress: bool = typer.Option(
+        default=False,
+        help="Specifies whether Snowflake uses gzip to compress files during upload. Ignored when downloading.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -127,6 +131,7 @@ def copy(
         destination_path=destination_path,
         parallel=parallel,
         overwrite=overwrite,
+        auto_compress=auto_compress,
     )
 
 
@@ -226,6 +231,7 @@ def _put(
     destination_path: str,
     parallel: int,
     overwrite: bool,
+    auto_compress: bool,
 ):
     if recursive:
         raise click.ClickException("Recursive flag for upload is not supported.")
@@ -238,5 +244,6 @@ def _put(
         stage_path=destination_path,
         overwrite=overwrite,
         parallel=parallel,
+        auto_compress=auto_compress,
     )
     return QueryResult(cursor)

@@ -6521,16 +6521,27 @@
   │                                  [required]                                  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
-  │ --overwrite      --no-overwrite             Overwrites existing files in the │
-  │                                             target path.                     │
-  │                                             [default: no-overwrite]          │
-  │ --parallel                         INTEGER  Number of parallel threads to    │
-  │                                             use when uploading files.        │
-  │                                             [default: 4]                     │
-  │ --recursive      --no-recursive             Copy files recursively with      │
-  │                                             directory structure.             │
-  │                                             [default: no-recursive]          │
-  │ --help       -h                             Show this message and exit.      │
+  │ --overwrite          --no-overwrite                 Overwrites existing      │
+  │                                                     files in the target      │
+  │                                                     path.                    │
+  │                                                     [default: no-overwrite]  │
+  │ --parallel                                 INTEGER  Number of parallel       │
+  │                                                     threads to use when      │
+  │                                                     uploading files.         │
+  │                                                     [default: 4]             │
+  │ --recursive          --no-recursive                 Copy files recursively   │
+  │                                                     with directory           │
+  │                                                     structure.               │
+  │                                                     [default: no-recursive]  │
+  │ --auto-compress      --no-auto-compress             Specifies whether        │
+  │                                                     Snowflake uses gzip to   │
+  │                                                     compress files during    │
+  │                                                     upload. Ignored when     │
+  │                                                     downloading.             │
+  │                                                     [default:                │
+  │                                                     no-auto-compress]        │
+  │ --help           -h                                 Show this message and    │
+  │                                                     exit.                    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
   │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
