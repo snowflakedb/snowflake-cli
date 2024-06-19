@@ -100,6 +100,29 @@ def test_single_collection_result(capsys, mock_cursor):
     )
 
 
+def test_print_markup_tags_in_output_do_not_raise_errors(capsys, mock_cursor):
+    output_data = QueryResult(
+        mock_cursor(
+            columns=["CONCAT('[INST]','FOO', 'TRANSCRIPT','[/INST]')"],
+            rows=[
+                ("[INST]footranscript[/INST]",),
+            ],
+        )
+    )
+    print_result(output_data, output_format=OutputFormat.TABLE)
+
+    assert get_output(capsys) == dedent(
+        """\
+    SELECT A MOCK QUERY
+    +------------------------------------------------+
+    | CONCAT('[INST]','FOO', 'TRANSCRIPT','[/INST]') |
+    |------------------------------------------------|
+    | [INST]footranscript[/INST]                     |
+    +------------------------------------------------+
+    """
+    )
+
+
 def test_print_multi_results_table(capsys, _create_mock_cursor):
     output_data = MultipleResults(
         [
