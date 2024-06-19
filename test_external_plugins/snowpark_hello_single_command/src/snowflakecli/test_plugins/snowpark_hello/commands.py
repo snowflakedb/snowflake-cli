@@ -14,18 +14,17 @@
 
 import typer
 from snowflake.cli.api.commands.decorators import (
-    global_options_with_connection,
     with_output,
 )
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflakecli.test_plugins.snowpark_hello.manager import SnowparkHelloManager
 
-app = typer.Typer(name="hello")
+app = SnowTyperFactory(name="hello")
 
 
-@app.command("hello")
+@app.command("hello", requires_connection=True, requires_global_options=True)
 @with_output
-@global_options_with_connection
 def hello(
     name: str = typer.Argument(help="Your name"),
     **options,
