@@ -15,6 +15,7 @@
 import os
 from textwrap import dedent
 from unittest import mock
+from unittest.mock import MagicMock
 
 import pytest
 import typer
@@ -119,7 +120,7 @@ def test_create_dev_app_w_warehouse_access_exception(
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
 
     assert mock_execute.mock_calls == expected
     assert "Please grant usage privilege on warehouse to this role." in err.value.msg
@@ -170,7 +171,7 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 
@@ -244,7 +245,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
     assert mock_execute_query.mock_calls == mock_execute_query_expected
     assert mock_execute_queries.mock_calls == mock_execute_queries_expected
 
@@ -299,7 +300,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
 
     assert "Please provide a warehouse for the active session role" in err.value.msg
     assert mock_execute.mock_calls == expected
@@ -360,7 +361,7 @@ def test_create_dev_app_incorrect_properties(
     with pytest.raises(ApplicationAlreadyExistsError):
         run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
-        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
 
     assert mock_execute.mock_calls == expected
 
@@ -403,7 +404,7 @@ def test_create_dev_app_incorrect_owner(
     with pytest.raises(UnexpectedOwnerError):
         run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
-        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
 
     assert mock_execute.mock_calls == expected
 
@@ -452,7 +453,7 @@ def test_create_dev_app_no_diff_changes(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 
@@ -500,7 +501,7 @@ def test_create_dev_app_w_diff_changes(
 
     run_processor = _get_na_run_processor()
     assert mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 
@@ -551,7 +552,7 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
     assert mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
 
     assert mock_execute.mock_calls == expected
     assert "Please provide a warehouse for the active session role" in err.value.msg
@@ -634,7 +635,7 @@ def test_create_dev_app_create_new_quoted(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 
@@ -688,7 +689,7 @@ def test_create_dev_app_create_new_quoted_override(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 

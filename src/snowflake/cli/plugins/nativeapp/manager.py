@@ -494,6 +494,20 @@ class NativeAppManager(SqlExecutionMixin):
             ).fetchall()
             return [{"name": row[1], "type": row[2]} for row in results]
 
+    def _application_objects_to_str(
+        self, application_objects: list[ApplicationOwnedObject]
+    ) -> str:
+        """
+        Returns a list in an "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
+        (COMPUTE_POOL) POOL_NAME
+        (DATABASE) DB_NAME
+        (SCHEMA) DB_NAME.PUBLIC
+        ...
+        """
+        return "\n".join(
+            [f"({obj['type']}) {obj['name']}" for obj in application_objects]
+        )
+
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
         name = identifier_for_url(self.app_name)

@@ -32,6 +32,8 @@ from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
+    ERROR_MESSAGE_093079,
+    ERROR_MESSAGE_093128,
     LOOSE_FILES_MAGIC_VERSION,
     PATCH_COL,
     SPECIAL_COMMENT,
@@ -48,19 +50,25 @@ from snowflake.cli.plugins.nativeapp.manager import (
     generic_sql_error_handler,
 )
 from snowflake.cli.plugins.nativeapp.policy import PolicyBase
-from snowflake.cli.plugins.stage.diff import DiffResult
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
-UPGRADE_RESTRICTION_CODES = {93044, 93055, 93045, 93046}
+# Reasons why an `alter application ... upgrade` might fail
+UPGRADE_RESTRICTION_CODES = {
+    93044,  # Cannot upgrade dev mode application from loose stage files to version
+    93045,  # Cannot upgrade dev mode application from version to loose stage files
+    93046,  # Operation only permitted on dev mode application
+    93055,  # Operation not supported on dev mode application
+    93079,  # App package access lost
+}
 
 
 class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__(project_definition, project_root)
 
-    def _create_dev_app(self, diff: DiffResult) -> None:
+    def _create_dev_app(self, policy: PolicyBase, is_interactive: bool = False) -> None:
         """
         (Re-)creates the application object with our up-to-date stage.
         """
@@ -107,7 +115,11 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     return
 
                 except ProgrammingError as err:
-                    generic_sql_error_handler(err)
+                    if err.errno not in UPGRADE_RESTRICTION_CODES:
+                        generic_sql_error_handler(err)
+                    else:
+                        cc.warning(err.msg)
+                        self.drop_application_before_upgrade(policy, is_interactive)
 
             # 4. If no existing application object is found, create an application object using "files on a named stage" / stage dev mode.
             cc.step(f"Creating new application {self.app_name} in account.")
@@ -186,11 +198,34 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     generic_sql_error_handler(err=err, role=self.package_role)
                     return None
 
-    def drop_application_before_upgrade(self, policy: PolicyBase, is_interactive: bool):
+    def drop_application_before_upgrade(
+        self, policy: PolicyBase, is_interactive: bool, cascade: bool = False
+    ):
         """
         This method will attempt to drop an application object if a previous upgrade fails.
         """
-        user_prompt = "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
+        if cascade:
+            try:
+                if application_objects := self.get_objects_owned_by_application():
+                    application_objects_str = self._application_objects_to_str(
+                        application_objects
+                    )
+                    cc.message(
+                        f"The following objects are owned by application {self.app_name} and need to dropped:\n{application_objects_str}"
+                    )
+            except ProgrammingError as err:
+                if err.errno != 93079 and ERROR_MESSAGE_093079 not in err.msg:
+                    generic_sql_error_handler(err)
+                cc.warning(
+                    "The application owns other objects but they could not be determined."
+                )
+            what_to_drop = "the existing application and its owned objects"
+        else:
+            what_to_drop = "the existing application object"
+
+        user_prompt = (
+            f"Do you want the Snowflake CLI to drop {what_to_drop} and recreate it?"
+        )
         if not policy.should_proceed(user_prompt):
             if is_interactive:
                 cc.message("Not upgrading the application object.")
@@ -201,9 +236,16 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 )
                 raise typer.Exit(1)
         try:
-            self._execute_query(f"drop application {self.app_name}")
+            cascade_sql = " cascade" if cascade else ""
+            self._execute_query(f"drop application {self.app_name}{cascade_sql}")
         except ProgrammingError as err:
-            generic_sql_error_handler(err)
+            if (err.errno == 93128 or ERROR_MESSAGE_093128 in err.msg) and not cascade:
+                # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
+                return self.drop_application_before_upgrade(
+                    policy, is_interactive, cascade=True
+                )
+            else:
+                generic_sql_error_handler(err)
 
     def upgrade_app(
         self,
@@ -329,7 +371,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             )
             return
 
-        diff = self.deploy(
+        self.deploy(
             bundle_map=bundle_map, prune=True, recursive=True, validate=validate
         )
-        self._create_dev_app(diff)
+        self._create_dev_app(policy=policy, is_interactive=is_interactive)
