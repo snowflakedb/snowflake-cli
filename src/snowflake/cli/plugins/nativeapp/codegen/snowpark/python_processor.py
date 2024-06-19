@@ -510,7 +510,9 @@ def edit_setup_script_with_exec_imm_sql(
             sql_file_relative_path = sql_file.relative_to(
                 deploy_root
             )  # Path on stage, without the leading slash
-            file.write(f"EXECUTE IMMEDIATE FROM '/{sql_file_relative_path}';\n")
+            file.write(
+                f"EXECUTE IMMEDIATE FROM '/{to_stage_path(sql_file_relative_path)}';\n"
+            )
 
     # Find the setup script in the deploy root.
     setup_file_path = find_setup_script_file(deploy_root=deploy_root)
@@ -524,5 +526,7 @@ def edit_setup_script_with_exec_imm_sql(
     generated_file_relative_path = generated_file_path.relative_to(deploy_root)
     with open(setup_file_path, "w", encoding="utf-8") as file:
         file.write(code)
-        file.write(f"\nEXECUTE IMMEDIATE FROM '/{generated_file_relative_path}';")
+        file.write(
+            f"\nEXECUTE IMMEDIATE FROM '/{to_stage_path(generated_file_relative_path)}';"
+        )
         file.write(f"\n")
