@@ -22,7 +22,7 @@ from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
-from snowflake.cli.api.utils.models import EnvironWithDefinedDictFallback
+from snowflake.cli.api.utils.models import ProjectEnvironment
 
 
 class _BaseDefinition(UpdatableModel):
@@ -58,17 +58,21 @@ class _DefinitionV10(_BaseDefinition):
 
 
 class _DefinitionV11(_DefinitionV10):
-    env: Optional[Dict] = Field(
+    env: Union[Dict[str, str], ProjectEnvironment, None] = Field(
         title="Environment specification for this project.",
         default=None,
         validation_alias="env",
+        union_mode="smart",
     )
 
     @field_validator("env")
     @classmethod
-    def _convert_env(cls, env: Optional[Dict]) -> EnvironWithDefinedDictFallback:
-        variables = EnvironWithDefinedDictFallback(env if env else {})
-        return variables
+    def _convert_env(
+        cls, env: Union[Dict, ProjectEnvironment, None]
+    ) -> ProjectEnvironment:
+        if isinstance(env, ProjectEnvironment):
+            return env
+        return ProjectEnvironment(default_env=(env or {}), override_env={})
 
 
 class ProjectDefinition(_DefinitionV11):

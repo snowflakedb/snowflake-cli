@@ -22,6 +22,7 @@ import pytest
 from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
 from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
+from snowflake.cli.api.utils.models import ProjectEnvironment
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
@@ -35,11 +36,11 @@ def test_resolve_variables_in_project_no_cross_variable_dependencies():
         },
     }
 
-    result = render_definition_template(definition)
+    result = render_definition_template(definition, {})
 
     assert result == {
         "definition_version": "1.1",
-        "env": {"number": 1, "string": "foo", "boolean": True},
+        "env": ProjectEnvironment({"number": 1, "string": "foo", "boolean": True}, {}),
     }
 
 
@@ -53,11 +54,11 @@ def test_resolve_variables_in_project_cross_variable_dependencies():
             "C": "<% ctx.env.B %> and <% ctx.env.A %>",
         },
     }
-    result = render_definition_template(definition)
+    result = render_definition_template(definition, {})
 
     assert result == {
         "definition_version": "1.1",
-        "env": {"A": 42, "B": "b=42", "C": "b=42 and 42"},
+        "env": ProjectEnvironment({"A": 42, "B": "b=42", "C": "b=42 and 42"}, {}),
     }
 
 
@@ -71,7 +72,7 @@ def test_no_resolve_in_version_1_0():
             "C": "<% ctx.env.B %> and <% ctx.env.A %>",
         },
     }
-    result = render_definition_template(definition)
+    result = render_definition_template(definition, {})
 
     assert result == {
         "definition_version": "1.0",
@@ -90,13 +91,16 @@ def test_resolve_variables_in_project_cross_project_dependencies():
         "streamlit": {"name": "my_app"},
         "env": {"app": "name of streamlit is <% ctx.streamlit.name %>"},
     }
-    result = render_definition_template(definition)
+    result = render_definition_template(definition, {})
     assert result == {
         "definition_version": "1.1",
         "streamlit": {"name": "my_app"},
-        "env": {
-            "app": "name of streamlit is my_app",
-        },
+        "env": ProjectEnvironment(
+            {
+                "app": "name of streamlit is my_app",
+            },
+            {},
+        ),
     }
 
 
@@ -119,15 +123,18 @@ def test_resolve_variables_in_project_environment_variables_precedence():
             "test_variable_2": "<% ctx.env.value_from_env %>",
         },
     }
-    result = render_definition_template(definition)
+    result = render_definition_template(definition, {})
 
     assert result == {
         "definition_version": "1.1",
-        "env": {
-            "should_be_replaced_by_env": "test failed",
-            "test_variable": "new_lowercase_value and new_uppercase_value",
-            "test_variable_2": "this comes from os.environ",
-        },
+        "env": ProjectEnvironment(
+            {
+                "should_be_replaced_by_env": "test failed",
+                "test_variable": "new_lowercase_value and new_uppercase_value",
+                "test_variable_2": "this comes from os.environ",
+            },
+            {},
+        ),
     }
     assert result["env"]["lowercase"] == "new_lowercase_value"
     assert result["env"]["UPPERCASE"] == "new_uppercase_value"
@@ -146,16 +153,19 @@ def test_env_variables_do_not_get_resolved():
             "reference_to_name": "<% ctx.native_app.name %>",
         },
     }
-    result = render_definition_template(definition)
+    result = render_definition_template(definition, {})
 
     assert result == {
         "definition_version": "1.1",
         "native_app": {
             "name": "test_source_<% ctx.definition_version %>",
         },
-        "env": {
-            "reference_to_name": "test_source_<% ctx.definition_version %>",
-        },
+        "env": ProjectEnvironment(
+            {
+                "reference_to_name": "test_source_<% ctx.definition_version %>",
+            },
+            {},
+        ),
     }
 
     assert result["env"]["env_var"] == "<% ctx.definition_version %>"
@@ -198,7 +208,7 @@ def test_env_variables_do_not_get_resolved():
 )
 def test_resolve_variables_error_on_cycle(definition):
     with pytest.raises(CycleDetectedError) as err:
-        render_definition_template(definition)
+        render_definition_template(definition, {})
 
     assert err.value.message.startswith("Cycle detected in templating variable ")
 
@@ -232,12 +242,9 @@ def test_resolve_variables_error_on_cycle(definition):
 )
 def test_resolve_variables_reference_non_scalar(definition, error_var):
     with pytest.raises(InvalidTemplate) as err:
-        render_definition_template(definition)
+        render_definition_template(definition, {})
 
-    assert (
-        err.value.message
-        == f"Template variable {error_var} does not contain a valid value"
-    )
+    assert err.value.message == f"Invalid template variable {error_var}"
 
 
 @mock.patch.dict(os.environ, {"blank_env": ""}, clear=True)
@@ -254,15 +261,18 @@ def test_resolve_variables_blank_is_ok():
             "refers_to_blank": "<% ctx.native_app.source_stage %>",
         },
     }
-    result = render_definition_template(definition)
+    result = render_definition_template(definition, {})
 
     assert result == {
         "definition_version": "1.1",
         "native_app": {"name": "", "source_stage": "", "deploy_root": ""},
-        "env": {
-            "blank_default_env": "",
-            "refers_to_blank": "",
-        },
+        "env": ProjectEnvironment(
+            {
+                "blank_default_env": "",
+                "refers_to_blank": "",
+            },
+            {},
+        ),
     }
 
     assert result["env"]["blank_env"] == ""
@@ -271,12 +281,12 @@ def test_resolve_variables_blank_is_ok():
 @pytest.mark.parametrize(
     "env, msg",
     [
-        ({"app": "<% bdbdbd %>"}, "Could not find template variable bdbdbd"),
+        ({"app": "<% bdbdbd %>"}, "Invalid template variable bdbdbd"),
         (
             {"app": "<% ctx.streamlit.name %>"},
-            "Could not find template variable ctx.streamlit.name",
+            "Invalid template variable ctx.streamlit.name",
         ),
-        ({"app": "<% ctx.foo %>"}, "Could not find template variable ctx.foo"),
+        ({"app": "<% ctx.foo %>"}, "Invalid template variable ctx.foo"),
     ],
 )
 def test_resolve_variables_fails_if_referencing_unknown_variable(env, msg):
@@ -285,8 +295,8 @@ def test_resolve_variables_fails_if_referencing_unknown_variable(env, msg):
         "env": env,
     }
     with pytest.raises(InvalidTemplate) as err:
-        render_definition_template(definition)
-    assert msg in str(err.value)
+        render_definition_template(definition, {})
+    assert msg == err.value.message
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
@@ -310,13 +320,16 @@ def test_unquoted_template_usage_in_strings_yaml():
         p.write_text(dedent(text))
         project_definition = load_project([p]).project_definition
 
-    assert project_definition.env == {
-        "block_multiline": "this is multiline string \nwith template Snowflake is great!\n",
-        "flow_multiline_not_quoted": "this is multiline string with template Snowflake is great!",
-        "flow_multiline_quoted": "this is multiline string with template Snowflake is great!",
-        "single_line": "Snowflake is great!",
-        "value": "Snowflake is great!",
-    }
+    assert project_definition.env == ProjectEnvironment(
+        {
+            "block_multiline": "this is multiline string \nwith template Snowflake is great!\n",
+            "flow_multiline_not_quoted": "this is multiline string with template Snowflake is great!",
+            "flow_multiline_quoted": "this is multiline string with template Snowflake is great!",
+            "single_line": "Snowflake is great!",
+            "value": "Snowflake is great!",
+        },
+        {},
+    )
 
 
 @mock.patch.dict(os.environ, {"var_with_yml": "    - app/*\n    - src\n"}, clear=True)
@@ -327,13 +340,16 @@ def test_injected_yml_in_env_should_not_be_expanded():
             "test_env": "<% ctx.env.var_with_yml %>",
         },
     }
-    result = render_definition_template(definition)
+    result = render_definition_template(definition, {})
 
     assert result == {
         "definition_version": "1.1",
-        "env": {
-            "test_env": "    - app/*\n    - src\n",
-        },
+        "env": ProjectEnvironment(
+            {
+                "test_env": "    - app/*\n    - src\n",
+            },
+            {},
+        ),
     }
 
     assert result["env"]["var_with_yml"] == "    - app/*\n    - src\n"
@@ -357,7 +373,7 @@ def test_invalid_templating_syntax(template_value):
         },
     }
     with pytest.raises(InvalidTemplate) as err:
-        render_definition_template(definition)
+        render_definition_template(definition, {})
 
     assert err.value.message == f"Unexpected templating syntax in {template_value}"
 
@@ -368,7 +384,7 @@ def test_invalid_type_for_env_section():
         "env": ["test_env", "array_val1"],
     }
     with pytest.raises(InvalidTemplate) as err:
-        render_definition_template(definition)
+        render_definition_template(definition, {})
 
     assert (
         err.value.message
@@ -384,9 +400,99 @@ def test_invalid_type_for_env_variable():
         },
     }
     with pytest.raises(InvalidTemplate) as err:
-        render_definition_template(definition)
+        render_definition_template(definition, {})
 
     assert (
         err.value.message
         == "Variable test_env in env section or project definition file should be a scalar"
     )
+
+
+@mock.patch.dict(os.environ, {"env_var_test": "value_from_os_env"}, clear=True)
+def test_env_priority_from_cli_and_os_env_and_project_env():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "env_var_test": "value_from_definition_file",
+            "final_value": "<% ctx.env.env_var_test %>",
+        },
+    }
+    result = render_definition_template(
+        definition, {"ctx": {"env": {"env_var_test": "value_from_cli_override"}}}
+    )
+
+    assert result == {
+        "definition_version": "1.1",
+        "env": ProjectEnvironment(
+            {
+                "env_var_test": "value_from_definition_file",
+                "final_value": "value_from_cli_override",
+            },
+            {"env_var_test": "value_from_cli_override"},
+        ),
+    }
+
+    assert result["env"]["env_var_test"] == "value_from_cli_override"
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_values_env_from_only_overrides():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "final_value": "<% ctx.env.env_var_test %>",
+        },
+    }
+    result = render_definition_template(
+        definition, {"ctx": {"env": {"env_var_test": "value_from_cli_override"}}}
+    )
+
+    assert result == {
+        "definition_version": "1.1",
+        "env": ProjectEnvironment(
+            {"final_value": "value_from_cli_override"},
+            {"env_var_test": "value_from_cli_override"},
+        ),
+    }
+
+    assert result["env"]["env_var_test"] == "value_from_cli_override"
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_cli_env_var_blank():
+    definition = {
+        "definition_version": "1.1",
+    }
+    result = render_definition_template(
+        definition, {"ctx": {"env": {"env_var_test": ""}}}
+    )
+
+    assert result == {
+        "definition_version": "1.1",
+        "env": ProjectEnvironment(
+            {},
+            {"env_var_test": ""},
+        ),
+    }
+
+    assert result["env"]["env_var_test"] == ""
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_cli_env_var_does_not_expand_with_templating():
+    definition = {
+        "definition_version": "1.1",
+    }
+    result = render_definition_template(
+        definition, {"ctx": {"env": {"env_var_test": "<% ctx.env.something %>"}}}
+    )
+
+    assert result == {
+        "definition_version": "1.1",
+        "env": ProjectEnvironment(
+            {},
+            {"env_var_test": "<% ctx.env.something %>"},
+        ),
+    }
+
+    assert result["env"]["env_var_test"] == "<% ctx.env.something %>"

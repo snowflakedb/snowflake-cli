@@ -23,7 +23,7 @@ from packaging.version import Version
 from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
 from snowflake.cli.api.utils.dict_utils import traverse
 from snowflake.cli.api.utils.graph import Graph, Node
-from snowflake.cli.api.utils.models import EnvironWithDefinedDictFallback
+from snowflake.cli.api.utils.models import ProjectEnvironment
 from snowflake.cli.api.utils.rendering import CONTEXT_KEY, get_snowflake_cli_jinja_env
 from snowflake.cli.api.utils.types import Context, Definition
 
@@ -155,14 +155,12 @@ class TemplateVar:
                 not isinstance(current_dict_level, dict)
                 or key not in current_dict_level
             ):
-                raise InvalidTemplate(f"Could not find template variable {self.key}")
+                return None
             current_dict_level = current_dict_level[key]
 
         value = current_dict_level
-        if value is None or isinstance(value, (dict, list)):
-            raise InvalidTemplate(
-                f"Template variable {self.key} does not contain a valid value"
-            )
+        if isinstance(value, (dict, list)):
+            return None
 
         return value
 
@@ -174,21 +172,29 @@ class TemplateVar:
 
 
 def _build_dependency_graph(
-    env: TemplatedEnvironment, all_vars: set[TemplateVar], context: Context
+    env: TemplatedEnvironment,
+    all_vars: set[TemplateVar],
+    context: Context,
+    context_overrides: Context,
 ) -> Graph[TemplateVar]:
     dependencies_graph = Graph[TemplateVar]()
     for variable in all_vars:
         dependencies_graph.add(Node[TemplateVar](key=variable.key, data=variable))
 
     for variable in all_vars:
-        if variable.is_env_var and variable.get_env_var_name() in os.environ:
-            # If variable is found in os.environ, then use the value as is
-            # skip rendering by pre-setting the rendered_value attribute
+        # If variable is found in os.environ or from cli override, then use the value as is
+        # skip rendering by pre-setting the rendered_value attribute
+        if (var_override := variable.read_from_context(context_overrides)) is not None:
+            variable.rendered_value = var_override
+            variable.templated_value = var_override
+        elif variable.is_env_var and variable.get_env_var_name() in os.environ:
             env_value = os.environ.get(variable.get_env_var_name())
             variable.rendered_value = env_value
             variable.templated_value = env_value
         else:
             variable.templated_value = variable.read_from_context(context)
+            if variable.templated_value is None:
+                raise InvalidTemplate(f"Invalid template variable {variable.key}")
             dependencies_vars = env.get_referenced_vars(variable.templated_value)
 
             for referenced_var in dependencies_vars:
@@ -210,7 +216,9 @@ def _render_graph_node(env: TemplatedEnvironment, node: Node[TemplateVar]) -> No
     node.data.rendered_value = env.render(node.data.templated_value, current_context)
 
 
-def render_definition_template(original_definition: Definition) -> Definition:
+def render_definition_template(
+    original_definition: Definition, context_overrides: Context
+) -> Definition:
     """
     Takes a definition file as input. An arbitrary structure containing dict|list|scalars,
     with the top level being a dictionary.
@@ -241,7 +249,7 @@ def render_definition_template(original_definition: Definition) -> Definition:
     traverse(definition, visit_action=find_any_template_vars)
 
     dependencies_graph = _build_dependency_graph(
-        template_env, referenced_vars, project_context
+        template_env, referenced_vars, project_context, context_overrides
     )
 
     def on_cycle_action(node: Node[TemplateVar]):
@@ -265,7 +273,10 @@ def render_definition_template(original_definition: Definition) -> Definition:
         update_action=lambda val: template_env.render(val, final_context),
     )
 
-    current_env = definition.setdefault("env", {})
-    definition["env"] = EnvironWithDefinedDictFallback(current_env)
+    default_env = definition.setdefault("env", {})
+    override_env = context_overrides.get(CONTEXT_KEY, {}).get("env", {})
+    definition["env"] = ProjectEnvironment(
+        default_env=default_env, override_env=override_env
+    )
 
     return definition

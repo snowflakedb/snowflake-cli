@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import os
 import tempfile
 from dataclasses import dataclass
 from enum import Enum
@@ -26,9 +25,12 @@ import click
 import typer
 from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context_manager
+from snowflake.cli.api.commands.typer_pre_execute import register_pre_execute_command
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.exceptions import MissingConfiguration
+from snowflake.cli.api.exceptions import MissingConfiguration, NoProjectDefinitionError
 from snowflake.cli.api.output.formats import OutputFormat
+from snowflake.cli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.api.utils.models import ProjectEnvironment
 from snowflake.cli.api.utils.rendering import CONTEXT_KEY
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
@@ -499,70 +501,83 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
     )
 
 
-def project_type_option(project_name: str):
-    from snowflake.cli.api.exceptions import NoProjectDefinitionError
-    from snowflake.cli.api.project.definition_manager import DefinitionManager
+def register_project_definition(project_name: Optional[str], is_optional: bool) -> None:
+    project_path = cli_context_manager.project_path_arg
+    env_overrides_args = cli_context_manager.project_env_overrides_args
+    env_cli_overrides = {
+        v.key: v.value for v in parse_key_value_variables(env_overrides_args)
+    }
 
-    def _callback(project_path: Optional[str]):
-        dm = DefinitionManager(project_path)
+    try:
+        dm = DefinitionManager(project_path, {CONTEXT_KEY: {"env": env_cli_overrides}})
         project_definition = dm.project_definition
         project_root = dm.project_root
+        template_context = dm.template_context
 
-        if not getattr(project_definition, project_name, None):
+        if project_name is not None and not getattr(
+            project_definition, project_name, None
+        ):
             raise NoProjectDefinitionError(
                 project_type=project_name, project_file=project_path
             )
 
-        cli_context_manager.set_project_definition(project_definition)
-        cli_context_manager.set_project_root(project_root)
-        cli_context_manager.set_template_context(dm.template_context)
-        return project_definition
+    except MissingConfiguration:
+        if is_optional:
+            project_definition = None
+            project_root = None
+            template_context = {
+                CONTEXT_KEY: {
+                    "env": ProjectEnvironment(
+                        default_env={}, override_env=env_cli_overrides
+                    )
+                }
+            }
+        else:
+            raise
 
-    if project_name == "native_app":
-        project_name_help = "Snowflake Native App"
-    elif project_name == "streamlit":
-        project_name_help = "Streamlit app"
+    cli_context_manager.set_project_definition(project_definition)
+    cli_context_manager.set_project_root(project_root)
+    cli_context_manager.set_template_context(template_context)
+
+
+def _get_project_long_name(project_short_name: Optional[str]) -> str:
+    if project_short_name is None:
+        return "Snowflake"
+
+    if project_short_name == "native_app":
+        project_long_name = "Snowflake Native App"
+    elif project_short_name == "streamlit":
+        project_long_name = "Streamlit app"
     else:
-        project_name_help = project_name.replace("_", " ").capitalize()
+        project_long_name = project_short_name.replace("_", " ").capitalize()
+
+    return f"the {project_long_name}"
+
+
+def project_definition_option(project_name: Optional[str], is_optional: bool):
+    def project_definition_callback(project_path: str) -> None:
+        cli_context_manager.set_project_path_arg(project_path)
+        register_pre_execute_command(
+            lambda: register_project_definition(project_name, is_optional)
+        )
 
     return typer.Option(
         None,
         "-p",
         "--project",
-        help=f"Path where the {project_name_help} project resides. "
+        help=f"Path where {_get_project_long_name(project_name)} project resides. "
         f"Defaults to current working directory.",
-        callback=_callback,
+        callback=_callback(lambda: project_definition_callback),
         show_default=False,
     )
 
 
-def project_definition_option(optional: bool = False):
-    from snowflake.cli.api.project.definition_manager import DefinitionManager
-
-    def _callback(project_path: Optional[str]):
-        try:
-            dm = DefinitionManager(project_path)
-            project_definition = dm.project_definition
-            project_root = dm.project_root
-            template_context = dm.template_context
-        except MissingConfiguration:
-            if optional:
-                project_definition = None
-                project_root = None
-                template_context = {CONTEXT_KEY: {"env": os.environ}}
-            else:
-                raise
-        cli_context_manager.set_project_definition(project_definition)
-        cli_context_manager.set_project_root(project_root)
-        cli_context_manager.set_template_context(template_context)
-        return project_definition
-
+def project_env_overrides_option():
     return typer.Option(
-        None,
-        "-p",
-        "--project",
-        help=f"Path where Snowflake project resides. Defaults to current working directory.",
-        callback=_callback,
+        [],
+        "--env",
+        help="String in format of key=value. Overrides env variables used for templating.",
+        callback=_callback(lambda: cli_context_manager.set_project_env_overrides_args),
         show_default=False,
     )
 
@@ -610,9 +625,13 @@ class Variable:
         self.value = value
 
 
-def parse_key_value_variables(variables: List[str]) -> List[Variable]:
+def parse_key_value_variables(variables: Optional[List[str]]) -> List[Variable]:
     """Util for parsing key=value input. Useful for commands accepting multiple input options."""
-    result = []
+    result: List[Variable] = []
+
+    if variables is None:
+        return result
+
     for p in variables:
         if "=" not in p:
             raise ClickException(f"Invalid variable: '{p}'")

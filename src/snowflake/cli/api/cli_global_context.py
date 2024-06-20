@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Callable, Optional
 
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.cli.api.output.formats import OutputFormat
@@ -226,6 +226,9 @@ class _CliGlobalContextManager:
         self._experimental = False
         self._project_definition = None
         self._project_root = None
+        self._project_path_arg = None
+        self._project_env_overrides_args = []
+        self._typer_pre_execute_commands = []
         self._template_context = None
         self._silent: bool = False
 
@@ -261,7 +264,7 @@ class _CliGlobalContextManager:
         self._experimental = value
 
     @property
-    def project_definition(self) -> Optional[Dict]:
+    def project_definition(self) -> Optional[ProjectDefinition]:
         return self._project_definition
 
     def set_project_definition(self, value: ProjectDefinition):
@@ -275,11 +278,34 @@ class _CliGlobalContextManager:
         self._project_root = project_root
 
     @property
+    def project_path_arg(self) -> Optional[str]:
+        return self._project_path_arg
+
+    def set_project_path_arg(self, project_path_arg: str):
+        self._project_path_arg = project_path_arg
+
+    @property
+    def project_env_overrides_args(self) -> list[str]:
+        return self._project_env_overrides_args
+
+    def set_project_env_overrides_args(self, project_env_overrides_args: list[str]):
+        self._project_env_overrides_args = project_env_overrides_args
+
+    @property
     def template_context(self) -> dict:
         return self._template_context
 
     def set_template_context(self, template_context: dict):
         self._template_context = template_context
+
+    @property
+    def typer_pre_execute_commands(self) -> list[Callable[[], None]]:
+        return self._typer_pre_execute_commands
+
+    def add_typer_pre_execute_commands(
+        self, typer_pre_execute_command: Callable[[], None]
+    ):
+        self._typer_pre_execute_commands.append(typer_pre_execute_command)
 
     @property
     def connection_context(self) -> _ConnectionContext:

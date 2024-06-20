@@ -16,9 +16,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
-import yaml.loader
+import yaml
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
@@ -31,8 +31,7 @@ from snowflake.cli.api.project.util import (
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 from snowflake.cli.api.utils.dict_utils import deep_merge_dicts
-from snowflake.cli.api.utils.types import Definition
-from yaml import load
+from snowflake.cli.api.utils.types import Context, Definition
 
 DEFAULT_USERNAME = "unknown_user"
 
@@ -63,26 +62,33 @@ def _get_merged_definitions(paths: List[Path]) -> Definition:
         raise ValueError("Need at least one definition file.")
 
     with spaths[0].open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as base_yml:
-        definition = load(base_yml.read(), Loader=yaml.loader.BaseLoader) or {}
+        definition = yaml.load(base_yml.read(), Loader=yaml.loader.BaseLoader) or {}
 
     for override_path in spaths[1:]:
         with override_path.open(
             "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
         ) as override_yml:
-            overrides = load(override_yml.read(), Loader=yaml.loader.BaseLoader) or {}
+            overrides = (
+                yaml.load(override_yml.read(), Loader=yaml.loader.BaseLoader) or {}
+            )
             deep_merge_dicts(definition, overrides)
 
     return definition
 
 
-def load_project(paths: List[Path]) -> ProjectProperties:
+def load_project(
+    paths: List[Path], context_overrides: Optional[Context] = None
+) -> ProjectProperties:
     """
     Loads project definition, optionally overriding values. Definition values
     are merged in left-to-right order (increasing precedence).
     Templating is also applied after the merging process.
     """
     merged_definitions = _get_merged_definitions(paths)
-    rendered_definition = render_definition_template(merged_definitions)
+    rendered_definition = render_definition_template(
+        merged_definitions, context_overrides or {}
+    )
+
     return ProjectProperties(
         ProjectDefinition(**rendered_definition), rendered_definition
     )

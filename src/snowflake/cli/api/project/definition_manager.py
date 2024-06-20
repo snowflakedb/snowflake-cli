@@ -42,7 +42,11 @@ class DefinitionManager:
     project_root: Path
     _project_config_paths: List[Path]
 
-    def __init__(self, project_arg: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        project_arg: Optional[str] = None,
+        context_overrides: Optional[Context] = None,
+    ) -> None:
         project_root = Path(
             os.path.abspath(project_arg) if project_arg else os.getcwd()
         )
@@ -53,6 +57,7 @@ class DefinitionManager:
 
         self.project_root = project_root
         self._project_config_paths = self._find_definition_files(self.project_root)
+        self._context_overrides = context_overrides
 
     @staticmethod
     def _find_definition_files(project_root: Path) -> List[Path]:
@@ -118,7 +123,7 @@ class DefinitionManager:
 
     @functools.cached_property
     def _project_properties(self) -> ProjectProperties:
-        return load_project(self._project_config_paths)
+        return load_project(self._project_config_paths, self._context_overrides)
 
     @functools.cached_property
     def project_definition(self) -> ProjectDefinition:

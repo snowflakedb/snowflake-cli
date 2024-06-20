@@ -15,9 +15,10 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from snowflake.cli.api.exceptions import InvalidTemplate
+from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
 
 def _validate_env(current_env: dict):
@@ -32,24 +33,36 @@ def _validate_env(current_env: dict):
             )
 
 
-class EnvironWithDefinedDictFallback(Dict):
-    def __init__(self, dict_input: dict):
-        _validate_env(dict_input)
-        super().__init__(dict_input)
+class ProjectEnvironment(UpdatableModel):
+    """
+    This class handles retrieval of project env variables.
+    These env variables can be accessed through templating, as ctx.env.<var_name>
 
-    def __getattr__(self, item):
-        try:
-            return self[item]
-        except KeyError as e:
-            raise AttributeError(e)
+    This class checks for env values in the following order:
+    - Check for overrides values from the command line. Use these values first.
+    - Check if these variables are available as environment variables and return them if found.
+    - Check for default values from the project definition file.
+    """
+
+    override_env: Dict[str, Any] = {}
+    default_env: Dict[str, Any] = {}
+
+    def __init__(
+        self, default_env: Dict[str, Any], override_env: Optional[Dict[str, Any]] = None
+    ):
+        _validate_env(default_env)
+        super().__init__(self, default_env=default_env, override_env=override_env or {})
 
     def __getitem__(self, item):
+        if item in self.override_env:
+            return self.override_env.get(item)
         if item in os.environ:
             return os.environ[item]
-        return super().__getitem__(item)
+        return self.default_env[item]
 
-    def __contains__(self, item):
-        return item in os.environ or super().__contains__(item)
-
-    def update_from_dict(self, update_values: Dict[str, Any]):
-        return super().update(update_values)
+    def __contains__(self, item) -> bool:
+        try:
+            self[item]
+            return True
+        except KeyError:
+            return False
