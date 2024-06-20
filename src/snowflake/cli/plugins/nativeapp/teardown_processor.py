@@ -88,7 +88,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
 
         needs_confirm = True
 
-        # 1. If existing application package is not found, exit gracefully
+        # 1. If existing application is not found, exit gracefully
         show_obj_row = self.get_existing_app_info()
         if show_obj_row is None:
             cc.warning(
@@ -124,7 +124,9 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             )
             if not should_drop_object:
                 cc.message(f"Did not drop application object {self.app_name}.")
-                return  # The user desires to keep the app, therefore exit gracefully
+                # The user desires to keep the app, therefore we can't proceed since it would
+                # leave behind an orphan app when we get to dropping the package
+                raise typer.Abort()
 
         # 4. Check for application objects owned by the application
         application_objects = self.get_objects_owned_by_application()

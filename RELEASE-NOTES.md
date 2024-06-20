@@ -26,6 +26,7 @@
 ## Fixes and improvements
 * Passing a directory to `snow app deploy` will now deploy any contained file or subfolder specified in the application's artifact rules
 * Fixes markup escaping errors in `snow sql` that may occur when users use unintentionally markup-like escape tags.
+* Fixed case where `snow app teardown` could leave behind orphan applications if they were not created by the Snowflake CLI
 
 # v2.5.0
 ## Backward incompatibility
