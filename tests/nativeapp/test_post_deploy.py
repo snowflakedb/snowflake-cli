@@ -16,7 +16,6 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.post_deploy import execute_post_deploy_hooks
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
 
 from tests.nativeapp.patch_utils import mock_connection
@@ -24,7 +23,7 @@ from tests.nativeapp.utils import NATIVEAPP_MANAGER_EXECUTE_QUERIES
 from tests.testing_utils.fixtures import MockConnectionCtx
 
 
-def _get_na_manager(working_dir):
+def _get_run_processor(working_dir):
     dm = DefinitionManager(working_dir)
     return NativeAppRunProcessor(
         project_definition=dm.project_definition.native_app,
@@ -41,13 +40,13 @@ def test_sql_scripts(
 ):
     mock_conn.return_value = MockConnectionCtx()
     with project_directory("napp_post_deploy") as project_dir:
-        native_app_manager = _get_na_manager(str(project_dir))
+        processor = _get_run_processor(str(project_dir))
 
-        execute_post_deploy_hooks(native_app_manager)
+        processor._execute_post_deploy_hooks()  # noqa SLF001
 
         assert mock_execute_queries.mock_calls == [
-            mock.call("-- app post-deploy script (1/2)"),
-            mock.call("-- app post-deploy script (2/2)"),
+            mock.call("-- app post-deploy script (1/2)\n"),
+            mock.call("-- app post-deploy script (2/2)\n"),
         ]
 
 
@@ -60,7 +59,7 @@ def test_missing_sql_script(
 ):
     mock_conn.return_value = MockConnectionCtx()
     with project_directory("napp_post_deploy_missing_file") as project_dir:
-        native_app_manager = _get_na_manager(str(project_dir))
+        processor = _get_run_processor(str(project_dir))
 
         with pytest.raises(FileNotFoundError) as err:
-            execute_post_deploy_hooks(native_app_manager)
+            processor._execute_post_deploy_hooks()  # noqa SLF001

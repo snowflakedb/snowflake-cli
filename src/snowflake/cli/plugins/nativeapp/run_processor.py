@@ -48,7 +48,6 @@ from snowflake.cli.plugins.nativeapp.manager import (
     generic_sql_error_handler,
 )
 from snowflake.cli.plugins.nativeapp.policy import PolicyBase
-from snowflake.cli.plugins.nativeapp.post_deploy import execute_post_deploy_hooks
 from snowflake.cli.plugins.stage.diff import DiffResult
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
@@ -105,7 +104,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                         f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
                     )
 
-                    execute_post_deploy_hooks(self)
+                    self._execute_post_deploy_hooks()
                     return
 
                 except ProgrammingError as err:
@@ -143,7 +142,31 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             except ProgrammingError as err:
                 generic_sql_error_handler(err)
 
-            execute_post_deploy_hooks(self)
+            self._execute_post_deploy_hooks()
+
+    def _execute_sql_script(self, sql_script_path):
+        with open(sql_script_path) as f:
+            sql_script = f.read()
+            try:
+                self._execute_query(f"use warehouse {self.application_warehouse}")
+                self._execute_query(f"use database {self._conn.database}")
+                self._execute_queries(sql_script)
+            except ProgrammingError as err:
+                generic_sql_error_handler(err)
+
+    def _execute_post_deploy_hooks(self):
+        post_deploy_script_hooks = self.app_post_deploy_hooks
+        if post_deploy_script_hooks:
+            for hook in post_deploy_script_hooks:
+                if hook.sql_script:
+                    cc.step(
+                        f"Executing application post-deploy SQL script: {hook.sql_script}"
+                    )
+                    self._execute_sql_script(hook.sql_script)
+                else:
+                    raise ValueError(
+                        f"Unsupported application post-deploy hook type: {hook}"
+                    )
 
     def get_all_existing_versions(self) -> SnowflakeCursor:
         """
