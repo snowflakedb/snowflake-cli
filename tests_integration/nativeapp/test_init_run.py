@@ -418,3 +418,79 @@ def test_nativeapp_init_from_repo_with_single_template(
             assert result.exit_code == 0
         finally:
             single_template_repo.close()
+
+
+# Tests running an app whose package was dropped externally (requires dropping and recreating the app)
+@pytest.mark.integration
+@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+@pytest.mark.parametrize("force_flag", [True, False])
+def test_nativeapp_run_orphan(
+    runner,
+    snowflake_session,
+    project_definition_files: List[Path],
+    force_flag,
+):
+    project_name = "integration"
+    project_dir = project_definition_files[0].parent
+    with pushd(project_dir):
+        result = runner.invoke_with_connection_json(
+            ["app", "run"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # app + package exist
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            app_name = f"{project_name}_{USER_NAME}".upper()
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show application packages like '{package_name}'",
+                    )
+                ),
+                dict(name=package_name),
+            )
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show applications like '{app_name}'"
+                    )
+                ),
+                dict(name=app_name),
+            )
+
+            result = runner.invoke_with_connection(
+                ["sql", "-q", f"drop application package {package_name}"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0, result.output
+
+            if force_flag:
+                command = ["app", "run", "--force"]
+                _input = None
+            else:
+                command = ["app", "run"]
+                _input = "y\n"  # yes to drop app
+            result = runner.invoke_with_connection(command, input=_input, env=TEST_ENV)
+            assert result.exit_code == 0, result.output
+            if not force_flag:
+                assert (
+                    "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
+                    in result.output
+                ), result.output
+
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
