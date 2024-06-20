@@ -22,7 +22,6 @@ from pathlib import Path, PurePosixPath
 from typing import Collection, Dict, List, Optional, Tuple
 
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
@@ -322,14 +321,13 @@ def _to_diff_line(status: str, src: Optional[str], dest: str) -> str:
 def print_diff_to_console(
     diff: DiffResult,
     bundle_map: Optional[BundleMap] = None,
-    console: AbstractConsole = cc,
 ):
     if not diff.different and not diff.only_local and not diff.only_on_stage:
-        console.message("Your stage is up-to-date with your local deploy root")
+        cc.message("Your stage is up-to-date with your local deploy root")
         return
 
     if diff.only_local or diff.different:
-        console.message("Local changes to be deployed:")
+        cc.message("Local changes to be deployed:")
         messages_to_output = []
         for p in diff.different:
             src_dest_pair = _to_src_dest_pair(p, bundle_map)
@@ -348,13 +346,13 @@ def print_diff_to_console(
                 )
             )
 
-        with console.indented() as msg:
+        with cc.indented() as msg:
             for key, message in sorted(messages_to_output, key=lambda pair: pair[0]):
                 msg(message)
 
     if diff.only_on_stage:
-        console.message("Deleted paths to be removed from your stage:")
-        with console.indented() as msg:
+        cc.message("Deleted paths to be removed from your stage:")
+        with cc.indented() as msg:
             for p in sorted(diff.only_on_stage):
                 diff_line = _to_diff_line("deleted", src=None, dest=str(p))
                 msg(diff_line)
