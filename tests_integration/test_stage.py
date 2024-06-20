@@ -334,7 +334,6 @@ def test_stage_diff_json(runner, snowflake_session, test_database, tmp_path, sna
         assert result.exit_code == 0, result.output
         assert result.json == {"modified": [], "added": [], "deleted": []}
 
-        # avoid nesting the files into directories because the snapshots would then become system-dependent
         file_path = Path(td) / filename
         another_file_path = Path(td) / another_filename
 
