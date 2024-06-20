@@ -35,7 +35,6 @@ from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
-    EmptyResult,
     ObjectResult,
     QueryResult,
     SingleQueryResult,
@@ -180,7 +179,7 @@ def stage_diff(
         show_default=False,
     ),
     **options,
-) -> CommandResult:
+) -> Optional[CommandResult]:
     """
     Diffs a stage with a local folder.
     """
@@ -188,10 +187,10 @@ def stage_diff(
         local_root=Path(folder_name), stage_fqn=stage_name
     )
     if cli_context.output_format == OutputFormat.JSON:
-        return ObjectResult(diff.to_json())
+        return ObjectResult(diff.to_dict())
     else:
         print_diff_to_console(diff)
-        return EmptyResult()
+        return None  # don't print any output
 
 
 @app.command("execute", requires_connection=True)

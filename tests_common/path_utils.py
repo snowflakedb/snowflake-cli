@@ -20,6 +20,12 @@ import pytest
 
 @pytest.fixture
 def print_paths_as_posix():
+    """
+    Used to monkey-patch Path instances to always use POSIX-style separators ('/'). This is useful when using
+    snapshot-based tests that would otherwise be platform-dependent. Note that using this fixture does introduce
+    a small blind spot during testing, so use sparingly.
+    """
+
     with mock.patch("pathlib.WindowsPath.__str__", autospec=True) as mock_str:
         mock_str.side_effect = lambda path: str(PurePosixPath(*path.parts))
         yield mock_str

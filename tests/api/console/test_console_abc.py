@@ -27,7 +27,7 @@ def test_console_base_class(capsys):
 
         @contextmanager
         def indented(self):
-            yield self.message
+            yield
 
         def step(self, message: str):
             print(message)
@@ -45,7 +45,7 @@ def test_console_base_class(capsys):
         console.step("b")
         console.warning("c")
         console.message("d")
-        with console.indented() as msg:
+        with console.indented():
             console.message("e")
             console.warning("f")
 

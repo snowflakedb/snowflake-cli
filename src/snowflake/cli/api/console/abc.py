@@ -68,8 +68,11 @@ class AbstractConsole(ABC):
 
     @contextmanager
     @abstractmethod
-    def indented(self) -> Iterator[Callable[[str], None]]:
-        """A context manager for indenting phase or step messages"""
+    def indented(self):
+        """
+        A context manager for temporarily indenting messages and warnings. Phases and steps cannot be used in indented blocks,
+        but multiple indented blocks can be nested (use sparingly).
+        """
 
     @abstractmethod
     def step(self, message: str):

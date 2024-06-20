@@ -110,9 +110,8 @@ def test_indented(cli_console, capsys):
         cli_console.step("73")
         cli_console.message("Not indented message")
         cli_console.warning("Not indented warning")
-        with cli_console.indented() as msg:
+        with cli_console.indented():
             cli_console.message("Indented message")
-            msg("Indented message using context manager instance")
             cli_console.warning("Indented warning")
             with cli_console.indented():
                 cli_console.message("Double indented message")
@@ -130,7 +129,6 @@ def test_indented(cli_console, capsys):
       Not indented message
       Not indented warning
         Indented message
-        Indented message using context manager instance
         Indented warning
           Double indented message
           Double indented warning

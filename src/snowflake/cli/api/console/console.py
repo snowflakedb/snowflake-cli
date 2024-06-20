@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Callable, Iterator, Optional
+from typing import Optional
 
 from rich.style import Style
 from rich.text import Text
@@ -88,11 +88,14 @@ class CliConsole(AbstractConsole):
                 self._print(self._format_message(exit_message, Output.PHASE))
 
     @contextmanager
-    def indented(self) -> Iterator[Callable[[str], None]]:
-        """A context manager for indenting phase or step messages"""
+    def indented(self):
+        """
+        A context manager for temporarily indenting messages and warnings. Phases and steps cannot be used in indented blocks,
+        but multiple indented blocks can be nested (use sparingly).
+        """
         self._extra_indent += 1
         try:
-            yield self.message
+            yield
         finally:
             self._extra_indent -= 1
 

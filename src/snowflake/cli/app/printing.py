@@ -31,7 +31,6 @@ from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
-    EmptyResult,
     MessageResult,
     MultipleResults,
     ObjectResult,
@@ -163,8 +162,6 @@ def print_result(cmd_result: CommandResult, output_format: OutputFormat | None =
     elif isinstance(cmd_result, MultipleResults):
         for res in cmd_result.result:
             print_result(res)
-    elif isinstance(cmd_result, EmptyResult):
-        pass  # do nothing
     elif (
         isinstance(cmd_result, (MessageResult, ObjectResult, CollectionResult))
         or cmd_result is None

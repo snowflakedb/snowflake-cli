@@ -77,7 +77,7 @@
   README.md
   
   Use the --prune flag to delete them from the stage.
-  Your stage is up-to-date with your local deploy root
+  Your stage is up-to-date with your local deploy root.
   Validating Snowflake Native App setup script.
   Deployed successfully. Application package and stage are up-to-date.
   
