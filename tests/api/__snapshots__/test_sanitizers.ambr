@@ -1,0 +1,20 @@
+# serializer version: 1
+# name: test_snow_typer_help_sanitization
+  '''
+                                                                                  
+   Usage: root [OPTIONS] COMMAND [ARGS]...                                        
+                                                                                  
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --install-completion            Install completion for the current shell.    │
+  │ --show-completion               Show completion for the current shell, to    │
+  │                                 copy it or customize the installation.       │
+  │ --help                -h        Show this message and exit.                  │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+  │ func1   ''                                                                   │
+  │ func2   ''                                                                   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
