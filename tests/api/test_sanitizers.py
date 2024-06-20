@@ -38,14 +38,27 @@ def test_sanitize_for_terminal(text, expected):
 def test_snow_typer_help_sanitization(snapshot):
     app = SnowTyper()
 
-    @app.command()
+    escape_text = "'\033[0i\007'"
+
+    @app.command(epilog=escape_text, options_metavar=escape_text)
     def func1():
-        """'\033[0i\007'"""
+        """doc 1 '\033[0i\007'"""
         return 42
 
-    @app.command(help="'\033[0i\007'")
+    @app.command(help=escape_text, rich_help_panel=escape_text, short_help=escape_text)
     def func2():
-        return "'\033[0i\007'"
+        return escape_text
+
+    # Escape as arg not kwarg
+    @app.command("'🤯\033[1000;b\077'")
+    def func3():
+        """doc 3"""
+        return 42
+
+    @app.command(name="'\033[5i\007'")
+    def func4():
+        """doc 4"""
+        return 42
 
     runner = CliRunner()
     result = runner.invoke(app, ["--help"])

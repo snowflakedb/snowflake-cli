@@ -45,7 +45,17 @@ class SnowTyper(typer.Typer):
 
     @staticmethod
     def _sanitize_kwargs(kwargs: Dict):
-        kwargs["help"] = sanitize_for_terminal(kwargs.get("help"))
+        # Sanitize all string options that are visible in terminal output
+        known_keywords = [
+            "help",
+            "short_help",
+            "options_metavar",
+            "rich_help_panel",
+            "epilog",
+        ]
+        for kw in known_keywords:
+            if kw in kwargs:
+                kwargs[kw] = sanitize_for_terminal(kwargs[kw])
         return kwargs
 
     @wraps(typer.Typer.command)
@@ -62,6 +72,7 @@ class SnowTyper(typer.Typer):
         logic before and after execution as well as process the result and act on possible
         errors.
         """
+        name = sanitize_for_terminal(name)
         self._sanitize_kwargs(kwargs)
         if is_enabled is not None and not is_enabled():
             return lambda func: func
