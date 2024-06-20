@@ -1,7 +1,7 @@
 # serializer version: 1
 # name: test_stage_diff
   '''
-  Your stage is up-to-date with your local deploy root
+  Your stage is up-to-date with your local deploy root.
   
   '''
 # ---
@@ -14,7 +14,7 @@
 # ---
 # name: test_stage_diff.2
   '''
-  Your stage is up-to-date with your local deploy root
+  Your stage is up-to-date with your local deploy root.
   
   '''
 # ---
@@ -27,7 +27,7 @@
 # ---
 # name: test_stage_diff.4
   '''
-  Your stage is up-to-date with your local deploy root
+  Your stage is up-to-date with your local deploy root.
   
   '''
 # ---
@@ -43,6 +43,7 @@
   Local changes to be deployed:
     added:    added_file.py
     modified: another.md
+  
   Deleted paths to be removed from your stage:
     deleted:  test.txt
   
