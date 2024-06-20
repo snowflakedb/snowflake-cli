@@ -27,6 +27,7 @@ from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.app import loggers
 
 pytest_plugins = [
+    "tests_common",
     "tests.testing_utils.fixtures",
     "tests.project.fixtures",
     "tests.nativeapp.fixtures",

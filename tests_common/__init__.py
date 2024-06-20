@@ -12,14 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
-import unittest.mock as mock
-
-from pathlib import PurePosixPath
-
-
-@pytest.fixture
-def print_paths_as_posix():
-    with mock.patch("pathlib.WindowsPath.__str__", autospec=True) as mock_str:
-        mock_str.side_effect = lambda path: str(PurePosixPath(*path.parts))
-        yield mock_str
+from tests_common.path_utils import *
