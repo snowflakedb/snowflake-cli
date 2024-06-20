@@ -308,7 +308,7 @@ def test_stage_diff(runner, snowflake_session, test_database, tmp_path, snapshot
 
 
 @pytest.mark.integration
-def test_stage_diff_json(runner, snowflake_session, test_database, tmp_path, snapshot):
+def test_stage_diff_json(runner, snowflake_session, test_database, tmp_path):
     stage_name = "test_stage"
 
     # Only use server-side encryption otherwise md5sum-based diffs don't work correctly
