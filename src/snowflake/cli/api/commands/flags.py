@@ -428,6 +428,8 @@ OnErrorOption = typer.Option(
     help="What to do when an error occurs. Defaults to break.",
 )
 
+NoInteractiveOption = typer.Option(False, "--no-interactive", help="Disable prompting.")
+
 VariablesOption = typer.Option(
     None,
     "--variable",

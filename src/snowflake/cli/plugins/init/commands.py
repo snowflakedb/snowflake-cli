@@ -14,10 +14,15 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 import typer
 from click import ClickException
+from snowflake.cli.api.commands.flags import (
+    NoInteractiveOption,
+    VariablesOption,
+    parse_key_value_variables,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -38,7 +43,7 @@ NameArgument = typer.Argument(
 )
 SourceOption = typer.Option(
     default=DEFAULT_SOURCE,
-    help=f"local path to template directory or URL to git repository with templates. Default: {DEFAULT_SOURCE}",
+    help=f"local path to template directory or URL to git repository with templates.",
 )
 
 
@@ -46,15 +51,21 @@ SourceOption = typer.Option(
 def init(
     name: str = NameArgument,
     template_source: Optional[str] = SourceOption,
+    variables: Optional[List[str]] = VariablesOption,
+    no_interactive: bool = NoInteractiveOption,
     **options,
 ) -> CommandResult:
     """
     Creates project from template.
     """
+    variables_from_flags = {
+        v.key: v.value
+        for v in parse_key_value_variables(variables if variables else [])
+    }
     with SecurePath.temporary_directory() as tmpdir:
         if not (local_template_dir := SecurePath(template_source)).exists():
             # assume template is URL
-            raise NotImplementedError("urls not supported")
+            raise NotImplementedError("urls not supported (yet)")
 
         else:
             if not (template_origin := (local_template_dir / name)).exists():
