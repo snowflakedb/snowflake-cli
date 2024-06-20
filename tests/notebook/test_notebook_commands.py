@@ -53,6 +53,7 @@ def test_open(mock_launch, mock_url, runner):
 def test_create(mock_create, runner):
     notebook_name = "my_notebook"
     notebook_file = "@stage/notebook.ipynb"
+    mock_create.return_value = "created"
 
     result = runner.invoke(
         ("notebook", "create", notebook_name, "--notebook-file", notebook_file)

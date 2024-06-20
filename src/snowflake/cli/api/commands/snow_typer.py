@@ -27,12 +27,14 @@ from snowflake.cli.api.commands.decorators import (
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.exceptions import CommandReturnTypeError
 from snowflake.cli.api.output.types import CommandResult
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 
 log = logging.getLogger(__name__)
 
 
 class SnowTyper(typer.Typer):
     def __init__(self, /, **kwargs):
+        self._sanitize_kwargs(kwargs)
         super().__init__(
             **kwargs,
             context_settings=DEFAULT_CONTEXT_SETTINGS,
@@ -40,6 +42,11 @@ class SnowTyper(typer.Typer):
             no_args_is_help=True,
             add_completion=True,
         )
+
+    @staticmethod
+    def _sanitize_kwargs(kwargs: Dict):
+        kwargs["help"] = sanitize_for_terminal(kwargs.get("help"))
+        return kwargs
 
     @wraps(typer.Typer.command)
     def command(
@@ -55,11 +62,15 @@ class SnowTyper(typer.Typer):
         logic before and after execution as well as process the result and act on possible
         errors.
         """
+        self._sanitize_kwargs(kwargs)
         if is_enabled is not None and not is_enabled():
             return lambda func: func
 
         def custom_command(command_callable):
             """Custom command wrapper similar to Typer.command."""
+            # Sanitize doc string which is used to create help in terminal
+            command_callable.__doc__ = sanitize_for_terminal(command_callable.__doc__)
+
             if requires_connection:
                 command_callable = global_options_with_connection(command_callable)
             elif requires_global_options:
