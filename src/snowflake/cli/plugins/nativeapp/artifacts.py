@@ -406,7 +406,7 @@ class BundleMap:
     def to_deploy_paths(self, src: Path) -> List[Path]:
         """
         Converts a source path to its corresponding deploy root path. If the input path is relative to the project root,
-        paths relative to the deploy root are returned. If the input path is absolute, absolute path are returned.
+        paths relative to the deploy root are returned. If the input path is absolute, absolute paths are returned.
 
         Note that the provided source path must be part of a mapping. If the source path is not part of any mapping,
         an empty list is returned. For example, if `app/*` is specified as the source of a mapping,
