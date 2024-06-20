@@ -265,6 +265,16 @@ class NativeAppManager(SqlExecutionMixin):
             return self._default_role
 
     @cached_property
+    def app_post_deploy_hooks(self) -> Optional[str]:
+        """
+        Path to application post deploy script, relative to project root.
+        """
+        if self.definition.application and self.definition.application.post_deploy:
+            return self.definition.application.post_deploy
+        else:
+            return None
+
+    @cached_property
     def _default_role(self) -> str:
         role = default_role()
         if role is None:

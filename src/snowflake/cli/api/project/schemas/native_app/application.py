@@ -14,13 +14,19 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import Field
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
 )
+
+
+class ApplicationPostDeployHook(UpdatableModel):
+    sql_script: Optional[str] = Field(
+        title="SQL file path relative to the project root", default=None
+    )
 
 
 class Application(UpdatableModel):
@@ -39,4 +45,8 @@ class Application(UpdatableModel):
     debug: Optional[bool] = Field(
         title="Whether to enable debug mode when using a named stage to create an application object",
         default=True,
+    )
+    post_deploy: Optional[List[ApplicationPostDeployHook]] = Field(
+        title="Steps that will be executed after the application object is created/upgraded",
+        default=None,
     )

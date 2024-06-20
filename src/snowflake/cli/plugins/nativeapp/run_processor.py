@@ -48,6 +48,7 @@ from snowflake.cli.plugins.nativeapp.manager import (
     generic_sql_error_handler,
 )
 from snowflake.cli.plugins.nativeapp.policy import PolicyBase
+from snowflake.cli.plugins.nativeapp.post_deploy import execute_post_deploy_hooks
 from snowflake.cli.plugins.stage.diff import DiffResult
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
@@ -104,6 +105,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                         f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
                     )
 
+                    execute_post_deploy_hooks(self)
                     return
 
                 except ProgrammingError as err:
@@ -140,6 +142,8 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 )
             except ProgrammingError as err:
                 generic_sql_error_handler(err)
+
+            execute_post_deploy_hooks(self)
 
     def get_all_existing_versions(self) -> SnowflakeCursor:
         """
