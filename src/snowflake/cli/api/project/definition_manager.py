@@ -22,7 +22,6 @@ from typing import List, Optional
 from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.project.definition import ProjectProperties, load_project
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
-from snowflake.cli.api.utils.rendering import CONTEXT_KEY
 from snowflake.cli.api.utils.types import Context
 
 
@@ -131,6 +130,4 @@ class DefinitionManager:
 
     @functools.cached_property
     def template_context(self) -> Context:
-        definition = self._project_properties.raw_project_definition
-
-        return {CONTEXT_KEY: definition}
+        return self._project_properties.project_context

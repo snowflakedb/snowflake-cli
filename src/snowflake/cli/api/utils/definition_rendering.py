@@ -15,12 +15,15 @@
 from __future__ import annotations
 
 import copy
-import os
 from typing import Any, Optional
 
 from jinja2 import Environment, nodes
 from packaging.version import Version
 from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
+from snowflake.cli.api.project.schemas.project_definition import (
+    ProjectDefinition,
+    ProjectProperties,
+)
 from snowflake.cli.api.utils.dict_utils import traverse
 from snowflake.cli.api.utils.graph import Graph, Node
 from snowflake.cli.api.utils.models import ProjectEnvironment
@@ -155,12 +158,18 @@ class TemplateVar:
                 not isinstance(current_dict_level, dict)
                 or key not in current_dict_level
             ):
-                return None
+                raise InvalidTemplate(f"Could not find template variable {self.key}")
             current_dict_level = current_dict_level[key]
 
         value = current_dict_level
+
+        if value is None:
+            raise InvalidTemplate(f"Template variable {self.key} does not have a value")
+
         if isinstance(value, (dict, list)):
-            return None
+            raise InvalidTemplate(
+                f"Template variable {self.key} does not have a scalar value"
+            )
 
         return value
 
@@ -175,7 +184,7 @@ def _build_dependency_graph(
     env: TemplatedEnvironment,
     all_vars: set[TemplateVar],
     context: Context,
-    context_overrides: Context,
+    environment_overrides: ProjectEnvironment,
 ) -> Graph[TemplateVar]:
     dependencies_graph = Graph[TemplateVar]()
     for variable in all_vars:
@@ -184,17 +193,12 @@ def _build_dependency_graph(
     for variable in all_vars:
         # If variable is found in os.environ or from cli override, then use the value as is
         # skip rendering by pre-setting the rendered_value attribute
-        if (var_override := variable.read_from_context(context_overrides)) is not None:
-            variable.rendered_value = var_override
-            variable.templated_value = var_override
-        elif variable.is_env_var and variable.get_env_var_name() in os.environ:
-            env_value = os.environ.get(variable.get_env_var_name())
+        if variable.is_env_var and variable.get_env_var_name() in environment_overrides:
+            env_value = environment_overrides.get(variable.get_env_var_name())
             variable.rendered_value = env_value
             variable.templated_value = env_value
         else:
             variable.templated_value = variable.read_from_context(context)
-            if variable.templated_value is None:
-                raise InvalidTemplate(f"Invalid template variable {variable.key}")
             dependencies_vars = env.get_referenced_vars(variable.templated_value)
 
             for referenced_var in dependencies_vars:
@@ -216,9 +220,21 @@ def _render_graph_node(env: TemplatedEnvironment, node: Node[TemplateVar]) -> No
     node.data.rendered_value = env.render(node.data.templated_value, current_context)
 
 
+def _validate_env_section(env_section: dict):
+    if not isinstance(env_section, dict):
+        raise InvalidTemplate(
+            "env section in project definition file should be a mapping"
+        )
+    for variable, value in env_section.items():
+        if value is None or isinstance(value, (dict, list)):
+            raise InvalidTemplate(
+                f"Variable {variable} in env section or project definition file should be a scalar"
+            )
+
+
 def render_definition_template(
     original_definition: Definition, context_overrides: Context
-) -> Definition:
+) -> ProjectProperties:
     """
     Takes a definition file as input. An arbitrary structure containing dict|list|scalars,
     with the top level being a dictionary.
@@ -233,13 +249,25 @@ def render_definition_template(
     # protect input from update
     definition = copy.deepcopy(original_definition)
 
+    # start with an environment from overrides and environment variables:
+    override_env = context_overrides.get(CONTEXT_KEY, {}).get("env", {})
+    environment_overrides = ProjectEnvironment(
+        default_env={}, override_env=override_env
+    )
+
+    project_context = {CONTEXT_KEY: definition}
+
     if "definition_version" not in definition or Version(
         definition["definition_version"]
     ) < Version("1.1"):
-        return definition
+        project_definition = ProjectDefinition(**original_definition)
+        project_context[CONTEXT_KEY]["env"] = environment_overrides
+        return ProjectProperties(project_definition, project_context)
+
+    default_env = definition.get("env", {})
+    _validate_env_section(default_env)
 
     template_env = TemplatedEnvironment(get_snowflake_cli_jinja_env())
-    project_context = {CONTEXT_KEY: definition}
 
     referenced_vars = set()
 
@@ -249,7 +277,7 @@ def render_definition_template(
     traverse(definition, visit_action=find_any_template_vars)
 
     dependencies_graph = _build_dependency_graph(
-        template_env, referenced_vars, project_context, context_overrides
+        template_env, referenced_vars, project_context, environment_overrides
     )
 
     def on_cycle_action(node: Node[TemplateVar]):
@@ -273,10 +301,7 @@ def render_definition_template(
         update_action=lambda val: template_env.render(val, final_context),
     )
 
-    default_env = definition.setdefault("env", {})
-    override_env = context_overrides.get(CONTEXT_KEY, {}).get("env", {})
-    definition["env"] = ProjectEnvironment(
-        default_env=default_env, override_env=override_env
-    )
-
-    return definition
+    definition["env"] = ProjectEnvironment(default_env, override_env)
+    project_context[CONTEXT_KEY] = definition
+    project_definition = ProjectDefinition(**definition)
+    return ProjectProperties(project_definition, project_context)

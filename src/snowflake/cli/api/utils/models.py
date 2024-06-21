@@ -17,20 +17,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
-from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
-
-
-def _validate_env(current_env: dict):
-    if not isinstance(current_env, dict):
-        raise InvalidTemplate(
-            "env section in project definition file should be a mapping"
-        )
-    for variable, value in current_env.items():
-        if value is None or isinstance(value, (dict, list)):
-            raise InvalidTemplate(
-                f"Variable {variable} in env section or project definition file should be a scalar"
-            )
 
 
 class ProjectEnvironment(UpdatableModel):
@@ -50,7 +37,6 @@ class ProjectEnvironment(UpdatableModel):
     def __init__(
         self, default_env: Dict[str, Any], override_env: Optional[Dict[str, Any]] = None
     ):
-        _validate_env(default_env)
         super().__init__(self, default_env=default_env, override_env=override_env or {})
 
     def __getitem__(self, item):
@@ -59,6 +45,12 @@ class ProjectEnvironment(UpdatableModel):
         if item in os.environ:
             return os.environ[item]
         return self.default_env[item]
+
+    def get(self, item, default=None):
+        try:
+            return self[item]
+        except KeyError:
+            return default
 
     def __contains__(self, item) -> bool:
         try:

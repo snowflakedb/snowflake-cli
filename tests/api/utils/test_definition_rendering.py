@@ -21,6 +21,7 @@ from unittest import mock
 import pytest
 from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
 from snowflake.cli.api.project.definition import load_project
+from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 from snowflake.cli.api.utils.models import ProjectEnvironment
 
@@ -36,11 +37,15 @@ def test_resolve_variables_in_project_no_cross_variable_dependencies():
         },
     }
 
-    result = render_definition_template(definition, {})
+    result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "definition_version": "1.1",
-        "env": ProjectEnvironment({"number": 1, "string": "foo", "boolean": True}, {}),
+        "ctx": {
+            "definition_version": "1.1",
+            "env": ProjectEnvironment(
+                {"number": 1, "string": "foo", "boolean": True}, {}
+            ),
+        }
     }
 
 
@@ -54,34 +59,28 @@ def test_resolve_variables_in_project_cross_variable_dependencies():
             "C": "<% ctx.env.B %> and <% ctx.env.A %>",
         },
     }
-    result = render_definition_template(definition, {})
+    result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "definition_version": "1.1",
-        "env": ProjectEnvironment({"A": 42, "B": "b=42", "C": "b=42 and 42"}, {}),
+        "ctx": {
+            "definition_version": "1.1",
+            "env": ProjectEnvironment({"A": 42, "B": "b=42", "C": "b=42 and 42"}, {}),
+        }
     }
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
-def test_no_resolve_in_version_1_0():
+def test_no_resolve_in_version_1():
     definition = {
-        "definition_version": "1.0",
+        "definition_version": "1",
         "env": {
-            "A": 42,
+            "A": "42",
             "B": "b=<% ctx.env.A %>",
             "C": "<% ctx.env.B %> and <% ctx.env.A %>",
         },
     }
-    result = render_definition_template(definition, {})
-
-    assert result == {
-        "definition_version": "1.0",
-        "env": {
-            "A": 42,
-            "B": "b=<% ctx.env.A %>",
-            "C": "<% ctx.env.B %> and <% ctx.env.A %>",
-        },
-    }
+    with pytest.raises(SchemaValidationError):
+        render_definition_template(definition, {})
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
@@ -91,16 +90,18 @@ def test_resolve_variables_in_project_cross_project_dependencies():
         "streamlit": {"name": "my_app"},
         "env": {"app": "name of streamlit is <% ctx.streamlit.name %>"},
     }
-    result = render_definition_template(definition, {})
+    result = render_definition_template(definition, {}).project_context
     assert result == {
-        "definition_version": "1.1",
-        "streamlit": {"name": "my_app"},
-        "env": ProjectEnvironment(
-            {
-                "app": "name of streamlit is my_app",
-            },
-            {},
-        ),
+        "ctx": {
+            "definition_version": "1.1",
+            "streamlit": {"name": "my_app"},
+            "env": ProjectEnvironment(
+                {
+                    "app": "name of streamlit is my_app",
+                },
+                {},
+            ),
+        }
     }
 
 
@@ -123,52 +124,55 @@ def test_resolve_variables_in_project_environment_variables_precedence():
             "test_variable_2": "<% ctx.env.value_from_env %>",
         },
     }
-    result = render_definition_template(definition, {})
+    result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "definition_version": "1.1",
-        "env": ProjectEnvironment(
-            {
-                "should_be_replaced_by_env": "test failed",
-                "test_variable": "new_lowercase_value and new_uppercase_value",
-                "test_variable_2": "this comes from os.environ",
-            },
-            {},
-        ),
+        "ctx": {
+            "definition_version": "1.1",
+            "env": ProjectEnvironment(
+                {
+                    "should_be_replaced_by_env": "test failed",
+                    "test_variable": "new_lowercase_value and new_uppercase_value",
+                    "test_variable_2": "this comes from os.environ",
+                },
+                {},
+            ),
+        }
     }
-    assert result["env"]["lowercase"] == "new_lowercase_value"
-    assert result["env"]["UPPERCASE"] == "new_uppercase_value"
-    assert result["env"]["should_be_replaced_by_env"] == "test succeeded"
-    assert result["env"]["value_from_env"] == "this comes from os.environ"
+    assert result["ctx"]["env"]["lowercase"] == "new_lowercase_value"
+    assert result["ctx"]["env"]["UPPERCASE"] == "new_uppercase_value"
+    assert result["ctx"]["env"]["should_be_replaced_by_env"] == "test succeeded"
+    assert result["ctx"]["env"]["value_from_env"] == "this comes from os.environ"
 
 
 @mock.patch.dict(os.environ, {"env_var": "<% ctx.definition_version %>"}, clear=True)
 def test_env_variables_do_not_get_resolved():
     definition = {
         "definition_version": "1.1",
-        "native_app": {
-            "name": "test_source_<% ctx.env.env_var %>",
-        },
+        "native_app": {"name": "test_source_<% ctx.env.env_var %>", "artifacts": []},
         "env": {
             "reference_to_name": "<% ctx.native_app.name %>",
         },
     }
-    result = render_definition_template(definition, {})
+    result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "definition_version": "1.1",
-        "native_app": {
-            "name": "test_source_<% ctx.definition_version %>",
-        },
-        "env": ProjectEnvironment(
-            {
-                "reference_to_name": "test_source_<% ctx.definition_version %>",
+        "ctx": {
+            "definition_version": "1.1",
+            "native_app": {
+                "name": "test_source_<% ctx.definition_version %>",
+                "artifacts": [],
             },
-            {},
-        ),
+            "env": ProjectEnvironment(
+                {
+                    "reference_to_name": "test_source_<% ctx.definition_version %>",
+                },
+                {},
+            ),
+        }
     }
 
-    assert result["env"]["env_var"] == "<% ctx.definition_version %>"
+    assert result["ctx"]["env"]["env_var"] == "<% ctx.definition_version %>"
 
 
 @pytest.mark.parametrize(
@@ -190,17 +194,18 @@ def test_env_variables_do_not_get_resolved():
         },
         {
             "definition_version": "1.1",
-            "native_app": {"name": "test_<% ctx.env.A %>"},
+            "native_app": {"name": "test_<% ctx.env.A %>", "artifacts": []},
             "env": {"A": "<% ctx.native_app.name %>"},
         },
         {
             "definition_version": "1.1",
-            "native_app": {"name": "test_<% ctx.native_app.name %>"},
+            "native_app": {"name": "test_<% ctx.native_app.name %>", "artifacts": []},
         },
         {
             "definition_version": "1.1",
             "native_app": {
                 "name": "test_<% ctx.native_app.source_stage %>",
+                "artifacts": [],
                 "source_stage": "stage <% ctx.native_app.name %>",
             },
         },
@@ -244,7 +249,10 @@ def test_resolve_variables_reference_non_scalar(definition, error_var):
     with pytest.raises(InvalidTemplate) as err:
         render_definition_template(definition, {})
 
-    assert err.value.message == f"Invalid template variable {error_var}"
+    assert (
+        err.value.message
+        == f"Template variable {error_var} does not have a scalar value"
+    )
 
 
 @mock.patch.dict(os.environ, {"blank_env": ""}, clear=True)
@@ -253,40 +261,40 @@ def test_resolve_variables_blank_is_ok():
         "definition_version": "1.1",
         "native_app": {
             "name": "<% ctx.env.blank_default_env %>",
-            "source_stage": "",
             "deploy_root": "<% ctx.env.blank_env %>",
+            "artifacts": [],
         },
         "env": {
             "blank_default_env": "",
-            "refers_to_blank": "<% ctx.native_app.source_stage %>",
         },
     }
-    result = render_definition_template(definition, {})
+    result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "definition_version": "1.1",
-        "native_app": {"name": "", "source_stage": "", "deploy_root": ""},
-        "env": ProjectEnvironment(
-            {
-                "blank_default_env": "",
-                "refers_to_blank": "",
-            },
-            {},
-        ),
+        "ctx": {
+            "definition_version": "1.1",
+            "native_app": {"name": "", "deploy_root": "", "artifacts": []},
+            "env": ProjectEnvironment(
+                {
+                    "blank_default_env": "",
+                },
+                {},
+            ),
+        }
     }
 
-    assert result["env"]["blank_env"] == ""
+    assert result["ctx"]["env"]["blank_env"] == ""
 
 
 @pytest.mark.parametrize(
     "env, msg",
     [
-        ({"app": "<% bdbdbd %>"}, "Invalid template variable bdbdbd"),
+        ({"app": "<% bdbdbd %>"}, "Could not find template variable bdbdbd"),
         (
             {"app": "<% ctx.streamlit.name %>"},
-            "Invalid template variable ctx.streamlit.name",
+            "Could not find template variable ctx.streamlit.name",
         ),
-        ({"app": "<% ctx.foo %>"}, "Invalid template variable ctx.foo"),
+        ({"app": "<% ctx.foo %>"}, "Could not find template variable ctx.foo"),
     ],
 )
 def test_resolve_variables_fails_if_referencing_unknown_variable(env, msg):
@@ -340,19 +348,21 @@ def test_injected_yml_in_env_should_not_be_expanded():
             "test_env": "<% ctx.env.var_with_yml %>",
         },
     }
-    result = render_definition_template(definition, {})
+    result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "definition_version": "1.1",
-        "env": ProjectEnvironment(
-            {
-                "test_env": "    - app/*\n    - src\n",
-            },
-            {},
-        ),
+        "ctx": {
+            "definition_version": "1.1",
+            "env": ProjectEnvironment(
+                {
+                    "test_env": "    - app/*\n    - src\n",
+                },
+                {},
+            ),
+        }
     }
 
-    assert result["env"]["var_with_yml"] == "    - app/*\n    - src\n"
+    assert result["ctx"]["env"]["var_with_yml"] == "    - app/*\n    - src\n"
 
 
 @pytest.mark.parametrize(
@@ -419,20 +429,22 @@ def test_env_priority_from_cli_and_os_env_and_project_env():
     }
     result = render_definition_template(
         definition, {"ctx": {"env": {"env_var_test": "value_from_cli_override"}}}
-    )
+    ).project_context
 
     assert result == {
-        "definition_version": "1.1",
-        "env": ProjectEnvironment(
-            {
-                "env_var_test": "value_from_definition_file",
-                "final_value": "value_from_cli_override",
-            },
-            {"env_var_test": "value_from_cli_override"},
-        ),
+        "ctx": {
+            "definition_version": "1.1",
+            "env": ProjectEnvironment(
+                {
+                    "env_var_test": "value_from_definition_file",
+                    "final_value": "value_from_cli_override",
+                },
+                {"env_var_test": "value_from_cli_override"},
+            ),
+        }
     }
 
-    assert result["env"]["env_var_test"] == "value_from_cli_override"
+    assert result["ctx"]["env"]["env_var_test"] == "value_from_cli_override"
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
@@ -445,17 +457,19 @@ def test_values_env_from_only_overrides():
     }
     result = render_definition_template(
         definition, {"ctx": {"env": {"env_var_test": "value_from_cli_override"}}}
-    )
+    ).project_context
 
     assert result == {
-        "definition_version": "1.1",
-        "env": ProjectEnvironment(
-            {"final_value": "value_from_cli_override"},
-            {"env_var_test": "value_from_cli_override"},
-        ),
+        "ctx": {
+            "definition_version": "1.1",
+            "env": ProjectEnvironment(
+                {"final_value": "value_from_cli_override"},
+                {"env_var_test": "value_from_cli_override"},
+            ),
+        }
     }
 
-    assert result["env"]["env_var_test"] == "value_from_cli_override"
+    assert result["ctx"]["env"]["env_var_test"] == "value_from_cli_override"
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
@@ -465,17 +479,19 @@ def test_cli_env_var_blank():
     }
     result = render_definition_template(
         definition, {"ctx": {"env": {"env_var_test": ""}}}
-    )
+    ).project_context
 
     assert result == {
-        "definition_version": "1.1",
-        "env": ProjectEnvironment(
-            {},
-            {"env_var_test": ""},
-        ),
+        "ctx": {
+            "definition_version": "1.1",
+            "env": ProjectEnvironment(
+                {},
+                {"env_var_test": ""},
+            ),
+        }
     }
 
-    assert result["env"]["env_var_test"] == ""
+    assert result["ctx"]["env"]["env_var_test"] == ""
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
@@ -485,14 +501,39 @@ def test_cli_env_var_does_not_expand_with_templating():
     }
     result = render_definition_template(
         definition, {"ctx": {"env": {"env_var_test": "<% ctx.env.something %>"}}}
-    )
+    ).project_context
 
     assert result == {
-        "definition_version": "1.1",
-        "env": ProjectEnvironment(
-            {},
-            {"env_var_test": "<% ctx.env.something %>"},
-        ),
+        "ctx": {
+            "definition_version": "1.1",
+            "env": ProjectEnvironment(
+                {},
+                {"env_var_test": "<% ctx.env.something %>"},
+            ),
+        }
     }
 
-    assert result["env"]["env_var_test"] == "<% ctx.env.something %>"
+    assert result["ctx"]["env"]["env_var_test"] == "<% ctx.env.something %>"
+
+
+@mock.patch.dict(os.environ, {"os_env_var": "os_env_var_value"}, clear=True)
+def test_os_env_and_override_envs_in_version_1():
+    definition = {
+        "definition_version": "1",
+    }
+
+    override_ctx = {"ctx": {"env": {"override_env": "override_env_value"}}}
+    result = render_definition_template(definition, override_ctx).project_context
+
+    assert result == {
+        "ctx": {
+            "definition_version": "1",
+            "env": ProjectEnvironment(
+                {},
+                {"override_env": "override_env_value"},
+            ),
+        }
+    }
+
+    assert result["ctx"]["env"]["override_env"] == "override_env_value"
+    assert result["ctx"]["env"]["os_env_var"] == "os_env_var_value"

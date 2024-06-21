@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Dict, Optional, Union
 
 from packaging.version import Version
@@ -23,6 +24,25 @@ from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.utils.models import ProjectEnvironment
+from snowflake.cli.api.utils.types import Context
+
+
+@dataclass
+class ProjectProperties:
+    """
+    This class stores 2 objects representing the snowflake project:
+
+    The project_context object:
+    - Used as the context for templating when users reference variables in the project definition file.
+
+    The project_definition object:
+    - This is a transformed object type through Pydantic, which has been normalized.
+    - This object could have slightly different structure than what the users see in their yaml project definition files.
+    - This should be used for the business logic of snow CLI modules.
+    """
+
+    project_definition: ProjectDefinition
+    project_context: Context
 
 
 class _BaseDefinition(UpdatableModel):
