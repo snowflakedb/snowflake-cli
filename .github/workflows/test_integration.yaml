@@ -16,15 +16,15 @@ concurrency:
 
 
 jobs:
-  setup-matrix:
+  define-matrix:
     uses: ./.github/workflows/matrix.yaml
   tests:
-    needs: setup-matrix
+    needs: define-matrix
     strategy:
       fail-fast: true
       matrix:
-        os: ${{ fromJSON(needs.setup-matrix.outputs.os) }}
-        python-version: ${{ fromJSON(needs.setup-matrix.outputs.python) }}
+        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
+        python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
