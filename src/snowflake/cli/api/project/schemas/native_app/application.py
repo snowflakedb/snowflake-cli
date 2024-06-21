@@ -47,6 +47,6 @@ class Application(UpdatableModel):
         default=True,
     )
     post_deploy: Optional[List[ApplicationPostDeployHook]] = Field(
-        title="Steps that will be executed after the application object is created/upgraded",
+        title="Actions that will be executed after the application object is created/upgraded",
         default=None,
     )

@@ -146,6 +146,10 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             self._execute_post_deploy_hooks()
 
     def _execute_sql_script(self, sql_script_path):
+        """
+        Executing the SQL script in the provided file path after expanding template variables.
+        "use warehouse" and "use database" will be executed first if they are set in definition file or in the current connection.
+        """
         with open(sql_script_path) as f:
             sql_script = f.read()
             try:
@@ -161,16 +165,15 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def _execute_post_deploy_hooks(self):
         post_deploy_script_hooks = self.app_post_deploy_hooks
         if post_deploy_script_hooks:
-            for hook in post_deploy_script_hooks:
-                if hook.sql_script:
-                    cc.step(
-                        f"Executing application post-deploy SQL script: {hook.sql_script}"
-                    )
-                    self._execute_sql_script(hook.sql_script)
-                else:
-                    raise ValueError(
-                        f"Unsupported application post-deploy hook type: {hook}"
-                    )
+            with cc.phase("Executing application post-deploy actions..."):
+                for hook in post_deploy_script_hooks:
+                    if hook.sql_script:
+                        cc.step(f"Executing SQL script: {hook.sql_script}")
+                        self._execute_sql_script(hook.sql_script)
+                    else:
+                        raise ValueError(
+                            f"Unsupported application post-deploy hook type: {hook}"
+                        )
 
     def get_all_existing_versions(self) -> SnowflakeCursor:
         """

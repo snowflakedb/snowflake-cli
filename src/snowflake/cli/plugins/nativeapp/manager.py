@@ -31,6 +31,9 @@ from snowflake.cli.api.project.definition import (
     default_application,
     default_role,
 )
+from snowflake.cli.api.project.schemas.native_app.application import (
+    ApplicationPostDeployHook,
+)
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
@@ -265,7 +268,7 @@ class NativeAppManager(SqlExecutionMixin):
             return self._default_role
 
     @cached_property
-    def app_post_deploy_hooks(self) -> Optional[str]:
+    def app_post_deploy_hooks(self) -> Optional[List[ApplicationPostDeployHook]]:
         """
         Path to application post deploy script, relative to project root.
         """
