@@ -71,15 +71,16 @@ def _create_venv(tmp_dir: Path) -> None:
 
 def _build_snowcli(venv_path: Path, test_root_path: Path) -> None:
     subprocess.check_call(
-        [_python_path(venv_path), "-m", "pip", "install", "--upgrade", "build"]
+        [_python_path(venv_path), "-m", "pip", "install", "--upgrade", "build"],
+        shell=True,
     )
     subprocess.check_call(
-        [_python_path(venv_path), "-m", "build", test_root_path / ".."]
+        [_python_path(venv_path), "-m", "build", test_root_path / ".."], shell=True
     )
 
 
 def _pip_install(python, *args):
-    return subprocess.check_call([python, "-m", "pip", "install", *args])
+    return subprocess.check_call([python, "-m", "pip", "install", *args], shell=True)
 
 
 def _install_snowcli_with_external_plugin(
