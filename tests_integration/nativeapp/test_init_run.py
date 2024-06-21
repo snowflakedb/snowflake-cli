@@ -421,7 +421,7 @@ def test_nativeapp_init_from_repo_with_single_template(
             single_template_repo.close()
 
 
-# Tests application post-deploy scripts are executed
+# Tests that application post-deploy scripts are executed by creating a post_deploy_log table and having each post-deploy script add a record to it
 @pytest.mark.integration
 def test_nativeapp_app_post_deploy(runner, snowflake_session, project_directory):
     project_name = "myapp"
