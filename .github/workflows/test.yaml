@@ -16,7 +16,7 @@ env:
 
 jobs:
   setup-matrix:
-    uses: ./github/workflows/matrix.yaml
+    uses: ./.github/workflows/matrix.yaml
   tests:
     needs: setup-matrix
     strategy:
