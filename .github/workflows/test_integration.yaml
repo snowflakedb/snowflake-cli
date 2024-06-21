@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   setup-matrix:
-    uses: snowflakedb/snowflake-cli/.github/workflows/matrix.yaml
+    uses: snowflakedb/snowflake-cli/.github/workflows/matrix.yaml@main
   tests:
     needs: setup-matrix
     strategy:
