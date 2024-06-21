@@ -354,8 +354,9 @@ def print_diff_to_console(
         blank_line_needed = True
 
     if diff.only_on_stage:
-        prefix = "\n" if blank_line_needed else ""
-        cc.message(f"{prefix}Deleted paths to be removed from your stage:")
+        if blank_line_needed:
+            cc.message("")
+        cc.message(f"Deleted paths to be removed from your stage:")
         with cc.indented():
             for p in sorted(diff.only_on_stage):
                 diff_line = _to_diff_line("deleted", src=None, dest=str(p))
