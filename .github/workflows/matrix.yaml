@@ -6,8 +6,8 @@ jobs:
   define-matrix:
     runs-on: ubuntu-latest
     outputs:
-      os: $
-      python: $
+      os:  ${{ steps.os.outputs.os }}
+      python:  ${{ steps.python.outputs.python }}
     steps:
       - name: Define OS versions
         id: os
@@ -17,7 +17,7 @@ jobs:
       - name: Define python versions
         id: python
         run: |
-          if [ ${{ github.event_name }} = 'schedule' ]; then
+          if [ "${{ github.event_name }}" = "schedule" ]; then
             echo 'python=["3.8", "3.9", "3.10", "3.11", "3.12"]'
             echo 'python=["3.8", "3.9", "3.10", "3.11", "3.12"]' >> "$GITHUB_OUTPUT"
           else
