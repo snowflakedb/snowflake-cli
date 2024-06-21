@@ -15,13 +15,11 @@ jobs:
         id: os
         run: |
           echo 'os=[ "windows-latest", "ubuntu-latest", "macos-latest" ]' >> "$GITHUB_OUTPUT"
-      - name: Define OS versions outside schedule
-        if: ${{ github.event_name != 'schedule' }}
+      - name: Define python versions
         id: python
         run: |
-          echo 'python=["3.8", "3.12"]' >> "$GITHUB_OUTPUT"
-      - name: Define OS versions for scheduled run
-        if: ${{ github.event_name == 'schedule' }}
-        id: python
-        run: |
-          echo 'python=["3.8", "3.9", "3.10", "3.11", "3.12"]' >> "$GITHUB_OUTPUT"
+          if [ ${{ github.event_name }} = 'schedule' ]; then
+            echo 'python=["3.8", "3.9", "3.10", "3.11", "3.12"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'python=["3.8", "3.12"]' >> "$GITHUB_OUTPUT"
+          fi
