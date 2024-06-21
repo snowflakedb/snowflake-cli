@@ -28,6 +28,7 @@ from snowflake.cli.api.project.util import (
     unquote_identifier,
 )
 from snowflake.cli.api.utils.cursor import find_all_rows
+from snowflake.cli.api.utils.rendering import snowflake_sql_jinja_render
 from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
@@ -152,6 +153,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     self._execute_query(f"use warehouse {self.application_warehouse}")
                 if self._conn.database:
                     self._execute_query(f"use database {self._conn.database}")
+                sql_script = snowflake_sql_jinja_render(content=sql_script)
                 self._execute_queries(sql_script)
             except ProgrammingError as err:
                 generic_sql_error_handler(err)

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from textwrap import dedent
 from unittest import mock
 
 import pytest
@@ -25,6 +26,10 @@ from tests.nativeapp.utils import (
 )
 from tests.testing_utils.fixtures import MockConnectionCtx
 
+CLI_GLOBAL_TEMPLATE_CONTEXT = (
+    "snowflake.cli.api.cli_global_context._CliGlobalContextAccess.template_context"
+)
+
 
 def _get_run_processor(working_dir):
     dm = DefinitionManager(working_dir)
@@ -36,14 +41,19 @@ def _get_run_processor(working_dir):
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
+@mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock_connection()
 def test_sql_scripts(
     mock_conn,
+    mock_cli_ctx,
     mock_execute_queries,
     mock_execute_query,
     project_directory,
 ):
     mock_conn.return_value = MockConnectionCtx()
+    mock_cli_ctx.return_value = {
+        "ctx": {"native_app": {"name": "myapp"}, "env": {"foo": "bar"}}
+    }
     with project_directory("napp_post_deploy") as project_dir:
         processor = _get_run_processor(str(project_dir))
 
@@ -56,7 +66,17 @@ def test_sql_scripts(
             mock.call("use database MockDatabase"),
         ]
         assert mock_execute_queries.mock_calls == [
-            mock.call("-- app post-deploy script (1/2)\n"),
+            # Verify template variables were expanded correctly
+            mock.call(
+                dedent(
+                    """\
+                -- app post-deploy script (1/2)
+
+                select myapp;
+                select bar;
+                """
+                )
+            ),
             mock.call("-- app post-deploy script (2/2)\n"),
         ]
 
