@@ -470,7 +470,7 @@ def test_nativeapp_run_orphan(
                 command = ["app", "run", "--force"]
                 _input = None
             else:
-                command = ["app", "run"]
+                command = ["app", "run", "--interactive"]  # show prompt in tests
                 _input = "y\n"  # yes to drop app
             result = runner.invoke_with_connection(command, input=_input, env=TEST_ENV)
             assert result.exit_code == 0, result.output
