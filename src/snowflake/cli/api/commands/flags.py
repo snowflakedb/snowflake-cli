@@ -504,12 +504,9 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
 def register_project_definition(project_name: Optional[str], is_optional: bool) -> None:
     project_path = cli_context_manager.project_path_arg
     env_overrides_args = cli_context_manager.project_env_overrides_args
-    env_cli_overrides = {
-        v.key: v.value for v in parse_key_value_variables(env_overrides_args)
-    }
 
     try:
-        dm = DefinitionManager(project_path, {CONTEXT_KEY: {"env": env_cli_overrides}})
+        dm = DefinitionManager(project_path, {CONTEXT_KEY: {"env": env_overrides_args}})
         project_definition = dm.project_definition
         project_root = dm.project_root
         template_context = dm.template_context
@@ -528,7 +525,7 @@ def register_project_definition(project_name: Optional[str], is_optional: bool) 
             template_context = {
                 CONTEXT_KEY: {
                     "env": ProjectEnvironment(
-                        default_env={}, override_env=env_cli_overrides
+                        default_env={}, override_env=env_overrides_args
                     )
                 }
             }
@@ -573,11 +570,17 @@ def project_definition_option(project_name: Optional[str], is_optional: bool):
 
 
 def project_env_overrides_option():
+    def project_env_overrides_callback(env_overrides_args_list: list[str]) -> None:
+        env_overrides_args_map = {
+            v.key: v.value for v in parse_key_value_variables(env_overrides_args_list)
+        }
+        cli_context_manager.set_project_env_overrides_args(env_overrides_args_map)
+
     return typer.Option(
         [],
         "--env",
         help="String in format of key=value. Overrides env variables used for templating.",
-        callback=_callback(lambda: cli_context_manager.set_project_env_overrides_args),
+        callback=_callback(lambda: project_env_overrides_callback),
         show_default=False,
     )
 

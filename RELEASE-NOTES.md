@@ -30,6 +30,10 @@
   * Format of the argument: `--env key1=value1 --env key2=value2`.
   * Overrides `env` variables values when used in templating.
   * Can be referenced in templating through `ctx.env.<key_name>`.
+  * Templating will read env vars in this order of priority (highest priority to lowest priority):
+    * vars from `--env` command line argument.
+    * vars from shell environment variables.
+    * vars from `env` section of project definition file.
 
 ## Fixes and improvements
 * Passing a directory to `snow app deploy` will now deploy any contained file or subfolder specified in the application's artifact rules

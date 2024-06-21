@@ -227,7 +227,7 @@ class _CliGlobalContextManager:
         self._project_definition = None
         self._project_root = None
         self._project_path_arg = None
-        self._project_env_overrides_args = []
+        self._project_env_overrides_args = {}
         self._typer_pre_execute_commands = []
         self._template_context = None
         self._silent: bool = False
@@ -285,10 +285,12 @@ class _CliGlobalContextManager:
         self._project_path_arg = project_path_arg
 
     @property
-    def project_env_overrides_args(self) -> list[str]:
+    def project_env_overrides_args(self) -> dict[str, str]:
         return self._project_env_overrides_args
 
-    def set_project_env_overrides_args(self, project_env_overrides_args: list[str]):
+    def set_project_env_overrides_args(
+        self, project_env_overrides_args: dict[str, str]
+    ):
         self._project_env_overrides_args = project_env_overrides_args
 
     @property
