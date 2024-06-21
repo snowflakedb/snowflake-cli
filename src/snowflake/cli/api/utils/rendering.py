@@ -95,11 +95,11 @@ def get_sql_cli_jinja_env():
     )
 
 
-def get_project_template_cli_jinja_env() -> Environment:
+def get_project_template_cli_jinja_env(template_root: SecurePath) -> Environment:
     _random_block = "___very___unique___block___to___disable___logic___blocks___"
     return _env_bootstrap(
         Environment(
-            loader=loaders.BaseLoader(),
+            loader=loaders.FileSystemLoader(searchpath=template_root.path),
             keep_trailing_newline=True,
             variable_start_string=_PROJECT_TEMPLATE_START,
             variable_end_string=_PROJECT_TEMPLATE_END,

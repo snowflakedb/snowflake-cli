@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 import typer
+import yaml
 from click import ClickException
 from snowflake.cli.api.commands.flags import (
     NoInteractiveOption,
@@ -24,10 +25,14 @@ from snowflake.cli.api.commands.flags import (
     parse_key_value_variables,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+
+# from snowflake.cli.api.utils.rendering import get_project_template_cli_jinja_env
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
 )
+from snowflake.cli.api.project.schemas.template import Template
 from snowflake.cli.api.secure_path import SecurePath
 
 # simple Typer with defaults because it won't become a command group as it contains only one command
@@ -46,6 +51,16 @@ SourceOption = typer.Option(
     help=f"local path to template directory or URL to git repository with templates.",
 )
 
+TEMPLATE_METADATA_FILE_NAME = "template.yml"
+
+
+def _read_template_metadata(template_root: SecurePath) -> Template:
+    template_metadata_path = template_root / TEMPLATE_METADATA_FILE_NAME
+    if not template_metadata_path.exists():
+        raise FileNotFoundError("Template does not have template.yml file")
+    with template_metadata_path.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
+        return Template(**yaml.safe_load(fd))
+
 
 @app.command(no_args_is_help=True)
 def init(
@@ -62,18 +77,25 @@ def init(
         v.key: v.value
         for v in parse_key_value_variables(variables if variables else [])
     }
+
+    is_remote_source = not SecurePath(template_source).exists()
+
+    # copy/download template into tmpdir, so it is going to be removed in case command ens with an error
     with SecurePath.temporary_directory() as tmpdir:
-        if not (local_template_dir := SecurePath(template_source)).exists():
+        if is_remote_source:
             # assume template is URL
             raise NotImplementedError("urls not supported (yet)")
 
         else:
-            if not (template_origin := (local_template_dir / name)).exists():
+            template_origin = SecurePath(template_source) / name
+            if not template_origin.exists():
                 raise ClickException(
-                    f"Template {name} cannot be found under {local_template_dir}"
+                    f"Template '{name}' cannot be found under {template_source}"
                 )
             template_origin.copy(tmpdir.path)
-            path_for_rendering = tmpdir / name
+            template_root = tmpdir / template_origin.name
 
-        path_for_rendering.copy(".")
+        template_metadata = _read_template_metadata(template_root)
+
+        template_root.copy(".")
     return MessageResult("OK")
