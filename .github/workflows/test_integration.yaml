@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   setup-matrix:
-    uses: .github/workflows/matrix.yaml@main
+    uses: ./github/workflows/matrix.yaml
   tests:
     needs: setup-matrix
     strategy:
