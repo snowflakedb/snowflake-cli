@@ -15,13 +15,16 @@ env:
 
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  setup-matrix:
+    uses: snowflakedb/snowflake-cli/.github/workflows/matrix.yaml
+  tests:
+    needs: setup-matrix
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
-
+        os: ${{ fromJSON(needs.setup-matrix.outputs.os) }}
+        python-version: ${{ fromJSON(needs.setup-matrix.outputs.python) }}
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:

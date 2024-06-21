@@ -1,0 +1,27 @@
+name: shared matrix
+on:
+  workflow_call:
+
+jobs:
+  define-matrix:
+    runs-on: ubuntu-latest
+
+    outputs:
+      os: $
+      python: $
+
+    steps:
+      - name: Define OS versions
+        id: os
+        run: |
+          echo 'os=[ "windows-latest", "ubuntu-latest", "macos-latest" ]' >> "$GITHUB_OUTPUT"
+      - name: Define OS versions outside schedule
+        if: ${{ github.event_name != 'schedule' }}
+        id: python
+        run: |
+          echo 'python=["3.8", "3.12"]' >> "$GITHUB_OUTPUT"
+      - name: Define OS versions for scheduled run
+        if: ${{ github.event_name == 'schedule' }}
+        id: python
+        run: |
+          echo 'python=["3.8", "3.9", "3.10", "3.11", "3.12"]' >> "$GITHUB_OUTPUT"
