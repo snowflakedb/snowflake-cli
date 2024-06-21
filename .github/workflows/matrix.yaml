@@ -1,6 +1,12 @@
 name: shared matrix
 on:
   workflow_call:
+    # Map the workflow outputs to job outputs
+    outputs:
+      os:
+        value: ${{ jobs.define-matrix.outputs.os }}
+      python:
+        value: ${{ jobs.define-matrix.outputs.python }}
 
 jobs:
   define-matrix:
