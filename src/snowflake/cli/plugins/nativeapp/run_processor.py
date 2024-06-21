@@ -148,8 +148,10 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         with open(sql_script_path) as f:
             sql_script = f.read()
             try:
-                self._execute_query(f"use warehouse {self.application_warehouse}")
-                self._execute_query(f"use database {self._conn.database}")
+                if self.application_warehouse:
+                    self._execute_query(f"use warehouse {self.application_warehouse}")
+                if self._conn.database:
+                    self._execute_query(f"use database {self._conn.database}")
                 self._execute_queries(sql_script)
             except ProgrammingError as err:
                 generic_sql_error_handler(err)

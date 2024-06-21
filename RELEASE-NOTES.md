@@ -22,6 +22,10 @@
 ## New additions
 * Added support for `title` field in Streamlit definition in `snowflake.yml` project file.
 * Added `--auto-compress` flag to `snow stage copy` command enabling use of gzip to compress files during upload.
+* Added new `native_app.application.post_deploy` section to `snowflake.yml` schema to run SQL scripts after the application has been deployed.
+  * By default, the warehouse defined in `snowflake.yml`, or in the current connection, will be used.
+  * By default, the database of the current connection will be used.
+  * Note that these scripts will only run only in dev mode after `snow app run`, not after consumers install the application.
 
 ## Fixes and improvements
 * Passing a directory to `snow app deploy` will now deploy any contained file or subfolder specified in the application's artifact rules

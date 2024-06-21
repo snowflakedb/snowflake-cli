@@ -19,7 +19,10 @@ from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
 
 from tests.nativeapp.patch_utils import mock_connection
-from tests.nativeapp.utils import NATIVEAPP_MANAGER_EXECUTE_QUERIES
+from tests.nativeapp.utils import (
+    NATIVEAPP_MANAGER_EXECUTE,
+    NATIVEAPP_MANAGER_EXECUTE_QUERIES,
+)
 from tests.testing_utils.fixtures import MockConnectionCtx
 
 
@@ -31,11 +34,13 @@ def _get_run_processor(working_dir):
     )
 
 
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
 @mock_connection()
 def test_sql_scripts(
     mock_conn,
     mock_execute_queries,
+    mock_execute_query,
     project_directory,
 ):
     mock_conn.return_value = MockConnectionCtx()
@@ -44,17 +49,21 @@ def test_sql_scripts(
 
         processor._execute_post_deploy_hooks()  # noqa SLF001
 
+        assert mock_execute_query.mock_calls == [
+            mock.call("use warehouse MockWarehouse"),
+            mock.call("use database MockDatabase"),
+            mock.call("use warehouse MockWarehouse"),
+            mock.call("use database MockDatabase"),
+        ]
         assert mock_execute_queries.mock_calls == [
             mock.call("-- app post-deploy script (1/2)\n"),
             mock.call("-- app post-deploy script (2/2)\n"),
         ]
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
 @mock_connection()
 def test_missing_sql_script(
     mock_conn,
-    mock_execute_queries,
     project_directory,
 ):
     mock_conn.return_value = MockConnectionCtx()
