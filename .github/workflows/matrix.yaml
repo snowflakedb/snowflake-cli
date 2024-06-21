@@ -18,15 +18,17 @@ jobs:
       - name: Define OS versions
         id: os
         run: |
-          echo 'os=["windows-latest", "ubuntu-latest", "macos-latest"]'
-          echo 'os=["windows-latest", "ubuntu-latest", "macos-latest"]' >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo 'os=["windows-latest", "ubuntu-latest", "macos-latest"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'os=["windows-latest", "ubuntu-latest"]' >> "$GITHUB_OUTPUT"
+          fi
       - name: Define python versions
         id: python
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo 'python=["3.8", "3.9", "3.10", "3.11", "3.12"]'
             echo 'python=["3.8", "3.9", "3.10", "3.11", "3.12"]' >> "$GITHUB_OUTPUT"
           else
-            echo 'python=["3.8", "3.12"]'
-            echo 'python=["3.8", "3.12"]' >> "$GITHUB_OUTPUT"
+            # Last supported and most frequently used
+            echo 'python=["3.8", "3.10"]' >> "$GITHUB_OUTPUT"
           fi
