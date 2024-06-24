@@ -34,6 +34,7 @@ class PathMapping(UpdatableModel):
     src: str = Field(title="Source path", default=None)
 
     dest: Optional[str] = Field(title="Destination path", default=None)
+
     processors: Optional[List[Union[str, ProcessorMapping]]] = Field(
         title="List of procAessors to invoke on a collection of artifacts.", default=[]
     )

@@ -20,17 +20,50 @@ from pydantic.json_schema import GenerateJsonSchema
 
 
 class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
-    def __init__(self, by_alias: bool = True, ref_template: str = ""):
-        reference_template = "{model}"
-        super().__init__(by_alias, reference_template)
+    def __init__(self, by_alias: bool = False, ref_template: str = ""):
+        super().__init__(by_alias, "{model}")
         self._remapped_definitions: Dict[str, Any] = {}
 
     def generate(self, schema, mode="validation"):
+        """
+        Transforms the generated json from the model to a list of project definition sections with its fields.
+        For example:
+        {
+            "result": [
+                {
+                    "title": "Native app definitions for the project",
+                    "name": "native_app",
+                    "fields": [
+                        {
+                            "path": "Version of the project definition schema, which is currently 1",
+                            "title": "Title of field A",
+                            "indents": 0,
+                            "item_index": 0,
+                            "required": True,
+                            "name": "definition_version",
+                            "add_types": True,
+                            "types": "string | integer",
+                        },
+                        {
+                            "path": "native_app.name",
+                            "title": "Project identifier",
+                            "indents": 1,
+                            "item_index": 0,
+                            "required": True,
+                            "name": "name",
+                            "add_types": True,
+                            "types": "string",
+                        }
+                    ]
+                }
+            ]
+        }
+        """
         json_schema = super().generate(schema, mode=mode)
         self._remapped_definitions = json_schema["$defs"]
-        return {"result": self._get_fields_sections(json_schema)}
+        return {"result": self._get_definition_sections(json_schema)}
 
-    def _get_fields_sections(
+    def _get_definition_sections(
         self, current_definition: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         required_fields: List[Dict[str, Any]] = []
@@ -50,7 +83,7 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
                 item_index=0,
                 is_required=is_required,
                 field_name=field_name,
-                is_model=len(children_fields) > 0,
+                add_types=len(children_fields) == 0,
                 types=" | ".join(self._get_field_types(field_model)),
             )
             fields = [new_field] + children_fields
@@ -71,7 +104,7 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
 
         return sections
 
-    def _get_fields_with_path(
+    def _get_section_fields(
         self,
         current_definition: Dict[str, Any],
         current_path: str = "",
@@ -101,7 +134,7 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
                 item_index=item_index,
                 is_required=is_required,
                 field_name=field_name,
-                is_model=len(children_fields) > 0,
+                add_types=len(children_fields) == 0,
                 types=" | ".join(self._get_field_types(field_model)),
             )
             fields = [new_field] + children_fields
@@ -119,7 +152,7 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
         item_index: int,
         is_required: bool,
         field_name: str,
-        is_model: bool,
+        add_types: bool,
         types: str,
     ):
         return {
@@ -129,7 +162,7 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
             "item_index": item_index,
             "required": is_required,
             "name": field_name,
-            "is_model": is_model,
+            "add_types": add_types,
             "types": types,
         }
 
@@ -140,9 +173,9 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
         deep: int = 0,
     ) -> List[Dict[str, Any]]:
         child_fields: List[Dict[str, Any]] = []
-        references: List[Tuple[str, bool]] = self._get_references(field_model)
+        references: List[Tuple[str, bool]] = self._get_field_references(field_model)
         for reference, is_array_item in references:
-            child_fields += self._get_fields_with_path(
+            child_fields += self._get_section_fields(
                 self._remapped_definitions[reference],
                 current_path,
                 deep + 1,
@@ -151,7 +184,7 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
 
         return child_fields
 
-    def _get_references(
+    def _get_field_references(
         self,
         model_with_type: Dict[str, Any],
         is_array_item: bool = False,
@@ -162,11 +195,11 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
             return [(model_with_type["$ref"], is_array_item)]
 
         if "type" in model_with_type and model_with_type["type"] == "array":
-            result += self._get_references(model_with_type["items"], True)
+            result += self._get_field_references(model_with_type["items"], True)
 
         if "anyOf" in model_with_type:
             for field_type in model_with_type["anyOf"]:
-                result += self._get_references(field_type, is_array_item)
+                result += self._get_field_references(field_type, is_array_item)
         return result
 
     def _get_field_types(self, model_with_type: Dict[str, Any]) -> list[str]:

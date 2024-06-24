@@ -35,7 +35,7 @@ def test_definition_files_generated_from_json(mock_generate, runner, temp_dir):
         "item_index": 0,
         "required": False,
         "name": "fieldA",
-        "is_model": True,
+        "add_types": False,
         "types": "",
     }
 
@@ -46,7 +46,7 @@ def test_definition_files_generated_from_json(mock_generate, runner, temp_dir):
         "item_index": 1,
         "required": True,
         "name": "fieldB",
-        "is_model": False,
+        "add_types": True,
         "types": "string",
     }
     result = {
