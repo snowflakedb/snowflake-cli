@@ -26,6 +26,11 @@ from snowflake.cli import __about__
 TEST_DIR = Path(__file__).parent
 
 
+def _check_call(*args, **kwargs):
+    is_windows = os.name == "nt"
+    subprocess.check_call(*args, **kwargs)
+
+
 @pytest.fixture(scope="session")
 def test_root_path():
     return TEST_DIR
@@ -45,6 +50,7 @@ def temp_dir():
     initial_dir = os.getcwd()
     tmp = tempfile.TemporaryDirectory()
     os.chdir(tmp.name)
+    os.chmod(tmp.name, 0o600)
     yield tmp.name
     os.chdir(initial_dir)
     tmp.cleanup()
@@ -66,20 +72,18 @@ def isolate_default_config_location(monkeypatch, temp_dir):
 
 
 def _create_venv(tmp_dir: Path) -> None:
-    subprocess.check_call(["python", "-m", "venv", tmp_dir])
+    _check_call(["python", "-m", "venv", tmp_dir])
 
 
 def _build_snowcli(venv_path: Path, test_root_path: Path) -> None:
-    subprocess.check_call(
-        [_python_path(venv_path), "-m", "pip", "install", "--upgrade", "build"]
+    _check_call(
+        [_python_path(venv_path), "-m", "pip", "install", "--upgrade", "build"],
     )
-    subprocess.check_call(
-        [_python_path(venv_path), "-m", "build", test_root_path / ".."]
-    )
+    _check_call([_python_path(venv_path), "-m", "build", test_root_path / ".."])
 
 
 def _pip_install(python, *args):
-    return subprocess.check_call([python, "-m", "pip", "install", *args])
+    return _check_call([python, "-m", "pip", "install", *args])
 
 
 def _install_snowcli_with_external_plugin(
