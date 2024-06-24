@@ -41,9 +41,20 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
                 "required" in current_definition
                 and field_name in current_definition["required"]
             )
-            fields = self._get_field_with_its_child_fields(
-                field_name, field_model, is_required
+            children_fields = self._get_children_fields(field_model, field_name)
+
+            new_field = self._create_new_field(
+                path=field_name,
+                title=field_model["title"],
+                indents=0,
+                item_index=0,
+                is_required=is_required,
+                field_name=field_name,
+                is_model=len(children_fields) > 0,
+                types=" | ".join(self._get_field_types(field_model)),
             )
+            fields = [new_field] + children_fields
+
             if is_required:
                 required_fields += fields
             else:
@@ -77,90 +88,99 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
                 "required" in current_definition
                 and field_name in current_definition["required"]
             )
-            fields = self._get_field_with_its_child_fields(
-                field_name, field_model, is_required, current_path, item_index, deep
+            new_current_path = (
+                field_name if current_path == "" else current_path + "." + field_name
             )
+            children_fields = self._get_children_fields(
+                field_model, new_current_path, deep
+            )
+            new_field = self._create_new_field(
+                path=new_current_path,
+                title=field_model["title"],
+                indents=deep,
+                item_index=item_index,
+                is_required=is_required,
+                field_name=field_name,
+                is_model=len(children_fields) > 0,
+                types=" | ".join(self._get_field_types(field_model)),
+            )
+            fields = [new_field] + children_fields
             if is_required:
                 required_fields += fields
             else:
                 optional_fields += fields
         return required_fields + optional_fields
 
-    def _get_field_with_its_child_fields(
+    def _create_new_field(
         self,
-        field_name: str,
-        field_model: Dict[str, Any],
+        path: str,
+        title: str,
+        indents: int,
+        item_index: int,
         is_required: bool,
-        current_path: str = "",
-        item_index: int = 0,
-        deep: int = 0,
-    ) -> List[Dict[str, Any]]:
-
-        new_current_path = (
-            field_name if current_path == "" else current_path + "." + field_name
-        )
-        child_fields = self._get_child_references(field_model, new_current_path, deep)
-        types, is_array = self._get_field_type(field_model)
-        field_model["is_array"] = is_array
-        new_field = {
-            "path": new_current_path,
-            "title": field_model["title"],
-            "indents": deep,
+        field_name: str,
+        is_model: bool,
+        types: str,
+    ):
+        return {
+            "path": path,
+            "title": title,
+            "indents": indents,
             "item_index": item_index,
             "required": is_required,
             "name": field_name,
-            "is_model": len(child_fields) > 0,
-            "types": " | ".join(types),
+            "is_model": is_model,
+            "types": types,
         }
-        fields = [new_field] + child_fields
-        return fields
 
-    def _get_child_references(
+    def _get_children_fields(
         self,
-        model_with_type: Dict[str, Any],
+        field_model: Dict[str, Any],
         current_path: str,
         deep: int = 0,
-        array_item: bool = False,
     ) -> List[Dict[str, Any]]:
-        result: List[Dict[str, Any]] = []
-
-        if "$ref" in model_with_type:
-            result += self._get_fields_with_path(
-                self._remapped_definitions[model_with_type["$ref"]],
+        child_fields: List[Dict[str, Any]] = []
+        references: List[Tuple[str, bool]] = self._get_references(field_model)
+        for reference, is_array_item in references:
+            child_fields += self._get_fields_with_path(
+                self._remapped_definitions[reference],
                 current_path,
                 deep + 1,
-                array_item,
+                is_array_item,
             )
+
+        return child_fields
+
+    def _get_references(
+        self,
+        model_with_type: Dict[str, Any],
+        is_array_item: bool = False,
+    ) -> list[tuple[str, bool]]:
+        result: List[Tuple[str, bool]] = []
+
+        if "$ref" in model_with_type:
+            return [(model_with_type["$ref"], is_array_item)]
 
         if "type" in model_with_type and model_with_type["type"] == "array":
-            result += self._get_child_references(
-                model_with_type["items"], current_path, deep, True
-            )
+            result += self._get_references(model_with_type["items"], True)
 
-        if "AnyOf" in model_with_type:
-            for field_type in model_with_type["AnyOf"]:
-                result += self._get_child_references(
-                    field_type, current_path, deep, array_item
-                )
+        if "anyOf" in model_with_type:
+            for field_type in model_with_type["anyOf"]:
+                result += self._get_references(field_type, is_array_item)
         return result
 
-    def _get_field_type(
-        self, model_with_type: Dict[str, Any]
-    ) -> Tuple[List[str], bool]:
+    def _get_field_types(self, model_with_type: Dict[str, Any]) -> list[str]:
         types_result: List[str] = []
-        is_array_result = False
         if "type" in model_with_type:
             if model_with_type["type"] == "array":
-                is_array_result = True
-                items_types, _ = self._get_field_type(model_with_type["items"])
+                items_types = self._get_field_types(model_with_type["items"])
                 if len(items_types) > 0:
                     types_result += [f"array[{' | '.join(items_types)}]"]
 
             elif model_with_type["type"] != "null":
                 types_result += [model_with_type["type"]]
-        elif "AnyOf" in model_with_type:
-            for field_type in model_with_type["AnyOf"]:
-                types, is_array = self._get_field_type(field_type)
-                is_array_result = is_array or is_array_result
+        elif "anyOf" in model_with_type:
+            for field_type in model_with_type["anyOf"]:
+                types = self._get_field_types(field_type)
                 types_result += types
-        return types_result, is_array_result
+        return types_result

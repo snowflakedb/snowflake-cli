@@ -30,5 +30,6 @@ def generate_docs(root: SecurePath, command: Command):
     """
     Generates documentation for each command, its options and for the project definition.
     """
-    generate_command_docs(root, command)
-    generate_project_definition_docs(root)
+    root.mkdir(exist_ok=True)
+    generate_command_docs(root / "commands", command)
+    generate_project_definition_docs(root / "project_definition")

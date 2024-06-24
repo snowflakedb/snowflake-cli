@@ -38,6 +38,7 @@ def generate_project_definition_docs(root: SecurePath):
     Each file contains the definition for every field within that section.
     """
 
+    root.mkdir(exist_ok=True)
     list_of_sections = model_json_schema(
         ProjectDefinition, schema_generator=ProjectDefinitionGenerateJsonSchema
     )["result"]
@@ -50,7 +51,7 @@ def generate_project_definition_docs(root: SecurePath):
 # Included files, which these are, need to use the .txt extension.
 def _render_definition_description(root: SecurePath, section: Dict[str, Any]) -> None:
     env = Environment(loader=FileSystemLoader(Path(__file__).parent / "templates"))
-    file_path = root / f"project-definition-{section['name']}.txt"
+    file_path = root / f"definition_{section['name']}.txt"
     log.info("Creating %s", file_path)
     template = env.get_template(DEFINITION_DESCRIPTION)
     with file_path.open("w+") as fh:
