@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import typer
 import yaml
@@ -25,15 +25,14 @@ from snowflake.cli.api.commands.flags import (
     parse_key_value_variables,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-
-# from snowflake.cli.api.utils.rendering import get_project_template_cli_jinja_env
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
 )
-from snowflake.cli.api.project.schemas.template import Template
+from snowflake.cli.api.project.schemas.template import Template, TemplateVariable
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.utils.rendering import get_template_cli_jinja_env
 
 # simple Typer with defaults because it won't become a command group as it contains only one command
 app = SnowTyperFactory()
@@ -54,12 +53,66 @@ SourceOption = typer.Option(
 TEMPLATE_METADATA_FILE_NAME = "template.yml"
 
 
+def _fetch_local_template(
+    template_source: SecurePath, path: str, dest: SecurePath
+) -> SecurePath:
+    template_origin = template_source / path
+    if not template_origin.exists():
+        raise ClickException(
+            f"Template '{path}' cannot be found under {template_source.path}"
+        )
+    template_origin.copy(dest.path)
+    return dest / template_origin.name
+
+
 def _read_template_metadata(template_root: SecurePath) -> Template:
     template_metadata_path = template_root / TEMPLATE_METADATA_FILE_NAME
     if not template_metadata_path.exists():
         raise FileNotFoundError("Template does not have template.yml file")
     with template_metadata_path.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
-        return Template(**yaml.safe_load(fd))
+        return Template(template_root, **yaml.safe_load(fd))
+
+
+def _prompt_for_value(variable: TemplateVariable, no_interactive: bool) -> Any:
+    if no_interactive:
+        if not variable.default:
+            raise ClickException(f"Cannot determine value of variable {variable.name}")
+        return variable.default
+
+    # override "unchecked type" with 'str', as Typer deduces type from the value of 'default'
+    type_ = variable.type.python_type if variable.type else str
+    prompt = variable.prompt if variable.prompt else variable.name
+    return typer.prompt(prompt, default=variable.default, type=type_)
+
+
+def _determine_variable_values(
+    variables_metadata: List[TemplateVariable],
+    variables_from_flags: Dict[str, Any],
+    no_interactive: bool,
+) -> Dict[str, Any]:
+    variable_values = dict(variables_from_flags)
+
+    for v in variables_metadata:
+        if v.name in variable_values:
+            if v.type:
+                # convert value to required type
+                variable_values[v] = v.type.python_type(variable_values[v.name])
+            continue
+
+        value = _prompt_for_value(v, no_interactive)
+        variable_values[v.name] = value
+
+    return variable_values
+
+
+def _render_template(template_root: SecurePath, files: List[str], data: Dict[str, Any]):
+    """Override all listed files with their rendered version."""
+    jinja_env = get_template_cli_jinja_env(template_root)
+    for path in files:
+        jinja_template = jinja_env.get_template(path)
+        rendered_result = jinja_template.render(**data)
+        full_path = template_root / path
+        full_path.write_text(rendered_result)
 
 
 @app.command(no_args_is_help=True)
@@ -87,15 +140,20 @@ def init(
             raise NotImplementedError("urls not supported (yet)")
 
         else:
-            template_origin = SecurePath(template_source) / name
-            if not template_origin.exists():
-                raise ClickException(
-                    f"Template '{name}' cannot be found under {template_source}"
-                )
-            template_origin.copy(tmpdir.path)
-            template_root = tmpdir / template_origin.name
+            template_root = _fetch_local_template(
+                template_source=SecurePath(template_source), path=name, dest=tmpdir
+            )
 
         template_metadata = _read_template_metadata(template_root)
-
+        variable_values = _determine_variable_values(
+            variables_metadata=template_metadata.variables,
+            variables_from_flags=variables_from_flags,
+            no_interactive=no_interactive,
+        )
+        _render_template(
+            template_root=template_root,
+            files=template_metadata.files,
+            data=variable_values,
+        )
         template_root.copy(".")
     return MessageResult("OK")
