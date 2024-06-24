@@ -1,0 +1,12 @@
+# serializer version: 1
+# name: test_temporary_connection
+  '''
+  select 1
+  +---+
+  | 1 |
+  |---|
+  | 1 |
+  +---+
+  
+  '''
+# ---
