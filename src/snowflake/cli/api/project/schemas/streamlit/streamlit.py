@@ -43,3 +43,7 @@ class Streamlit(UpdatableModel, ObjectIdentifierModel(object_name="Streamlit")):
     title: Optional[str] = Field(
         title="Human-readable title for the Streamlit dashboard", default=None
     )
+    share_with: Optional[List[str]] = Field(
+        title="List of roles with which the Streamilt app should be shared.",
+        default=None,
+    )

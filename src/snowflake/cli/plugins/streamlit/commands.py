@@ -140,7 +140,8 @@ def streamlit_deploy(
 
     streamlit_name = FQN.from_identifier_model(streamlit).using_context()
 
-    url = StreamlitManager().deploy(
+    mng = StreamlitManager()
+    url = mng.deploy(
         streamlit=streamlit_name,
         environment_file=Path(environment_file),
         pages_dir=Path(pages_dir),
@@ -152,6 +153,10 @@ def streamlit_deploy(
         title=streamlit.title,
         **options,
     )
+
+    if streamlit.share_with:
+        for role in streamlit.share_with:
+            mng.share(streamlit_name=streamlit_name, to_role=role)
 
     if open_:
         typer.launch(url)
