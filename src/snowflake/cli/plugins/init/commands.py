@@ -40,9 +40,15 @@ app = SnowTyperFactory()
 # TODO: create repo and override this parameter
 DEFAULT_SOURCE = "undefined"
 
-
-NameArgument = typer.Argument(
-    help="which subdirectory of SOURCE should be used to create a template",
+PathArgument = typer.Argument(
+    ...,
+    help="Directory to be initialized with the project. This directory must not already exist",
+    show_default=False,
+)
+TemplateOption = typer.Option(
+    ...,
+    "--template",
+    help="which template (subdirectory of --template-source) should be used",
     show_default=False,
 )
 SourceOption = typer.Option(
@@ -66,6 +72,7 @@ def _fetch_local_template(
 
 
 def _read_template_metadata(template_root: SecurePath) -> Template:
+    """Parse template.yml file."""
     template_metadata_path = template_root / TEMPLATE_METADATA_FILE_NAME
     if not template_metadata_path.exists():
         raise FileNotFoundError("Template does not have template.yml file")
@@ -90,22 +97,28 @@ def _determine_variable_values(
     variables_from_flags: Dict[str, Any],
     no_interactive: bool,
 ) -> Dict[str, Any]:
-    variable_values = dict(variables_from_flags)
+    """
+    Prompt user for values not provided in [variables_from_flags].
+    If [no_interactive] is True, fill not provided variables with their default values.
+    """
+    result = {}
 
     for v in variables_metadata:
-        if v.name in variable_values:
+        if v.name not in variables_from_flags:
+            value = _prompt_for_value(v, no_interactive)
+        else:
+            value = variables_from_flags[v.name]
             if v.type:
-                # convert value to required type
-                variable_values[v] = v.type.python_type(variable_values[v.name])
-            continue
+                value = v.type.python_type(value)
 
-        value = _prompt_for_value(v, no_interactive)
-        variable_values[v.name] = value
+        result[v.name] = value
 
-    return variable_values
+    return result
 
 
-def _render_template(template_root: SecurePath, files: List[str], data: Dict[str, Any]):
+def _render_template(
+    template_root: SecurePath, files: List[str], data: Dict[str, Any]
+) -> None:
     """Override all listed files with their rendered version."""
     jinja_env = get_template_cli_jinja_env(template_root)
     for path in files:
@@ -115,9 +128,21 @@ def _render_template(template_root: SecurePath, files: List[str], data: Dict[str
         full_path.write_text(rendered_result)
 
 
+def _validate_cli_version(required_version: str) -> None:
+    from packaging.version import parse
+    from snowflake.cli.__about__ import VERSION
+
+    if parse(required_version) > parse(VERSION):
+        raise ClickException(
+            f"Snowflake CLI version ({VERSION}) is too low - minimum version template is {required_version})."
+            "Please upgrade before continuing"
+        )
+
+
 @app.command(no_args_is_help=True)
 def init(
-    name: str = NameArgument,
+    path: str = PathArgument,
+    template: Optional[str] = TemplateOption,
     template_source: Optional[str] = SourceOption,
     variables: Optional[List[str]] = VariablesOption,
     no_interactive: bool = NoInteractiveOption,
@@ -126,11 +151,13 @@ def init(
     """
     Creates project from template.
     """
+    if SecurePath(path).exists():
+        raise FileExistsError(f"{path} already exists")
+
     variables_from_flags = {
         v.key: v.value
         for v in parse_key_value_variables(variables if variables else [])
     }
-
     is_remote_source = not SecurePath(template_source).exists()
 
     # copy/download template into tmpdir, so it is going to be removed in case command ens with an error
@@ -141,10 +168,15 @@ def init(
 
         else:
             template_root = _fetch_local_template(
-                template_source=SecurePath(template_source), path=name, dest=tmpdir
+                template_source=SecurePath(template_source),
+                path=template,  # type: ignore
+                dest=tmpdir,
             )
 
         template_metadata = _read_template_metadata(template_root)
+        if template_metadata.minimum_cli_version:
+            _validate_cli_version(template_metadata.minimum_cli_version)
+
         variable_values = _determine_variable_values(
             variables_metadata=template_metadata.variables,
             variables_from_flags=variables_from_flags,
@@ -155,5 +187,6 @@ def init(
             files=template_metadata.files,
             data=variable_values,
         )
-        template_root.copy(".")
-    return MessageResult("OK")
+        template_root.copy(path)
+
+    return MessageResult(f"Project have been created at {path}")
