@@ -499,7 +499,7 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
     )
 
 
-def project_type_option(project_name: str):
+def project_type_option(project_name: Optional[str]):
     from snowflake.cli.api.exceptions import NoProjectDefinitionError
     from snowflake.cli.api.project.definition_manager import DefinitionManager
 
@@ -508,7 +508,7 @@ def project_type_option(project_name: str):
         project_definition = dm.project_definition
         project_root = dm.project_root
 
-        if not getattr(project_definition, project_name, None):
+        if project_name and not getattr(project_definition, project_name, None):
             raise NoProjectDefinitionError(
                 project_type=project_name, project_file=project_path
             )
@@ -523,14 +523,19 @@ def project_type_option(project_name: str):
     elif project_name == "streamlit":
         project_name_help = "Streamlit app"
     else:
-        project_name_help = project_name.replace("_", " ").capitalize()
+        project_name_help = (
+            "" if project_name is None else project_name.replace("_", " ").capitalize()
+        )
 
+    if project_name:
+        help_message = f"Path where the {project_name_help} project resides. Defaults to current working directory."
+    else:
+        help_message = f"Path where the project definition resides. Defaults to current working directory."
     return typer.Option(
         None,
         "-p",
         "--project",
-        help=f"Path where the {project_name_help} project resides. "
-        f"Defaults to current working directory.",
+        help=help_message,
         callback=_callback,
         show_default=False,
     )

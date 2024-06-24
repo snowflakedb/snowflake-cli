@@ -18,6 +18,9 @@ from typing import Any, Dict, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, field_validator
+from snowflake.cli.api.project.schemas.entities.application_package import (
+    ApplicationPackageEntity,
+)
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
@@ -71,7 +74,32 @@ class _DefinitionV11(_DefinitionV10):
         return variables
 
 
-class ProjectDefinition(_DefinitionV11):
+class _DefinitionV20(_BaseDefinition):
+    entities: Dict = Field(
+        title="Entity definitions.",
+    )
+    defaults: Optional[Dict] = Field(
+        title="Default key/value entity values that are merged recursively for each entity.",
+        default=None,
+    )
+    env: Optional[Dict] = Field(
+        title="Env.",
+        default=None,
+    )
+
+    @field_validator("entities")
+    @classmethod
+    def validate_entities(cls, entities: Dict) -> Dict:
+        for key, entity in entities.items():
+            entity_type = entity["entity_type"]
+            if entity_type not in _entity_types_map:
+                raise ValueError(f"Unsupported entity type: {entity_type}")
+            entities[key] = _entity_types_map[entity_type](**entity)
+
+        return entities
+
+
+class ProjectDefinition(_DefinitionV11, _DefinitionV20):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._validate(kwargs)
@@ -89,5 +117,6 @@ class ProjectDefinition(_DefinitionV11):
             version_model(**data)
 
 
-_version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11}
+_version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11, "2": _DefinitionV20}
 _supported_version = tuple(_version_map.keys())
+_entity_types_map = {"application package": ApplicationPackageEntity}
