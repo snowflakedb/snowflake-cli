@@ -228,7 +228,7 @@ def _validate_env_section(env_section: dict):
     for variable, value in env_section.items():
         if value is None or isinstance(value, (dict, list)):
             raise InvalidTemplate(
-                f"Variable {variable} in env section or project definition file should be a scalar"
+                f"Variable {variable} in env section of project definition file should be a scalar"
             )
 
 

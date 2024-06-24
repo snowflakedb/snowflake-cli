@@ -414,7 +414,7 @@ def test_invalid_type_for_env_variable():
 
     assert (
         err.value.message
-        == "Variable test_env in env section or project definition file should be a scalar"
+        == "Variable test_env in env section of project definition file should be a scalar"
     )
 
 
