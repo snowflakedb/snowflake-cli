@@ -136,7 +136,7 @@ def create_loggers(verbose: bool, debug: bool):
     config = DefaultLoggingConfig()
 
     if verbose and debug:
-        raise typer.BadParameter("Only one parameter `verbose` or `debug` is possible")
+        raise typer.BadParameter("Only one parameter `verbose` or `debug` is possible ")
     elif debug:
         config.handlers["console"].update(
             level=logging.DEBUG,
