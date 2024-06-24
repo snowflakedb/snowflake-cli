@@ -13,30 +13,39 @@
 # limitations under the License.
 
 import pytest
+import os
+from unittest import mock
 
 
 @pytest.mark.integration
-def test_temporary_connection(runner):
+@mock.patch.dict(
+    os.environ,
+    {
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT": os.environ.get(
+            "SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT", None
+        ),
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_USER": os.environ.get(
+            "SNOWFLAKE_CONNECTIONS_INTEGRATION_USER", None
+        ),
+        "SNOWFLAKE_PASSWORD": os.environ.get(
+            "SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD"
+        ),
+    },
+    clear=True,
+)
+def test_temporary_connection(runner, snapshot):
+
     result = runner.invoke(
         [
-            "object",
-            "list",
-            "warehouse",
+            "sql",
+            "-q",
+            "select 1",
             "--temporary-connection",
             "--account",
-            "test_acoount",
+            os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"],
             "--user",
-            "snowcli_test",
-            "--password",
-            "top_secret",
-            "--warehouse",
-            "xsmall",
-            "--database",
-            "test_dv",
-            "--schema",
-            "PUBLIC",
+            os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"],
         ]
     )
-
-    assert result.exit_code == 1
-    assert "HTTP 403: Forbidden" in result.output
+    assert result.exit_code == 0
+    assert result.output == snapshot
