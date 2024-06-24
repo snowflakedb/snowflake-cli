@@ -28,7 +28,7 @@ TEST_DIR = Path(__file__).parent
 
 def _check_call(*args, **kwargs):
     is_windows = os.name == "nt"
-    subprocess.check_call(*args, **kwargs)
+    subprocess.check_call(*args, **kwargs, shell=is_windows)
 
 
 @pytest.fixture(scope="session")
@@ -50,7 +50,6 @@ def temp_dir():
     initial_dir = os.getcwd()
     tmp = tempfile.TemporaryDirectory()
     os.chdir(tmp.name)
-    os.chmod(tmp.name, 0o600)
     yield tmp.name
     os.chdir(initial_dir)
     tmp.cleanup()
