@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -27,7 +28,7 @@ TEST_DIR = Path(__file__).parent
 
 
 def _check_call(*args, **kwargs):
-    is_windows = os.name == "nt"
+    is_windows = platform.system() == "Windows"
     subprocess.check_call(*args, **kwargs, shell=is_windows)
 
 
