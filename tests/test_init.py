@@ -18,33 +18,12 @@ import pytest
 
 
 def assert_project_contents(origin: Path, created: Path):
-    def _filename_in_created(path: Path) -> Path:
-        """Remove .jinja suffix from files (but not dirs)"""
-        if path.is_dir() or path.suffix != ".jinja":
-            return path
-        return path.parent / path.stem
+    def all_contents(root: Path):
+        return (file.relative_to(root) for file in root.glob("**/*"))
 
-    assert created.exists()
-
-    if origin.is_file():
-        # assert file
-        assert created.is_file()
-        if origin.suffix == ".jinja":
-            assert origin.stem == created.name
-        else:
-            assert origin.read_text() == created.read_text()
-
-    else:
-        # assert directory
-        assert created.is_dir()
-        origin_contents = (
-            _filename_in_created(f)
-            for f in origin.iterdir()
-            if f.name != "template.toml"
-        )
-        assert sorted(origin_contents) == sorted(created.iterdir())
-        for opath, cpath in zip(sorted(origin.iterdir()), sorted(created.iterdir())):
-            assert_project_contents(opath, cpath)
+    origin_contents = set(all_contents(origin))
+    origin_contents.remove("template.yml")
+    assert origin_contents == set(all_contents(created))
 
 
 def test_init_no_variables_project(runner, temp_dir, test_projects_path):
