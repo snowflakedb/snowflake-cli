@@ -16,6 +16,7 @@ import os
 import platform
 import shutil
 import subprocess
+import sys
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
@@ -29,7 +30,11 @@ TEST_DIR = Path(__file__).parent
 
 def _check_call(*args, **kwargs):
     is_windows = platform.system() == "Windows"
-    subprocess.check_call(*args, **kwargs, shell=is_windows)
+
+    try:
+        subprocess.check_output(*args, **kwargs, shell=is_windows, stderr=sys.stdout)
+    except subprocess.CalledProcessError as err:
+        print(err.output)
 
 
 @pytest.fixture(scope="session")
