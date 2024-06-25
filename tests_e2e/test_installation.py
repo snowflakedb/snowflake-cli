@@ -12,21 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import subprocess
 from pathlib import Path
 
 import pytest
 
+from tests_e2e.conftest import _check_call
+
 
 @pytest.mark.e2e
 def test_snow_help(snowcli, snapshot):
-    output = subprocess.check_output([snowcli, "--help"], encoding="utf-8")
+    output = _check_call([snowcli, "--help"], encoding="utf-8")
     snapshot.assert_match(output)
 
 
 @pytest.mark.e2e
 def test_snow_sql(snowcli, test_root_path, snapshot):
-    output = subprocess.check_output(
+    output = _check_call(
         [
             snowcli,
             "--config-file",
@@ -44,7 +45,7 @@ def test_snow_sql(snowcli, test_root_path, snapshot):
 
 @pytest.mark.e2e
 def test_snow_streamlit_init(temp_dir, snowcli, snapshot):
-    output = subprocess.check_output(
+    output = _check_call(
         [snowcli, "streamlit", "init", "streamlit_test"], encoding="utf-8"
     )
     snapshot.assert_match(output)
@@ -56,7 +57,7 @@ def test_snow_streamlit_init(temp_dir, snowcli, snapshot):
 
 @pytest.mark.e2e
 def test_command_from_external_plugin(snowcli, test_root_path, snapshot):
-    output = subprocess.check_output(
+    output = _check_call(
         [
             snowcli,
             "--config-file",
