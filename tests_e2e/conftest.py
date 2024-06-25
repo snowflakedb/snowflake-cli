@@ -37,6 +37,7 @@ def subprocess_check_output(*args, **kwargs):
         )
     except subprocess.CalledProcessError as err:
         print(err.output)
+        raise
 
 
 def subprocess_run(*args):
