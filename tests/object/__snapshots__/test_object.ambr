@@ -1,7 +1,6 @@
 # serializer version: 1
 # name: test_describe[compute-pool-compute_pool_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -13,7 +12,6 @@
 # ---
 # name: test_describe[database-database_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -25,7 +23,6 @@
 # ---
 # name: test_describe[function-function_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -37,7 +34,6 @@
 # ---
 # name: test_describe[git-repository-git_repository_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -49,7 +45,6 @@
 # ---
 # name: test_describe[integration-integration_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -61,7 +56,6 @@
 # ---
 # name: test_describe[network-rule-network_rule_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -73,7 +67,6 @@
 # ---
 # name: test_describe[procedure-procedure_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -85,7 +78,6 @@
 # ---
 # name: test_describe[role-role_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -97,7 +89,6 @@
 # ---
 # name: test_describe[schema-schema_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -109,7 +100,6 @@
 # ---
 # name: test_describe[secret-secret_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -121,7 +111,6 @@
 # ---
 # name: test_describe[service-service_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -133,7 +122,6 @@
 # ---
 # name: test_describe[stage-stage_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -145,7 +133,6 @@
 # ---
 # name: test_describe[stream-stream_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -157,7 +144,6 @@
 # ---
 # name: test_describe[streamlit-streamlit_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -169,7 +155,6 @@
 # ---
 # name: test_describe[table-table_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -181,7 +166,6 @@
 # ---
 # name: test_describe[task-task_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -193,7 +177,6 @@
 # ---
 # name: test_describe[user-user_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -205,7 +188,6 @@
 # ---
 # name: test_describe[view-view_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -217,7 +199,6 @@
 # ---
 # name: test_describe[warehouse-warehouse_example]
   '''
-  SELECT A MOCK QUERY
   +-----------------------------+
   | name | type        | kind   |
   |------+-------------+--------|
@@ -237,7 +218,6 @@
 # ---
 # name: test_drop[compute-pool-compute_pool_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -248,7 +228,6 @@
 # ---
 # name: test_drop[database-database_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -259,7 +238,6 @@
 # ---
 # name: test_drop[function-function_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -270,7 +248,6 @@
 # ---
 # name: test_drop[git-repository-git_repository_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -281,7 +258,6 @@
 # ---
 # name: test_drop[image-repository-image_repository_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -292,7 +268,6 @@
 # ---
 # name: test_drop[integration-integration_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -303,7 +278,6 @@
 # ---
 # name: test_drop[network-rule-network_rule_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -314,7 +288,6 @@
 # ---
 # name: test_drop[procedure-procedure_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -325,7 +298,6 @@
 # ---
 # name: test_drop[role-role_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -336,7 +308,6 @@
 # ---
 # name: test_drop[schema-schema_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -347,7 +318,6 @@
 # ---
 # name: test_drop[secret-secret_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -358,7 +328,6 @@
 # ---
 # name: test_drop[service-service_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -369,7 +338,6 @@
 # ---
 # name: test_drop[stage-stage_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -380,7 +348,6 @@
 # ---
 # name: test_drop[stream-stream_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -391,7 +358,6 @@
 # ---
 # name: test_drop[streamlit-streamlit_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -402,7 +368,6 @@
 # ---
 # name: test_drop[table-table_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -413,7 +378,6 @@
 # ---
 # name: test_drop[task-task_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -424,7 +388,6 @@
 # ---
 # name: test_drop[user-user_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -435,7 +398,6 @@
 # ---
 # name: test_drop[view-view_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
@@ -446,7 +408,6 @@
 # ---
 # name: test_drop[warehouse-warehouse_example]
   '''
-  SELECT A MOCK QUERY
   +--------+
   | status |
   |--------|
