@@ -19,12 +19,14 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Collection, Dict, List, Optional
+from typing import Collection, Dict, List, Optional, Tuple
 
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
+from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.connector.cursor import DictCursor
 
 from .manager import StageManager
@@ -62,56 +64,12 @@ class DiffResult:
             or len(self.only_on_stage) > 0
         )
 
-    def __str__(self) -> str:
-        """
-        Method override for the standard behavior of string representation for this class.
-        """
-        components: List[
-            str
-        ] = (
-            []
-        )  # py3.8 does not support subscriptions for builtin list, hence using List
-
-        # The specific order of conditionals is for an aesthetically pleasing output and ease of readability.
-        if not self.only_local:
-            components.append(
-                "There are no new files that exist only in your local directory."
-            )
-        if not self.only_on_stage:
-            components.append("There are no new files that exist only on the stage.")
-        if not self.different:
-            components.append(
-                "There are no existing files that have been modified, or their status is unknown."
-            )
-        if not self.identical:
-            components.append(
-                "There are no existing files that are identical to the ones on the stage."
-            )
-
-        if self.only_local:
-            components.extend(
-                ["New files only on your local:", *[str(p) for p in self.only_local]]
-            )
-        if self.only_on_stage:
-            components.extend(
-                ["New files only on the stage:", *[str(p) for p in self.only_on_stage]]
-            )
-        if self.different:
-            components.extend(
-                [
-                    "Existing files modified or status unknown:",
-                    *[str(p) for p in self.different],
-                ]
-            )
-        if self.identical:
-            components.extend(
-                [
-                    "Existing files identical to the stage:",
-                    *[str(p) for p in self.identical],
-                ]
-            )
-
-        return "\n".join(components)
+    def to_dict(self) -> dict:
+        return {
+            "modified": [str(p) for p in sorted(self.different)],
+            "added": [str(p) for p in sorted(self.only_local)],
+            "deleted": [str(p) for p in sorted(self.only_on_stage)],
+        }
 
 
 def is_valid_md5sum(checksum: str) -> bool:
@@ -331,3 +289,75 @@ def sync_local_diff_with_stage(
         # Could be ProgrammingError or IntegrityError from SnowflakeCursor
         log.error(err)
         raise SnowflakeSQLExecutionError()
+
+
+def _to_src_dest_pair(
+    stage_path: StagePath, bundle_map: Optional[BundleMap]
+) -> Tuple[Optional[str], str]:
+    if not bundle_map:
+        return None, str(stage_path)
+
+    dest_path = to_local_path(stage_path)
+    src = bundle_map.to_project_path(dest_path)
+    if src:
+        return str(src), str(stage_path)
+
+    return "?", str(stage_path)
+
+
+def _to_diff_line(status: str, src: Optional[str], dest: str) -> str:
+    if src is None:
+        src_prefix = ""
+    else:
+        src_prefix = f"{src} -> "
+
+    longest_status = "modified"
+    padding = " " * (len(longest_status) - len(status))
+    status_prefix = f"[red]{status}[/red]: {padding}"
+
+    return f"{status_prefix}{src_prefix}{dest}"
+
+
+def print_diff_to_console(
+    diff: DiffResult,
+    bundle_map: Optional[BundleMap] = None,
+):
+    if not diff.has_changes():
+        cc.message("Your stage is up-to-date with your local deploy root.")
+        return
+
+    blank_line_needed = False
+    if diff.only_local or diff.different:
+        cc.message("Local changes to be deployed:")
+        messages_to_output = []
+        for p in diff.different:
+            src_dest_pair = _to_src_dest_pair(p, bundle_map)
+            messages_to_output.append(
+                (
+                    src_dest_pair,
+                    _to_diff_line("modified", src_dest_pair[0], src_dest_pair[1]),
+                )
+            )
+        for p in diff.only_local:
+            src_dest_pair = _to_src_dest_pair(p, bundle_map)
+            messages_to_output.append(
+                (
+                    src_dest_pair,
+                    _to_diff_line("added", src_dest_pair[0], src_dest_pair[1]),
+                )
+            )
+
+        with cc.indented():
+            for key, message in sorted(messages_to_output, key=lambda pair: pair[0]):
+                cc.message(message)
+
+        blank_line_needed = True
+
+    if diff.only_on_stage:
+        if blank_line_needed:
+            cc.message("")
+        cc.message(f"Deleted paths to be removed from your stage:")
+        with cc.indented():
+            for p in sorted(diff.only_on_stage):
+                diff_line = _to_diff_line("deleted", src=None, dest=str(p))
+                cc.message(diff_line)

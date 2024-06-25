@@ -31,6 +31,7 @@
 * Fixed case where `snow app teardown` could leave behind orphan applications if they were not created by the Snowflake CLI
 * Improve terminal output sanitization to avoid ASCII escape codes.
 * The `snow sql` command will show query text before executing it.
+* Improved stage diff output in `snow app` commands
 
 # v2.5.0
 ## Backward incompatibility
