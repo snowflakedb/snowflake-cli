@@ -211,7 +211,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                         application_objects
                     )
                     cc.message(
-                        f"The following objects are owned by application {self.app_name} and need to dropped:\n{application_objects_str}"
+                        f"The following objects are owned by application {self.app_name} and need to be dropped:\n{application_objects_str}"
                     )
             except ProgrammingError as err:
                 if err.errno != 93079 and ERROR_MESSAGE_093079 not in err.msg:
@@ -219,13 +219,10 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 cc.warning(
                     "The application owns other objects but they could not be determined."
                 )
-            what_to_drop = "the existing application and its owned objects"
+            user_prompt = "Do you want the Snowflake CLI to drop these objects, then drop the existing application object and recreate it?"
         else:
-            what_to_drop = "the existing application object"
+            user_prompt = "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
 
-        user_prompt = (
-            f"Do you want the Snowflake CLI to drop {what_to_drop} and recreate it?"
-        )
         if not policy.should_proceed(user_prompt):
             if is_interactive:
                 cc.message("Not upgrading the application object.")
