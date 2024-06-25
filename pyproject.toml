@@ -98,7 +98,7 @@ template = "e2e"
 features = ["development"]
 
 [tool.hatch.envs.e2e.scripts]
-test = ["pytest -m e2e --durations=0 -n 0"]
+test = ["pytest -m e2e --durations=0"]
 
 [tool.hatch.envs.performance]
 template = "performance"
