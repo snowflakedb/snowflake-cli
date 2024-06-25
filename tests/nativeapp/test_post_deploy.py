@@ -168,7 +168,7 @@ def test_invalid_hook_type(
     "args,expected_error",
     [
         ({"sql_script": "/path"}, None),
-        ({}, "One of the following keys must be specified: sql_script"),
+        ({}, "missing following fields: ('sql_script',)"),
     ],
 )
 def test_post_deploy_hook_schema(args, expected_error):

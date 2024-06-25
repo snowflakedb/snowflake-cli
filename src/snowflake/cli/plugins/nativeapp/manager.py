@@ -271,7 +271,7 @@ class NativeAppManager(SqlExecutionMixin):
     @cached_property
     def app_post_deploy_hooks(self) -> Optional[List[ApplicationPostDeployHook]]:
         """
-        Path to application post deploy script, relative to project root.
+        List of application post deploy hooks.
         """
         if self.definition.application and self.definition.application.post_deploy:
             return self.definition.application.post_deploy
