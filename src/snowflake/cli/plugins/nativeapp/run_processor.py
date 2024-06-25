@@ -165,7 +165,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def _execute_post_deploy_hooks(self):
         post_deploy_script_hooks = self.app_post_deploy_hooks
         if post_deploy_script_hooks:
-            with cc.phase("Executing application post-deploy actions..."):
+            with cc.phase("Executing application post-deploy actions"):
                 for hook in post_deploy_script_hooks:
                     if hook.sql_script:
                         cc.step(f"Executing SQL script: {hook.sql_script}")
