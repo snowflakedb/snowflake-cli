@@ -23,7 +23,7 @@ from snowflake.cli.app.dev.docs.project_definition_generate_json_schema import (
 )
 
 
-def test_files_generated_for_each_section():
+def test_generated_json_correspond_to_project_definition_model():
     project_definition_sections = model_json_schema(
         ProjectDefinition, schema_generator=ProjectDefinitionGenerateJsonSchema
     )["result"]

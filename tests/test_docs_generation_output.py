@@ -27,7 +27,7 @@ from snowflake.cli.app.cli_app import app_context_holder
     "snowflake.cli.app.dev.docs.project_definition_generate_json_schema.ProjectDefinitionGenerateJsonSchema"
     ".generate"
 )
-def test_definition_files_generated_from_json(mock_generate, runner, temp_dir):
+def test_definition_file_format_generated_from_json(mock_generate, runner, temp_dir):
     field1 = {
         "path": "fieldA",
         "title": "Title of field A",
@@ -101,7 +101,9 @@ fieldA.fieldB
     )
 
 
-def test_files_generated_for_each_section(runner, temp_dir):
+def test_files_generated_for_each_optional_project_definition_property(
+    runner, temp_dir
+):
     runner.invoke(["--docs"])
     project_definition_path = Path(temp_dir) / "gen_docs" / "project_definition"
     errors = []
@@ -118,7 +120,7 @@ def test_files_generated_for_each_section(runner, temp_dir):
     assert len(errors) == 0, "\n".join(errors)
 
 
-def test_all_commands_have_generated_documentation(runner, temp_dir):
+def test_all_commands_have_generated_files(runner, temp_dir):
     runner.invoke(["--docs"])
 
     # invoke help command to populate app context (plugins registration)
