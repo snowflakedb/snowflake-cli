@@ -18,7 +18,7 @@ from typing import Any, Dict, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, field_validator
-from snowflake.cli.api.project.schemas.entities.application_package import (
+from snowflake.cli.api.project.schemas.entities.application_package_entity import (
     ApplicationPackageEntity,
 )
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
@@ -83,7 +83,7 @@ class _DefinitionV20(_BaseDefinition):
         default=None,
     )
     env: Optional[Dict] = Field(
-        title="Env.",
+        title="Environment specification for this project.",
         default=None,
     )
 

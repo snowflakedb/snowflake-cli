@@ -22,14 +22,14 @@ from snowflake.cli.api.commands.flags import (
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import MessageResult
 
-app = SnowTyper(
+ws = SnowTyper(
     name="ws",
     hidden=True,
     help="Manages workspaces in Snowflake.",
 )
 
 
-@app.command(requires_connection=True)
+@ws.command(requires_connection=True)
 def validate(
     project_definition: Optional[str] = project_type_option(None),
     **options,

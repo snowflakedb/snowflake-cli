@@ -20,9 +20,13 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 )
 
 
-class ApplicationPackageEntity(UpdatableModel):
-    entity_type: str = "application package"
-    name: str = Field(
-        title="Project identifier",
+class GrantTarget(UpdatableModel):
+    name: str = Field(title="Name of the target object")
+    target_type: str = Field(title="Type of the target object")
+
+
+class GrantEntityProperty(UpdatableModel):
+    privilege: str = Field(title="The privilege to be granted")
+    target: GrantTarget = Field(
+        title="The object on which the privilege is granted",
     )
-    # TODO Add all properties
