@@ -17,6 +17,10 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.api.project.errors import SchemaValidationError
+from snowflake.cli.api.project.schemas.native_app.application import (
+    ApplicationPostDeployHook,
+)
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
 
 from tests.nativeapp.patch_utils import mock_connection
@@ -142,3 +146,19 @@ def test_invalid_hook_type(
         with pytest.raises(ValueError) as err:
             processor._execute_post_deploy_hooks()  # noqa SLF001
         assert "Unsupported application post-deploy hook type" in str(err)
+
+
+@pytest.mark.parametrize(
+    "args,expected_error",
+    [
+        ({"sql_script": "/path"}, None),
+        ({}, "One of the following keys must be specified: sql_script"),
+    ],
+)
+def test_post_deploy_hook_schema(args, expected_error):
+    if expected_error:
+        with pytest.raises(SchemaValidationError) as err:
+            ApplicationPostDeployHook(**args)
+        assert expected_error in str(err)
+    else:
+        ApplicationPostDeployHook(**args)

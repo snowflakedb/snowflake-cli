@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
@@ -27,6 +27,32 @@ class ApplicationPostDeployHook(UpdatableModel):
     sql_script: Optional[str] = Field(
         title="SQL file path relative to the project root", default=None
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def ensure_exactly_one_hook_type(cls, hook):
+        supported_keys = cls.model_fields.keys()
+        supported_keys_str = ", ".join(supported_keys)
+        if type(hook) == str:
+            raise ValueError(
+                f"Hooks must be dictionaries with one of the following keys: {supported_keys_str}"
+            )
+        actual_keys = hook.keys()
+        previously_found_key = None
+        for key in actual_keys:
+            if key in supported_keys:
+                if previously_found_key:
+                    raise ValueError(
+                        f"Only one of the following keys can be specified: {supported_keys_str}"
+                    )
+                else:
+                    previously_found_key = True
+        if not previously_found_key:
+            raise ValueError(
+                f"One of the following keys must be specified: {supported_keys_str}"
+            )
+
+        return hook
 
 
 class Application(UpdatableModel):
