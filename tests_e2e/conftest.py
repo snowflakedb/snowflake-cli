@@ -27,12 +27,12 @@ from snowflake.cli import __about__
 
 TEST_DIR = Path(__file__).parent
 
+IS_WINDOWS = platform.system() == "Windows"
+
 
 def _check_call(*args, **kwargs):
-    is_windows = platform.system() == "Windows"
-
     try:
-        subprocess.check_output(*args, **kwargs, shell=is_windows, stderr=sys.stdout)
+        subprocess.check_output(*args, **kwargs, shell=IS_WINDOWS, stderr=sys.stdout)
     except subprocess.CalledProcessError as err:
         print(err.output)
 
@@ -63,6 +63,13 @@ def temp_dir():
 
 @pytest.fixture(scope="session")
 def snowcli(test_root_path):
+    if IS_WINDOWS:
+        tmp_dir_path = Path.cwd() / "e2e_tests"
+        tmp_dir_path.mkdir(exist_ok=True)
+        _create_venv(tmp_dir_path)
+        _build_snowcli(tmp_dir_path, test_root_path)
+        _install_snowcli_with_external_plugin(tmp_dir_path, test_root_path)
+        yield tmp_dir_path / "bin" / "snow"
     with TemporaryDirectory() as tmp_dir:
         tmp_dir_path = Path(tmp_dir)
         _create_venv(tmp_dir_path)
