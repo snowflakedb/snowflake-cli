@@ -3,6 +3,5 @@
   "optional_int": <! optional_int !>,
   "optional_str": "<! optional_str !>",
   "optional_float": <! optional_float !>,
-  "optional_bool": <! optional_bool !>,
   "optional_unchecked": "<! optional_unchecked !>"
 }

@@ -1,0 +1,32 @@
+# serializer version: 1
+# name: test_input_errors
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Snowflake CLI version (915.6.0) is too low - minimum version required by     │
+  │ template is 916.0.0. Please upgrade before continuing                        │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_typechecking
+  '''
+  required: required
+  optional_int [4]: 23.1
+  Error: '23.1' is not a valid integer.
+  optional_int [4]: 23
+  Testing prompt of a string [default value for string]: custom value for string
+  optional_float [1.5]: 3..14
+  Error: '3..14' is not a valid float.
+  optional_float [1.5]: 3.14
+  An optional value with no type checking [5]: another custom value
+  Project have been created at project_templating
+  
+  '''
+# ---
+# name: test_variables_flags
+  '''
+  Testing prompt of a string [default value for string]: 
+  Project have been created at project_templating
+  
+  '''
+# ---

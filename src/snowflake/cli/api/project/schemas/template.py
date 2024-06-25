@@ -25,7 +25,6 @@ class TemplateVariableType(Enum):
     STRING = "string"
     INTEGER = "int"
     FLOAT = "float"
-    BOOLEAN = "bool"
 
     @property
     def python_type(self):
@@ -33,7 +32,6 @@ class TemplateVariableType(Enum):
             TemplateVariableType.STRING: str,
             TemplateVariableType.INTEGER: int,
             TemplateVariableType.FLOAT: float,
-            TemplateVariableType.BOOLEAN: bool,
         }[self]
 
 

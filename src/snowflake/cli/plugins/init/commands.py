@@ -75,9 +75,16 @@ def _read_template_metadata(template_root: SecurePath) -> Template:
     """Parse template.yml file."""
     template_metadata_path = template_root / TEMPLATE_METADATA_FILE_NAME
     if not template_metadata_path.exists():
-        raise FileNotFoundError("Template does not have template.yml file")
+        raise FileNotFoundError(
+            f"Template does not have {TEMPLATE_METADATA_FILE_NAME} file"
+        )
     with template_metadata_path.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
-        return Template(template_root, **yaml.safe_load(fd))
+        yaml_contents = yaml.safe_load(fd) or {}
+    return Template(template_root, **yaml_contents)
+
+
+def _remove_template_metadata_file(template_root: SecurePath) -> None:
+    (template_root / TEMPLATE_METADATA_FILE_NAME).unlink()
 
 
 def _prompt_for_value(variable: TemplateVariable, no_interactive: bool) -> Any:
@@ -134,8 +141,8 @@ def _validate_cli_version(required_version: str) -> None:
 
     if parse(required_version) > parse(VERSION):
         raise ClickException(
-            f"Snowflake CLI version ({VERSION}) is too low - minimum version template is {required_version})."
-            "Please upgrade before continuing"
+            f"Snowflake CLI version ({VERSION}) is too low - minimum version required"
+            f" by template is {required_version}. Please upgrade before continuing"
         )
 
 
@@ -187,6 +194,7 @@ def init(
             files=template_metadata.files,
             data=variable_values,
         )
+        _remove_template_metadata_file(template_root)
         template_root.copy(path)
 
     return MessageResult(f"Project have been created at {path}")
