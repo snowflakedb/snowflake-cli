@@ -46,9 +46,10 @@ PathArgument = typer.Argument(
     show_default=False,
 )
 TemplateOption = typer.Option(
-    ...,
+    None,
     "--template",
-    help="which template (subdirectory of --template-source) should be used",
+    help="which template (subdirectory of --template-source) should be used. If not provided,"
+    " whole source will be used as the template.",
     show_default=False,
 )
 SourceOption = typer.Option(
@@ -60,15 +61,39 @@ TEMPLATE_METADATA_FILE_NAME = "template.yml"
 
 
 def _fetch_local_template(
-    template_source: SecurePath, path: str, dest: SecurePath
+    template_source: SecurePath, path: Optional[str], dest: SecurePath
 ) -> SecurePath:
-    template_origin = template_source / path
+
+    template_source.assert_exists()
+    template_origin = template_source
+    if path:
+        template_origin = template_source / path
     if not template_origin.exists():
         raise ClickException(
-            f"Template '{path}' cannot be found under {template_source.path}"
+            f"Template '{path}' cannot be found under {template_source}"
         )
+
     template_origin.copy(dest.path)
     return dest / template_origin.name
+
+
+def _fetch_remote_template(
+    url: str, path: Optional[str], dest: SecurePath
+) -> SecurePath:
+    from git import rmtree as git_rmtree
+    from snowflake.cli.plugins.nativeapp.utils import shallow_git_clone
+
+    shallow_git_clone(url, to_path=dest.path)
+    if path:
+        template_root = dest / path
+    else:
+        # remove .git directory not to copy it to the template
+        template_root = dest
+        git_rmtree((template_root / ".git").path)
+    if not template_root.exists():
+        raise ClickException(f"Template '{path}' cannot be found under {url}")
+
+    return template_root
 
 
 def _read_template_metadata(template_root: SecurePath) -> Template:
@@ -146,6 +171,14 @@ def _validate_cli_version(required_version: str) -> None:
         )
 
 
+def _is_source_remote(source: str) -> bool:
+    file_exists = SecurePath(source).exists()
+    whitelisted_prefix = any(
+        source.startswith(prefix) for prefix in ["git@", "http://", "https://"]
+    )
+    return (not file_exists) and whitelisted_prefix
+
+
 @app.command(no_args_is_help=True)
 def init(
     path: str = PathArgument,
@@ -165,19 +198,17 @@ def init(
         v.key: v.value
         for v in parse_key_value_variables(variables if variables else [])
     }
-    is_remote_source = not SecurePath(template_source).exists()
 
     # copy/download template into tmpdir, so it is going to be removed in case command ens with an error
     with SecurePath.temporary_directory() as tmpdir:
-        if is_remote_source:
-            # assume template is URL
-            raise NotImplementedError("urls not supported (yet)")
+        if _is_source_remote(template_source):  # type: ignore
+            template_root = _fetch_remote_template(
+                url=template_source, path=template, dest=tmpdir  # type: ignore
+            )
 
         else:
             template_root = _fetch_local_template(
-                template_source=SecurePath(template_source),
-                path=template,  # type: ignore
-                dest=tmpdir,
+                template_source=SecurePath(template_source), path=template, dest=tmpdir
             )
 
         template_metadata = _read_template_metadata(template_root)

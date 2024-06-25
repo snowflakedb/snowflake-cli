@@ -58,9 +58,7 @@ def test_input_errors(
                 "init",
                 project_name,
                 "--template-source",
-                test_projects_path,
-                "--template",
-                project_name,
+                test_projects_path / project_name,
             ]
         )
     assert not Path(project_name).exists()
@@ -73,9 +71,7 @@ def test_input_errors(
                 "init",
                 temp_dir,
                 "--template-source",
-                test_projects_path,
-                "--template",
-                project_name,
+                test_projects_path / project_name,
             ]
         )
     assert not Path(project_name).exists()
@@ -96,6 +92,19 @@ def test_input_errors(
     assert f"Template '{project_name}' cannot be found under" in result.output
     assert not Path(project_name).exists()
 
+    # template source does not exist
+    with pytest.raises(FileNotFoundError, match=".*No such file or directory.*"):
+        project_name = "this_project_does_not_exist"
+        runner.invoke(
+            [
+                "init",
+                project_name,
+                "--template-source",
+                project_name,
+            ]
+        )
+    assert not Path(project_name).exists()
+
     # Too low CLI version
     project_name = "example_streamlit_no_defaults"
     with project_definition_copy(project_name) as template_root:
@@ -106,9 +115,7 @@ def test_input_errors(
                 "init",
                 project_name,
                 "--template-source",
-                template_root.parent,
-                "--template",
-                project_name,
+                template_root,
             ]
         )
         assert result.output == snapshot
@@ -126,9 +133,7 @@ def test_input_errors(
                     "init",
                     project_name,
                     "--template-source",
-                    template_root.parent,
-                    "--template",
-                    project_name,
+                    template_root,
                 ]
             )
         assert not Path(project_name).exists()
@@ -143,9 +148,7 @@ def test_init_project_with_no_variables(runner, temp_dir, project_definition_cop
                 "init",
                 project_name,
                 "--template-source",
-                template_root.parent,
-                "--template",
-                project_name,
+                template_root,
             ]
         )
         assert result.exit_code == 0, result.output
@@ -157,14 +160,7 @@ def test_init_default_values(runner, temp_dir, test_projects_path):
     project_name = "project_templating"
     communication = ["required", "", "", "", ""]
     result = runner.invoke(
-        [
-            "init",
-            project_name,
-            "--template-source",
-            test_projects_path,
-            "--template",
-            project_name,
-        ],
+        ["init", project_name, "--template-source", test_projects_path / project_name],
         input="\n".join(communication),
     )
     assert result.exit_code == 0, result.output
@@ -180,6 +176,31 @@ def test_init_default_values(runner, temp_dir, test_projects_path):
 
 
 def test_init_prompted_values(runner, temp_dir, test_projects_path):
+    project_name = "project_templating"
+    communication = [
+        "required",
+        "17",
+        "custom value for string",
+        "2.7",
+        "another custom value",
+    ]
+    result = runner.invoke(
+        ["init", project_name, "--template-source", test_projects_path / project_name],
+        input="\n".join(communication),
+    )
+    assert result.exit_code == 0, result.output
+    assert f"Project have been created at {project_name}" in result.output
+    assert_project_contents(test_projects_path / project_name, Path(project_name))
+    assert _get_values_from_created_project(Path(temp_dir) / project_name) == {
+        "optional_float": 2.7,
+        "optional_int": 17,
+        "optional_str": "custom value for string",
+        "optional_unchecked": "another custom value",
+        "required": "required",
+    }
+
+
+def test_template_flag(runner, temp_dir, test_projects_path):
     project_name = "project_templating"
     communication = [
         "required",
@@ -223,14 +244,7 @@ def test_typechecking(runner, temp_dir, test_projects_path, snapshot):
         "another custom value",
     ]
     result = runner.invoke(
-        [
-            "init",
-            project_name,
-            "--template-source",
-            test_projects_path,
-            "--template",
-            project_name,
-        ],
+        ["init", project_name, "--template-source", test_projects_path / project_name],
         input="\n".join(communication),
     )
     assert result.exit_code == 0, result.output
@@ -253,9 +267,7 @@ def test_variables_flags(runner, temp_dir, test_projects_path, snapshot):
             "init",
             project_name,
             "--template-source",
-            test_projects_path,
-            "--template",
-            project_name,
+            test_projects_path / project_name,
             "-D required=required",
             "-D optional_int=4",
             "-D optional_float=-100.5",
@@ -284,9 +296,7 @@ def test_init_no_interactive(runner, temp_dir, test_projects_path):
             "init",
             project_name,
             "--template-source",
-            test_projects_path,
-            "--template",
-            project_name,
+            test_projects_path / project_name,
             "--no-interactive",
         ],
     )
@@ -300,9 +310,7 @@ def test_init_no_interactive(runner, temp_dir, test_projects_path):
             "init",
             project_name,
             "--template-source",
-            test_projects_path,
-            "--template",
-            project_name,
+            test_projects_path / project_name,
             "--no-interactive",
             "-D required='a value of required variable'",
         ],
@@ -319,6 +327,7 @@ def test_init_no_interactive(runner, temp_dir, test_projects_path):
     }
 
 
+# TODO
 @pytest.mark.integration
 def test_init_from_url():
     pass
