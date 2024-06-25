@@ -70,12 +70,13 @@ def snowcli(test_root_path):
         _build_snowcli(tmp_dir_path, test_root_path)
         _install_snowcli_with_external_plugin(tmp_dir_path, test_root_path)
         yield tmp_dir_path / "bin" / "snow"
-    with TemporaryDirectory() as tmp_dir:
-        tmp_dir_path = Path(tmp_dir)
-        _create_venv(tmp_dir_path)
-        _build_snowcli(tmp_dir_path, test_root_path)
-        _install_snowcli_with_external_plugin(tmp_dir_path, test_root_path)
-        yield tmp_dir_path / "bin" / "snow"
+    else:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_dir_path = Path(tmp_dir)
+            _create_venv(tmp_dir_path)
+            _build_snowcli(tmp_dir_path, test_root_path)
+            _install_snowcli_with_external_plugin(tmp_dir_path, test_root_path)
+            yield tmp_dir_path / "bin" / "snow"
 
 
 @pytest.fixture(autouse=True)
