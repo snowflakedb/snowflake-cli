@@ -25,6 +25,7 @@ from tests_integration.test_utils import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
+    rows_from_snowflake_session,
 )
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
@@ -418,3 +419,54 @@ def test_nativeapp_init_from_repo_with_single_template(
             assert result.exit_code == 0
         finally:
             single_template_repo.close()
+
+
+# Tests that application post-deploy scripts are executed by creating a post_deploy_log table and having each post-deploy script add a record to it
+@pytest.mark.integration
+def test_nativeapp_app_post_deploy(runner, snowflake_session, project_directory):
+    project_name = "myapp"
+    app_name = f"{project_name}_{USER_NAME}"
+    with project_directory("napp_application_post_deploy") as tmp_dir:
+        try:
+            # First run, application is created
+            result = runner.invoke_with_connection_json(
+                ["app", "run"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # Verify both scripts were executed
+            assert row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"select * from {app_name}.public.post_deploy_log",
+                )
+            ) == [
+                {"TEXT": "post-deploy-part-1"},
+                {"TEXT": "post-deploy-part-2"},
+            ]
+
+            # Second run, application is upgraded
+            result = runner.invoke_with_connection_json(
+                ["app", "run"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # Verify both scripts were executed
+            assert row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"select * from {app_name}.public.post_deploy_log",
+                )
+            ) == [
+                {"TEXT": "post-deploy-part-1"},
+                {"TEXT": "post-deploy-part-2"},
+                {"TEXT": "post-deploy-part-1"},
+                {"TEXT": "post-deploy-part-2"},
+            ]
+
+        finally:
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
