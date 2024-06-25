@@ -13,16 +13,17 @@
 # limitations under the License.
 
 import json
-import subprocess
 import uuid
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
 
+from tests_e2e.conftest import _check_call
+
 
 def subprocess_check_output_with(sql_stmt: str, config_path: Path, snowcli) -> str:
-    return subprocess.check_output(
+    return _check_call(
         [
             snowcli,
             "--config-file",
@@ -114,7 +115,7 @@ def test_full_lifecycle_with_codegen(
 
         try:
             # App Run includes bundle
-            result = subprocess.run(
+            result = _check_call(
                 [
                     snowcli,
                     "--config-file",
@@ -135,7 +136,7 @@ def test_full_lifecycle_with_codegen(
 
             # Disable debug mode to call functions and procedures.
             # This ensures all usage permissions have been granted accordingly.
-            result = subprocess.run(
+            result = _check_call(
                 [
                     snowcli,
                     "--config-file",
@@ -212,7 +213,7 @@ def test_full_lifecycle_with_codegen(
             snapshot.assert_match(output)
 
             # Bundle is idempotent if no changes made to source files.
-            result = subprocess.run(
+            result = _check_call(
                 [
                     snowcli,
                     "--config-file",
@@ -254,7 +255,7 @@ def test_full_lifecycle_with_codegen(
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = subprocess.run(
+            result = _check_call(
                 [
                     snowcli,
                     "--config-file",

@@ -13,10 +13,11 @@
 # limitations under the License.
 
 import os
-import subprocess
 from pathlib import Path
 
 import pytest
+
+from tests_e2e.conftest import _check_call
 
 
 @pytest.mark.e2e
@@ -25,7 +26,7 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
     os.chmod(config_path, 0o700)
 
     traceback_msg = "Traceback (most recent call last)"
-    result = subprocess.run(
+    result = _check_call(
         [
             snowcli,
             "--config-file",
@@ -45,7 +46,7 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
     assert traceback_msg not in result.stdout
     assert not result.stderr
 
-    result_debug = subprocess.run(
+    result_debug = _check_call(
         [
             snowcli,
             "--config-file",
@@ -74,7 +75,7 @@ def test_corrupted_config_in_default_location(
     default_config.write_text("[connections.demo]\n[connections.demo]")
     default_config.chmod(0o600)
     # corrupted config should produce human-friendly error
-    result_err = subprocess.run(
+    result_err = _check_call(
         [snowcli, "connection", "list"],
         capture_output=True,
         text=True,
@@ -84,7 +85,7 @@ def test_corrupted_config_in_default_location(
 
     # corrupted config in default location should not influence one passed with --config-file flag
     healthy_config = test_root_path / "config" / "config.toml"
-    result_healthy = subprocess.run(
+    result_healthy = _check_call(
         [snowcli, "--config-file", healthy_config, "connection", "list"],
         capture_output=True,
         text=True,
