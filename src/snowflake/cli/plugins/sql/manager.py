@@ -23,7 +23,7 @@ from typing import Dict, Iterable, List, Tuple
 from click import ClickException, UsageError
 from jinja2 import UndefinedError
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
-from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
 from snowflake.cli.api.utils.rendering import snowflake_sql_jinja_render
 from snowflake.cli.plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.connector.cursor import SnowflakeCursor
@@ -87,4 +87,6 @@ class SqlManager(SqlExecutionMixin):
         )
         single_statement = len(statements) == 1
 
-        return single_statement, self._execute_string("\n".join(statements))
+        return single_statement, self._execute_string(
+            "\n".join(statements), cursor_class=VerboseCursor
+        )

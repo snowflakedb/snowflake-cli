@@ -21,7 +21,6 @@ import pytest
 def test_table_result_with_silent_enabled(runner):
     expected_output = dedent(
         """\
-        SELECT A MOCK QUERY
         +---------------------------------------------------------------------+
         | string | number | array     | object          | date                |
         |--------+--------+-----------+-----------------+---------------------|
@@ -42,7 +41,6 @@ def test_table_result_with_silent_disabled(runner):
         Enter
           Faker. Teeny Tiny step: UNO UNO
         Exit
-        SELECT A MOCK QUERY
         +---------------------------------------------------------------------+
         | string | number | array     | object          | date                |
         |--------+--------+-----------+-----------------+---------------------|
