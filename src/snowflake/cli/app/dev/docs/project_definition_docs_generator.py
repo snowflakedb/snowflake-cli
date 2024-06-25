@@ -15,16 +15,15 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any, Dict
 
-from jinja2 import Environment, FileSystemLoader
 from pydantic.json_schema import model_json_schema
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.app.dev.docs.project_definition_generate_json_schema import (
     ProjectDefinitionGenerateJsonSchema,
 )
+from snowflake.cli.app.dev.docs.template_utils import get_template_environment
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +49,7 @@ def generate_project_definition_docs(root: SecurePath):
 # RST files are presumed to be standalone pages in the docs with a matching item in the left nav.
 # Included files, which these are, need to use the .txt extension.
 def _render_definition_description(root: SecurePath, section: Dict[str, Any]) -> None:
-    env = Environment(loader=FileSystemLoader(Path(__file__).parent / "templates"))
+    env = get_template_environment()
     file_path = root / f"definition_{section['name']}.txt"
     log.info("Creating %s", file_path)
     template = env.get_template(DEFINITION_DESCRIPTION)

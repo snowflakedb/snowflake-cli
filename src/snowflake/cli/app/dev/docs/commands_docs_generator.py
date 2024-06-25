@@ -15,12 +15,11 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import List, Optional
 
 from click import Command
-from jinja2 import Environment, FileSystemLoader
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.app.dev.docs.template_utils import get_template_environment
 from typer.core import TyperArgument
 
 log = logging.getLogger(__name__)
@@ -72,7 +71,7 @@ def _render_command_usage(
 ):
     # This is end command
     command_name = command.name
-    env = Environment(loader=FileSystemLoader(Path(__file__).parent / "templates"))
+    env = get_template_environment()
     env.filters[get_main_option.__name__] = get_main_option
     template = env.get_template(template_name)
     arguments = []
