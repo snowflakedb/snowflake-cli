@@ -457,7 +457,7 @@ def test_nativeapp_run_orphan(
                         f"show applications like '{app_name}'"
                     )
                 ),
-                dict(name=app_name),
+                dict(name=app_name, source=package_name),
             )
 
             result = runner.invoke_with_connection(
@@ -465,6 +465,26 @@ def test_nativeapp_run_orphan(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0, result.output
+
+            # package doesn't exist, app not readable
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            app_name = f"{project_name}_{USER_NAME}".upper()
+            assert not_contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show application packages like '{package_name}'",
+                    )
+                ),
+                dict(name=package_name),
+            )
+            assert not_contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show applications like '{app_name}'"
+                    )
+                ),
+                dict(name=app_name, source=package_name),
+            )
 
             if force_flag:
                 command = ["app", "run", "--force"]
@@ -480,6 +500,24 @@ def test_nativeapp_run_orphan(
                     in result.output
                 ), result.output
 
+            # app + package exist
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show application packages like '{package_name}'",
+                    )
+                ),
+                dict(name=package_name),
+            )
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show applications like '{app_name}'"
+                    )
+                ),
+                dict(name=app_name, source=package_name),
+            )
+
             # make sure we always delete the app
             result = runner.invoke_with_connection_json(
                 ["app", "teardown"],
@@ -488,6 +526,13 @@ def test_nativeapp_run_orphan(
             assert result.exit_code == 0
 
         finally:
+            # manually drop the application in case the test failed and it wasn't dropped
+            result = runner.invoke_with_connection(
+                ["sql", "-q", f"drop application if exists {app_name} cascade"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0, result.output
+
             # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection_json(
                 ["app", "teardown", "--force"],
