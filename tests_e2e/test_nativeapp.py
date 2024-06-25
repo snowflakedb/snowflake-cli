@@ -126,8 +126,6 @@ def test_full_lifecycle_with_codegen(
                     "integration",
                 ],
                 encoding="utf-8",
-                capture_output=True,
-                text=True,
             )
 
             assert result.returncode == 0
@@ -224,8 +222,6 @@ def test_full_lifecycle_with_codegen(
                     "integration",
                 ],
                 encoding="utf-8",
-                capture_output=True,
-                text=True,
             )
 
             assert result.returncode == 0

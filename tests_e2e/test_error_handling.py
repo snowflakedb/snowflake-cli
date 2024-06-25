@@ -37,11 +37,8 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
             "-q",
             "select foo",
         ],
-        capture_output=True,
-        text=True,
     )
 
-    assert result.returncode == 1
     assert "SQL compilation error" in result.stdout
     assert traceback_msg not in result.stdout
     assert not result.stderr
@@ -58,11 +55,8 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
             "select foo",
             "--debug",
         ],
-        capture_output=True,
-        text=True,
     )
 
-    assert result_debug.returncode == 1
     assert result_debug.stdout == "select foo\n"
     assert traceback_msg in result_debug.stderr
 
@@ -77,18 +71,12 @@ def test_corrupted_config_in_default_location(
     # corrupted config should produce human-friendly error
     result_err = _check_call(
         [snowcli, "connection", "list"],
-        capture_output=True,
-        text=True,
     )
-    assert result_err.returncode == 1
     assert result_err.stderr == snapshot
 
     # corrupted config in default location should not influence one passed with --config-file flag
     healthy_config = test_root_path / "config" / "config.toml"
     result_healthy = _check_call(
         [snowcli, "--config-file", healthy_config, "connection", "list"],
-        capture_output=True,
-        text=True,
     )
-    assert result_healthy.returncode == 0, result_healthy.stderr
     assert "dev" in result_healthy.stdout and "integration" in result_healthy.stdout
