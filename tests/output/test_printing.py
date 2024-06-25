@@ -113,7 +113,6 @@ def test_print_markup_tags_in_output_do_not_raise_errors(capsys, mock_cursor):
 
     assert get_output(capsys) == dedent(
         """\
-    SELECT A MOCK QUERY
     +------------------------------------------------+
     | CONCAT('[INST]','FOO', 'TRANSCRIPT','[/INST]') |
     |------------------------------------------------|
@@ -135,14 +134,12 @@ def test_print_multi_results_table(capsys, _create_mock_cursor):
 
     assert get_output(capsys) == dedent(
         """\
-    SELECT A MOCK QUERY
     +---------------------------------------------------------------------+
     | string | number | array     | object          | date                |
     |--------+--------+-----------+-----------------+---------------------|
     | string | 42     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     | string | 43     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     +---------------------------------------------------------------------+
-    SELECT A MOCK QUERY
     +---------------------------------------------------------------------+
     | string | number | array     | object          | date                |
     |--------+--------+-----------+-----------------+---------------------|
@@ -193,14 +190,12 @@ def test_print_different_multi_results_table(capsys, mock_cursor):
 
     assert get_output(capsys) == dedent(
         """\
-    SELECT A MOCK QUERY
     +-----------------+
     | string | number |
     |--------+--------|
     | string | 42     |
     | string | 43     |
     +-----------------+
-    SELECT A MOCK QUERY
     +---------------------------------------------------+
     | array     | object          | date                |
     |-----------+-----------------+---------------------|
@@ -224,7 +219,6 @@ def test_print_different_data_sources_table(capsys, _create_mock_cursor):
 
     assert get_output(capsys) == dedent(
         """\
-    SELECT A MOCK QUERY
     +---------------------------------------------------------------------+
     | string | number | array     | object          | date                |
     |--------+--------+-----------+-----------------+---------------------|
