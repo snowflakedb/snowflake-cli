@@ -30,7 +30,6 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import MissingConfiguration, NoProjectDefinitionError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.api.utils.models import ProjectEnvironment
 from snowflake.cli.api.utils.rendering import CONTEXT_KEY
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
@@ -505,32 +504,20 @@ def register_project_definition(project_name: Optional[str], is_optional: bool) 
     project_path = cli_context_manager.project_path_arg
     env_overrides_args = cli_context_manager.project_env_overrides_args
 
-    try:
-        dm = DefinitionManager(project_path, {CONTEXT_KEY: {"env": env_overrides_args}})
-        project_definition = dm.project_definition
-        project_root = dm.project_root
-        template_context = dm.template_context
+    dm = DefinitionManager(project_path, {CONTEXT_KEY: {"env": env_overrides_args}})
+    project_definition = dm.project_definition
+    project_root = dm.project_root
+    template_context = dm.template_context
 
-        if project_name is not None and not getattr(
-            project_definition, project_name, None
-        ):
-            raise NoProjectDefinitionError(
-                project_type=project_name, project_file=project_path
-            )
+    if not dm.has_definition_file and not is_optional:
+        raise MissingConfiguration(
+            "Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
+        )
 
-    except MissingConfiguration:
-        if is_optional:
-            project_definition = None
-            project_root = None
-            template_context = {
-                CONTEXT_KEY: {
-                    "env": ProjectEnvironment(
-                        default_env={}, override_env=env_overrides_args
-                    )
-                }
-            }
-        else:
-            raise
+    if project_name is not None and not getattr(project_definition, project_name, None):
+        raise NoProjectDefinitionError(
+            project_type=project_name, project_file=project_path
+        )
 
     cli_context_manager.set_project_definition(project_definition)
     cli_context_manager.set_project_root(project_root)

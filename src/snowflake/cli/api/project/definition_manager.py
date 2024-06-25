@@ -19,7 +19,6 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
-from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.project.definition import ProjectProperties, load_project
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.cli.api.utils.types import Context
@@ -49,29 +48,31 @@ class DefinitionManager:
         project_root = Path(
             os.path.abspath(project_arg) if project_arg else os.getcwd()
         )
-        if not self._base_definition_file_if_available(project_root):
-            raise MissingConfiguration(
-                f"Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
-            )
 
         self.project_root = project_root
         self._project_config_paths = self._find_definition_files(self.project_root)
         self._context_overrides = context_overrides
 
+    @functools.cached_property
+    def has_definition_file(self):
+        return len(self._project_config_paths) > 0
+
     @staticmethod
     def _find_definition_files(project_root: Path) -> List[Path]:
-        base_config_file_path = (
-            project_root / DefinitionManager.BASE_DEFINITION_FILENAME
+        base_config_file_path = DefinitionManager._base_definition_file_if_available(
+            project_root
         )
         user_config_file_path = DefinitionManager._user_definition_file_if_available(
             project_root
         )
-        if user_config_file_path:
-            return [
-                base_config_file_path,
-                user_config_file_path,
-            ]
-        return [base_config_file_path]
+
+        definition_files: List[Path] = []
+        if base_config_file_path:
+            definition_files.append(base_config_file_path)
+            if user_config_file_path:
+                definition_files.append(user_config_file_path)
+
+        return definition_files
 
     @staticmethod
     def find_project_root(search_path: Path) -> Optional[Path]:

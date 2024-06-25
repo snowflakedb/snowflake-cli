@@ -38,10 +38,10 @@ from snowflake.cli.api.utils.types import Context, Definition
 DEFAULT_USERNAME = "unknown_user"
 
 
-def _get_merged_definitions(paths: List[Path]) -> Definition:
+def _get_merged_definitions(paths: List[Path]) -> Optional[Definition]:
     spaths: List[SecurePath] = [SecurePath(p) for p in paths]
     if len(spaths) == 0:
-        raise ValueError("Need at least one definition file.")
+        return None
 
     with spaths[0].open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as base_yml:
         definition = yaml.load(base_yml.read(), Loader=yaml.loader.BaseLoader) or {}

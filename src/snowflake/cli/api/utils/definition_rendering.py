@@ -233,7 +233,7 @@ def _validate_env_section(env_section: dict):
 
 
 def render_definition_template(
-    original_definition: Definition, context_overrides: Context
+    original_definition: Optional[Definition], context_overrides: Context
 ) -> ProjectProperties:
     """
     Takes a definition file as input. An arbitrary structure containing dict|list|scalars,
@@ -254,6 +254,9 @@ def render_definition_template(
     environment_overrides = ProjectEnvironment(
         default_env={}, override_env=override_env
     )
+
+    if definition is None:
+        return ProjectProperties(None, {CONTEXT_KEY: {"env": environment_overrides}})
 
     project_context = {CONTEXT_KEY: definition}
 
