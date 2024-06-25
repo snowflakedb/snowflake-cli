@@ -35,7 +35,7 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     generate_grant_sql_ddl_statements,
 )
 
-from tests.nativeapp.utils import assert_dir_snapshot
+from tests.nativeapp.utils import assert_dir_snapshot, create_native_app_package
 from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
 
 PROJECT_ROOT = Path("/path/to/project")
@@ -328,20 +328,17 @@ def test_process_no_collected_functions(
                 {"src": "a/b/c/*.py", "dest": "stagepath/", "processors": ["SNOWPARK"]}
             ]
             mock_sandbox.side_effect = [None, []]
-            deploy_root = Path(local_path, "output/deploy")
-            generated_root = Path(deploy_root, "__generated")
-            SnowparkAnnotationProcessor(
-                project_definition=native_app_project_instance,
+            app_pkg = create_native_app_package(
+                project_definition=native_app_project_instance.native_app,
                 project_root=local_path,
-                deploy_root=deploy_root,
-                generated_root=generated_root,
-            ).process(
+            )
+            SnowparkAnnotationProcessor(app_pkg=app_pkg).process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
                 processor_mapping=ProcessorMapping(name="SNOWPARK"),
                 write_to_sql=False,  # For testing
             )
 
-            assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
+            assert_dir_snapshot(app_pkg.deploy_root.relative_to(local_path), snapshot)
 
 
 @mock.patch(
@@ -380,19 +377,16 @@ def test_process_with_collected_functions(
                 [native_app_extension_function_raw_data],
                 [imports_variation],
             ]
-            deploy_root = Path(local_path, "output/deploy")
-            generated_root = Path(deploy_root, "__generated")
-            SnowparkAnnotationProcessor(
-                project_definition=native_app_project_instance,
+            app_pkg = create_native_app_package(
+                project_definition=native_app_project_instance.native_app,
                 project_root=local_path,
-                deploy_root=deploy_root,
-                generated_root=generated_root,
-            ).process(
+            )
+            SnowparkAnnotationProcessor(app_pkg=app_pkg).process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
                 processor_mapping=processor_mapping,
             )
 
-            assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
+            assert_dir_snapshot(app_pkg.deploy_root.relative_to(local_path), snapshot)
 
 
 @pytest.mark.parametrize(
@@ -440,18 +434,15 @@ def test_package_normalization(
             ]
             native_app_extension_function_raw_data["packages"] = package_decl
             mock_sandbox.side_effect = [[native_app_extension_function_raw_data]]
-            deploy_root = Path(local_path, "output/deploy")
-            generated_root = Path(deploy_root, "__generated")
-            SnowparkAnnotationProcessor(
-                project_definition=native_app_project_instance,
+            app_pkg = create_native_app_package(
+                project_definition=native_app_project_instance.native_app,
                 project_root=local_path,
-                deploy_root=deploy_root,
-                generated_root=generated_root,
-            ).process(
+            )
+            SnowparkAnnotationProcessor(app_pkg=app_pkg).process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
                 processor_mapping=processor_mapping,
             )
 
-            dest_file = generated_root / "stagepath" / "main.sql"
+            dest_file = app_pkg.generated_root / "stagepath" / "main.sql"
             assert dest_file.is_file()
             assert dest_file.read_text(encoding="utf-8") == snapshot

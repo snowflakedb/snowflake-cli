@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
 
 import pytest
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
@@ -23,6 +22,8 @@ from snowflake.cli.plugins.nativeapp.codegen.compiler import NativeAppCompiler
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
 )
+
+from tests.nativeapp.utils import create_native_app_package
 
 
 @pytest.fixture()
@@ -56,10 +57,7 @@ def test_proj_def():
 @pytest.fixture()
 def test_compiler(test_proj_def):
     return NativeAppCompiler(
-        project_definition=test_proj_def.native_app,
-        project_root=Path("some/dummy/path"),
-        deploy_root=Path("some/dummy/path"),
-        generated_root=Path("some/dummy/path"),
+        app_pkg=create_native_app_package(test_proj_def.native_app)
     )
 
 
@@ -89,12 +87,8 @@ def test_find_and_execute_processors_exception(test_proj_def, test_compiler):
     test_proj_def.native_app.artifacts = [
         {"dest": "./", "src": "app/*", "processors": ["DUMMY"]}
     ]
-    test_compiler = NativeAppCompiler(
-        project_definition=test_proj_def.native_app,
-        project_root=Path("some/dummy/path"),
-        deploy_root=Path("some/dummy/path"),
-        generated_root=Path("some/dummy/path"),
-    )
+    app_pkg = create_native_app_package(project_definition=test_proj_def.native_app)
+    test_compiler = NativeAppCompiler(app_pkg=app_pkg)
 
     with pytest.raises(UnsupportedArtifactProcessorError):
         test_compiler.compile_artifacts()

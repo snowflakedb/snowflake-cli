@@ -27,7 +27,6 @@ from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.definition import (
-    default_app_package,
     default_application,
     default_role,
 )
@@ -62,6 +61,10 @@ from snowflake.cli.plugins.nativeapp.constants import (
     NAME_COL,
     OWNER_COL,
     SPECIAL_COMMENT,
+)
+from snowflake.cli.plugins.nativeapp.data_model import (
+    NativeAppPackage,
+    NativeAppProject,
 )
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
@@ -168,38 +171,46 @@ class NativeAppManager(SqlExecutionMixin):
 
     def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__()
-        self._project_root = project_root
-        self._project_definition = project_definition
+        self._project = NativeAppProject(
+            project_definition=project_definition, project_root=project_root
+        )
+        self._app_pkg = NativeAppPackage(project=self._project)
+
+    @property
+    def project(self) -> NativeAppProject:
+        return self._project
+
+    @property
+    def app_package(self) -> NativeAppPackage:
+        return self._app_pkg
 
     @property
     def project_root(self) -> Path:
-        return self._project_root
+        return self.project.project_root
 
     @property
     def definition(self) -> NativeApp:
-        return self._project_definition
+        return self.project.definition
 
-    @cached_property
+    @property
     def artifacts(self) -> List[PathMapping]:
-        return self.definition.artifacts
+        return self.app_package.artifacts
 
-    @cached_property
+    @property
+    def bundle_root(self) -> Path:
+        return self.app_package.bundle_root
+
+    @property
     def deploy_root(self) -> Path:
-        return Path(self.project_root, self.definition.deploy_root)
+        return self.app_package.deploy_root
 
-    @cached_property
+    @property
     def generated_root(self) -> Path:
-        return Path(self.deploy_root, self.definition.generated_root)
+        return self.app_package.generated_root
 
-    @cached_property
+    @property
     def package_scripts(self) -> List[str]:
-        """
-        Relative paths to package scripts from the project root.
-        """
-        if self.definition.package and self.definition.package.scripts:
-            return self.definition.package.scripts
-        else:
-            return []
+        return self.app_package.package_scripts
 
     @cached_property
     def stage_fqn(self) -> str:
@@ -227,18 +238,13 @@ class NativeAppManager(SqlExecutionMixin):
         else:
             return self._conn.warehouse
 
-    @cached_property
+    @property
     def project_identifier(self) -> str:
-        # name is expected to be a valid Snowflake identifier, but PyYAML
-        # will sometimes strip out double quotes so we try to get them back here.
-        return to_identifier(self.definition.name)
+        return self.project.project_identifier
 
-    @cached_property
+    @property
     def package_name(self) -> str:
-        if self.definition.package and self.definition.package.name:
-            return to_identifier(self.definition.package.name)
-        else:
-            return to_identifier(default_app_package(self.project_identifier))
+        return self.app_package.package_name
 
     @cached_property
     def package_role(self) -> str:
@@ -357,10 +363,7 @@ class NativeAppManager(SqlExecutionMixin):
         """
         bundle_map = build_bundle(self.project_root, self.deploy_root, self.artifacts)
         compiler = NativeAppCompiler(
-            project_definition=self._project_definition,
-            project_root=self.project_root,
-            deploy_root=self.deploy_root,
-            generated_root=self.generated_root,
+            app_pkg=self.app_package,
         )
         compiler.compile_artifacts()
         return bundle_map

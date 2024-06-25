@@ -14,16 +14,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Dict, Optional
 
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
-    PathMapping,
     ProcessorMapping,
 )
-from snowflake.cli.plugins.nativeapp.artifacts import resolve_without_follow
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     ArtifactProcessor,
     UnsupportedArtifactProcessorError,
@@ -31,6 +27,7 @@ from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
 )
+from snowflake.cli.plugins.nativeapp.data_model import NativeAppPackage
 
 SNOWPARK_PROCESSOR = "snowpark"
 
@@ -46,21 +43,9 @@ class NativeAppCompiler:
 
     def __init__(
         self,
-        project_definition: NativeApp,
-        project_root: Path,
-        deploy_root: Path,
-        generated_root: Path,
+        app_pkg: NativeAppPackage,
     ):
-        self.project_definition = project_definition
-        self.project_root = project_root
-        self.deploy_root = deploy_root
-        self.generated_root = generated_root
-
-        self.artifacts = [
-            artifact
-            for artifact in project_definition.artifacts
-            if isinstance(artifact, PathMapping)
-        ]
+        self._app_pkg = app_pkg
         # dictionary of all processors created and shared between different artifact objects.
         self.cached_processors: Dict[str, ArtifactProcessor] = {}
 
@@ -70,7 +55,7 @@ class NativeAppCompiler:
         May have side-effects on the filesystem by either directly editing source files or the deploy root.
         """
         should_proceed = False
-        for artifact in self.artifacts:
+        for artifact in self._app_pkg.artifacts:
             if artifact.processors:
                 should_proceed = True
                 break
@@ -78,7 +63,7 @@ class NativeAppCompiler:
             return
 
         with cc.phase("Invoking artifact processors"):
-            for artifact in self.artifacts:
+            for artifact in self._app_pkg.artifacts:
                 for processor in artifact.processors:
                     artifact_processor = self._try_create_processor(
                         processor_mapping=processor,
@@ -107,10 +92,7 @@ class NativeAppCompiler:
                 return curr_processor
             else:
                 curr_processor = SnowparkAnnotationProcessor(
-                    project_definition=self.project_definition,
-                    project_root=resolve_without_follow(self.project_root),
-                    deploy_root=resolve_without_follow(self.deploy_root),
-                    generated_root=resolve_without_follow(self.generated_root),
+                    app_pkg=self._app_pkg,
                 )
                 self.cached_processors[SNOWPARK_PROCESSOR] = curr_processor
                 return curr_processor
