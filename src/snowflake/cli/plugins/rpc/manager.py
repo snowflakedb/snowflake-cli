@@ -24,7 +24,7 @@ from typing import Optional
 from pygls.server import LanguageServer
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.app.snow_connector import connect_to_snowflake
-from snowflake.snowpark import Session
+from snowflake.connector import SnowflakeConnection
 
 
 @dataclass
@@ -56,7 +56,7 @@ class LSPPluginContext:
         }
         return connect_to_snowflake(temporary_connection=True, **connection_attributes)
 
-    def create_connection(self) -> Session:
+    def create_connection(self) -> SnowflakeConnection:
         params = ConnectionParams(
             session_token=os.environ.get("SESSION_TOKEN"),
             master_token=os.environ.get("MASTER_TOKEN"),
