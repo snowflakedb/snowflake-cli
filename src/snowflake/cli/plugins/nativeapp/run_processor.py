@@ -28,6 +28,7 @@ from snowflake.cli.api.project.util import (
     unquote_identifier,
 )
 from snowflake.cli.api.utils.cursor import find_all_rows
+from snowflake.cli.api.utils.rendering import snowflake_sql_jinja_render
 from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
@@ -112,6 +113,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                         f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
                     )
 
+                    self._execute_post_deploy_hooks()
                     return
 
                 except ProgrammingError as err:
@@ -152,6 +154,38 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 )
             except ProgrammingError as err:
                 generic_sql_error_handler(err)
+
+            self._execute_post_deploy_hooks()
+
+    def _execute_sql_script(self, sql_script_path):
+        """
+        Executing the SQL script in the provided file path after expanding template variables.
+        "use warehouse" and "use database" will be executed first if they are set in definition file or in the current connection.
+        """
+        with open(sql_script_path) as f:
+            sql_script = f.read()
+            try:
+                if self.application_warehouse:
+                    self._execute_query(f"use warehouse {self.application_warehouse}")
+                if self._conn.database:
+                    self._execute_query(f"use database {self._conn.database}")
+                sql_script = snowflake_sql_jinja_render(content=sql_script)
+                self._execute_queries(sql_script)
+            except ProgrammingError as err:
+                generic_sql_error_handler(err)
+
+    def _execute_post_deploy_hooks(self):
+        post_deploy_script_hooks = self.app_post_deploy_hooks
+        if post_deploy_script_hooks:
+            with cc.phase("Executing application post-deploy actions"):
+                for hook in post_deploy_script_hooks:
+                    if hook.sql_script:
+                        cc.step(f"Executing SQL script: {hook.sql_script}")
+                        self._execute_sql_script(hook.sql_script)
+                    else:
+                        raise ValueError(
+                            f"Unsupported application post-deploy hook type: {hook}"
+                        )
 
     def get_all_existing_versions(self) -> SnowflakeCursor:
         """

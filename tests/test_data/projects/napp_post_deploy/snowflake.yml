@@ -1,0 +1,15 @@
+definition_version: 1.1
+native_app:
+  name: myapp
+
+  artifacts:
+    - src: app/*
+      dest: ./
+
+  application:
+    post_deploy:
+      - sql_script: scripts/post_deploy1.sql
+      - sql_script: scripts/post_deploy2.sql
+
+env:
+  foo: bar
