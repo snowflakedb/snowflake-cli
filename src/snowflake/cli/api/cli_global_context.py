@@ -47,6 +47,7 @@ class _ConnectionContext:
         self._temporary_connection: bool = False
         self._session_token: Optional[str] = None
         self._master_token: Optional[str] = None
+        self._token_file_path: Optional[Path] = None
 
     def __setattr__(self, key, value):
         """
@@ -183,6 +184,13 @@ class _ConnectionContext:
         self._master_token = value
 
     @property
+    def token_file_path(self) -> Optional[Path]:
+        return self._token_file_path
+
+    def set_token_file_path(self, value: Optional[Path]):
+        self._token_file_path = value
+
+    @property
     def connection(self) -> SnowflakeConnection:
         if not self._cached_connection:
             self._cached_connection = self._build_connection()
@@ -201,6 +209,7 @@ class _ConnectionContext:
             "warehouse": self.warehouse,
             "session_token": self.session_token,
             "master_token": self.master_token,
+            "token_file_path": self.token_file_path,
         }
 
     def _build_connection(self):

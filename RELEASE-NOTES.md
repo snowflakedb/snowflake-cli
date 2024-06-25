@@ -25,6 +25,8 @@
 * Added `--auto-compress` flag to `snow stage copy` command enabling use of gzip to compress files during upload.
 * Added new `native_app.application.post_deploy` section to `snowflake.yml` schema to execute actions after the application has been deployed via `snow app run`.
   * Added the `sql_script` hook type to run SQL scripts with template support.
+* Added connection option `--token-file-path` allowing passing OAuth token using a file. The function is also
+  supported by setting `token_file_path` in connection definition.
 
 ## Fixes and improvements
 * Passing a directory to `snow app deploy` will now deploy any contained file or subfolder specified in the application's artifact rules
