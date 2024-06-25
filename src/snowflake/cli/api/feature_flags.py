@@ -48,3 +48,4 @@ class FeatureFlag(FeatureFlagMixin):
     ENABLE_STREAMLIT_EMBEDDED_STAGE = BooleanFlag(
         "ENABLE_STREAMLIT_EMBEDDED_STAGE", False
     )
+    ENABLE_PDF_V2 = BooleanFlag("ENABLE_PDF_V2", False)

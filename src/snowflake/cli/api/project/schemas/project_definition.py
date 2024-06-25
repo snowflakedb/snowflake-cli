@@ -18,6 +18,7 @@ from typing import Any, Dict, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, field_validator
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.schemas.entities.application_package_entity import (
     ApplicationPackageEntity,
 )
@@ -114,6 +115,8 @@ class ProjectDefinition(_DefinitionV11, _DefinitionV20):
                 raise ValueError(
                     f"Unknown schema version: {version}. Supported version: {_supported_version}"
                 )
+            if version == "2" and not FeatureFlag.ENABLE_PDF_V2.is_enabled():
+                raise ValueError(f"Schema version 2 is under development.")
             version_model(**data)
 
 
