@@ -30,13 +30,23 @@ TEST_DIR = Path(__file__).parent
 IS_WINDOWS = platform.system() == "Windows"
 
 
-def check_output(*args, **kwargs):
+def subprocess_check_output(*args, **kwargs):
     try:
         return subprocess.check_output(
-            *args, **kwargs, shell=IS_WINDOWS, stderr=sys.stdout
+            *args, **kwargs, shell=IS_WINDOWS, stderr=sys.stdout, encoding="utf-8"
         )
     except subprocess.CalledProcessError as err:
         print(err.output)
+
+
+def subprocess_run(*args):
+    return subprocess.run(
+        *args,
+        shell=IS_WINDOWS,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -90,18 +100,20 @@ def isolate_default_config_location(monkeypatch, temp_dir):
 
 
 def _create_venv(tmp_dir: Path) -> None:
-    check_output(["python", "-m", "venv", tmp_dir])
+    subprocess_check_output(["python", "-m", "venv", tmp_dir])
 
 
 def _build_snowcli(venv_path: Path, test_root_path: Path) -> None:
-    check_output(
+    subprocess_check_output(
         [_python_path(venv_path), "-m", "pip", "install", "--upgrade", "build"],
     )
-    check_output([_python_path(venv_path), "-m", "build", test_root_path / ".."])
+    subprocess_check_output(
+        [_python_path(venv_path), "-m", "build", test_root_path / ".."]
+    )
 
 
 def _pip_install(python, *args):
-    return check_output([python, "-m", "pip", "install", *args])
+    return subprocess_check_output([python, "-m", "pip", "install", *args])
 
 
 def _install_snowcli_with_external_plugin(

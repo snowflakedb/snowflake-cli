@@ -16,26 +16,26 @@ import time
 
 import pytest
 
-from tests_e2e.conftest import check_output
+from tests_e2e.conftest import subprocess_check_output
 
 
 @pytest.mark.e2e
 def test_snowpark_examples_functions_work_locally(snowcli):
     project_name = str(time.monotonic_ns())
-    check_output(
+    subprocess_check_output(
         [snowcli, "snowpark", "init", project_name],
         encoding="utf-8",
     )
 
     python = snowcli.parent / "python"
 
-    output = check_output(
+    output = subprocess_check_output(
         [python, f"{project_name}/app/functions.py", "FooBar"],
         encoding="utf-8",
     )
     assert output.strip() == "Hello FooBar!"
 
-    output = check_output(
+    output = subprocess_check_output(
         [python, f"{project_name}/app/procedures.py", "BazBar"],
         encoding="utf-8",
     )
