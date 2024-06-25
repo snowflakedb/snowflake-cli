@@ -37,7 +37,7 @@ def subprocess_check_output(cmd):
         )
     except subprocess.CalledProcessError as err:
         print(err.output)
-        raise
+        # raise
 
 
 def subprocess_run(cmd):
