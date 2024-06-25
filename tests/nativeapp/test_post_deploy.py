@@ -89,6 +89,7 @@ def test_sql_scripts(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock_connection()
 @mock.patch(MOCK_CONNECTION_DB, new_callable=mock.PropertyMock)
@@ -98,6 +99,7 @@ def test_sql_scripts_with_no_warehouse_no_database(
     mock_conn_db,
     mock_conn,
     mock_cli_ctx,
+    mock_execute_queries,
     mock_execute_query,
     project_directory,
 ):
@@ -112,7 +114,21 @@ def test_sql_scripts_with_no_warehouse_no_database(
 
         processor._execute_post_deploy_hooks()  # noqa SLF001
 
+        # Verify no "use warehouse" and no "use database" were called
         assert mock_execute_query.mock_calls == []
+        assert mock_execute_queries.mock_calls == [
+            mock.call(
+                dedent(
+                    """\
+                -- app post-deploy script (1/2)
+
+                select myapp;
+                select bar;
+                """
+                )
+            ),
+            mock.call("-- app post-deploy script (2/2)\n"),
+        ]
 
 
 @mock_connection()
