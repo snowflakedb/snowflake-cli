@@ -322,7 +322,7 @@ def print_diff_to_console(
     diff: DiffResult,
     bundle_map: Optional[BundleMap] = None,
 ):
-    if not diff.different and not diff.only_local and not diff.only_on_stage:
+    if not diff.has_changes():
         cc.message("Your stage is up-to-date with your local deploy root.")
         return
 
