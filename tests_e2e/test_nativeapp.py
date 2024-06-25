@@ -36,7 +36,6 @@ def subprocess_check_output_with(sql_stmt: str, config_path: Path, snowcli) -> s
             "-c",
             "integration",
         ],
-        encoding="utf-8",
     )
 
 

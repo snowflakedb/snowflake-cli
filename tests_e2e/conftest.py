@@ -30,19 +30,19 @@ TEST_DIR = Path(__file__).parent
 IS_WINDOWS = platform.system() == "Windows"
 
 
-def subprocess_check_output(*args, **kwargs):
+def subprocess_check_output(cmd):
     try:
         return subprocess.check_output(
-            *args, **kwargs, shell=IS_WINDOWS, stderr=sys.stdout, encoding="utf-8"
+            cmd, shell=IS_WINDOWS, stderr=sys.stdout, encoding="utf-8"
         )
     except subprocess.CalledProcessError as err:
         print(err.output)
         raise
 
 
-def subprocess_run(*args):
+def subprocess_run(cmd):
     return subprocess.run(
-        *args,
+        cmd,
         shell=IS_WINDOWS,
         capture_output=True,
         text=True,
@@ -78,10 +78,7 @@ def temp_dir():
 def _windows_tmp_dir():
     tmp_dir_path = Path.cwd() / "e2e_tests"
     tmp_dir_path.mkdir(exist_ok=True)
-    try:
-        yield tmp_dir_path
-    except:
-        tmp_dir_path.unlink(missing_ok=True)
+    yield tmp_dir_path
 
 
 @pytest.fixture(scope="session")
