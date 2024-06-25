@@ -13,11 +13,12 @@
 # limitations under the License.
 
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
 
-from tests_e2e.conftest import _check_call
+from tests_e2e.conftest import IS_WINDOWS
 
 
 @pytest.mark.e2e
@@ -26,7 +27,7 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
     os.chmod(config_path, 0o700)
 
     traceback_msg = "Traceback (most recent call last)"
-    result = _check_call(
+    result = subprocess.run(
         [
             snowcli,
             "--config-file",
@@ -37,13 +38,16 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
             "-q",
             "select foo",
         ],
+        shell=IS_WINDOWS,
+        capture_output=True,
+        text=True,
     )
 
     assert "SQL compilation error" in result.stdout
     assert traceback_msg not in result.stdout
     assert not result.stderr
 
-    result_debug = _check_call(
+    result_debug = subprocess.run(
         [
             snowcli,
             "--config-file",
@@ -55,6 +59,9 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
             "select foo",
             "--debug",
         ],
+        shell=IS_WINDOWS,
+        capture_output=True,
+        text=True,
     )
 
     assert result_debug.stdout == "select foo\n"
@@ -69,14 +76,20 @@ def test_corrupted_config_in_default_location(
     default_config.write_text("[connections.demo]\n[connections.demo]")
     default_config.chmod(0o600)
     # corrupted config should produce human-friendly error
-    result_err = _check_call(
+    result_err = subprocess.run(
         [snowcli, "connection", "list"],
+        shell=IS_WINDOWS,
+        capture_output=True,
+        text=True,
     )
     assert result_err.stderr == snapshot
 
     # corrupted config in default location should not influence one passed with --config-file flag
     healthy_config = test_root_path / "config" / "config.toml"
-    result_healthy = _check_call(
+    result_healthy = subprocess.run(
         [snowcli, "--config-file", healthy_config, "connection", "list"],
+        shell=IS_WINDOWS,
+        capture_output=True,
+        text=True,
     )
     assert "dev" in result_healthy.stdout and "integration" in result_healthy.stdout

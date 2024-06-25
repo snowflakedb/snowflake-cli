@@ -16,18 +16,18 @@ from pathlib import Path
 
 import pytest
 
-from tests_e2e.conftest import _check_call
+from tests_e2e.conftest import check_output
 
 
 @pytest.mark.e2e
 def test_snow_help(snowcli, snapshot):
-    output = _check_call([snowcli, "--help"], encoding="utf-8")
+    output = check_output([snowcli, "--help"], encoding="utf-8")
     snapshot.assert_match(output)
 
 
 @pytest.mark.e2e
 def test_snow_sql(snowcli, test_root_path, snapshot):
-    output = _check_call(
+    output = check_output(
         [
             snowcli,
             "--config-file",
@@ -45,7 +45,7 @@ def test_snow_sql(snowcli, test_root_path, snapshot):
 
 @pytest.mark.e2e
 def test_snow_streamlit_init(temp_dir, snowcli, snapshot):
-    output = _check_call(
+    output = check_output(
         [snowcli, "streamlit", "init", "streamlit_test"], encoding="utf-8"
     )
     snapshot.assert_match(output)
@@ -57,7 +57,7 @@ def test_snow_streamlit_init(temp_dir, snowcli, snapshot):
 
 @pytest.mark.e2e
 def test_command_from_external_plugin(snowcli, test_root_path, snapshot):
-    output = _check_call(
+    output = check_output(
         [
             snowcli,
             "--config-file",

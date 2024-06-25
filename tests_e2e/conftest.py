@@ -30,9 +30,11 @@ TEST_DIR = Path(__file__).parent
 IS_WINDOWS = platform.system() == "Windows"
 
 
-def _check_call(*args, **kwargs):
+def check_output(*args, **kwargs):
     try:
-        subprocess.check_output(*args, **kwargs, shell=IS_WINDOWS, stderr=sys.stdout)
+        return subprocess.check_output(
+            *args, **kwargs, shell=IS_WINDOWS, stderr=sys.stdout
+        )
     except subprocess.CalledProcessError as err:
         print(err.output)
 
@@ -61,22 +63,25 @@ def temp_dir():
     tmp.cleanup()
 
 
+@contextmanager
+def _windows_tmp_dir():
+    tmp_dir_path = Path.cwd() / "e2e_tests"
+    tmp_dir_path.mkdir(exist_ok=True)
+    try:
+        yield tmp_dir_path
+    except:
+        tmp_dir_path.unlink(missing_ok=True)
+
+
 @pytest.fixture(scope="session")
 def snowcli(test_root_path):
-    if IS_WINDOWS:
-        tmp_dir_path = Path.cwd() / "e2e_tests"
-        tmp_dir_path.mkdir(exist_ok=True)
+    ctx = _windows_tmp_dir if IS_WINDOWS else TemporaryDirectory
+    with ctx() as tmp_dir:
+        tmp_dir_path = Path(tmp_dir)
         _create_venv(tmp_dir_path)
         _build_snowcli(tmp_dir_path, test_root_path)
         _install_snowcli_with_external_plugin(tmp_dir_path, test_root_path)
         yield tmp_dir_path / "bin" / "snow"
-    else:
-        with TemporaryDirectory() as tmp_dir:
-            tmp_dir_path = Path(tmp_dir)
-            _create_venv(tmp_dir_path)
-            _build_snowcli(tmp_dir_path, test_root_path)
-            _install_snowcli_with_external_plugin(tmp_dir_path, test_root_path)
-            yield tmp_dir_path / "bin" / "snow"
 
 
 @pytest.fixture(autouse=True)
@@ -85,18 +90,18 @@ def isolate_default_config_location(monkeypatch, temp_dir):
 
 
 def _create_venv(tmp_dir: Path) -> None:
-    _check_call(["python", "-m", "venv", tmp_dir])
+    check_output(["python", "-m", "venv", tmp_dir])
 
 
 def _build_snowcli(venv_path: Path, test_root_path: Path) -> None:
-    _check_call(
+    check_output(
         [_python_path(venv_path), "-m", "pip", "install", "--upgrade", "build"],
     )
-    _check_call([_python_path(venv_path), "-m", "build", test_root_path / ".."])
+    check_output([_python_path(venv_path), "-m", "build", test_root_path / ".."])
 
 
 def _pip_install(python, *args):
-    return _check_call([python, "-m", "pip", "install", *args])
+    return check_output([python, "-m", "pip", "install", *args])
 
 
 def _install_snowcli_with_external_plugin(
