@@ -40,12 +40,12 @@ from snowflake.connector.errors import ProgrammingError
 
 
 class SqlExecutionMixin:
-    def __init__(self):
-        pass
+    def __init__(self, connection=None):
+        self._connection = connection
 
     @property
     def _conn(self):
-        return cli_context.connection
+        return self._connection if self._connection else cli_context.connection
 
     @cached_property
     def _log(self):
