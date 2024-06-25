@@ -145,3 +145,14 @@ def test_trailing_comments_queries(runner, snowflake_session, test_root_path):
             {"1": 1},
         ],
     ]
+
+
+@pytest.mark.integration
+def test_sql_execute_query_prints_query(runner):
+    result = runner.invoke_with_connection(
+        ["sql", "-q", "select 1 as A; select 2 as B"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "select 1 as A" in result.output
+    assert "select 2 as B" in result.output

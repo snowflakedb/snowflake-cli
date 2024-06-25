@@ -62,7 +62,7 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
     )
 
     assert result_debug.returncode == 1
-    assert not result_debug.stdout
+    assert result_debug.stdout == "select foo\n"
     assert traceback_msg in result_debug.stderr
 
 

@@ -21,7 +21,7 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import identifier_to_show_like_pattern
-from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
 from snowflake.cli.plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
@@ -36,7 +36,7 @@ def test_sql_execute_query(mock_execute, runner, mock_cursor):
     result = runner.invoke(["sql", "-q", "query"])
 
     assert result.exit_code == 0
-    mock_execute.assert_called_once_with("query")
+    mock_execute.assert_called_once_with("query", cursor_class=VerboseCursor)
 
 
 @mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
@@ -49,7 +49,7 @@ def test_sql_execute_file(mock_execute, runner, mock_cursor):
         result = runner.invoke(["sql", "-f", tmp_file.name])
 
     assert result.exit_code == 0
-    mock_execute.assert_called_once_with(query)
+    mock_execute.assert_called_once_with(query, cursor_class=VerboseCursor)
 
 
 @mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
@@ -66,7 +66,12 @@ def test_sql_execute_multiple_file(mock_execute, runner, mock_cursor):
         result = runner.invoke(["sql", "-f", f1, "-f", f2])
 
     assert result.exit_code == 0
-    mock_execute.assert_has_calls([mock.call(query), mock.call(query)])
+    mock_execute.assert_has_calls(
+        [
+            mock.call(query, cursor_class=VerboseCursor),
+            mock.call(query, cursor_class=VerboseCursor),
+        ]
+    )
 
 
 @mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
@@ -77,7 +82,7 @@ def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
     result = runner.invoke(["sql", "-i"], input=query)
 
     assert result.exit_code == 0
-    mock_execute.assert_called_once_with(query)
+    mock_execute.assert_called_once_with(query, cursor_class=VerboseCursor)
 
 
 def test_sql_help_if_no_query_file_or_stdin(runner, snapshot):
@@ -310,7 +315,9 @@ def test_use_command(mock_execute_query, _object):
 def test_rendering_of_sql(mock_execute_query, query, runner):
     result = runner.invoke(["sql", "-q", query, "-D", "aaa=foo", "-D", "bbb=bar"])
     assert result.exit_code == 0, result.output
-    mock_execute_query.assert_called_once_with("select foo.bar")
+    mock_execute_query.assert_called_once_with(
+        "select foo.bar", cursor_class=VerboseCursor
+    )
 
 
 @pytest.mark.parametrize("query", ["select &{ foo }", "select &foo"])
@@ -345,7 +352,9 @@ def test_uses_variables_from_snowflake_yml(
         result = runner.invoke(["sql", "-q", "select &{ ctx.env.sf_var }"])
 
     assert result.exit_code == 0
-    mock_execute_query.assert_called_once_with("select foo_value")
+    mock_execute_query.assert_called_once_with(
+        "select foo_value", cursor_class=VerboseCursor
+    )
 
 
 @mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
@@ -356,7 +365,9 @@ def test_uses_variables_from_snowflake_local_yml(
         result = runner.invoke(["sql", "-q", "select &{ ctx.env.sf_var_override }"])
 
     assert result.exit_code == 0
-    mock_execute_query.assert_called_once_with("select foo_value_override")
+    mock_execute_query.assert_called_once_with(
+        "select foo_value_override", cursor_class=VerboseCursor
+    )
 
 
 @mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
@@ -375,4 +386,6 @@ def test_uses_variables_from_cli_are_added_outside_context(
         )
 
     assert result.exit_code == 0, result.output
-    mock_execute_query.assert_called_once_with("select foo_value other_value")
+    mock_execute_query.assert_called_once_with(
+        "select foo_value other_value", cursor_class=VerboseCursor
+    )
