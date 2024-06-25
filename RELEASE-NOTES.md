@@ -47,6 +47,8 @@
     * vars from `--env` command line argument.
     * vars from shell environment variables.
     * vars from `env` section of project definition file.
+* Added connection option `--token-file-path` allowing passing OAuth token using a file. The function is also
+  supported by setting `token_file_path` in connection definition.
 
 ## Fixes and improvements
 * Passing a directory to `snow app deploy` will now deploy any contained file or subfolder specified in the application's artifact rules
