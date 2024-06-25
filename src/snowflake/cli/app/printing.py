@@ -34,7 +34,6 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     MultipleResults,
     ObjectResult,
-    QueryResult,
 )
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 
@@ -76,8 +75,6 @@ def _get_table():
 
 
 def _print_multiple_table_results(obj: CollectionResult):
-    if isinstance(obj, QueryResult):
-        rich_print(obj.query)
     items = obj.result
     try:
         first_item = next(items)
