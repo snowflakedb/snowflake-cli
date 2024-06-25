@@ -116,7 +116,7 @@ class _ArtifactPathMap:
         self.__src_dest_pairs: List[Tuple[Path, Path]] = []
         # built-in dict instances are ordered as of Python 3.7
         self.__src_to_dest: Dict[Path, List[Path]] = {}
-        self.__dest_to_src: Dict[Path, List[Path]] = {}
+        self.__dest_to_src: Dict[Path, Optional[Path]] = {}
 
         # This dictionary accumulates keys for each directory or file to be created in
         # the deploy root for any artifact mapping rule being processed. This includes
@@ -142,7 +142,7 @@ class _ArtifactPathMap:
 
         absolute_src = self._project_root / src
 
-        current_sources = self.__dest_to_src.get(dest, [])
+        current_source = self.__dest_to_src.get(dest)
         src_is_dir = absolute_src.is_dir()
         if dest_is_dir:
             assert src_is_dir  # file -> directory is not possible here given how rules are processed
@@ -156,7 +156,7 @@ class _ArtifactPathMap:
         else:
             # file -> file
             # Check that there is no previous mapping for the same file.
-            if current_sources and src not in current_sources:
+            if current_source is not None and current_source != src:
                 # There is already a different source mapping to this destination
                 raise TooManyFilesError(dest)
 
@@ -176,17 +176,16 @@ class _ArtifactPathMap:
         self._update_dest_is_dir(dest, dest_is_dir)
 
         dests = self.__src_to_dest.setdefault(src, [])
-        srcs = self.__dest_to_src.setdefault(dest, [])
         if dest not in dests:
             dests.append(dest)
-            srcs.append(src)
+            self.__dest_to_src[dest] = src
             self.__src_dest_pairs.append((src, dest))
 
-    def get_sources(self, dest: Path) -> Iterable[Path]:
+    def get_source(self, dest: Path) -> Optional[Path]:
         """
-        Returns all source paths associated with the provided destination path, in insertion order.
+        Returns the source path associated with the provided destination path, if any.
         """
-        return self.__dest_to_src.get(dest, [])
+        return self.__dest_to_src.get(dest)
 
     def get_destinations(self, src: Path) -> Iterable[Path]:
         """
@@ -407,10 +406,14 @@ class BundleMap:
     def to_deploy_paths(self, src: Path) -> List[Path]:
         """
         Converts a source path to its corresponding deploy root path. If the input path is relative to the project root,
-        a path relative to the deploy root is returned. If the input path is absolute, an absolute path is returned.
+        paths relative to the deploy root are returned. If the input path is absolute, absolute paths are returned.
+
         Note that the provided source path must be part of a mapping. If the source path is not part of any mapping,
         an empty list is returned. For example, if `app/*` is specified as the source of a mapping,
         `to_deploy_paths(Path("app"))` will not yield any result.
+
+        Arguments:
+            src {Path} -- the source path within the project root, in canonical or absolute form.
 
         Returns:
             The deploy root paths for the given source path, or an empty list if no such path exists.
@@ -428,11 +431,14 @@ class BundleMap:
 
         output_destinations: List[Path] = []
 
+        # 1. Check for exact rule matches for this path
         canonical_dests = self._artifact_map.get_destinations(canonical_src)
         if canonical_dests:
             for d in canonical_dests:
                 output_destinations.append(self._to_output_dest(d, is_absolute))
 
+        # 2. Check for any matches to parent directories for this path that would
+        # cause this path to be part of the recursive copy
         canonical_parent = canonical_src.parent
         canonical_parent_dests = self.to_deploy_paths(canonical_parent)
         if canonical_parent_dests:
@@ -456,6 +462,47 @@ class BundleMap:
         """
         for src in self._artifact_map.all_sources():
             yield self._to_output_src(src, absolute)
+
+    def to_project_path(self, dest: Path) -> Optional[Path]:
+        """
+        Converts a deploy root path to its corresponding project source path. If the input path is relative to the
+        deploy root, a path relative to the project root is returned. If the input path is absolute, an absolute path is
+        returned.
+
+        Arguments:
+            dest {Path} -- the destination path within the deploy root, in canonical or absolute form.
+
+        Returns:
+            The project root path for the given deploy root path, or None if no such path exists.
+        """
+        is_absolute = dest.is_absolute()
+        try:
+            canonical_dest = self._canonical_dest(dest)
+        except NotInDeployRootError:
+            # No mapping possible for the dest path
+            return None
+
+        # 1. Look for an exact rule matching this path. If we find any, then
+        # stop searching. This is because each destination path can only originate
+        # from a single source (however, one source can be copied to multiple destinations).
+        canonical_src = self._artifact_map.get_source(canonical_dest)
+        if canonical_src is not None:
+            return self._to_output_src(canonical_src, is_absolute)
+
+        # 2. No exact match was found, look for a match for parent directories of this
+        # path, recursively. Stop when a match is found
+        canonical_parent = canonical_dest.parent
+        if canonical_parent == canonical_dest:
+            return None
+        canonical_parent_src = self.to_project_path(canonical_parent)
+        if canonical_parent_src is not None:
+            canonical_child = canonical_dest.relative_to(canonical_parent)
+            canonical_child_candidate = canonical_parent_src / canonical_child
+            if self._absolute_src(canonical_child_candidate).exists():
+                return self._to_output_src(canonical_child_candidate, is_absolute)
+
+        # No mapping for this destination path
+        return None
 
     def _absolute_src(self, src: Path) -> Path:
         if src.is_absolute():
