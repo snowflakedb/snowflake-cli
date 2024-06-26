@@ -24,11 +24,11 @@ from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
-    ERROR_MESSAGE_093079,
     EXTERNAL_DISTRIBUTION,
     INTERNAL_DISTRIBUTION,
     OWNER_COL,
 )
+from snowflake.cli.plugins.nativeapp.errno import APPLICATION_NO_LONGER_AVAILABLE
 from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
 )
@@ -160,7 +160,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                     """
                 )
         except ProgrammingError as e:
-            if e.errno != 93079 or ERROR_MESSAGE_093079 not in e.msg:
+            if e.errno != APPLICATION_NO_LONGER_AVAILABLE:
                 raise
             warning = f"Could not determine which objects are owned by application {self.app_name}"
             has_objects_to_drop = True  # potentially, but we don't know what they are
