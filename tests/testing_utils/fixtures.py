@@ -98,9 +98,11 @@ def correct_requirements_snowflake_txt(temp_dir) -> Generator:
 
 @pytest.fixture()
 def mock_ctx(mock_cursor):
-    yield lambda cursor=mock_cursor(["row"], []), role=None: MockConnectionCtx(
-        cursor=cursor, role=role
-    )
+    def _mock_connection_ctx_factory(cursor=mock_cursor(["row"], []), **kwargs):
+        kwargs["cursor"] = cursor
+        return MockConnectionCtx(**kwargs)
+
+    yield _mock_connection_ctx_factory
 
 
 class MockConnectionCtx(mock.MagicMock):
