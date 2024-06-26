@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TERM: unknown  # Disables colors in rich
+  _TYPER_FORCE_DISABLE_TERMINAL: unknown  # Disables colors in rich
 
 jobs:
   define-matrix:
