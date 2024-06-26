@@ -89,15 +89,15 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
             fields = [new_field] + children_fields
 
             if is_required:
-                required_fields += fields
+                required_fields.extend(fields)
             else:
-                sections += [
+                sections.append(
                     {
                         "fields": fields,
                         "title": field_model["title"],
                         "name": field_name,
                     }
-                ]
+                )
 
         for section in sections:
             section["fields"] = required_fields + section["fields"]
@@ -108,7 +108,7 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
         self,
         current_definition: Dict[str, Any],
         current_path: str = "",
-        deep: int = 0,
+        depth: int = 0,
         is_array_item: bool = False,
     ) -> List[Dict[str, Any]]:
         required_fields: List[Dict[str, Any]] = []
@@ -125,12 +125,12 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
                 field_name if current_path == "" else current_path + "." + field_name
             )
             children_fields = self._get_children_fields(
-                field_model, new_current_path, deep
+                field_model, new_current_path, depth
             )
             new_field = self._create_new_field(
                 path=new_current_path,
                 title=field_model["title"],
-                indents=deep,
+                indents=depth,
                 item_index=item_index,
                 is_required=is_required,
                 field_name=field_name,
@@ -139,9 +139,9 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
             )
             fields = [new_field] + children_fields
             if is_required:
-                required_fields += fields
+                required_fields.extend(fields)
             else:
-                optional_fields += fields
+                optional_fields.extend(fields)
         return required_fields + optional_fields
 
     def _create_new_field(
@@ -170,16 +170,18 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
         self,
         field_model: Dict[str, Any],
         current_path: str,
-        deep: int = 0,
+        depth: int = 0,
     ) -> List[Dict[str, Any]]:
         child_fields: List[Dict[str, Any]] = []
         references: List[Tuple[str, bool]] = self._get_field_references(field_model)
         for reference, is_array_item in references:
-            child_fields += self._get_section_fields(
-                self._remapped_definitions[reference],
-                current_path,
-                deep + 1,
-                is_array_item,
+            child_fields.extend(
+                self._get_section_fields(
+                    self._remapped_definitions[reference],
+                    current_path,
+                    depth + 1,
+                    is_array_item,
+                )
             )
 
         return child_fields
@@ -195,11 +197,11 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
             return [(model_with_type["$ref"], is_array_item)]
 
         if "type" in model_with_type and model_with_type["type"] == "array":
-            result += self._get_field_references(model_with_type["items"], True)
+            result.extend(self._get_field_references(model_with_type["items"], True))
 
         if "anyOf" in model_with_type:
             for field_type in model_with_type["anyOf"]:
-                result += self._get_field_references(field_type, is_array_item)
+                result.extend(self._get_field_references(field_type, is_array_item))
         return result
 
     def _get_field_types(self, model_with_type: Dict[str, Any]) -> list[str]:
@@ -208,12 +210,12 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
             if model_with_type["type"] == "array":
                 items_types = self._get_field_types(model_with_type["items"])
                 if len(items_types) > 0:
-                    types_result += [f"array[{' | '.join(items_types)}]"]
+                    types_result.append(f"array[{' | '.join(items_types)}]")
 
             elif model_with_type["type"] != "null":
-                types_result += [model_with_type["type"]]
+                types_result.append(model_with_type["type"])
         elif "anyOf" in model_with_type:
             for field_type in model_with_type["anyOf"]:
                 types = self._get_field_types(field_type)
-                types_result += types
+                types_result.extend(types)
         return types_result

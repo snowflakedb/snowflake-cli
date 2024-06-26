@@ -46,10 +46,11 @@ def generate_project_definition_docs(root: SecurePath):
     return
 
 
-# RST files are presumed to be standalone pages in the docs with a matching item in the left nav.
-# Included files, which these are, need to use the .txt extension.
 def _render_definition_description(root: SecurePath, section: Dict[str, Any]) -> None:
     env = get_template_environment()
+
+    # RST files are presumed to be standalone pages in the docs with a matching item in the left nav.
+    # Included files, which these are, need to use the .txt extension.
     file_path = root / f"definition_{section['name']}.txt"
     log.info("Creating %s", file_path)
     template = env.get_template(DEFINITION_DESCRIPTION)

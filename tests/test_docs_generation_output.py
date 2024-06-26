@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from os import listdir
 from pathlib import Path
 from textwrap import dedent
 from unittest import mock
@@ -129,7 +128,6 @@ def test_all_commands_have_generated_files(runner, temp_dir):
     ctx = app_context_holder.app_context
 
     commands_path = Path(temp_dir) / "gen_docs" / "commands"
-    print(listdir(commands_path))
 
     errors = []
 
@@ -148,7 +146,6 @@ def test_all_commands_have_generated_files(runner, temp_dir):
                 _check(command_info, new_directory_path, [*command_path, command_name])
         else:
             if not (directory_path / f"usage-{command.name}.txt").exists():
-                print(listdir(directory_path))
                 errors.append(
                     f"Command `{' '.join(command_path)}` documentation was not properly generated"
                 )

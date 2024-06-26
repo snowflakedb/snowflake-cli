@@ -61,8 +61,6 @@ def get_main_option(options: List[str]) -> str:
     return ""
 
 
-# RST files are presumed to be standalone pages in the docs with a matching item in the left nav.
-# Included files, which these are, need to use the .txt extension.
 def _render_command_usage(
     command: Command,
     root: SecurePath,
@@ -81,6 +79,9 @@ def _render_command_usage(
             arguments.append(param)
         else:
             options.append(param)
+
+    # RST files are presumed to be standalone pages in the docs with a matching item in the left nav.
+    # Included files, which these are, need to use the .txt extension.
     file_path = root / f"usage-{command_name}.txt"
     log.info("Creating %s", file_path)
     with file_path.open("w+") as fh:

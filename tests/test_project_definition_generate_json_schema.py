@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Set
 
+from _pytest.fixtures import fixture
 from pydantic.json_schema import GenerateJsonSchema, model_json_schema
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.cli.app.dev.docs.project_definition_generate_json_schema import (
@@ -23,11 +24,34 @@ from snowflake.cli.app.dev.docs.project_definition_generate_json_schema import (
 )
 
 
-def test_generated_json_correspond_to_project_definition_model():
+@fixture
+def section_fields_set():
     project_definition_sections = model_json_schema(
         ProjectDefinition, schema_generator=ProjectDefinitionGenerateJsonSchema
     )["result"]
 
+    section_fields_set = set()
+    for section in project_definition_sections:
+        section_fields_set |= set([field["path"] for field in section["fields"]])
+
+    return section_fields_set
+
+
+def test_generated_json_contains_fields_generated_from_references(section_fields_set):
+    manual_fields_set = {
+        "snowpark.functions.external_access_integrations",
+        "snowpark.functions.signature.default",
+    }
+
+    errors = [
+        f"Field `{field}` was not generated in section_fields_set"
+        for field in manual_fields_set - section_fields_set
+    ]
+
+    assert len(errors) == 0, " ".join(errors)
+
+
+def test_generated_json_correspond_to_project_definition_model(section_fields_set):
     model_json = model_json_schema(
         ProjectDefinition, schema_generator=GenerateJsonSchema, ref_template="{model}"
     )
@@ -59,10 +83,6 @@ def test_generated_json_correspond_to_project_definition_model():
                     )
 
         return result
-
-    section_fields_set = set()
-    for section in project_definition_sections:
-        section_fields_set |= set([field["path"] for field in section["fields"]])
 
     model_fields_set = _get_set_of_model_fields(model_json["$defs"], model_json)
 
