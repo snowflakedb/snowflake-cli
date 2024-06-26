@@ -16,6 +16,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  TERM: unknown  # Disables colors in rich
+
 jobs:
   define-matrix:
     uses: ./.github/workflows/matrix.yaml
