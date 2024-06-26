@@ -98,7 +98,7 @@ def temp_dir():
 
 @pytest.fixture(scope="session")
 def snowcli(test_root_path):
-    with TemporaryDirectory as tmp_dir:
+    with TemporaryDirectory() as tmp_dir:
         tmp_dir_path = Path(tmp_dir)
         _create_venv(tmp_dir_path)
         _build_snowcli(tmp_dir_path, test_root_path)
