@@ -43,7 +43,9 @@ def current_role() -> str:
 
 class NativeAppProjectModel:
     """
-    Represents information related to a native app package entity as part of a Snowflake CLI project.
+    Exposes properties of a native app project defined in a Snowflake Project Definition file. Whenever
+    appropriate, APIs defined in this class provide suitable defaults or fallback logic to access properties
+    of the project.
     """
 
     def __init__(
