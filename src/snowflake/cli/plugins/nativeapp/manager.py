@@ -56,9 +56,6 @@ from snowflake.cli.plugins.nativeapp.constants import (
     OWNER_COL,
     SPECIAL_COMMENT,
 )
-from snowflake.cli.plugins.nativeapp.data_model import (
-    NativeAppProjectModel,
-)
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
@@ -66,6 +63,9 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     MissingPackageScriptError,
     SetupScriptFailedValidation,
     UnexpectedOwnerError,
+)
+from snowflake.cli.plugins.nativeapp.project_model import (
+    NativeAppProjectModel,
 )
 from snowflake.cli.plugins.nativeapp.utils import verify_exists, verify_no_directories
 from snowflake.cli.plugins.stage.diff import (
@@ -319,7 +319,7 @@ class NativeAppManager(SqlExecutionMixin):
         """
         bundle_map = build_bundle(self.project_root, self.deploy_root, self.artifacts)
         compiler = NativeAppCompiler(
-            project=self.app_package,
+            project=self.project,
         )
         compiler.compile_artifacts()
         return bundle_map

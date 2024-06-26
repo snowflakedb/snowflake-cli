@@ -27,7 +27,7 @@ from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
 )
-from snowflake.cli.plugins.nativeapp.data_model import NativeAppProjectModel
+from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 
 SNOWPARK_PROCESSOR = "snowpark"
 

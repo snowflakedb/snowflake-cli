@@ -51,7 +51,7 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
     ExtensionFunctionTypeEnum,
     NativeAppExtensionFunction,
 )
-from snowflake.cli.plugins.nativeapp.data_model import NativeAppProjectModel
+from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 from snowflake.cli.plugins.stage.diff import to_stage_path
 
 DEFAULT_TIMEOUT = 30

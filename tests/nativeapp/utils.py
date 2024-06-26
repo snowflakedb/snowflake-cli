@@ -20,7 +20,7 @@ from textwrap import dedent
 from typing import List, Optional, Set
 
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
-from snowflake.cli.plugins.nativeapp.data_model import (
+from snowflake.cli.plugins.nativeapp.project_model import (
     NativeAppProjectModel,
 )
 

@@ -22,7 +22,7 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
     ProcessorMapping,
 )
-from snowflake.cli.plugins.nativeapp.data_model import NativeAppProjectModel
+from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 
 
 class UnsupportedArtifactProcessorError(ClickException):
