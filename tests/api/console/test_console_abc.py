@@ -25,6 +25,10 @@ def test_console_base_class(capsys):
             yield self.step
             print(exit_message)
 
+        @contextmanager
+        def indented(self):
+            yield
+
         def step(self, message: str):
             print(message)
 
@@ -41,6 +45,9 @@ def test_console_base_class(capsys):
         console.step("b")
         console.warning("c")
         console.message("d")
+        with console.indented():
+            console.message("e")
+            console.warning("f")
 
     out, _ = capsys.readouterr()
-    assert out == "Enter\nb\nc\nd\nExit\n"
+    assert out == "Enter\nb\nc\nd\ne\nf\nExit\n"

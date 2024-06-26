@@ -227,3 +227,162 @@ def test_stage_execute(runner, test_database, test_root_path, snapshot):
             "Error": None,
         }
     ]
+
+
+@pytest.mark.integration
+def test_stage_diff(runner, snowflake_session, test_database, tmp_path, snapshot):
+    stage_name = "test_stage"
+
+    # Only use server-side encryption otherwise md5sum-based diffs don't work correctly
+    result = runner.invoke_with_connection(
+        [
+            "sql",
+            "--query",
+            f"""
+                                            create stage if not exists {stage_name}
+                                            encryption = (TYPE = 'SNOWFLAKE_SSE')
+                                            DIRECTORY = (ENABLE = TRUE)""",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+
+    filename = "test.txt"
+    another_filename = "another.md"
+    with tempfile.TemporaryDirectory() as td:
+        local_dir = Path(td).resolve()
+        result = runner.invoke_with_connection(
+            ["stage", "diff", stage_name, str(local_dir)]
+        )
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot
+
+        # avoid nesting the files into directories because the snapshots would then become system-dependent
+        file_path = Path(td) / filename
+        another_file_path = Path(td) / another_filename
+
+        for path in [file_path, another_file_path]:
+            path.touch()
+            with path.open("w") as f:
+                f.write(f"Initial contents for {path}\n")
+
+            result = runner.invoke_with_connection(
+                ["stage", "diff", stage_name, str(local_dir)]
+            )
+            assert result.exit_code == 0, result.output
+            assert result.output == snapshot
+
+            result = runner.invoke_with_connection_json(
+                ["stage", "copy", str(path), f"@{stage_name}"]
+            )
+            assert result.exit_code == 0, result.output
+
+            result = runner.invoke_with_connection(
+                ["stage", "diff", stage_name, str(local_dir)]
+            )
+            assert result.exit_code == 0, result.output
+            assert result.output == snapshot
+
+        with open(file_path, "w") as f:
+            f.write("New contents\n")
+        result = runner.invoke_with_connection(
+            ["stage", "diff", stage_name, str(local_dir)]
+        )
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot
+
+        result = runner.invoke_with_connection_json(
+            ["stage", "copy", str(file_path), f"@{stage_name}"]
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(another_file_path, "w") as f:
+            f.write("Newer contents\n")
+        with open(local_dir / "added_file.py", "w") as f:
+            f.write("# python source\n")
+        file_path.unlink()
+        result = runner.invoke_with_connection(
+            ["stage", "diff", stage_name, str(local_dir)]
+        )
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot
+
+
+@pytest.mark.integration
+def test_stage_diff_json(runner, snowflake_session, test_database, tmp_path):
+    stage_name = "test_stage"
+
+    # Only use server-side encryption otherwise md5sum-based diffs don't work correctly
+    result = runner.invoke_with_connection(
+        [
+            "sql",
+            "--query",
+            f"""
+                                            create stage if not exists {stage_name}
+                                            encryption = (TYPE = 'SNOWFLAKE_SSE')
+                                            DIRECTORY = (ENABLE = TRUE)""",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+
+    filename = "test.txt"
+    another_filename = "another.md"
+    with tempfile.TemporaryDirectory() as td:
+        local_dir = Path(td).resolve()
+        result = runner.invoke_with_connection_json(
+            ["stage", "diff", stage_name, str(local_dir)]
+        )
+        assert result.exit_code == 0, result.output
+        assert result.json == {"modified": [], "added": [], "deleted": []}
+
+        file_path = Path(td) / filename
+        another_file_path = Path(td) / another_filename
+
+        for path in [file_path, another_file_path]:
+            path.touch()
+            with path.open("w") as f:
+                f.write(f"Initial contents for {path}\n")
+
+            result = runner.invoke_with_connection_json(
+                ["stage", "diff", stage_name, str(local_dir)]
+            )
+            assert result.exit_code == 0, result.output
+            assert result.json == {"modified": [], "added": [path.name], "deleted": []}
+
+            result = runner.invoke_with_connection_json(
+                ["stage", "copy", str(path), f"@{stage_name}"]
+            )
+            assert result.exit_code == 0, result.output
+
+            result = runner.invoke_with_connection_json(
+                ["stage", "diff", stage_name, str(local_dir)]
+            )
+            assert result.exit_code == 0, result.output
+            assert result.json == {"modified": [], "added": [], "deleted": []}
+
+        with open(file_path, "w") as f:
+            f.write("New contents\n")
+        result = runner.invoke_with_connection_json(
+            ["stage", "diff", stage_name, str(local_dir)]
+        )
+        assert result.exit_code == 0, result.output
+        assert result.json == {"modified": [filename], "added": [], "deleted": []}
+
+        result = runner.invoke_with_connection_json(
+            ["stage", "copy", str(file_path), f"@{stage_name}"]
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(another_file_path, "w") as f:
+            f.write("Newer contents\n")
+        with open(local_dir / "added_file.py", "w") as f:
+            f.write("# python source\n")
+        file_path.unlink()
+        result = runner.invoke_with_connection_json(
+            ["stage", "diff", stage_name, str(local_dir)]
+        )
+        assert result.exit_code == 0, result.output
+        assert result.json == {
+            "modified": [another_filename],
+            "added": ["added_file.py"],
+            "deleted": [filename],
+        }

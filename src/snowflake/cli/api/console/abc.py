@@ -66,6 +66,14 @@ class AbstractConsole(ABC):
     ) -> Iterator[Callable[[str], None]]:
         """A context manager for organising steps into logical group."""
 
+    @contextmanager
+    @abstractmethod
+    def indented(self):
+        """
+        A context manager for temporarily indenting messages and warnings. Phases and steps cannot be used in indented blocks,
+        but multiple indented blocks can be nested (use sparingly).
+        """
+
     @abstractmethod
     def step(self, message: str):
         """Displays a message to output."""
