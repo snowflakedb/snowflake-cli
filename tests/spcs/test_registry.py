@@ -101,11 +101,13 @@ def test_get_registry_url_no_repositories(mock_execute, mock_conn, mock_cursor):
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
 )
-def test_get_registry_url_no_repositories_cli(mock_get_registry_url, runner, snapshot):
+def test_get_registry_url_no_repositories_cli(
+    mock_get_registry_url, runner, os_agnostic_snapshot
+):
     mock_get_registry_url.side_effect = NoImageRepositoriesFoundError()
     result = runner.invoke(["spcs", "image-registry", "url"])
     assert result.exit_code == 1, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @pytest.mark.parametrize(
@@ -163,23 +165,23 @@ def test_docker_registry_login(mock_check_output, mock_get_url, mock_get_token):
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.docker_registry_login"
 )
-def test_docker_registry_login_cli(mock_docker_login, runner, snapshot):
+def test_docker_registry_login_cli(mock_docker_login, runner, os_agnostic_snapshot):
     mock_docker_login.return_value = "Login Succeeded\n"
     result = runner.invoke(["spcs", "image-registry", "login"])
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
 )
 def test_docker_registry_login_cli_no_repositories(
-    mock_get_registry_url, runner, snapshot
+    mock_get_registry_url, runner, os_agnostic_snapshot
 ):
     mock_get_registry_url.side_effect = NoImageRepositoriesFoundError()
     result = runner.invoke(["spcs", "image-registry", "login"])
     assert result.exit_code == 1, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch(
@@ -190,7 +192,7 @@ def test_docker_registry_login_cli_no_repositories(
 )
 @mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.subprocess.check_output")
 def test_docker_registry_login_subprocess_error(
-    mock_check_output, mock_get_url, mock_get_token, snapshot
+    mock_check_output, mock_get_url, mock_get_token, os_agnostic_snapshot
 ):
     test_url = (
         mock_get_url.return_value
@@ -215,7 +217,7 @@ def test_docker_registry_login_subprocess_error(
     with pytest.raises(ClickException) as e:
         RegistryManager().docker_registry_login()
 
-    assert e.value.message == snapshot
+    assert e.value.message == os_agnostic_snapshot
 
 
 @mock.patch(

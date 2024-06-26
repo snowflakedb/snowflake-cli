@@ -141,7 +141,7 @@ def test_copy_to_local_file_system(
     assert (
         ctx.get_query()
         == f"""get {repo_prefix}file.txt file://{local_path.resolve()}/ parallel=4
-get {repo_prefix}dir/file_in_dir.txt file://{local_path.resolve()}/dir/ parallel=4"""
+get {repo_prefix}dir/file_in_dir.txt file://{local_path.resolve() / 'dir'}/ parallel=4"""
     )
 
 
@@ -456,7 +456,7 @@ def test_execute(
     repository_path,
     expected_stage,
     expected_files,
-    snapshot,
+    os_agnostic_snapshot,
 ):
     mock_execute.return_value = mock_cursor(
         [
@@ -475,7 +475,7 @@ def test_execute(
     assert execute_calls == [
         mock.call(f"execute immediate from {p}") for p in expected_files
     ]
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")

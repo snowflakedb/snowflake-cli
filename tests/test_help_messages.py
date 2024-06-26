@@ -89,7 +89,7 @@ def test_help_messages_no_help_flag(runner, snapshot, command):
     sys.version_info < PYTHON_3_12,
     reason="It tests if cortex search command is hidden when run using Python 3.12",
 )
-def test_cortex_help_messages_for_312(runner, snapshot):
+def test_cortex_help_messages_for_312(runner):
     result = runner.invoke(["cortex", "--help"])
     assert result.exit_code == 0
     assert SNOW_CORTEX_HELP in result.output
@@ -101,7 +101,7 @@ def test_cortex_help_messages_for_312(runner, snapshot):
     sys.version_info < PYTHON_3_12,
     reason="It tests if cortex search command is hidden when run using Python 3.12",
 )
-def test_cortex_help_messages_for_312_no_help_flag(runner, snapshot):
+def test_cortex_help_messages_for_312_no_help_flag(runner):
     result = runner.invoke(["cortex"])
     assert result.exit_code == 0
     assert SNOW_CORTEX_HELP in result.output
@@ -113,7 +113,7 @@ def test_cortex_help_messages_for_312_no_help_flag(runner, snapshot):
     sys.version_info >= PYTHON_3_12,
     reason="Snow Cortex Search should be only visible in Python version 3.11 and older",
 )
-def test_cortex_help_messages_for_311_and_less(runner, snapshot):
+def test_cortex_help_messages_for_311_and_less(runner):
     result = runner.invoke(["cortex", "--help"])
     assert result.exit_code == 0
     assert SNOW_CORTEX_HELP in result.output
@@ -125,7 +125,7 @@ def test_cortex_help_messages_for_311_and_less(runner, snapshot):
     sys.version_info >= PYTHON_3_12,
     reason="Snow Cortex Search should be only visible in Python version 3.11 and older",
 )
-def test_cortex_help_messages_for_311_and_less_no_help_flag(runner, snapshot):
+def test_cortex_help_messages_for_311_and_less_no_help_flag(runner):
     result = runner.invoke(["cortex"])
     assert result.exit_code == 0
     assert SNOW_CORTEX_HELP in result.output

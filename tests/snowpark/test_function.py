@@ -21,6 +21,11 @@ import pytest
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.connector import ProgrammingError
 
+from tests_common import IS_WINDOWS
+
+if IS_WINDOWS:
+    pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
+
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager")
@@ -123,7 +128,7 @@ def test_deploy_function_secrets_without_external_access(
     runner,
     mock_ctx,
     project_directory,
-    snapshot,
+    os_agnostic_snapshot,
 ):
     mock_object_manager.return_value.show.return_value = [
         {"name": "external_1", "type": "EXTERNAL_ACCESS"},
@@ -141,7 +146,7 @@ def test_deploy_function_secrets_without_external_access(
         )
 
     assert result.exit_code == 1, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch("snowflake.connector.connect")
@@ -295,7 +300,7 @@ def test_deploy_procedure_fully_qualified_name(
     mock_ctx,
     project_directory,
     alter_snowflake_yml,
-    snapshot,
+    os_agnostic_snapshot,
 ):
     number_of_functions_in_project = 6
     mock_om_describe.side_effect = [
@@ -306,7 +311,7 @@ def test_deploy_procedure_fully_qualified_name(
 
     with project_directory("snowpark_function_fully_qualified_name") as tmp_dir:
         result = runner.invoke(["snowpark", "deploy"])
-        assert result.output == snapshot(name="database error")
+        assert result.output == os_agnostic_snapshot(name="database error")
 
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
@@ -314,7 +319,7 @@ def test_deploy_procedure_fully_qualified_name(
             value="custom_schema.fqn_function_error",
         )
         result = runner.invoke(["snowpark", "deploy"])
-        assert result.output == snapshot(name="schema error")
+        assert result.output == os_agnostic_snapshot(name="schema error")
 
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
@@ -323,7 +328,7 @@ def test_deploy_procedure_fully_qualified_name(
         )
         result = runner.invoke(["snowpark", "deploy"])
         assert result.exit_code == 0
-        assert result.output == snapshot(name="ok")
+        assert result.output == os_agnostic_snapshot(name="ok")
 
 
 @mock.patch("snowflake.connector.connect")

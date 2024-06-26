@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import List, Optional
 
 from pydantic import Field
@@ -28,15 +29,15 @@ class Streamlit(UpdatableModel, ObjectIdentifierModel(object_name="Streamlit")):
     query_warehouse: str = Field(
         title="Snowflake warehouse to host the app", default="streamlit"
     )
-    main_file: Optional[str] = Field(
+    main_file: Optional[Path] = Field(
         title="Entrypoint file of the Streamlit app", default="streamlit_app.py"
     )
-    env_file: Optional[str] = Field(
+    env_file: Optional[Path] = Field(
         title="File defining additional configurations for the app, such as external dependencies",
         default=None,
     )
-    pages_dir: Optional[str] = Field(title="Streamlit pages", default=None)
-    additional_source_files: Optional[List[str]] = Field(
+    pages_dir: Optional[Path] = Field(title="Streamlit pages", default=None)
+    additional_source_files: Optional[List[Path]] = Field(
         title="List of additional files which should be included into deployment artifacts",
         default=None,
     )

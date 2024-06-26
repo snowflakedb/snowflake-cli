@@ -96,5 +96,8 @@ def test_that_undefined_variables_raise_error(text, cli_context):
         snowflake_sql_jinja_render(text)
 
 
+@mock.patch.dict(os.environ, {"TEST_ENV_VAR": "foo"})
 def test_contex_can_access_environment_variable(cli_context):
-    assert snowflake_sql_jinja_render("&{ ctx.env.USER }") == os.environ.get("USER")
+    assert snowflake_sql_jinja_render("&{ ctx.env.TEST_ENV_VAR }") == os.environ.get(
+        "TEST_ENV_VAR"
+    )

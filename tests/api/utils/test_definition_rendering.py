@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import os
-from pathlib import Path
-from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import mock
 
@@ -404,7 +402,7 @@ def test_resolve_variables_fails_if_referencing_unknown_variable(env, msg):
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
-def test_unquoted_template_usage_in_strings_yaml():
+def test_unquoted_template_usage_in_strings_yaml(named_temporary_file):
     text = """\
     definition_version: "1.1"
     env:
@@ -419,8 +417,7 @@ def test_unquoted_template_usage_in_strings_yaml():
             with template <% ctx.env.value %>
     """
 
-    with NamedTemporaryFile(suffix=".yml") as file:
-        p = Path(file.name)
+    with named_temporary_file(suffix=".yml") as p:
         p.write_text(dedent(text))
         project_definition = load_project([p]).project_definition
 
