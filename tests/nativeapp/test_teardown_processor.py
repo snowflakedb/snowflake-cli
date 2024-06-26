@@ -1071,7 +1071,6 @@ def test_drop_application_cascade(
     mock_typer_prompt,
     cascade,
     application_objects,
-    # application_objects2,
     interactive_response,
     expected_cascade,
     temp_dir,
