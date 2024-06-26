@@ -295,11 +295,25 @@ def test_resolve_variables_blank_is_ok():
             "Could not find template variable ctx.streamlit.name",
         ),
         ({"app": "<% ctx.foo %>"}, "Could not find template variable ctx.foo"),
+        ({"app": "<% ctx.env.get %>"}, "Could not find template variable ctx.env.get"),
+        (
+            {"app": "<% ctx.env.__class__ %>"},
+            "Could not find template variable ctx.env.__class__",
+        ),
+        (
+            {"app": "<% ctx.native_app.__class__ %>"},
+            "Could not find template variable ctx.native_app.__class__",
+        ),
+        (
+            {"app": "<% ctx.native_app.schema %>"},
+            "Could not find template variable ctx.native_app.schema",
+        ),
     ],
 )
 def test_resolve_variables_fails_if_referencing_unknown_variable(env, msg):
     definition = {
         "definition_version": "1.1",
+        "native_app": {"name": "test_name", "artifacts": []},
         "env": env,
     }
     with pytest.raises(InvalidTemplate) as err:
