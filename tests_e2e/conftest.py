@@ -30,24 +30,46 @@ TEST_DIR = Path(__file__).parent
 IS_WINDOWS = platform.system() == "Windows"
 
 
+def _clean_output(text: str):
+    """
+    Replacing util to clean up console output. Typer is using rich.Panel to show the --help content.
+    Unfortunately Typer implementation hardcodes box style for Panel.
+    The typer.rich_utils.STYLE_OPTIONS_TABLE_BOX works only for content within the Panel.
+    """
+    if text is None:
+        return None
+    return (
+        text.replace("│", "|")
+        .replace("─", "-")
+        .replace("╭", "+")
+        .replace("╰", "+")
+        .replace("╯", "+")
+        .replace("╮", "+")
+    )
+
+
 def subprocess_check_output(cmd):
     try:
-        return subprocess.check_output(
+        output = subprocess.check_output(
             cmd, shell=IS_WINDOWS, stderr=sys.stdout, encoding="utf-8"
         )
+        return _clean_output(output)
     except subprocess.CalledProcessError as err:
         print(err.output)
         raise
 
 
 def subprocess_run(cmd):
-    return subprocess.run(
+    p = subprocess.run(
         cmd,
         shell=IS_WINDOWS,
         capture_output=True,
         text=True,
         encoding="utf-8",
     )
+    p.stdout = _clean_output(p.stdout)
+    p.stderr = _clean_output(p.stderr)
+    return p
 
 
 @pytest.fixture(scope="session")
@@ -87,18 +109,8 @@ def snowcli(test_root_path):
     with ctx() as tmp_dir:
         tmp_dir_path = Path(tmp_dir)
         _create_venv(tmp_dir_path)
-        print(subprocess_check_output(["ls", tmp_dir_path]))
-        print("lib >>")
-        print(subprocess_check_output(["ls", tmp_dir_path / "Lib"]))
-        print("scripts >>")
-        print(subprocess_check_output(["ls", tmp_dir_path / "Scripts"]))
         _build_snowcli(tmp_dir_path, test_root_path)
         _install_snowcli_with_external_plugin(tmp_dir_path, test_root_path)
-        print(subprocess_check_output(["ls", tmp_dir_path]))
-        print("lib >>")
-        print(subprocess_check_output(["ls", tmp_dir_path / "Lib"]))
-        print("scripts >>")
-        print(subprocess_check_output(["ls", tmp_dir_path / "Scripts"]))
         if IS_WINDOWS:
             yield tmp_dir_path / "Scripts" / "snow.exe"
         else:
@@ -108,6 +120,8 @@ def snowcli(test_root_path):
 @pytest.fixture(autouse=True)
 def isolate_default_config_location(monkeypatch, temp_dir):
     monkeypatch.setenv("SNOWFLAKE_HOME", temp_dir)
+    monkeypatch.setenv("_CLI_TESTS_CONTEXT", "True")
+    # monkeypatch.setenv("TERM", "unknown")
 
 
 def _create_venv(tmp_dir: Path) -> None:
