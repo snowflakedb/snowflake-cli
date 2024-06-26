@@ -141,7 +141,7 @@ def test_create_default_config_if_not_exists_with_proper_permissions(
     mock_config_manager,
 ):
     with TemporaryDirectory() as tmp_dir:
-        config_path = Path(f"{tmp_dir}/snowflake/config.toml")
+        config_path = Path(tmp_dir) / "snowflake" / "config.toml"
         mock_config_manager.file_path = config_path
         mock_config_manager.conf_file_cache = {}
 

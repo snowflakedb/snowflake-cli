@@ -241,10 +241,10 @@ def temp_directory_for_app_zip(temp_dir) -> Generator:
 @pytest.fixture(scope="session")
 def test_snowcli_config():
     test_config = TEST_DIR / "test.toml"
-    with tempfile.NamedTemporaryFile(suffix=".toml", mode="w+") as fh:
-        fh.write(test_config.read_text())
-        fh.flush()
-        yield Path(fh.name)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_config = Path(tmp_dir) / "test.toml"
+        tmp_config.write_text(test_config.read_text())
+        yield tmp_config
 
 
 @pytest.fixture(scope="session")
