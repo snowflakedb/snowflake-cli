@@ -1,0 +1,34 @@
+name: shared matrix
+on:
+  workflow_call:
+    # Map the workflow outputs to job outputs
+    outputs:
+      os:
+        value: ${{ jobs.define-matrix.outputs.os }}
+      python:
+        value: ${{ jobs.define-matrix.outputs.python }}
+
+jobs:
+  define-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      os:  ${{ steps.os.outputs.os }}
+      python:  ${{ steps.python.outputs.python }}
+    steps:
+      - name: Define OS versions
+        id: os
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo 'os=["windows-latest", "ubuntu-latest", "macos-latest"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'os=["windows-latest", "ubuntu-latest"]' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Define python versions
+        id: python
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo 'python=["3.8", "3.9", "3.10", "3.11", "3.12"]' >> "$GITHUB_OUTPUT"
+          else
+            # Last supported and most frequently used
+            echo 'python=["3.8", "3.10"]' >> "$GITHUB_OUTPUT"
+          fi

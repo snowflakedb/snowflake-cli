@@ -9,6 +9,8 @@ on:
       - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
     branches:
       - main
+  schedule:
+    - cron: "0 8 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -16,10 +18,15 @@ concurrency:
 
 
 jobs:
+  define-matrix:
+    uses: ./.github/workflows/matrix.yaml
   tests:
+    needs: define-matrix
     strategy:
+      fail-fast: true
       matrix:
-        os: [ ubuntu-latest, windows-latest ]
+        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
+        python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
