@@ -88,6 +88,8 @@ def snowcli(test_root_path):
         tmp_dir_path = Path(tmp_dir)
         _create_venv(tmp_dir_path)
         print(subprocess_check_output(["ls", tmp_dir_path]))
+        print(subprocess_check_output(["ls", tmp_dir_path / "Lib"]))
+        print(subprocess_check_output(["ls", tmp_dir_path / "Scripts"]))
         print(subprocess_check_output(["ls", tmp_dir_path / "bin"]))
         _build_snowcli(tmp_dir_path, test_root_path)
         _install_snowcli_with_external_plugin(tmp_dir_path, test_root_path)
