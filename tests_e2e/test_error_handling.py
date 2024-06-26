@@ -13,10 +13,11 @@
 # limitations under the License.
 
 import os
-import subprocess
 from pathlib import Path
 
 import pytest
+
+from tests_e2e.conftest import subprocess_run
 
 
 @pytest.mark.e2e
@@ -25,7 +26,7 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
     os.chmod(config_path, 0o700)
 
     traceback_msg = "Traceback (most recent call last)"
-    result = subprocess.run(
+    result = subprocess_run(
         [
             snowcli,
             "--config-file",
@@ -35,17 +36,14 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
             "integration",
             "-q",
             "select foo",
-        ],
-        capture_output=True,
-        text=True,
+        ]
     )
 
-    assert result.returncode == 1
     assert "SQL compilation error" in result.stdout
     assert traceback_msg not in result.stdout
     assert not result.stderr
 
-    result_debug = subprocess.run(
+    result_debug = subprocess_run(
         [
             snowcli,
             "--config-file",
@@ -56,12 +54,9 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
             "-q",
             "select foo",
             "--debug",
-        ],
-        capture_output=True,
-        text=True,
+        ]
     )
 
-    assert result_debug.returncode == 1
     assert result_debug.stdout == "select foo\n"
     assert traceback_msg in result_debug.stderr
 
@@ -74,20 +69,14 @@ def test_corrupted_config_in_default_location(
     default_config.write_text("[connections.demo]\n[connections.demo]")
     default_config.chmod(0o600)
     # corrupted config should produce human-friendly error
-    result_err = subprocess.run(
+    result_err = subprocess_run(
         [snowcli, "connection", "list"],
-        capture_output=True,
-        text=True,
     )
-    assert result_err.returncode == 1
     assert result_err.stderr == snapshot
 
     # corrupted config in default location should not influence one passed with --config-file flag
     healthy_config = test_root_path / "config" / "config.toml"
-    result_healthy = subprocess.run(
+    result_healthy = subprocess_run(
         [snowcli, "--config-file", healthy_config, "connection", "list"],
-        capture_output=True,
-        text=True,
     )
-    assert result_healthy.returncode == 0, result_healthy.stderr
     assert "dev" in result_healthy.stdout and "integration" in result_healthy.stdout

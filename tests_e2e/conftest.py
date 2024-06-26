@@ -13,8 +13,10 @@
 # limitations under the License.
 
 import os
+import platform
 import shutil
 import subprocess
+import sys
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
@@ -24,6 +26,50 @@ import pytest
 from snowflake.cli import __about__
 
 TEST_DIR = Path(__file__).parent
+
+IS_WINDOWS = platform.system() == "Windows"
+
+
+def _clean_output(text: str):
+    """
+    Replacing util to clean up console output. Typer is using rich.Panel to show the --help content.
+    Unfortunately Typer implementation hardcodes box style for Panel.
+    The typer.rich_utils.STYLE_OPTIONS_TABLE_BOX works only for content within the Panel.
+    """
+    if text is None:
+        return None
+    return (
+        text.replace("│", "|")
+        .replace("─", "-")
+        .replace("╭", "+")
+        .replace("╰", "+")
+        .replace("╯", "+")
+        .replace("╮", "+")
+    )
+
+
+def subprocess_check_output(cmd):
+    try:
+        output = subprocess.check_output(
+            cmd, shell=IS_WINDOWS, stderr=sys.stdout, encoding="utf-8"
+        )
+        return _clean_output(output)
+    except subprocess.CalledProcessError as err:
+        print(err.output)
+        raise
+
+
+def subprocess_run(cmd):
+    p = subprocess.run(
+        cmd,
+        shell=IS_WINDOWS,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    p.stdout = _clean_output(p.stdout)
+    p.stderr = _clean_output(p.stderr)
+    return p
 
 
 @pytest.fixture(scope="session")
@@ -57,7 +103,10 @@ def snowcli(test_root_path):
         _create_venv(tmp_dir_path)
         _build_snowcli(tmp_dir_path, test_root_path)
         _install_snowcli_with_external_plugin(tmp_dir_path, test_root_path)
-        yield tmp_dir_path / "bin" / "snow"
+        if IS_WINDOWS:
+            yield tmp_dir_path / "Scripts" / "snow.exe"
+        else:
+            yield tmp_dir_path / "bin" / "snow"
 
 
 @pytest.fixture(autouse=True)
@@ -66,20 +115,20 @@ def isolate_default_config_location(monkeypatch, temp_dir):
 
 
 def _create_venv(tmp_dir: Path) -> None:
-    subprocess.check_call(["python", "-m", "venv", tmp_dir])
+    subprocess_check_output(["python", "-m", "venv", tmp_dir])
 
 
 def _build_snowcli(venv_path: Path, test_root_path: Path) -> None:
-    subprocess.check_call(
-        [_python_path(venv_path), "-m", "pip", "install", "--upgrade", "build"]
+    subprocess_check_output(
+        [_python_path(venv_path), "-m", "pip", "install", "--upgrade", "build"],
     )
-    subprocess.check_call(
+    subprocess_check_output(
         [_python_path(venv_path), "-m", "build", test_root_path / ".."]
     )
 
 
 def _pip_install(python, *args):
-    return subprocess.check_call([python, "-m", "pip", "install", *args])
+    return subprocess_check_output([python, "-m", "pip", "install", *args])
 
 
 def _install_snowcli_with_external_plugin(
@@ -103,6 +152,8 @@ def _install_snowcli_with_external_plugin(
 
 
 def _python_path(venv_path: Path) -> Path:
+    if IS_WINDOWS:
+        return venv_path / "Scripts" / "python.exe"
     return venv_path / "bin" / "python"
 
 
