@@ -24,6 +24,7 @@ import pytest
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
+from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.plugins.stage.diff import (
     DiffResult,
     StagePath,
@@ -33,6 +34,7 @@ from snowflake.cli.plugins.stage.diff import (
     enumerate_files,
     get_stage_subpath,
     preserve_from_diff,
+    print_diff_to_console,
     put_files_on_stage,
     sync_local_diff_with_stage,
 )
@@ -266,7 +268,7 @@ def test_sync_local_diff_with_stage(mock_remove, other_directory):
     mock_remove.side_effect = Exception("Mock Exception")
     mock_remove.return_value = None
     diff = DiffResult()
-    diff.only_on_stage = ["some_file_on_stage"]
+    diff.only_on_stage = as_stage_paths(["some_file_on_stage"])
     stage_name = "some_stage_name"
 
     with pytest.raises(SnowflakeSQLExecutionError):
@@ -280,34 +282,42 @@ def test_sync_local_diff_with_stage(mock_remove, other_directory):
 
 def test_filter_from_diff():
     diff = DiffResult()
-    diff.different = [
-        "different",
-        "different-2",
-        "dir/different",
-        "dir/different-2",
-    ]
-    diff.only_local = [
-        "only_local",
-        "only_local-2",
-        "dir/only_local",
-        "dir/only_local-2",
-    ]
-    diff.only_on_stage = [
-        "only_on_stage",
-        "only_on_stage-2",
-        "dir/only_on_stage",
-        "dir/only_on_stage-2",
-    ]
+    diff.different = as_stage_paths(
+        [
+            "different",
+            "different-2",
+            "dir/different",
+            "dir/different-2",
+        ]
+    )
+    diff.only_local = as_stage_paths(
+        [
+            "only_local",
+            "only_local-2",
+            "dir/only_local",
+            "dir/only_local-2",
+        ]
+    )
+    diff.only_on_stage = as_stage_paths(
+        [
+            "only_on_stage",
+            "only_on_stage-2",
+            "dir/only_on_stage",
+            "dir/only_on_stage-2",
+        ]
+    )
 
-    paths_to_sync = [
-        "different",
-        "only-local",
-        "only-stage",
-        "dir/different",
-        "dir/only-local",
-        "dir/only-stage",
-    ]
-    new_diff = preserve_from_diff(diff, as_stage_paths(paths_to_sync))
+    paths_to_sync = as_stage_paths(
+        [
+            "different",
+            "only-local",
+            "only-stage",
+            "dir/different",
+            "dir/only-local",
+            "dir/only-stage",
+        ]
+    )
+    new_diff = preserve_from_diff(diff, paths_to_sync)
 
     for path in new_diff.different:
         assert path in paths_to_sync
@@ -316,3 +326,163 @@ def test_filter_from_diff():
     for path in new_diff.only_on_stage:
         assert path in paths_to_sync
     assert new_diff.identical == diff.identical
+
+
+def test_print_diff_to_console_no_bundlemap(capsys, snapshot, print_paths_as_posix):
+    diff = DiffResult()
+    # Empty diff
+    print_diff_to_console(diff)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    # Only identical paths
+    diff.identical = as_stage_paths(
+        [
+            "identical",
+            "dir/identical",
+        ]
+    )
+    print_diff_to_console(diff)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    # Only deleted paths
+    diff.only_on_stage = as_stage_paths(
+        [
+            "only_on_stage",
+            "deleted",
+            "dir/only_on_stage",
+            "dir/deleted",
+        ]
+    )
+    print_diff_to_console(diff)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    # Only deleted and modified paths
+    diff.different = as_stage_paths(
+        [
+            "different",
+            "modified",
+            "dir/different",
+            "dir/modified",
+        ]
+    )
+    print_diff_to_console(diff)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    # All of deleted, modified and added paths
+    diff.only_local = as_stage_paths(
+        [
+            "added",
+            "new-file",
+            "dir/added",
+            "dir/new-file",
+        ]
+    )
+    print_diff_to_console(diff)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    # Only deleted and added paths
+    diff.different = []
+    print_diff_to_console(diff)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    # Only added paths
+    diff.only_on_stage = []
+    print_diff_to_console(diff)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+
+def test_print_diff_to_console_with_bundlemap(capsys, snapshot, print_paths_as_posix):
+    bundle_map = mock.MagicMock(spec=BundleMap, autospec=True)
+    dest_to_project = {}
+    bundle_map.to_project_path.side_effect = lambda dest_path: dest_to_project.get(
+        dest_path
+    )
+
+    diff = DiffResult()
+    # Empty diff
+    print_diff_to_console(diff, bundle_map)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    # Only identical paths
+    diff.identical = as_stage_paths(
+        [
+            "identical",
+            "dir/identical",
+        ]
+    )
+    print_diff_to_console(diff, bundle_map)
+    bundle_map.to_project_path.assert_not_called()
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    # Only deleted paths
+    diff.only_on_stage = as_stage_paths(
+        [
+            "only_on_stage",
+            "deleted",
+            "dir/only_on_stage",
+            "dir/deleted",
+        ]
+    )
+    print_diff_to_console(diff, bundle_map)
+    bundle_map.to_project_path.assert_not_called()
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    # Only deleted and modified paths
+    diff.different = as_stage_paths(
+        [
+            "different",
+            "modified",
+            "dir/different",
+            "dir/modified",
+        ]
+    )
+    print_diff_to_console(diff, bundle_map)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    for p in diff.different:
+        dest_to_project[p] = Path("src") / p
+    print_diff_to_console(diff, bundle_map)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    # All of deleted, modified and added paths
+    diff.only_local = as_stage_paths(
+        [
+            "added",
+            "new-file",
+            "dir/added",
+            "dir/new-file",
+        ]
+    )
+    print_diff_to_console(diff, bundle_map)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    for p in diff.only_local:
+        dest_to_project[p] = Path("src") / p
+    print_diff_to_console(diff, bundle_map)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    # Only deleted and added paths
+    diff.different = []
+    print_diff_to_console(diff, bundle_map)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot
+
+    # Only added paths
+    diff.only_on_stage = []
+    print_diff_to_console(diff, bundle_map)
+    captured = capsys.readouterr()
+    assert captured.out == snapshot

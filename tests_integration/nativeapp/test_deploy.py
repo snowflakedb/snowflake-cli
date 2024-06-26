@@ -37,12 +37,21 @@ USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
 
 
+def sanitize_deploy_output(output):
+    deploy_root = Path("output/deploy").resolve()
+    return output.replace(USER_NAME, "@@USER@@").replace(
+        str(deploy_root), "@@DEPLOY_ROOT@@"
+    )
+
+
 # Tests a simple flow of executing "snow app deploy", verifying that an application package was created, and an application was not
 @pytest.mark.integration
 def test_nativeapp_deploy(
     runner,
     snowflake_session,
     temporary_working_directory,
+    snapshot,
+    print_paths_as_posix,
 ):
     project_name = "myapp"
     result = runner.invoke_json(
@@ -52,11 +61,12 @@ def test_nativeapp_deploy(
     assert result.exit_code == 0
 
     with pushd(Path(os.getcwd(), project_name)):
-        result = runner.invoke_with_connection_json(
+        result = runner.invoke_with_connection(
             ["app", "deploy"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
+        assert sanitize_deploy_output(result.output) == snapshot
 
         try:
             # package exist
@@ -129,6 +139,8 @@ def test_nativeapp_deploy_prune(
     runner,
     snowflake_session,
     temporary_working_directory,
+    snapshot,
+    print_paths_as_posix,
 ):
     project_name = "myapp"
     result = runner.invoke_json(
@@ -149,11 +161,12 @@ def test_nativeapp_deploy_prune(
             os.remove(os.path.join("app", "README.md"))
 
             # deploy
-            result = runner.invoke_with_connection_json(
+            result = runner.invoke_with_connection(
                 command.split(),
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+            assert sanitize_deploy_output(result.output) == snapshot
 
             # verify the file does not exist on the stage
             package_name = f"{project_name}_pkg_{USER_NAME}".upper()
@@ -188,6 +201,8 @@ def test_nativeapp_deploy_prune(
 def test_nativeapp_deploy_files(
     runner,
     temporary_working_directory,
+    snapshot,
+    print_paths_as_posix,
 ):
     project_name = "myapp"
     result = runner.invoke_json(
@@ -198,7 +213,7 @@ def test_nativeapp_deploy_files(
 
     with pushd(Path(os.getcwd(), project_name)):
         # sync only two specific files to stage
-        result = runner.invoke_with_connection_json(
+        result = runner.invoke_with_connection(
             [
                 "app",
                 "deploy",
@@ -209,6 +224,7 @@ def test_nativeapp_deploy_files(
             env=TEST_ENV,
         )
         assert result.exit_code == 0
+        assert sanitize_deploy_output(result.output) == snapshot
 
         try:
             # manifest and script files exist, readme doesn't exist
@@ -245,6 +261,8 @@ def test_nativeapp_deploy_files(
 def test_nativeapp_deploy_nested_directories(
     runner,
     temporary_working_directory,
+    snapshot,
+    print_paths_as_posix,
 ):
     project_name = "myapp"
     project_dir = "app root"
@@ -258,11 +276,12 @@ def test_nativeapp_deploy_nested_directories(
         # create nested file under app/
         touch("app/nested/dir/file.txt")
 
-        result = runner.invoke_with_connection_json(
+        result = runner.invoke_with_connection(
             ["app", "deploy", "app/nested/dir/file.txt", "--no-validate"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
+        assert sanitize_deploy_output(result.output) == snapshot
 
         try:
             package_name = f"{project_name}_pkg_{USER_NAME}".upper()
@@ -315,7 +334,7 @@ def test_nativeapp_deploy_directory(
             result, "Add the -r flag to deploy directories."
         )
 
-        result = runner.invoke_with_connection_json(
+        result = runner.invoke_with_connection(
             ["app", "deploy", "app/dir", "-r", "--no-validate"],
             env=TEST_ENV,
         )
@@ -444,7 +463,7 @@ def test_nativeapp_deploy_path_with_no_mapping(
 
 # Tests that specifying a path and pruning result in an error
 @pytest.mark.integration
-def test_nativeapp_deploy_rejectes_pruning_when_path_is_specified(
+def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
     runner,
     temporary_working_directory,
 ):
@@ -482,6 +501,8 @@ def test_nativeapp_deploy_rejectes_pruning_when_path_is_specified(
 def test_nativeapp_deploy_looks_for_prefix_matches(
     runner,
     temporary_working_directory,
+    snapshot,
+    print_paths_as_posix,
 ):
     project_name = "myapp"
     project_dir = "app root"
@@ -515,6 +536,7 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+            assert sanitize_deploy_output(result.output) == snapshot
 
             package_name = f"{project_name}_pkg_{USER_NAME}".upper()
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
@@ -604,6 +626,8 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
 def test_nativeapp_deploy_dot(
     runner,
     temporary_working_directory,
+    snapshot,
+    print_paths_as_posix,
 ):
     project_name = "myapp"
     project_dir = "app root"
@@ -615,11 +639,12 @@ def test_nativeapp_deploy_dot(
 
     with pushd(Path(os.getcwd(), project_dir)):
         try:
-            result = runner.invoke_with_connection_json(
+            result = runner.invoke_with_connection(
                 ["app", "deploy", "-r", "."],
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+            assert sanitize_deploy_output(result.output) == snapshot
 
             package_name = f"{project_name}_pkg_{USER_NAME}".upper()
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic

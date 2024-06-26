@@ -15,12 +15,15 @@
 import os
 from textwrap import dedent
 from unittest import mock
+from unittest.mock import MagicMock
 
 import pytest
 import typer
 from click import UsageError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import (
+    ERROR_MESSAGE_093079,
+    ERROR_MESSAGE_093128,
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
 )
@@ -119,7 +122,7 @@ def test_create_dev_app_w_warehouse_access_exception(
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
 
     assert mock_execute.mock_calls == expected
     assert "Please grant usage privilege on warehouse to this role." in err.value.msg
@@ -170,7 +173,7 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 
@@ -244,7 +247,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
     assert mock_execute_query.mock_calls == mock_execute_query_expected
     assert mock_execute_queries.mock_calls == mock_execute_queries_expected
 
@@ -299,7 +302,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
 
     assert "Please provide a warehouse for the active session role" in err.value.msg
     assert mock_execute.mock_calls == expected
@@ -360,7 +363,7 @@ def test_create_dev_app_incorrect_properties(
     with pytest.raises(ApplicationAlreadyExistsError):
         run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
-        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
 
     assert mock_execute.mock_calls == expected
 
@@ -403,7 +406,7 @@ def test_create_dev_app_incorrect_owner(
     with pytest.raises(UnexpectedOwnerError):
         run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
-        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
 
     assert mock_execute.mock_calls == expected
 
@@ -452,7 +455,7 @@ def test_create_dev_app_no_diff_changes(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 
@@ -500,7 +503,7 @@ def test_create_dev_app_w_diff_changes(
 
     run_processor = _get_na_run_processor()
     assert mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 
@@ -551,7 +554,7 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
     assert mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
 
     assert mock_execute.mock_calls == expected
     assert "Please provide a warehouse for the active session role" in err.value.msg
@@ -634,7 +637,7 @@ def test_create_dev_app_create_new_quoted(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 
@@ -688,7 +691,279 @@ def test_create_dev_app_create_new_quoted_override(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(mock_diff_result)  # noqa: SLF001
+    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
+    assert mock_execute.mock_calls == expected
+
+
+# Test run existing app info
+# AND app package has been dropped
+# AND user wants to drop app
+# AND drop succeeds
+# AND app is created successfully.
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock_connection()
+def test_create_dev_app_recreate_app_when_orphaned(
+    mock_conn,
+    mock_get_existing_app_info,
+    mock_execute,
+    temp_dir,
+    mock_cursor,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+        "version": LOOSE_FILES_MAGIC_VERSION,
+    }
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (None, mock.call("use warehouse app_warehouse")),
+            (
+                ProgrammingError(
+                    msg=ERROR_MESSAGE_093079,
+                    errno=93079,
+                ),
+                mock.call(
+                    "alter application myapp upgrade using @app_pkg.app_src.stage"
+                ),
+            ),
+            (None, mock.call("drop application myapp")),
+            (
+                mock_cursor([{"CURRENT_ROLE()": "app_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (None, mock.call("use role app_role")),
+            (
+                None,
+                mock.call(
+                    dedent(
+                        f"""\
+                    create application myapp
+                        from application package app_pkg
+                        using @app_pkg.app_src.stage
+                        debug_mode = True
+                        comment = {SPECIAL_COMMENT}
+                    """
+                    )
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    run_processor._create_dev_app(allow_always_policy)  # noqa: SLF001
+    assert mock_execute.mock_calls == expected
+
+
+# Test run existing app info
+# AND app package has been dropped
+# AND user wants to drop app
+# AND drop requires cascade
+# AND drop succeeds
+# AND app is created successfully.
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock_connection()
+def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
+    mock_conn,
+    mock_get_existing_app_info,
+    mock_execute,
+    temp_dir,
+    mock_cursor,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+        "version": LOOSE_FILES_MAGIC_VERSION,
+    }
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (None, mock.call("use warehouse app_warehouse")),
+            (
+                ProgrammingError(
+                    msg=ERROR_MESSAGE_093079,
+                    errno=93079,
+                ),
+                mock.call(
+                    "alter application myapp upgrade using @app_pkg.app_src.stage"
+                ),
+            ),
+            (
+                ProgrammingError(
+                    msg=ERROR_MESSAGE_093128,
+                    errno=93128,
+                ),
+                mock.call("drop application myapp"),
+            ),
+            (
+                mock_cursor([{"CURRENT_ROLE()": "app_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (
+                mock_cursor(
+                    [
+                        [None, "mypool", "COMPUTE_POOL"],
+                    ],
+                    [],
+                ),
+                mock.call("show objects owned by application myapp"),
+            ),
+            (None, mock.call("drop application myapp cascade")),
+            (
+                mock_cursor([{"CURRENT_ROLE()": "app_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (None, mock.call("use role app_role")),
+            (
+                None,
+                mock.call(
+                    dedent(
+                        f"""\
+                    create application myapp
+                        from application package app_pkg
+                        using @app_pkg.app_src.stage
+                        debug_mode = True
+                        comment = {SPECIAL_COMMENT}
+                    """
+                    )
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    run_processor._create_dev_app(allow_always_policy)  # noqa: SLF001
+    assert mock_execute.mock_calls == expected
+
+
+# Test run existing app info
+# AND app package has been dropped
+# AND user wants to drop app
+# AND drop requires cascade
+# AND we can't see which objects are owned by the app
+# AND drop succeeds
+# AND app is created successfully.
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock_connection()
+def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_objects(
+    mock_conn,
+    mock_get_existing_app_info,
+    mock_execute,
+    temp_dir,
+    mock_cursor,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+        "version": LOOSE_FILES_MAGIC_VERSION,
+    }
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (None, mock.call("use warehouse app_warehouse")),
+            (
+                ProgrammingError(
+                    msg=ERROR_MESSAGE_093079,
+                    errno=93079,
+                ),
+                mock.call(
+                    "alter application myapp upgrade using @app_pkg.app_src.stage"
+                ),
+            ),
+            (
+                ProgrammingError(
+                    msg=ERROR_MESSAGE_093128,
+                    errno=93128,
+                ),
+                mock.call("drop application myapp"),
+            ),
+            (
+                mock_cursor([{"CURRENT_ROLE()": "app_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (
+                ProgrammingError(
+                    msg=ERROR_MESSAGE_093079,
+                    errno=93079,
+                ),
+                mock.call("show objects owned by application myapp"),
+            ),
+            (None, mock.call("drop application myapp cascade")),
+            (
+                mock_cursor([{"CURRENT_ROLE()": "app_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (None, mock.call("use role app_role")),
+            (
+                None,
+                mock.call(
+                    dedent(
+                        f"""\
+                    create application myapp
+                        from application package app_pkg
+                        using @app_pkg.app_src.stage
+                        debug_mode = True
+                        comment = {SPECIAL_COMMENT}
+                    """
+                    )
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    run_processor._create_dev_app(allow_always_policy)  # noqa: SLF001
     assert mock_execute.mock_calls == expected
 
 

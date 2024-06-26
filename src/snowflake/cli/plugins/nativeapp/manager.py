@@ -31,6 +31,9 @@ from snowflake.cli.api.project.definition import (
     default_application,
     default_role,
 )
+from snowflake.cli.api.project.schemas.native_app.application import (
+    ApplicationPostDeployHook,
+)
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
@@ -74,6 +77,7 @@ from snowflake.cli.plugins.stage.diff import (
     StagePath,
     compute_stage_diff,
     preserve_from_diff,
+    print_diff_to_console,
     sync_local_diff_with_stage,
     to_stage_path,
 )
@@ -265,6 +269,16 @@ class NativeAppManager(SqlExecutionMixin):
             return self._default_role
 
     @cached_property
+    def app_post_deploy_hooks(self) -> Optional[List[ApplicationPostDeployHook]]:
+        """
+        List of application post deploy hooks.
+        """
+        if self.definition.application and self.definition.application.post_deploy:
+            return self.definition.application.post_deploy
+        else:
+            return None
+
+    @cached_property
     def _default_role(self) -> str:
         role = default_role()
         if role is None:
@@ -396,7 +410,7 @@ class NativeAppManager(SqlExecutionMixin):
         # Perform a diff operation and display results to the user for informational purposes
         cc.step(
             "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
-            % self.deploy_root
+            % self.deploy_root.resolve()
         )
         diff: DiffResult = compute_stage_diff(self.deploy_root, stage_fqn)
 
@@ -446,13 +460,13 @@ class NativeAppManager(SqlExecutionMixin):
                     f"The following files exist only on the stage:\n{files_not_removed_str}\n\nUse the --prune flag to delete them from the stage."
                 )
 
-        cc.message(str(diff))
+        print_diff_to_console(diff, bundle_map)
 
         # Upload diff-ed files to application package stage
         if diff.has_changes():
             cc.step(
-                "Uploading diff-ed files from your local %s directory to the Snowflake stage."
-                % self.deploy_root,
+                "Updating the Snowflake stage from your local %s directory."
+                % self.deploy_root.resolve(),
             )
             sync_local_diff_with_stage(
                 role=role,
@@ -492,6 +506,20 @@ class NativeAppManager(SqlExecutionMixin):
                 f"show objects owned by application {self.app_name}"
             ).fetchall()
             return [{"name": row[1], "type": row[2]} for row in results]
+
+    def _application_objects_to_str(
+        self, application_objects: list[ApplicationOwnedObject]
+    ) -> str:
+        """
+        Returns a list in an "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
+        (COMPUTE_POOL) POOL_NAME
+        (DATABASE) DB_NAME
+        (SCHEMA) DB_NAME.PUBLIC
+        ...
+        """
+        return "\n".join(
+            [f"({obj['type']}) {obj['name']}" for obj in application_objects]
+        )
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
