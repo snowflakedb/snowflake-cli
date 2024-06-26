@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+import os.path
 
 import typer
 from click import ClickException, Context, Parameter  # type: ignore
@@ -300,9 +301,9 @@ def test(
     }
 
     if conn_ctx.enable_diag:
-        result[
-            "Diag Report Location"
-        ] = f"{conn_ctx.diag_log_path}/SnowflakeConnectionTestReport.txt"
+        result["Diag Report Location"] = os.path.join(
+            conn_ctx.diag_log_path, "SnowflakeConnectionTestReport.txt"
+        )
 
     return ObjectResult(result)
 
