@@ -98,15 +98,18 @@ def correct_requirements_snowflake_txt(temp_dir) -> Generator:
 
 @pytest.fixture()
 def mock_ctx(mock_cursor):
-    yield lambda cursor=mock_cursor(["row"], []): MockConnectionCtx(cursor)
+    yield lambda cursor=mock_cursor(["row"], []), role=None: MockConnectionCtx(
+        cursor=cursor, role=role
+    )
 
 
 class MockConnectionCtx(mock.MagicMock):
-    def __init__(self, cursor=None, *args, **kwargs):
+    def __init__(self, cursor=None, role: Optional[str] = "MockRole", *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.queries: List[str] = []
         self.cs = cursor
         self._checkout_count = 0
+        self._role = role
 
     def get_query(self):
         return "\n".join(self.queries)
@@ -128,7 +131,7 @@ class MockConnectionCtx(mock.MagicMock):
 
     @property
     def role(self):
-        return "MockRole"
+        return self._role
 
     @property
     def host(self):

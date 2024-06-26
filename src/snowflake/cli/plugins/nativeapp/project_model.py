@@ -16,9 +16,8 @@ from __future__ import annotations
 
 from functools import cached_property
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import List, Optional
 
-from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.project.definition import (
     default_app_package,
@@ -32,10 +31,14 @@ from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import extract_schema, to_identifier
 from snowflake.cli.plugins.nativeapp.artifacts import resolve_without_follow
+from snowflake.connector import DictCursor
 
 
-def default_role_fallback_cb() -> str:
-    raise ClickException("Not role available")
+def current_role() -> str:
+    conn = cli_context.connection
+    *_, cursor = conn.execute_string("select current_role()", cursor_class=DictCursor)
+    role_result = cursor.fetchone()
+    return role_result["CURRENT_ROLE()"]
 
 
 class NativeAppProjectModel:
@@ -47,11 +50,9 @@ class NativeAppProjectModel:
         self,
         project_definition: NativeApp,
         project_root: Path,
-        role_fallback_cb: Callable[[], str] | None = None,
     ):
         self._project_definition = project_definition
         self._project_root = resolve_without_follow(project_root)
-        self._role_fallback_cb = role_fallback_cb or default_role_fallback_cb
 
     @property
     def project_root(self) -> Path:
@@ -103,19 +104,15 @@ class NativeAppProjectModel:
     def package_warehouse(self) -> Optional[str]:
         if self.definition.package and self.definition.package.warehouse:
             return self.definition.package.warehouse
-        elif cli_context.connection:
-            return cli_context.connection.warehouse
         else:
-            return None
+            return cli_context.connection.warehouse
 
     @cached_property
     def application_warehouse(self) -> Optional[str]:
         if self.definition.application and self.definition.application.warehouse:
             return self.definition.application.warehouse
-        elif cli_context.connection:
-            return cli_context.connection.warehouse
         else:
-            return None
+            return cli_context.connection.warehouse
 
     @cached_property
     def project_identifier(self) -> str:
@@ -172,7 +169,7 @@ class NativeAppProjectModel:
     def _default_role(self) -> str:
         role = default_role()
         if role is None:
-            role = self._role_fallback_cb()
+            role = current_role()
         return role
 
     @cached_property

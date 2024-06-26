@@ -79,7 +79,6 @@ from snowflake.cli.plugins.stage.diff import (
 )
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor
 
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
@@ -167,7 +166,6 @@ class NativeAppManager(SqlExecutionMixin):
         self._project = NativeAppProjectModel(
             project_definition=project_definition,
             project_root=project_root,
-            role_fallback_cb=self._get_current_role,
         )
 
     @property
@@ -249,12 +247,6 @@ class NativeAppManager(SqlExecutionMixin):
     @property
     def app_post_deploy_hooks(self) -> Optional[List[ApplicationPostDeployHook]]:
         return self.project.app_post_deploy_hooks
-
-    def _get_current_role(self) -> str:
-        role_result = self._execute_query(
-            "select current_role()", cursor_class=DictCursor
-        ).fetchone()
-        return role_result["CURRENT_ROLE()"]
 
     @property
     def debug_mode(self) -> bool:
