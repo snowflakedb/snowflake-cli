@@ -26,19 +26,13 @@ import jinja2
 from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
-from snowflake.cli.api.project.definition import (
-    default_application,
-    default_role,
-)
 from snowflake.cli.api.project.schemas.native_app.application import (
     ApplicationPostDeployHook,
 )
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
-    extract_schema,
     identifier_for_url,
-    to_identifier,
     unquote_identifier,
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -63,8 +57,7 @@ from snowflake.cli.plugins.nativeapp.constants import (
     SPECIAL_COMMENT,
 )
 from snowflake.cli.plugins.nativeapp.data_model import (
-    NativeAppPackage,
-    NativeAppProject,
+    NativeAppProjectModel,
 )
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
@@ -171,18 +164,15 @@ class NativeAppManager(SqlExecutionMixin):
 
     def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__()
-        self._project = NativeAppProject(
-            project_definition=project_definition, project_root=project_root
+        self._project = NativeAppProjectModel(
+            project_definition=project_definition,
+            project_root=project_root,
+            role_fallback_cb=self._get_current_role,
         )
-        self._app_pkg = NativeAppPackage(project=self._project)
 
     @property
-    def project(self) -> NativeAppProject:
+    def project(self) -> NativeAppProjectModel:
         return self._project
-
-    @property
-    def app_package(self) -> NativeAppPackage:
-        return self._app_pkg
 
     @property
     def project_root(self) -> Path:
@@ -194,49 +184,43 @@ class NativeAppManager(SqlExecutionMixin):
 
     @property
     def artifacts(self) -> List[PathMapping]:
-        return self.app_package.artifacts
+        return self.project.artifacts
 
     @property
     def bundle_root(self) -> Path:
-        return self.app_package.bundle_root
+        return self.project.bundle_root
 
     @property
     def deploy_root(self) -> Path:
-        return self.app_package.deploy_root
+        return self.project.deploy_root
 
     @property
     def generated_root(self) -> Path:
-        return self.app_package.generated_root
+        return self.project.generated_root
 
     @property
     def package_scripts(self) -> List[str]:
-        return self.app_package.package_scripts
+        return self.project.package_scripts
 
-    @cached_property
+    @property
     def stage_fqn(self) -> str:
-        return f"{self.package_name}.{self.definition.source_stage}"
+        return self.project.stage_fqn
 
-    @cached_property
+    @property
     def scratch_stage_fqn(self) -> str:
-        return f"{self.package_name}.{self.definition.scratch_stage}"
+        return self.project.scratch_stage_fqn
 
-    @cached_property
+    @property
     def stage_schema(self) -> Optional[str]:
-        return extract_schema(self.stage_fqn)
+        return self.project.stage_schema
 
-    @cached_property
+    @property
     def package_warehouse(self) -> Optional[str]:
-        if self.definition.package and self.definition.package.warehouse:
-            return self.definition.package.warehouse
-        else:
-            return self._conn.warehouse
+        return self.project.package_warehouse
 
-    @cached_property
+    @property
     def application_warehouse(self) -> Optional[str]:
-        if self.definition.application and self.definition.application.warehouse:
-            return self.definition.application.warehouse
-        else:
-            return self._conn.warehouse
+        return self.project.application_warehouse
 
     @property
     def project_identifier(self) -> str:
@@ -244,52 +228,27 @@ class NativeAppManager(SqlExecutionMixin):
 
     @property
     def package_name(self) -> str:
-        return self.app_package.package_name
+        return self.project.package_name
 
-    @cached_property
+    @property
     def package_role(self) -> str:
-        if self.definition.package and self.definition.package.role:
-            return self.definition.package.role
-        else:
-            return self._default_role
+        return self.project.package_role
 
-    @cached_property
+    @property
     def package_distribution(self) -> str:
-        if self.definition.package and self.definition.package.distribution:
-            return self.definition.package.distribution.lower()
-        else:
-            return "internal"
+        return self.project.package_distribution
 
-    @cached_property
+    @property
     def app_name(self) -> str:
-        if self.definition.application and self.definition.application.name:
-            return to_identifier(self.definition.application.name)
-        else:
-            return to_identifier(default_application(self.project_identifier))
+        return self.project.app_name
 
-    @cached_property
+    @property
     def app_role(self) -> str:
-        if self.definition.application and self.definition.application.role:
-            return self.definition.application.role
-        else:
-            return self._default_role
+        return self.project.app_role
 
-    @cached_property
+    @property
     def app_post_deploy_hooks(self) -> Optional[List[ApplicationPostDeployHook]]:
-        """
-        List of application post deploy hooks.
-        """
-        if self.definition.application and self.definition.application.post_deploy:
-            return self.definition.application.post_deploy
-        else:
-            return None
-
-    @cached_property
-    def _default_role(self) -> str:
-        role = default_role()
-        if role is None:
-            role = self._get_current_role()
-        return role
+        return self.project.app_post_deploy_hooks
 
     def _get_current_role(self) -> str:
         role_result = self._execute_query(
@@ -297,12 +256,9 @@ class NativeAppManager(SqlExecutionMixin):
         ).fetchone()
         return role_result["CURRENT_ROLE()"]
 
-    @cached_property
+    @property
     def debug_mode(self) -> bool:
-        if self.definition.application:
-            return self.definition.application.debug
-        else:
-            return True
+        return self.project.debug_mode
 
     @cached_property
     def get_app_pkg_distribution_in_snowflake(self) -> str:
@@ -363,7 +319,7 @@ class NativeAppManager(SqlExecutionMixin):
         """
         bundle_map = build_bundle(self.project_root, self.deploy_root, self.artifacts)
         compiler = NativeAppCompiler(
-            app_pkg=self.app_package,
+            project=self.app_package,
         )
         compiler.compile_artifacts()
         return bundle_map

@@ -22,7 +22,7 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
     ProcessorMapping,
 )
-from snowflake.cli.plugins.nativeapp.data_model import NativeAppPackage
+from snowflake.cli.plugins.nativeapp.data_model import NativeAppProjectModel
 
 
 class UnsupportedArtifactProcessorError(ClickException):
@@ -37,10 +37,10 @@ class UnsupportedArtifactProcessorError(ClickException):
 class ArtifactProcessor(ABC):
     def __init__(
         self,
-        app_pkg: NativeAppPackage,
+        project: NativeAppProjectModel,
         **kwargs,
     ) -> None:
-        self._app_pkg: NativeAppPackage = app_pkg
+        self._project = project
 
     @abstractmethod
     def process(

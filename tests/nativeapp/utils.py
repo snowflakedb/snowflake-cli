@@ -21,8 +21,7 @@ from typing import List, Optional, Set
 
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.plugins.nativeapp.data_model import (
-    NativeAppPackage,
-    NativeAppProject,
+    NativeAppProjectModel,
 )
 
 NATIVEAPP_MODULE = "snowflake.cli.plugins.nativeapp.manager"
@@ -161,13 +160,12 @@ def assert_dir_snapshot(root: Path, snapshot) -> None:
             assert snapshot_contents == snapshot
 
 
-def create_native_app_package(
+def create_native_app_project_model(
     project_definition: NativeApp, project_root: Optional[Path] = None
-) -> NativeAppPackage:
+) -> NativeAppProjectModel:
     if project_root is None:
         project_root = Path().resolve()
-    project = NativeAppProject(
+    return NativeAppProjectModel(
         project_definition=project_definition,
         project_root=project_root,
     )
-    return NativeAppPackage(project=project)

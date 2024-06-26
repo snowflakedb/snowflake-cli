@@ -27,7 +27,7 @@ from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
 )
-from snowflake.cli.plugins.nativeapp.data_model import NativeAppPackage
+from snowflake.cli.plugins.nativeapp.data_model import NativeAppProjectModel
 
 SNOWPARK_PROCESSOR = "snowpark"
 
@@ -43,9 +43,9 @@ class NativeAppCompiler:
 
     def __init__(
         self,
-        app_pkg: NativeAppPackage,
+        project: NativeAppProjectModel,
     ):
-        self._app_pkg = app_pkg
+        self._project = project
         # dictionary of all processors created and shared between different artifact objects.
         self.cached_processors: Dict[str, ArtifactProcessor] = {}
 
@@ -55,7 +55,7 @@ class NativeAppCompiler:
         May have side-effects on the filesystem by either directly editing source files or the deploy root.
         """
         should_proceed = False
-        for artifact in self._app_pkg.artifacts:
+        for artifact in self._project.artifacts:
             if artifact.processors:
                 should_proceed = True
                 break
@@ -63,7 +63,7 @@ class NativeAppCompiler:
             return
 
         with cc.phase("Invoking artifact processors"):
-            for artifact in self._app_pkg.artifacts:
+            for artifact in self._project.artifacts:
                 for processor in artifact.processors:
                     artifact_processor = self._try_create_processor(
                         processor_mapping=processor,
@@ -92,7 +92,7 @@ class NativeAppCompiler:
                 return curr_processor
             else:
                 curr_processor = SnowparkAnnotationProcessor(
-                    app_pkg=self._app_pkg,
+                    project=self._project,
                 )
                 self.cached_processors[SNOWPARK_PROCESSOR] = curr_processor
                 return curr_processor
