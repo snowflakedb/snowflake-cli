@@ -99,7 +99,10 @@ def snowcli(test_root_path):
         print(subprocess_check_output(["ls", tmp_dir_path / "Lib"]))
         print("scripts >>")
         print(subprocess_check_output(["ls", tmp_dir_path / "Scripts"]))
-        yield tmp_dir_path / "bin" / "snow"
+        if IS_WINDOWS:
+            yield tmp_dir_path / "Scripts" / "snow.exe"
+        else:
+            yield tmp_dir_path / "bin" / "snow"
 
 
 @pytest.fixture(autouse=True)
