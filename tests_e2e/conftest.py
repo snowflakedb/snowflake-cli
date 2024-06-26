@@ -96,17 +96,9 @@ def temp_dir():
     tmp.cleanup()
 
 
-@contextmanager
-def _windows_tmp_dir():
-    tmp_dir_path = Path.cwd() / "e2e_tests"
-    tmp_dir_path.mkdir(exist_ok=True)
-    yield tmp_dir_path
-
-
 @pytest.fixture(scope="session")
 def snowcli(test_root_path):
-    ctx = _windows_tmp_dir if IS_WINDOWS else TemporaryDirectory
-    with ctx() as tmp_dir:
+    with TemporaryDirectory as tmp_dir:
         tmp_dir_path = Path(tmp_dir)
         _create_venv(tmp_dir_path)
         _build_snowcli(tmp_dir_path, test_root_path)
@@ -120,8 +112,6 @@ def snowcli(test_root_path):
 @pytest.fixture(autouse=True)
 def isolate_default_config_location(monkeypatch, temp_dir):
     monkeypatch.setenv("SNOWFLAKE_HOME", temp_dir)
-    monkeypatch.setenv("_CLI_TESTS_CONTEXT", "True")
-    # monkeypatch.setenv("TERM", "unknown")
 
 
 def _create_venv(tmp_dir: Path) -> None:
