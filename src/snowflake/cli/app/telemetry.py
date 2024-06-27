@@ -57,6 +57,7 @@ class CLITelemetryField(Enum):
 
 class TelemetryEvent(Enum):
     CMD_EXECUTION = "executing_command"
+    CMD_EXECUTION_ERROR = "error_executing_command"
 
 
 TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
@@ -143,6 +144,17 @@ _telemetry = CLITelemetryClient(ctx=cli_context)
 @ignore_exceptions()
 def log_command_usage():
     _telemetry.send({TelemetryField.KEY_TYPE: TelemetryEvent.CMD_EXECUTION.value})
+
+
+@ignore_exceptions()
+def log_command_execution_error(exception: Exception):
+    exception_type: str = type(exception).__name__
+    _telemetry.send(
+        {
+            TelemetryField.KEY_TYPE: TelemetryEvent.CMD_EXECUTION_ERROR.value,
+            CLITelemetryField.ERROR_TYPE: exception_type,
+        }
+    )
 
 
 @ignore_exceptions()

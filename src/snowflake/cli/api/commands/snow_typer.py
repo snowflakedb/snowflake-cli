@@ -136,7 +136,10 @@ class SnowTyper(typer.Typer):
         """
         Callback executed on command execution error.
         """
+        from snowflake.cli.app.telemetry import log_command_execution_error
+
         log.debug("Executing command exception callback")
+        log_command_execution_error(exception)
 
     @staticmethod
     def post_execute():
