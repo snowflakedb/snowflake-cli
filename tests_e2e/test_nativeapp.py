@@ -13,17 +13,16 @@
 # limitations under the License.
 
 import json
+import subprocess
 import uuid
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
 
-from tests_e2e.conftest import subprocess_check_output, subprocess_run
-
 
 def subprocess_check_output_with(sql_stmt: str, config_path: Path, snowcli) -> str:
-    return subprocess_check_output(
+    return subprocess.check_output(
         [
             snowcli,
             "--config-file",
@@ -36,6 +35,7 @@ def subprocess_check_output_with(sql_stmt: str, config_path: Path, snowcli) -> s
             "-c",
             "integration",
         ],
+        encoding="utf-8",
     )
 
 
@@ -114,7 +114,7 @@ def test_full_lifecycle_with_codegen(
 
         try:
             # App Run includes bundle
-            result = subprocess_run(
+            result = subprocess.run(
                 [
                     snowcli,
                     "--config-file",
@@ -124,6 +124,9 @@ def test_full_lifecycle_with_codegen(
                     "-c",
                     "integration",
                 ],
+                encoding="utf-8",
+                capture_output=True,
+                text=True,
             )
 
             assert result.returncode == 0
@@ -132,7 +135,7 @@ def test_full_lifecycle_with_codegen(
 
             # Disable debug mode to call functions and procedures.
             # This ensures all usage permissions have been granted accordingly.
-            result = subprocess_run(
+            result = subprocess.run(
                 [
                     snowcli,
                     "--config-file",
@@ -142,7 +145,8 @@ def test_full_lifecycle_with_codegen(
                     f"alter application {app_name} set debug_mode = false",
                     "-c",
                     "integration",
-                ]
+                ],
+                encoding="utf-8",
             )
             assert result.returncode == 0
 
@@ -208,7 +212,7 @@ def test_full_lifecycle_with_codegen(
             snapshot.assert_match(output)
 
             # Bundle is idempotent if no changes made to source files.
-            result = subprocess_run(
+            result = subprocess.run(
                 [
                     snowcli,
                     "--config-file",
@@ -217,7 +221,10 @@ def test_full_lifecycle_with_codegen(
                     "run",
                     "-c",
                     "integration",
-                ]
+                ],
+                encoding="utf-8",
+                capture_output=True,
+                text=True,
             )
 
             assert result.returncode == 0
@@ -247,7 +254,7 @@ def test_full_lifecycle_with_codegen(
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = subprocess_run(
+            result = subprocess.run(
                 [
                     snowcli,
                     "--config-file",
@@ -257,6 +264,7 @@ def test_full_lifecycle_with_codegen(
                     "--force",
                     "-c",
                     "integration",
-                ]
+                ],
+                encoding="utf-8",
             )
             assert result.returncode == 0

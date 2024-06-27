@@ -9,24 +9,14 @@ on:
       - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
     branches:
       - main
-  schedule:
-    - cron: "0 8 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  define-matrix:
-    uses: ./.github/workflows/matrix.yaml
   tests:
-    needs: define-matrix
-    strategy:
-      fail-fast: true
-      matrix:
-        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
-        python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,7 +24,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip hatch

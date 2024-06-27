@@ -16,12 +16,12 @@ concurrency:
 
 jobs:
   build:
-    needs: define-matrix
+    name: Build project
+    runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true
       matrix:
-        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
-        python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
+        os: [ macos-latest, ubuntu-latest, windows-latest ]
+        python-version: [ "3.8", "3.10", "3.11", "3.12" ]
     steps:
       - uses: actions/checkout@v4
         with:
