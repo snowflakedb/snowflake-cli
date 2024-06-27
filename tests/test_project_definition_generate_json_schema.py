@@ -25,33 +25,37 @@ from snowflake.cli.app.dev.docs.project_definition_generate_json_schema import (
 
 
 @fixture
-def section_fields_set():
+def section_properties_set():
     project_definition_sections = model_json_schema(
         ProjectDefinition, schema_generator=ProjectDefinitionGenerateJsonSchema
     )["result"]
 
-    section_fields_set = set()
+    section_properties_set = set()
     for section in project_definition_sections:
-        section_fields_set |= set([field["path"] for field in section["fields"]])
+        section_properties_set |= set(
+            [field["path"] for field in section["properties"]]
+        )
 
-    return section_fields_set
+    return section_properties_set
 
 
-def test_generated_json_contains_fields_generated_from_references(section_fields_set):
-    manual_fields_set = {
+def test_generated_json_contains_properties_generated_from_references(
+    section_properties_set,
+):
+    manual_properties_set = {
         "snowpark.functions.external_access_integrations",
         "snowpark.functions.signature.default",
     }
 
     errors = [
-        f"Field `{field}` was not generated in section_fields_set"
-        for field in manual_fields_set - section_fields_set
+        f"Field `{field}` was not generated in section_properties_set"
+        for field in manual_properties_set - section_properties_set
     ]
 
     assert len(errors) == 0, " ".join(errors)
 
 
-def test_generated_json_correspond_to_project_definition_model(section_fields_set):
+def test_generated_json_correspond_to_project_definition_model(section_properties_set):
     model_json = model_json_schema(
         ProjectDefinition, schema_generator=GenerateJsonSchema, ref_template="{model}"
     )
@@ -69,7 +73,7 @@ def test_generated_json_correspond_to_project_definition_model(section_fields_se
                 result += _get_field_references(field_type)
         return result
 
-    def _get_set_of_model_fields(
+    def _get_set_of_model_properties(
         references: Dict[str, Any], definition_model: Dict[str, Any], path: str = ""
     ) -> Set[str]:
         result = set()
@@ -78,17 +82,17 @@ def test_generated_json_correspond_to_project_definition_model(section_fields_se
             result.add(new_path)
             for field_reference in _get_field_references(field_model):
                 if field_reference in references:
-                    result |= _get_set_of_model_fields(
+                    result |= _get_set_of_model_properties(
                         references, references[field_reference], new_path
                     )
 
         return result
 
-    model_fields_set = _get_set_of_model_fields(model_json["$defs"], model_json)
+    model_properties_set = _get_set_of_model_properties(model_json["$defs"], model_json)
 
     errors = [
         f"Field `{field}` was not properly generated"
-        for field in model_fields_set - section_fields_set
+        for field in model_properties_set - section_properties_set
     ]
 
     assert len(errors) == 0, " ".join(errors)

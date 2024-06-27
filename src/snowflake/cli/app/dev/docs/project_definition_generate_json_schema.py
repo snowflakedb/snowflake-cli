@@ -14,9 +14,26 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Tuple
 
 from pydantic.json_schema import GenerateJsonSchema
+
+
+@dataclass
+class ProjectDefinitionProperty:
+    """
+    Class for storing data of properties to be used in project definition generators.
+    """
+
+    path: str
+    title: str
+    indents: int
+    item_index: int
+    required: bool
+    name: str
+    add_types: bool
+    types: str
 
 
 class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
@@ -26,14 +43,14 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
 
     def generate(self, schema, mode="validation"):
         """
-        Transforms the generated json from the model to a list of project definition sections with its fields.
+        Transforms the generated json from the model to a list of project definition sections with its properties.
         For example:
         {
             "result": [
                 {
                     "title": "Native app definitions for the project",
                     "name": "native_app",
-                    "fields": [
+                    "properties": [
                         {
                             "path": "Version of the project definition schema, which is currently 1",
                             "title": "Title of field A",
@@ -66,117 +83,101 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
     def _get_definition_sections(
         self, current_definition: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        required_fields: List[Dict[str, Any]] = []
+        required_properties: List[Dict[str, Any]] = []
         sections: List[Dict[str, Any]] = []
 
-        for field_name, field_model in current_definition["properties"].items():
+        for property_name, property_model in current_definition["properties"].items():
             is_required = (
                 "required" in current_definition
-                and field_name in current_definition["required"]
+                and property_name in current_definition["required"]
             )
-            children_fields = self._get_children_fields(field_model, field_name)
+            children_properties = self._get_children_properties(
+                property_model, property_name
+            )
 
-            new_field = self._create_new_field(
-                path=field_name,
-                title=field_model["title"],
+            new_property = ProjectDefinitionProperty(
+                path=property_name,
+                title=property_model["title"],
                 indents=0,
                 item_index=0,
-                is_required=is_required,
-                field_name=field_name,
-                add_types=len(children_fields) == 0,
-                types=" | ".join(self._get_field_types(field_model)),
+                required=is_required,
+                name=property_name,
+                add_types=len(children_properties) == 0,
+                types=" | ".join(self._get_property_types(property_model)),
             )
-            fields = [new_field] + children_fields
+            properties = [asdict(new_property)] + children_properties
 
             if is_required:
-                required_fields.extend(fields)
+                required_properties.extend(properties)
             else:
                 sections.append(
                     {
-                        "fields": fields,
-                        "title": field_model["title"],
-                        "name": field_name,
+                        "properties": properties,
+                        "title": property_model["title"],
+                        "name": property_name,
                     }
                 )
 
         for section in sections:
-            section["fields"] = required_fields + section["fields"]
+            section["properties"] = required_properties + section["properties"]
 
         return sections
 
-    def _get_section_fields(
+    def _get_section_properties(
         self,
         current_definition: Dict[str, Any],
         current_path: str = "",
         depth: int = 0,
         is_array_item: bool = False,
     ) -> List[Dict[str, Any]]:
-        required_fields: List[Dict[str, Any]] = []
-        optional_fields: List[Dict[str, Any]] = []
+        required_properties: List[Dict[str, Any]] = []
+        optional_properties: List[Dict[str, Any]] = []
         item_index = 0
 
-        for field_name, field_model in current_definition["properties"].items():
+        for property_name, property_model in current_definition["properties"].items():
             item_index += 1 if is_array_item else 0
             is_required = (
                 "required" in current_definition
-                and field_name in current_definition["required"]
+                and property_name in current_definition["required"]
             )
             new_current_path = (
-                field_name if current_path == "" else current_path + "." + field_name
+                property_name
+                if current_path == ""
+                else current_path + "." + property_name
             )
-            children_fields = self._get_children_fields(
-                field_model, new_current_path, depth
+            children_properties = self._get_children_properties(
+                property_model, new_current_path, depth
             )
-            new_field = self._create_new_field(
+            new_property = ProjectDefinitionProperty(
                 path=new_current_path,
-                title=field_model["title"],
+                title=property_model["title"],
                 indents=depth,
                 item_index=item_index,
-                is_required=is_required,
-                field_name=field_name,
-                add_types=len(children_fields) == 0,
-                types=" | ".join(self._get_field_types(field_model)),
+                required=is_required,
+                name=property_name,
+                add_types=len(children_properties) == 0,
+                types=" | ".join(self._get_property_types(property_model)),
             )
-            fields = [new_field] + children_fields
+            properties = [asdict(new_property)] + children_properties
             if is_required:
-                required_fields.extend(fields)
+                required_properties.extend(properties)
             else:
-                optional_fields.extend(fields)
-        return required_fields + optional_fields
+                optional_properties.extend(properties)
+        return required_properties + optional_properties
 
-    def _create_new_field(
+    def _get_children_properties(
         self,
-        path: str,
-        title: str,
-        indents: int,
-        item_index: int,
-        is_required: bool,
-        field_name: str,
-        add_types: bool,
-        types: str,
-    ):
-        return {
-            "path": path,
-            "title": title,
-            "indents": indents,
-            "item_index": item_index,
-            "required": is_required,
-            "name": field_name,
-            "add_types": add_types,
-            "types": types,
-        }
-
-    def _get_children_fields(
-        self,
-        field_model: Dict[str, Any],
+        property_model: Dict[str, Any],
         current_path: str,
         depth: int = 0,
     ) -> List[Dict[str, Any]]:
-        child_fields: List[Dict[str, Any]] = []
-        references: List[Tuple[str, bool]] = self._get_field_references(field_model)
+        child_properties: List[Dict[str, Any]] = []
+        references: List[Tuple[str, bool]] = self._get_property_references(
+            property_model
+        )
         for reference, is_array_item in references:
-            child_fields.extend(
-                self._get_section_fields(
+            child_properties.extend(
+                self._get_section_properties(
                     self._remapped_definitions[reference],
                     current_path,
                     depth + 1,
@@ -184,9 +185,9 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
                 )
             )
 
-        return child_fields
+        return child_properties
 
-    def _get_field_references(
+    def _get_property_references(
         self,
         model_with_type: Dict[str, Any],
         is_array_item: bool = False,
@@ -197,25 +198,27 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
             return [(model_with_type["$ref"], is_array_item)]
 
         if "type" in model_with_type and model_with_type["type"] == "array":
-            result.extend(self._get_field_references(model_with_type["items"], True))
+            result.extend(self._get_property_references(model_with_type["items"], True))
 
         if "anyOf" in model_with_type:
-            for field_type in model_with_type["anyOf"]:
-                result.extend(self._get_field_references(field_type, is_array_item))
+            for property_type in model_with_type["anyOf"]:
+                result.extend(
+                    self._get_property_references(property_type, is_array_item)
+                )
         return result
 
-    def _get_field_types(self, model_with_type: Dict[str, Any]) -> list[str]:
+    def _get_property_types(self, model_with_type: Dict[str, Any]) -> list[str]:
         types_result: List[str] = []
         if "type" in model_with_type:
             if model_with_type["type"] == "array":
-                items_types = self._get_field_types(model_with_type["items"])
+                items_types = self._get_property_types(model_with_type["items"])
                 if len(items_types) > 0:
                     types_result.append(f"array[{' | '.join(items_types)}]")
 
             elif model_with_type["type"] != "null":
                 types_result.append(model_with_type["type"])
         elif "anyOf" in model_with_type:
-            for field_type in model_with_type["anyOf"]:
-                types = self._get_field_types(field_type)
+            for property_type in model_with_type["anyOf"]:
+                types = self._get_property_types(property_type)
                 types_result.extend(types)
         return types_result

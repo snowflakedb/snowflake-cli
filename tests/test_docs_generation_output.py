@@ -23,35 +23,34 @@ from snowflake.cli.app.cli_app import app_context_holder
 
 
 @mock.patch(
-    "snowflake.cli.app.dev.docs.project_definition_generate_json_schema.ProjectDefinitionGenerateJsonSchema"
-    ".generate"
+    "snowflake.cli.app.dev.docs.project_definition_generate_json_schema.ProjectDefinitionGenerateJsonSchema.generate"
 )
 def test_definition_file_format_generated_from_json(mock_generate, runner, temp_dir):
-    field1 = {
-        "path": "fieldA",
-        "title": "Title of field A",
+    property1 = {
+        "path": "propertyA",
+        "title": "Title of property A",
         "indents": 0,
         "item_index": 0,
         "required": False,
-        "name": "fieldA",
+        "name": "propertyA",
         "add_types": False,
         "types": "",
     }
 
-    field2 = {
-        "path": "fieldA.fieldB",
-        "title": "Title of field B",
+    property2 = {
+        "path": "propertyA.propertyB",
+        "title": "Title of property B",
         "indents": 1,
         "item_index": 1,
         "required": True,
-        "name": "fieldB",
+        "name": "propertyB",
         "add_types": True,
         "types": "string",
     }
     result = {
         "result": [
             {
-                "fields": [field1, field2],
+                "properties": [property1, property2],
                 "title": "SECTION_TITLE",
                 "name": "section_demo",
             }
@@ -78,8 +77,8 @@ Project definition structure
 .. code-block::
     
     
-  fieldA: 
-    - fieldB: <string>
+  propertyA: 
+    - propertyB: <string>
 
 
 Project definition properties
@@ -93,17 +92,17 @@ The following table describes the project definition properties.
   * - Property
     - Definition
 
-  * - **fieldA**
+  * - **propertyA**
 
       *Optional*
 
-    - Title of field A
+    - Title of property A
  
-  * - **fieldA.fieldB**
+  * - **propertyA.propertyB**
 
       *Required*, *string*
 
-    - Title of field B
+    - Title of property B
 
 """
     )
