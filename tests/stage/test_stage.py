@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os.path
+
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
@@ -121,17 +121,17 @@ def test_stage_copy_remote_to_local_quoted_stage_recursive(
 @pytest.mark.parametrize(
     "raw_path,expected_uri",
     [
-        ("dest", "file://{}/dest/"),
-        ("dest.dir", "file://{}/dest.dir/"),
-        ("dest0", "file://{}/dest0/"),
-        ("dest dir", "'file://{}/dest dir/'"),
-        ("dest#dir", "file://{}/dest#dir/"),
-        ("dest*dir", "file://{}/dest*dir/"),
-        ("dest_?dir", "file://{}/dest_?dir/"),
-        ("dest%dir", "file://{}/dest%dir/"),
-        ('dest"dir', 'file://{}/dest"dir/'),
-        ("dest'dir", r"'file://{}/dest\'dir/'"),
-        ("dest\tdir", r"'file://{}/dest\tdir/'"),
+        ("{}/dest", "file://{}/dest/"),
+        ("{}/dest.dir", "file://{}/dest.dir/"),
+        ("{}/dest0", "file://{}/dest0/"),
+        ("{}/dest dir", "'file://{}/dest dir/'"),
+        ("{}/dest#dir", "file://{}/dest#dir/"),
+        ("{}/dest*dir", "file://{}/dest*dir/"),
+        ("{}/dest_?dir", "file://{}/dest_?dir/"),
+        ("{}/dest%dir", "file://{}/dest%dir/"),
+        ('{}/dest"dir', 'file://{}/dest"dir/'),
+        ("{}/dest'dir", r"'file://{}/dest\'dir/'"),
+        ("{}/dest\tdir", r"'file://{}/dest\tdir/'"),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -141,7 +141,7 @@ def test_stage_copy_remote_to_local_quoted_uri(
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
         tmp_dir = Path(tmp_dir).resolve()
-        local_path = os.path.join(str(tmp_dir), raw_path)
+        local_path = raw_path.replace("{}", str(tmp_dir))
         file_uri = expected_uri.replace("{}", str(tmp_dir))
         result = runner.invoke(
             ["stage", "copy", "-c", "empty", "@stageName", local_path]
@@ -153,17 +153,17 @@ def test_stage_copy_remote_to_local_quoted_uri(
 @pytest.mark.parametrize(
     "raw_path,expected_uri",
     [
-        ("dest", "file://{}/dest/"),
-        ("dest.dir", "file://{}/dest.dir/"),
-        ("dest0", "file://{}/dest0/"),
-        ("dest dir", "'file://{}/dest dir/'"),
-        ("dest#dir", "file://{}/dest#dir/"),
-        ("dest*dir", "file://{}/dest*dir/"),
-        ("dest_?dir", "file://{}/dest_?dir/"),
-        ("dest%dir", "file://{}/dest%dir/"),
-        ('dest"dir', 'file://{}/dest"dir/'),
-        ("dest'dir", r"'file://{}/dest\'dir/'"),
-        ("dest\tdir", r"'file://{}/dest\tdir/'"),
+        ("{}/dest", "file://{}/dest/"),
+        ("{}/dest.dir", "file://{}/dest.dir/"),
+        ("{}/dest0", "file://{}/dest0/"),
+        ("{}/dest dir", "'file://{}/dest dir/'"),
+        ("{}/dest#dir", "file://{}/dest#dir/"),
+        ("{}/dest*dir", "file://{}/dest*dir/"),
+        ("{}/dest_?dir", "file://{}/dest_?dir/"),
+        ("{}/dest%dir", "file://{}/dest%dir/"),
+        ('{}/dest"dir', 'file://{}/dest"dir/'),
+        ("{}/dest'dir", r"'file://{}/dest\'dir/'"),
+        ("{}/dest\tdir", r"'file://{}/dest\tdir/'"),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -176,7 +176,7 @@ def test_stage_copy_remote_to_local_quoted_uri_recursive(
     ]
     with TemporaryDirectory() as tmp_dir:
         tmp_dir = Path(tmp_dir).resolve()
-        local_path = os.path.join(str(tmp_dir), raw_path)
+        local_path = raw_path.replace("{}", str(tmp_dir))
         file_uri = expected_uri.replace("{}", str(tmp_dir))
         result = runner.invoke(
             [

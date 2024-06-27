@@ -19,11 +19,15 @@ from pathlib import Path
 
 import pytest
 
+from tests_common import IS_WINDOWS
 from tests_integration.test_utils import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
 )
+
+if IS_WINDOWS:
+    pytest.skip("Does not work on Windows", allow_module_level=True)
 
 
 @pytest.mark.integration

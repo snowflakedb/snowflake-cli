@@ -28,6 +28,10 @@ from snowflake.cli.api.config import (
 from snowflake.cli.api.exceptions import MissingConfiguration
 
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
+from tests_common import IS_WINDOWS
+
+if IS_WINDOWS:
+    pytest.skip("Does not work on Windows", allow_module_level=True)
 
 
 def test_empty_config_file_is_created_if_not_present():
@@ -141,7 +145,7 @@ def test_create_default_config_if_not_exists_with_proper_permissions(
     mock_config_manager,
 ):
     with TemporaryDirectory() as tmp_dir:
-        config_path = Path(tmp_dir) / "snowflake" / "config.toml"
+        config_path = Path(f"{tmp_dir}/snowflake/config.toml")
         mock_config_manager.file_path = config_path
         mock_config_manager.conf_file_cache = {}
 
