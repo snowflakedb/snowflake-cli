@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Union
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from snowflake.cli.api.project.schemas.entities.common_properties import (
     PostDeployField,
     PostDeployFieldType,
@@ -32,7 +32,9 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 
 
 class ApplicationPackageEntity(UpdatableModel):
-    entity_type: str = "application package"
+    type_: str = Field(
+        validation_alias=AliasChoices("type"), pattern=r"^application package$"
+    )
     name: str = Field(
         title="Name of the application package created when this entity is deployed"
     )

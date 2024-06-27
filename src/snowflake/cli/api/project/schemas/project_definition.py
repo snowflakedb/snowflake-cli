@@ -19,6 +19,9 @@ from typing import Dict, Optional, Union
 from packaging.version import Version
 from pydantic import Field, field_validator
 from snowflake.cli.api.feature_flags import FeatureFlag
+from snowflake.cli.api.project.schemas.entities.application_entity import (
+    ApplicationEntity,
+)
 from snowflake.cli.api.project.schemas.entities.application_package_entity import (
     ApplicationPackageEntity,
 )
@@ -27,6 +30,11 @@ from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.utils.models import EnvironWithDefinedDictFallback
+
+_v2_entity_types_map = {
+    "application": ApplicationEntity,
+    "application package": ApplicationPackageEntity,
+}
 
 
 class ProjectDefinition(UpdatableModel):
@@ -92,10 +100,10 @@ class _DefinitionV20(ProjectDefinition):
     @classmethod
     def validate_entities(cls, entities: Dict) -> Dict:
         for key, entity in entities.items():
-            entity_type = entity["entity_type"]
-            if entity_type not in _entity_types_map:
+            entity_type = entity["type"]
+            if entity_type not in _v2_entity_types_map:
                 raise ValueError(f"Unsupported entity type: {entity_type}")
-            entities[key] = _entity_types_map[entity_type](**entity)
+            entities[key] = _v2_entity_types_map[entity_type](**entity)
 
         return entities
 
@@ -110,11 +118,7 @@ def get_project_definition(**data):
     if not version or not version_model:
         # Raises a SchemaValidationError
         ProjectDefinition(**data)
-
-    if str == "2" and not FeatureFlag.ENABLE_PDF_V2.is_enabled():
-        raise ValueError(f"Schema version 2 is under development.")
     return version_model(**data)
 
 
 _version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11}
-_entity_types_map = {"application package": ApplicationPackageEntity}
