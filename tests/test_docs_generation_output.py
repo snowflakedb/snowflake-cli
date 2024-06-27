@@ -72,7 +72,7 @@ def test_definition_file_format_generated_from_json(mock_generate, runner, temp_
         """\
 SECTION_TITLE
 
-Structure
+Project definition structure
 ===============================================================================
 
 .. code-block::
@@ -82,19 +82,28 @@ Structure
     - fieldB: <string>
 
 
-Fields
+Project definition properties
 ===============================================================================
+The following table describes the project definition properties.
+    
+.. list-table:: Project definition properties
+  :widths: 30 70
+  :header-rows: 1
+    
+  * - Property
+    - Definition
 
+  * - **fieldA**
 
-fieldA
-    Title of field A
+      *Optional*
 
-    ``Optional``
+    - Title of field A
+ 
+  * - **fieldA.fieldB**
 
-fieldA.fieldB
-    Title of field B
+      *Required*, *string*
 
-    ``Required``, ``string``
+    - Title of field B
 
 """
     )

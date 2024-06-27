@@ -1,6 +1,6 @@
 {{ title }}
 
-Structure
+Project definition structure
 ===============================================================================
 
 .. code-block::
@@ -10,16 +10,23 @@ Structure
 {%- endfor %}
 
 
-Fields
+Project definition properties
 ===============================================================================
-
 {%- if fields %}
+The following table describes the project definition properties.
 
+.. list-table:: Project definition properties
+  :widths: 30 70
+  :header-rows: 1
+
+  * - Property
+    - Definition
 {% for field in fields %}
-{{field["path"]}}
-    {{field["title"]}}
+  * - **{{field["path"]}}**
 
-    ``{{"Required" if field["required"] else "Optional"}}``{{ (", ``"+field["types"]+"``") if field["types"]}}
+      *{{"Required" if field["required"] else "Optional"}}*{{ (", *"+field["types"]+"*") if field["types"]}}
+
+    - {{field["title"]}}
 {%+ endfor %}
 {% else %}
 
