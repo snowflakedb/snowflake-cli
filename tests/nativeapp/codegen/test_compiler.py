@@ -15,7 +15,7 @@
 from pathlib import Path
 
 import pytest
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+from snowflake.cli.api.project.schemas.project_definition import get_project_definition
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     UnsupportedArtifactProcessorError,
 )
@@ -27,7 +27,7 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
 
 @pytest.fixture()
 def test_proj_def():
-    return ProjectDefinition(
+    return get_project_definition(
         **{
             "definition_version": "1",
             "native_app": {

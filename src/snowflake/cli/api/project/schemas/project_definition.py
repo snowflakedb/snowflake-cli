@@ -100,7 +100,7 @@ class _DefinitionV20(_BaseDefinition):
         return entities
 
 
-class ProjectDefinition(_DefinitionV11, _DefinitionV20):
+class ProjectDefinition(_DefinitionV11):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._validate(kwargs)
@@ -120,6 +120,22 @@ class ProjectDefinition(_DefinitionV11, _DefinitionV20):
             version_model(**data)
 
 
-_version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11, "2": _DefinitionV20}
+def get_project_definition(**data):
+    if not isinstance(data, dict):
+        return
+    version = str(data.get("definition_version"))
+    version_model = _version_map.get(version)
+    if not version_model:
+        raise ValueError(
+            f"Unknown schema version: {version}. Supported version: {_supported_version}"
+        )
+    if version == "2" and not FeatureFlag.ENABLE_PDF_V2.is_enabled():
+        raise ValueError(f"Schema version 2 is under development.")
+    return version_model(**data)
+
+
+_version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11}
+if FeatureFlag.ENABLE_PDF_V2.is_enabled():
+    _version_map["2"] = _DefinitionV20
 _supported_version = tuple(_version_map.keys())
 _entity_types_map = {"application package": ApplicationPackageEntity}

@@ -18,10 +18,15 @@ from typing import List, Optional, Union
 
 from pydantic import Field
 from snowflake.cli.api.project.schemas.entities.common_properties import (
-    GrantEntityProperty,
+    PostDeployField,
+    PostDeployFieldType,
+    WarehouseField,
+    WarehouseFieldType,
 )
+from snowflake.cli.api.project.schemas.native_app.package import DistributionOptions
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.updatable_model import (
+    IdentifierField,
     UpdatableModel,
 )
 
@@ -29,12 +34,35 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 class ApplicationPackageEntity(UpdatableModel):
     entity_type: str = "application package"
     name: str = Field(
-        title="Application package identifier",
-    )
-    manifest: str = Field(
-        title="Path to manifest.yml",
+        title="Name of the application package created when this entity is deployed"
     )
     artifacts: List[Union[PathMapping, str]] = Field(
         title="List of file source and destination pairs to add to the deploy root",
     )
-    grant: Optional[List[GrantEntityProperty]] = Field(title="Grants", default=None)
+    deploy_root: Optional[str] = Field(
+        title="Folder at the root of your project where the build step copies the artifacts",
+        default="output/deploy/",
+    )
+    stage: Optional[str] = Field(
+        title="Identifier of the stage that stores the application artifacts.",
+        default="app_src.stage",
+    )
+    distribution: Optional[DistributionOptions] = Field(
+        title="Distribution of the application package created by the Snowflake CLI",
+        default="internal",
+    )
+    manifest: str = Field(
+        title="Path to manifest.yml",
+    )
+    meta: Optional[ApplicationPackageMetaField] = Field(
+        title="Application package meta fields", default=None
+    )
+
+
+class ApplicationPackageMetaField(UpdatableModel):
+    warehouse: WarehouseFieldType = WarehouseField
+    role: Optional[str] = IdentifierField(
+        title="Role to use when creating the application package and provider-side objects",
+        default=None,
+    )
+    post_deploy: PostDeployFieldType = PostDeployField
