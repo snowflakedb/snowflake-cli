@@ -630,7 +630,7 @@ class NativeAppManager(SqlExecutionMixin):
                 recursive=True,
                 stage_fqn=stage_fqn,
                 validate=False,
-                # print_diff=False,
+                print_diff=False,
             )
         prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
         try:
