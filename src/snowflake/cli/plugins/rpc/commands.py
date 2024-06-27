@@ -23,7 +23,6 @@ from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.plugins.nativeapp.lsp_commands import lsp_plugin
 from snowflake.cli.plugins.rpc.manager import (
     ConnectionParams,
-    LSPPluginContext,
     RpcManager,
 )
 
@@ -33,8 +32,6 @@ app = SnowTyper(
 )
 
 log = logging.getLogger(__name__)
-
-manager = None
 
 
 class ConnectionDict(TypedDict):
@@ -51,7 +48,7 @@ def rpc_start(
     """
     Initializes the RPC LSP language server.
     """
-    manager = RpcManager()
+    RpcManager()
 
     return MessageResult(f"RPC LSP began.")
 
@@ -63,7 +60,7 @@ def rpc_start(
         "updateConnection": True,
     },
 )
-def rpc_lsp_plugin(server: LanguageServer, ctx: LSPPluginContext):
+def rpc_lsp_plugin(server: LanguageServer):
     @server.command("updateConnection")
     def update_connection(params: list[ConnectionDict]):
         connection_params = ConnectionParams(
@@ -71,5 +68,6 @@ def rpc_lsp_plugin(server: LanguageServer, ctx: LSPPluginContext):
             master_token=params[0]["masterToken"],
             account=params[0]["account"],
         )
-        ctx.update_connection(connection_params)
+        # do nothing for now
+        # ctx.update_connection(connection_params)
         return "Connection ctx updated."

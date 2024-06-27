@@ -19,8 +19,8 @@ from typing import Dict, TypedDict
 from pygls.server import LanguageServer
 from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.app.snow_connector import connect_to_snowflake
 from snowflake.cli.plugins.nativeapp.manager import NativeAppManager
-from snowflake.cli.plugins.rpc.manager import LSPPluginContext
 
 
 @dataclass
@@ -47,6 +47,35 @@ class OpenApplication(TypedDict):
     project_path: str
 
 
+class ConnectionParams(TypedDict):
+    session_token: str
+    master_token: str
+    account: str
+    connection_name: str
+    params: dict
+
+
+def wrapped_server_command(server: LanguageServer, command_name: str):
+    def _decorator(func):
+        @server.command(command_name)
+        def wrapper(params: list[ConnectionParams]):
+            connection_attributes = {
+                "account": params[0]["account"],
+                "session_token": params[0]["session_token"],
+                "master_token": params[0]["master_token"],
+            }
+            parameters = params[0]["params"]
+            # introspect func and see if first param takes a connection and if it does, go down conn route, if it doesn't then don''t
+            connection = connect_to_snowflake(
+                temporary_connection=True, **connection_attributes
+            )
+            return func(connection, **parameters)  # kwargs or args??
+
+        return wrapper
+
+    return _decorator
+
+
 @lsp_plugin(
     name="nativeapp",
     version="0.0.1",
@@ -54,18 +83,18 @@ class OpenApplication(TypedDict):
         "openApplication": True,
     },
 )
-def nade_lsp_plugin(server: LanguageServer, ctx: LSPPluginContext):
-    @server.command("openApplication")
-    def open_app(params: list[OpenApplication]):
+def nade_lsp_plugin(server: LanguageServer):
+    @wrapped_server_command(server, "openApplication")
+    def open_app(connection, params: OpenApplication):  # foo, bar):
         server.show_message_log(repr(params))
-        project_path = params[0]["project_path"]
+        project_path = params["project_path"]
         dm = DefinitionManager(project_path)
         project_definition = getattr(dm.project_definition, "native_app", None)
         project_root = dm.project_root
         manager = NativeAppManager(
             project_definition=project_definition,
             project_root=project_root,
-            connection=ctx.get_connection(),
+            connection=connection,
         )
         if manager.get_existing_app_info():
             url = manager.get_snowsight_url()

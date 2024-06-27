@@ -58,7 +58,9 @@ class LSPPluginContext:
 
     def create_connection(self) -> SnowflakeConnection:
         params = ConnectionParams(
-            session_token=os.environ.get("SESSION_TOKEN"),
+            session_token=os.environ.get(
+                "SESSION_TOKEN"
+            ),  # get rid of all env variable stuff? Dolnt need it anymore, send it along as params in each command now.
             master_token=os.environ.get("MASTER_TOKEN"),
             account=os.environ.get("SF_ACCOUNT"),
         )
@@ -74,11 +76,10 @@ class RpcManager(SqlExecutionMixin):
     def __init__(self):
         super().__init__()
         server = LanguageServer(name="lsp_controller", version="v0.0.1")
-        context = LSPPluginContext()
 
         plugins = self.discover_lsp_plugins("snowflake.cli.plugins")
         for plugin_func in plugins:
-            plugin_func(server, context)
+            plugin_func(server)
         server.start_io()
 
     def discover_lsp_plugins(self, package_name):
