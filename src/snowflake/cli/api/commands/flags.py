@@ -518,19 +518,22 @@ def project_type_option(project_name: Optional[str]):
         cli_context_manager.set_template_context(dm.template_context)
         return project_definition
 
+    project_name_help: Optional[str]
     if project_name == "native_app":
         project_name_help = "Snowflake Native App"
     elif project_name == "streamlit":
         project_name_help = "Streamlit app"
     else:
         project_name_help = (
-            "" if project_name is None else project_name.replace("_", " ").capitalize()
+            None
+            if project_name is None
+            else project_name.replace("_", " ").capitalize()
         )
 
-    if project_name:
+    if project_name_help is not None:
         help_message = f"Path where the {project_name_help} project resides. Defaults to current working directory."
     else:
-        help_message = f"Path where the project definition resides. Defaults to current working directory."
+        help_message = "Path where the project definition resides. Defaults to current working directory."
     return typer.Option(
         None,
         "-p",

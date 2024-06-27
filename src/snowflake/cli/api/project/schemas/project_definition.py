@@ -103,11 +103,13 @@ class _DefinitionV20(ProjectDefinition):
 def get_project_definition(**data):
     if not isinstance(data, dict):
         return
-    version = str(data.get("definition_version"))
-    version_model = _version_map.get(version)
-    if not version_model:
+    version = data.get("definition_version")
+    version_model = _version_map.get(str(version))
+    if not version or not version_model:
+        # Raises a SchemaValidationError
         ProjectDefinition(**data)
-    if version == "2" and not FeatureFlag.ENABLE_PDF_V2.is_enabled():
+
+    if str == "2" and not FeatureFlag.ENABLE_PDF_V2.is_enabled():
         raise ValueError(f"Schema version 2 is under development.")
     return version_model(**data)
 
@@ -115,5 +117,4 @@ def get_project_definition(**data):
 _version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11}
 if FeatureFlag.ENABLE_PDF_V2.is_enabled():
     _version_map["2"] = _DefinitionV20
-_supported_version = tuple(_version_map.keys())
 _entity_types_map = {"application package": ApplicationPackageEntity}
