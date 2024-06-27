@@ -2,7 +2,6 @@
 # name: test_fields_are_parsed_correctly[integration]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': dict({
       'application': None,
       'artifacts': list([
@@ -36,7 +35,6 @@
 # name: test_fields_are_parsed_correctly[integration_external]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': dict({
       'application': None,
       'artifacts': list([
@@ -70,7 +68,6 @@
 # name: test_fields_are_parsed_correctly[minimal]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': dict({
       'application': None,
       'artifacts': list([
@@ -101,7 +98,6 @@
 # name: test_fields_are_parsed_correctly[napp_project_1]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': dict({
       'application': dict({
         'debug': True,
@@ -153,7 +149,6 @@
 # name: test_fields_are_parsed_correctly[napp_project_with_pkg_warehouse]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': dict({
       'application': dict({
         'debug': True,
@@ -205,7 +200,6 @@
 # name: test_fields_are_parsed_correctly[snowpark_function_external_access]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': None,
     'snowpark': dict({
       'functions': list([
@@ -252,7 +246,6 @@
 # name: test_fields_are_parsed_correctly[snowpark_function_fully_qualified_name]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': None,
     'snowpark': dict({
       'functions': list([
@@ -395,7 +388,6 @@
 # name: test_fields_are_parsed_correctly[snowpark_function_secrets_without_external_access]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': None,
     'snowpark': dict({
       'functions': list([
@@ -440,7 +432,6 @@
 # name: test_fields_are_parsed_correctly[snowpark_functions]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': None,
     'snowpark': dict({
       'functions': list([
@@ -483,7 +474,6 @@
 # name: test_fields_are_parsed_correctly[snowpark_procedure_external_access]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': None,
     'snowpark': dict({
       'functions': list([
@@ -526,7 +516,6 @@
 # name: test_fields_are_parsed_correctly[snowpark_procedure_fully_qualified_name]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': None,
     'snowpark': dict({
       'functions': list([
@@ -675,7 +664,6 @@
 # name: test_fields_are_parsed_correctly[snowpark_procedure_secrets_without_external_access]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': None,
     'snowpark': dict({
       'functions': list([
@@ -716,7 +704,6 @@
 # name: test_fields_are_parsed_correctly[snowpark_procedures]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': None,
     'snowpark': dict({
       'functions': list([
@@ -771,7 +758,6 @@
 # name: test_fields_are_parsed_correctly[snowpark_procedures_coverage]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': None,
     'snowpark': dict({
       'functions': list([
@@ -810,7 +796,6 @@
 # name: test_fields_are_parsed_correctly[streamlit_full_definition]
   dict({
     'definition_version': '1',
-    'env': None,
     'native_app': None,
     'snowpark': None,
     'streamlit': dict({

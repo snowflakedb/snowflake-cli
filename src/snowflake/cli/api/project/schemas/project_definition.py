@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Union
+from typing import Dict, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, field_validator
@@ -29,7 +29,7 @@ from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.utils.models import EnvironWithDefinedDictFallback
 
 
-class _BaseDefinition(UpdatableModel):
+class ProjectDefinition(UpdatableModel):
     definition_version: Union[str, int] = Field(
         title="Version of the project definition schema, which is currently 1",
     )
@@ -48,7 +48,7 @@ class _BaseDefinition(UpdatableModel):
         return Version(self.definition_version) >= Version(required_version)
 
 
-class _DefinitionV10(_BaseDefinition):
+class _DefinitionV10(ProjectDefinition):
     native_app: Optional[NativeApp] = Field(
         title="Native app definitions for the project", default=None
     )
@@ -75,7 +75,7 @@ class _DefinitionV11(_DefinitionV10):
         return variables
 
 
-class _DefinitionV20(_BaseDefinition):
+class _DefinitionV20(ProjectDefinition):
     entities: Dict = Field(
         title="Entity definitions.",
     )
@@ -100,35 +100,13 @@ class _DefinitionV20(_BaseDefinition):
         return entities
 
 
-class ProjectDefinition(_DefinitionV11):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._validate(kwargs)
-
-    @staticmethod
-    def _validate(data: Any):
-        if not isinstance(data, dict):
-            return
-        if version := str(data.get("definition_version")):
-            version_model = _version_map.get(version)
-            if not version_model:
-                raise ValueError(
-                    f"Unknown schema version: {version}. Supported version: {_supported_version}"
-                )
-            if version == "2" and not FeatureFlag.ENABLE_PDF_V2.is_enabled():
-                raise ValueError(f"Schema version 2 is under development.")
-            version_model(**data)
-
-
 def get_project_definition(**data):
     if not isinstance(data, dict):
         return
     version = str(data.get("definition_version"))
     version_model = _version_map.get(version)
     if not version_model:
-        raise ValueError(
-            f"Unknown schema version: {version}. Supported version: {_supported_version}"
-        )
+        ProjectDefinition(**data)
     if version == "2" and not FeatureFlag.ENABLE_PDF_V2.is_enabled():
         raise ValueError(f"Schema version 2 is under development.")
     return version_model(**data)
