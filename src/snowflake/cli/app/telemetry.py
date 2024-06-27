@@ -23,6 +23,7 @@ import click
 from snowflake.cli.__about__ import VERSION
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.config import get_feature_flags_section
+from snowflake.cli.api.execution_metadata import ExecutionMetadata
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
 from snowflake.cli.app.constants import PARAM_APPLICATION_NAME
@@ -44,19 +45,25 @@ class CLITelemetryField(Enum):
     COMMAND = "command"
     COMMAND_GROUP = "command_group"
     COMMAND_FLAGS = "command_flags"
+    COMMAND_EXECUTION_ID = "command_execution_id"
+    COMMAND_RESULT_STATUS = "command_result_status"
     COMMAND_OUTPUT_TYPE = "command_output_type"
+    COMMAND_EXECUTION_TIME = "command_execution_time"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
     # Information
     EVENT = "event"
     ERROR_MSG = "error_msg"
     ERROR_TYPE = "error_type"
+    IS_CLI_EXCEPTION = "is_cli_exception"
     # Project context
     PROJECT_DEFINITION_VERSION = "project_definition_version"
 
 
 class TelemetryEvent(Enum):
     CMD_EXECUTION = "executing_command"
+    CMD_EXECUTION_ERROR = "error_executing_command"
+    CMD_EXECUTION_RESULT = "result_executing_command"
 
 
 TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
@@ -141,8 +148,40 @@ _telemetry = CLITelemetryClient(ctx=cli_context)
 
 
 @ignore_exceptions()
-def log_command_usage():
-    _telemetry.send({TelemetryField.KEY_TYPE: TelemetryEvent.CMD_EXECUTION.value})
+def log_command_usage(execution: ExecutionMetadata):
+    _telemetry.send(
+        {
+            TelemetryField.KEY_TYPE: TelemetryEvent.CMD_EXECUTION.value,
+            CLITelemetryField.COMMAND_EXECUTION_ID: execution.execution_id,
+        }
+    )
+
+
+@ignore_exceptions()
+def log_command_result(execution: ExecutionMetadata):
+    _telemetry.send(
+        {
+            TelemetryField.KEY_TYPE: TelemetryEvent.CMD_EXECUTION_RESULT.value,
+            CLITelemetryField.COMMAND_EXECUTION_ID: execution.execution_id,
+            CLITelemetryField.COMMAND_RESULT_STATUS: execution.status.value,
+            CLITelemetryField.COMMAND_EXECUTION_TIME: execution.duration(),
+        }
+    )
+
+
+@ignore_exceptions()
+def log_command_execution_error(exception: Exception, execution: ExecutionMetadata):
+    exception_type: str = type(exception).__name__
+    is_cli_exception: bool = issubclass(exception.__class__, click.ClickException)
+    _telemetry.send(
+        {
+            TelemetryField.KEY_TYPE: TelemetryEvent.CMD_EXECUTION_ERROR.value,
+            CLITelemetryField.COMMAND_EXECUTION_ID: execution.execution_id,
+            CLITelemetryField.ERROR_TYPE: exception_type,
+            CLITelemetryField.IS_CLI_EXCEPTION: is_cli_exception,
+            CLITelemetryField.COMMAND_EXECUTION_TIME: execution.duration(),
+        }
+    )
 
 
 @ignore_exceptions()
