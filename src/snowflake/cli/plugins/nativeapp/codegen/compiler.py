@@ -24,12 +24,21 @@ from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     ArtifactProcessor,
     UnsupportedArtifactProcessorError,
 )
+from snowflake.cli.plugins.nativeapp.codegen.setup.native_app_setup_processor import (
+    NativeAppSetupProcessor,
+)
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
 )
 from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 
 SNOWPARK_PROCESSOR = "snowpark"
+NA_SETUP_PROCESSOR = "native-app-setup"
+
+_REGISTERED_PROCESSORS_BY_NAME = {
+    SNOWPARK_PROCESSOR: SnowparkAnnotationProcessor,
+    NA_SETUP_PROCESSOR: NativeAppSetupProcessor,
+}
 
 
 class NativeAppCompiler:
@@ -86,15 +95,20 @@ class NativeAppCompiler:
         Fetch processor object if one already exists in the cached_processors dictionary.
         Else, initialize a new object to return, and add it to the cached_processors dictionary.
         """
-        if processor_mapping.name.lower() == SNOWPARK_PROCESSOR:
-            curr_processor = self.cached_processors.get(SNOWPARK_PROCESSOR, None)
-            if curr_processor is not None:
-                return curr_processor
-            else:
-                curr_processor = SnowparkAnnotationProcessor(
-                    na_project=self._na_project,
-                )
-                self.cached_processors[SNOWPARK_PROCESSOR] = curr_processor
-                return curr_processor
-        else:
+        processor_name = processor_mapping.name.lower()
+        current_processor = self.cached_processors.get(processor_name)
+
+        if current_processor is not None:
+            return current_processor
+
+        processor_factory = _REGISTERED_PROCESSORS_BY_NAME.get(processor_name)
+        if processor_factory is None:
+            # No registered processor with the specified name
             return None
+
+        current_processor = processor_factory(
+            na_project=self._na_project,
+        )
+        self.cached_processors[processor_name] = current_processor
+
+        return current_processor
