@@ -103,6 +103,8 @@ class _DefinitionV20(ProjectDefinition):
 def get_project_definition(**data):
     if not isinstance(data, dict):
         return
+    if FeatureFlag.ENABLE_PDF_V2.is_enabled():
+        _version_map["2"] = _DefinitionV20
     version = data.get("definition_version")
     version_model = _version_map.get(str(version))
     if not version or not version_model:
@@ -115,6 +117,4 @@ def get_project_definition(**data):
 
 
 _version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11}
-if FeatureFlag.ENABLE_PDF_V2.is_enabled():
-    _version_map["2"] = _DefinitionV20
 _entity_types_map = {"application package": ApplicationPackageEntity}
