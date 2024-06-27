@@ -39,7 +39,7 @@ class NativeApp(UpdatableModel):
         default="output/bundle/",
     )
     deploy_root: Optional[str] = Field(
-        title="Folder at the root of your project where the build step copies the artifacts.",
+        title="Folder at the root of your project where the bundle step copies the artifacts.",
         default="output/deploy/",
     )
     generated_root: Optional[str] = Field(

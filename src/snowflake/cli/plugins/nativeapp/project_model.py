@@ -70,15 +70,15 @@ class NativeAppProjectModel:
 
     @cached_property
     def bundle_root(self) -> Path:
-        return Path(self.project_root, self.definition.bundle_root)
+        return self.project_root / self.definition.bundle_root
 
     @cached_property
     def deploy_root(self) -> Path:
-        return Path(self.project_root, self.definition.deploy_root)
+        return self.project_root / self.definition.deploy_root
 
     @cached_property
     def generated_root(self) -> Path:
-        return Path(self.deploy_root, self.definition.generated_root)
+        return self.deploy_root / self.definition.generated_root
 
     @cached_property
     def package_scripts(self) -> List[str]:
