@@ -24,10 +24,9 @@ from snowflake.cli.api.secure_utils import file_permissions_are_strict
 
 
 def create_temp_file(suffix: str, dir_name: str, contents: List[str]) -> str:
-    with tempfile.TemporaryDirectory(None, None, dir_name, False) as tmp_dir:
-        tmp_file = Path(tmp_dir) / f"file.{suffix}"
-        _write_to_file(str(tmp_file), contents)
-    return str(tmp_file)
+    with tempfile.NamedTemporaryFile(suffix=suffix, dir=dir_name, delete=False) as tmp:
+        _write_to_file(tmp.name, contents)
+    return tmp.name
 
 
 def create_named_file(file_name: str, dir_name: str, contents: List[str]):
