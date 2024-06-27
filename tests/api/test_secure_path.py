@@ -26,6 +26,10 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.app import loggers
 
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
+from tests_common import IS_WINDOWS
+
+if IS_WINDOWS:
+    pytest.skip("Does not work on Windows", allow_module_level=True)
 
 
 @pytest.fixture()

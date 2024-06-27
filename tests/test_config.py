@@ -28,6 +28,10 @@ from snowflake.cli.api.config import (
 from snowflake.cli.api.exceptions import MissingConfiguration
 
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
+from tests_common import IS_WINDOWS
+
+if IS_WINDOWS:
+    pytest.skip("Does not work on Windows", allow_module_level=True)
 
 
 def test_empty_config_file_is_created_if_not_present():

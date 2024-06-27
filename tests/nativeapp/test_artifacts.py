@@ -36,6 +36,10 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
 
 from tests.nativeapp.utils import assert_dir_snapshot, touch
 from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
+from tests_common import IS_WINDOWS
+
+if IS_WINDOWS:
+    pytest.skip("Does not work on Windows", allow_module_level=True)
 
 
 def trimmed_contents(path: Path) -> Optional[str]:
