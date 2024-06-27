@@ -43,9 +43,9 @@ class NativeAppCompiler:
 
     def __init__(
         self,
-        project: NativeAppProjectModel,
+        na_project: NativeAppProjectModel,
     ):
-        self._project = project
+        self._na_project = na_project
         # dictionary of all processors created and shared between different artifact objects.
         self.cached_processors: Dict[str, ArtifactProcessor] = {}
 
@@ -55,7 +55,7 @@ class NativeAppCompiler:
         May have side-effects on the filesystem by either directly editing source files or the deploy root.
         """
         should_proceed = False
-        for artifact in self._project.artifacts:
+        for artifact in self._na_project.artifacts:
             if artifact.processors:
                 should_proceed = True
                 break
@@ -63,7 +63,7 @@ class NativeAppCompiler:
             return
 
         with cc.phase("Invoking artifact processors"):
-            for artifact in self._project.artifacts:
+            for artifact in self._na_project.artifacts:
                 for processor in artifact.processors:
                     artifact_processor = self._try_create_processor(
                         processor_mapping=processor,
@@ -92,7 +92,7 @@ class NativeAppCompiler:
                 return curr_processor
             else:
                 curr_processor = SnowparkAnnotationProcessor(
-                    project=self._project,
+                    na_project=self._na_project,
                 )
                 self.cached_processors[SNOWPARK_PROCESSOR] = curr_processor
                 return curr_processor

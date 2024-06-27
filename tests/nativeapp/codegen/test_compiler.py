@@ -57,7 +57,7 @@ def test_proj_def():
 @pytest.fixture()
 def test_compiler(test_proj_def):
     return NativeAppCompiler(
-        project=create_native_app_project_model(test_proj_def.native_app)
+        na_project=create_native_app_project_model(test_proj_def.native_app)
     )
 
 
@@ -90,7 +90,7 @@ def test_find_and_execute_processors_exception(test_proj_def, test_compiler):
     app_pkg = create_native_app_project_model(
         project_definition=test_proj_def.native_app
     )
-    test_compiler = NativeAppCompiler(project=app_pkg)
+    test_compiler = NativeAppCompiler(na_project=app_pkg)
 
     with pytest.raises(UnsupportedArtifactProcessorError):
         test_compiler.compile_artifacts()

@@ -163,94 +163,94 @@ class NativeAppManager(SqlExecutionMixin):
 
     def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__()
-        self._project = NativeAppProjectModel(
+        self._na_project = NativeAppProjectModel(
             project_definition=project_definition,
             project_root=project_root,
         )
 
     @property
-    def project(self) -> NativeAppProjectModel:
-        return self._project
+    def na_project(self) -> NativeAppProjectModel:
+        return self._na_project
 
     @property
     def project_root(self) -> Path:
-        return self.project.project_root
+        return self.na_project.project_root
 
     @property
     def definition(self) -> NativeApp:
-        return self.project.definition
+        return self.na_project.definition
 
     @property
     def artifacts(self) -> List[PathMapping]:
-        return self.project.artifacts
+        return self.na_project.artifacts
 
     @property
     def bundle_root(self) -> Path:
-        return self.project.bundle_root
+        return self.na_project.bundle_root
 
     @property
     def deploy_root(self) -> Path:
-        return self.project.deploy_root
+        return self.na_project.deploy_root
 
     @property
     def generated_root(self) -> Path:
-        return self.project.generated_root
+        return self.na_project.generated_root
 
     @property
     def package_scripts(self) -> List[str]:
-        return self.project.package_scripts
+        return self.na_project.package_scripts
 
     @property
     def stage_fqn(self) -> str:
-        return self.project.stage_fqn
+        return self.na_project.stage_fqn
 
     @property
     def scratch_stage_fqn(self) -> str:
-        return self.project.scratch_stage_fqn
+        return self.na_project.scratch_stage_fqn
 
     @property
     def stage_schema(self) -> Optional[str]:
-        return self.project.stage_schema
+        return self.na_project.stage_schema
 
     @property
     def package_warehouse(self) -> Optional[str]:
-        return self.project.package_warehouse
+        return self.na_project.package_warehouse
 
     @property
     def application_warehouse(self) -> Optional[str]:
-        return self.project.application_warehouse
+        return self.na_project.application_warehouse
 
     @property
     def project_identifier(self) -> str:
-        return self.project.project_identifier
+        return self.na_project.project_identifier
 
     @property
     def package_name(self) -> str:
-        return self.project.package_name
+        return self.na_project.package_name
 
     @property
     def package_role(self) -> str:
-        return self.project.package_role
+        return self.na_project.package_role
 
     @property
     def package_distribution(self) -> str:
-        return self.project.package_distribution
+        return self.na_project.package_distribution
 
     @property
     def app_name(self) -> str:
-        return self.project.app_name
+        return self.na_project.app_name
 
     @property
     def app_role(self) -> str:
-        return self.project.app_role
+        return self.na_project.app_role
 
     @property
     def app_post_deploy_hooks(self) -> Optional[List[ApplicationPostDeployHook]]:
-        return self.project.app_post_deploy_hooks
+        return self.na_project.app_post_deploy_hooks
 
     @property
     def debug_mode(self) -> bool:
-        return self.project.debug_mode
+        return self.na_project.debug_mode
 
     @cached_property
     def get_app_pkg_distribution_in_snowflake(self) -> str:
@@ -311,7 +311,7 @@ class NativeAppManager(SqlExecutionMixin):
         """
         bundle_map = build_bundle(self.project_root, self.deploy_root, self.artifacts)
         compiler = NativeAppCompiler(
-            project=self.project,
+            na_project=self.na_project,
         )
         compiler.compile_artifacts()
         return bundle_map

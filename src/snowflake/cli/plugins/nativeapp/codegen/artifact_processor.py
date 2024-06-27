@@ -37,10 +37,9 @@ class UnsupportedArtifactProcessorError(ClickException):
 class ArtifactProcessor(ABC):
     def __init__(
         self,
-        project: NativeAppProjectModel,
-        **kwargs,
+        na_project: NativeAppProjectModel,
     ) -> None:
-        self._project = project
+        self._na_project = na_project
 
     @abstractmethod
     def process(
