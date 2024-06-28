@@ -32,6 +32,7 @@ class ProjectDefinitionProperty:
     item_index: int
     required: bool
     name: str
+    description: str
     add_types: bool
     types: str
 
@@ -97,7 +98,8 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
 
             new_property = ProjectDefinitionProperty(
                 path=property_name,
-                title=property_model["title"],
+                title=property_model.get("title", ""),
+                description=property_model.get("description", ""),
                 indents=0,
                 item_index=0,
                 required=is_required,
@@ -150,7 +152,8 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
             )
             new_property = ProjectDefinitionProperty(
                 path=new_current_path,
-                title=property_model["title"],
+                title=property_model.get("title", ""),
+                description=property_model.get("description", ""),
                 indents=depth,
                 item_index=item_index,
                 required=is_required,

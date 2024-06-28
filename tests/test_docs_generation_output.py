@@ -40,6 +40,7 @@ def test_definition_file_format_generated_from_json(mock_generate, runner, temp_
     property2 = {
         "path": "propertyA.propertyB",
         "title": "Title of property B",
+        "description": "Description of property B",
         "indents": 1,
         "item_index": 1,
         "required": True,
@@ -103,6 +104,8 @@ The following table describes the project definition properties.
       *Required*, *string*
 
     - Title of property B
+    
+      Description of property B
 
 """
     )

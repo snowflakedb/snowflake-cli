@@ -27,6 +27,9 @@ The following table describes the project definition properties.
       *{{"Required" if property["required"] else "Optional"}}*{{ (", *"+property["types"]+"*") if property["types"]}}
 
     - {{property["title"]}}
+{% if property["description"] %}
+      {{ property["description"] }}
+{% else %}{% endif -%}
 {%+ endfor %}
 {% else %}
 
