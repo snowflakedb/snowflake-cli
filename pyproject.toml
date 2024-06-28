@@ -99,6 +99,7 @@ features = ["development"]
 
 [tool.hatch.envs.e2e.scripts]
 test = ["pytest -m e2e --durations=0"]
+cleanup = ["python scripts/cleanup.py"]
 
 [tool.hatch.envs.performance]
 template = "performance"
