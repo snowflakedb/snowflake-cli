@@ -68,7 +68,6 @@ if __name__ == "__main__":
             "docs_testing",
             "external_access_db",
             "snowcli_db",
-            "notebooks",
         ],
         ("compute pool", "compute pools"): [],
         ("service", "services"): [],

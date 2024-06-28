@@ -18,10 +18,7 @@ import pytest
 from snowflake.connector import ProgrammingError
 
 
-@pytest.mark.integration
-def test_execute_notebook(runner, test_database, snowflake_session):
-    # TODO: replace once there's option to create notebook from outside snowsight
-    notebook_name = "notebooks.public.test_notebook"
+def _execute_notebook(runner, notebook_name):
     result = runner.invoke_with_connection_json(
         ["notebook", "execute", notebook_name, "--format", "json"]
     )
@@ -29,10 +26,7 @@ def test_execute_notebook(runner, test_database, snowflake_session):
     assert result.json == {"message": f"Notebook {notebook_name} executed."}
 
 
-@pytest.mark.integration
-def test_execute_notebook_failure(runner, test_database, snowflake_session):
-    # TODO: replace once there's option to create notebook from outside snowsight
-    notebook_name = "notebooks.public.test_notebook_error"
+def _execute_notebook_failure(runner, notebook_name):
     with pytest.raises(ProgrammingError) as err:
         result = runner.invoke_with_connection_json(
             ["notebook", "execute", notebook_name, "--format", "json"]
@@ -43,18 +37,27 @@ def test_execute_notebook_failure(runner, test_database, snowflake_session):
 
 @pytest.mark.integration
 def test_create_notebook(runner, test_database, snowflake_session):
-    notebook_name = "my_notebook"
     stage_name = "notebook_stage"
-    local_notebook_file = (
-        Path(__file__).parent.parent / "test_data/notebook/my_notebook.ipynb"
-    )
-    stage_path = f"@{stage_name}/{local_notebook_file.name}"
+    snowflake_session.execute_string(f"create stage {stage_name};")
 
+    notebooks = Path(__file__).parent.parent / "test_data/notebook"
+    notebooks = [
+        notebooks / "my_notebook.ipynb",
+        notebooks / "my_notebook_error.ipynb",
+    ]
+    for local_notebook_file in notebooks:
+        _create_notebook(local_notebook_file, runner, snowflake_session, stage_name)
+
+    _execute_notebook(runner, notebooks[0].stem)
+    _execute_notebook_failure(runner, notebooks[1].stem)
+
+
+def _create_notebook(local_notebook_file, runner, snowflake_session, stage_name):
+    notebook_name = local_notebook_file.stem
+    stage_path = f"@{stage_name}/{local_notebook_file.name}"
     snowflake_session.execute_string(
-        f"create stage {stage_name};"
         f"put file://{local_notebook_file.absolute()} @{stage_name} AUTO_COMPRESS=FALSE;"
     )
-
     command = (
         "notebook",
         "create",
@@ -65,9 +68,7 @@ def test_create_notebook(runner, test_database, snowflake_session):
         "json",
     )
     result = runner.invoke_with_connection_json(command)
-
     assert result.exit_code == 0
-
     message: str = result.json.get("message", "")
     assert message.startswith("https://app.snowflake.com/")
-    assert message.endswith("MY_NOTEBOOK")
+    assert message.endswith(notebook_name.upper())
