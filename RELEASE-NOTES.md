@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* Added `snow init` command which initialises a project from a remote or local project template.
 * Added support for `title` field in Streamlit definition in `snowflake.yml` project file.
 * Added `--auto-compress` flag to `snow stage copy` command enabling use of gzip to compress files during upload.
 * Added new `native_app.application.post_deploy` section to `snowflake.yml` schema to execute actions after the application has been deployed via `snow app run`.
