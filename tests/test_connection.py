@@ -352,6 +352,7 @@ def test_connection_test(mock_connect, mock_om, runner):
         password=None,
         authenticator=None,
         private_key_path=None,
+        token_file_path=None,
         session_token=None,
         master_token=None,
         database=None,
@@ -532,6 +533,33 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
         schema="PUBLIC",
         warehouse="xsmall",
         server_session_keep_alive=True,
+        application_name="snowcli",
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temp_dir):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    token_file = Path(temp_dir) / "token.file"
+    token_file.touch()
+
+    result = runner.invoke(
+        [
+            "object",
+            "list",
+            "warehouse",
+            "--temporary-connection",
+            "--token-file-path",
+            token_file,
+        ]
+    )
+
+    assert result.exit_code == 0
+    mock_connector.assert_called_once_with(
+        application="SNOWCLI.OBJECT.LIST",
+        token_file_path=str(token_file),
         application_name="snowcli",
     )
 
@@ -867,6 +895,7 @@ def test_connection_test_diag_report(mock_connect, mock_om, runner):
         password=None,
         authenticator=None,
         private_key_path=None,
+        token_file_path=None,
         session_token=None,
         master_token=None,
         database=None,
