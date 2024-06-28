@@ -48,7 +48,7 @@ class Template(BaseModel):
     minimum_cli_version: Optional[str] = Field(
         None, title="Minimum version of Snowflake CLI supporting this template"
     )
-    files: List[str] = Field(title="List of files to be rendered", default=[])
+    rendered_files: List[str] = Field(title="List of files to be rendered", default=[])
     variables: List[TemplateVariable] = Field(
         title="List of variables to be rendered", default=[]
     )

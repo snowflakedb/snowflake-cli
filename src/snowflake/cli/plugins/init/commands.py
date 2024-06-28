@@ -37,8 +37,7 @@ from snowflake.cli.api.utils.rendering import get_template_cli_jinja_env
 # simple Typer with defaults because it won't become a command group as it contains only one command
 app = SnowTyperFactory()
 
-# TODO: create repo and override this parameter
-DEFAULT_SOURCE = "undefined"
+DEFAULT_SOURCE = "https://github.com/snowflakedb/snowflake-cli-templates"
 
 PathArgument = typer.Argument(
     ...,
@@ -61,8 +60,10 @@ TEMPLATE_METADATA_FILE_NAME = "template.yml"
 
 
 def _fetch_local_template(
-    template_source: SecurePath, path: Optional[str], dest: SecurePath
+    template_source: SecurePath, path: Optional[str], destination: SecurePath
 ) -> SecurePath:
+    """Copies local template to [dest] and returns path to the template root.
+    Ends with an error of the template does not exist."""
 
     template_source.assert_exists()
     template_origin = template_source
@@ -73,22 +74,27 @@ def _fetch_local_template(
             f"Template '{path}' cannot be found under {template_source}"
         )
 
-    template_origin.copy(dest.path)
-    return dest / template_origin.name
+    template_origin.copy(destination.path)
+    return destination / template_origin.name
 
 
 def _fetch_remote_template(
-    url: str, path: Optional[str], dest: SecurePath
+    url: str, path: Optional[str], destination: SecurePath
 ) -> SecurePath:
+    """Downloads remote repository template to [dest],
+    and returns path to the template root.
+    Ends with an error of the template does not exist."""
     from git import rmtree as git_rmtree
+
+    # TODO: during nativeapp refactor get rid of this dependency
     from snowflake.cli.plugins.nativeapp.utils import shallow_git_clone
 
-    shallow_git_clone(url, to_path=dest.path)
+    shallow_git_clone(url, to_path=destination.path)
     if path:
-        template_root = dest / path
+        template_root = destination / path
     else:
         # remove .git directory not to copy it to the template
-        template_root = dest
+        template_root = destination
         git_rmtree((template_root / ".git").path)
     if not template_root.exists():
         raise ClickException(f"Template '{path}' cannot be found under {url}")
@@ -135,15 +141,15 @@ def _determine_variable_values(
     """
     result = {}
 
-    for v in variables_metadata:
-        if v.name not in variables_from_flags:
-            value = _prompt_for_value(v, no_interactive)
+    for variable in variables_metadata:
+        if variable.name not in variables_from_flags:
+            value = _prompt_for_value(variable, no_interactive)
         else:
-            value = variables_from_flags[v.name]
-            if v.type:
-                value = v.type.python_type(value)
+            value = variables_from_flags[variable.name]
+            if variable.type:
+                value = variable.type.python_type(value)
 
-        result[v.name] = value
+        result[variable.name] = value
 
     return result
 
@@ -171,12 +177,12 @@ def _validate_cli_version(required_version: str) -> None:
         )
 
 
-def _is_source_remote(source: str) -> bool:
-    file_exists = SecurePath(source).exists()
+def _is_remote_source(source: str) -> bool:
+    exists_as_file = SecurePath(source).exists()
     whitelisted_prefix = any(
         source.startswith(prefix) for prefix in ["git@", "http://", "https://"]
     )
-    return (not file_exists) and whitelisted_prefix
+    return (not exists_as_file) and whitelisted_prefix
 
 
 @app.command(no_args_is_help=True)
@@ -199,16 +205,17 @@ def init(
         for v in parse_key_value_variables(variables if variables else [])
     }
 
-    # copy/download template into tmpdir, so it is going to be removed in case command ens with an error
+    # copy/download template into tmpdir, so it is going to be removed in case command ends with an error
     with SecurePath.temporary_directory() as tmpdir:
-        if _is_source_remote(template_source):  # type: ignore
+        if _is_remote_source(template_source):  # type: ignore
             template_root = _fetch_remote_template(
-                url=template_source, path=template, dest=tmpdir  # type: ignore
+                url=template_source, path=template, destination=tmpdir  # type: ignore
             )
-
         else:
             template_root = _fetch_local_template(
-                template_source=SecurePath(template_source), path=template, dest=tmpdir
+                template_source=SecurePath(template_source),
+                path=template,
+                destination=tmpdir,
             )
 
         template_metadata = _read_template_metadata(template_root)
@@ -222,10 +229,10 @@ def init(
         )
         _render_template(
             template_root=template_root,
-            files=template_metadata.files,
+            files=template_metadata.rendered_files,
             data=variable_values,
         )
         _remove_template_metadata_file(template_root)
         template_root.copy(path)
 
-    return MessageResult(f"Project have been created at {path}")
+    return MessageResult(f"Initialized the new project in {path}")

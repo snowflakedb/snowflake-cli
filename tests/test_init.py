@@ -327,7 +327,7 @@ def test_init_no_interactive(runner, temp_dir, test_projects_path):
     }
 
 
-# TODO
+# TODO - add integration tests after repository will be available
 @pytest.mark.integration
 def test_init_from_url():
     pass
