@@ -15,61 +15,65 @@ from __future__ import annotations
 
 import os
 import typing as t
+from datetime import datetime, timedelta
 
-from snowflake.core import Root
-from snowflake.core.compute_pool import ComputePoolResource
-from snowflake.core.database import DatabaseResource
-from snowflake.core.exceptions import APIError, UnauthorizedError
-from snowflake.core.service import ServiceResource
 from snowflake.snowpark.session import Session
 
 
-def resource_delete(resource_type, name: str, collection):
-    msg = f"Deleting {resource_type.__name__} {name}"
+def is_stale(item):
+    return datetime.utcnow() - item.created_on.replace(tzinfo=None) >= timedelta(
+        hours=2
+    )
+
+
+def resource_delete(resource_type: str, item, role: str):
+    msg = f"Deleting {resource_type} {item.name}"
     try:
-        resource_type(name=name, collection=collection).delete()
-        print("SUCCESS", msg)
-    except UnauthorizedError:
-        print(f"Insufficient privileges to operate on {name}")
-    except APIError as err:
+        if is_stale(item):
+            session.sql(
+                f"GRANT OWNERSHIP ON {resource_type} {item.name} TO ROLE {role}"
+            )
+            session.sql(f"drop {resource_type} {item.name}").collect()
+            print("SUCCESS", msg, f"created at {item.created_on}")
+    except Exception as err:
         print("ERROR", msg)
-        print(err.body)
+        print(str(err)[:200])
+
+
+def remove_resources(single: str, plural: str, known_instances: t.List[str], role: str):
+    items = session.sql(f"show {plural}").collect()
+
+    for item in items:
+        if item.name not in known_instances:
+            resource_delete(resource_type=single, item=item, role=role)
 
 
 if __name__ == "__main__":
+    role = "INTEGRATION_TESTS"
     session = Session.builder.configs(
         {
             "account": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"),
             "user": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"),
             "password": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD"),
-            "role": "INTEGRATION_TESTS",
+            "database": "SNOWCLI_DB",
+            "role": role,
         }
     ).create()
 
     session.use_role("INTEGRATION_TESTS")
 
-    root = Root(session)
-    known_objects: t.Dict[t.Any, t.List[str]] = {
-        (root.compute_pools, ComputePoolResource): [],
-        (root.databases, DatabaseResource): [
+    known_objects: t.Dict[t.Tuple[str, str], t.List[str]] = {
+        ("database", "databases"): [
             "cleanup_db",
             "docs_testing",
             "external_access_db",
             "snowcli_db",
             "notebooks",
         ],
-        (root.databases["SNOWCLI_DB"].schemas["public"].services, ServiceResource): [],
+        ("compute pool", "compute pools"): [],
+        ("service", "services"): [],
+        ("application", "applications"): [],
     }
-    for (collection, resource_type), known in known_objects.items():
-        for item in collection.iter():
-            if item.name not in known:
-                resource_delete(resource_type, item.name, collection)
 
-    # Drop apps
-    apps = session.sql("show applications").collect()
-    for app in apps:
-        try:
-            session.sql("drop application ?", params=app.name)
-            print(f"SUCCESS deleting {app.name}")
-        except:
-            print(f"ERROR deleting {app.name}")
+    for (single, plural), known in known_objects.items():
+        remove_resources(single, plural, known, role=role)
