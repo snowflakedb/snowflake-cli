@@ -11,6 +11,7 @@ Syntax
 {%- endfor %}
 {%- for param in options if not param.hidden %}
     {{ (param.opts | get_main_option) }}{% if not param.is_flag %} <{{ param.name }}>{% endif %}
+    {%- if param.type.name == "boolean" and param.secondary_opts|length > 0  %} {{ "/ " }}{{ param.secondary_opts[0] }}{% endif %}
 {%- endfor %}
 
 Arguments
@@ -38,7 +39,11 @@ Options
 
 {%- if options %}
 {% for param in options if not param.hidden %}
-:samp:`{% for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %}
+:samp:`{% if param.type.name == "boolean" %}
+        {%- for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %}{% if param.secondary_opts|length > 0  %} {{ "/ " }}{{ param.secondary_opts[0] }}{% endif %}
+    {%- else %}
+        {%- for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %}
+    {%- endif %}
     {%- if not param.is_flag %}
         {%- if param.type.name != "choice" %}{{ ' {' }}{% else %} {% endif %}{{ param.make_metavar() }}{% if param.type.name != "choice" %}{{ '}' }}
         {%- endif %}
