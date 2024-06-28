@@ -26,7 +26,7 @@ def is_stale(item):
     )
 
 
-def resource_delete(resource_type: str, item, role: str):
+def remove_resource(resource_type: str, item, role: str):
     msg = f"Deleting {resource_type} {item.name}"
     try:
         if is_stale(item):
@@ -45,7 +45,7 @@ def remove_resources(single: str, plural: str, known_instances: t.List[str], rol
 
     for item in items:
         if item.name not in known_instances:
-            resource_delete(resource_type=single, item=item, role=role)
+            remove_resource(resource_type=single, item=item, role=role)
 
 
 if __name__ == "__main__":
