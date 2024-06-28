@@ -17,7 +17,12 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Set
+from typing import List, Optional, Set
+
+from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
+from snowflake.cli.plugins.nativeapp.project_model import (
+    NativeAppProjectModel,
+)
 
 NATIVEAPP_MODULE = "snowflake.cli.plugins.nativeapp.manager"
 TEARDOWN_MODULE = "snowflake.cli.plugins.nativeapp.teardown_processor"
@@ -153,3 +158,14 @@ def assert_dir_snapshot(root: Path, snapshot) -> None:
             snapshot_contents = f"===== Contents of: {path} =====\n"
             snapshot_contents += path.read_text(encoding="utf-8")
             assert snapshot_contents == snapshot
+
+
+def create_native_app_project_model(
+    project_definition: NativeApp, project_root: Optional[Path] = None
+) -> NativeAppProjectModel:
+    if project_root is None:
+        project_root = Path().resolve()
+    return NativeAppProjectModel(
+        project_definition=project_definition,
+        project_root=project_root,
+    )

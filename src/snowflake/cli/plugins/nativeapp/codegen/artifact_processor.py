@@ -15,15 +15,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Optional
 
 from click import ClickException
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
     ProcessorMapping,
 )
+from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 
 
 class UnsupportedArtifactProcessorError(ClickException):
@@ -36,18 +35,11 @@ class UnsupportedArtifactProcessorError(ClickException):
 
 
 class ArtifactProcessor(ABC):
-    @abstractmethod
     def __init__(
         self,
-        project_definition: NativeApp,
-        project_root: Path,
-        deploy_root: Path,
-        generated_root: Path,
-        **kwargs,
+        na_project: NativeAppProjectModel,
     ) -> None:
-        assert project_root.is_absolute()
-        assert deploy_root.is_absolute()
-        assert generated_root.is_absolute()
+        self._na_project = na_project
 
     @abstractmethod
     def process(

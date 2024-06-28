@@ -23,7 +23,6 @@ from typing import Any, Dict, List, Optional, Set
 from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.errors import SchemaValidationError
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
     ProcessorMapping,
@@ -52,6 +51,7 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
     ExtensionFunctionTypeEnum,
     NativeAppExtensionFunction,
 )
+from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 from snowflake.cli.plugins.stage.diff import to_stage_path
 
 DEFAULT_TIMEOUT = 30
@@ -163,25 +163,18 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
 
     def __init__(
         self,
-        project_definition: NativeApp,
-        project_root: Path,
-        deploy_root: Path,
-        generated_root: Path,
+        na_project: NativeAppProjectModel,
     ):
-        super().__init__(
-            project_definition=project_definition,
-            project_root=project_root,
-            deploy_root=deploy_root,
-            generated_root=generated_root,
-        )
-        self.project_definition = project_definition
-        self.project_root = project_root
-        self.deploy_root = deploy_root
-        self.generated_root = generated_root
+        super().__init__(na_project=na_project)
 
-        if self.generated_root.exists():
+        assert self._na_project.bundle_root.is_absolute()
+        assert self._na_project.deploy_root.is_absolute()
+        assert self._na_project.generated_root.is_absolute()
+        assert self._na_project.project_root.is_absolute()
+
+        if self._na_project.generated_root.exists():
             raise ClickException(
-                f"Path {self.generated_root} already exists. Please choose a different name for your generated directory in the project definition file."
+                f"Path {self._na_project.generated_root} already exists. Please choose a different name for your generated directory in the project definition file."
             )
 
     def process(
@@ -196,7 +189,8 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         """
 
         bundle_map = BundleMap(
-            project_root=self.project_root, deploy_root=self.deploy_root
+            project_root=self._na_project.project_root,
+            deploy_root=self._na_project.deploy_root,
         )
         bundle_map.add(artifact_to_process)
 
@@ -242,7 +236,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             edit_setup_script_with_exec_imm_sql(
                 collected_sql_files=collected_sql_files,
                 deploy_root=bundle_map.deploy_root(),
-                generated_root=self.generated_root,
+                generated_root=self._na_project.generated_root,
             )
 
     def _normalize_imports(
@@ -323,7 +317,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         self, bundle_map: BundleMap, processor_mapping: Optional[ProcessorMapping]
     ) -> Dict[Path, List[NativeAppExtensionFunction]]:
         kwargs = (
-            _determine_virtual_env(self.project_root, processor_mapping)
+            _determine_virtual_env(self._na_project.project_root, processor_mapping)
             if processor_mapping is not None
             else {}
         )
@@ -342,7 +336,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             )
             collected_extension_function_json = _execute_in_sandbox(
                 py_file=str(dest_file.resolve()),
-                deploy_root=self.deploy_root,
+                deploy_root=self._na_project.deploy_root,
                 kwargs=kwargs,
             )
 
@@ -373,8 +367,10 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         """
         Generates a SQL filename for the generated root from the python file, and creates its parent directories.
         """
-        relative_py_file = py_file.relative_to(self.deploy_root)
-        sql_file = Path(self.generated_root, relative_py_file.with_suffix(".sql"))
+        relative_py_file = py_file.relative_to(self._na_project.deploy_root)
+        sql_file = Path(
+            self._na_project.generated_root, relative_py_file.with_suffix(".sql")
+        )
         if sql_file.exists():
             cc.warning(
                 f"""\
