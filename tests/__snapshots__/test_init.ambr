@@ -19,14 +19,14 @@
   Error: '3..14' is not a valid float.
   optional_float [1.5]: 3.14
   An optional value with no type checking [5]: another custom value
-  Project have been created at project_templating
+  Initialized the new project in project_templating
   
   '''
 # ---
 # name: test_variables_flags
   '''
   Testing prompt of a string [default value for string]: 
-  Project have been created at project_templating
+  Initialized the new project in project_templating
   
   '''
 # ---

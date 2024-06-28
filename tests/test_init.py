@@ -124,7 +124,9 @@ def test_input_errors(
     # variable not mentioned in template.yml
     project_name = "project_templating"
     with project_definition_copy(project_name) as template_root:
-        (template_root / "template.yml").write_text("files:\n - variable_values.json")
+        (template_root / "template.yml").write_text(
+            "rendered_files:\n - variable_values.json"
+        )
         from jinja2 import UndefinedError
 
         with pytest.raises(UndefinedError, match="'required' is undefined"):
@@ -152,7 +154,7 @@ def test_init_project_with_no_variables(runner, temp_dir, project_definition_cop
             ]
         )
         assert result.exit_code == 0, result.output
-        assert f"Project have been created at {project_name}" in result.output
+        assert f"Initialized the new project in {project_name}" in result.output
         assert_project_contents(template_root, Path(project_name))
 
 
@@ -164,7 +166,7 @@ def test_init_default_values(runner, temp_dir, test_projects_path):
         input="\n".join(communication),
     )
     assert result.exit_code == 0, result.output
-    assert f"Project have been created at {project_name}" in result.output
+    assert f"Initialized the new project in {project_name}" in result.output
     assert_project_contents(test_projects_path / project_name, Path(project_name))
     assert _get_values_from_created_project(Path(temp_dir) / project_name) == {
         "optional_float": 1.5,
@@ -172,6 +174,31 @@ def test_init_default_values(runner, temp_dir, test_projects_path):
         "optional_str": "default value for string",
         "optional_unchecked": "5",
         "required": "required",
+    }
+
+
+def test_rename_project(runner, temp_dir, test_projects_path):
+    project_name = "project_templating"
+    new_path = Path(temp_dir) / "dir" / "subdir" / "a_new_project"
+    new_path.parent.mkdir(parents=True)
+    result = runner.invoke(
+        [
+            "init",
+            str(new_path),
+            "--template-source",
+            test_projects_path / project_name,
+            f"-D required=r",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert f"Initialized the new project in {new_path}" in result.output
+    assert_project_contents(test_projects_path / project_name, new_path)
+    assert _get_values_from_created_project(new_path) == {
+        "optional_float": 1.5,
+        "optional_int": 4,
+        "optional_str": "default value for string",
+        "optional_unchecked": "5",
+        "required": "r",
     }
 
 
@@ -189,7 +216,7 @@ def test_init_prompted_values(runner, temp_dir, test_projects_path):
         input="\n".join(communication),
     )
     assert result.exit_code == 0, result.output
-    assert f"Project have been created at {project_name}" in result.output
+    assert f"Initialized the new project in {project_name}" in result.output
     assert_project_contents(test_projects_path / project_name, Path(project_name))
     assert _get_values_from_created_project(Path(temp_dir) / project_name) == {
         "optional_float": 2.7,
@@ -221,7 +248,7 @@ def test_template_flag(runner, temp_dir, test_projects_path):
         input="\n".join(communication),
     )
     assert result.exit_code == 0, result.output
-    assert f"Project have been created at {project_name}" in result.output
+    assert f"Initialized the new project in {project_name}" in result.output
     assert_project_contents(test_projects_path / project_name, Path(project_name))
     assert _get_values_from_created_project(Path(temp_dir) / project_name) == {
         "optional_float": 2.7,
@@ -316,7 +343,7 @@ def test_init_no_interactive(runner, temp_dir, test_projects_path):
         ],
     )
     assert result.exit_code == 0, result.output
-    assert f"Project have been created at {project_name}" in result.output
+    assert f"Initialized the new project in {project_name}" in result.output
     assert_project_contents(test_projects_path / project_name, Path(project_name))
     assert _get_values_from_created_project(Path(temp_dir) / project_name) == {
         "required": "'a value of required variable'",

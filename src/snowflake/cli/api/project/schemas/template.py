@@ -58,7 +58,7 @@ class Template(BaseModel):
         self._validate_files_exist(template_root)
 
     def _validate_files_exist(self, template_root: SecurePath) -> None:
-        for file in self.files:
+        for file in self.rendered_files:
             full_path = template_root / file
             if not full_path.exists():
                 raise FileNotFoundError(f"Template does not have file {file}")
