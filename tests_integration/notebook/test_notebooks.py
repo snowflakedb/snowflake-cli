@@ -18,7 +18,7 @@ import pytest
 from snowflake.connector import ProgrammingError
 
 
-@pytest.mark.integration_experimental
+@pytest.mark.integration
 def test_execute_notebook(runner, test_database, snowflake_session):
     # TODO: replace once there's option to create notebook from outside snowsight
     notebook_name = "notebooks.public.test_notebook"
@@ -29,7 +29,7 @@ def test_execute_notebook(runner, test_database, snowflake_session):
     assert result.json == {"message": f"Notebook {notebook_name} executed."}
 
 
-@pytest.mark.integration_experimental
+@pytest.mark.integration
 def test_execute_notebook_failure(runner, test_database, snowflake_session):
     # TODO: replace once there's option to create notebook from outside snowsight
     notebook_name = "notebooks.public.test_notebook_error"
@@ -41,7 +41,7 @@ def test_execute_notebook_failure(runner, test_database, snowflake_session):
         assert "invalid identifier 'FOO'" in err
 
 
-@pytest.mark.integration_experimental
+@pytest.mark.integration
 def test_create_notebook(runner, test_database, snowflake_session):
     notebook_name = "my_notebook"
     stage_name = "notebook_stage"

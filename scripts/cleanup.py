@@ -56,6 +56,7 @@ if __name__ == "__main__":
             "docs_testing",
             "external_access_db",
             "snowcli_db",
+            "notebooks",
         ],
         (root.databases["SNOWCLI_DB"].schemas["public"].services, ServiceResource): [],
     }
@@ -63,3 +64,12 @@ if __name__ == "__main__":
         for item in collection.iter():
             if item.name not in known:
                 resource_delete(resource_type, item.name, collection)
+
+    # Drop apps
+    apps = session.sql("show applications").collect()
+    for app in apps:
+        try:
+            session.sql("drop application ?", params=app.name)
+            print(f"SUCCESS deleting {app.name}")
+        except:
+            print(f"ERROR deleting {app.name}")
