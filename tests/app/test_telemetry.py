@@ -94,3 +94,4 @@ def test_failing_executing_command_sends_telemetry_data(
     ].to_dict()
     print(actual_call)
     assert actual_call["message"]["type"] == "error_executing_command"
+    assert 0
