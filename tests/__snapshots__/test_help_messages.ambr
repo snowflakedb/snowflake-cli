@@ -2224,6 +2224,93 @@
   
   '''
 # ---
+# name: test_help_messages[object.create]
+  '''
+                                                                                  
+   Usage: default object create [OPTIONS] OBJECT_TYPE [OBJECT_ATTRIBUTES]...      
+                                                                                  
+   Create an object of a given type. Check documentation for the list of          
+   supported objects and parameters.                                              
+                                                                                  
+  ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+  │ *    object_type            TEXT                    Type of object. For      │
+  │                                                     example table,           │
+  │                                                     procedure, streamlit.    │
+  │                                                     [required]               │
+  │      object_attributes      [OBJECT_ATTRIBUTES]...  Object attributes        │
+  │                                                     provided as a list of    │
+  │                                                     key=value pairs, for     │
+  │                                                     example name=my_db       │
+  │                                                     comment='created with    │
+  │                                                     Snowflake CLI'.          │
+  │                                                     Check documentation for  │
+  │                                                     the full list of         │
+  │                                                     available parameters for │
+  │                                                     every object.            │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Options ────────────────────────────────────────────────────────────────────╮
+  │ --json          TEXT  Object definition in JSON format, for example          │
+  │                       '{"name": "my_db", "comment": "created with Snowflake  │
+  │                       CLI"}'.                                                │
+  │                       Check documentation for the full list of available     │
+  │                       parameters for every object.                           │
+  │ --help  -h            Show this message and exit.                            │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Connection configuration ───────────────────────────────────────────────────╮
+  │ --connection,--environment  -c      TEXT  Name of the connection, as defined │
+  │                                           in your `config.toml`. Default:    │
+  │                                           `default`.                         │
+  │ --account,--accountname             TEXT  Name assigned to your Snowflake    │
+  │                                           account. Overrides the value       │
+  │                                           specified for the connection.      │
+  │ --user,--username                   TEXT  Username to connect to Snowflake.  │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --password                          TEXT  Snowflake password. Overrides the  │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --authenticator                     TEXT  Snowflake authenticator. Overrides │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --private-key-path                  TEXT  Snowflake private key path.        │
+  │                                           Overrides the value specified for  │
+  │                                           the connection.                    │
+  │ --database,--dbname                 TEXT  Database to use. Overrides the     │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --schema,--schemaname               TEXT  Database schema to use. Overrides  │
+  │                                           the value specified for the        │
+  │                                           connection.                        │
+  │ --role,--rolename                   TEXT  Role to use. Overrides the value   │
+  │                                           specified for the connection.      │
+  │ --warehouse                         TEXT  Warehouse to use. Overrides the    │
+  │                                           value specified for the            │
+  │                                           connection.                        │
+  │ --temporary-connection      -x            Uses connection defined with       │
+  │                                           command line parameters, instead   │
+  │                                           of one defined in config           │
+  │ --mfa-passcode                      TEXT  Token to use for multi-factor      │
+  │                                           authentication (MFA)               │
+  │ --enable-diag                             Run python connector diagnostic    │
+  │                                           test                               │
+  │ --diag-log-path                     TEXT  Diagnostic report path             │
+  │ --diag-allowlist-path               TEXT  Diagnostic report path to optional │
+  │                                           allowlist                          │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Global configuration ───────────────────────────────────────────────────────╮
+  │ --format           [TABLE|JSON]  Specifies the output format.                │
+  │                                  [default: TABLE]                            │
+  │ --verbose  -v                    Displays log entries for log levels `info`  │
+  │                                  and higher.                                 │
+  │ --debug                          Displays log entries for log levels `debug` │
+  │                                  and higher; debug logs contains additional  │
+  │                                  information.                                │
+  │ --silent                         Turns off intermediate output to console.   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  
+  '''
+# ---
 # name: test_help_messages[object.describe]
   '''
                                                                                   
@@ -2237,7 +2324,6 @@
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      TEXT  Type of object. For example table, procedure,    │
   │                             streamlit.                                       │
-  │                             [default: None]                                  │
   │                             [required]                                       │
   │ *    object_name      TEXT  Name of the object [default: None] [required]    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -2313,7 +2399,6 @@
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      TEXT  Type of object. For example table, procedure,    │
   │                             streamlit.                                       │
-  │                             [default: None]                                  │
   │                             [required]                                       │
   │ *    object_name      TEXT  Name of the object [default: None] [required]    │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -2389,7 +2474,6 @@
   ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
   │ *    object_type      TEXT  Type of object. For example table, procedure,    │
   │                             streamlit.                                       │
-  │                             [default: None]                                  │
   │                             [required]                                       │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
