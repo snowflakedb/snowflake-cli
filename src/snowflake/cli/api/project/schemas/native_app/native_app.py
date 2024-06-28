@@ -34,8 +34,12 @@ class NativeApp(UpdatableModel):
     artifacts: List[Union[PathMapping, str]] = Field(
         title="List of file source and destination pairs to add to the deploy root",
     )
+    bundle_root: Optional[str] = Field(
+        title="Folder at the root of your project where artifacts necessary to perform the bundle step are stored.",
+        default="output/bundle/",
+    )
     deploy_root: Optional[str] = Field(
-        title="Folder at the root of your project where the build step copies the artifacts.",
+        title="Folder at the root of your project where the bundle step copies the artifacts.",
         default="output/deploy/",
     )
     generated_root: Optional[str] = Field(
