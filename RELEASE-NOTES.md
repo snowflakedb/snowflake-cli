@@ -23,10 +23,17 @@
 * Add `snow object create` command
 * Added support for `title` field in Streamlit definition in `snowflake.yml` project file.
 * Added `--auto-compress` flag to `snow stage copy` command enabling use of gzip to compress files during upload.
+* Added new `native_app.application.post_deploy` section to `snowflake.yml` schema to execute actions after the application has been deployed via `snow app run`.
+  * Added the `sql_script` hook type to run SQL scripts with template support.
 
 ## Fixes and improvements
 * Passing a directory to `snow app deploy` will now deploy any contained file or subfolder specified in the application's artifact rules
 * Fixes markup escaping errors in `snow sql` that may occur when users use unintentionally markup-like escape tags.
+* Fixed case where `snow app teardown` could leave behind orphan applications if they were not created by the Snowflake CLI
+* Fixed case where `snow app run` could fail to run an existing application whose package was dropped by prompting to drop and recreate the application
+* Improve terminal output sanitization to avoid ASCII escape codes.
+* The `snow sql` command will show query text before executing it.
+* Improved stage diff output in `snow app` commands
 
 # v2.5.0
 ## Backward incompatibility

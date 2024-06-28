@@ -34,8 +34,8 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     MultipleResults,
     ObjectResult,
-    QueryResult,
 )
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 
 NO_ITEMS_FOUND: str = "No data"
 
@@ -50,6 +50,8 @@ class CustomJSONEncoder(JSONEncoder):
     """Custom JSON encoder handling serialization of non-standard types"""
 
     def default(self, o):
+        if isinstance(o, str):
+            return sanitize_for_terminal(o)
         if isinstance(o, (ObjectResult, MessageResult)):
             return o.result
         if isinstance(o, (CollectionResult, MultipleResults)):
@@ -73,8 +75,6 @@ def _get_table():
 
 
 def _print_multiple_table_results(obj: CollectionResult):
-    if isinstance(obj, QueryResult):
-        rich_print(obj.query)
     items = obj.result
     try:
         first_item = next(items)
@@ -134,7 +134,7 @@ def print_unstructured(obj: CommandResult | None):
     elif not obj.result:
         rich_print("No data")
     elif isinstance(obj, MessageResult):
-        rich_print(obj.message)
+        rich_print(sanitize_for_terminal(obj.message))
     else:
         if isinstance(obj, ObjectResult):
             _print_single_table(obj)
@@ -149,7 +149,9 @@ def _print_single_table(obj):
     table.add_column("key", overflow="fold")
     table.add_column("value", overflow="fold")
     for key, value in obj.result.items():
-        table.add_row(str(key), str(value))
+        table.add_row(
+            sanitize_for_terminal(str(key)), sanitize_for_terminal(str(value))
+        )
     rich_print(table)
 
 

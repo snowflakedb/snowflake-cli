@@ -817,6 +817,39 @@ def test_bundle_map_to_deploy_path_returns_multiple_matches(bundle_map):
     ]
 
 
+@pytest.mark.parametrize(
+    "dest, src",
+    [
+        ["manifest.yml", "app/manifest.yml"],
+        [".", None],
+        ["python/snowpark/main.py", "src/snowpark/main.py"],
+        ["python/snowpark", "src/snowpark"],
+        ["python/snowpark/a/b", "src/snowpark/a/b"],
+        ["python/snowpark/a/b/fake.py", None],
+        [
+            # even though a rule creates this directory, it has no equivalent source folder
+            "python",
+            None,
+        ],
+        ["/fake/foo.py", None],
+    ],
+)
+def test_to_project_path(bundle_map, dest, src):
+    bundle_map.add(PathMapping(src="app/*", dest="./"))
+    bundle_map.add(PathMapping(src="src/snowpark", dest="./python/snowpark"))
+
+    # relative paths
+    if src is None:
+        assert bundle_map.to_project_path(Path(dest)) is None
+        assert bundle_map.to_project_path(Path(bundle_map.deploy_root() / dest)) is None
+    else:
+        assert bundle_map.to_project_path(Path(dest)) == Path(src)
+        assert (
+            bundle_map.to_project_path(Path(bundle_map.deploy_root() / dest))
+            == bundle_map.project_root() / src
+        )
+
+
 def test_bundle_map_ignores_sources_in_deploy_root(bundle_map):
     bundle_map.deploy_root().mkdir(parents=True, exist_ok=True)
     deploy_root_source = bundle_map.deploy_root() / "should_not_match.yml"

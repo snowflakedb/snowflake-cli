@@ -32,7 +32,6 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
 )
 from snowflake.cli.plugins.nativeapp.manager import (
-    ApplicationOwnedObject,
     NativeAppCommandProcessor,
     NativeAppManager,
     ensure_correct_owner,
@@ -65,20 +64,6 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
 
             cc.message(f"Dropped {object_type} {object_name} successfully.")
 
-    def _application_objects_to_str(
-        self, application_objects: list[ApplicationOwnedObject]
-    ) -> str:
-        """
-        Returns a list in an "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
-        (COMPUTE_POOL) POOL_NAME
-        (DATABASE) DB_NAME
-        (SCHEMA) DB_NAME.PUBLIC
-        ...
-        """
-        return "\n".join(
-            [f"({obj['type']}) {obj['name']}" for obj in application_objects]
-        )
-
     def drop_application(
         self, auto_yes: bool, interactive: bool = False, cascade: Optional[bool] = None
     ):
@@ -88,7 +73,7 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
 
         needs_confirm = True
 
-        # 1. If existing application package is not found, exit gracefully
+        # 1. If existing application is not found, exit gracefully
         show_obj_row = self.get_existing_app_info()
         if show_obj_row is None:
             cc.warning(
@@ -124,7 +109,9 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             )
             if not should_drop_object:
                 cc.message(f"Did not drop application object {self.app_name}.")
-                return  # The user desires to keep the app, therefore exit gracefully
+                # The user desires to keep the app, therefore we can't proceed since it would
+                # leave behind an orphan app when we get to dropping the package
+                raise typer.Abort()
 
         # 4. Check for application objects owned by the application
         application_objects = self.get_objects_owned_by_application()

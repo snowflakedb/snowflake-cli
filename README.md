@@ -27,7 +27,11 @@ Snowflake CLI is an open-source command-line tool explicitly designed for develo
 With Snowflake CLI, developers can create, manage, update, and view apps running on Snowflake across workloads such as Streamlit in Snowflake, the Snowflake Native App Framework, Snowpark Container Services, and Snowpark. It supports a range of Snowflake features, including user-defined functions, stored procedures, Streamlit in Snowflake, and SQL execution.
 
 
-**Note**: Snowflake CLI is in Public Preview (PuPr). Docs at https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/index
+**Note**: Snowflake CLI is in Public Preview (PuPr).
+
+Docs: https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/index.
+Quick start: https://quickstarts.snowflake.com/guide/getting-started-with-snowflake-cli
+Cheatsheet: https://github.com/Snowflake-Labs/sf-cheatsheets/blob/main/snowflake-cli.md
 
 
 ## Install Snowflake CLI

@@ -13,14 +13,14 @@
 # limitations under the License.
 
 import typer
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflakecli.test_plugins.multilingual_hello.hello_language import HelloLanguage
 from snowflakecli.test_plugins.multilingual_hello.manager import (
     MultilingualHelloManager,
 )
 
-app = SnowTyper(
+app = SnowTyperFactory(
     name="multilingual-hello",
     help="Says hello in various languages",
 )

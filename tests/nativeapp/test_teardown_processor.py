@@ -16,6 +16,7 @@ import os
 from unittest import mock
 
 import pytest
+import typer
 from click import Abort
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -331,7 +332,8 @@ def test_drop_application_user_prohibits_drop(
     )
 
     teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_application(auto_yes=False)
+    with pytest.raises(typer.Abort):
+        teardown_processor.drop_application(auto_yes=False)
     mock_get_existing_app_info.assert_called_once()
     mock_is_correct_owner.assert_called_once()
     mock_drop_generic_object.assert_not_called()

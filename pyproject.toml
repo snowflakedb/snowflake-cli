@@ -32,9 +32,9 @@ dependencies = [
   "rich==13.7.1",
   "requests==2.32.3",
   "requirements-parser==0.9.0",
-  "setuptools==70.0.0",
+  "setuptools==70.1.1",
   'snowflake.core==0.8.0; python_version < "3.12"',
-  "snowflake-connector-python[secure-local-storage]==3.10.1",
+  "snowflake-connector-python[secure-local-storage]==3.11.0",
   "tomlkit==0.12.5",
   "typer==0.12.3",
   "urllib3>=1.21.1,<2.3",
@@ -43,7 +43,7 @@ dependencies = [
   "pydantic==2.7.4",
 ]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Environment :: Console",
   "Intended Audience :: Developers",
   "Intended Audience :: Information Technology",
@@ -56,7 +56,7 @@ classifiers = [
 
 [project.optional-dependencies]
 development = [
-  "coverage==7.5.3",
+  "coverage==7.5.4",
   "pre-commit>=3.5.0",
   "pytest==8.2.2",
   "pytest-randomly==3.15.0",
@@ -86,10 +86,10 @@ packages = ["src/snowflake"]
 features = ["development"]
 
 [tool.hatch.envs.default.scripts]
-test = ["pytest --snapshot-warn-unused tests/"]
+test = ["pytest tests/"]
 test-cov = [
-  "coverage run --source=snowflake.cli --module pytest --snapshot-warn-unused tests/ ",
-  "coverage run --source=snowflake.cli --module pytest -m loaded_modules --snapshot-warn-unused tests/ ",
+  "coverage run --source=snowflake.cli --module pytest tests/ ",
+  "coverage run --source=snowflake.cli --module pytest -m loaded_modules tests/ ",
   "coverage report",
 ]
 
@@ -98,7 +98,7 @@ template = "e2e"
 features = ["development"]
 
 [tool.hatch.envs.e2e.scripts]
-test = ["pytest -m e2e --snapshot-warn-unused --durations=0"]
+test = ["pytest -m e2e --durations=0"]
 
 [tool.hatch.envs.performance]
 template = "performance"
@@ -117,9 +117,9 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
-test = ["pytest -m integration -n4 --dist=loadfile --snapshot-warn-unused"]
+test = ["pytest -m integration -n4 --dist=loadfile"]
 test-experimental = [
-  "pytest -m integration_experimental --snapshot-warn-unused",
+  "pytest -m integration_experimental",
 ]
 
 [[tool.hatch.envs.local.matrix]]
@@ -147,7 +147,7 @@ select = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-m 'not integration and not performance and not e2e and not spcs and not loaded_modules and not integration_experimental'"
+addopts = "-vv --maxfail=10 -m 'not integration and not performance and not e2e and not spcs and not loaded_modules and not integration_experimental'"
 markers = [
   "integration: mark test as integration test",
   "performance: mark test as performance test",

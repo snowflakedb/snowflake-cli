@@ -22,6 +22,7 @@ from textwrap import dedent
 from typing import Iterable, Optional, Tuple
 
 from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     DatabaseNotProvidedError,
@@ -212,3 +213,9 @@ class SqlExecutionMixin:
             lambda row: row[name_col] == unquote_identifier(unqualified_name),
         )
         return show_obj_row
+
+
+class VerboseCursor(SnowflakeCursor):
+    def execute(self, command: str, *args, **kwargs):
+        cli_console.message(command)
+        super().execute(command, *args, **kwargs)
