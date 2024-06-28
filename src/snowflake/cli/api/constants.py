@@ -75,3 +75,5 @@ SUPPORTED_OBJECTS = sorted(OBJECT_TO_NAMES.keys())
 VALID_SCOPES = ["database", "schema", "compute-pool"]
 
 DEFAULT_SIZE_LIMIT_MB = 128
+
+SF_REST_API_URL_PREFIX = "/api/v2"
