@@ -92,6 +92,4 @@ def test_failing_executing_command_sends_telemetry_data(
     actual_call = mock_conn.return_value._telemetry.try_add_log_to_batch.call_args.args[  # noqa: SLF001
         0
     ].to_dict()
-    print(actual_call)
     assert actual_call["message"]["type"] == "error_executing_command"
-    assert 0
