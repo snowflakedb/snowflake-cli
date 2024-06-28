@@ -99,6 +99,7 @@ features = ["development"]
 
 [tool.hatch.envs.e2e.scripts]
 test = ["pytest -m e2e --durations=0"]
+cleanup = ["python scripts/cleanup.py"]
 
 [tool.hatch.envs.performance]
 template = "performance"
@@ -118,9 +119,6 @@ features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
 test = ["pytest -m integration -n4 --dist=loadfile"]
-test-experimental = [
-  "pytest -m integration_experimental",
-]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
