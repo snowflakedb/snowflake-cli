@@ -34,7 +34,7 @@ def test_executing_command_sends_telemetry_data(
     mock_time.return_value = "123"
     mock_platform.return_value = "FancyOS"
     mock_version.return_value = "2.3.4"
-    uuid.uuid4.return_value = uuid.UUID("8a2225b3800c4017a4a9eab941db58fa")
+    mock_uuid4.return_value = uuid.UUID("8a2225b3800c4017a4a9eab941db58fa")
     result = runner.invoke(["connection", "test"], catch_exceptions=False)
     assert result.exit_code == 0, result.output
 
@@ -89,7 +89,7 @@ def test_executing_command_sends_project_definition_in_telemetry_data(
 def test_failing_executing_command_sends_telemetry_data(
     _, mock_uuid4, mock_conn, project_directory, runner
 ):
-    uuid.uuid4.return_value = uuid.UUID("8a2225b3800c4017a4a9eab941db58fa")
+    mock_uuid4.return_value = uuid.UUID("8a2225b3800c4017a4a9eab941db58fa")
     with project_directory("napp_post_deploy_missing_file"):
         runner.invoke(["app", "run"], catch_exceptions=False)
 
