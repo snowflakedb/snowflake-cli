@@ -14,13 +14,13 @@
 
 from __future__ import annotations
 
-import importlib
-import inspect
-import pkgutil
+import logging
 from dataclasses import dataclass
 from typing import Optional
 
 from pygls.server import LanguageServer
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 @dataclass
@@ -30,6 +30,7 @@ class ConnectionParams:
     account: Optional[str]
 
 
+# make this a function thanks
 class RpcManager:
     """
     Base class LSP Controller
@@ -38,25 +39,17 @@ class RpcManager:
     def __init__(self):
         super().__init__()
         server = LanguageServer(name="lsp_controller", version="v0.0.1")
+        # dynamic import to avoid semi circular imports if at top level
+        from snowflake.cli.app.commands_registration.command_plugins_loader import (
+            load_only_builtin_command_plugins,
+        )
 
-        plugins = self.discover_lsp_plugins("snowflake.cli.plugins")
+        plugins = load_only_builtin_command_plugins()
+        logging.info(plugins)
         for plugin_func in plugins:
-            plugin_func(server)
-        server.start_io()
+            if getattr(plugin_func, "lsp_spec", None) is not None:
+                logging.info(plugin_func)
+                logging.info(plugin_func.lsp_spec)
 
-    def discover_lsp_plugins(self, package_name):
-        plugins = []
-        package = importlib.import_module(package_name)
-        for _, module_name, is_pkg in pkgutil.iter_modules(package.__path__):
-            if is_pkg:
-                submodule = importlib.import_module(f"{package_name}.{module_name}")
-                for _, submodule_name, is_pkg in pkgutil.iter_modules(
-                    submodule.__path__
-                ):
-                    module = importlib.import_module(
-                        f"{package_name}.{module_name}.{submodule_name}"
-                    )
-                    for _name, obj in inspect.getmembers(module, inspect.isfunction):
-                        if hasattr(obj, "_lsp_context"):
-                            plugins.append(obj)
-        return plugins
+                plugin_func.lsp_spec(server)
+        server.start_io()

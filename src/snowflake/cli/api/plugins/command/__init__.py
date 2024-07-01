@@ -28,6 +28,8 @@ SNOWCLI_COMMAND_PLUGIN_NAMESPACE = "snowflake.cli.plugin.command"
 
 plugin_hook_spec = pluggy.HookspecMarker(SNOWCLI_COMMAND_PLUGIN_NAMESPACE)
 plugin_hook_impl = pluggy.HookimplMarker(SNOWCLI_COMMAND_PLUGIN_NAMESPACE)
+lsp_plugin_hook_spec = pluggy.HookspecMarker(SNOWCLI_COMMAND_PLUGIN_NAMESPACE)
+lsp_plugin_hook_impl = pluggy.HookimplMarker(SNOWCLI_COMMAND_PLUGIN_NAMESPACE)
 
 
 class CommandPath:

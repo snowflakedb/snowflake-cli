@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli.api.plugins.command import lsp_plugin_hook_spec, plugin_hook_spec
+import pluggy
+
+LSP_COMMAND_PLUGIN_NAMESPACE = "lsp.plugin.command"
+
+hookspec = pluggy.HookspecMarker(LSP_COMMAND_PLUGIN_NAMESPACE)
+hookimpl = pluggy.HookimplMarker(LSP_COMMAND_PLUGIN_NAMESPACE)
 
 
-@plugin_hook_spec
-def command_spec():
-    """Command spec"""
-    pass
-
-
-@lsp_plugin_hook_spec
-def lsp_spec():
-    """Command spec"""
+@hookspec
+def lsp_plugin_hook():
+    """Interface for lsp plugin"""
     pass

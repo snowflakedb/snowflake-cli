@@ -14,9 +14,7 @@
 from __future__ import annotations
 
 import inspect
-import logging
-from dataclasses import dataclass
-from typing import Dict, TypedDict
+from typing import Callable, TypedDict
 
 from pygls.server import LanguageServer
 from snowflake.cli.api.output.types import MessageResult
@@ -25,24 +23,18 @@ from snowflake.cli.app.snow_connector import connect_to_snowflake
 from snowflake.cli.plugins.nativeapp.manager import NativeAppManager
 from snowflake.connector import SnowflakeConnection
 
-logging.basicConfig(level=logging.DEBUG)
 
-
-@dataclass
-class LspContext:
-    lsp_plugin_name: str
-    lsp_plugin_version: str
-    lsp_plugin_capabilities: Dict[bool, str]
-
-
-def lsp_plugin(name: str, version: str, capabilities: Dict[str, bool]):
-    def _decorator(func):
-        lsp_context: LspContext = {
-            "lsp_plugin_name": name,
-            "lsp_plugin_version": version,
-            "lsp_plugin_capabilities": capabilities,
-        }
-        setattr(func, "_lsp_context", lsp_context)
+def lsp_plugin(name: str, version: str, capabilities: dict) -> Callable:
+    def _decorator(func: Callable) -> Callable:
+        setattr(
+            func,
+            "_lsp_context",
+            {
+                "lsp_plugin_name": name,
+                "lsp_plugin_version": version,
+                "lsp_plugin_capabilities": capabilities,
+            },
+        )
         return func
 
     return _decorator
