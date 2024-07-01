@@ -1,0 +1,38 @@
+{{ title }}
+
+Project definition structure
+===============================================================================
+
+.. code-block::
+
+{% for property in properties %}
+{{ "  "*(property["indents"] + 1) + ("- " if property["item_index"] == 1 else "") + ("  " if property["item_index"] > 1 else "") + property["name"] }}: {% if property["add_types"] %}<{{ property["types"] }}>{% endif %}
+{%- endfor %}
+
+
+Project definition properties
+===============================================================================
+{%- if properties %}
+The following table describes the project definition properties.
+
+.. list-table:: Project definition properties
+  :widths: 30 70
+  :header-rows: 1
+
+  * - Property
+    - Definition
+{% for property in properties %}
+  * - **{{property["path"]}}**
+
+      *{{"Required" if property["required"] else "Optional"}}*{{ (", *"+property["types"]+"*") if property["types"]}}
+
+    - {{property["title"]}}
+{% if property["description"] %}
+      {{ property["description"] }}
+{% else %}{% endif -%}
+{%+ endfor %}
+{% else %}
+
+None
+
+{% endif -%}
