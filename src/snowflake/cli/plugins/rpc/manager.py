@@ -22,7 +22,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 from pygls.server import LanguageServer
-from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.app.snow_connector import connect_to_snowflake
 from snowflake.connector import SnowflakeConnection
 
@@ -68,7 +67,7 @@ class LSPPluginContext:
         return self._create_connection(params)
 
 
-class RpcManager(SqlExecutionMixin):
+class RpcManager:
     """
     Base class LSP Controller
     """

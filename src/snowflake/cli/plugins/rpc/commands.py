@@ -17,12 +17,9 @@ from __future__ import annotations
 import logging
 from typing import Optional, TypedDict
 
-from pygls.server import LanguageServer
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MessageResult
-from snowflake.cli.plugins.nativeapp.lsp_commands import lsp_plugin
 from snowflake.cli.plugins.rpc.manager import (
-    ConnectionParams,
     RpcManager,
 )
 
@@ -40,8 +37,7 @@ class ConnectionDict(TypedDict):
     account: Optional[str]
 
 
-# requires connection for now, but in the future we should be able to start it without one and add one later
-@app.command("start", requires_connection=True)
+@app.command("start")
 def rpc_start(
     **options,
 ) -> CommandResult:
@@ -51,23 +47,3 @@ def rpc_start(
     RpcManager()
 
     return MessageResult(f"RPC LSP began.")
-
-
-@lsp_plugin(
-    name="rpc",
-    version="0.0.1",
-    capabilities={
-        "updateConnection": True,
-    },
-)
-def rpc_lsp_plugin(server: LanguageServer):
-    @server.command("updateConnection")
-    def update_connection(params: list[ConnectionDict]):
-        connection_params = ConnectionParams(
-            session_token=params[0]["sessionToken"],
-            master_token=params[0]["masterToken"],
-            account=params[0]["account"],
-        )
-        # do nothing for now
-        # ctx.update_connection(connection_params)
-        return "Connection ctx updated."

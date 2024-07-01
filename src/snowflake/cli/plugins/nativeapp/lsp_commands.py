@@ -13,6 +13,8 @@
 # limitations under the License.
 from __future__ import annotations
 
+import inspect
+import logging
 from dataclasses import dataclass
 from typing import Dict, TypedDict
 
@@ -21,6 +23,9 @@ from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.app.snow_connector import connect_to_snowflake
 from snowflake.cli.plugins.nativeapp.manager import NativeAppManager
+from snowflake.connector import SnowflakeConnection
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 @dataclass
@@ -43,10 +48,6 @@ def lsp_plugin(name: str, version: str, capabilities: Dict[str, bool]):
     return _decorator
 
 
-class OpenApplication(TypedDict):
-    project_path: str
-
-
 class ConnectionParams(TypedDict):
     session_token: str
     master_token: str
@@ -55,21 +56,36 @@ class ConnectionParams(TypedDict):
     params: dict
 
 
-def wrapped_server_command(server: LanguageServer, command_name: str):
+def server_command(server: LanguageServer, command_name: str):
+    """
+    Wrap the pygls @server.command to provide the Snowflake connection
+    and to unpack the parameters from the list of positional arguments
+    """
+
     def _decorator(func):
-        @server.command(command_name)
-        def wrapper(params: list[ConnectionParams]):
-            connection_attributes = {
-                "account": params[0]["account"],
-                "session_token": params[0]["session_token"],
-                "master_token": params[0]["master_token"],
-            }
-            parameters = params[0]["params"]
-            # introspect func and see if first param takes a connection and if it does, go down conn route, if it doesn't then don''t
-            connection = connect_to_snowflake(
-                temporary_connection=True, **connection_attributes
-            )
-            return func(connection, **parameters)  # kwargs or args??
+        sig = inspect.signature(func)
+        params = list(sig.parameters.values())
+        if params and params[0].annotation == "SnowflakeConnection":
+
+            @server.command(command_name)
+            def wrapper(params: list[ConnectionParams]):
+                connection_attributes = {
+                    "account": params[0]["account"],
+                    "session_token": params[0]["session_token"],
+                    "master_token": params[0]["master_token"],
+                }
+                parameters = params[0]["params"]
+                connection = connect_to_snowflake(
+                    temporary_connection=True, **connection_attributes
+                )
+                return func(connection, **parameters)
+
+        else:
+
+            @server.command(command_name)
+            def wrapper(params: list[ConnectionParams]):
+                parameters = params[0]["params"]
+                return func(**parameters)
 
         return wrapper
 
@@ -84,10 +100,8 @@ def wrapped_server_command(server: LanguageServer, command_name: str):
     },
 )
 def nade_lsp_plugin(server: LanguageServer):
-    @wrapped_server_command(server, "openApplication")
-    def open_app(connection, params: OpenApplication):  # foo, bar):
-        server.show_message_log(repr(params))
-        project_path = params["project_path"]
+    @server_command(server, "openApplication")
+    def open_app(connection: SnowflakeConnection, project_path: str):
         dm = DefinitionManager(project_path)
         project_definition = getattr(dm.project_definition, "native_app", None)
         project_root = dm.project_root
