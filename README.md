@@ -30,7 +30,9 @@ With Snowflake CLI, developers can create, manage, update, and view apps running
 **Note**: Snowflake CLI is in Public Preview (PuPr).
 
 Docs: https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/index.
+
 Quick start: https://quickstarts.snowflake.com/guide/getting-started-with-snowflake-cli
+
 Cheatsheet: https://github.com/Snowflake-Labs/sf-cheatsheets/blob/main/snowflake-cli.md
 
 
