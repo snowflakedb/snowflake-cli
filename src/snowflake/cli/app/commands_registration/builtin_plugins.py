@@ -23,6 +23,7 @@ from snowflake.cli.plugins.object import plugin_spec as object_plugin_spec
 from snowflake.cli.plugins.object_stage_deprecated import (
     plugin_spec as object_stage_deprecated_plugin_spec,
 )
+from snowflake.cli.plugins.rpc import plugin_spec as rpc_plugin_spec
 from snowflake.cli.plugins.snowpark import plugin_spec as snowpark_plugin_spec
 from snowflake.cli.plugins.spcs import plugin_spec as spcs_plugin_spec
 from snowflake.cli.plugins.sql import plugin_spec as sql_plugin_spec
@@ -37,6 +38,7 @@ def get_builtin_plugin_name_to_plugin_spec():
         "spcs": spcs_plugin_spec,
         "nativeapp": nativeapp_plugin_spec,
         "object": object_plugin_spec,
+        "rpc": rpc_plugin_spec,
         "snowpark": snowpark_plugin_spec,
         "stage": stage_plugin_spec,
         "sql": sql_plugin_spec,

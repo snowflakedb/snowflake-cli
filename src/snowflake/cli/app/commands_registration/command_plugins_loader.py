@@ -114,10 +114,10 @@ class CommandPluginsLoader:
         self, plugin_name: str, plugin
     ) -> Optional[LoadedCommandPlugin]:
         command_spec = self._load_command_spec(plugin_name, plugin)
+        lsp_spec = self._load_lsp_spec(plugin_name, plugin)
         if command_spec:
             return LoadedBuiltInCommandPlugin(
-                plugin_name=plugin_name,
-                command_spec=command_spec,
+                plugin_name=plugin_name, command_spec=command_spec, lsp_spec=lsp_spec
             )
         else:
             return None
@@ -141,6 +141,18 @@ class CommandPluginsLoader:
         except Exception as ex:
             log_exception(
                 f"Cannot load command specification from plugin [{plugin_name}]: {ex.__str__()}",
+                ex,
+            )
+            return None
+
+    # TODO: Guard against logging of all these exceptions of all modules trying to read lsp spec
+    @staticmethod
+    def _load_lsp_spec(plugin_name: str, plugin) -> Optional[CommandSpec]:
+        try:
+            return plugin.lsp_spec()
+        except Exception as ex:
+            log_exception(
+                f"Cannot load lsp specification from plugin [{plugin_name}]: {ex.__str__()}",
                 ex,
             )
             return None

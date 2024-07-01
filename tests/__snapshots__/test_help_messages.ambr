@@ -27,6 +27,7 @@
   │ git          Manages git repositories in Snowflake.                          │
   │ notebook     Manages notebooks in Snowflake.                                 │
   │ object       Manages Snowflake objects like warehouses and stages            │
+  │ rpc          Manages a RPC server for LSP.                                   │
   │ snowpark     Manages procedures and functions.                               │
   │ spcs         Manages Snowpark Container Services compute pools, services,    │
   │              image registries, and image repositories.                       │
@@ -2966,6 +2967,43 @@
   │ stage      Manages stages.                                     (deprecated)  │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
+  
+  '''
+# ---
+# name: test_help_messages[rpc.start]
+  '''
+
+  Usage: snow rpc start [OPTIONS]
+
+  Initializes the RPC LSP language server.
+
+  ╭─ Options ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                                                                          │
+  ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Global configuration ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  │ --format           [TABLE|JSON]  Specifies the output format. [default: TABLE]                                                         │
+  │ --verbose  -v                    Displays log entries for log levels `info` and higher.                                                │
+  │ --debug                          Displays log entries for log levels `debug` and higher; debug logs contains additional information.   │
+  │ --silent                         Turns off intermediate output to console.                                                             │
+  ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+  
+  '''
+# ---
+# name: test_help_messages[rpc]
+  '''
+
+  Usage: snow rpc [OPTIONS] COMMAND [ARGS]...
+
+  Manages a RPC server for LSP.
+
+  ╭─ Options ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                                                                          │
+  ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  │ start   Initializes the RPC LSP language server.                                                                                       │
+  ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
   
   '''
 # ---
@@ -7700,6 +7738,7 @@
   │ git          Manages git repositories in Snowflake.                          │
   │ notebook     Manages notebooks in Snowflake.                                 │
   │ object       Manages Snowflake objects like warehouses and stages            │
+  │ rpc          Manages a RPC server for LSP.                                   │
   │ snowpark     Manages procedures and functions.                               │
   │ spcs         Manages Snowpark Container Services compute pools, services,    │
   │              image registries, and image repositories.                       │
