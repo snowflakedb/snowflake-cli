@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import uuid
 from functools import partial
 from unittest import mock
 from unittest.mock import MagicMock
@@ -31,9 +31,9 @@ def class_factory(
 ):
     class _CustomTyper(SnowTyper):
         @staticmethod
-        def pre_execute():
+        def pre_execute(execution_id):
             if pre_execute:
-                pre_execute()
+                pre_execute(execution_id)
 
         @staticmethod
         def post_execute():
@@ -46,9 +46,9 @@ def class_factory(
                 result_handler(result)
 
         @staticmethod
-        def exception_handler(err):
+        def exception_handler(err, execution_id):
             if exception_handler:
-                exception_handler(err)
+                exception_handler(err, execution_id)
 
         def create_instance(self):
             return self
@@ -190,10 +190,12 @@ def test_enabled_command_is_not_visible(cli, snapshot):
 
 
 @mock.patch("snowflake.cli.app.telemetry.log_command_usage")
-def test_snow_typer_pre_execute_sends_telemetry(mock_log_command_usage, cli):
+@mock.patch("uuid.uuid4")
+def test_snow_typer_pre_execute_sends_telemetry(mock_uuid, mock_log_command_usage, cli):
+    mock_uuid.return_value = uuid.UUID("8a2225b3800c4017a4a9eab941db58fa")
     result = cli(app_factory(SnowTyperFactory))(["simple_cmd", "Norma"])
     assert result.exit_code == 0
-    mock_log_command_usage.assert_called_once_with()
+    mock_log_command_usage.assert_called_once_with("8a2225b3800c4017a4a9eab941db58fa")
 
 
 @mock.patch("snowflake.cli.app.telemetry.flush_telemetry")
