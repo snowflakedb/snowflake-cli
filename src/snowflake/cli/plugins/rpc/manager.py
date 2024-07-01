@@ -16,14 +16,11 @@ from __future__ import annotations
 
 import importlib
 import inspect
-import os
 import pkgutil
 from dataclasses import dataclass
 from typing import Optional
 
 from pygls.server import LanguageServer
-from snowflake.cli.app.snow_connector import connect_to_snowflake
-from snowflake.connector import SnowflakeConnection
 
 
 @dataclass
@@ -31,40 +28,6 @@ class ConnectionParams:
     session_token: Optional[str]
     master_token: Optional[str]
     account: Optional[str]
-
-
-class LSPPluginContext:
-    """
-    Contains context for LSP Plugins
-    """
-
-    def __init__(self) -> None:
-        self._connection = self.create_connection()
-
-    def get_connection(self):
-        return self._connection
-
-    def update_connection(self, params: ConnectionParams):
-        self._connection = self._create_connection(params)
-
-    def _create_connection(self, params: ConnectionParams):
-        connection_attributes = {
-            "account": params.account,
-            "session_token": params.session_token,
-            "master_token": params.master_token,
-        }
-        return connect_to_snowflake(temporary_connection=True, **connection_attributes)
-
-    def create_connection(self) -> SnowflakeConnection:
-        params = ConnectionParams(
-            session_token=os.environ.get(
-                "SESSION_TOKEN"
-            ),  # get rid of all env variable stuff? Dolnt need it anymore, send it along as params in each command now.
-            master_token=os.environ.get("MASTER_TOKEN"),
-            account=os.environ.get("SF_ACCOUNT"),
-        )
-
-        return self._create_connection(params)
 
 
 class RpcManager:
