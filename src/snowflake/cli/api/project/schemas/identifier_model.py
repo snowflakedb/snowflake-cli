@@ -36,7 +36,7 @@ def ObjectIdentifierModel(object_name: str) -> ObjectIdentifierBaseModel:  # noq
     """Generates ObjectIdentifierBaseModel but with object specific descriptions."""
 
     class _ObjectIdentifierModel(ObjectIdentifierBaseModel):
-        name: str = Field(title=f"{object_name} name")
+        name: str = Field(title=f"{object_name.capitalize()} name")
         database: Optional[str] = IdentifierField(
             title=f"Name of the database for the {object_name}", default=None
         )
