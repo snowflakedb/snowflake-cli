@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import uuid
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -90,12 +91,13 @@ class SnowTyper(typer.Typer):
             @wraps(command_callable)
             def command_callable_decorator(*args, **kw):
                 """Wrapper around command callable. This is what happens at "runtime"."""
-                self.pre_execute()
+                execution_id: str = uuid.uuid4().hex
+                self.pre_execute(execution_id)
                 try:
                     result = command_callable(*args, **kw)
                     return self.process_result(result)
                 except Exception as err:
-                    self.exception_handler(err)
+                    self.exception_handler(err, execution_id)
                     raise
                 finally:
                     self.post_execute()
@@ -107,7 +109,7 @@ class SnowTyper(typer.Typer):
         return custom_command
 
     @staticmethod
-    def pre_execute():
+    def pre_execute(execution_id: str):
         """
         Callback executed before running any command callable (after context execution).
         Pay attention to make this method safe to use if performed operations are not necessary
@@ -116,7 +118,7 @@ class SnowTyper(typer.Typer):
         from snowflake.cli.app.telemetry import log_command_usage
 
         log.debug("Executing command pre execution callback")
-        log_command_usage()
+        log_command_usage(execution_id)
 
     @staticmethod
     def process_result(result):
@@ -132,14 +134,14 @@ class SnowTyper(typer.Typer):
         print_result(result)
 
     @staticmethod
-    def exception_handler(exception: Exception):
+    def exception_handler(exception: Exception, execution_id: str):
         """
         Callback executed on command execution error.
         """
         from snowflake.cli.app.telemetry import log_command_execution_error
 
         log.debug("Executing command exception callback")
-        log_command_execution_error(exception)
+        log_command_execution_error(exception, execution_id)
 
     @staticmethod
     def post_execute():

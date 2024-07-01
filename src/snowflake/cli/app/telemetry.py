@@ -44,6 +44,7 @@ class CLITelemetryField(Enum):
     COMMAND = "command"
     COMMAND_GROUP = "command_group"
     COMMAND_FLAGS = "command_flags"
+    COMMAND_EXECUTION_ID = "command_execution_id"
     COMMAND_OUTPUT_TYPE = "command_output_type"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
@@ -142,16 +143,22 @@ _telemetry = CLITelemetryClient(ctx=cli_context)
 
 
 @ignore_exceptions()
-def log_command_usage():
-    _telemetry.send({TelemetryField.KEY_TYPE: TelemetryEvent.CMD_EXECUTION.value})
+def log_command_usage(execution_id: str):
+    _telemetry.send(
+        {
+            TelemetryField.KEY_TYPE: TelemetryEvent.CMD_EXECUTION.value,
+            CLITelemetryField.COMMAND_EXECUTION_ID: execution_id,
+        }
+    )
 
 
 @ignore_exceptions()
-def log_command_execution_error(exception: Exception):
+def log_command_execution_error(exception: Exception, execution_id: str):
     exception_type: str = type(exception).__name__
     _telemetry.send(
         {
             TelemetryField.KEY_TYPE: TelemetryEvent.CMD_EXECUTION_ERROR.value,
+            CLITelemetryField.COMMAND_EXECUTION_ID: execution_id,
             CLITelemetryField.ERROR_TYPE: exception_type,
         }
     )
