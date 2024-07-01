@@ -37,7 +37,7 @@
   | git          Manages git repositories in Snowflake.                          |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
-  │ rpc          Manages a RPC server for LSP.                                   │
+  | rpc          Manages a RPC server for LSP.                                   |
   | snowpark     Manages procedures and functions.                               |
   | spcs         Manages Snowpark Container Services compute pools, services,    |
   |              image registries, and image repositories.                       |
