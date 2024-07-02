@@ -26,7 +26,7 @@ from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.utils.models import EnvironWithDefinedDictFallback
 
 
-class ProjectDefinitionBase(UpdatableModel):
+class ProjectDefinition(UpdatableModel):
     definition_version: Union[str, int] = Field(
         title="Version of the project definition schema, which is currently 1",
     )
@@ -45,7 +45,7 @@ class ProjectDefinitionBase(UpdatableModel):
         return Version(self.definition_version) >= Version(required_version)
 
 
-class _DefinitionV10(ProjectDefinitionBase):
+class _DefinitionV10(ProjectDefinition):
     native_app: Optional[NativeApp] = Field(
         title="Native app definitions for the project", default=None
     )
@@ -72,7 +72,7 @@ class _DefinitionV11(_DefinitionV10):
         return variables
 
 
-class _DefinitionV20(ProjectDefinitionBase):
+class _DefinitionV20(ProjectDefinition):
     entities: Dict = Field(
         title="Entity definitions.",
     )
@@ -92,18 +92,17 @@ class _DefinitionV20(ProjectDefinitionBase):
         return entities
 
 
-class ProjectDefinition:
-    def __new__(cls, **data):
-        if not isinstance(data, dict):
-            return
-        if FeatureFlag.ENABLE_PDF_V2.is_enabled():
-            _version_map["2"] = _DefinitionV20
-        version = data.get("definition_version")
-        version_model = _version_map.get(str(version))
-        if not version or not version_model:
-            # Raises a SchemaValidationError
-            ProjectDefinitionBase(**data)
-        return version_model(**data)
+def get_project_definition(**data):
+    if not isinstance(data, dict):
+        return
+    if FeatureFlag.ENABLE_PDF_V2.is_enabled():
+        _version_map["2"] = _DefinitionV20
+    version = data.get("definition_version")
+    version_model = _version_map.get(str(version))
+    if not version or not version_model:
+        # Raises a SchemaValidationError
+        ProjectDefinition(**data)
+    return version_model(**data)
 
 
 _version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11}
