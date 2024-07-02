@@ -17,13 +17,16 @@ from unittest import mock
 
 import pytest
 from jinja2 import UndefinedError
+from snowflake.cli.api.utils.models import ProjectEnvironment
 from snowflake.cli.api.utils.rendering import snowflake_sql_jinja_render
 
 
 @pytest.fixture
 def cli_context():
     with mock.patch("snowflake.cli.api.utils.rendering.cli_context") as cli_context:
-        cli_context.template_context = {"ctx": {"env": os.environ}}
+        cli_context.template_context = {
+            "ctx": {"env": ProjectEnvironment(default_env={}, override_env={})}
+        }
         yield cli_context
 
 
@@ -78,9 +81,17 @@ def test_that_common_comments_are_respected(cli_context):
     )
 
 
-def test_that_undefined_variables_raise_error(cli_context):
+@pytest.mark.parametrize(
+    "text",
+    [
+        "&{ctx.env.__class__}",
+        "&{ctx.env.get}",
+        "&{foo}",
+    ],
+)
+def test_that_undefined_variables_raise_error(text, cli_context):
     with pytest.raises(UndefinedError):
-        snowflake_sql_jinja_render("&{ foo }")
+        snowflake_sql_jinja_render(text)
 
 
 def test_contex_can_access_environment_variable(cli_context):

@@ -21,6 +21,7 @@ from typing import Optional
 
 from click.exceptions import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.util import (
     is_valid_identifier,
@@ -197,6 +198,10 @@ def _validate_and_update_snowflake_yml(target_directory: Path, project_identifie
     """
     # 1. Determine if a snowflake.yml file exists, at the very least
     definition_manager = DefinitionManager(target_directory)
+    if not definition_manager.has_definition_file:
+        raise MissingConfiguration(
+            "Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
+        )
 
     # 2. Change the project name in snowflake.yml if necessary
     _replace_snowflake_yml_name_with_project(

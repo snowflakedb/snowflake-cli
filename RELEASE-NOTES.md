@@ -25,6 +25,15 @@
 * Added `--auto-compress` flag to `snow stage copy` command enabling use of gzip to compress files during upload.
 * Added new `native_app.application.post_deploy` section to `snowflake.yml` schema to execute actions after the application has been deployed via `snow app run`.
   * Added the `sql_script` hook type to run SQL scripts with template support.
+* Added support for `--env` command line arguments for templating.
+  * Available for commands that make use of the project definition file.
+  * Format of the argument: `--env key1=value1 --env key2=value2`.
+  * Overrides `env` variables values when used in templating.
+  * Can be referenced in templating through `ctx.env.<key_name>`.
+  * Templating will read env vars in this order of priority (highest priority to lowest priority):
+    * vars from `--env` command line argument.
+    * vars from shell environment variables.
+    * vars from `env` section of project definition file.
 
 ## Fixes and improvements
 * Passing a directory to `snow app deploy` will now deploy any contained file or subfolder specified in the application's artifact rules
