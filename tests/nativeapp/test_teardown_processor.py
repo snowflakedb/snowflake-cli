@@ -1074,6 +1074,8 @@ def test_drop_application_cascade(
     interactive_response,
     expected_cascade,
     temp_dir,
+    capsys,
+    snapshot,
 ):
     if isinstance(application_objects, Exception):
         mock_get_objects_owned_by_application.side_effect = application_objects
@@ -1105,3 +1107,5 @@ def test_drop_application_cascade(
             role="app_role",
             cascade=expected_cascade,
         )
+        stdout, _ = capsys.readouterr()
+        assert stdout == snapshot
