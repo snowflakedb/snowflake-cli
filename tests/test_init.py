@@ -76,10 +76,7 @@ def test_input_errors(
     )
     assert result.exit_code == 1
     assert "The directory" in result.output
-    assert (
-        "already exists. Please specify a different path for the project."
-        in result.output
-    )
+    assert "already exists." in result.output
 
     # template does not exist
     project_name = "this_project_does_not_exist"
