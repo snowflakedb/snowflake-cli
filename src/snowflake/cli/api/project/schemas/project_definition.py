@@ -135,7 +135,7 @@ def get_project_definition(**data):
     return version_model(**data)
 
 
-ProjectDefinition = _DefinitionV10 | _DefinitionV11 | _DefinitionV20
+ProjectDefinition = Union[_DefinitionV10, _DefinitionV11, _DefinitionV20]
 
 _version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11}
 if FeatureFlag.ENABLE_PDF_V2.is_enabled():
