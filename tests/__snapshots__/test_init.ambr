@@ -3,7 +3,7 @@
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
   │ Snowflake CLI version (915.6.0) is too low - minimum version required by     │
-  │ template is 916.0.0. Please upgrade before continuing                        │
+  │ template is 916.0.0. Please upgrade before continuing.                       │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   '''

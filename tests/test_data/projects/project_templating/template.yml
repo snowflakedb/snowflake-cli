@@ -1,4 +1,4 @@
-rendered_files:
+files_to_render:
   - variable_values.json
 variables:
   - name: required

@@ -155,11 +155,11 @@ def _determine_variable_values(
 
 
 def _render_template(
-    template_root: SecurePath, files: List[str], data: Dict[str, Any]
+    template_root: SecurePath, files_to_render: List[str], data: Dict[str, Any]
 ) -> None:
     """Override all listed files with their rendered version."""
     jinja_env = get_template_cli_jinja_env(template_root)
-    for path in files:
+    for path in files_to_render:
         jinja_template = jinja_env.get_template(path)
         rendered_result = jinja_template.render(**data)
         full_path = template_root / path
@@ -229,7 +229,7 @@ def init(
         )
         _render_template(
             template_root=template_root,
-            files=template_metadata.rendered_files,
+            files_to_render=template_metadata.files_to_render,
             data=variable_values,
         )
         _remove_template_metadata_file(template_root)

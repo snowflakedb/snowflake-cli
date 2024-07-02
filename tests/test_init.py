@@ -29,6 +29,7 @@ def assert_project_contents(origin: Path, created: Path):
 
 
 def _get_values_from_created_project(created: Path):
+    print((created / "variable_values.json").read_text())
     return json.loads((created / "variable_values.json").read_text())
 
 
@@ -125,7 +126,7 @@ def test_input_errors(
     project_name = "project_templating"
     with project_definition_copy(project_name) as template_root:
         (template_root / "template.yml").write_text(
-            "rendered_files:\n - variable_values.json"
+            "files_to_render:\n - variable_values.json"
         )
         from jinja2 import UndefinedError
 

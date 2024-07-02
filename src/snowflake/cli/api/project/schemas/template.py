@@ -48,7 +48,7 @@ class Template(BaseModel):
     minimum_cli_version: Optional[str] = Field(
         None, title="Minimum version of Snowflake CLI supporting this template"
     )
-    rendered_files: List[str] = Field(title="List of files to be rendered", default=[])
+    files_to_render: List[str] = Field(title="List of files to be rendered", default=[])
     variables: List[TemplateVariable] = Field(
         title="List of variables to be rendered", default=[]
     )
@@ -58,9 +58,13 @@ class Template(BaseModel):
         self._validate_files_exist(template_root)
 
     def _validate_files_exist(self, template_root: SecurePath) -> None:
-        for file in self.rendered_files:
-            full_path = template_root / file
+        for path_in_template in self.files_to_render:
+            full_path = template_root / path_in_template
             if not full_path.exists():
-                raise FileNotFoundError(f"Template does not have file {file}")
+                raise FileNotFoundError(
+                    f"Template does not have file {path_in_template}"
+                )
             if full_path.is_dir():
-                raise IsADirectoryError(f"{file} is a directory")
+                raise IsADirectoryError(
+                    f"Template file {path_in_template} is a directory"
+                )
