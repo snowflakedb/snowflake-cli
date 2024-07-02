@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any, Optional
 from venv import EnvBuilder
 
-from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
@@ -82,10 +81,6 @@ class NativeAppSetupProcessor(ArtifactProcessor):
             project_root=self._na_project.project_root,
             deploy_root=self._na_project.deploy_root,
         )
-        if artifact_to_process.dest is not None:
-            raise ClickException(
-                f"Python setup artifact must not have a destination, src={artifact_to_process.src}"
-            )
         bundle_map.add(artifact_to_process)
 
         self._create_or_update_sandbox()
@@ -103,7 +98,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
         cc.step(
             f"Creating virtual environment in {sandbox_root.relative_to(self._na_project.project_root)}"
         )
-        sandbox_root.mkdir(exist_ok=True)
+        sandbox_root.mkdir(exist_ok=True, parents=True)
 
         # TODO: in this early stage we always clear the virtual env, but this needs to be optimized
         # before the feature is released.
