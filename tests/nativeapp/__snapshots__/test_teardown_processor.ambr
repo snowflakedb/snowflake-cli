@@ -1,0 +1,62 @@
+# serializer version: 1
+# name: test_drop_application_cascade[False-application_objects3-None-False]
+  ''
+# ---
+# name: test_drop_application_cascade[False-application_objects4-None-False]
+  '''
+  The following objects are owned by application myapp and will NOT be dropped:
+    (DATABASE) db
+  
+  '''
+# ---
+# name: test_drop_application_cascade[False-application_objects5-None-False]
+  '''
+  Could not determine which objects are owned by application myapp, they will NOT be dropped.
+  
+  '''
+# ---
+# name: test_drop_application_cascade[None-application_objects10-yes-True]
+  '''
+  Could not determine which objects are owned by application myapp
+  
+  '''
+# ---
+# name: test_drop_application_cascade[None-application_objects11-no-False]
+  '''
+  The following objects are owned by application myapp
+    (DATABASE) db
+  
+  '''
+# ---
+# name: test_drop_application_cascade[None-application_objects12-no-False]
+  '''
+  Could not determine which objects are owned by application myapp
+  
+  '''
+# ---
+# name: test_drop_application_cascade[None-application_objects6-None-False]
+  ''
+# ---
+# name: test_drop_application_cascade[None-application_objects9-yes-True]
+  '''
+  The following objects are owned by application myapp
+    (DATABASE) db
+  
+  '''
+# ---
+# name: test_drop_application_cascade[True-application_objects0-None-True]
+  ''
+# ---
+# name: test_drop_application_cascade[True-application_objects1-None-True]
+  '''
+  The following objects are owned by application myapp and will be dropped:
+    (DATABASE) db
+  
+  '''
+# ---
+# name: test_drop_application_cascade[True-application_objects2-None-True]
+  '''
+  Could not determine which objects are owned by application myapp, an unknown number of objects will be dropped.
+  
+  '''
+# ---
