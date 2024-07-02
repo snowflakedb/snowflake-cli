@@ -127,7 +127,7 @@ class _DefinitionV20(_ProjectDefinitionBase):
 def build_project_definition(**data):
     if not isinstance(data, dict):
         return
-    if FeatureFlag.ENABLE_PDF_V2.is_enabled():
+    if FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled():
         _version_map["2"] = _DefinitionV20
     version = data.get("definition_version")
     version_model = _version_map.get(str(version))
