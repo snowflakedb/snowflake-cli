@@ -324,6 +324,7 @@ class NativeAppManager(SqlExecutionMixin):
         recursive: bool,
         stage_fqn: str,
         local_paths_to_sync: List[Path] | None = None,
+        print_diff: bool = True,
     ) -> DiffResult:
         """
         Ensures that the files on our remote stage match the artifacts we have in
@@ -337,6 +338,7 @@ class NativeAppManager(SqlExecutionMixin):
             stage_fqn (str): The name of the stage to diff against and upload to.
             local_paths_to_sync (List[Path], optional): List of local paths to sync. Defaults to None to sync all
              local paths. Note that providing an empty list here is equivalent to None.
+            print_diff (bool): Whether to print the diff between the local files and the remote stage. Defaults to True
 
         Returns:
             A `DiffResult` instance describing the changes that were performed.
@@ -359,10 +361,11 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
         # Perform a diff operation and display results to the user for informational purposes
-        cc.step(
-            "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
-            % self.deploy_root.resolve()
-        )
+        if print_diff:
+            cc.step(
+                "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
+                % self.deploy_root.resolve()
+            )
         diff: DiffResult = compute_stage_diff(self.deploy_root, stage_fqn)
 
         if local_paths_to_sync:
@@ -411,7 +414,8 @@ class NativeAppManager(SqlExecutionMixin):
                     f"The following files exist only on the stage:\n{files_not_removed_str}\n\nUse the --prune flag to delete them from the stage."
                 )
 
-        print_diff_to_console(diff, bundle_map)
+        if print_diff:
+            print_diff_to_console(diff, bundle_map)
 
         # Upload diff-ed files to application package stage
         if diff.has_changes():
@@ -568,6 +572,7 @@ class NativeAppManager(SqlExecutionMixin):
         stage_fqn: Optional[str] = None,
         local_paths_to_sync: List[Path] | None = None,
         validate: bool = True,
+        print_diff: bool = True,
     ) -> DiffResult:
         """app deploy process"""
 
@@ -587,6 +592,7 @@ class NativeAppManager(SqlExecutionMixin):
                 recursive=recursive,
                 stage_fqn=stage_fqn,
                 local_paths_to_sync=local_paths_to_sync,
+                print_diff=print_diff,
             )
 
         if validate:
@@ -625,6 +631,7 @@ class NativeAppManager(SqlExecutionMixin):
                 recursive=True,
                 stage_fqn=stage_fqn,
                 validate=False,
+                print_diff=False,
             )
         prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
         try:
