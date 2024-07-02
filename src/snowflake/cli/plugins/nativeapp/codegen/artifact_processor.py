@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Optional
 
 from click import ClickException
@@ -32,6 +33,11 @@ class UnsupportedArtifactProcessorError(ClickException):
         super().__init__(
             f"Unsupported value {processor_name} detected for an artifact processor. Please refer to documentation for a list of supported types."
         )
+
+
+def is_python_file_artifact(src: Path, _: Path):
+    """Determines whether the provided source path is an existing python file."""
+    return src.is_file() and src.suffix == ".py"
 
 
 class ArtifactProcessor(ABC):

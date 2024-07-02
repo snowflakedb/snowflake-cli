@@ -32,7 +32,10 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     BundleMap,
     find_setup_script_file,
 )
-from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import ArtifactProcessor
+from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
+    ArtifactProcessor,
+    is_python_file_artifact,
+)
 from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     ExecutionEnvironmentType,
     SandboxExecutionError,
@@ -332,7 +335,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             bundle_map.all_mappings(
                 absolute=True,
                 expand_directories=True,
-                predicate=_is_python_file_artifact,
+                predicate=is_python_file_artifact,
             )
         ):
             cc.step(

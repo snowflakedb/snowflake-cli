@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Optional
 
 from click import ClickException
@@ -24,12 +23,11 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     ProcessorMapping,
 )
 from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
-from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import ArtifactProcessor
+from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
+    ArtifactProcessor,
+    is_python_file_artifact,
+)
 from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
-
-
-def _is_python_file_artifact(src: Path, dest: Path):
-    return src.is_file() and src.suffix == ".py"
 
 
 class NativeAppSetupProcessor(ArtifactProcessor):
@@ -63,7 +61,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
         cc.phase("Processing Python setup files")
 
         for src_file, dest_file in bundle_map.all_mappings(
-            absolute=True, expand_directories=True, predicate=_is_python_file_artifact
+            absolute=True, expand_directories=True, predicate=is_python_file_artifact
         ):
             cc.step(f"Would process {src_file} -> {dest_file}")
 
