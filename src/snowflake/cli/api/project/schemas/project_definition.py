@@ -46,7 +46,7 @@ class ProjectProperties:
     project_context: Context
 
 
-class ProjectDefinition(UpdatableModel):
+class _ProjectDefinitionBase(UpdatableModel):
     definition_version: Union[str, int] = Field(
         title="Version of the project definition schema, which is currently 1",
     )
@@ -65,7 +65,7 @@ class ProjectDefinition(UpdatableModel):
         return Version(self.definition_version) >= Version(required_version)
 
 
-class _DefinitionV10(ProjectDefinition):
+class _DefinitionV10(_ProjectDefinitionBase):
     native_app: Optional[NativeApp] = Field(
         title="Native app definitions for the project", default=None
     )
@@ -96,7 +96,7 @@ class _DefinitionV11(_DefinitionV10):
         return ProjectEnvironment(default_env=(env or {}), override_env={})
 
 
-class _DefinitionV20(ProjectDefinition):
+class _DefinitionV20(_ProjectDefinitionBase):
     entities: Dict = Field(
         title="Entity definitions.",
     )
@@ -127,14 +127,16 @@ class _DefinitionV20(ProjectDefinition):
 def get_project_definition(**data):
     if not isinstance(data, dict):
         return
-    if FeatureFlag.ENABLE_PDF_V2.is_enabled():
-        _version_map["2"] = _DefinitionV20
     version = data.get("definition_version")
     version_model = _version_map.get(str(version))
     if not version or not version_model:
         # Raises a SchemaValidationError
-        ProjectDefinition(**data)
+        _ProjectDefinitionBase(**data)
     return version_model(**data)
 
 
+ProjectDefinition = _DefinitionV10 | _DefinitionV11 | _DefinitionV20
+
 _version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11}
+if FeatureFlag.ENABLE_PDF_V2.is_enabled():
+    _version_map["2"] = _DefinitionV20
