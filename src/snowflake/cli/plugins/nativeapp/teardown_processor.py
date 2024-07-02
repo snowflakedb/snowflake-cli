@@ -28,6 +28,7 @@ from snowflake.cli.plugins.nativeapp.constants import (
     INTERNAL_DISTRIBUTION,
     OWNER_COL,
 )
+from snowflake.cli.plugins.nativeapp.errno import APPLICATION_NO_LONGER_AVAILABLE
 from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
 )
@@ -39,6 +40,7 @@ from snowflake.cli.plugins.nativeapp.manager import (
 from snowflake.cli.plugins.nativeapp.utils import (
     needs_confirmation,
 )
+from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
 
@@ -114,22 +116,57 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                 raise typer.Abort()
 
         # 4. Check for application objects owned by the application
-        application_objects = self.get_objects_owned_by_application()
-        if len(application_objects) > 0:
-            application_objects_str = self._application_objects_to_str(
-                application_objects
+        # This query will fail if the application package has already been dropped, so handle this case gracefully
+        has_objects_to_drop = False
+        message_prefix = ""
+        cascade_true_message = ""
+        cascade_false_message = ""
+        interactive_prompt = ""
+        non_interactive_abort = ""
+        try:
+            if application_objects := self.get_objects_owned_by_application():
+                has_objects_to_drop = True
+                message_prefix = (
+                    f"The following objects are owned by application {self.app_name}"
+                )
+                cascade_true_message = f"{message_prefix} and will be dropped:"
+                cascade_false_message = f"{message_prefix} and will NOT be dropped:"
+                interactive_prompt = "Would you like to drop these objects in addition to the application? [y/n/ABORT]"
+                non_interactive_abort = "Re-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application"
+        except ProgrammingError as e:
+            if e.errno != APPLICATION_NO_LONGER_AVAILABLE:
+                raise
+            application_objects = []
+            message_prefix = f"Could not determine which objects are owned by application {self.app_name}"
+            has_objects_to_drop = True  # potentially, but we don't know what they are
+            cascade_true_message = (
+                f"{message_prefix}, an unknown number of objects will be dropped."
             )
+            cascade_false_message = f"{message_prefix}, they will NOT be dropped."
+            interactive_prompt = f"Would you like to drop an unknown set of objects in addition to the application? [y/n/ABORT]"
+            non_interactive_abort = f"Re-run teardown again with --cascade or --no-cascade to specify whether any objects should be dropped along with the application."
+
+        if has_objects_to_drop:
             if cascade is True:
-                cc.message(
-                    f"The following objects are owned by application {self.app_name} and will be dropped:\n{application_objects_str}"
-                )
+                # If the user explicitly passed the --cascade flag
+                cc.message(cascade_true_message)
+                with cc.indented():
+                    for obj in application_objects:
+                        cc.message(self._application_object_to_str(obj))
             elif cascade is False:
-                cc.message(
-                    f"The following objects are owned by application {self.app_name}:\n{application_objects_str}"
-                )
+                # If the user explicitly passed the --no-cascade flag
+                cc.message(cascade_false_message)
+                with cc.indented():
+                    for obj in application_objects:
+                        cc.message(self._application_object_to_str(obj))
             elif interactive:
+                # If the user didn't pass any cascade flag and the session is interactive
+                cc.message(message_prefix)
+                with cc.indented():
+                    for obj in application_objects:
+                        cc.message(self._application_object_to_str(obj))
                 user_response = typer.prompt(
-                    f"The following objects are owned by application {self.app_name}:\n{application_objects_str}\n\nWould you like to drop these objects in addition to the application? [y/n/ABORT]",
+                    interactive_prompt,
                     show_default=False,
                     default="ABORT",
                 ).lower()
@@ -140,11 +177,15 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
                 else:
                     raise typer.Abort()
             else:
-                cc.message(
-                    f"The following application objects are owned by application {self.app_name}:\n{application_objects_str}\n\nRe-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application."
-                )
+                # Else abort since we don't know what to do and can't ask the user
+                cc.message(message_prefix)
+                with cc.indented():
+                    for obj in application_objects:
+                        cc.message(self._application_object_to_str(obj))
+                cc.message(non_interactive_abort)
                 raise typer.Abort()
         elif cascade is None:
+            # If there's nothing to drop, set cascade to an explicit False value
             cascade = False
 
         # 5. All validations have passed, drop object
