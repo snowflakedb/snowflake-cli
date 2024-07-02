@@ -39,10 +39,20 @@ app = SnowTyperFactory()
 
 DEFAULT_SOURCE = "https://github.com/snowflakedb/snowflake-cli-templates"
 
+
+def _path_argument_callback(path: str) -> str:
+    if SecurePath(path).exists():
+        raise ClickException(
+            f"The directory {path} already exists. Please specify a different path for the project."
+        )
+    return path
+
+
 PathArgument = typer.Argument(
     ...,
     help="Directory to be initialized with the project. This directory must not already exist",
     show_default=False,
+    callback=_path_argument_callback,
 )
 TemplateOption = typer.Option(
     None,
@@ -187,12 +197,8 @@ def init(
     """
     Creates project from template.
     """
-    if SecurePath(path).exists():
-        raise FileExistsError(f"{path} already exists")
-
     variables_from_flags = {
-        v.key: v.value
-        for v in parse_key_value_variables(variables if variables else [])
+        v.key: v.value for v in parse_key_value_variables(variables)
     }
     is_remote = any(
         template_source.startswith(prefix) for prefix in ["git@", "http://", "https://"]  # type: ignore

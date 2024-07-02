@@ -64,18 +64,22 @@ def test_input_errors(
         )
     assert not Path(project_name).exists()
 
-    # override existing directory
+    # project already exists
     project_name = "project_templating"
-    with pytest.raises(FileExistsError, match=r".*already exists"):
-        runner.invoke(
-            [
-                "init",
-                temp_dir,
-                "--template-source",
-                test_projects_path / project_name,
-            ]
-        )
-    assert not Path(project_name).exists()
+    result = runner.invoke(
+        [
+            "init",
+            temp_dir,
+            "--template-source",
+            test_projects_path / project_name,
+        ]
+    )
+    assert result.exit_code == 1
+    assert "The directory" in result.output
+    assert (
+        "already exists. Please specify a different path for the project."
+        in result.output
+    )
 
     # template does not exist
     project_name = "this_project_does_not_exist"

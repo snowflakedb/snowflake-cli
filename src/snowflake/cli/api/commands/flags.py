@@ -612,9 +612,11 @@ class Variable:
         self.value = value
 
 
-def parse_key_value_variables(variables: List[str]) -> List[Variable]:
+def parse_key_value_variables(variables: Optional[List[str]]) -> List[Variable]:
     """Util for parsing key=value input. Useful for commands accepting multiple input options."""
-    result = []
+    result: List[Variable] = []
+    if not variables:
+        return result
     for p in variables:
         if "=" not in p:
             raise ClickException(f"Invalid variable: '{p}'")
