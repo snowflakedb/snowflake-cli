@@ -28,7 +28,7 @@ from unittest import mock
 
 import pytest
 import yaml
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+from snowflake.cli.api.project.schemas.project_definition import get_project_definition
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
 from snowflake.cli.app.cli_app import app_factory
@@ -348,7 +348,7 @@ def function_instance():
 
 @pytest.fixture()
 def native_app_project_instance():
-    return ProjectDefinition(
+    return get_project_definition(
         **{
             "definition_version": "1",
             "native_app": {
