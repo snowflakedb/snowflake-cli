@@ -18,9 +18,9 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
+from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     parse_key_value_variables,
-    project_definition_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
@@ -30,15 +30,8 @@ from snowflake.cli.plugins.sql.manager import SqlManager
 app = SnowTyperFactory()
 
 
-def _parse_key_value(key_value_str: str):
-    parts = key_value_str.split("=")
-    if len(parts) < 2:
-        raise ValueError("Passed key-value pair does not comform with key=value format")
-
-    return parts[0], "=".join(parts[1:])
-
-
 @app.command(name="sql", requires_connection=True, no_args_is_help=True)
+@with_project_definition(is_optional=True)
 def execute_sql(
     query: Optional[str] = typer.Option(
         None,
@@ -69,7 +62,6 @@ def execute_sql(
         help="String in format of key=value. If provided the SQL content will "
         "be treated as template and rendered using provided data.",
     ),
-    _: Optional[str] = project_definition_option(optional=True),
     **options,
 ) -> CommandResult:
     """

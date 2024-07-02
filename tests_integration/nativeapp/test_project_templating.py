@@ -268,6 +268,87 @@ def test_nativeapp_project_templating_use_default_env_from_project(
             assert result.exit_code == 0
 
 
+# Tests a native app with --env parameter through command line overwriting values from os env and project definition filetemplate reading env var
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "project_definition_files", ["integration_templated"], indirect=True
+)
+def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
+    runner,
+    snowflake_session,
+    project_definition_files: List[Path],
+):
+    project_name = "integration"
+    project_dir = project_definition_files[0].parent
+
+    local_test_env = dict(DEFAULT_TEST_ENV)
+    expected_value = "value_from_cli"
+    local_test_env["CI_ENV"] = "value_from_os_env"
+    local_test_env["APP_DIR"] = "app"
+
+    with pushd(project_dir):
+        result = runner.invoke_with_connection_json(
+            ["app", "run", "--env", f"CI_ENV={expected_value}"],
+            env=local_test_env,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # app + package exist
+            package_name = f"{project_name}_{expected_value}_pkg_{USER_NAME}".upper()
+            app_name = f"{project_name}_{expected_value}_{USER_NAME}".upper()
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show application packages like '{package_name}'",
+                    )
+                ),
+                dict(name=package_name),
+            )
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show applications like '{app_name}'"
+                    )
+                ),
+                dict(name=app_name),
+            )
+
+            # sanity checks
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"select count(*) from {app_name}.core.shared_view"
+                    )
+                ),
+                {"COUNT(*)": 1},
+            )
+            test_string = "TEST STRING"
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"call {app_name}.core.echo('{test_string}')"
+                    )
+                ),
+                {"ECHO": test_string},
+            )
+
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--env", f"CI_ENV={expected_value}"],
+                env=local_test_env,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--env", f"CI_ENV={expected_value}", "--force"],
+                env=local_test_env,
+            )
+            assert result.exit_code == 0
+
+
 # Tests that other native app commands still succeed with templating
 @pytest.mark.integration
 @pytest.mark.parametrize(

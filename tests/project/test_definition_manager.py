@@ -15,9 +15,8 @@
 from pathlib import Path
 from unittest import TestCase, mock
 
-import pytest
-from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.api.utils.models import ProjectEnvironment
 
 
 def mock_is_file_for(*known_files):
@@ -52,48 +51,76 @@ class DefinitionManagerTest(TestCase):
     @mock.patch("os.path.abspath", return_value="/hello/world/test")
     def test_double_dash_project_parameter_provided(self, mock_abs):
         with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
-            with pytest.raises(MissingConfiguration):
-                DefinitionManager("/hello/world/test")
+            definition_manager = DefinitionManager("/hello/world/test")
+            assert not definition_manager.has_definition_file
+            assert definition_manager.project_root == Path("/hello/world/test")
+            assert definition_manager.project_definition is None
+            assert definition_manager.template_context == {
+                "ctx": {"env": ProjectEnvironment(override_env={}, default_env={})}
+            }
 
     @mock.patch("os.path.abspath", return_value="/hello/world/test/again")
-    def test_dash_p_parameter_provided(self, mock_abs):
+    def test_dash_p_parameter_provided_no_snowflake_yml_found(self, mock_abs):
         with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
-            with pytest.raises(MissingConfiguration):
-                DefinitionManager("/hello/world/test/again")
+            definition_manager = DefinitionManager("/hello/world/test/again")
+            assert not definition_manager.has_definition_file
+            assert definition_manager.project_root == Path("/hello/world/test/again")
+            assert definition_manager.project_definition is None
+            assert definition_manager.template_context == {
+                "ctx": {"env": ProjectEnvironment(override_env={}, default_env={})}
+            }
 
     @mock.patch("os.getcwd", return_value="/hello/world")
     @mock.patch("os.path.abspath", return_value="/hello/world/relative")
-    def test_dash_p_with_relative_parameter_provided(self, mock_abs, mock_getcwd):
+    def test_dash_p_with_relative_parameter_provided_but_no_matching_project_definition(
+        self, mock_abs, mock_getcwd
+    ):
         with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
             mock_getcwd.return_value = "/hello/world"
-            with pytest.raises(MissingConfiguration):
-                DefinitionManager("./relative")
+            definition_manager = DefinitionManager("./relative")
+            assert not definition_manager.has_definition_file
+            assert definition_manager.project_root == Path("/hello/world/relative")
+            assert definition_manager.project_definition is None
+            assert definition_manager.template_context == {
+                "ctx": {"env": ProjectEnvironment(override_env={}, default_env={})}
+            }
 
     @mock.patch("os.path.abspath", return_value="/tmp")
-    def test_find_definition_files_reached_root(self, mock_abs):
+    def test_find_definition_files_under_root_folder(self, mock_abs):
         with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
-            with pytest.raises(Exception) as exception:
-                definition_manager = DefinitionManager("/tmp")
-                assert definition_manager.project_root is None
-            assert str(exception.value) == self.exception_message
+            definition_manager = DefinitionManager("/tmp")
+            assert not definition_manager.has_definition_file
+            assert definition_manager.project_root == Path("/tmp")
+            assert definition_manager.project_definition is None
+            assert definition_manager.template_context == {
+                "ctx": {"env": ProjectEnvironment(override_env={}, default_env={})}
+            }
 
     @mock.patch("os.path.abspath", return_value="/usr/user1/project")
     @mock.patch("pathlib.Path.home", return_value=Path("/usr/user1"))
-    def test_find_definition_files_reached_home(self, mock_abs, path_home):
+    def test_find_definition_under_home_folder(self, mock_abs, path_home):
         with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
-            with pytest.raises(Exception) as exception:
-                definition_manager = DefinitionManager("/usr/user1/project")
-                assert definition_manager.project_root is None
-            assert str(exception.value) == self.exception_message
+            definition_manager = DefinitionManager("/usr/user1/project")
+            assert not definition_manager.has_definition_file
+            assert definition_manager.project_root == Path("/usr/user1/project")
+            assert definition_manager.project_definition is None
+            assert definition_manager.template_context == {
+                "ctx": {"env": ProjectEnvironment(override_env={}, default_env={})}
+            }
 
     @mock.patch("os.getcwd", return_value="/hello/world")
-    def test_requires_base_project_definition(self, mock_getcwd):
+    def test_base_project_definition_absent_but_user_project_definition_present(
+        self, mock_getcwd
+    ):
         # If only snowflake.local.yml is present, the project root is not found
         with mock_is_file_for("/hello/world/snowflake.local.yml") as mock_is_file:
-            with pytest.raises(Exception) as exception:
-                definition_manager = DefinitionManager()
-                assert definition_manager.project_root is None
-            assert str(exception.value) == self.exception_message
+            definition_manager = DefinitionManager()
+            assert not definition_manager.has_definition_file
+            assert definition_manager.project_root == Path("/hello/world")
+            assert definition_manager.project_definition is None
+            assert definition_manager.template_context == {
+                "ctx": {"env": ProjectEnvironment(override_env={}, default_env={})}
+            }
 
     def test_find_project_root(self):
         with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
