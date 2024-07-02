@@ -14,7 +14,11 @@
 
 from __future__ import annotations
 
-from typing import Optional
+import os
+import subprocess
+from pathlib import Path
+from typing import Any, Optional
+from venv import EnvBuilder
 
 from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
@@ -28,6 +32,34 @@ from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     is_python_file_artifact,
 )
 from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
+
+_SELF_DIR = Path(__file__).parent
+
+
+class SandboxEnvBuilder(EnvBuilder):
+    def __init__(self, path: Path, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._path = path
+        self._context = None
+        self.create(self._path)
+
+    def run_python(self, *args):
+        positional_args = [
+            self._context.env_exe,
+            "-E",
+            *args,
+        ]  # passing -E ignores all PYTHON* env vars
+        kwargs = {}
+        env = dict(os.environ)
+        env["VIRTUAL_ENV"] = self._context.env_dir
+        kwargs["cwd"] = self._context.env_dir
+        subprocess.check_output(positional_args, **kwargs)
+
+    def pip_install(self, *args: Any) -> None:
+        self.run_python("-m", "pip", "install", *[str(arg) for arg in args])
+
+    def post_setup(self, context):
+        self._context = context
 
 
 class NativeAppSetupProcessor(ArtifactProcessor):
@@ -66,4 +98,18 @@ class NativeAppSetupProcessor(ArtifactProcessor):
             cc.step(f"Would process {src_file} -> {dest_file}")
 
     def _create_or_update_sandbox(self):
-        cc.step(f"Would create sandbox in {self._na_project.bundle_root}")
+        bundle_root = self._na_project.bundle_root
+        sandbox_root = bundle_root / "_setup_py_venv"
+        cc.step(
+            f"Creating virtual environment in {sandbox_root.relative_to(self._na_project.project_root)}"
+        )
+        sandbox_root.mkdir(exist_ok=True)
+
+        # TODO: in this early stage we always clear the virtual env, but this needs to be optimized
+        # before the feature is released.
+        env_builder = SandboxEnvBuilder(sandbox_root, with_pip=True, clear=True)
+
+        # Install the snowflake.app library in the sandbox
+        # Temporarily, we fetch this from the CLI project directory
+        lib_path = _SELF_DIR / "snowflake-app-python"
+        env_builder.pip_install(lib_path)
