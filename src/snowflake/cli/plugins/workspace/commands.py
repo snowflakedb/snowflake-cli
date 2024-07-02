@@ -25,7 +25,7 @@ from snowflake.cli.api.output.types import MessageResult
 ws = SnowTyper(
     name="ws",
     hidden=True,
-    help="Manages workspaces in Snowflake.",
+    help="Deploy and interact with snowflake.yml-based entities.",
 )
 
 

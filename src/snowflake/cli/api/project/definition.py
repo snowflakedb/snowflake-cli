@@ -23,7 +23,7 @@ from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
-    get_project_definition,
+    ProjectDefinitionBase,
 )
 from snowflake.cli.api.project.util import (
     append_to_identifier,
@@ -56,7 +56,7 @@ class ProjectProperties:
     - This should be used for the business logic of snow CLI modules.
     """
 
-    project_definition: ProjectDefinition
+    project_definition: ProjectDefinitionBase
     raw_project_definition: Definition
 
 
@@ -87,13 +87,13 @@ def load_project(paths: List[Path]) -> ProjectProperties:
     merged_definitions = _get_merged_definitions(paths)
     rendered_definition = render_definition_template(merged_definitions)
     return ProjectProperties(
-        get_project_definition(**rendered_definition), rendered_definition
+        ProjectDefinition(**rendered_definition), rendered_definition
     )
 
 
 def generate_local_override_yml(
-    project: ProjectDefinition,
-) -> ProjectDefinition:
+    project: ProjectDefinitionBase,
+) -> ProjectDefinitionBase:
     """
     Generates defaults for optional keys in the same YAML structure as the project
     schema. The returned YAML object can be saved directly to a file, if desired.
