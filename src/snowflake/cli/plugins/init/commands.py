@@ -66,9 +66,7 @@ def _fetch_local_template(
     Ends with an error of the template does not exist."""
 
     template_source.assert_exists()
-    template_origin = template_source
-    if path:
-        template_origin = template_source / path
+    template_origin = template_source / path if path else template_source
     if not template_origin.exists():
         raise ClickException(
             f"Template '{path}' cannot be found under {template_source}"
@@ -177,14 +175,6 @@ def _validate_cli_version(required_version: str) -> None:
         )
 
 
-def _is_remote_source(source: str) -> bool:
-    exists_as_file = SecurePath(source).exists()
-    whitelisted_prefix = any(
-        source.startswith(prefix) for prefix in ["git@", "http://", "https://"]
-    )
-    return (not exists_as_file) and whitelisted_prefix
-
-
 @app.command(no_args_is_help=True)
 def init(
     path: str = PathArgument,
@@ -204,10 +194,13 @@ def init(
         v.key: v.value
         for v in parse_key_value_variables(variables if variables else [])
     }
+    is_remote = any(
+        template_source.startswith(prefix) for prefix in ["git@", "http://", "https://"]  # type: ignore
+    )
 
     # copy/download template into tmpdir, so it is going to be removed in case command ends with an error
     with SecurePath.temporary_directory() as tmpdir:
-        if _is_remote_source(template_source):  # type: ignore
+        if is_remote:
             template_root = _fetch_remote_template(
                 url=template_source, path=template, destination=tmpdir  # type: ignore
             )
