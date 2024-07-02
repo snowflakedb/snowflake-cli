@@ -45,9 +45,11 @@ TEST_ENV = generate_user_env(USER_NAME)
         ["app teardown", "Aborted"],
     ],
 )
+@pytest.mark.parametrize("orphan_app", [True, False])
 def test_nativeapp_teardown_cascade(
     command,
     expected_error,
+    orphan_app,
     runner,
     snowflake_session,
     temporary_working_directory,
@@ -116,6 +118,23 @@ def test_nativeapp_teardown_cascade(
                 ),
                 dict(name=db_name, owner=app_name),
             )
+
+            if orphan_app:
+                # orphan the app by dropping the application package,
+                # this causes future `show objects owned by application` queries to fail
+                # and `snow app teardown` needs to be resilient against this
+                package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+                snowflake_session.execute_string(
+                    f"drop application package {package_name}"
+                )
+                assert not_contains_row_with(
+                    row_from_snowflake_session(
+                        snowflake_session.execute_string(
+                            f"show application packages like '{package_name}'",
+                        )
+                    ),
+                    dict(name=package_name),
+                )
 
             # Run the teardown command
             result = runner.invoke_with_connection_json(
