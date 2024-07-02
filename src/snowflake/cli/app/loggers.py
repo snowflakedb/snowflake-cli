@@ -85,11 +85,10 @@ class DefaultLoggingConfig:
 
 @dataclass
 class InitialLoggingConfig(DefaultLoggingConfig):
-    disable_existing_loggers: bool = True
     loggers: Dict[str, Any] = field(
         default_factory=lambda: {
             "snowflake.cli": LoggerConfig(level=logging.INFO, handlers=["file"]),
-            "snowflake": LoggerConfig(level=logging.ERROR, handlers=["console"]),
+            "snowflake": LoggerConfig(),
         }
     )
 
