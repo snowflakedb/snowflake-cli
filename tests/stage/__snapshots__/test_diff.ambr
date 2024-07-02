@@ -7,11 +7,23 @@
 # ---
 # name: test_print_diff_to_console_no_bundlemap.1
   '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
   Your stage is up-to-date with your local deploy root.
   
   '''
 # ---
 # name: test_print_diff_to_console_no_bundlemap.2
+  '''
+  '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
   '''
   Deleted paths to be removed from your stage:
     deleted:  deleted
@@ -22,6 +34,22 @@
   '''
 # ---
 # name: test_print_diff_to_console_no_bundlemap.3
+  '''
+  '''
+  '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
   '''
   Local changes to be deployed:
     modified: different
@@ -38,6 +66,36 @@
   '''
 # ---
 # name: test_print_diff_to_console_no_bundlemap.4
+  '''
+  '''
+  '''
+  '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    modified: different
+    modified: dir/different
+    modified: dir/modified
+    modified: modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
   '''
   Local changes to be deployed:
     added:    added
@@ -59,6 +117,54 @@
 # ---
 # name: test_print_diff_to_console_no_bundlemap.5
   '''
+  '''
+  '''
+  '''
+  '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    modified: different
+    modified: dir/different
+    modified: dir/modified
+    modified: modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    added:    added
+    modified: different
+    added:    dir/added
+    modified: dir/different
+    modified: dir/modified
+    added:    dir/new-file
+    modified: modified
+    added:    new-file
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
   Local changes to be deployed:
     added:    added
     added:    dir/added
@@ -74,6 +180,68 @@
   '''
 # ---
 # name: test_print_diff_to_console_no_bundlemap.6
+  '''
+  '''
+  '''
+  '''
+  '''
+  '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    modified: different
+    modified: dir/different
+    modified: dir/modified
+    modified: modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    added:    added
+    modified: different
+    added:    dir/added
+    modified: dir/different
+    modified: dir/modified
+    added:    dir/new-file
+    modified: modified
+    added:    new-file
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    added:    added
+    added:    dir/added
+    added:    dir/new-file
+    added:    new-file
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
   '''
   Local changes to be deployed:
     added:    added
@@ -91,11 +259,23 @@
 # ---
 # name: test_print_diff_to_console_with_bundlemap.1
   '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
   Your stage is up-to-date with your local deploy root.
   
   '''
 # ---
 # name: test_print_diff_to_console_with_bundlemap.2
+  '''
+  '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
   '''
   Deleted paths to be removed from your stage:
     deleted:  deleted
@@ -106,6 +286,22 @@
   '''
 # ---
 # name: test_print_diff_to_console_with_bundlemap.3
+  '''
+  '''
+  '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
   '''
   Local changes to be deployed:
     modified: ? -> different
@@ -123,6 +319,36 @@
 # ---
 # name: test_print_diff_to_console_with_bundlemap.4
   '''
+  '''
+  '''
+  '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    modified: ? -> different
+    modified: ? -> dir/different
+    modified: ? -> dir/modified
+    modified: ? -> modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
   Local changes to be deployed:
     modified: src/different -> different
     modified: src/dir/different -> dir/different
@@ -138,6 +364,50 @@
   '''
 # ---
 # name: test_print_diff_to_console_with_bundlemap.5
+  '''
+  '''
+  '''
+  '''
+  '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    modified: ? -> different
+    modified: ? -> dir/different
+    modified: ? -> dir/modified
+    modified: ? -> modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    modified: src/different -> different
+    modified: src/dir/different -> dir/different
+    modified: src/dir/modified -> dir/modified
+    modified: src/modified -> modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
   '''
   Local changes to be deployed:
     added:    ? -> added
@@ -159,6 +429,68 @@
 # ---
 # name: test_print_diff_to_console_with_bundlemap.6
   '''
+  '''
+  '''
+  '''
+  '''
+  '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    modified: ? -> different
+    modified: ? -> dir/different
+    modified: ? -> dir/modified
+    modified: ? -> modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    modified: src/different -> different
+    modified: src/dir/different -> dir/different
+    modified: src/dir/modified -> dir/modified
+    modified: src/modified -> modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    added:    ? -> added
+    added:    ? -> dir/added
+    added:    ? -> dir/new-file
+    added:    ? -> new-file
+    modified: src/different -> different
+    modified: src/dir/different -> dir/different
+    modified: src/dir/modified -> dir/modified
+    modified: src/modified -> modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
   Local changes to be deployed:
     added:    src/added -> added
     modified: src/different -> different
@@ -179,6 +511,86 @@
 # ---
 # name: test_print_diff_to_console_with_bundlemap.7
   '''
+  '''
+  '''
+  '''
+  '''
+  '''
+  '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    modified: ? -> different
+    modified: ? -> dir/different
+    modified: ? -> dir/modified
+    modified: ? -> modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    modified: src/different -> different
+    modified: src/dir/different -> dir/different
+    modified: src/dir/modified -> dir/modified
+    modified: src/modified -> modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    added:    ? -> added
+    added:    ? -> dir/added
+    added:    ? -> dir/new-file
+    added:    ? -> new-file
+    modified: src/different -> different
+    modified: src/dir/different -> dir/different
+    modified: src/dir/modified -> dir/modified
+    modified: src/modified -> modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    added:    src/added -> added
+    modified: src/different -> different
+    added:    src/dir/added -> dir/added
+    modified: src/dir/different -> dir/different
+    modified: src/dir/modified -> dir/modified
+    added:    src/dir/new-file -> dir/new-file
+    modified: src/modified -> modified
+    added:    src/new-file -> new-file
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
   Local changes to be deployed:
     added:    src/added -> added
     added:    src/dir/added -> dir/added
@@ -194,6 +606,100 @@
   '''
 # ---
 # name: test_print_diff_to_console_with_bundlemap.8
+  '''
+  '''
+  '''
+  '''
+  '''
+  '''
+  '''
+  '''
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Your stage is up-to-date with your local deploy root.
+  
+  '''
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    modified: ? -> different
+    modified: ? -> dir/different
+    modified: ? -> dir/modified
+    modified: ? -> modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    modified: src/different -> different
+    modified: src/dir/different -> dir/different
+    modified: src/dir/modified -> dir/modified
+    modified: src/modified -> modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    added:    ? -> added
+    added:    ? -> dir/added
+    added:    ? -> dir/new-file
+    added:    ? -> new-file
+    modified: src/different -> different
+    modified: src/dir/different -> dir/different
+    modified: src/dir/modified -> dir/modified
+    modified: src/modified -> modified
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    added:    src/added -> added
+    modified: src/different -> different
+    added:    src/dir/added -> dir/added
+    modified: src/dir/different -> dir/different
+    modified: src/dir/modified -> dir/modified
+    added:    src/dir/new-file -> dir/new-file
+    modified: src/modified -> modified
+    added:    src/new-file -> new-file
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
+  '''
+  Local changes to be deployed:
+    added:    src/added -> added
+    added:    src/dir/added -> dir/added
+    added:    src/dir/new-file -> dir/new-file
+    added:    src/new-file -> new-file
+  
+  Deleted paths to be removed from your stage:
+    deleted:  deleted
+    deleted:  dir/deleted
+    deleted:  dir/only_on_stage
+    deleted:  only_on_stage
+  
   '''
   Local changes to be deployed:
     added:    src/added -> added

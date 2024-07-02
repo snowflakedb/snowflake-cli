@@ -871,7 +871,7 @@ def test_bundle_map_ignores_sources_in_deploy_root(bundle_map):
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
-def test_napp_project_1_artifacts(project_definition_files, snapshot):
+def test_napp_project_1_artifacts(project_definition_files, custom_snapshot):
     project_root = project_definition_files[0].parent
     native_app = load_project(project_definition_files).project_definition.native_app
 
@@ -879,7 +879,7 @@ def test_napp_project_1_artifacts(project_definition_files, snapshot):
         deploy_root = Path(local_path, native_app.deploy_root)
         build_bundle(local_path, deploy_root, native_app.artifacts)
 
-        assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
+        assert_dir_snapshot(deploy_root.relative_to(local_path), custom_snapshot)
 
         # we should be able to re-bundle without any errors happening
         build_bundle(local_path, deploy_root, native_app.artifacts)
@@ -887,10 +887,10 @@ def test_napp_project_1_artifacts(project_definition_files, snapshot):
         # any additional files created in the deploy root will be obliterated by re-bundle
         with open(deploy_root / "unknown_file.txt", "w") as handle:
             handle.write("I am an unknown file!")
-        assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
+        assert_dir_snapshot(deploy_root.relative_to(local_path), custom_snapshot)
 
         build_bundle(local_path, deploy_root, native_app.artifacts)
-        assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
+        assert_dir_snapshot(deploy_root.relative_to(local_path), custom_snapshot)
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
@@ -1033,7 +1033,7 @@ def test_source_path_to_deploy_path(
         assert result == []
 
 
-def test_symlink_or_copy_raises_error(temp_dir, snapshot):
+def test_symlink_or_copy_raises_error(temp_dir, custom_snapshot):
     touch("GrandA/ParentA/ChildA")
     with open(Path(temp_dir, "GrandA/ParentA/ChildA"), "w") as f:
         f.write("Test 1")
@@ -1060,7 +1060,7 @@ def test_symlink_or_copy_raises_error(temp_dir, snapshot):
     )
 
     assert file_in_deploy_root.exists() and file_in_deploy_root.is_symlink()
-    assert file_in_deploy_root.read_text(encoding="utf-8") == snapshot
+    assert file_in_deploy_root.read_text(encoding="utf-8") == custom_snapshot
 
     # Since file_in_deploy_root is a symlink
     # it resolves to project_dir/GrandA/ParentA/ChildA, which is not in deploy root
@@ -1090,10 +1090,10 @@ def test_symlink_or_copy_raises_error(temp_dir, snapshot):
             deploy_root=deploy_root,
         )
     assert file_in_deploy_root.exists() and file_in_deploy_root.is_symlink()
-    assert file_in_deploy_root.read_text(encoding="utf-8") == snapshot
+    assert file_in_deploy_root.read_text(encoding="utf-8") == custom_snapshot
 
 
-def test_symlink_or_copy_with_no_symlinks_in_project_root(snapshot):
+def test_symlink_or_copy_with_no_symlinks_in_project_root(custom_snapshot):
     test_dir_structure = {
         "GrandA/ParentA/ChildA/GrandChildA": "Text GrandA/ParentA/ChildA/GrandChildA",
         "GrandA/ParentA/ChildA/GrandChildB.py": "Text GrandA/ParentA/ChildA/GrandChildB.py",
@@ -1111,7 +1111,7 @@ def test_symlink_or_copy_with_no_symlinks_in_project_root(snapshot):
     with temp_local_dir(test_dir_structure) as project_root:
         with pushd(project_root):
             # Sanity Check
-            assert_dir_snapshot(Path("."), snapshot)
+            assert_dir_snapshot(Path("."), custom_snapshot)
 
             deploy_root = Path(project_root, "output/deploy")
 
@@ -1189,7 +1189,7 @@ def test_symlink_or_copy_with_no_symlinks_in_project_root(snapshot):
             assert Path(deploy_root, "Grand4/Parent3/ChildC").is_symlink()
             assert not Path(deploy_root, "Grand4/Parent3/ChildD").is_symlink()
 
-            assert_dir_snapshot(Path("./output/deploy"), snapshot)
+            assert_dir_snapshot(Path("./output/deploy"), custom_snapshot)
 
             # This is because the dst can be symlinks, which resolves to project src and hence outside deploy root.
             with pytest.raises(NotInDeployRootError):
@@ -1200,7 +1200,7 @@ def test_symlink_or_copy_with_no_symlinks_in_project_root(snapshot):
                 )
 
 
-def test_symlink_or_copy_with_symlinks_in_project_root(snapshot):
+def test_symlink_or_copy_with_symlinks_in_project_root(custom_snapshot):
     test_dir_structure = {
         "GrandA/ParentA": "Do not use as src of a symlink",
         "GrandA/ParentB": "Use as src of a symlink: GrandA/ParentB",
@@ -1215,7 +1215,7 @@ def test_symlink_or_copy_with_symlinks_in_project_root(snapshot):
     with temp_local_dir(test_dir_structure) as project_root:
         with pushd(project_root):
             # Sanity Check
-            assert_dir_snapshot(Path("."), snapshot)
+            assert_dir_snapshot(Path("."), custom_snapshot)
 
             os.symlink(
                 Path("GrandA/ParentB").resolve(),
@@ -1249,7 +1249,7 @@ def test_symlink_or_copy_with_symlinks_in_project_root(snapshot):
             )
 
             # Sanity Check
-            assert_dir_snapshot(Path("./symlinks"), snapshot)
+            assert_dir_snapshot(Path("./symlinks"), custom_snapshot)
 
             deploy_root = Path(project_root, "output/deploy")
 
@@ -1336,4 +1336,4 @@ def test_symlink_or_copy_with_symlinks_in_project_root(snapshot):
                 ).is_symlink()
             )
 
-            assert_dir_snapshot(Path("./output/deploy"), snapshot)
+            assert_dir_snapshot(Path("./output/deploy"), custom_snapshot)

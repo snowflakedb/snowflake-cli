@@ -40,7 +40,7 @@ def test_sanitize_for_terminal(text, expected):
     assert result == expected
 
 
-def test_snow_typer_help_sanitization(snapshot):
+def test_snow_typer_help_sanitization(custom_snapshot):
     app = SnowTyper()
 
     escape_text = "'\033[0i\007'"
@@ -67,7 +67,7 @@ def test_snow_typer_help_sanitization(snapshot):
 
     runner = CliRunner()
     result = runner.invoke(app, ["--help"])
-    assert result.output == snapshot
+    assert result.output == custom_snapshot
 
     result = runner.invoke(app, ["func2"])
     assert result.output == ""

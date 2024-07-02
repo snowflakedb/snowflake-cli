@@ -78,14 +78,14 @@ PROJECT_PATH = "demo_na_project"
     "snowflake.cli.plugins.nativeapp.init._init_from_template", return_value=None
 )
 def test_init_no_template_success(
-    mock_init_from_template, runner, temp_dir, snapshot, id_, init_args
+    mock_init_from_template, runner, temp_dir, custom_snapshot, id_, init_args
 ):
     args = ["app", "init"]
     args.extend(init_args)
     result = runner.invoke(args)
 
     assert result.exit_code == 0
-    assert result.output == snapshot
+    assert result.output == custom_snapshot
 
 
 @pytest.mark.parametrize(
@@ -115,11 +115,11 @@ def test_init_no_template_success(
     "snowflake.cli.plugins.nativeapp.init._init_from_template", return_value=None
 )
 def test_init_no_template_failure(
-    mock_init_from_template, runner, temp_dir, snapshot, id_, init_args
+    mock_init_from_template, runner, temp_dir, custom_snapshot, id_, init_args
 ):
     args = ["app", "init"]
     args.extend(init_args)
     result = runner.invoke(args)
 
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert result.output == custom_snapshot

@@ -24,7 +24,7 @@ import tomlkit
 from snowflake.cli.api.constants import ObjectType
 
 
-def test_new_connection_can_be_added(runner, snapshot):
+def test_new_connection_can_be_added(runner, custom_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
             tmp_file.name,
@@ -45,10 +45,10 @@ def test_new_connection_can_be_added(runner, snapshot):
         )
         content = tmp_file.read()
     assert result.exit_code == 0, result.output
-    assert content == snapshot
+    assert content == custom_snapshot
 
 
-def test_new_connection_can_be_added_as_default(runner, snapshot):
+def test_new_connection_can_be_added_as_default(runner, custom_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
             tmp_file.name,
@@ -68,10 +68,10 @@ def test_new_connection_can_be_added_as_default(runner, snapshot):
         )
         content = tmp_file.read()
     assert result.exit_code == 0, result.output
-    assert content == snapshot
+    assert content == custom_snapshot
 
 
-def test_new_connection_with_jwt_auth(runner, snapshot):
+def test_new_connection_with_jwt_auth(runner, custom_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
             tmp_file.name,
@@ -92,7 +92,7 @@ def test_new_connection_with_jwt_auth(runner, snapshot):
         )
         content = tmp_file.read()
     assert result.exit_code == 0, result.output
-    assert content == snapshot
+    assert content == custom_snapshot
 
 
 def test_port_has_cannot_be_string(runner):
@@ -137,7 +137,7 @@ def test_port_has_cannot_be_float(runner):
     assert "Value of port must be integer" in result.output
 
 
-def test_new_connection_add_prompt_handles_default_values(runner, snapshot):
+def test_new_connection_add_prompt_handles_default_values(runner, custom_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
             tmp_file.name,
@@ -149,10 +149,10 @@ def test_new_connection_add_prompt_handles_default_values(runner, snapshot):
         )
         content = tmp_file.read()
     assert result.exit_code == 0, result.output
-    assert content == snapshot
+    assert content == custom_snapshot
 
 
-def test_new_connection_add_prompt_handles_prompt_override(runner, snapshot):
+def test_new_connection_add_prompt_handles_prompt_override(runner, custom_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
             tmp_file.name,
@@ -164,7 +164,7 @@ def test_new_connection_add_prompt_handles_prompt_override(runner, snapshot):
         )
         content = tmp_file.read()
     assert result.exit_code == 0, result.output
-    assert content == snapshot
+    assert content == custom_snapshot
 
 
 def test_fails_if_existing_connection(runner):
@@ -292,7 +292,7 @@ def test_connection_list_does_not_print_too_many_env_variables(
     ]
 
 
-def test_second_connection_not_update_default_connection(runner, snapshot):
+def test_second_connection_not_update_default_connection(runner, custom_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         tmp_file.write(
             dedent(
@@ -326,7 +326,7 @@ def test_second_connection_not_update_default_connection(runner, snapshot):
         content = tmp_file.read()
 
         assert result.exit_code == 0, result.output
-        assert content == snapshot
+        assert content == custom_snapshot
 
 
 @mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")

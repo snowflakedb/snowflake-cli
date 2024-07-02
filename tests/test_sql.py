@@ -85,10 +85,10 @@ def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with(query, cursor_class=VerboseCursor)
 
 
-def test_sql_help_if_no_query_file_or_stdin(runner, snapshot):
+def test_sql_help_if_no_query_file_or_stdin(runner, custom_snapshot):
     result = runner.invoke(["sql"])
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    assert result.output == custom_snapshot
 
 
 @pytest.mark.parametrize("inputs", [("-i", "-q", "foo"), ("-i",), ("-q", "foo")])

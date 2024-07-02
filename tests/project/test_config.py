@@ -133,9 +133,9 @@ def test_does_not_accept_unknown_fields(project_definition_files):
     ],
     indirect=True,
 )
-def test_fields_are_parsed_correctly(project_definition_files, snapshot):
+def test_fields_are_parsed_correctly(project_definition_files, custom_snapshot):
     result = load_project(project_definition_files).project_definition.model_dump()
-    assert result == snapshot
+    assert result == custom_snapshot
 
 
 @pytest.mark.parametrize(

@@ -318,10 +318,12 @@ def test_stage_copy_local_to_remote_star(mock_execute, runner, mock_cursor):
         ("local/path", "other/local/path"),
     ],
 )
-def test_copy_throws_error_for_same_platform_operation(runner, source, dest, snapshot):
+def test_copy_throws_error_for_same_platform_operation(
+    runner, source, dest, custom_snapshot
+):
     result = runner.invoke(["stage", "copy", source, dest])
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert result.output == custom_snapshot
 
 
 @pytest.mark.parametrize(
@@ -474,7 +476,7 @@ def test_stage_remove_quoted(mock_execute, runner, mock_cursor):
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_print_result_for_put_directory(
-    mock_execute, mock_cursor, runner, snapshot
+    mock_execute, mock_cursor, runner, custom_snapshot
 ):
     mock_execute.return_value = mock_cursor(
         rows=[
@@ -502,12 +504,12 @@ def test_stage_print_result_for_put_directory(
         result = runner.invoke(["stage", "copy", tmp_dir, "@stageName"])
 
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    assert result.output == custom_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_print_result_for_get_all_files_from_stage(
-    mock_execute, mock_cursor, runner, snapshot
+    mock_execute, mock_cursor, runner, custom_snapshot
 ):
     mock_execute.return_value = mock_cursor(
         rows=[
@@ -527,12 +529,12 @@ def test_stage_print_result_for_get_all_files_from_stage(
         result = runner.invoke(["stage", "copy", "@stageName", tmp_dir])
 
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    assert result.output == custom_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_print_result_for_get_all_files_from_stage_recursive(
-    mock_execute, mock_cursor, runner, snapshot
+    mock_execute, mock_cursor, runner, custom_snapshot
 ):
     columns = ["file", "size", "status", "message"]
     mock_execute.side_effect = [
@@ -553,7 +555,7 @@ def test_stage_print_result_for_get_all_files_from_stage_recursive(
         result = runner.invoke(["stage", "copy", "@stageName", tmp_dir, "--recursive"])
 
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    assert result.output == custom_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -714,7 +716,7 @@ def test_execute(
     stage_path,
     expected_stage,
     expected_files,
-    snapshot,
+    custom_snapshot,
 ):
     mock_execute.return_value = mock_cursor(
         [
@@ -734,7 +736,7 @@ def test_execute(
     assert execute_calls == [
         mock.call(f"execute immediate from {p}") for p in expected_files
     ]
-    assert result.output == snapshot
+    assert result.output == custom_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -770,7 +772,7 @@ def test_execute_with_variables(mock_execute, mock_cursor, runner):
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_execute_raise_invalid_variables_error(
-    mock_execute, mock_cursor, runner, snapshot
+    mock_execute, mock_cursor, runner, custom_snapshot
 ):
     mock_execute.return_value = mock_cursor([{"name": "exe/s1.sql"}], [])
 
@@ -785,12 +787,12 @@ def test_execute_raise_invalid_variables_error(
     )
 
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert result.output == custom_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_execute_raise_invalid_file_extension_error(
-    mock_execute, mock_cursor, runner, snapshot
+    mock_execute, mock_cursor, runner, custom_snapshot
 ):
     mock_execute.return_value = mock_cursor([{"name": "exe/s1.txt"}], [])
 
@@ -803,7 +805,7 @@ def test_execute_raise_invalid_file_extension_error(
     )
 
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert result.output == custom_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -877,7 +879,7 @@ def test_execute_stop_on_error(mock_execute, mock_cursor, runner):
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_execute_continue_on_error(mock_execute, mock_cursor, runner, snapshot):
+def test_execute_continue_on_error(mock_execute, mock_cursor, runner, custom_snapshot):
     mock_execute.side_effect = [
         mock_cursor(
             [
@@ -895,7 +897,7 @@ def test_execute_continue_on_error(mock_execute, mock_cursor, runner, snapshot):
     result = runner.invoke(["stage", "execute", "exe", "--on-error", "continue"])
 
     assert result.exit_code == 0
-    assert result.output == snapshot
+    assert result.output == custom_snapshot
     assert mock_execute.mock_calls == [
         mock.call("ls @exe", cursor_class=DictCursor),
         mock.call(f"execute immediate from @exe/s1.sql"),

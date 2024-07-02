@@ -321,7 +321,7 @@ def test_no_error_when_init_from_non_default_config(
     "content", ["[corrupted", "[connections.foo]\n[connections.foo]"]
 )
 def test_corrupted_config_raises_human_friendly_error(
-    snowflake_home, runner, content, snapshot
+    snowflake_home, runner, content, custom_snapshot
 ):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         tmp_file.write(content)
@@ -335,4 +335,4 @@ def test_corrupted_config_raises_human_friendly_error(
     runner.invoke("--help")
 
     assert result.exit_code == 1, result.output
-    assert result.output == snapshot
+    assert result.output == custom_snapshot

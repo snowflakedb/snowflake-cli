@@ -42,13 +42,13 @@ class TestPackage:
         argument,
         monkeypatch,
         runner,
-        snapshot,
+        custom_snapshot,
         mock_available_packages_sql_result,
     ) -> None:
         result = runner.invoke(["snowpark", "package", "lookup", argument])
 
         assert result.exit_code == 0
-        assert result.output == snapshot
+        assert result.output == custom_snapshot
 
     @patch(
         "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"

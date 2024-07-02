@@ -328,12 +328,14 @@ def test_filter_from_diff():
     assert new_diff.identical == diff.identical
 
 
-def test_print_diff_to_console_no_bundlemap(capsys, snapshot, print_paths_as_posix):
+def test_print_diff_to_console_no_bundlemap(
+    capsys, custom_snapshot, print_paths_as_posix
+):
     diff = DiffResult()
     # Empty diff
     print_diff_to_console(diff)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     # Only identical paths
     diff.identical = as_stage_paths(
@@ -344,7 +346,7 @@ def test_print_diff_to_console_no_bundlemap(capsys, snapshot, print_paths_as_pos
     )
     print_diff_to_console(diff)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     # Only deleted paths
     diff.only_on_stage = as_stage_paths(
@@ -357,7 +359,7 @@ def test_print_diff_to_console_no_bundlemap(capsys, snapshot, print_paths_as_pos
     )
     print_diff_to_console(diff)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     # Only deleted and modified paths
     diff.different = as_stage_paths(
@@ -370,7 +372,7 @@ def test_print_diff_to_console_no_bundlemap(capsys, snapshot, print_paths_as_pos
     )
     print_diff_to_console(diff)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     # All of deleted, modified and added paths
     diff.only_local = as_stage_paths(
@@ -383,22 +385,24 @@ def test_print_diff_to_console_no_bundlemap(capsys, snapshot, print_paths_as_pos
     )
     print_diff_to_console(diff)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     # Only deleted and added paths
     diff.different = []
     print_diff_to_console(diff)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     # Only added paths
     diff.only_on_stage = []
     print_diff_to_console(diff)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
 
-def test_print_diff_to_console_with_bundlemap(capsys, snapshot, print_paths_as_posix):
+def test_print_diff_to_console_with_bundlemap(
+    capsys, custom_snapshot, print_paths_as_posix
+):
     bundle_map = mock.MagicMock(spec=BundleMap, autospec=True)
     dest_to_project = {}
     bundle_map.to_project_path.side_effect = lambda dest_path: dest_to_project.get(
@@ -409,7 +413,7 @@ def test_print_diff_to_console_with_bundlemap(capsys, snapshot, print_paths_as_p
     # Empty diff
     print_diff_to_console(diff, bundle_map)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     # Only identical paths
     diff.identical = as_stage_paths(
@@ -421,7 +425,7 @@ def test_print_diff_to_console_with_bundlemap(capsys, snapshot, print_paths_as_p
     print_diff_to_console(diff, bundle_map)
     bundle_map.to_project_path.assert_not_called()
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     # Only deleted paths
     diff.only_on_stage = as_stage_paths(
@@ -435,7 +439,7 @@ def test_print_diff_to_console_with_bundlemap(capsys, snapshot, print_paths_as_p
     print_diff_to_console(diff, bundle_map)
     bundle_map.to_project_path.assert_not_called()
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     # Only deleted and modified paths
     diff.different = as_stage_paths(
@@ -448,13 +452,13 @@ def test_print_diff_to_console_with_bundlemap(capsys, snapshot, print_paths_as_p
     )
     print_diff_to_console(diff, bundle_map)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     for p in diff.different:
         dest_to_project[p] = Path("src") / p
     print_diff_to_console(diff, bundle_map)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     # All of deleted, modified and added paths
     diff.only_local = as_stage_paths(
@@ -467,22 +471,22 @@ def test_print_diff_to_console_with_bundlemap(capsys, snapshot, print_paths_as_p
     )
     print_diff_to_console(diff, bundle_map)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     for p in diff.only_local:
         dest_to_project[p] = Path("src") / p
     print_diff_to_console(diff, bundle_map)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     # Only deleted and added paths
     diff.different = []
     print_diff_to_console(diff, bundle_map)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot
 
     # Only added paths
     diff.only_on_stage = []
     print_diff_to_console(diff, bundle_map)
     captured = capsys.readouterr()
-    assert captured.out == snapshot
+    assert captured.out == custom_snapshot

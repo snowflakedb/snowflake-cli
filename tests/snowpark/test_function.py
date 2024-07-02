@@ -122,7 +122,7 @@ def test_deploy_function_secrets_without_external_access(
     runner,
     mock_ctx,
     project_directory,
-    snapshot,
+    custom_snapshot,
 ):
     mock_object_manager.return_value.show.return_value = [
         {"name": "external_1", "type": "EXTERNAL_ACCESS"},
@@ -140,7 +140,7 @@ def test_deploy_function_secrets_without_external_access(
         )
 
     assert result.exit_code == 1, result.output
-    assert result.output == snapshot
+    assert result.output == custom_snapshot
 
 
 @mock.patch("snowflake.connector.connect")
@@ -294,7 +294,7 @@ def test_deploy_procedure_fully_qualified_name(
     mock_ctx,
     project_directory,
     alter_snowflake_yml,
-    snapshot,
+    custom_snapshot,
 ):
     number_of_functions_in_project = 6
     mock_om_describe.side_effect = [
@@ -305,7 +305,7 @@ def test_deploy_procedure_fully_qualified_name(
 
     with project_directory("snowpark_function_fully_qualified_name") as tmp_dir:
         result = runner.invoke(["snowpark", "deploy"])
-        assert result.output == snapshot(name="database error")
+        assert result.output == custom_snapshot(name="database error")
 
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
@@ -313,7 +313,7 @@ def test_deploy_procedure_fully_qualified_name(
             value="custom_schema.fqn_function_error",
         )
         result = runner.invoke(["snowpark", "deploy"])
-        assert result.output == snapshot(name="schema error")
+        assert result.output == custom_snapshot(name="schema error")
 
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
@@ -322,7 +322,7 @@ def test_deploy_procedure_fully_qualified_name(
         )
         result = runner.invoke(["snowpark", "deploy"])
         assert result.exit_code == 0
-        assert result.output == snapshot(name="ok")
+        assert result.output == custom_snapshot(name="ok")
 
 
 @mock.patch("snowflake.connector.connect")

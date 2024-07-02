@@ -449,7 +449,7 @@ def test_execute(
     repository_path,
     expected_stage,
     expected_files,
-    snapshot,
+    custom_snapshot,
 ):
     mock_execute.return_value = mock_cursor(
         [
@@ -468,7 +468,7 @@ def test_execute(
     assert execute_calls == [
         mock.call(f"execute immediate from {p}") for p in expected_files
     ]
-    assert result.output == snapshot
+    assert result.output == custom_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
