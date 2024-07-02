@@ -26,6 +26,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.app import loggers
 from syrupy.extensions import AmberSnapshotExtension
+from syrupy.extensions.amber import AmberDataSerializer
 
 pytest_plugins = [
     "tests_common",
@@ -35,20 +36,55 @@ pytest_plugins = [
 ]
 
 
+class CustomSerializer(AmberDataSerializer):
+    @staticmethod
+    def _replace_table(text: str) -> str:
+        text = text.replace("\\", "/")
+        text = (
+            text.replace("│", "|")
+            .replace("─", "-")
+            .replace("╭", "+")
+            .replace("╰", "+")
+            .replace("╯", "+")
+            .replace("╮", "+")
+            .replace("┐", "+")
+            .replace("┌", "+")
+            .replace("└", "+")
+            .replace("┘", "+")
+        )
+        return text
+
+    @classmethod
+    def serialize(cls, data, **kwargs):
+        if isinstance(data, str):
+            data = cls._replace_table(data)
+        return super().serialize(data, **kwargs)
+
+
 class CustomSnapshotExtension(AmberSnapshotExtension):
-    def matches(self, *, serialized_data, snapshot_data):
-        if isinstance(serialized_data, str):
-            serialized_data = serialized_data.replace("\\", "/")
-            serialized_data = (
-                serialized_data.replace("│", "|")
-                .replace("─", "-")
-                .replace("╭", "+")
-                .replace("╰", "+")
-                .replace("╯", "+")
-                .replace("╮", "+")
-            )
-            print(serialized_data)
-        return bool(serialized_data == snapshot_data)
+    serializer_class = CustomSerializer
+    # @staticmethod
+    # def _replace_table(text: str) -> str:
+    #     text = text.replace("\\", "/")
+    #     text = (
+    #         text.replace("│", "|")
+    #         .replace("─", "-")
+    #         .replace("╭", "+")
+    #         .replace("╰", "+")
+    #         .replace("╯", "+")
+    #         .replace("╮", "+")
+    #         .replace("┐", "+")
+    #         .replace("┌", "+")
+    #         .replace("└", "+")
+    #         .replace("┘", "+")
+    #     )
+    #     return text
+    #
+    # def matches(self, *, serialized_data, snapshot_data):
+    #     if IS_WINDOWS and isinstance(serialized_data, str):
+    #         snapshot_data = self._replace_table(snapshot_data)
+    #         serialized_data = self._replace_table(serialized_data)
+    #     return super().matches(serialized_data=serialized_data, snapshot_data=snapshot_data)
 
 
 @pytest.fixture()

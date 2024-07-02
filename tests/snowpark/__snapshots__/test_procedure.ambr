@@ -1,29 +1,29 @@
 # serializer version: 1
 # name: test_deploy_procedure_fails_if_integration_does_not_exists
   '''
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ Following external access integration does not exists in Snowflake:          │
-  │ external_2                                                                   │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
+  +- Error ----------------------------------------------------------------------+
+  | Following external access integration does not exists in Snowflake:          |
+  | external_2                                                                   |
+  +------------------------------------------------------------------------------+
   
   '''
 # ---
 # name: test_deploy_procedure_fails_if_object_exists_and_no_replace
   '''
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ Following objects already exists. Consider using --replace.                  │
-  │ procedure: MockDatabase.MockSchema.procedureName(string)                     │
-  │ procedure: MockDatabase.MockSchema.test()                                    │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
+  +- Error ----------------------------------------------------------------------+
+  | Following objects already exists. Consider using --replace.                  |
+  | procedure: MockDatabase.MockSchema.procedureName(string)                     |
+  | procedure: MockDatabase.MockSchema.test()                                    |
+  +------------------------------------------------------------------------------+
   
   '''
 # ---
 # name: test_deploy_procedure_fully_qualified_name[database error]
   '''
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ database of procedure custom_database.custom_schema.fqn_procedure_error is   │
-  │ redefined in its name                                                        │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
+  +- Error ----------------------------------------------------------------------+
+  | database of procedure custom_database.custom_schema.fqn_procedure_error is   |
+  | redefined in its name                                                        |
+  +------------------------------------------------------------------------------+
   
   '''
 # ---
@@ -48,18 +48,18 @@
 # ---
 # name: test_deploy_procedure_fully_qualified_name[schema error]
   '''
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ schema of procedure custom_schema.fqn_procedure_error is redefined in its    │
-  │ name                                                                         │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
+  +- Error ----------------------------------------------------------------------+
+  | schema of procedure custom_schema.fqn_procedure_error is redefined in its    |
+  | name                                                                         |
+  +------------------------------------------------------------------------------+
   
   '''
 # ---
 # name: test_deploy_procedure_secrets_without_external_access
   '''
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ procedureName defined with secrets but without external integration.         │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
+  +- Error ----------------------------------------------------------------------+
+  | procedureName defined with secrets but without external integration.         |
+  +------------------------------------------------------------------------------+
   
   '''
 # ---

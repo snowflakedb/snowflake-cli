@@ -210,9 +210,9 @@
 # ---
 # name: test_describe_fails_image_repository
   '''
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ Describe is currently not supported for object of type image-repository      │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
+  +- Error ----------------------------------------------------------------------+
+  | Describe is currently not supported for object of type image-repository      |
+  +------------------------------------------------------------------------------+
   
   '''
 # ---
