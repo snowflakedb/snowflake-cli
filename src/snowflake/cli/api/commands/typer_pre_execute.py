@@ -12,23 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import annotations
+from typing import Callable
 
-from snowflake.cli.api.commands.decorators import with_project_definition
-from snowflake.cli.api.commands.snow_typer import SnowTyper
-from snowflake.cli.api.output.types import MessageResult
-
-ws = SnowTyper(
-    name="ws",
-    hidden=True,
-    help="Deploy and interact with snowflake.yml-based entities.",
-)
+from snowflake.cli.api.cli_global_context import cli_context_manager
 
 
-@ws.command(requires_connection=True)
-@with_project_definition()
-def validate(
-    **options,
-):
-    """Validates the project definition file."""
-    return MessageResult("Project definition is valid.")
+def register_pre_execute_command(command: Callable[[], None]) -> None:
+    cli_context_manager.add_typer_pre_execute_commands(command)
+
+
+def run_pre_execute_commands() -> None:
+    for command in cli_context_manager.typer_pre_execute_commands:
+        command()
