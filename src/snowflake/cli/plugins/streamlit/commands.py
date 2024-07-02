@@ -29,6 +29,7 @@ from snowflake.cli.api.commands.flags import ReplaceOption, like_option
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -108,7 +109,7 @@ def _default_file_callback(param_name: str):
 
 
 @app.command("deploy", requires_connection=True)
-@with_project_definition("streamlit")
+@with_project_definition()
 @with_experimental_behaviour()
 def streamlit_deploy(
     replace: bool = ReplaceOption(
@@ -122,6 +123,12 @@ def streamlit_deploy(
     environment.yml and any other pages or folders, if present. If you don’t specify a stage name, the `streamlit`
     stage is used. If the specified stage does not exist, the command creates it.
     """
+
+    if cli_context.project_definition.streamlit is None:
+        raise NoProjectDefinitionError(
+            project_type="streamlit", project_file=cli_context.project_root
+        )
+
     streamlit: Streamlit = cli_context.project_definition.streamlit
     if not streamlit:
         return MessageResult("No streamlit were specified in project definition.")
