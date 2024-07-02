@@ -25,6 +25,7 @@ from snowflake.cli.api.project.schemas.entities.application_entity import (
 from snowflake.cli.api.project.schemas.entities.application_package_entity import (
     ApplicationPackageEntity,
 )
+from snowflake.cli.api.project.schemas.entities.common_properties import TargetField
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
@@ -104,6 +105,14 @@ class _DefinitionV20(ProjectDefinition):
             if entity_type not in _v2_entity_types_map:
                 raise ValueError(f"Unsupported entity type: {entity_type}")
             entities[key] = _v2_entity_types_map[entity_type](**entity)
+
+        # TODO Iterate over all fields recursively to find TargetField to validate
+        for key, entity in entities.items():
+            if entity.type_ == "application":
+                if isinstance(entity.from_.target, TargetField):
+                    target = str(entity.from_.target)
+                    if target not in entities:
+                        raise ValueError(f"No such target: {target}")
 
         return entities
 
