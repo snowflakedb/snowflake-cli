@@ -21,7 +21,10 @@ from typing import List
 import yaml.loader
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+from snowflake.cli.api.project.schemas.project_definition import (
+    ProjectDefinition,
+    get_project_definition,
+)
 from snowflake.cli.api.project.util import (
     append_to_identifier,
     clean_identifier,
@@ -84,7 +87,7 @@ def load_project(paths: List[Path]) -> ProjectProperties:
     merged_definitions = _get_merged_definitions(paths)
     rendered_definition = render_definition_template(merged_definitions)
     return ProjectProperties(
-        ProjectDefinition(**rendered_definition), rendered_definition
+        get_project_definition(**rendered_definition), rendered_definition
     )
 
 

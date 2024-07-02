@@ -25,7 +25,7 @@ import yaml
 from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.schemas.native_app.application import SqlScriptHookType
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+from snowflake.cli.api.project.schemas.project_definition import get_project_definition
 from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 
 CURRENT_ROLE = "current_role"
@@ -111,7 +111,7 @@ def test_project_model_all_explicit(mock_connect, mock_ctx):
     """
     )
 
-    project_defn = ProjectDefinition(
+    project_defn = get_project_definition(
         **yaml.load(project_defition_file_yml, Loader=yaml.BaseLoader)
     )
     project_dir = Path().resolve()
