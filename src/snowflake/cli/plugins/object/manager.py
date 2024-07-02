@@ -14,13 +14,19 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, Union
+from textwrap import dedent
+from typing import Any, Dict, Optional, Tuple, Union
 
 from click import ClickException
-from snowflake.cli.api.constants import OBJECT_TO_NAMES, ObjectNames
+from snowflake.cli.api.constants import (
+    OBJECT_TO_NAMES,
+    ObjectNames,
+)
+from snowflake.cli.api.rest_api import RestApi
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.errors import BadRequest
 
 
 def _get_object_names(object_type: str) -> ObjectNames:
@@ -28,6 +34,16 @@ def _get_object_names(object_type: str) -> ObjectNames:
     if object_type.lower() not in OBJECT_TO_NAMES:
         raise ClickException(f"Object of type {object_type} is not supported.")
     return OBJECT_TO_NAMES[object_type]
+
+
+def _pluralize_object_type(object_type: str) -> str:
+    """
+    Pluralize object type without depending on OBJECT_TO_NAMES.
+    """
+    if object_type.endswith("y"):
+        return object_type[:-1].lower() + "ies"
+    else:
+        return object_type.lower() + "s"
 
 
 class ObjectManager(SqlExecutionMixin):
@@ -47,7 +63,7 @@ class ObjectManager(SqlExecutionMixin):
             query += f" in {scope[0].replace('-', ' ')} {scope[1]}"
         return self._execute_query(query, **kwargs)
 
-    def drop(self, *, object_type, name: str) -> SnowflakeCursor:
+    def drop(self, *, object_type: str, name: str) -> SnowflakeCursor:
         object_name = _get_object_names(object_type).sf_name
         return self._execute_query(f"drop {object_name} {name}")
 
@@ -66,3 +82,28 @@ class ObjectManager(SqlExecutionMixin):
             return True
         except ProgrammingError:
             return False
+
+    def create(self, object_type: str, object_data: Dict[str, Any]) -> str:
+        rest = RestApi(self._conn)
+        url = rest.determine_url_for_create_query(
+            plural_object_type=_pluralize_object_type(object_type)
+        )
+        if not url:
+            return f"Create operation for type {object_type} is not supported. Try using `sql -q 'CREATE ...'` command"
+        try:
+            response = rest.send_rest_request(url=url, method="post", data=object_data)
+            # workaround as SnowflakeRestful class ignores some errors, dropping their info and returns {} instead.
+            if not response:
+                raise ClickException(
+                    dedent(
+                        """                An unexpected error occurred while creating the object. Try again with --debug for more info.
+                Most probable reasons:
+                  * object you are trying to create already exists
+                  * role you are using do not have permissions to create this object"""
+                    )
+                )
+            return response["status"]
+        except BadRequest:
+            raise ClickException(
+                "Incorrect object definition (arguments misspelled or malformatted)."
+            )
