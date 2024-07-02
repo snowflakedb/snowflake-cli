@@ -1072,6 +1072,7 @@ def test_validate_use_scratch_stage(
         recursive=True,
         stage_fqn=native_app_manager.scratch_stage_fqn,
         validate=False,
+        print_diff=False,
     )
     assert mock_execute.mock_calls == expected
 
@@ -1137,6 +1138,7 @@ def test_validate_failing_drops_scratch_stage(
         recursive=True,
         stage_fqn=native_app_manager.scratch_stage_fqn,
         validate=False,
+        print_diff=False,
     )
     assert mock_execute.mock_calls == expected
 

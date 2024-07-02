@@ -21,6 +21,7 @@
 
 ## New additions
 * Added `snow init` command which initialises a project from a remote or local project template.
+* Add `snow object create` command
 * Added support for `title` field in Streamlit definition in `snowflake.yml` project file.
 * Added `--auto-compress` flag to `snow stage copy` command enabling use of gzip to compress files during upload.
 * Added new `native_app.application.post_deploy` section to `snowflake.yml` schema to execute actions after the application has been deployed via `snow app run`.
@@ -34,6 +35,7 @@
 * Improve terminal output sanitization to avoid ASCII escape codes.
 * The `snow sql` command will show query text before executing it.
 * Improved stage diff output in `snow app` commands
+* Hid the diff from `snow app validate` output since it was redundant
 
 # v2.5.0
 ## Backward incompatibility

@@ -31,9 +31,20 @@ class ProcessorMapping(UpdatableModel):
 
 
 class PathMapping(UpdatableModel):
-    src: str
-    dest: Optional[str] = None
-    processors: Optional[List[Union[str, ProcessorMapping]]] = []
+    src: str = Field(
+        title="Source path or glob pattern (relative to project root)", default=None
+    )
+
+    dest: Optional[str] = Field(
+        title="Destination path on stage",
+        description="Paths are relative to stage root; paths ending with a slash indicate that the destination is a directory which source files should be copied into.",
+        default=None,
+    )
+
+    processors: Optional[List[Union[str, ProcessorMapping]]] = Field(
+        title="List of processors to apply to matching source files during bundling.",
+        default=[],
+    )
 
     @field_validator("processors")
     @classmethod

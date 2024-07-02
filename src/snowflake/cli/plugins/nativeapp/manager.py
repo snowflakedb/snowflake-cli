@@ -26,20 +26,13 @@ import jinja2
 from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
-from snowflake.cli.api.project.definition import (
-    default_app_package,
-    default_application,
-    default_role,
-)
 from snowflake.cli.api.project.schemas.native_app.application import (
     ApplicationPostDeployHook,
 )
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
-    extract_schema,
     identifier_for_url,
-    to_identifier,
     unquote_identifier,
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -71,6 +64,9 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     SetupScriptFailedValidation,
     UnexpectedOwnerError,
 )
+from snowflake.cli.plugins.nativeapp.project_model import (
+    NativeAppProjectModel,
+)
 from snowflake.cli.plugins.nativeapp.utils import verify_exists, verify_no_directories
 from snowflake.cli.plugins.stage.diff import (
     DiffResult,
@@ -83,7 +79,6 @@ from snowflake.cli.plugins.stage.diff import (
 )
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor
 
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
@@ -168,135 +163,94 @@ class NativeAppManager(SqlExecutionMixin):
 
     def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__()
-        self._project_root = project_root
-        self._project_definition = project_definition
+        self._na_project = NativeAppProjectModel(
+            project_definition=project_definition,
+            project_root=project_root,
+        )
+
+    @property
+    def na_project(self) -> NativeAppProjectModel:
+        return self._na_project
 
     @property
     def project_root(self) -> Path:
-        return self._project_root
+        return self.na_project.project_root
 
     @property
     def definition(self) -> NativeApp:
-        return self._project_definition
+        return self.na_project.definition
 
-    @cached_property
+    @property
     def artifacts(self) -> List[PathMapping]:
-        return self.definition.artifacts
+        return self.na_project.artifacts
 
-    @cached_property
+    @property
+    def bundle_root(self) -> Path:
+        return self.na_project.bundle_root
+
+    @property
     def deploy_root(self) -> Path:
-        return Path(self.project_root, self.definition.deploy_root)
+        return self.na_project.deploy_root
 
-    @cached_property
+    @property
     def generated_root(self) -> Path:
-        return Path(self.deploy_root, self.definition.generated_root)
+        return self.na_project.generated_root
 
-    @cached_property
+    @property
     def package_scripts(self) -> List[str]:
-        """
-        Relative paths to package scripts from the project root.
-        """
-        if self.definition.package and self.definition.package.scripts:
-            return self.definition.package.scripts
-        else:
-            return []
+        return self.na_project.package_scripts
 
-    @cached_property
+    @property
     def stage_fqn(self) -> str:
-        return f"{self.package_name}.{self.definition.source_stage}"
+        return self.na_project.stage_fqn
 
-    @cached_property
+    @property
     def scratch_stage_fqn(self) -> str:
-        return f"{self.package_name}.{self.definition.scratch_stage}"
+        return self.na_project.scratch_stage_fqn
 
-    @cached_property
+    @property
     def stage_schema(self) -> Optional[str]:
-        return extract_schema(self.stage_fqn)
+        return self.na_project.stage_schema
 
-    @cached_property
+    @property
     def package_warehouse(self) -> Optional[str]:
-        if self.definition.package and self.definition.package.warehouse:
-            return self.definition.package.warehouse
-        else:
-            return self._conn.warehouse
+        return self.na_project.package_warehouse
 
-    @cached_property
+    @property
     def application_warehouse(self) -> Optional[str]:
-        if self.definition.application and self.definition.application.warehouse:
-            return self.definition.application.warehouse
-        else:
-            return self._conn.warehouse
+        return self.na_project.application_warehouse
 
-    @cached_property
+    @property
     def project_identifier(self) -> str:
-        # name is expected to be a valid Snowflake identifier, but PyYAML
-        # will sometimes strip out double quotes so we try to get them back here.
-        return to_identifier(self.definition.name)
+        return self.na_project.project_identifier
 
-    @cached_property
+    @property
     def package_name(self) -> str:
-        if self.definition.package and self.definition.package.name:
-            return to_identifier(self.definition.package.name)
-        else:
-            return to_identifier(default_app_package(self.project_identifier))
+        return self.na_project.package_name
 
-    @cached_property
+    @property
     def package_role(self) -> str:
-        if self.definition.package and self.definition.package.role:
-            return self.definition.package.role
-        else:
-            return self._default_role
+        return self.na_project.package_role
 
-    @cached_property
+    @property
     def package_distribution(self) -> str:
-        if self.definition.package and self.definition.package.distribution:
-            return self.definition.package.distribution.lower()
-        else:
-            return "internal"
+        return self.na_project.package_distribution
 
-    @cached_property
+    @property
     def app_name(self) -> str:
-        if self.definition.application and self.definition.application.name:
-            return to_identifier(self.definition.application.name)
-        else:
-            return to_identifier(default_application(self.project_identifier))
+        return self.na_project.app_name
 
-    @cached_property
+    @property
     def app_role(self) -> str:
-        if self.definition.application and self.definition.application.role:
-            return self.definition.application.role
-        else:
-            return self._default_role
+        return self.na_project.app_role
 
-    @cached_property
+    @property
     def app_post_deploy_hooks(self) -> Optional[List[ApplicationPostDeployHook]]:
-        """
-        List of application post deploy hooks.
-        """
-        if self.definition.application and self.definition.application.post_deploy:
-            return self.definition.application.post_deploy
-        else:
-            return None
+        return self.na_project.app_post_deploy_hooks
 
-    @cached_property
-    def _default_role(self) -> str:
-        role = default_role()
-        if role is None:
-            role = self._get_current_role()
-        return role
-
-    def _get_current_role(self) -> str:
-        role_result = self._execute_query(
-            "select current_role()", cursor_class=DictCursor
-        ).fetchone()
-        return role_result["CURRENT_ROLE()"]
-
-    @cached_property
+    @property
     def debug_mode(self) -> bool:
-        if self.definition.application:
-            return self.definition.application.debug
-        else:
-            return True
+        return self.na_project.debug_mode
 
     @cached_property
     def get_app_pkg_distribution_in_snowflake(self) -> str:
@@ -357,10 +311,7 @@ class NativeAppManager(SqlExecutionMixin):
         """
         bundle_map = build_bundle(self.project_root, self.deploy_root, self.artifacts)
         compiler = NativeAppCompiler(
-            project_definition=self._project_definition,
-            project_root=self.project_root,
-            deploy_root=self.deploy_root,
-            generated_root=self.generated_root,
+            na_project=self.na_project,
         )
         compiler.compile_artifacts()
         return bundle_map
@@ -373,6 +324,7 @@ class NativeAppManager(SqlExecutionMixin):
         recursive: bool,
         stage_fqn: str,
         local_paths_to_sync: List[Path] | None = None,
+        print_diff: bool = True,
     ) -> DiffResult:
         """
         Ensures that the files on our remote stage match the artifacts we have in
@@ -386,6 +338,7 @@ class NativeAppManager(SqlExecutionMixin):
             stage_fqn (str): The name of the stage to diff against and upload to.
             local_paths_to_sync (List[Path], optional): List of local paths to sync. Defaults to None to sync all
              local paths. Note that providing an empty list here is equivalent to None.
+            print_diff (bool): Whether to print the diff between the local files and the remote stage. Defaults to True
 
         Returns:
             A `DiffResult` instance describing the changes that were performed.
@@ -408,10 +361,11 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
         # Perform a diff operation and display results to the user for informational purposes
-        cc.step(
-            "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
-            % self.deploy_root.resolve()
-        )
+        if print_diff:
+            cc.step(
+                "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
+                % self.deploy_root.resolve()
+            )
         diff: DiffResult = compute_stage_diff(self.deploy_root, stage_fqn)
 
         if local_paths_to_sync:
@@ -460,7 +414,8 @@ class NativeAppManager(SqlExecutionMixin):
                     f"The following files exist only on the stage:\n{files_not_removed_str}\n\nUse the --prune flag to delete them from the stage."
                 )
 
-        print_diff_to_console(diff, bundle_map)
+        if print_diff:
+            print_diff_to_console(diff, bundle_map)
 
         # Upload diff-ed files to application package stage
         if diff.has_changes():
@@ -617,6 +572,7 @@ class NativeAppManager(SqlExecutionMixin):
         stage_fqn: Optional[str] = None,
         local_paths_to_sync: List[Path] | None = None,
         validate: bool = True,
+        print_diff: bool = True,
     ) -> DiffResult:
         """app deploy process"""
 
@@ -636,6 +592,7 @@ class NativeAppManager(SqlExecutionMixin):
                 recursive=recursive,
                 stage_fqn=stage_fqn,
                 local_paths_to_sync=local_paths_to_sync,
+                print_diff=print_diff,
             )
 
         if validate:
@@ -674,6 +631,7 @@ class NativeAppManager(SqlExecutionMixin):
                 recursive=True,
                 stage_fqn=stage_fqn,
                 validate=False,
+                print_diff=False,
             )
         prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
         try:
