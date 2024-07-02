@@ -100,6 +100,10 @@ class CommandPluginsLoader:
         self._loaded_command_paths[
             loaded_plugin.command_spec.full_command_path
         ] = loaded_plugin
+
+        if self._is_external_plugin(loaded_plugin):
+            log.info("Loaded external plugin: %s", plugin_name)
+
         return loaded_plugin
 
     def _load_plugin_spec(
@@ -144,6 +148,10 @@ class CommandPluginsLoader:
                 ex,
             )
             return None
+
+    @staticmethod
+    def _is_external_plugin(plugin) -> bool:
+        return isinstance(plugin, LoadedExternalCommandPlugin)
 
 
 def load_only_builtin_command_plugins() -> List[LoadedCommandPlugin]:
