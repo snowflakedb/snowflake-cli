@@ -26,7 +26,9 @@ from snowflake.cli.api.project.definition import (
 )
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
-from snowflake.cli.api.project.schemas.project_definition import get_project_definition
+from snowflake.cli.api.project.schemas.project_definition import (
+    build_project_definition,
+)
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
@@ -147,6 +149,6 @@ def test_fields_are_parsed_correctly(project_definition_files, snapshot):
 )
 def test_schema_is_validated_for_version(data):
     with pytest.raises(SchemaValidationError) as err:
-        get_project_definition(**data)
+        build_project_definition(**data)
 
     assert "is not supported in given version" in str(err.value)

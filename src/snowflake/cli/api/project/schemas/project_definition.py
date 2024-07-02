@@ -124,7 +124,7 @@ class _DefinitionV20(_ProjectDefinitionBase):
         return entities
 
 
-def get_project_definition(**data):
+def build_project_definition(**data):
     if not isinstance(data, dict):
         return
     if FeatureFlag.ENABLE_PDF_V2.is_enabled():

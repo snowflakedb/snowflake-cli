@@ -17,7 +17,7 @@ from pydantic import ValidationError
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
-    get_project_definition,
+    build_project_definition,
 )
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
@@ -84,13 +84,13 @@ def test_project_schema_is_updated_correctly_from_dict(
 
 
 def test_project_definition_work_for_int_version():
-    p = get_project_definition(definition_version=1)
+    p = build_project_definition(definition_version=1)
     assert p.definition_version == "1"
 
 
 def test_project_definition_fails_for_unknown_version():
     with pytest.raises(SchemaValidationError) as err:
-        get_project_definition(definition_version="6.2.3")
+        build_project_definition(definition_version="6.2.3")
 
     assert "Version 6.2.3 is not supported. Supported versions: 1, 1.1" in str(
         err.value
