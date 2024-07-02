@@ -34,6 +34,7 @@
 * Improve terminal output sanitization to avoid ASCII escape codes.
 * The `snow sql` command will show query text before executing it.
 * Improved stage diff output in `snow app` commands
+* Hid the diff from `snow app validate` output since it was redundant
 
 # v2.5.0
 ## Backward incompatibility
