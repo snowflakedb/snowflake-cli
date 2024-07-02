@@ -173,7 +173,7 @@ def _validate_cli_version(required_version: str) -> None:
     if parse(required_version) > parse(VERSION):
         raise ClickException(
             f"Snowflake CLI version ({VERSION}) is too low - minimum version required"
-            f" by template is {required_version}. Please upgrade before continuing"
+            f" by template is {required_version}. Please upgrade before continuing."
         )
 
 
