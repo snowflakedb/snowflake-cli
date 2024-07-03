@@ -108,7 +108,7 @@ def test_nativeapp_controlled_debug_mode(
 
             # let's set debug mode to false out-of-band
             result = runner.invoke_with_connection_json(
-                ["sql", "-q", f'"alter application {app_name} set debug_mode = false"'],
+                ["sql", "-q", f"alter application {app_name} set debug_mode = false"],
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
