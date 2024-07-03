@@ -38,8 +38,8 @@ def is_debug_mode(conn: SnowflakeConnection, app_name: str) -> bool:
     found on the given connection.
     """
     try:
-        cursor = conn.execute_string(f"describe application {app_name}")
-        for row in cursor:
+        *_, cursor = conn.execute_string(f"describe application {app_name}")
+        for row in cursor.fetchall():
             if row[0].lower() == "debug_mode":
                 return row[1].lower() == "true"
     except ProgrammingError:
