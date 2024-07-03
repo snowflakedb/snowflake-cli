@@ -158,13 +158,23 @@ def test_schema_is_validated_for_version(data):
 def test_project_definition_v2_is_disabled():
     assert FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled() == False
     with pytest.raises(SchemaValidationError) as err:
-        build_project_definition(**{"definition_version": "2"})
+        build_project_definition(**{"definition_version": "2", "entities": {}})
     assert "Version 2 is not supported" in str(err.value)
 
 
-@mock.patch.dict(
-    "os.environ", {"SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2": "true"}
-)
+def mock_config_key(key, value):
+    def get_config_side_effect_func(*args, **kwargs):
+        if kwargs["key"] == key:
+            return value
+        return kwargs["default"]
+
+    return mock.patch(
+        "snowflake.cli.api.config.get_config_value",
+        side_effect=get_config_side_effect_func,
+    )
+
+
 def test_project_definition_v2_is_enabled_with_feature_flag():
-    assert FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled() == True
-    build_project_definition(**{"definition_version": "2", "entities": {}})
+    with mock_config_key("enable_project_definition_v2", True):
+        assert FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled() == True
+        build_project_definition(**{"definition_version": "2", "entities": {}})
