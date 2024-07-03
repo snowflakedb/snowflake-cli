@@ -47,6 +47,7 @@
 * Hid the diff from `snow app validate` output since it was redundant
 * Added log into the file with loaded external plugins
 * Improved output and format of Pydantic validation errors
+* The `snow app run` command will no longer set `debug_mode=true` unless explicitly set in `snowflake.yml`
 
 # v2.5.0
 ## Backward incompatibility

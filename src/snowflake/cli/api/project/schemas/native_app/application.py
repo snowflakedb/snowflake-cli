@@ -45,7 +45,7 @@ class Application(UpdatableModel):
         default=None,
     )
     debug: Optional[bool] = Field(
-        title="Whether to enable debug mode when using a named stage to create an application object",
+        title="When set, forces debug_mode on/off for the deployed application object",
         default=None,
     )
     post_deploy: Optional[List[ApplicationPostDeployHook]] = Field(
