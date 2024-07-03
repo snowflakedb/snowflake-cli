@@ -38,10 +38,7 @@ from snowflake.cli.api.constants import (
     DEPLOYMENT_STAGE,
     ObjectType,
 )
-from snowflake.cli.api.exceptions import (
-    NoProjectDefinitionError,
-    SecretsWithoutExternalAccessIntegrationError,
-)
+from snowflake.cli.api.exceptions import SecretsWithoutExternalAccessIntegrationError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -49,6 +46,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.api.project.schemas.snowpark.callable import (
     FunctionSchema,
     ProcedureSchema,
@@ -130,10 +128,7 @@ def deploy(
     All deployed objects use the same artifact which is deployed only once.
     """
 
-    if cli_context.project_definition.snowpark is None:
-        raise NoProjectDefinitionError(
-            project_type="snowpark", project_file=cli_context.project_root
-        )
+    assert_project_type("snowpark")
 
     snowpark = cli_context.project_definition.snowpark
     paths = SnowparkPackagePaths.for_snowpark_project(
@@ -404,10 +399,7 @@ def build(
     The archive is built using only the `src` directory specified in the project file.
     """
 
-    if cli_context.project_definition.snowpark is None:
-        raise NoProjectDefinitionError(
-            project_type="snowpark", project_file=cli_context.project_root
-        )
+    assert_project_type("snowpark")
 
     if not deprecated_check_anaconda_for_pypi_deps:
         ignore_anaconda = True

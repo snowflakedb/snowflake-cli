@@ -24,8 +24,8 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
+from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli.plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
@@ -73,10 +73,7 @@ def create(
     Adds a new patch to the provided version defined in your application package. If the version does not exist, creates a version with patch 0.
     """
 
-    if cli_context.project_definition.native_app is None:
-        raise NoProjectDefinitionError(
-            project_type="native_app", project_file=cli_context.project_root
-        )
+    assert_project_type("native_app")
 
     if version is None and patch is not None:
         raise MissingParameter("Cannot provide a patch without version!")
@@ -122,10 +119,7 @@ def version_list(
     Lists all versions defined in an application package.
     """
 
-    if cli_context.project_definition.native_app is None:
-        raise NoProjectDefinitionError(
-            project_type="native_app", project_file=cli_context.project_root
-        )
+    assert_project_type("native_app")
 
     processor = NativeAppRunProcessor(
         project_definition=cli_context.project_definition.native_app,
@@ -151,10 +145,7 @@ def drop(
     Dropping patches is not allowed.
     """
 
-    if cli_context.project_definition.native_app is None:
-        raise NoProjectDefinitionError(
-            project_type="native_app", project_file=cli_context.project_root
-        )
+    assert_project_type("native_app")
 
     is_interactive = False
     if force:

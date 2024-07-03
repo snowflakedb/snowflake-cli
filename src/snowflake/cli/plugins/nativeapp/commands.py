@@ -26,7 +26,6 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -34,6 +33,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     ObjectResult,
 )
+from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.nativeapp.common_flags import (
     ForceOption,
@@ -154,10 +154,7 @@ def app_bundle(
     Prepares a local folder with configured app artifacts.
     """
 
-    if cli_context.project_definition.native_app is None:
-        raise NoProjectDefinitionError(
-            project_type="native_app", project_file=cli_context.project_root
-        )
+    assert_project_type("native_app")
 
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
@@ -198,10 +195,7 @@ def app_run(
     then creates or upgrades an application object from the application package.
     """
 
-    if cli_context.project_definition.native_app is None:
-        raise NoProjectDefinitionError(
-            project_type="native_app", project_file=cli_context.project_root
-        )
+    assert_project_type("native_app")
 
     is_interactive = False
     if force:
@@ -242,10 +236,7 @@ def app_open(
     once it has been installed in your account.
     """
 
-    if cli_context.project_definition.native_app is None:
-        raise NoProjectDefinitionError(
-            project_type="native_app", project_file=cli_context.project_root
-        )
+    assert_project_type("native_app")
 
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
@@ -276,10 +267,7 @@ def app_teardown(
     Attempts to drop both the application object and application package as defined in the project definition file.
     """
 
-    if cli_context.project_definition.native_app is None:
-        raise NoProjectDefinitionError(
-            project_type="native_app", project_file=cli_context.project_root
-        )
+    assert_project_type("native_app")
 
     processor = NativeAppTeardownProcessor(
         project_definition=cli_context.project_definition.native_app,
@@ -321,10 +309,7 @@ def app_deploy(
     Running this command with no arguments at all, as in `snow app deploy`, is a shorthand for `snow app deploy --prune --recursive`.
     """
 
-    if cli_context.project_definition.native_app is None:
-        raise NoProjectDefinitionError(
-            project_type="native_app", project_file=cli_context.project_root
-        )
+    assert_project_type("native_app")
 
     has_paths = paths is not None and len(paths) > 0
     if prune is None and recursive is None and not has_paths:
@@ -365,10 +350,7 @@ def app_validate(**options):
     Validates a deployed Snowflake Native App's setup script.
     """
 
-    if cli_context.project_definition.native_app is None:
-        raise NoProjectDefinitionError(
-            project_type="native_app", project_file=cli_context.project_root
-        )
+    assert_project_type("native_app")
 
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,

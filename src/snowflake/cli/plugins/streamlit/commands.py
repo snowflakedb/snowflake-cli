@@ -29,13 +29,13 @@ from snowflake.cli.api.commands.flags import ReplaceOption, like_option
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.plugins.object.command_aliases import (
     add_object_command_aliases,
@@ -124,10 +124,7 @@ def streamlit_deploy(
     stage is used. If the specified stage does not exist, the command creates it.
     """
 
-    if cli_context.project_definition.streamlit is None:
-        raise NoProjectDefinitionError(
-            project_type="streamlit", project_file=cli_context.project_root
-        )
+    assert_project_type("streamlit")
 
     streamlit: Streamlit = cli_context.project_definition.streamlit
     if not streamlit:
