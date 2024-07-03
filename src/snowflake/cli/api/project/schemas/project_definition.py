@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from typing import Dict, Optional, Union
 
 from packaging.version import Version
-
 from pydantic import Field, ValidationError, field_validator
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.errors import SchemaValidationError
