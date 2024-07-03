@@ -14,6 +14,7 @@
 
 import os
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
 
@@ -80,3 +81,80 @@ def test_corrupted_config_in_default_location(
         [snowcli, "--config-file", healthy_config, "connection", "list"],
     )
     assert "dev" in result_healthy.stdout and "integration" in result_healthy.stdout
+
+
+@pytest.mark.e2e
+def test_initial_log_with_loaded_external_plugins_in_custom_log_path(
+    snowcli, temp_dir, isolate_default_config_location, test_root_path
+):
+    custom_log_path = os.path.join(temp_dir, "custom", "logs")
+    default_config = Path(temp_dir) / "config.toml"
+    config_logs_path = custom_log_path.replace("\\", "\\\\")
+    with open(default_config, "w", newline="\n") as config:
+        config.write(
+            dedent(
+                f"""[cli.logs]
+            path = "{config_logs_path}"
+
+            [connections.default]
+            [connections.integration]
+
+            [cli.plugins.snowpark-hello]
+            enabled = true
+            [cli.plugins.snowpark-hello.config]
+            greeting = "Hello"
+
+            [cli.plugins.multilingual-hello]
+            enabled = true
+            """
+            )
+        )
+        config.flush()
+    default_config.chmod(0o600)
+
+    result = subprocess_run(
+        [snowcli, "--help"],
+    )
+
+    assert result.returncode == 0
+    with open(os.path.join(custom_log_path, "snowflake-cli.log")) as log_file:
+        log_content = log_file.read()
+        assert "Loaded external plugin: multilingual-hello" in log_content
+
+
+@pytest.mark.e2e
+def test_initial_log_with_loaded_external_plugins_in_custom_log_path_with_custom_config(
+    snowcli, temp_dir, isolate_default_config_location, test_root_path
+):
+    custom_log_path = os.path.join(temp_dir, "custom", "logs")
+    custom_config = Path(temp_dir) / "custom" / "config.toml"
+    custom_config.parent.mkdir()
+    config_logs_path = custom_log_path.replace("\\", "\\\\")
+    with open(custom_config, "w", newline="\n") as config:
+        config.write(
+            dedent(
+                f"""[cli.logs]
+            path = "{config_logs_path}"
+
+            [connections.default]
+            [connections.integration]
+
+            [cli.plugins.snowpark-hello]
+            enabled = true
+            [cli.plugins.snowpark-hello.config]
+            greeting = "Hello"
+
+            [cli.plugins.multilingual-hello]
+            enabled = true
+            """
+            )
+        )
+        config.flush()
+    custom_config.chmod(0o600)
+
+    result = subprocess_run([snowcli, "--config-file", custom_config, "--help"])
+
+    assert result.returncode == 0
+    with open(os.path.join(custom_log_path, "snowflake-cli.log")) as log_file:
+        log_content = log_file.read()
+        assert "Loaded external plugin: multilingual-hello" in log_content
