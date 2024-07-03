@@ -252,10 +252,10 @@ def _get_referenced_vars_in_definition(
     return referenced_vars
 
 
-def _template_version_warning(version):
+def _template_version_warning():
     cc.warning(
-        f"Possible use of templating in project definition file.\n"
-        f"Templating is not supported in current definition_version: {version}"
+        "Ignoring template pattern in project definition file.\n"
+        "Update project definition version to 1.1 or later to enable template expansion."
     )
 
 
@@ -296,10 +296,10 @@ def render_definition_template(
                 template_env, definition
             )
             if referenced_vars:
-                _template_version_warning(definition["definition_version"])
+                _template_version_warning()
         except Exception:
             # also warn on Exception, as it means the user is incorrectly attempting to use templating
-            _template_version_warning(definition["definition_version"])
+            _template_version_warning()
 
         project_definition = ProjectDefinition(**original_definition)
         project_context[CONTEXT_KEY]["env"] = environment_overrides
