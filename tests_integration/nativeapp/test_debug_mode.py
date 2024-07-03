@@ -39,19 +39,15 @@ def is_debug_mode(conn: SnowflakeConnection, app_name: str) -> bool:
     """
     try:
         cursor = conn.execute_string(f"describe application {app_name}")
-        if cursor.rowcount is None or cursor.rowcount == 0:
-            raise ApplicationNotFoundError(
-                f"Could not find an application with name {app_name}"
-            )
-
         for row in cursor:
             if row[0].lower() == "debug_mode":
                 return row[1].lower() == "true"
-
     except ProgrammingError:
-        raise ApplicationNotFoundError(
-            f"Could not find an application with name {app_name}"
-        )
+        pass
+
+    raise ApplicationNotFoundError(
+        f"Could not find an application with name {app_name}"
+    )
 
 
 def set_yml_application_debug(snowflake_yml: Path, debug: Optional[bool]):
@@ -90,8 +86,7 @@ def test_nativeapp_controlled_debug_mode(
 
         # make sure our chosen snowflake.yml doesn't have an opinion on debug mode
         set_yml_application_debug(snowflake_yml, None)
-        with open(snowflake_yml, "r") as f:
-            assert "debug:" not in f.read()
+        assert "debug:" not in snowflake_yml.read_text()
 
         # make sure the app doesn't (yet) exist
         app_name = f"{project_name}_{USER_NAME}".upper()
@@ -128,6 +123,7 @@ def test_nativeapp_controlled_debug_mode(
 
             # modify snowflake.yml to explicitly set debug mode ("controlled")
             set_yml_application_debug(snowflake_yml, True)
+            assert "debug:" in snowflake_yml.read_text()
 
             # now, re-deploying the app will set debug_mode to true
             result = runner.invoke_with_connection_json(
