@@ -18,7 +18,7 @@ from unittest import mock
 
 from click import Command
 from pydantic.json_schema import GenerateJsonSchema, model_json_schema
-from snowflake.cli.api.project.schemas.project_definition import _DefinitionV11
+from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
 from snowflake.cli.app.cli_app import app_context_holder
 
 
@@ -118,7 +118,7 @@ def test_files_generated_for_each_optional_project_definition_property(
     project_definition_path = Path(temp_dir) / "gen_docs" / "project_definition"
     errors = []
 
-    model_json = model_json_schema(_DefinitionV11, schema_generator=GenerateJsonSchema)
+    model_json = model_json_schema(DefinitionV11, schema_generator=GenerateJsonSchema)
     for property_name in model_json["properties"]:
         if property_name in model_json["required"]:
             continue

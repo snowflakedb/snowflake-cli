@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Set
 
 from _pytest.fixtures import fixture
 from pydantic.json_schema import GenerateJsonSchema, model_json_schema
-from snowflake.cli.api.project.schemas.project_definition import _DefinitionV11
+from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
 from snowflake.cli.app.dev.docs.project_definition_generate_json_schema import (
     ProjectDefinitionGenerateJsonSchema,
 )
@@ -27,7 +27,7 @@ from snowflake.cli.app.dev.docs.project_definition_generate_json_schema import (
 @fixture
 def section_properties_set():
     project_definition_sections = model_json_schema(
-        _DefinitionV11, schema_generator=ProjectDefinitionGenerateJsonSchema
+        DefinitionV11, schema_generator=ProjectDefinitionGenerateJsonSchema
     )["result"]
 
     section_properties_set = set()
@@ -57,7 +57,7 @@ def test_generated_json_contains_properties_generated_from_references(
 
 def test_generated_json_correspond_to_project_definition_model(section_properties_set):
     model_json = model_json_schema(
-        _DefinitionV11, schema_generator=GenerateJsonSchema, ref_template="{model}"
+        DefinitionV11, schema_generator=GenerateJsonSchema, ref_template="{model}"
     )
 
     def _get_field_references(model_with_type: Dict[str, Any]) -> List[str]:

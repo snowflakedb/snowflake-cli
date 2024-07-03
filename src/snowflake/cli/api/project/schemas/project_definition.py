@@ -62,7 +62,7 @@ class _ProjectDefinitionBase(UpdatableModel):
     @classmethod
     def _is_supported_version(cls, version: str) -> str:
         version = str(version)
-        version_map = _get_version_map()
+        version_map = get_version_map()
         if version not in version_map:
             raise ValueError(
                 f'Version {version} is not supported. Supported versions: {", ".join(version_map)}'
@@ -73,7 +73,7 @@ class _ProjectDefinitionBase(UpdatableModel):
         return Version(self.definition_version) >= Version(required_version)
 
 
-class _DefinitionV10(_ProjectDefinitionBase):
+class DefinitionV10(_ProjectDefinitionBase):
     native_app: Optional[NativeApp] = Field(
         title="Native app definitions for the project", default=None
     )
@@ -86,7 +86,7 @@ class _DefinitionV10(_ProjectDefinitionBase):
     )
 
 
-class _DefinitionV11(_DefinitionV10):
+class DefinitionV11(DefinitionV10):
     env: Union[Dict[str, str], ProjectEnvironment, None] = Field(
         title="Environment specification for this project.",
         default=None,
@@ -104,7 +104,7 @@ class _DefinitionV11(_DefinitionV10):
         return ProjectEnvironment(default_env=(env or {}), override_env={})
 
 
-class _DefinitionV20(_ProjectDefinitionBase):
+class DefinitionV20(_ProjectDefinitionBase):
     entities: Dict = Field(
         title="Entity definitions.",
     )
@@ -139,18 +139,18 @@ def build_project_definition(**data):
     if not isinstance(data, dict):
         return
     version = data.get("definition_version")
-    version_model = _get_version_map().get(str(version))
+    version_model = get_version_map().get(str(version))
     if not version or not version_model:
         # Raises a SchemaValidationError
         _ProjectDefinitionBase(**data)
     return version_model(**data)
 
 
-ProjectDefinition = Union[_DefinitionV10, _DefinitionV11, _DefinitionV20]
+ProjectDefinition = Union[DefinitionV10, DefinitionV11, DefinitionV20]
 
 
-def _get_version_map():
-    version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11}
+def get_version_map():
+    version_map = {"1": DefinitionV10, "1.1": DefinitionV11}
     if FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled():
-        version_map["2"] = _DefinitionV20
+        version_map["2"] = DefinitionV20
     return version_map

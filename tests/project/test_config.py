@@ -31,6 +31,8 @@ from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
 
+from tests.testing_utils.mock_config import mock_config_key
+
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_napp_project_1(project_definition_files):
@@ -160,19 +162,8 @@ def test_project_definition_v2_is_disabled():
     assert "Version 2 is not supported" in str(err.value)
 
 
-def mock_config_key(key, value):
-    def get_config_side_effect_func(*args, **kwargs):
-        if kwargs["key"] == key:
-            return value
-        return kwargs["default"]
-
-    return mock.patch(
-        "snowflake.cli.api.config.get_config_value",
-        side_effect=get_config_side_effect_func,
-    )
-
-
 def test_project_definition_v2_is_enabled_with_feature_flag():
     with mock_config_key("enable_project_definition_v2", True):
+        assert FeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled() == False
         assert FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled() == True
         build_project_definition(**{"definition_version": "2", "entities": {}})
