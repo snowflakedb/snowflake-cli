@@ -18,7 +18,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional, Union
 
 from packaging.version import Version
-from pydantic import Field, field_validator
+from pydantic import Field, ValidationError, field_validator
+from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
@@ -46,6 +47,12 @@ class ProjectProperties:
 
 
 class _BaseDefinition(UpdatableModel):
+    def __init__(self, *args, **kwargs):
+        try:
+            super().__init__(**kwargs)
+        except ValidationError as e:
+            raise SchemaValidationError(e) from e
+
     definition_version: Union[str, int] = Field(
         title="Version of the project definition schema, which is currently 1",
     )
