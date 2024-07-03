@@ -31,4 +31,5 @@ def validate(
     **options,
 ):
     """Validates the project definition file."""
+    # If we get to this point, @with_project_definition() has already validated the PDF schema
     return MessageResult("Project definition is valid.")

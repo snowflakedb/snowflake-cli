@@ -150,7 +150,7 @@ ProjectDefinition = Union[_DefinitionV10, _DefinitionV11, _DefinitionV20]
 
 
 def _get_version_map():
-    _version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11}
+    version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11}
     if FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled():
-        _version_map["2"] = _DefinitionV20
-    return _version_map
+        version_map["2"] = _DefinitionV20
+    return version_map
