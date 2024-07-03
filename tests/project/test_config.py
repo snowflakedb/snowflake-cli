@@ -80,9 +80,9 @@ def test_underspecified_project(project_definition_files):
     with pytest.raises(SchemaValidationError) as exc_info:
         load_project(project_definition_files).project_definition
 
-    assert "NativeApp" in str(exc_info)
-    assert "Your project definition is missing following fields: ('artifacts',)" in str(
-        exc_info.value
+    assert (
+        "Your project definition is missing the following field: 'native_app.artifacts'"
+        in str(exc_info.value)
     )
 
 
@@ -93,9 +93,8 @@ def test_fails_without_definition_version(project_definition_files):
     with pytest.raises(SchemaValidationError) as exc_info:
         load_project(project_definition_files).project_definition
 
-    assert "ProjectDefinition" in str(exc_info)
     assert (
-        "Your project definition is missing following fields: ('definition_version',)"
+        "Your project definition is missing the following field: 'definition_version'"
         in str(exc_info.value)
     )
 
@@ -105,9 +104,8 @@ def test_does_not_accept_unknown_fields(project_definition_files):
     with pytest.raises(SchemaValidationError) as exc_info:
         load_project(project_definition_files).project_definition
 
-    assert "NativeApp" in str(exc_info)
     assert (
-        "You provided field '('unknown_fields_accepted',)' with value 'true' that is not supported in given version."
+        "You provided field 'native_app.unknown_fields_accepted' with value 'true' that is not supported in given version."
         in str(exc_info)
     )
 
