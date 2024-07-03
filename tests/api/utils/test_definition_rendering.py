@@ -102,7 +102,7 @@ def test_no_resolve_and_warning_in_version_1(warning_mock):
         }
     }
     warning_mock.assert_called_once_with(
-        "Ignoring template pattern in project definition file.\n"
+        "Ignoring template pattern in project definition file. "
         "Update project definition version to 1.1 or later to enable template expansion."
     )
 
@@ -125,7 +125,7 @@ def test_partial_invalid_template_in_version_1(warning_mock):
     }
     # we still want to warn if there was an incorrect attempt to use templating
     warning_mock.assert_called_once_with(
-        "Ignoring template pattern in project definition file.\n"
+        "Ignoring template pattern in project definition file. "
         "Update project definition version to 1.1 or later to enable template expansion."
     )
 

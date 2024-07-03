@@ -254,7 +254,7 @@ def _get_referenced_vars_in_definition(
 
 def _template_version_warning():
     cc.warning(
-        "Ignoring template pattern in project definition file.\n"
+        "Ignoring template pattern in project definition file. "
         "Update project definition version to 1.1 or later to enable template expansion."
     )
 
