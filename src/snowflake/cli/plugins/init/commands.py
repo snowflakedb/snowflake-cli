@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 
 import typer
@@ -37,7 +38,10 @@ from snowflake.cli.api.utils.rendering import get_template_cli_jinja_env
 # simple Typer with defaults because it won't become a command group as it contains only one command
 app = SnowTyperFactory()
 
+
 DEFAULT_SOURCE = "https://github.com/snowflakedb/snowflake-cli-templates"
+
+log = logging.getLogger(__name__)
 
 
 def _path_argument_callback(path: str) -> str:
@@ -77,6 +81,7 @@ def _fetch_local_template(
 
     template_source.assert_exists()
     template_origin = template_source / path if path else template_source
+    log.info("Copying local template from %s", template_origin.path)
     if not template_origin.exists():
         raise ClickException(
             f"Template '{path}' cannot be found under {template_source}"
@@ -97,11 +102,14 @@ def _fetch_remote_template(
     # TODO: during nativeapp refactor get rid of this dependency
     from snowflake.cli.plugins.nativeapp.utils import shallow_git_clone
 
+    log.info("Downloading remote template from %s", url)
     shallow_git_clone(url, to_path=destination.path)
     if path:
+        # template is a subdirectoruy of the repository
         template_root = destination / path
     else:
-        # remove .git directory not to copy it to the template
+        # template is a whole repository
+        # removing .git directory not to copy it to the template
         template_root = destination
         git_rmtree((template_root / ".git").path)
     if not template_root.exists():
@@ -113,6 +121,7 @@ def _fetch_remote_template(
 def _read_template_metadata(template_root: SecurePath) -> Template:
     """Parse template.yml file."""
     template_metadata_path = template_root / TEMPLATE_METADATA_FILE_NAME
+    log.debug("Reading template metadata from %s", template_metadata_path.path)
     if not template_metadata_path.exists():
         raise FileNotFoundError(
             f"Template does not have {TEMPLATE_METADATA_FILE_NAME} file"
@@ -149,6 +158,10 @@ def _determine_variable_values(
     """
     result = {}
 
+    log.debug(
+        "Resolving values of variables: %s",
+        ", ".join(v.name for v in variables_metadata),
+    )
     for variable in variables_metadata:
         if variable.name not in variables_from_flags:
             value = _prompt_for_value(variable, no_interactive)
@@ -166,6 +179,7 @@ def _render_template(
     template_root: SecurePath, files_to_render: List[str], data: Dict[str, Any]
 ) -> None:
     """Override all listed files with their rendered version."""
+    log.debug("Rendering template files: %s", ", ".join(files_to_render))
     jinja_env = get_template_cli_jinja_env(template_root)
     for path in files_to_render:
         jinja_template = jinja_env.get_template(path)
