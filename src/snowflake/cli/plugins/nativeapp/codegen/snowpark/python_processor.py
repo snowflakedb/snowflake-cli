@@ -21,8 +21,8 @@ from textwrap import dedent
 from typing import Any, Dict, List, Optional, Set
 
 from click import ClickException
+from pydantic import ValidationError
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
     ProcessorMapping,
@@ -353,7 +353,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                         deploy_root=bundle_map.deploy_root(),
                     )
                     collected_extension_functions.append(extension_fn)
-                except SchemaValidationError:
+                except ValidationError:
                     cc.warning("Invalid extension function definition")
 
             if collected_extension_functions:

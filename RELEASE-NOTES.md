@@ -45,6 +45,8 @@
 * The `snow sql` command will show query text before executing it.
 * Improved stage diff output in `snow app` commands
 * Hid the diff from `snow app validate` output since it was redundant
+* Added log into the file with loaded external plugins
+* Improved output and format of Pydantic validation errors
 
 # v2.5.0
 ## Backward incompatibility

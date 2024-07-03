@@ -16,6 +16,7 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+from pydantic import ValidationError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.application import (
@@ -168,13 +169,14 @@ def test_invalid_hook_type(
     "args,expected_error",
     [
         ({"sql_script": "/path"}, None),
-        ({}, "missing following fields: ('sql_script',)"),
+        ({}, "missing the following field: 'sql_script'"),
     ],
 )
 def test_post_deploy_hook_schema(args, expected_error):
     if expected_error:
-        with pytest.raises(SchemaValidationError) as err:
+        with pytest.raises(ValidationError) as err:
             ApplicationPostDeployHook(**args)
-        assert expected_error in str(err)
+
+        assert expected_error in str(SchemaValidationError(err.value))
     else:
         ApplicationPostDeployHook(**args)
