@@ -158,7 +158,9 @@ def test_conflicting_commands_handling(streamlit_command_spec_mock, runner):
 
 
 @mock.patch("snowflake.cli.plugins.connection.plugin_spec.command_spec")
-def test_not_existing_command_group_handling(connection_command_spec_mock, runner):
+def test_not_existing_command_group_handling(
+    connection_command_spec_mock, runner, caplog
+):
     connection_command_spec_mock.return_value = CommandSpec(
         parent_command_path=CommandPath(["xyz123"]),
         command_type=CommandType.COMMAND_GROUP,
@@ -167,7 +169,10 @@ def test_not_existing_command_group_handling(connection_command_spec_mock, runne
 
     result = runner.invoke(["-h"])
     assert result.exit_code == 0
-    assert result.output.count("xyz123") == 0
+    assert (
+        "Cannot register plugin [connection]: Invalid command path [snow xyz123 list]. Command group [xyz123] does not exist."
+        in caplog.messages
+    )
     assert result.output.count("Manages connections to Snowflake") == 0
     assert result.output.count("Manages a Streamlit app in Snowflake") == 1
 
