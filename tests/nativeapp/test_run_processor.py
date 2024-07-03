@@ -1348,7 +1348,7 @@ def test_upgrade_app_recreate_app(
                     dedent(
                         f"""\
             create application myapp
-                from application package app_pkg 
+                from application package app_pkg  
                 comment = {SPECIAL_COMMENT}
             """
                     )
@@ -1498,13 +1498,12 @@ def test_upgrade_app_recreate_app_from_version(
                     dedent(
                         f"""\
             create application myapp
-                from application package app_pkg using version v1 
+                from application package app_pkg using version v1  debug_mode = True
                 comment = {SPECIAL_COMMENT}
             """
                     )
                 ),
             ),
-            (None, mock.call("alter application myapp set debug_mode = True")),
             (None, mock.call("use role old_role")),
         ]
     )
