@@ -71,7 +71,8 @@ def set_yml_application_debug(snowflake_yml: Path, debug: Optional[bool]):
     snowflake_yml.write_text(yaml.dump(pdf))
 
 
-# Tests that debug mode is enabled by default, but not
+# Tests that debug mode is enabled by default on create, but not changed
+# on upgrade without an explicit setting in snowflake.yml
 @pytest.mark.integration
 @pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
 def test_nativeapp_controlled_debug_mode(
