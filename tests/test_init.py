@@ -354,9 +354,3 @@ def test_init_no_interactive(runner, temp_dir, test_projects_path):
         "optional_float": 1.5,
         "optional_unchecked": "5",
     }
-
-
-# TODO - add integration tests after repository will be available
-@pytest.mark.integration
-def test_init_from_url():
-    pass
