@@ -125,6 +125,9 @@ class _DefinitionV20(_ProjectDefinitionBase):
 
 
 def build_project_definition(**data):
+    """
+    Returns a ProjectDefinition instance with a version matching the provided definition_version value
+    """
     if not isinstance(data, dict):
         return
     if FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled():

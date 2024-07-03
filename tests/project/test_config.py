@@ -156,6 +156,7 @@ def test_schema_is_validated_for_version(data):
 
 
 def test_project_definition_v2_is_disabled():
+    assert FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled() == False
     with pytest.raises(SchemaValidationError) as err:
         build_project_definition(**{"definition_version": "2"})
     assert "Version 2 is not supported" in str(err.value)
