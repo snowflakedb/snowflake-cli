@@ -32,7 +32,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
 )
 from snowflake.cli.api.project.schemas.template import Template, TemplateVariable
-from snowflake.cli.api.rendering.project_templates import get_template_cli_jinja_env
+from snowflake.cli.api.rendering.project_templates import render_template_files
 from snowflake.cli.api.secure_path import SecurePath
 
 # simple Typer with defaults because it won't become a command group as it contains only one command
@@ -175,19 +175,6 @@ def _determine_variable_values(
     return result
 
 
-def _render_template(
-    template_root: SecurePath, files_to_render: List[str], data: Dict[str, Any]
-) -> None:
-    """Override all listed files with their rendered version."""
-    log.debug("Rendering template files: %s", ", ".join(files_to_render))
-    jinja_env = get_template_cli_jinja_env(template_root)
-    for path in files_to_render:
-        jinja_template = jinja_env.get_template(path)
-        rendered_result = jinja_template.render(**data)
-        full_path = template_root / path
-        full_path.write_text(rendered_result)
-
-
 def _validate_cli_version(required_version: str) -> None:
     from packaging.version import parse
     from snowflake.cli.__about__ import VERSION
@@ -240,7 +227,10 @@ def init(
             variables_from_flags=variables_from_flags,
             no_interactive=no_interactive,
         )
-        _render_template(
+        log.debug(
+            "Rendering template files: %s", ", ".join(template_metadata.files_to_render)
+        )
+        render_template_files(
             template_root=template_root,
             files_to_render=template_metadata.files_to_render,
             data=variable_values,

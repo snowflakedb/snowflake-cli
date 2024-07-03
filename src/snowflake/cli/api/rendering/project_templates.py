@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+from typing import Any, Dict, List
+
 from jinja2 import Environment, StrictUndefined, loaders
 from snowflake.cli.api.rendering.jinja import env_bootstrap
 from snowflake.cli.api.secure_path import SecurePath
@@ -35,3 +37,15 @@ def get_template_cli_jinja_env(template_root: SecurePath) -> Environment:
             undefined=StrictUndefined,
         )
     )
+
+
+def render_template_files(
+    template_root: SecurePath, files_to_render: List[str], data: Dict[str, Any]
+) -> None:
+    """Override all listed files with their rendered version."""
+    jinja_env = get_template_cli_jinja_env(template_root)
+    for path in files_to_render:
+        jinja_template = jinja_env.get_template(path)
+        rendered_result = jinja_template.render(**data)
+        full_path = template_root / path
+        full_path.write_text(rendered_result)
