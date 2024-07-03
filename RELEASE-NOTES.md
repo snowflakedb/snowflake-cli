@@ -26,16 +26,27 @@
 * Added `--auto-compress` flag to `snow stage copy` command enabling use of gzip to compress files during upload.
 * Added new `native_app.application.post_deploy` section to `snowflake.yml` schema to execute actions after the application has been deployed via `snow app run`.
   * Added the `sql_script` hook type to run SQL scripts with template support.
+* Added support for `--env` command line arguments for templating.
+  * Available for commands that make use of the project definition file.
+  * Format of the argument: `--env key1=value1 --env key2=value2`.
+  * Overrides `env` variables values when used in templating.
+  * Can be referenced in templating through `ctx.env.<key_name>`.
+  * Templating will read env vars in this order of priority (highest priority to lowest priority):
+    * vars from `--env` command line argument.
+    * vars from shell environment variables.
+    * vars from `env` section of project definition file.
 
 ## Fixes and improvements
 * Passing a directory to `snow app deploy` will now deploy any contained file or subfolder specified in the application's artifact rules
 * Fixes markup escaping errors in `snow sql` that may occur when users use unintentionally markup-like escape tags.
+* Fixed case where `snow app teardown` could not tear down orphan applications (those that have had their package dropped)
 * Fixed case where `snow app teardown` could leave behind orphan applications if they were not created by the Snowflake CLI
 * Fixed case where `snow app run` could fail to run an existing application whose package was dropped by prompting to drop and recreate the application
 * Improve terminal output sanitization to avoid ASCII escape codes.
 * The `snow sql` command will show query text before executing it.
 * Improved stage diff output in `snow app` commands
 * Hid the diff from `snow app validate` output since it was redundant
+* Added log into the file with loaded external plugins
 
 # v2.5.0
 ## Backward incompatibility

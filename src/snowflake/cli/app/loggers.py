@@ -25,6 +25,7 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.exceptions import InvalidLogsConfiguration
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.connector.errors import ConfigSourceError
 
 _DEFAULT_LOG_FILENAME = "snowflake-cli.log"
 
@@ -82,6 +83,16 @@ class DefaultLoggingConfig:
     )
 
 
+@dataclass
+class InitialLoggingConfig(DefaultLoggingConfig):
+    loggers: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "snowflake.cli": LoggerConfig(level=logging.INFO, handlers=["file"]),
+            "snowflake": LoggerConfig(),
+        }
+    )
+
+
 def _remove_underscore_prefixes_from_keys(d: Dict[str, Any]) -> None:
     for k, v in list(d.items()):
         if k.startswith("_"):
@@ -127,6 +138,16 @@ class FileLogsConfig:
         return self.path.path / _DEFAULT_LOG_FILENAME
 
 
+def create_initial_loggers():
+    config = InitialLoggingConfig()
+    try:
+        file_logs_config = FileLogsConfig(debug=False)
+        config.handlers["file"]["filename"] = file_logs_config.filename
+        _configurate_logging(config)
+    except ConfigSourceError:
+        pass
+
+
 def create_loggers(verbose: bool, debug: bool):
     """Creates a logger depending on the SnowCLI parameters and config file.
     verbose == True - print info and higher logs in default format
@@ -165,6 +186,10 @@ def create_loggers(verbose: bool, debug: bool):
     config.loggers["snowflake.cli"].level = global_log_level
     config.loggers["snowflake"].level = global_log_level
 
+    _configurate_logging(config)
+
+
+def _configurate_logging(config: DefaultLoggingConfig | InitialLoggingConfig) -> None:
     dict_config = asdict(config)
     _remove_underscore_prefixes_from_keys(dict_config)
     logging.config.dictConfig(dict_config)

@@ -473,8 +473,11 @@ class NativeAppManager(SqlExecutionMixin):
         ...
         """
         return "\n".join(
-            [f"({obj['type']}) {obj['name']}" for obj in application_objects]
+            [self._application_object_to_str(obj) for obj in application_objects]
         )
+
+    def _application_object_to_str(self, obj: ApplicationOwnedObject) -> str:
+        return f"({obj['type']}) {obj['name']}"
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""

@@ -49,6 +49,8 @@
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --project  -p      TEXT  Path where the Snowflake Native App project         │
   │                          resides. Defaults to current working directory.     │
+  │ --env              TEXT  String in format of key=value. Overrides variables  │
+  │                          from env section used for templating.               │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Global configuration ───────────────────────────────────────────────────────╮
@@ -108,6 +110,9 @@
   │ --project    -p                    TEXT  Path where the Snowflake Native App │
   │                                          project resides. Defaults to        │
   │                                          current working directory.          │
+  │ --env                              TEXT  String in format of key=value.      │
+  │                                          Overrides variables from env        │
+  │                                          section used for templating.        │
   │ --help       -h                          Show this message and exit.         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -262,6 +267,8 @@
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --project  -p      TEXT  Path where the Snowflake Native App project         │
   │                          resides. Defaults to current working directory.     │
+  │ --env              TEXT  String in format of key=value. Overrides variables  │
+  │                          from env section used for templating.               │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -407,6 +414,11 @@
   │                                                        project resides.      │
   │                                                        Defaults to current   │
   │                                                        working directory.    │
+  │ --env                                         TEXT     String in format of   │
+  │                                                        key=value. Overrides  │
+  │                                                        variables from env    │
+  │                                                        section used for      │
+  │                                                        templating.           │
   │ --help                -h                               Show this message and │
   │                                                        exit.                 │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -497,6 +509,9 @@
   │ --project      -p                      TEXT  Path where the Snowflake Native │
   │                                              App project resides. Defaults   │
   │                                              to current working directory.   │
+  │ --env                                  TEXT  String in format of key=value.  │
+  │                                              Overrides variables from env    │
+  │                                              section used for templating.    │
   │ --help         -h                            Show this message and exit.     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -564,6 +579,8 @@
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --project  -p      TEXT  Path where the Snowflake Native App project         │
   │                          resides. Defaults to current working directory.     │
+  │ --env              TEXT  String in format of key=value. Overrides variables  │
+  │                          from env section used for templating.               │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -678,6 +695,11 @@
   │                                                    resides. Defaults to      │
   │                                                    current working           │
   │                                                    directory.                │
+  │ --env                                     TEXT     String in format of       │
+  │                                                    key=value. Overrides      │
+  │                                                    variables from env        │
+  │                                                    section used for          │
+  │                                                    templating.               │
   │ --help            -h                               Show this message and     │
   │                                                    exit.                     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -771,6 +793,9 @@
   │ --project      -p                      TEXT  Path where the Snowflake Native │
   │                                              App project resides. Defaults   │
   │                                              to current working directory.   │
+  │ --env                                  TEXT  String in format of key=value.  │
+  │                                              Overrides variables from env    │
+  │                                              section used for templating.    │
   │ --help         -h                            Show this message and exit.     │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -838,6 +863,8 @@
   ╭─ Options ────────────────────────────────────────────────────────────────────╮
   │ --project  -p      TEXT  Path where the Snowflake Native App project         │
   │                          resides. Defaults to current working directory.     │
+  │ --env              TEXT  String in format of key=value. Overrides variables  │
+  │                          from env section used for templating.               │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -3038,6 +3065,9 @@
   │ --project                 -p      TEXT  Path where the Snowpark project      │
   │                                         resides. Defaults to current working │
   │                                         directory.                           │
+  │ --env                             TEXT  String in format of key=value.       │
+  │                                         Overrides variables from env section │
+  │                                         used for templating.                 │
   │ --help                    -h            Show this message and exit.          │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -3110,6 +3140,8 @@
   │                          changes to metadata                                 │
   │ --project  -p      TEXT  Path where the Snowpark project resides. Defaults   │
   │                          to current working directory.                       │
+  │ --env              TEXT  String in format of key=value. Overrides variables  │
+  │                          from env section used for templating.               │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -6486,6 +6518,8 @@
   │                           [default: None]                                    │
   │ --project   -p      TEXT  Path where Snowflake project resides. Defaults to  │
   │                           current working directory.                         │
+  │ --env               TEXT  String in format of key=value. Overrides variables │
+  │                           from env section used for templating.              │
   │ --help      -h            Show this message and exit.                        │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮
@@ -7249,6 +7283,8 @@
   │ --open                   Whether to open the Streamlit app in a browser.     │
   │ --project  -p      TEXT  Path where the Streamlit app project resides.       │
   │                          Defaults to current working directory.              │
+  │ --env              TEXT  String in format of key=value. Overrides variables  │
+  │                          from env section used for templating.               │
   │ --help     -h            Show this message and exit.                         │
   ╰──────────────────────────────────────────────────────────────────────────────╯
   ╭─ Connection configuration ───────────────────────────────────────────────────╮

@@ -65,10 +65,31 @@ def _env_bootstrap(env: Environment) -> Environment:
     return env
 
 
+class IgnoreAttrEnvironment(Environment):
+    """
+    extend Environment class and ignore attributes during rendering.
+    This ensures that attributes of classes
+    do not get used during rendering (e.g. __class__, get, etc).
+    Only dict items can be used for rendering.
+    """
+
+    def getattr(self, obj, attribute):  # noqa: A003
+        try:
+            return obj[attribute]
+        except (TypeError, LookupError, AttributeError):
+            return self.undefined(obj=obj, name=attribute)
+
+    def getitem(self, obj, argument):
+        try:
+            return obj[argument]
+        except (AttributeError, TypeError, LookupError):
+            return self.undefined(obj=obj, name=argument)
+
+
 def get_snowflake_cli_jinja_env() -> Environment:
     _random_block = "___very___unique___block___to___disable___logic___blocks___"
     return _env_bootstrap(
-        Environment(
+        IgnoreAttrEnvironment(
             loader=loaders.BaseLoader(),
             keep_trailing_newline=True,
             variable_start_string=_YML_TEMPLATE_START,
@@ -83,7 +104,7 @@ def get_snowflake_cli_jinja_env() -> Environment:
 def get_sql_cli_jinja_env():
     _random_block = "___very___unique___block___to___disable___logic___blocks___"
     return _env_bootstrap(
-        Environment(
+        IgnoreAttrEnvironment(
             loader=loaders.BaseLoader(),
             keep_trailing_newline=True,
             variable_start_string="&{",
@@ -125,7 +146,7 @@ def jinja_render_from_file(
         None if file path is provided, else returns the rendered string.
     """
     env = _env_bootstrap(
-        Environment(
+        IgnoreAttrEnvironment(
             loader=loaders.FileSystemLoader(template_path.parent),
             keep_trailing_newline=True,
             undefined=StrictUndefined,

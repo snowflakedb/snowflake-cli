@@ -23,6 +23,7 @@ from snowflake.cli.plugins.nativeapp.constants import (
     SPECIAL_COMMENT,
     SPECIAL_COMMENT_OLD,
 )
+from snowflake.cli.plugins.nativeapp.errno import APPLICATION_NO_LONGER_AVAILABLE
 from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
     UnexpectedOwnerError,
@@ -1044,16 +1045,22 @@ def test_drop_package_idempotent(
         # Cascade true
         [True, [], None, True],
         [True, [{"type": "DATABASE", "name": "db"}], None, True],
+        [True, ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE), None, True],
         # Cascade false
         [False, [], None, False],
         [False, [{"type": "DATABASE", "name": "db"}], None, False],
+        [False, ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE), None, False],
         # Cascade unset
         [None, [], None, False],
         [None, [{"type": "DATABASE", "name": "db"}], None, None],
+        [None, ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE), None, None],
         # Interactive
         [None, [{"type": "DATABASE", "name": "db"}], "yes", True],
+        [None, ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE), "yes", True],
         [None, [{"type": "DATABASE", "name": "db"}], "no", False],
+        [None, ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE), "no", False],
         [None, [{"type": "DATABASE", "name": "db"}], "abort", None],
+        [None, ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE), "abort", None],
     ],
 )
 def test_drop_application_cascade(
@@ -1067,8 +1074,13 @@ def test_drop_application_cascade(
     interactive_response,
     expected_cascade,
     temp_dir,
+    capsys,
+    snapshot,
 ):
-    mock_get_objects_owned_by_application.return_value = application_objects
+    if isinstance(application_objects, Exception):
+        mock_get_objects_owned_by_application.side_effect = application_objects
+    else:
+        mock_get_objects_owned_by_application.return_value = application_objects
     mock_get_existing_app_info.return_value = {
         "name": "myapp",
         "owner": "app_role",
@@ -1095,3 +1107,5 @@ def test_drop_application_cascade(
             role="app_role",
             cascade=expected_cascade,
         )
+        stdout, _ = capsys.readouterr()
+        assert stdout == snapshot
