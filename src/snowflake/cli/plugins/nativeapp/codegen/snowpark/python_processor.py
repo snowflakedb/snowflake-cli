@@ -27,7 +27,7 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
     ProcessorMapping,
 )
-from snowflake.cli.api.utils.rendering import jinja_render_from_file
+from snowflake.cli.api.rendering.jinja import jinja_render_from_file
 from snowflake.cli.plugins.nativeapp.artifacts import (
     BundleMap,
     find_setup_script_file,

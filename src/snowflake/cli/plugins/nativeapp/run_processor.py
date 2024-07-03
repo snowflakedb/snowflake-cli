@@ -27,8 +27,8 @@ from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
     unquote_identifier,
 )
+from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
 from snowflake.cli.api.utils.cursor import find_all_rows
-from snowflake.cli.api.utils.rendering import snowflake_sql_jinja_render
 from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,

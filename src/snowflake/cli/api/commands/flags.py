@@ -30,7 +30,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import MissingConfiguration, NoProjectDefinitionError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.api.utils.rendering import CONTEXT_KEY
+from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 

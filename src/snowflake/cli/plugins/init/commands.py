@@ -32,8 +32,8 @@ from snowflake.cli.api.output.types import (
     MessageResult,
 )
 from snowflake.cli.api.project.schemas.template import Template, TemplateVariable
+from snowflake.cli.api.rendering.project_templates import get_template_cli_jinja_env
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.api.utils.rendering import get_template_cli_jinja_env
 
 # simple Typer with defaults because it won't become a command group as it contains only one command
 app = SnowTyperFactory()
