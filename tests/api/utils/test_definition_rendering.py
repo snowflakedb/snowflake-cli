@@ -633,7 +633,3 @@ def test_os_env_and_override_envs_in_version_1():
 
     assert result["ctx"]["env"]["override_env"] == "override_env_value"
     assert result["ctx"]["env"]["os_env_var"] == "os_env_var_value"
-
-
-def test_use_of_rendering_in_v1_with_warning():
-    pass
