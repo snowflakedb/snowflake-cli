@@ -40,6 +40,28 @@ def is_python_file_artifact(src: Path, _: Path):
     return src.is_file() and src.suffix == ".py"
 
 
+class ProjectFileContextManager:
+    def __init__(self, path: Path):
+        self.path = path
+        self.contents = None
+        self.edited_contents = None
+
+    def __enter__(self):
+        with open(self.path, "r", encoding="utf-8") as f:
+            self.contents = f.read()
+
+        if self.path.is_symlink():
+            # if the file is a symlink, make sure we don't overwrite the original
+            self.path.unlink()
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.edited_contents is not None:
+            with open(self.path, "w", encoding="utf-8") as f:
+                f.write(self.edited_contents)
+
+
 class ArtifactProcessor(ABC):
     def __init__(
         self,
@@ -55,3 +77,6 @@ class ArtifactProcessor(ABC):
         **kwargs,
     ) -> None:
         pass
+
+    def edit_file(self, path: Path):
+        return ProjectFileContextManager(path)
