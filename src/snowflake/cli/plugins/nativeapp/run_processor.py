@@ -65,6 +65,13 @@ UPGRADE_RESTRICTION_CODES = {
 }
 
 
+def was_app_created_by_cli(show_app_row: dict):
+    return (
+        show_app_row[COMMENT_COL] in ALLOWED_SPECIAL_COMMENTS
+        and show_app_row[VERSION_COL] == LOOSE_FILES_MAGIC_VERSION
+    )
+
+
 class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__(project_definition, project_root)
@@ -91,9 +98,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             if show_app_row:
 
                 # Check if not created by Snowflake CLI or not created using "files on a named stage" / stage dev mode.
-                if show_app_row[COMMENT_COL] not in ALLOWED_SPECIAL_COMMENTS or (
-                    show_app_row[VERSION_COL] != LOOSE_FILES_MAGIC_VERSION
-                ):
+                if not was_app_created_by_cli(show_app_row):
                     raise ApplicationAlreadyExistsError(self.app_name)
 
                 # Check for the right owner
