@@ -108,10 +108,11 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                         f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
                     )
 
-                    # ensure debug_mode is up-to-date
-                    self._execute_query(
-                        f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
-                    )
+                    # if debug_mode is present (controlled), ensure it is up-to-date
+                    if self.debug_mode is not None:
+                        self._execute_query(
+                            f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
+                        )
 
                     self._execute_post_deploy_hooks()
                     return
@@ -141,13 +142,17 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             stage_name = StageManager.quote_stage_name(self.stage_fqn)
 
             try:
+                # by default, applications are created in debug mode; this can be overridden in the project definition
+                initial_debug_mode = (
+                    self.debug_mode if self.debug_mode is not None else True
+                )
                 self._execute_query(
                     dedent(
                         f"""\
                     create application {self.app_name}
                         from application package {self.package_name}
                         using {stage_name}
-                        debug_mode = {self.debug_mode}
+                        debug_mode = {initial_debug_mode}
                         comment = {SPECIAL_COMMENT}
                     """
                     )
@@ -318,11 +323,12 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                         f"alter application {self.app_name} upgrade {using_clause}"
                     )
 
-                    # ensure debug_mode is up-to-date
                     if using_clause:
-                        self._execute_query(
-                            f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
-                        )
+                        # if debug_mode is present (controlled), ensure it is up-to-date
+                        if self.debug_mode is not None:
+                            self._execute_query(
+                                f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
+                            )
                     return
 
                 except ProgrammingError as err:
@@ -346,21 +352,27 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                         )
 
             try:
+                # by default, applications are created in debug mode when possible;
+                # this can be overridden in the project definition
+                debug_mode_clause = ""
+                if (
+                    using_clause
+                ):  # release directive installations cannot use debug_mode
+                    initial_debug_mode = (
+                        self.debug_mode if self.debug_mode is not None else True
+                    )
+                    debug_mode_clause = f"debug_mode = {initial_debug_mode}"
+
                 self._execute_query(
                     dedent(
                         f"""\
                     create application {self.app_name}
-                        from application package {self.package_name} {using_clause}
+                        from application package {self.package_name} {using_clause} {debug_mode_clause}
                         comment = {SPECIAL_COMMENT}
                     """
                     )
                 )
 
-                # ensure debug_mode is up-to-date
-                if using_clause:
-                    self._execute_query(
-                        f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
-                    )
             except ProgrammingError as err:
                 generic_sql_error_handler(err)
 

@@ -17,8 +17,9 @@ from __future__ import annotations
 import copy
 from typing import Any, Optional
 
-from jinja2 import Environment, nodes
+from jinja2 import Environment, TemplateSyntaxError, nodes
 from packaging.version import Version
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
@@ -52,7 +53,13 @@ class TemplatedEnvironment:
 
     def get_referenced_vars(self, template_value: Any) -> set[TemplateVar]:
         template_str = str(template_value)
-        ast = self._jinja_env.parse(template_str)
+        try:
+            ast = self._jinja_env.parse(template_str)
+        except TemplateSyntaxError as e:
+            raise InvalidTemplate(
+                f"Error parsing template from project definition file. Value: '{template_str}'. Error: {e}"
+            ) from e
+
         return self._get_referenced_vars(ast, template_str)
 
     def _get_referenced_vars(
@@ -235,6 +242,26 @@ def _validate_env_section(env_section: dict):
             )
 
 
+def _get_referenced_vars_in_definition(
+    template_env: TemplatedEnvironment, definition: Definition
+):
+    referenced_vars = set()
+
+    def find_any_template_vars(element):
+        referenced_vars.update(template_env.get_referenced_vars(element))
+
+    traverse(definition, visit_action=find_any_template_vars)
+
+    return referenced_vars
+
+
+def _template_version_warning():
+    cc.warning(
+        "Ignoring template pattern in project definition file. "
+        "Update 'definition_version' to 1.1 or later in snowflake.yml to enable template expansion."
+    )
+
+
 def render_definition_template(
     original_definition: Optional[Definition], context_overrides: Context
 ) -> ProjectProperties:
@@ -262,10 +289,21 @@ def render_definition_template(
         return ProjectProperties(None, {CONTEXT_KEY: {"env": environment_overrides}})
 
     project_context = {CONTEXT_KEY: definition}
+    template_env = TemplatedEnvironment(get_snowflake_cli_jinja_env())
 
     if "definition_version" not in definition or Version(
         definition["definition_version"]
     ) < Version("1.1"):
+        try:
+            referenced_vars = _get_referenced_vars_in_definition(
+                template_env, definition
+            )
+            if referenced_vars:
+                _template_version_warning()
+        except Exception:
+            # also warn on Exception, as it means the user is incorrectly attempting to use templating
+            _template_version_warning()
+
         project_definition = ProjectDefinition(**original_definition)
         project_context[CONTEXT_KEY]["env"] = environment_overrides
         return ProjectProperties(project_definition, project_context)
@@ -273,14 +311,7 @@ def render_definition_template(
     default_env = definition.get("env", {})
     _validate_env_section(default_env)
 
-    template_env = TemplatedEnvironment(get_project_definition_cli_jinja_env())
-
-    referenced_vars = set()
-
-    def find_any_template_vars(element):
-        referenced_vars.update(template_env.get_referenced_vars(element))
-
-    traverse(definition, visit_action=find_any_template_vars)
+    referenced_vars = _get_referenced_vars_in_definition(template_env, definition)
 
     dependencies_graph = _build_dependency_graph(
         template_env, referenced_vars, project_context, environment_overrides
