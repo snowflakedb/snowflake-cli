@@ -262,13 +262,31 @@ def test_template_flag(runner, temp_dir, test_projects_path):
 
 
 def test_typechecking(runner, temp_dir, test_projects_path, snapshot):
+    # incorrect type passed via flag
     project_name = "project_templating"
+    with pytest.raises(
+        ValueError, match=r"invalid literal for int\(\) with base 10: 'not an int'"
+    ):
+        runner.invoke(
+            [
+                "init",
+                project_name,
+                "--template-source",
+                test_projects_path / project_name,
+                "-D required=r",
+                "-D optional_int=not an int",
+                "--no-interactive",
+            ]
+        )
+    assert not Path(project_name).exists()
+
+    # incorrect value passed in interactive mode
     communication = [
         "required",
         "23.1",
         "23",
         "custom value for string",
-        "3..14",
+        "3..14",  # incorrect float
         "3.14",
         "another custom value",
     ]

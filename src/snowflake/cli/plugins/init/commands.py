@@ -135,18 +135,6 @@ def _remove_template_metadata_file(template_root: SecurePath) -> None:
     (template_root / TEMPLATE_METADATA_FILE_NAME).unlink()
 
 
-def _prompt_for_value(variable: TemplateVariable, no_interactive: bool) -> Any:
-    if no_interactive:
-        if not variable.default:
-            raise ClickException(f"Cannot determine value of variable {variable.name}")
-        return variable.default
-
-    # override "unchecked type" with 'str', as Typer deduces type from the value of 'default'
-    type_ = variable.type.python_type if variable.type else str
-    prompt = variable.prompt if variable.prompt else variable.name
-    return typer.prompt(prompt, default=variable.default, type=type_)
-
-
 def _determine_variable_values(
     variables_metadata: List[TemplateVariable],
     variables_from_flags: Dict[str, Any],
@@ -163,12 +151,10 @@ def _determine_variable_values(
         ", ".join(v.name for v in variables_metadata),
     )
     for variable in variables_metadata:
-        if variable.name not in variables_from_flags:
-            value = _prompt_for_value(variable, no_interactive)
+        if variable.name in variables_from_flags:
+            value = variable.python_type(variables_from_flags[variable.name])
         else:
-            value = variables_from_flags[variable.name]
-            if variable.type:
-                value = variable.type.python_type(value)
+            value = variable.prompt_user_for_value(no_interactive)
 
         result[variable.name] = value
 

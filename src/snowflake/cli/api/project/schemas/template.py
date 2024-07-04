@@ -14,34 +14,40 @@
 
 from __future__ import annotations
 
-from enum import Enum
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional, Union
 
+import typer
+from click import ClickException
 from pydantic import BaseModel, Field
 from snowflake.cli.api.secure_path import SecurePath
 
 
-class TemplateVariableType(Enum):
-    STRING = "string"
-    INTEGER = "int"
-    FLOAT = "float"
-
-    @property
-    def python_type(self):
-        return {
-            TemplateVariableType.STRING: str,
-            TemplateVariableType.INTEGER: int,
-            TemplateVariableType.FLOAT: float,
-        }[self]
-
-
 class TemplateVariable(BaseModel):
     name: str = Field(..., title="Variable identifier")
-    type: Optional[TemplateVariableType] = Field(  # noqa: A003
+    type: Optional[Literal["string", "float", "int"]] = Field(  # noqa: A003
         title="Type of the variable", default=None
     )
     prompt: Optional[str] = Field(title="Prompt message for the variable", default=None)
     default: Optional[Any] = Field(title="Default value of the variable", default=None)
+
+    @property
+    def python_type(self):
+        # override "unchecked type" (None) with 'str', as Typer deduces type from the value of 'default'
+        return {
+            "string": str,
+            "float": float,
+            "int": int,
+            None: str,
+        }[self.type]
+
+    def prompt_user_for_value(self, no_interactive: bool) -> Union[str, float, int]:
+        if no_interactive:
+            if not self.default:
+                raise ClickException(f"Cannot determine value of variable {self.name}")
+            return self.default
+
+        prompt = self.prompt if self.prompt else self.name
+        return typer.prompt(prompt, default=self.default, type=self.python_type)
 
 
 class Template(BaseModel):
