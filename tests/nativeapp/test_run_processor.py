@@ -33,7 +33,7 @@ from snowflake.cli.plugins.nativeapp.constants import (
     SPECIAL_COMMENT,
 )
 from snowflake.cli.plugins.nativeapp.exceptions import (
-    ApplicationAlreadyExistsError,
+    ApplicationCreatedExternallyError,
     ApplicationPackageDoesNotExistError,
     UnexpectedOwnerError,
 )
@@ -50,7 +50,6 @@ from snowflake.cli.plugins.stage.diff import DiffResult
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
-from src.snowflake.cli.plugins.nativeapp.constants import SPECIAL_COMMENT_OLD
 from tests.nativeapp.patch_utils import (
     mock_connection,
 )
@@ -320,7 +319,6 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
 
 # Test create_dev_app with existing application AND bad comment AND good version
 # Test create_dev_app with existing application AND bad comment AND bad version
-# Test create_dev_app with existing application AND good comment(s) AND bad version
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection()
@@ -329,8 +327,6 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
     [
         ("dummy", LOOSE_FILES_MAGIC_VERSION),
         ("dummy", "dummy"),
-        (SPECIAL_COMMENT, "dummy"),
-        (SPECIAL_COMMENT_OLD, "dummy"),
     ],
 )
 def test_create_dev_app_incorrect_properties(
@@ -370,7 +366,7 @@ def test_create_dev_app_incorrect_properties(
         contents=[mock_snowflake_yml_file],
     )
 
-    with pytest.raises(ApplicationAlreadyExistsError):
+    with pytest.raises(ApplicationCreatedExternallyError):
         run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
         run_processor.create_or_upgrade_app(
@@ -1284,6 +1280,63 @@ def test_upgrade_app_fails_upgrade_restriction_error(
             install_method=SameAccountInstallMethod.release_directive(),
         )
         assert result.exit_code == expected_code
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock_connection()
+def test_versioned_app_x_upgrade_to_unversioned(
+    mock_conn,
+    mock_get_existing_app_info,
+    mock_execute,
+    temp_dir,
+    mock_cursor,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+        "version": "v1",
+    }
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (None, mock.call("use warehouse app_warehouse")),
+            (
+                ProgrammingError(
+                    msg="Some Error Message.",
+                    errno=93045,
+                ),
+                mock.call(
+                    "alter application myapp upgrade using @app_pkg.app_src.stage"
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    run_processor = _get_na_run_processor()
+    with pytest.raises(typer.Exit):
+        result = run_processor.create_or_upgrade_app(
+            policy=DenyAlwaysPolicy(),
+            is_interactive=False,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+        )
+        assert result.exit_code == 1
     assert mock_execute.mock_calls == expected
 
 
