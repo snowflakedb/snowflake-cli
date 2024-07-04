@@ -176,6 +176,7 @@ def test_init_default_values(runner, temp_dir, test_projects_path):
         "optional_str": "default value for string",
         "optional_unchecked": "5",
         "required": "required",
+        "jinja_sum_filter": 5.5,
     }
 
 
@@ -201,6 +202,7 @@ def test_rename_project(runner, temp_dir, test_projects_path):
         "optional_str": "default value for string",
         "optional_unchecked": "5",
         "required": "r",
+        "jinja_sum_filter": 5.5,
     }
 
 
@@ -226,6 +228,7 @@ def test_init_prompted_values(runner, temp_dir, test_projects_path):
         "optional_str": "custom value for string",
         "optional_unchecked": "another custom value",
         "required": "required",
+        "jinja_sum_filter": 19.7,
     }
 
 
@@ -258,6 +261,7 @@ def test_template_flag(runner, temp_dir, test_projects_path):
         "optional_str": "custom value for string",
         "optional_unchecked": "another custom value",
         "required": "required",
+        "jinja_sum_filter": 19.7,
     }
 
 
@@ -303,6 +307,7 @@ def test_typechecking(runner, temp_dir, test_projects_path, snapshot):
         "optional_str": "custom value for string",
         "optional_float": 3.14,
         "optional_unchecked": "another custom value",
+        "jinja_sum_filter": 26.14,
     }
 
 
@@ -331,6 +336,7 @@ def test_variables_flags(runner, temp_dir, test_projects_path, snapshot):
         "optional_str": "default value for string",
         "optional_float": -100.5,
         "optional_unchecked": "21",
+        "jinja_sum_filter": -96.5,
     }
 
 
@@ -371,4 +377,5 @@ def test_init_no_interactive(runner, temp_dir, test_projects_path):
         "optional_str": "default value for string",
         "optional_float": 1.5,
         "optional_unchecked": "5",
+        "jinja_sum_filter": 5.5,
     }
