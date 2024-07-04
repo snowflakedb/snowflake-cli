@@ -47,7 +47,13 @@ from snowflake.cli.plugins.object.commands import _scope_validate
     ],
 )
 def test_show(
-    mock_connector, object_type, expected, mock_cursor, runner, snapshot, mock_ctx
+    mock_connector,
+    object_type,
+    expected,
+    mock_cursor,
+    runner,
+    snapshot,
+    mock_ctx,
 ):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
