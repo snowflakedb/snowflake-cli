@@ -252,7 +252,9 @@ def test_deannotate_module_source_preserves_specified_annotations(snapshot):
     )
 
 
-def test_deannotate_module_source_is_identity_when_no_functions_present(snapshot):
+def test_deannotate_module_source_is_identity_when_no_functions_present(
+    snapshot,
+):
     sproc = NativeAppExtensionFunction(
         type="procedure",
         handler="math_fns.sproc_sum",

@@ -132,7 +132,7 @@ def describe(
     )
 
 
-@app.command(name="create", requires_connection=True, hidden=True)
+@app.command(name="create", requires_connection=True)
 def create(
     object_type: str = ObjectArgument,
     object_attributes: Optional[List[str]] = ObjectAttributesArgument,
