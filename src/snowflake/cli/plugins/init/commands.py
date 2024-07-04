@@ -182,7 +182,7 @@ def init(
     **options,
 ) -> CommandResult:
     """
-    Creates project from template.
+    Creates project directory from template.
     """
     variables_from_flags = {
         v.key: v.value for v in parse_key_value_variables(variables)
