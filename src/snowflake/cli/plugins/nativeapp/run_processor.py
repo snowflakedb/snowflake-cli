@@ -245,6 +245,8 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 )
                 raise typer.Exit(1)
         try:
+            cascade_msg = " (cascade)" if cascade else ""
+            cc.step(f"Dropping application object {self.app_name}{cascade_msg}.")
             cascade_sql = " cascade" if cascade else ""
             self._execute_query(f"drop application {self.app_name}{cascade_sql}")
         except ProgrammingError as err:
