@@ -1,10 +1,10 @@
 # serializer version: 1
 # name: test_input_errors
   '''
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ Snowflake CLI version (915.6.0) is too low - minimum version required by     │
-  │ template is 916.0.0. Please upgrade before continuing.                       │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
+  +- Error ----------------------------------------------------------------------+
+  | Snowflake CLI version (915.6.0) is too low - minimum version required by     |
+  | template is 916.0.0. Please upgrade before continuing.                       |
+  +------------------------------------------------------------------------------+
   
   '''
 # ---
