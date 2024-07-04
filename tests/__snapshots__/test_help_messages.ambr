@@ -2986,6 +2986,9 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
+  | create     Create an object of a given type. Check                           |
+  |            documentation for the list of supported objects                   |
+  |            and parameters.                                                   |
   | describe   Provides description of an object of given type.                  |
   | drop       Drops Snowflake object of given name and type.                    |
   | list       Lists all available Snowflake objects of given                    |
@@ -7907,6 +7910,9 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
+  | create     Create an object of a given type. Check                           |
+  |            documentation for the list of supported objects                   |
+  |            and parameters.                                                   |
   | describe   Provides description of an object of given type.                  |
   | drop       Drops Snowflake object of given name and type.                    |
   | list       Lists all available Snowflake objects of given                    |
