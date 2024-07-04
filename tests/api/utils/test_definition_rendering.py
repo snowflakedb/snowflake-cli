@@ -25,6 +25,8 @@ from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 from snowflake.cli.api.utils.models import ProjectEnvironment
 
+from tests.nativeapp.utils import NATIVEAPP_MODULE
+
 
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_resolve_variables_in_project_no_cross_variable_dependencies():
@@ -70,7 +72,7 @@ def test_resolve_variables_in_project_cross_variable_dependencies():
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
-def test_no_resolve_in_version_1():
+def test_env_not_supported_in_version_1():
     definition = {
         "definition_version": "1",
         "env": {
@@ -81,6 +83,86 @@ def test_no_resolve_in_version_1():
     }
     with pytest.raises(SchemaValidationError):
         render_definition_template(definition, {})
+
+
+@mock.patch.dict(os.environ, {"A": "value"}, clear=True)
+@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+def test_no_resolve_and_warning_in_version_1(warning_mock):
+    definition = {
+        "definition_version": "1",
+        "native_app": {"name": "test_source_<% ctx.env.A %>", "artifacts": []},
+    }
+    result = render_definition_template(definition, {}).project_context
+
+    assert result == {
+        "ctx": {
+            "definition_version": "1",
+            "native_app": {"name": "test_source_<% ctx.env.A %>", "artifacts": []},
+            "env": ProjectEnvironment({}, {}),
+        }
+    }
+    warning_mock.assert_called_once_with(
+        "Ignoring template pattern in project definition file. "
+        "Update 'definition_version' to 1.1 or later in snowflake.yml to enable template expansion."
+    )
+
+
+@mock.patch.dict(os.environ, {"A": "value"}, clear=True)
+@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+def test_partial_invalid_template_in_version_1(warning_mock):
+    definition = {
+        "definition_version": "1",
+        "native_app": {"name": "test_source_<% ctx.env.A", "artifacts": []},
+    }
+    result = render_definition_template(definition, {}).project_context
+
+    assert result == {
+        "ctx": {
+            "definition_version": "1",
+            "native_app": {"name": "test_source_<% ctx.env.A", "artifacts": []},
+            "env": ProjectEnvironment({}, {}),
+        }
+    }
+    # we still want to warn if there was an incorrect attempt to use templating
+    warning_mock.assert_called_once_with(
+        "Ignoring template pattern in project definition file. "
+        "Update 'definition_version' to 1.1 or later in snowflake.yml to enable template expansion."
+    )
+
+
+@mock.patch.dict(os.environ, {"A": "value"}, clear=True)
+@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+def test_no_warning_in_version_1_1(warning_mock):
+    definition = {
+        "definition_version": "1.1",
+        "native_app": {"name": "test_source_<% ctx.env.A %>", "artifacts": []},
+    }
+    result = render_definition_template(definition, {}).project_context
+
+    assert result == {
+        "ctx": {
+            "definition_version": "1.1",
+            "native_app": {"name": "test_source_value", "artifacts": []},
+            "env": ProjectEnvironment({}, {}),
+        }
+    }
+    warning_mock.assert_not_called()
+
+
+@mock.patch.dict(os.environ, {"A": "value"}, clear=True)
+def test_invalid_template_in_version_1_1():
+    definition = {
+        "definition_version": "1.1",
+        "native_app": {"name": "test_source_<% ctx.env.A", "artifacts": []},
+    }
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition, {})
+
+    assert err.value.message.startswith(
+        "Error parsing template from project definition file. "
+        "Value: 'test_source_<% ctx.env.A'. "
+        "Error: unexpected end of template, expected 'end of print statement'."
+    )
 
 
 @mock.patch.dict(os.environ, {}, clear=True)

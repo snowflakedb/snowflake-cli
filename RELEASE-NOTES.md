@@ -46,6 +46,7 @@
 * Improved stage diff output in `snow app` commands
 * Hid the diff from `snow app validate` output since it was redundant
 * Added log into the file with loaded external plugins
+* Warn users if they attempt to use templating with project definition version 1
 * Improved output and format of Pydantic validation errors
 
 # v2.5.0
