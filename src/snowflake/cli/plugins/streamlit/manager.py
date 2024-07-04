@@ -36,9 +36,9 @@ log = logging.getLogger(__name__)
 
 
 class StreamlitManager(SqlExecutionMixin):
-    def share(self, streamlit_name: str, to_role: str) -> SnowflakeCursor:
+    def share(self, streamlit_name: FQN, to_role: str) -> SnowflakeCursor:
         return self._execute_query(
-            f"grant usage on streamlit {streamlit_name} to role {to_role}"
+            f"grant usage on streamlit {streamlit_name.sql_identifier} to role {to_role}"
         )
 
     def _put_streamlit_files(
@@ -72,7 +72,7 @@ class StreamlitManager(SqlExecutionMixin):
 
     def _create_streamlit(
         self,
-        fully_qualified_name: str,
+        streamlit_id: FQN,
         main_file: Path,
         replace: Optional[bool] = None,
         experimental: Optional[bool] = None,
@@ -82,15 +82,17 @@ class StreamlitManager(SqlExecutionMixin):
     ):
         query = []
         if replace:
-            query.append(f"CREATE OR REPLACE STREAMLIT {fully_qualified_name}")
+            query.append(f"CREATE OR REPLACE STREAMLIT {streamlit_id.sql_identifier}")
         elif experimental:
             # For experimental behaviour, we need to use CREATE STREAMLIT IF NOT EXISTS
             # for a streamlit app with an embedded stage
             # because this is analogous to the behavior for non-experimental
             # deploy which does CREATE STAGE IF NOT EXISTS
-            query.append(f"CREATE STREAMLIT IF NOT EXISTS {fully_qualified_name}")
+            query.append(
+                f"CREATE STREAMLIT IF NOT EXISTS {streamlit_id.sql_identifier}"
+            )
         else:
-            query.append(f"CREATE STREAMLIT {fully_qualified_name}")
+            query.append(f"CREATE STREAMLIT {streamlit_id.sql_identifier}")
 
         if from_stage_name:
             query.append(f"ROOT_LOCATION = '{from_stage_name}'")
@@ -106,7 +108,7 @@ class StreamlitManager(SqlExecutionMixin):
 
     def deploy(
         self,
-        streamlit: FQN,
+        streamlit_id: FQN,
         main_file: Path,
         environment_file: Optional[Path] = None,
         pages_dir: Optional[Path] = None,
@@ -119,8 +121,7 @@ class StreamlitManager(SqlExecutionMixin):
     ):
         # for backwards compatibility - quoted stage path might be case-sensitive
         # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers
-        streamlit_name_for_root_location = streamlit.name
-        fully_qualified_name = streamlit.identifier
+        streamlit_name_for_root_location = streamlit_id.name
 
         if (
             experimental_behaviour_enabled()
@@ -133,7 +134,7 @@ class StreamlitManager(SqlExecutionMixin):
             # TODO: Support from_stage
             # from_stage_stmt = f"FROM_STAGE = '{stage_name}'" if stage_name else ""
             self._create_streamlit(
-                fully_qualified_name,
+                streamlit_id,
                 main_file,
                 replace=replace,
                 query_warehouse=query_warehouse,
@@ -141,7 +142,9 @@ class StreamlitManager(SqlExecutionMixin):
                 title=title,
             )
             try:
-                self._execute_query(f"ALTER streamlit {fully_qualified_name} CHECKOUT")
+                self._execute_query(
+                    f"ALTER streamlit {streamlit_id.identifier} CHECKOUT"
+                )
             except ProgrammingError as e:
                 # If an error is raised because a CHECKOUT has already occurred,
                 # simply skip it and continue
@@ -149,7 +152,7 @@ class StreamlitManager(SqlExecutionMixin):
                     log.info("Checkout already exists, continuing")
                 else:
                     raise
-            stage_path = streamlit.identifier
+            stage_path = streamlit_id.identifier
             embedded_stage_name = f"snow://streamlit/{stage_path}"
             root_location = f"{embedded_stage_name}/default_checkout"
 
@@ -186,7 +189,7 @@ class StreamlitManager(SqlExecutionMixin):
             )
 
             self._create_streamlit(
-                fully_qualified_name,
+                streamlit_id,
                 main_file,
                 replace=replace,
                 query_warehouse=query_warehouse,
@@ -195,11 +198,11 @@ class StreamlitManager(SqlExecutionMixin):
                 title=title,
             )
 
-        return self.get_url(fully_qualified_name)
+        return self.get_url(streamlit_name=streamlit_id)
 
-    def get_url(self, streamlit_name: str, database=None, schema=None) -> str:
+    def get_url(self, streamlit_name: FQN) -> str:
         try:
-            fqn = FQN.from_string(streamlit_name).using_connection(self._conn)
+            fqn = streamlit_name.using_connection(self._conn)
             return make_snowsight_url(
                 self._conn,
                 f"/#/streamlit-apps/{fqn.url_identifier}",

@@ -47,6 +47,7 @@
 * Hid the diff from `snow app validate` output since it was redundant
 * Added log into the file with loaded external plugins
 * Improved output and format of Pydantic validation errors
+* Improved support for quoted identifiers in streamlit commands.
 
 # v2.5.0
 ## Backward incompatibility
