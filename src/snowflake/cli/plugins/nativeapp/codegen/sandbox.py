@@ -20,7 +20,8 @@ import subprocess
 import sys
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Sequence, Union
+from typing import Any, Optional, Sequence, Union
+from venv import EnvBuilder
 
 from click.exceptions import ClickException
 
@@ -214,4 +215,52 @@ def execute_script_in_sandbox(
     else:  # ExecutionEnvironmentType.CURRENT
         return _execute_python_interpreter(
             sys.executable, script_source, cwd=cwd, timeout=timeout
+        )
+
+
+class SandboxEnvBuilder(EnvBuilder):
+    def __init__(self, path: Path, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.path = path
+        self._context = None
+
+    def ensure_created(self):
+        if self.path.exists():
+            self._context = self.ensure_directories(self.path)
+        else:
+            self.path.mkdir(parents=True, exist_ok=True)
+            self.create(self.path)
+
+    def run_python(self, *args):
+        positional_args = [
+            self._context.env_exe,
+            "-E",
+            *args,
+        ]  # passing -E ignores all PYTHON* env vars
+        kwargs = {
+            "cwd": self._context.env_dir,
+            "stderr": subprocess.STDOUT,
+        }
+        env = dict(os.environ)
+        env["VIRTUAL_ENV"] = self._context.env_dir
+        subprocess.check_output(positional_args, **kwargs)
+
+    def pip_install(self, *args: Any) -> None:
+        self.run_python("-m", "pip", "install", *[str(arg) for arg in args])
+
+    def post_setup(self, context):
+        self._context = context
+
+    def execute_script(
+        self,
+        script_source: str,
+        cwd: Optional[Union[str, Path]] = None,
+        timeout: Optional[int] = None,
+    ) -> subprocess.CompletedProcess:
+        return execute_script_in_sandbox(
+            script_source,
+            env_type=ExecutionEnvironmentType.VENV,
+            cwd=cwd,
+            timeout=timeout,
+            path=self.path,
         )
