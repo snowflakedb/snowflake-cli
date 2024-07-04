@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from jinja2 import Environment, StrictUndefined, loaders
-from snowflake.cli.api.rendering.jinja import env_bootstrap
+from snowflake.cli.api.rendering.jinja import IgnoreAttrEnvironment, env_bootstrap
 from snowflake.cli.api.secure_path import SecurePath
 
 _PROJECT_TEMPLATE_START = "<!"
@@ -27,7 +27,7 @@ _PROJECT_TEMPLATE_END = "!>"
 def get_template_cli_jinja_env(template_root: SecurePath) -> Environment:
     _random_block = "___very___unique___block___to___disable___logic___blocks___"
     return env_bootstrap(
-        Environment(
+        IgnoreAttrEnvironment(
             loader=loaders.FileSystemLoader(searchpath=template_root.path),
             keep_trailing_newline=True,
             variable_start_string=_PROJECT_TEMPLATE_START,

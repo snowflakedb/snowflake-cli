@@ -25,6 +25,9 @@ from snowflake.cli.api.rendering.jinja import (
     env_bootstrap,
 )
 
+_SQL_TEMPLATE_START = "&{"
+_SQL_TEMPLATE_END = "}"
+
 
 def get_sql_cli_jinja_env():
     _random_block = "___very___unique___block___to___disable___logic___blocks___"
@@ -32,8 +35,8 @@ def get_sql_cli_jinja_env():
         IgnoreAttrEnvironment(
             loader=loaders.BaseLoader(),
             keep_trailing_newline=True,
-            variable_start_string="&{",
-            variable_end_string="}",
+            variable_start_string=_SQL_TEMPLATE_START,
+            variable_end_string=_SQL_TEMPLATE_END,
             block_start_string=_random_block,
             block_end_string=_random_block,
             undefined=StrictUndefined,

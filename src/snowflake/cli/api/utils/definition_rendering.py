@@ -25,8 +25,8 @@ from snowflake.cli.api.project.schemas.project_definition import (
     ProjectProperties,
 )
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
-from snowflake.cli.api.rendering.snowflake_yml_templates import (
-    get_snowflake_cli_jinja_env,
+from snowflake.cli.api.rendering.project_definition_templates import (
+    get_project_definition_cli_jinja_env,
 )
 from snowflake.cli.api.utils.dict_utils import traverse
 from snowflake.cli.api.utils.graph import Graph, Node
@@ -273,7 +273,7 @@ def render_definition_template(
     default_env = definition.get("env", {})
     _validate_env_section(default_env)
 
-    template_env = TemplatedEnvironment(get_snowflake_cli_jinja_env())
+    template_env = TemplatedEnvironment(get_project_definition_cli_jinja_env())
 
     referenced_vars = set()
 
