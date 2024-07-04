@@ -186,7 +186,7 @@ def _validate_cli_version(required_version: str) -> None:
         )
 
 
-@app.command(no_args_is_help=True)
+@app.command(no_args_is_help=True, hidden=True)
 def init(
     path: str = PathArgument,
     template: Optional[str] = TemplateOption,
