@@ -25,9 +25,3 @@ PATCH_COL = "patch"
 
 INTERNAL_DISTRIBUTION = "internal"
 EXTERNAL_DISTRIBUTION = "external"
-
-ERROR_MESSAGE_2003 = "does not exist or not authorized"
-ERROR_MESSAGE_2043 = "Object does not exist, or operation cannot be performed."
-ERROR_MESSAGE_606 = "No active warehouse selected in the current session."
-ERROR_MESSAGE_093079 = "Application is no longer available for use"
-ERROR_MESSAGE_093128 = "The application owns one or more objects within the account"

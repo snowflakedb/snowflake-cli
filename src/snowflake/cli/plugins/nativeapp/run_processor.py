@@ -33,12 +33,14 @@ from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
-    ERROR_MESSAGE_093079,
-    ERROR_MESSAGE_093128,
     LOOSE_FILES_MAGIC_VERSION,
     PATCH_COL,
     SPECIAL_COMMENT,
     VERSION_COL,
+)
+from snowflake.cli.plugins.nativeapp.errno import (
+    APPLICATION_NO_LONGER_AVAILABLE,
+    APPLICATION_OWNS_EXTERNAL_OBJECTS,
 )
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationAlreadyExistsError,
@@ -223,7 +225,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                         f"The following objects are owned by application {self.app_name} and need to be dropped:\n{application_objects_str}"
                     )
             except ProgrammingError as err:
-                if err.errno != 93079 and ERROR_MESSAGE_093079 not in err.msg:
+                if err.errno != APPLICATION_NO_LONGER_AVAILABLE:
                     generic_sql_error_handler(err)
                 cc.warning(
                     "The application owns other objects but they could not be determined."
@@ -245,7 +247,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             cascade_sql = " cascade" if cascade else ""
             self._execute_query(f"drop application {self.app_name}{cascade_sql}")
         except ProgrammingError as err:
-            if (err.errno == 93128 or ERROR_MESSAGE_093128 in err.msg) and not cascade:
+            if err.errno == APPLICATION_OWNS_EXTERNAL_OBJECTS and not cascade:
                 # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
                 return self.drop_application_before_upgrade(
                     policy, is_interactive, cascade=True
