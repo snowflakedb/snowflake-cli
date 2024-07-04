@@ -69,7 +69,7 @@ def isolate_snowflake_home(snowflake_home):
     yield snowflake_home
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope="session")
 def mocked_rich():
     from rich.panel import Panel
 
@@ -77,6 +77,8 @@ def mocked_rich():
         def __init__(self, *arg, **kwargs):
             super().__init__(*arg, box=box.ASCII, **kwargs)
 
+    # The box can be configured for typer but unfortunately it's not passed down the line to `Panel`
+    # that's being used for printing help.
     with mock.patch("typer.rich_utils.Panel", CustomPanel):
         yield
 
