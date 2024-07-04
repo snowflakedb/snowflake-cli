@@ -17,8 +17,10 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from logging import FileHandler
+from unittest import mock
 
 import pytest
+from rich import box
 from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.commands.decorators import global_options, with_output
 from snowflake.cli.api.config import config_init
@@ -65,6 +67,20 @@ def clean_logging_handlers_fixture(request, snowflake_home):
 @pytest.fixture(autouse=True)
 def isolate_snowflake_home(snowflake_home):
     yield snowflake_home
+
+
+@pytest.fixture(autouse=True, scope="session")
+def mocked_rich():
+    from rich.panel import Panel
+
+    class CustomPanel(Panel):
+        def __init__(self, *arg, **kwargs):
+            super().__init__(*arg, box=box.ASCII, **kwargs)
+
+    # The box can be configured for typer but unfortunately it's not passed down the line to `Panel`
+    # that's being used for printing help.
+    with mock.patch("typer.rich_utils.Panel", CustomPanel):
+        yield
 
 
 def clean_logging_handlers():
