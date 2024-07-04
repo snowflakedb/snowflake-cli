@@ -60,6 +60,7 @@
 * Improved output and format of Pydantic validation errors
 * Improved support for quoted identifiers in streamlit commands.
 * The `snow app run` command will no longer override debug mode during an application upgrade unless explicitly set in `snowflake.yml`
+* The `snow app run` command now allows upgrading to unversioned mode from a versioned or release mode application installation
 
 # v2.5.0
 ## Backward incompatibility
