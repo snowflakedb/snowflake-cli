@@ -272,6 +272,67 @@
   
   '''
 # ---
+# name: test_execute_from_user_stage[@~-expected_files0]
+  '''
+  SUCCESS - @~/s1.sql
+  SUCCESS - @~/a/s3.sql
+  SUCCESS - @~/a/b/s4.sql
+  +---------------------------------+
+  | File          | Status  | Error |
+  |---------------+---------+-------|
+  | @~/s1.sql     | SUCCESS | None  |
+  | @~/a/s3.sql   | SUCCESS | None  |
+  | @~/a/b/s4.sql | SUCCESS | None  |
+  +---------------------------------+
+  
+  '''
+# ---
+# name: test_execute_from_user_stage[@~/a-expected_files2]
+  '''
+  SUCCESS - @~/a/s3.sql
+  SUCCESS - @~/a/b/s4.sql
+  +---------------------------------+
+  | File          | Status  | Error |
+  |---------------+---------+-------|
+  | @~/a/s3.sql   | SUCCESS | None  |
+  | @~/a/b/s4.sql | SUCCESS | None  |
+  +---------------------------------+
+  
+  '''
+# ---
+# name: test_execute_from_user_stage[@~/a/b-expected_files4]
+  '''
+  SUCCESS - @~/a/b/s4.sql
+  +---------------------------------+
+  | File          | Status  | Error |
+  |---------------+---------+-------|
+  | @~/a/b/s4.sql | SUCCESS | None  |
+  +---------------------------------+
+  
+  '''
+# ---
+# name: test_execute_from_user_stage[@~/a/s3.sql-expected_files3]
+  '''
+  SUCCESS - @~/a/s3.sql
+  +-------------------------------+
+  | File        | Status  | Error |
+  |-------------+---------+-------|
+  | @~/a/s3.sql | SUCCESS | None  |
+  +-------------------------------+
+  
+  '''
+# ---
+# name: test_execute_from_user_stage[@~/s1.sql-expected_files1]
+  '''
+  SUCCESS - @~/s1.sql
+  +-----------------------------+
+  | File      | Status  | Error |
+  |-----------+---------+-------|
+  | @~/s1.sql | SUCCESS | None  |
+  +-----------------------------+
+  
+  '''
+# ---
 # name: test_execute_raise_invalid_file_extension_error
   '''
   +- Error ----------------------------------------------------------------------+

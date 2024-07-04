@@ -19,6 +19,30 @@ from snowflake.cli.plugins.stage.manager import StageManager, StagePathParts
 from snowflake.connector.cursor import SnowflakeCursor
 
 
+class GitStagePathParts(StagePathParts):
+    def __init__(self, stage_path: str):
+        self.stage = GitManager.get_stage_from_path(stage_path)
+        stage_path_parts = Path(stage_path).parts
+        git_repo_name = stage_path_parts[0].split(".")[-1]
+        if git_repo_name.startswith("@"):
+            git_repo_name = git_repo_name[1:]
+        self.stage_name = "/".join([git_repo_name, *stage_path_parts[1:3], ""])
+        self.directory = "/".join(stage_path_parts[3:])
+
+    @property
+    def path(self) -> str:
+        return (
+            f"{self.stage_name}{self.directory}".lower()
+            if self.stage_name.endswith("/")
+            else f"{self.stage_name}/{self.directory}".lower()
+        )
+
+    def file_stage_path(self, file: str) -> str:
+        stage = Path(self.stage).parts[0]
+        file_path = Path(file).parts[1:]
+        return f"{stage}/{'/'.join(file_path)}"
+
+
 class GitManager(StageManager):
     def show_branches(self, repo_name: str, like: str) -> SnowflakeCursor:
         return self._execute_query(f"show git branches like '{like}' in {repo_name}")
@@ -51,22 +75,7 @@ class GitManager(StageManager):
         """
         return f"{'/'.join(Path(path).parts[0:3])}/"
 
-    def _split_stage_path(self, stage_path: str) -> StagePathParts:
-        """
-        Splits Git repository path `@repo/branch/main/dir`
-            stage -> @repo/branch/main/
-            stage_name -> repo/branch/main/
-            directory -> dir
-        For Git repository with fully qualified name `@db.schema.repo/branch/main/dir`
-            stage -> @db.schema.repo/branch/main/
-            stage_name -> repo/branch/main/
-            directory -> dir
-        """
-        stage = self.get_stage_from_path(stage_path)
-        stage_path_parts = Path(stage_path).parts
-        git_repo_name = stage_path_parts[0].split(".")[-1]
-        if git_repo_name.startswith("@"):
-            git_repo_name = git_repo_name[1:]
-        stage_name = "/".join([git_repo_name, *stage_path_parts[1:3], ""])
-        directory = "/".join(stage_path_parts[3:])
-        return StagePathParts(stage, stage_name, directory)
+    @staticmethod
+    def _stage_path_part_factory(stage_path: str) -> StagePathParts:
+        stage_path = StageManager.get_standard_stage_prefix(stage_path)
+        return GitStagePathParts(stage_path)
