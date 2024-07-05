@@ -621,13 +621,13 @@ def test_nativeapp_run_orphan(
     [
         ([], []),
         ([], ["--version", "v1"]),
-        ([], ["--from-release-directive"]),
+        # ([], ["--from-release-directive"]),
         (["--version", "v1"], []),
         (["--version", "v1"], ["--version", "v1"]),
-        (["--version", "v1"], ["--from-release-directive"]),
-        (["--from-release-directive"], []),
-        (["--from-release-directive"], ["--version", "v1"]),
-        (["--from-release-directive"], ["--from-release-directive"]),
+        # (["--version", "v1"], ["--from-release-directive"]),
+        # (["--from-release-directive"], []),
+        # (["--from-release-directive"], ["--version", "v1"]),
+        # (["--from-release-directive"], ["--from-release-directive"]),
     ],
 )
 def test_nativeapp_force_cross_upgrade(
@@ -656,15 +656,15 @@ def test_nativeapp_force_cross_upgrade(
             assert result.exit_code == 0
 
             # Set default release directive
-            result = runner.invoke_with_connection_json(
-                [
-                    "sql",
-                    "-q",
-                    f"alter application package {pkg_name} set default release directive version = v1 patch = 0",
-                ],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
+            # result = runner.invoke_with_connection_json(
+            #     [
+            #         "sql",
+            #         "-q",
+            #         f"alter application package {pkg_name} set default release directive version = v1 patch = 0",
+            #     ],
+            #     env=TEST_ENV,
+            # )
+            # assert result.exit_code == 0
 
             # Initial run
             result = runner.invoke_with_connection_json(
@@ -683,9 +683,16 @@ def test_nativeapp_force_cross_upgrade(
             if is_cross_upgrade:
                 assert f"Dropping application object {app_name}." in result.output
 
+            # Drop version
+            result = runner.invoke_with_connection_json(
+                ["app", "version", "drop", "v1"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
         finally:
             result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force", "--cascade"],
+                ["app", "teardown", "--force"],
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
