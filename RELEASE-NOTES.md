@@ -23,8 +23,6 @@
 
 ## Fixes and improvements
 * The `snow app run` command now allows upgrading to unversioned mode from a versioned or release mode application installation
-  * Applications can be upgraded even if they were not created by Snowflake CLI
-
 
 # v2.6.0
 ## Backward incompatibility
