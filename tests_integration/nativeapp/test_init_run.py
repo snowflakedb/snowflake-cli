@@ -684,21 +684,20 @@ def test_nativeapp_force_cross_upgrade(
             if is_cross_upgrade:
                 assert f"Dropping application object {app_name}." in result.output
 
+        finally:
             # Drop the application (so it doesn't block dropping the version)
-            result = runner.invoke_with_connection_json(
-                ["sql", "-q", f"drop application {app_name}"],
+            runner.invoke_with_connection_json(
+                ["sql", "-q", f"drop application if exists {app_name}"],
                 env=TEST_ENV,
             )
-            assert result.exit_code == 0
 
             # Drop version
-            result = runner.invoke_with_connection_json(
-                ["app", "version", "drop", "v1"],
+            runner.invoke_with_connection_json(
+                ["app", "version", "drop", "v1", "--force"],
                 env=TEST_ENV,
             )
-            assert result.exit_code == 0
 
-        finally:
+            # Drop the package
             result = runner.invoke_with_connection_json(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
