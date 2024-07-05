@@ -614,7 +614,8 @@ def test_nativeapp_run_orphan(
 
 
 # Verifies that we can always cross-upgrade between different
-# run configurations as long as we pass the --force flag
+# run configurations as long as we pass the --force flag to "app run"
+# TODO: add back all parameterizations and implement --force for "app teardown"
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "run_args_from, run_args_to",
@@ -682,6 +683,13 @@ def test_nativeapp_force_cross_upgrade(
             assert result.exit_code == 0
             if is_cross_upgrade:
                 assert f"Dropping application object {app_name}." in result.output
+
+            # Drop the application (so it doesn't block dropping the version)
+            result = runner.invoke_with_connection_json(
+                ["sql", "-q", f"drop application {app_name}"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
 
             # Drop version
             result = runner.invoke_with_connection_json(
