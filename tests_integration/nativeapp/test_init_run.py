@@ -638,6 +638,7 @@ def test_nativeapp_force_cross_upgrade(
 ):
     project_name = "xupgrade"
     app_name = f"{project_name}_{USER_NAME}"
+    pkg_name = f"{project_name}_pkg_{USER_NAME}"
 
     result = runner.invoke_json(
         ["app", "init", project_name],
@@ -659,7 +660,7 @@ def test_nativeapp_force_cross_upgrade(
                 [
                     "sql",
                     "-q",
-                    f"alter application {app_name} set default release directive version = v1 patch = 0",
+                    f"alter application package {pkg_name} set default release directive version = v1 patch = 0",
                 ],
                 env=TEST_ENV,
             )
