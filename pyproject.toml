@@ -84,6 +84,7 @@ packages = ["src/snowflake"]
 
 [tool.hatch.envs.default]
 features = ["development"]
+installer = "uv"
 
 [tool.hatch.envs.default.scripts]
 test = ["pytest tests/"]

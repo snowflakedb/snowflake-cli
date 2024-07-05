@@ -35,11 +35,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install Snowflake CLI
         run: |
-          python -m pip install --upgrade pip
-          pip install .
-          pip check
+          python -m pip install --upgrade pip uv
+          uv pip install .
+          uv pip check
           snow --help
       - name: Install dev dependencies
         run: |
-          pip install ".[development]"
-          pip check
+          uv pip install ".[development]"
+          uv pip check
