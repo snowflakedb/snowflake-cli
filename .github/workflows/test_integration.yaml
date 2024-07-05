@@ -38,12 +38,13 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip hatch
-          python -m hatch env create integration
+          pip install -U uv
+          uv pip install -U hatch
+          hatch env create integration
       - name: Run integration tests
         env:
           TERM: unknown
           SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-        run: python -m hatch run integration:test
+        run: hatch run integration:test
