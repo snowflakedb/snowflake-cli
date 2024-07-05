@@ -38,8 +38,8 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: |
-          pip install -U uv
-          uv pip install -U hatch
+          python -m pip install -U uv
+          python -m uv pip install -U hatch
           hatch env create integration
       - name: Run integration tests
         env:
