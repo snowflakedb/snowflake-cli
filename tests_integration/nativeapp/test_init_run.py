@@ -603,3 +603,79 @@ def test_nativeapp_run_orphan(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+
+# Verifies that we can always cross-upgrade between different
+# run configurations as long as we pass the --force flag
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "run_args_from, run_args_to",
+    [
+        ([], []),
+        ([], ["--version", "v1"]),
+        ([], ["--from-release-directive"]),
+        (["--version", "v1"], []),
+        (["--version", "v1"], ["--version", "v1"]),
+        (["--version", "v1"], ["--from-release-directive"]),
+        (["--from-release-directive"], [])(
+            ["--from-release-directive"], ["--version", "v1"]
+        )(["--from-release-directive"], ["--from-release-directive"]),
+    ],
+)
+def test_nativeapp_force_cross_upgrade(
+    runner,
+    temporary_working_directory,
+    run_args_from,
+    run_args_to,
+):
+    project_name = "xupgrade"
+    app_name = f"{project_name}_{USER_NAME}"
+
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        try:
+            # Create version
+            result = runner.invoke_with_connection_json(
+                ["app", "version", "create", "v1"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # Set default release directive
+            result = runner.invoke_with_connection_json(
+                [
+                    "sql",
+                    "-q",
+                    f"alter application {app_name} set default release directive version = v1 patch = 0",
+                ],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # Initial run
+            result = runner.invoke_with_connection_json(
+                ["app", "run"] + run_args_from,
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # (Cross-)upgrade
+            is_cross_upgrade = run_args_from != run_args_to
+            result = runner.invoke_with_connection_json(
+                ["app", "run"] + run_args_to + ["--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+            assert f"Dropping application object {app_name}." in result.output
+
+        finally:
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
