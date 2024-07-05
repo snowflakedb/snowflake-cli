@@ -37,8 +37,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          pip install -U uv
-          uv pip install -U hatch
+          python -m pip install -U uv
+          python -m uv pip install -U hatch
           hatch env create e2e
       - name: Run end to end tests
         env:
