@@ -41,7 +41,7 @@ class ApplicationCreatedExternallyError(ClickException):
 
     def __init__(self, name: str):
         super().__init__(
-            f'A application object "{name}" not created by Snowflake CLI already exists in the account.'
+            f'An application object "{name}" not created by Snowflake CLI already exists in the account.'
         )
 
 
