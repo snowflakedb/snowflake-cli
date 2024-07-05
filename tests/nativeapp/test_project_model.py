@@ -75,7 +75,7 @@ def test_project_model_all_defaults(
     assert project.app_name == "minimal_test_user"
     assert project.app_role == "MockRole"
     assert project.app_post_deploy_hooks is None
-    assert project.debug_mode is True
+    assert project.debug_mode is None
 
 
 @mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
