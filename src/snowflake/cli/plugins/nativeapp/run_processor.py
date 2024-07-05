@@ -21,6 +21,14 @@ from typing import Optional
 import typer
 from click import UsageError
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.errno import (
+    APPLICATION_NO_LONGER_AVAILABLE,
+    APPLICATION_OWNS_EXTERNAL_OBJECTS,
+    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
+    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+)
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.util import (
@@ -37,10 +45,6 @@ from snowflake.cli.plugins.nativeapp.constants import (
     PATCH_COL,
     SPECIAL_COMMENT,
     VERSION_COL,
-)
-from snowflake.cli.plugins.nativeapp.errno import (
-    APPLICATION_NO_LONGER_AVAILABLE,
-    APPLICATION_OWNS_EXTERNAL_OBJECTS,
 )
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationAlreadyExistsError,
@@ -62,11 +66,11 @@ from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 # Reasons why an `alter application ... upgrade` might fail
 UPGRADE_RESTRICTION_CODES = {
-    93044,  # Cannot upgrade dev mode application from loose stage files to version
-    93045,  # Cannot upgrade dev mode application from version to loose stage files
-    93046,  # Operation only permitted on dev mode application
-    93055,  # Operation not supported on dev mode application
-    93079,  # App package access lost
+    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
+    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+    APPLICATION_NO_LONGER_AVAILABLE,
 }
 
 

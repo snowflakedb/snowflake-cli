@@ -21,6 +21,9 @@ import pytest
 import typer
 from click import UsageError
 from snowflake.cli.api.errno import (
+    APPLICATION_NO_LONGER_AVAILABLE,
+    APPLICATION_OWNS_EXTERNAL_OBJECTS,
+    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
@@ -746,7 +749,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
             (None, mock.call("use role app_role")),
             (None, mock.call("use warehouse app_warehouse")),
             (
-                ProgrammingError(errno=93079),
+                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
                 mock.call(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
                 ),
@@ -835,13 +838,13 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
             (None, mock.call("use role app_role")),
             (None, mock.call("use warehouse app_warehouse")),
             (
-                ProgrammingError(errno=93079),
+                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
                 mock.call(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
                 ),
             ),
             (
-                ProgrammingError(errno=93128),
+                ProgrammingError(errno=APPLICATION_OWNS_EXTERNAL_OBJECTS),
                 mock.call("drop application myapp"),
             ),
             (
@@ -942,13 +945,13 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
             (None, mock.call("use role app_role")),
             (None, mock.call("use warehouse app_warehouse")),
             (
-                ProgrammingError(errno=93079),
+                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
                 mock.call(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
                 ),
             ),
             (
-                ProgrammingError(errno=93128),
+                ProgrammingError(errno=APPLICATION_OWNS_EXTERNAL_OBJECTS),
                 mock.call("drop application myapp"),
             ),
             (
@@ -956,7 +959,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
                 mock.call("select current_role()", cursor_class=DictCursor),
             ),
             (
-                ProgrammingError(errno=93079),
+                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
                 mock.call("show objects owned by application myapp"),
             ),
             (None, mock.call("drop application myapp cascade")),
@@ -1190,7 +1193,6 @@ def test_upgrade_app_fails_generic_error(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
                     errno=1234,
                 ),
                 mock.call("alter application myapp upgrade "),
@@ -1257,8 +1259,7 @@ def test_upgrade_app_fails_upgrade_restriction_error(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
-                    errno=93044,
+                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
                 ),
                 mock.call("alter application myapp upgrade "),
             ),
@@ -1324,14 +1325,12 @@ def test_upgrade_app_fails_drop_fails(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
-                    errno=93044,
+                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
                 ),
                 mock.call("alter application myapp upgrade "),
             ),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
                     errno=1234,
                 ),
                 mock.call("drop application myapp"),
@@ -1391,8 +1390,7 @@ def test_upgrade_app_recreate_app(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
-                    errno=93044,
+                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
                 ),
                 mock.call("alter application myapp upgrade "),
             ),
@@ -1547,8 +1545,7 @@ def test_upgrade_app_recreate_app_from_version(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
-                    errno=93044,
+                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
                 ),
                 mock.call("alter application myapp upgrade using version v1 "),
             ),

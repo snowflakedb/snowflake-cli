@@ -18,13 +18,15 @@ from unittest import mock
 import pytest
 import typer
 from click import Abort
-from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
+from snowflake.cli.api.errno import (
+    APPLICATION_NO_LONGER_AVAILABLE,
+    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+)
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import (
     SPECIAL_COMMENT,
     SPECIAL_COMMENT_OLD,
 )
-from snowflake.cli.plugins.nativeapp.errno import APPLICATION_NO_LONGER_AVAILABLE
 from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
     UnexpectedOwnerError,
