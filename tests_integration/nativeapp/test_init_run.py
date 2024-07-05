@@ -684,15 +684,8 @@ def test_nativeapp_force_cross_upgrade(
                 assert f"Dropping application object {app_name}." in result.output
 
         finally:
-            # need to drop the version before we can teardown
             result = runner.invoke_with_connection_json(
-                ["app", "version", "drop", "v1", "--force"],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
-
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
+                ["app", "teardown", "--force", "--cascade"],
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
