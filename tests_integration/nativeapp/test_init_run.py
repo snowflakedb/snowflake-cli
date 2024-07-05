@@ -477,6 +477,14 @@ def test_nativeapp_app_post_deploy(
             ]
 
         finally:
+            # need to drop the version before we can teardown
+            if is_versioned:
+                result = runner.invoke_with_connection_json(
+                    ["app", "version", "drop", version, "--force"],
+                    env=TEST_ENV,
+                )
+                assert result.exit_code == 0
+
             result = runner.invoke_with_connection_json(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
@@ -617,9 +625,9 @@ def test_nativeapp_run_orphan(
         (["--version", "v1"], []),
         (["--version", "v1"], ["--version", "v1"]),
         (["--version", "v1"], ["--from-release-directive"]),
-        (["--from-release-directive"], [])(
-            ["--from-release-directive"], ["--version", "v1"]
-        )(["--from-release-directive"], ["--from-release-directive"]),
+        (["--from-release-directive"], []),
+        (["--from-release-directive"], ["--version", "v1"]),
+        (["--from-release-directive"], ["--from-release-directive"]),
     ],
 )
 def test_nativeapp_force_cross_upgrade(
@@ -674,6 +682,13 @@ def test_nativeapp_force_cross_upgrade(
             assert f"Dropping application object {app_name}." in result.output
 
         finally:
+            # need to drop the version before we can teardown
+            result = runner.invoke_with_connection_json(
+                ["app", "version", "drop", "v1", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
             result = runner.invoke_with_connection_json(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
