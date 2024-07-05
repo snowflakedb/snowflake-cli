@@ -16,7 +16,7 @@ import pytest
 from pydantic import ValidationError
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.project_definition import (
-    ProjectDefinition,
+    ProjectDefinitionV1,
     build_project_definition,
 )
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
@@ -72,7 +72,7 @@ def test_nested_fields_update(
 
 
 def test_project_schema_is_updated_correctly_from_dict(
-    native_app_project_instance: ProjectDefinition,
+    native_app_project_instance: ProjectDefinitionV1,
 ):
     assert native_app_project_instance.native_app.name == "napp_test"
     assert native_app_project_instance.native_app.package.distribution == "internal"

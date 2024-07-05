@@ -146,7 +146,9 @@ def build_project_definition(**data):
     return version_model(**data)
 
 
-ProjectDefinition = Union[DefinitionV10, DefinitionV11, DefinitionV20]
+ProjectDefinitionV1 = Union[DefinitionV10, DefinitionV11]
+ProjectDefinitionV2 = DefinitionV20
+ProjectDefinition = Union[ProjectDefinitionV1, ProjectDefinitionV2]
 
 
 def get_version_map():
