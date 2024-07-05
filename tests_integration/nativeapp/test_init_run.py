@@ -25,7 +25,6 @@ from tests_integration.test_utils import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
-    rows_from_snowflake_session,
 )
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
@@ -423,17 +422,34 @@ def test_nativeapp_init_from_repo_with_single_template(
 
 # Tests that application post-deploy scripts are executed by creating a post_deploy_log table and having each post-deploy script add a record to it
 @pytest.mark.integration
-def test_nativeapp_app_post_deploy(runner, snowflake_session, project_directory):
+@pytest.mark.parametrize("is_versioned", [True, False])
+def test_nativeapp_app_post_deploy(
+    runner, snowflake_session, project_directory, is_versioned
+):
+    version = "v1"
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
-    with project_directory("napp_application_post_deploy") as tmp_dir:
-        try:
-            # First run, application is created
+
+    def run():
+        """(maybe) create a version, then snow app run"""
+        if is_versioned:
             result = runner.invoke_with_connection_json(
-                ["app", "run"],
+                ["app", "version", "create", version],
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+        run_args = ["--version", version] if is_versioned else []
+        result = runner.invoke_with_connection_json(
+            ["app", "run"] + run_args,
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+    with project_directory("napp_application_post_deploy") as tmp_dir:
+        try:
+            # First run, application is created (and maybe a version)
+            run()
 
             # Verify both scripts were executed
             assert row_from_snowflake_session(
@@ -446,11 +462,7 @@ def test_nativeapp_app_post_deploy(runner, snowflake_session, project_directory)
             ]
 
             # Second run, application is upgraded
-            result = runner.invoke_with_connection_json(
-                ["app", "run"],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
+            run()
 
             # Verify both scripts were executed
             assert row_from_snowflake_session(

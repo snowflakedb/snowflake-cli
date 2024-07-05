@@ -1286,13 +1286,17 @@ def test_upgrade_app_fails_upgrade_restriction_error(
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock_connection()
-def test_versioned_app_x_upgrade_to_unversioned(
+def test_versioned_app_upgrade_to_unversioned(
     mock_conn,
     mock_get_existing_app_info,
     mock_execute,
     temp_dir,
     mock_cursor,
 ):
+    """
+    Ensure that attempting to an upgrade from a versioned dev mode
+    application to an unversioned one can succeed given a permissive policy.
+    """
     mock_get_existing_app_info.return_value = {
         "name": "myapp",
         "comment": SPECIAL_COMMENT,
@@ -1316,6 +1320,39 @@ def test_versioned_app_x_upgrade_to_unversioned(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
                 ),
             ),
+            (None, mock.call("drop application myapp")),
+            (
+                mock_cursor([{"CURRENT_ROLE()": "app_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (
+                None,
+                mock.call(
+                    "grant install, develop on application package app_pkg to role app_role"
+                ),
+            ),
+            (
+                None,
+                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
+            ),
+            (
+                None,
+                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
+            ),
+            (None, mock.call("use role app_role")),
+            (
+                None,
+                mock.call(
+                    dedent(
+                        f"""\
+            create application myapp
+                from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
+                comment = {SPECIAL_COMMENT}
+            """
+                    )
+                ),
+            ),
             (None, mock.call("use role old_role")),
         ]
     )
@@ -1330,13 +1367,11 @@ def test_versioned_app_x_upgrade_to_unversioned(
     )
 
     run_processor = _get_na_run_processor()
-    with pytest.raises(typer.Exit):
-        result = run_processor.create_or_upgrade_app(
-            policy=DenyAlwaysPolicy(),
-            is_interactive=False,
-            install_method=SameAccountInstallMethod.unversioned_dev(),
-        )
-        assert result.exit_code == 1
+    run_processor.create_or_upgrade_app(
+        policy=AllowAlwaysPolicy(),
+        is_interactive=False,
+        install_method=SameAccountInstallMethod.unversioned_dev(),
+    )
     assert mock_execute.mock_calls == expected
 
 
