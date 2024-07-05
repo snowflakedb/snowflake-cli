@@ -679,7 +679,8 @@ def test_nativeapp_force_cross_upgrade(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
-            assert f"Dropping application object {app_name}." in result.output
+            if is_cross_upgrade:
+                assert f"Dropping application object {app_name}." in result.output
 
         finally:
             # need to drop the version before we can teardown
