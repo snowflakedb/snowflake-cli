@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
@@ -25,6 +26,7 @@ from typing import List, Optional, TypedDict
 import jinja2
 from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
@@ -81,6 +83,7 @@ from snowflake.cli.plugins.stage.diff import (
 )
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
+from snowflake.connector.cursor import DictCursor
 
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
@@ -253,6 +256,26 @@ class NativeAppManager(SqlExecutionMixin):
     @property
     def debug_mode(self) -> bool:
         return self.na_project.debug_mode
+
+    @contextmanager
+    def use_warehouse(self, new_wh: Optional[str]):
+        """
+        Switches to a different warehouse for a while, then switches back.
+        This is a no-op if the requested warehouse is already active, or the requested warehouse is not available.
+        """
+        wh_result = self._execute_query(
+            f"select current_warehouse()", cursor_class=DictCursor
+        ).fetchone()
+        prev_wh = wh_result["CURRENT_WAREHOUSE()"]
+        is_different_wh = (new_wh is not None) and (new_wh.lower() != prev_wh.lower())
+        if is_different_wh:
+            self._log.debug("Assuming different warehouse: %s", new_wh)
+            self.use(object_type=ObjectType.WAREHOUSE, name=new_wh)
+        try:
+            yield
+        finally:
+            if is_different_wh:
+                self.use(object_type=ObjectType.WAREHOUSE, name=prev_wh)
 
     @cached_property
     def get_app_pkg_distribution_in_snowflake(self) -> str:
@@ -484,7 +507,8 @@ class NativeAppManager(SqlExecutionMixin):
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
         name = identifier_for_url(self.app_name)
-        return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
+        with self.use_warehouse(self.application_warehouse):
+            return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
 
     def create_app_package(self) -> None:
         """

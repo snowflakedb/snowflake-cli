@@ -64,6 +64,7 @@ from tests.nativeapp.utils import (
     touch,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
+from tests.testing_utils.fixtures import MockConnectionCtx
 
 mock_project_definition_override = {
     "native_app": {
@@ -582,11 +583,18 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
 @mock.patch("snowflake.cli.plugins.connection.util.get_context")
 @mock.patch("snowflake.cli.plugins.connection.util.get_account")
 @mock.patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection()
 def test_get_snowsight_url(
-    mock_conn, mock_snowsight_host, mock_account, mock_context, temp_dir
+    mock_conn,
+    mock_execute_query,
+    mock_snowsight_host,
+    mock_account,
+    mock_context,
+    temp_dir,
+    mock_cursor,
 ):
-    mock_conn.return_value = None
+    mock_conn.return_value = MockConnectionCtx()
     mock_snowsight_host.return_value = "https://host"
     mock_context.return_value = "organization"
     mock_account.return_value = "account"
@@ -598,11 +606,24 @@ def test_get_snowsight_url(
         contents=[mock_snowflake_yml_file],
     )
 
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
+                mock.call("select current_warehouse()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use warehouse app_warehouse")),
+            (None, mock.call("use warehouse old_wh")),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
     native_app_manager = _get_na_manager()
     assert (
         native_app_manager.get_snowsight_url()
         == "https://host/organization/account/#/apps/application/MYAPP"
     )
+    assert mock_execute_query.mock_calls == expected
 
 
 def test_ensure_correct_owner():
