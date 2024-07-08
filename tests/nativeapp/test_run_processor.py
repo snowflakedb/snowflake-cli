@@ -1294,7 +1294,7 @@ def test_versioned_app_upgrade_to_unversioned(
     mock_cursor,
 ):
     """
-    Ensure that attempting to an upgrade from a versioned dev mode
+    Ensure that attempting to upgrade from a versioned dev mode
     application to an unversioned one can succeed given a permissive policy.
     """
     mock_get_existing_app_info.return_value = {
