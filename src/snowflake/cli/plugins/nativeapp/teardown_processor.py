@@ -20,6 +20,7 @@ from typing import Dict, Optional
 
 import typer
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.errno import APPLICATION_NO_LONGER_AVAILABLE
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
@@ -28,7 +29,6 @@ from snowflake.cli.plugins.nativeapp.constants import (
     INTERNAL_DISTRIBUTION,
     OWNER_COL,
 )
-from snowflake.cli.plugins.nativeapp.errno import APPLICATION_NO_LONGER_AVAILABLE
 from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
 )
