@@ -49,18 +49,8 @@ app = SnowTyperFactory(
 log = logging.getLogger(__name__)
 
 
-class IdentifierType(click.ParamType):
-    name = "TEXT"
-
-    def convert(self, value, param, ctx):
-        return FQN.from_string(value)
-
-
 StreamlitNameArgument = typer.Argument(
-    ...,
-    help="Name of the Streamlit app.",
-    show_default=False,
-    click_type=IdentifierType(),
+    ..., help="Name of the Streamlit app.", show_default=False
 )
 OpenOption = typer.Option(
     False,
@@ -89,7 +79,7 @@ add_object_command_aliases(
 
 @app.command("share", requires_connection=True)
 def streamlit_share(
-    name: FQN = StreamlitNameArgument,
+    name: str = StreamlitNameArgument,
     to_role: str = typer.Argument(
         ..., help="Role with which to share the Streamlit app."
     ),
@@ -148,10 +138,10 @@ def streamlit_deploy(
     elif pages_dir is None:
         pages_dir = "pages"
 
-    streamlit_id = FQN.from_identifier_model(streamlit).using_context()
+    streamlit_name = FQN.from_identifier_model(streamlit).using_context()
 
     url = StreamlitManager().deploy(
-        streamlit_id=streamlit_id,
+        streamlit=streamlit_name,
         environment_file=Path(environment_file),
         pages_dir=Path(pages_dir),
         stage_name=streamlit.stage,
@@ -171,7 +161,7 @@ def streamlit_deploy(
 
 @app.command("get-url", requires_connection=True)
 def get_url(
-    name: FQN = StreamlitNameArgument,
+    name: str = StreamlitNameArgument,
     open_: bool = OpenOption,
     **options,
 ):
