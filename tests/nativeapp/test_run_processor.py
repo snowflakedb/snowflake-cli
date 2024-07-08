@@ -20,10 +20,15 @@ from unittest.mock import MagicMock
 import pytest
 import typer
 from click import UsageError
+from snowflake.cli.api.errno import (
+    APPLICATION_NO_LONGER_AVAILABLE,
+    APPLICATION_OWNS_EXTERNAL_OBJECTS,
+    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    NO_WAREHOUSE_SELECTED_IN_SESSION,
+)
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import (
-    ERROR_MESSAGE_093079,
-    ERROR_MESSAGE_093128,
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
 )
@@ -37,7 +42,10 @@ from snowflake.cli.plugins.nativeapp.policy import (
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
-from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
+from snowflake.cli.plugins.nativeapp.run_processor import (
+    NativeAppRunProcessor,
+    SameAccountInstallMethod,
+)
 from snowflake.cli.plugins.stage.diff import DiffResult
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
@@ -48,7 +56,6 @@ from tests.nativeapp.patch_utils import (
 )
 from tests.nativeapp.utils import (
     NATIVEAPP_MANAGER_EXECUTE,
-    NATIVEAPP_MANAGER_EXECUTE_QUERIES,
     RUN_PROCESSOR_GET_EXISTING_APP_INFO,
     TYPER_CONFIRM,
     mock_execute_helper,
@@ -100,7 +107,7 @@ def test_create_dev_app_w_warehouse_access_exception(
             (
                 ProgrammingError(
                     msg="Object does not exist, or operation cannot be performed.",
-                    errno=2043,
+                    errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
                 ),
                 mock.call("use warehouse app_warehouse"),
             ),
@@ -122,7 +129,10 @@ def test_create_dev_app_w_warehouse_access_exception(
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
+        run_processor.create_or_upgrade_app(
+            policy=MagicMock(),
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+        )
 
     assert mock_execute.mock_calls == expected
     assert "Please grant usage privilege on warehouse to this role." in err.value.msg
@@ -149,9 +159,7 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
                     dedent(
                         f"""\
                     create application myapp
-                        from application package app_pkg
-                        using @app_pkg.app_src.stage
-                        debug_mode = True
+                        from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
                         comment = {SPECIAL_COMMENT}
                     """
                     )
@@ -173,18 +181,18 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
+    run_processor.create_or_upgrade_app(
+        policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
+    )
     assert mock_execute.mock_calls == expected
 
 
 # Test create_dev_app with no existing application AND create succeeds AND app role != package role
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
 @mock_connection()
 def test_create_dev_app_create_new_with_additional_privileges(
     mock_conn,
-    mock_execute_queries,
     mock_execute_query,
     mock_get_existing_app_info,
     temp_dir,
@@ -203,6 +211,20 @@ def test_create_dev_app_create_new_with_additional_privileges(
                 mock.call("select current_role()", cursor_class=DictCursor),
             ),
             (None, mock.call("use role package_role")),
+            (
+                None,
+                mock.call(
+                    "grant install, develop on application package app_pkg to role app_role"
+                ),
+            ),
+            (
+                None,
+                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
+            ),
+            (
+                None,
+                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
+            ),
             (None, mock.call("use role app_role")),
             (
                 None,
@@ -210,9 +232,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
                     dedent(
                         f"""\
                     create application myapp
-                        from application package app_pkg
-                        using @app_pkg.app_src.stage
-                        debug_mode = True
+                        from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
                         comment = {SPECIAL_COMMENT}
                     """
                     )
@@ -224,19 +244,6 @@ def test_create_dev_app_create_new_with_additional_privileges(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute_query.side_effect = side_effects
 
-    mock_execute_queries_expected = [
-        mock.call(
-            dedent(
-                f"""\
-            grant install, develop on application package app_pkg to role app_role;
-            grant usage on schema app_pkg.app_src to role app_role;
-            grant read on stage app_pkg.app_src.stage to role app_role;
-            """
-            )
-        )
-    ]
-    mock_execute_queries.side_effect = [None, None, None]
-
     mock_diff_result = DiffResult()
     current_working_directory = os.getcwd()
     create_named_file(
@@ -247,9 +254,10 @@ def test_create_dev_app_create_new_with_additional_privileges(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
+    run_processor.create_or_upgrade_app(
+        policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
+    )
     assert mock_execute_query.mock_calls == mock_execute_query_expected
-    assert mock_execute_queries.mock_calls == mock_execute_queries_expected
 
 
 # Test create_dev_app with no existing application AND create throws an exception
@@ -269,15 +277,14 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="No active warehouse selected in the current session", errno=606
+                    msg="No active warehouse selected in the current session",
+                    errno=NO_WAREHOUSE_SELECTED_IN_SESSION,
                 ),
                 mock.call(
                     dedent(
                         f"""\
                     create application myapp
-                        from application package app_pkg
-                        using @app_pkg.app_src.stage
-                        debug_mode = True
+                        from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
                         comment = {SPECIAL_COMMENT}
                     """
                     )
@@ -302,7 +309,10 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
+        run_processor.create_or_upgrade_app(
+            policy=MagicMock(),
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+        )
 
     assert "Please provide a warehouse for the active session role" in err.value.msg
     assert mock_execute.mock_calls == expected
@@ -363,7 +373,10 @@ def test_create_dev_app_incorrect_properties(
     with pytest.raises(ApplicationAlreadyExistsError):
         run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
-        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
+        run_processor.create_or_upgrade_app(
+            policy=MagicMock(),
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+        )
 
     assert mock_execute.mock_calls == expected
 
@@ -406,7 +419,10 @@ def test_create_dev_app_incorrect_owner(
     with pytest.raises(UnexpectedOwnerError):
         run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
-        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
+        run_processor.create_or_upgrade_app(
+            policy=MagicMock(),
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+        )
 
     assert mock_execute.mock_calls == expected
 
@@ -455,7 +471,9 @@ def test_create_dev_app_no_diff_changes(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
+    run_processor.create_or_upgrade_app(
+        policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
+    )
     assert mock_execute.mock_calls == expected
 
 
@@ -503,7 +521,9 @@ def test_create_dev_app_w_diff_changes(
 
     run_processor = _get_na_run_processor()
     assert mock_diff_result.has_changes()
-    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
+    run_processor.create_or_upgrade_app(
+        policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
+    )
     assert mock_execute.mock_calls == expected
 
 
@@ -530,7 +550,8 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="No active warehouse selected in the current session", errno=606
+                    msg="No active warehouse selected in the current session",
+                    errno=NO_WAREHOUSE_SELECTED_IN_SESSION,
                 ),
                 mock.call(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
@@ -554,7 +575,10 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
     assert mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
+        run_processor.create_or_upgrade_app(
+            policy=MagicMock(),
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+        )
 
     assert mock_execute.mock_calls == expected
     assert "Please provide a warehouse for the active session role" in err.value.msg
@@ -581,9 +605,7 @@ def test_create_dev_app_create_new_quoted(
                     dedent(
                         f"""\
                     create application "My Application"
-                        from application package "My Package"
-                        using '@"My Package".app_src.stage'
-                        debug_mode = True
+                        from application package "My Package" using '@"My Package".app_src.stage' debug_mode = True
                         comment = {SPECIAL_COMMENT}
                     """
                     )
@@ -637,7 +659,9 @@ def test_create_dev_app_create_new_quoted(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
+    run_processor.create_or_upgrade_app(
+        policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
+    )
     assert mock_execute.mock_calls == expected
 
 
@@ -662,9 +686,7 @@ def test_create_dev_app_create_new_quoted_override(
                     dedent(
                         f"""\
                     create application "My Application"
-                        from application package "My Package"
-                        using '@"My Package".app_src.stage'
-                        debug_mode = True
+                        from application package "My Package" using '@"My Package".app_src.stage' debug_mode = True
                         comment = {SPECIAL_COMMENT}
                     """
                     )
@@ -691,7 +713,9 @@ def test_create_dev_app_create_new_quoted_override(
 
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor._create_dev_app(policy=MagicMock())  # noqa: SLF001
+    run_processor.create_or_upgrade_app(
+        policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
+    )
     assert mock_execute.mock_calls == expected
 
 
@@ -725,10 +749,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
             (None, mock.call("use role app_role")),
             (None, mock.call("use warehouse app_warehouse")),
             (
-                ProgrammingError(
-                    msg=ERROR_MESSAGE_093079,
-                    errno=93079,
-                ),
+                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
                 mock.call(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
                 ),
@@ -739,6 +760,20 @@ def test_create_dev_app_recreate_app_when_orphaned(
                 mock.call("select current_role()", cursor_class=DictCursor),
             ),
             (None, mock.call("use role package_role")),
+            (
+                None,
+                mock.call(
+                    "grant install, develop on application package app_pkg to role app_role"
+                ),
+            ),
+            (
+                None,
+                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
+            ),
+            (
+                None,
+                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
+            ),
             (None, mock.call("use role app_role")),
             (
                 None,
@@ -746,9 +781,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
                     dedent(
                         f"""\
                     create application myapp
-                        from application package app_pkg
-                        using @app_pkg.app_src.stage
-                        debug_mode = True
+                        from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
                         comment = {SPECIAL_COMMENT}
                     """
                     )
@@ -768,7 +801,9 @@ def test_create_dev_app_recreate_app_when_orphaned(
     )
 
     run_processor = _get_na_run_processor()
-    run_processor._create_dev_app(allow_always_policy)  # noqa: SLF001
+    run_processor.create_or_upgrade_app(
+        policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
+    )
     assert mock_execute.mock_calls == expected
 
 
@@ -803,19 +838,13 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
             (None, mock.call("use role app_role")),
             (None, mock.call("use warehouse app_warehouse")),
             (
-                ProgrammingError(
-                    msg=ERROR_MESSAGE_093079,
-                    errno=93079,
-                ),
+                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
                 mock.call(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
                 ),
             ),
             (
-                ProgrammingError(
-                    msg=ERROR_MESSAGE_093128,
-                    errno=93128,
-                ),
+                ProgrammingError(errno=APPLICATION_OWNS_EXTERNAL_OBJECTS),
                 mock.call("drop application myapp"),
             ),
             (
@@ -837,6 +866,20 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
                 mock.call("select current_role()", cursor_class=DictCursor),
             ),
             (None, mock.call("use role package_role")),
+            (
+                None,
+                mock.call(
+                    "grant install, develop on application package app_pkg to role app_role"
+                ),
+            ),
+            (
+                None,
+                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
+            ),
+            (
+                None,
+                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
+            ),
             (None, mock.call("use role app_role")),
             (
                 None,
@@ -844,9 +887,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
                     dedent(
                         f"""\
                     create application myapp
-                        from application package app_pkg
-                        using @app_pkg.app_src.stage
-                        debug_mode = True
+                        from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
                         comment = {SPECIAL_COMMENT}
                     """
                     )
@@ -866,7 +907,9 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
     )
 
     run_processor = _get_na_run_processor()
-    run_processor._create_dev_app(allow_always_policy)  # noqa: SLF001
+    run_processor.create_or_upgrade_app(
+        policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
+    )
     assert mock_execute.mock_calls == expected
 
 
@@ -902,19 +945,13 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
             (None, mock.call("use role app_role")),
             (None, mock.call("use warehouse app_warehouse")),
             (
-                ProgrammingError(
-                    msg=ERROR_MESSAGE_093079,
-                    errno=93079,
-                ),
+                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
                 mock.call(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
                 ),
             ),
             (
-                ProgrammingError(
-                    msg=ERROR_MESSAGE_093128,
-                    errno=93128,
-                ),
+                ProgrammingError(errno=APPLICATION_OWNS_EXTERNAL_OBJECTS),
                 mock.call("drop application myapp"),
             ),
             (
@@ -922,10 +959,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
                 mock.call("select current_role()", cursor_class=DictCursor),
             ),
             (
-                ProgrammingError(
-                    msg=ERROR_MESSAGE_093079,
-                    errno=93079,
-                ),
+                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
                 mock.call("show objects owned by application myapp"),
             ),
             (None, mock.call("drop application myapp cascade")),
@@ -934,6 +968,20 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
                 mock.call("select current_role()", cursor_class=DictCursor),
             ),
             (None, mock.call("use role package_role")),
+            (
+                None,
+                mock.call(
+                    "grant install, develop on application package app_pkg to role app_role"
+                ),
+            ),
+            (
+                None,
+                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
+            ),
+            (
+                None,
+                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
+            ),
             (None, mock.call("use role app_role")),
             (
                 None,
@@ -941,9 +989,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
                     dedent(
                         f"""\
                     create application myapp
-                        from application package app_pkg
-                        using @app_pkg.app_src.stage
-                        debug_mode = True
+                        from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
                         comment = {SPECIAL_COMMENT}
                     """
                     )
@@ -963,7 +1009,9 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
     )
 
     run_processor = _get_na_run_processor()
-    run_processor._create_dev_app(allow_always_policy)  # noqa: SLF001
+    run_processor.create_or_upgrade_app(
+        policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
+    )
     assert mock_execute.mock_calls == expected
 
 
@@ -986,7 +1034,7 @@ def test_upgrade_app_warehouse_error(
             (
                 ProgrammingError(
                     msg="Object does not exist, or operation cannot be performed.",
-                    errno=2043,
+                    errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
                 ),
                 mock.call("use warehouse app_warehouse"),
             ),
@@ -1005,7 +1053,11 @@ def test_upgrade_app_warehouse_error(
 
     run_processor = _get_na_run_processor()
     with pytest.raises(ProgrammingError):
-        run_processor.upgrade_app(policy_param, is_interactive=True)
+        run_processor.create_or_upgrade_app(
+            policy_param,
+            is_interactive=True,
+            install_method=SameAccountInstallMethod.release_directive(),
+        )
     assert mock_execute.mock_calls == expected
 
 
@@ -1052,7 +1104,11 @@ def test_upgrade_app_incorrect_owner(
 
     run_processor = _get_na_run_processor()
     with pytest.raises(UnexpectedOwnerError):
-        run_processor.upgrade_app(policy=policy_param, is_interactive=True)
+        run_processor.create_or_upgrade_app(
+            policy=policy_param,
+            is_interactive=True,
+            install_method=SameAccountInstallMethod.release_directive(),
+        )
     assert mock_execute.mock_calls == expected
 
 
@@ -1099,7 +1155,11 @@ def test_upgrade_app_succeeds(
     )
 
     run_processor = _get_na_run_processor()
-    run_processor.upgrade_app(policy=policy_param, is_interactive=True)
+    run_processor.create_or_upgrade_app(
+        policy=policy_param,
+        is_interactive=True,
+        install_method=SameAccountInstallMethod.release_directive(),
+    )
     assert mock_execute.mock_calls == expected
 
 
@@ -1133,7 +1193,6 @@ def test_upgrade_app_fails_generic_error(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
                     errno=1234,
                 ),
                 mock.call("alter application myapp upgrade "),
@@ -1153,7 +1212,11 @@ def test_upgrade_app_fails_generic_error(
 
     run_processor = _get_na_run_processor()
     with pytest.raises(ProgrammingError):
-        run_processor.upgrade_app(policy=policy_param, is_interactive=True)
+        run_processor.create_or_upgrade_app(
+            policy=policy_param,
+            is_interactive=True,
+            install_method=SameAccountInstallMethod.release_directive(),
+        )
     assert mock_execute.mock_calls == expected
 
 
@@ -1196,8 +1259,7 @@ def test_upgrade_app_fails_upgrade_restriction_error(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
-                    errno=93044,
+                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
                 ),
                 mock.call("alter application myapp upgrade "),
             ),
@@ -1216,8 +1278,10 @@ def test_upgrade_app_fails_upgrade_restriction_error(
 
     run_processor = _get_na_run_processor()
     with pytest.raises(typer.Exit):
-        result = run_processor.upgrade_app(
-            policy_param, is_interactive=is_interactive_param
+        result = run_processor.create_or_upgrade_app(
+            policy_param,
+            is_interactive=is_interactive_param,
+            install_method=SameAccountInstallMethod.release_directive(),
         )
         assert result.exit_code == expected_code
     assert mock_execute.mock_calls == expected
@@ -1261,14 +1325,12 @@ def test_upgrade_app_fails_drop_fails(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
-                    errno=93044,
+                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
                 ),
                 mock.call("alter application myapp upgrade "),
             ),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
                     errno=1234,
                 ),
                 mock.call("drop application myapp"),
@@ -1288,7 +1350,11 @@ def test_upgrade_app_fails_drop_fails(
 
     run_processor = _get_na_run_processor()
     with pytest.raises(ProgrammingError):
-        run_processor.upgrade_app(policy_param, is_interactive=is_interactive_param)
+        run_processor.create_or_upgrade_app(
+            policy_param,
+            is_interactive=is_interactive_param,
+            install_method=SameAccountInstallMethod.release_directive(),
+        )
     assert mock_execute.mock_calls == expected
 
 
@@ -1324,8 +1390,7 @@ def test_upgrade_app_recreate_app(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
-                    errno=93044,
+                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
                 ),
                 mock.call("alter application myapp upgrade "),
             ),
@@ -1338,8 +1403,16 @@ def test_upgrade_app_recreate_app(
             (
                 None,
                 mock.call(
-                    "grant install on application package app_pkg to role app_role"
+                    "grant install, develop on application package app_pkg to role app_role"
                 ),
+            ),
+            (
+                None,
+                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
+            ),
+            (
+                None,
+                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
             ),
             (None, mock.call("use role app_role")),
             (
@@ -1368,7 +1441,11 @@ def test_upgrade_app_recreate_app(
     )
 
     run_processor = _get_na_run_processor()
-    run_processor.upgrade_app(policy_param, is_interactive=True)
+    run_processor.create_or_upgrade_app(
+        policy_param,
+        is_interactive=True,
+        install_method=SameAccountInstallMethod.release_directive(),
+    )
     assert mock_execute.mock_calls == expected
 
 
@@ -1468,8 +1545,7 @@ def test_upgrade_app_recreate_app_from_version(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
-                    errno=93044,
+                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
                 ),
                 mock.call("alter application myapp upgrade using version v1 "),
             ),
@@ -1482,14 +1558,16 @@ def test_upgrade_app_recreate_app_from_version(
             (
                 None,
                 mock.call(
-                    "grant install on application package app_pkg to role app_role"
+                    "grant install, develop on application package app_pkg to role app_role"
                 ),
             ),
             (
                 None,
-                mock.call(
-                    "grant develop on application package app_pkg to role app_role"
-                ),
+                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
+            ),
+            (
+                None,
+                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
             ),
             (None, mock.call("use role app_role")),
             (

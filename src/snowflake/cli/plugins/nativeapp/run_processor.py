@@ -21,6 +21,14 @@ from typing import Optional
 import typer
 from click import UsageError
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.errno import (
+    APPLICATION_NO_LONGER_AVAILABLE,
+    APPLICATION_OWNS_EXTERNAL_OBJECTS,
+    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
+    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+)
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.util import (
@@ -33,8 +41,6 @@ from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
-    ERROR_MESSAGE_093079,
-    ERROR_MESSAGE_093128,
     LOOSE_FILES_MAGIC_VERSION,
     PATCH_COL,
     SPECIAL_COMMENT,
@@ -51,116 +57,86 @@ from snowflake.cli.plugins.nativeapp.manager import (
     generic_sql_error_handler,
 )
 from snowflake.cli.plugins.nativeapp.policy import PolicyBase
+from snowflake.cli.plugins.nativeapp.project_model import (
+    NativeAppProjectModel,
+)
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 # Reasons why an `alter application ... upgrade` might fail
 UPGRADE_RESTRICTION_CODES = {
-    93044,  # Cannot upgrade dev mode application from loose stage files to version
-    93045,  # Cannot upgrade dev mode application from version to loose stage files
-    93046,  # Operation only permitted on dev mode application
-    93055,  # Operation not supported on dev mode application
-    93079,  # App package access lost
+    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
+    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+    APPLICATION_NO_LONGER_AVAILABLE,
 }
+
+
+class SameAccountInstallMethod:
+    _requires_created_by_cli: bool
+    _from_release_directive: bool
+    version: Optional[str]
+    patch: Optional[int]
+
+    def __init__(
+        self,
+        requires_created_by_cli: bool,
+        version: Optional[str] = None,
+        patch: Optional[int] = None,
+        from_release_directive: bool = False,
+    ):
+        self._requires_created_by_cli = requires_created_by_cli
+        self.version = version
+        self.patch = patch
+        self._from_release_directive = from_release_directive
+
+    @classmethod
+    def unversioned_dev(cls):
+        """aka. stage dev aka loose files"""
+        return cls(True)
+
+    @classmethod
+    def versioned_dev(cls, version: str, patch: Optional[int] = None):
+        return cls(False, version, patch)
+
+    @classmethod
+    def release_directive(cls):
+        return cls(False, from_release_directive=True)
+
+    @property
+    def is_dev_mode(self) -> bool:
+        return not self._from_release_directive
+
+    def using_clause(self, app: NativeAppProjectModel) -> str:
+        if self._from_release_directive:
+            return ""
+
+        if self.version:
+            patch_clause = f"patch {self.patch}" if self.patch else ""
+            return f"using version {self.version} {patch_clause}"
+
+        stage_name = StageManager.quote_stage_name(app.stage_fqn)
+        return f"using {stage_name}"
+
+    def ensure_app_usable(self, app: NativeAppProjectModel, show_app_row: dict):
+        """Raise an exception if we cannot proceed with install given the pre-existing application object"""
+
+        if self._requires_created_by_cli:
+            if show_app_row[COMMENT_COL] not in ALLOWED_SPECIAL_COMMENTS or (
+                show_app_row[VERSION_COL] != LOOSE_FILES_MAGIC_VERSION
+            ):
+                # this application object was not created by this tooling
+                raise ApplicationAlreadyExistsError(app.app_name)
+
+        # expected owner
+        ensure_correct_owner(row=show_app_row, role=app.app_role, obj_name=app.app_name)
 
 
 class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__(project_definition, project_root)
-
-    def _create_dev_app(self, policy: PolicyBase, is_interactive: bool = False) -> None:
-        """
-        (Re-)creates the application object with our up-to-date stage.
-        """
-        with self.use_role(self.app_role):
-
-            # 1. Need to use a warehouse to create an application object
-            try:
-                if self.application_warehouse:
-                    self._execute_query(f"use warehouse {self.application_warehouse}")
-            except ProgrammingError as err:
-                generic_sql_error_handler(
-                    err=err, role=self.app_role, warehouse=self.application_warehouse
-                )
-
-            # 2. Check for an existing application object by the same name
-            show_app_row = self.get_existing_app_info()
-
-            # 3. If existing application object is found, perform a few validations and upgrade the application object.
-            if show_app_row:
-
-                # Check if not created by Snowflake CLI or not created using "files on a named stage" / stage dev mode.
-                if show_app_row[COMMENT_COL] not in ALLOWED_SPECIAL_COMMENTS or (
-                    show_app_row[VERSION_COL] != LOOSE_FILES_MAGIC_VERSION
-                ):
-                    raise ApplicationAlreadyExistsError(self.app_name)
-
-                # Check for the right owner
-                ensure_correct_owner(
-                    row=show_app_row, role=self.app_role, obj_name=self.app_name
-                )
-
-                # If all the above checks are in order, proceed to upgrade
-                try:
-                    cc.step(f"Upgrading existing application object {self.app_name}.")
-                    self._execute_query(
-                        f"alter application {self.app_name} upgrade using @{self.stage_fqn}"
-                    )
-
-                    # if debug_mode is present (controlled), ensure it is up-to-date
-                    if self.debug_mode is not None:
-                        self._execute_query(
-                            f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
-                        )
-
-                    self._execute_post_deploy_hooks()
-                    return
-
-                except ProgrammingError as err:
-                    if err.errno not in UPGRADE_RESTRICTION_CODES:
-                        generic_sql_error_handler(err)
-                    else:
-                        cc.warning(err.msg)
-                        self.drop_application_before_upgrade(policy, is_interactive)
-
-            # 4. If no existing application object is found, create an application object using "files on a named stage" / stage dev mode.
-            cc.step(f"Creating new application {self.app_name} in account.")
-
-            if self.app_role != self.package_role:
-                with self.use_role(new_role=self.package_role):
-                    self._execute_queries(
-                        dedent(
-                            f"""\
-                        grant install, develop on application package {self.package_name} to role {self.app_role};
-                        grant usage on schema {self.package_name}.{self.stage_schema} to role {self.app_role};
-                        grant read on stage {self.stage_fqn} to role {self.app_role};
-                        """
-                        )
-                    )
-
-            stage_name = StageManager.quote_stage_name(self.stage_fqn)
-
-            try:
-                # by default, applications are created in debug mode; this can be overridden in the project definition
-                initial_debug_mode = (
-                    self.debug_mode if self.debug_mode is not None else True
-                )
-                self._execute_query(
-                    dedent(
-                        f"""\
-                    create application {self.app_name}
-                        from application package {self.package_name}
-                        using {stage_name}
-                        debug_mode = {initial_debug_mode}
-                        comment = {SPECIAL_COMMENT}
-                    """
-                    )
-                )
-            except ProgrammingError as err:
-                generic_sql_error_handler(err)
-
-            self._execute_post_deploy_hooks()
 
     def _execute_sql_script(self, sql_script_path):
         """
@@ -253,7 +229,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                         f"The following objects are owned by application {self.app_name} and need to be dropped:\n{application_objects_str}"
                     )
             except ProgrammingError as err:
-                if err.errno != 93079 and ERROR_MESSAGE_093079 not in err.msg:
+                if err.errno != APPLICATION_NO_LONGER_AVAILABLE:
                     generic_sql_error_handler(err)
                 cc.warning(
                     "The application owns other objects but they could not be determined."
@@ -275,7 +251,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             cascade_sql = " cascade" if cascade else ""
             self._execute_query(f"drop application {self.app_name}{cascade_sql}")
         except ProgrammingError as err:
-            if (err.errno == 93128 or ERROR_MESSAGE_093128 in err.msg) and not cascade:
+            if err.errno == APPLICATION_OWNS_EXTERNAL_OBJECTS and not cascade:
                 # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
                 return self.drop_application_before_upgrade(
                     policy, is_interactive, cascade=True
@@ -283,17 +259,12 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             else:
                 generic_sql_error_handler(err)
 
-    def upgrade_app(
+    def create_or_upgrade_app(
         self,
         policy: PolicyBase,
-        is_interactive: bool,
-        version: Optional[str] = None,
-        patch: Optional[int] = None,
+        install_method: SameAccountInstallMethod,
+        is_interactive: bool = False,
     ):
-
-        patch_clause = f"patch {patch}" if patch else ""
-        using_clause = f"using version {version} {patch_clause}" if version else ""
-
         with self.use_role(self.app_role):
 
             # 1. Need to use a warehouse to create an application object
@@ -311,24 +282,25 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             # 3. If existing application is found, perform a few validations and upgrade the application object.
             if show_app_row:
 
-                # We skip comment check here, because prod/pre-existing application objects may not be created by the Snowflake CLI.
-                # Check for the right owner
-                ensure_correct_owner(
-                    row=show_app_row, role=self.app_role, obj_name=self.app_name
-                )
+                install_method.ensure_app_usable(self._na_project, show_app_row)
 
                 # If all the above checks are in order, proceed to upgrade
                 try:
+                    cc.step(f"Upgrading existing application object {self.app_name}.")
+                    using_clause = install_method.using_clause(self._na_project)
                     self._execute_query(
                         f"alter application {self.app_name} upgrade {using_clause}"
                     )
 
-                    if using_clause:
+                    if install_method.is_dev_mode:
                         # if debug_mode is present (controlled), ensure it is up-to-date
                         if self.debug_mode is not None:
                             self._execute_query(
                                 f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
                             )
+
+                    # hooks always executed after a create or upgrade
+                    self._execute_post_deploy_hooks()
                     return
 
                 except ProgrammingError as err:
@@ -342,27 +314,28 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             cc.step(f"Creating new application object {self.app_name} in account.")
 
             if self.app_role != self.package_role:
-                with self.use_role(new_role=self.package_role):
+                with self.use_role(self.package_role):
                     self._execute_query(
-                        f"grant install on application package {self.package_name} to role {self.app_role}"
+                        f"grant install, develop on application package {self.package_name} to role {self.app_role}"
                     )
-                    if version:
-                        self._execute_query(
-                            f"grant develop on application package {self.package_name} to role {self.app_role}"
-                        )
+                    self._execute_query(
+                        f"grant usage on schema {self.package_name}.{self.stage_schema} to role {self.app_role}"
+                    )
+                    self._execute_query(
+                        f"grant read on stage {self.stage_fqn} to role {self.app_role}"
+                    )
 
             try:
                 # by default, applications are created in debug mode when possible;
                 # this can be overridden in the project definition
                 debug_mode_clause = ""
-                if (
-                    using_clause
-                ):  # release directive installations cannot use debug_mode
+                if install_method.is_dev_mode:
                     initial_debug_mode = (
                         self.debug_mode if self.debug_mode is not None else True
                     )
                     debug_mode_clause = f"debug_mode = {initial_debug_mode}"
 
+                using_clause = install_method.using_clause(self._na_project)
                 self._execute_query(
                     dedent(
                         f"""\
@@ -372,6 +345,9 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     """
                     )
                 )
+
+                # hooks always executed after a create or upgrade
+                self._execute_post_deploy_hooks()
 
             except ProgrammingError as err:
                 generic_sql_error_handler(err)
@@ -388,12 +364,21 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         *args,
         **kwargs,
     ):
-        """app run process"""
+        """
+        Create or upgrade the application object using the given strategy
+        (unversioned dev, versioned dev, or same-account release directive).
+        """
 
+        # same-account release directive
         if from_release_directive:
-            self.upgrade_app(policy=policy, is_interactive=is_interactive)
+            self.create_or_upgrade_app(
+                policy=policy,
+                is_interactive=is_interactive,
+                install_method=SameAccountInstallMethod.release_directive(),
+            )
             return
 
+        # versioned dev
         if version:
             try:
                 version_exists = self.get_existing_version_info(version)
@@ -406,15 +391,19 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     f"Application package {self.package_name} does not exist. Use 'snow app version create' to first create an application package and then define a version in it."
                 )
 
-            self.upgrade_app(
+            self.create_or_upgrade_app(
                 policy=policy,
-                version=version,
-                patch=patch,
+                install_method=SameAccountInstallMethod.versioned_dev(version, patch),
                 is_interactive=is_interactive,
             )
             return
 
+        # unversioned dev
         self.deploy(
             bundle_map=bundle_map, prune=True, recursive=True, validate=validate
         )
-        self._create_dev_app(policy=policy, is_interactive=is_interactive)
+        self.create_or_upgrade_app(
+            policy=policy,
+            is_interactive=is_interactive,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+        )

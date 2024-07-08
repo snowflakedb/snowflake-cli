@@ -20,6 +20,16 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v2.6.0
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
 * Add `snow object create` command
 * Added support for `title` field in Streamlit definition in `snowflake.yml` project file.
 * Added `--auto-compress` flag to `snow stage copy` command enabling use of gzip to compress files during upload.

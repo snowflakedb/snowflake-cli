@@ -17,3 +17,4 @@ tests/project/ @snowflakedb/snowcli @snowflakedb/nade
 
 # No ownership to reduce friction
 RELEASE-NOTES.md
+src/snowflake/cli/api/errno.py  # SQL error codes
