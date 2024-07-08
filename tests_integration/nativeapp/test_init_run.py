@@ -650,7 +650,7 @@ def test_nativeapp_force_cross_upgrade(
     with pushd(Path(os.getcwd(), project_name)):
         try:
             # Create version
-            result = runner.invoke_with_connection_json(
+            result = runner.invoke_with_connection(
                 ["app", "version", "create", "v1"],
                 env=TEST_ENV,
             )
@@ -668,7 +668,7 @@ def test_nativeapp_force_cross_upgrade(
             # assert result.exit_code == 0
 
             # Initial run
-            result = runner.invoke_with_connection_json(
+            result = runner.invoke_with_connection(
                 ["app", "run"] + run_args_from,
                 env=TEST_ENV,
             )
@@ -676,7 +676,7 @@ def test_nativeapp_force_cross_upgrade(
 
             # (Cross-)upgrade
             is_cross_upgrade = run_args_from != run_args_to
-            result = runner.invoke_with_connection_json(
+            result = runner.invoke_with_connection(
                 ["app", "run"] + run_args_to + ["--force"],
                 env=TEST_ENV,
             )
@@ -686,19 +686,19 @@ def test_nativeapp_force_cross_upgrade(
 
         finally:
             # Drop the application (so it doesn't block dropping the version)
-            runner.invoke_with_connection_json(
+            runner.invoke_with_connection(
                 ["sql", "-q", f"drop application if exists {app_name}"],
                 env=TEST_ENV,
             )
 
             # Drop version
-            runner.invoke_with_connection_json(
+            runner.invoke_with_connection(
                 ["app", "version", "drop", "v1", "--force"],
                 env=TEST_ENV,
             )
 
             # Drop the package
-            result = runner.invoke_with_connection_json(
+            result = runner.invoke_with_connection(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
             )
