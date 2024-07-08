@@ -226,8 +226,13 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             )
             if show_versions_cursor.rowcount is None:
                 raise SnowflakeSQLExecutionError(show_versions_query)
+
             if show_versions_cursor.rowcount > 0:
-                raise CouldNotDropApplicationPackageWithVersions()
+                # allow dropping a package with versions when --force is set
+                if not auto_yes:
+                    raise CouldNotDropApplicationPackageWithVersions(
+                        "Drop versions first, or use --force to override."
+                    )
 
         # 4. Check distribution of the existing application package
         actual_distribution = self.get_app_pkg_distribution_in_snowflake
