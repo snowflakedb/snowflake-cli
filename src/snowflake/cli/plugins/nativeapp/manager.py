@@ -261,7 +261,8 @@ class NativeAppManager(SqlExecutionMixin):
     def use_warehouse(self, new_wh: Optional[str]):
         """
         Switches to a different warehouse for a while, then switches back.
-        This is a no-op if the requested warehouse is already active, or the requested warehouse is not available.
+        This is a no-op if the requested warehouse is already active.
+        If there is no default warehouse in the account, it will throw an error.
         """
         wh_result = self._execute_query(
             f"select current_warehouse()", cursor_class=DictCursor
@@ -269,12 +270,15 @@ class NativeAppManager(SqlExecutionMixin):
         prev_wh = wh_result["CURRENT_WAREHOUSE()"]
         is_different_wh = (new_wh is not None) and (new_wh.lower() != prev_wh.lower())
         if is_different_wh:
-            self._log.debug("Assuming different warehouse: %s", new_wh)
+            self._log.debug(
+                "Temporarily switching to a different warehouse: %s", new_wh
+            )
             self.use(object_type=ObjectType.WAREHOUSE, name=new_wh)
         try:
             yield
         finally:
             if is_different_wh:
+                self._log.debug("Switching back to the original warehouse: %s", prev_wh)
                 self.use(object_type=ObjectType.WAREHOUSE, name=prev_wh)
 
     @cached_property

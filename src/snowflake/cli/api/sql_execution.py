@@ -99,12 +99,13 @@ class SqlExecutionMixin:
         prev_role = role_result["CURRENT_ROLE()"]
         is_different_role = new_role.lower() != prev_role.lower()
         if is_different_role:
-            self._log.debug("Assuming different role: %s", new_role)
+            self._log.debug("Temporarily switching to a different role: %s", new_role)
             self._execute_query(f"use role {new_role}")
         try:
             yield
         finally:
             if is_different_role:
+                self._log.debug("Switching back to the original role: %s", prev_role)
                 self._execute_query(f"use role {prev_role}")
 
     def create_password_secret(
