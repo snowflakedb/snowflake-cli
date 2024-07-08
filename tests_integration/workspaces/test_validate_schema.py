@@ -27,7 +27,7 @@ from unittest import mock
     },
     clear=True,
 )
-def test_validate(runner, snowflake_session, project_directory):
+def test_validate_project_definition_v2(runner, snowflake_session, project_directory):
     with project_directory("project_definition_v2") as tmp_dir:
         result = runner.invoke_with_connection_json(["ws", "validate"])
 
