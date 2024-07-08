@@ -20,6 +20,16 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v2.6.0
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
 * Add `snow object create` command
 * Added support for `title` field in Streamlit definition in `snowflake.yml` project file.
 * Added `--auto-compress` flag to `snow stage copy` command enabling use of gzip to compress files during upload.
@@ -46,8 +56,10 @@
 * Improved stage diff output in `snow app` commands
 * Hid the diff from `snow app validate` output since it was redundant
 * Added log into the file with loaded external plugins
+* Warn users if they attempt to use templating with project definition version 1
 * Improved output and format of Pydantic validation errors
 * Improved support for quoted identifiers in streamlit commands.
+* The `snow app run` command will no longer override debug mode during an application upgrade unless explicitly set in `snowflake.yml`
 
 # v2.5.0
 ## Backward incompatibility

@@ -175,8 +175,7 @@ class NativeAppProjectModel:
         return role
 
     @cached_property
-    def debug_mode(self) -> bool:
+    def debug_mode(self) -> Optional[bool]:
         if self.definition.application:
             return self.definition.application.debug
-        else:
-            return True
+        return None
