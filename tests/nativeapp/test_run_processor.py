@@ -20,10 +20,15 @@ from unittest.mock import MagicMock
 import pytest
 import typer
 from click import UsageError
+from snowflake.cli.api.errno import (
+    APPLICATION_NO_LONGER_AVAILABLE,
+    APPLICATION_OWNS_EXTERNAL_OBJECTS,
+    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    NO_WAREHOUSE_SELECTED_IN_SESSION,
+)
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import (
-    ERROR_MESSAGE_093079,
-    ERROR_MESSAGE_093128,
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
 )
@@ -102,7 +107,7 @@ def test_create_dev_app_w_warehouse_access_exception(
             (
                 ProgrammingError(
                     msg="Object does not exist, or operation cannot be performed.",
-                    errno=2043,
+                    errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
                 ),
                 mock.call("use warehouse app_warehouse"),
             ),
@@ -272,7 +277,8 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="No active warehouse selected in the current session", errno=606
+                    msg="No active warehouse selected in the current session",
+                    errno=NO_WAREHOUSE_SELECTED_IN_SESSION,
                 ),
                 mock.call(
                     dedent(
@@ -544,7 +550,8 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="No active warehouse selected in the current session", errno=606
+                    msg="No active warehouse selected in the current session",
+                    errno=NO_WAREHOUSE_SELECTED_IN_SESSION,
                 ),
                 mock.call(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
@@ -742,10 +749,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
             (None, mock.call("use role app_role")),
             (None, mock.call("use warehouse app_warehouse")),
             (
-                ProgrammingError(
-                    msg=ERROR_MESSAGE_093079,
-                    errno=93079,
-                ),
+                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
                 mock.call(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
                 ),
@@ -834,19 +838,13 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
             (None, mock.call("use role app_role")),
             (None, mock.call("use warehouse app_warehouse")),
             (
-                ProgrammingError(
-                    msg=ERROR_MESSAGE_093079,
-                    errno=93079,
-                ),
+                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
                 mock.call(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
                 ),
             ),
             (
-                ProgrammingError(
-                    msg=ERROR_MESSAGE_093128,
-                    errno=93128,
-                ),
+                ProgrammingError(errno=APPLICATION_OWNS_EXTERNAL_OBJECTS),
                 mock.call("drop application myapp"),
             ),
             (
@@ -947,19 +945,13 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
             (None, mock.call("use role app_role")),
             (None, mock.call("use warehouse app_warehouse")),
             (
-                ProgrammingError(
-                    msg=ERROR_MESSAGE_093079,
-                    errno=93079,
-                ),
+                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
                 mock.call(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
                 ),
             ),
             (
-                ProgrammingError(
-                    msg=ERROR_MESSAGE_093128,
-                    errno=93128,
-                ),
+                ProgrammingError(errno=APPLICATION_OWNS_EXTERNAL_OBJECTS),
                 mock.call("drop application myapp"),
             ),
             (
@@ -967,10 +959,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
                 mock.call("select current_role()", cursor_class=DictCursor),
             ),
             (
-                ProgrammingError(
-                    msg=ERROR_MESSAGE_093079,
-                    errno=93079,
-                ),
+                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
                 mock.call("show objects owned by application myapp"),
             ),
             (None, mock.call("drop application myapp cascade")),
@@ -1045,7 +1034,7 @@ def test_upgrade_app_warehouse_error(
             (
                 ProgrammingError(
                     msg="Object does not exist, or operation cannot be performed.",
-                    errno=2043,
+                    errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
                 ),
                 mock.call("use warehouse app_warehouse"),
             ),
@@ -1204,7 +1193,6 @@ def test_upgrade_app_fails_generic_error(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
                     errno=1234,
                 ),
                 mock.call("alter application myapp upgrade "),
@@ -1271,8 +1259,7 @@ def test_upgrade_app_fails_upgrade_restriction_error(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
-                    errno=93044,
+                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
                 ),
                 mock.call("alter application myapp upgrade "),
             ),
@@ -1338,14 +1325,12 @@ def test_upgrade_app_fails_drop_fails(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
-                    errno=93044,
+                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
                 ),
                 mock.call("alter application myapp upgrade "),
             ),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
                     errno=1234,
                 ),
                 mock.call("drop application myapp"),
@@ -1405,8 +1390,7 @@ def test_upgrade_app_recreate_app(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
-                    errno=93044,
+                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
                 ),
                 mock.call("alter application myapp upgrade "),
             ),
@@ -1561,8 +1545,7 @@ def test_upgrade_app_recreate_app_from_version(
             (None, mock.call("use warehouse app_warehouse")),
             (
                 ProgrammingError(
-                    msg="Some Error Message.",
-                    errno=93044,
+                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
                 ),
                 mock.call("alter application myapp upgrade using version v1 "),
             ),

@@ -17,6 +17,7 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
@@ -810,7 +811,10 @@ def test_execute_raise_invalid_file_extension_error(
 def test_execute_not_existing_stage(mock_execute, mock_cursor, runner):
     stage_name = "not_existing_stage"
     mock_execute.side_effect = [
-        ProgrammingError(f"Stage '{stage_name}' does not exist or not authorized.")
+        ProgrammingError(
+            f"Stage '{stage_name}' does not exist or not authorized.",
+            errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
+        )
     ]
 
     with pytest.raises(ProgrammingError) as e:
@@ -819,7 +823,10 @@ def test_execute_not_existing_stage(mock_execute, mock_cursor, runner):
     assert mock_execute.mock_calls == [
         mock.call(f"ls @{stage_name}", cursor_class=DictCursor)
     ]
-    assert e.value.msg == f"Stage '{stage_name}' does not exist or not authorized."
+    assert (
+        e.value.msg
+        == f"002003: 2003: Stage '{stage_name}' does not exist or not authorized."
+    )
 
 
 @pytest.mark.parametrize(
