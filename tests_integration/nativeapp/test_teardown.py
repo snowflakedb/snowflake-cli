@@ -276,7 +276,7 @@ def test_nativeapp_teardown_pkg_versions(
             if not default_release_directive:
                 # if we didn't set a release directive, we can drop the version and try again
                 result = runner.invoke_with_connection(
-                    ["app", "version", "drop", "v1"],
+                    ["app", "version", "drop", "v1", "--force"],
                     env=TEST_ENV,
                 )
                 assert result.exit_code == 0
