@@ -36,12 +36,12 @@ class ApplicationPackageDoesNotExistError(ClickException):
         )
 
 
-class ApplicationAlreadyExistsError(ClickException):
+class ApplicationCreatedExternallyError(ClickException):
     """An application object not created by Snowflake CLI exists with the same name."""
 
     def __init__(self, name: str):
         super().__init__(
-            f'A application object "{name}" not created in development mode using files on a named stage already exists in the account.'
+            f'An application object "{name}" not created by Snowflake CLI already exists in the account.'
         )
 
 
