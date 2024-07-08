@@ -138,7 +138,7 @@ from tests.testing_utils.mock_config import mock_config_key
                         "meta": {
                             "warehouse": "warehouse",
                             "role": "role",
-                            "post_deploy": ["script.sql"],
+                            "post_deploy": [{"sql_script": "script.sql"}],
                         },
                     },
                     "app": {
@@ -148,7 +148,7 @@ from tests.testing_utils.mock_config import mock_config_key
                         "meta": {
                             "warehouse": "warehouse",
                             "role": "role",
-                            "post_deploy": ["script.sql"],
+                            "post_deploy": [{"sql_script": "script.sql"}],
                         },
                     },
                 }

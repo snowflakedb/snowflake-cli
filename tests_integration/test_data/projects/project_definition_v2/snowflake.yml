@@ -15,7 +15,7 @@ entities:
       warehouse: my_wh
       role: my_role
       post_deploy:
-        - scripts/post_pkg_deploy.sql
+      - sql_script: scripts/post_pkg_deploy.sql
   app:
     type: application
     name: my_app_pkg
@@ -25,7 +25,7 @@ entities:
       warehouse: my_wh
       role: my_role
       post_deploy:
-        - scripts/post_pkg_deploy.sql
+        - sql_script: scripts/post_app_deploy.sql
 
 defaults:
   schema: default_schema

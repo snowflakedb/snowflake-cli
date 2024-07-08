@@ -20,6 +20,9 @@ from typing import Any, Generic, List, Optional, TypeVar
 
 from pydantic import AliasChoices, Field, GetCoreSchemaHandler, ValidationInfo
 from pydantic_core import core_schema
+from snowflake.cli.api.project.schemas.native_app.application import (
+    ApplicationPostDeployHook,
+)
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
@@ -39,8 +42,9 @@ class MetaField(UpdatableModel):
         title="Role to use when creating the entity object",
         default=None,
     )
-    post_deploy: Optional[List[str]] = Field(
-        title="List of SQL file paths relative to the project root", default=None
+    post_deploy: Optional[List[ApplicationPostDeployHook]] = Field(
+        title="Actions that will be executed after the application object is created/upgraded",
+        default=None,
     )
 
 
