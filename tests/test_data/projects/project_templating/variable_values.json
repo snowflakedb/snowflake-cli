@@ -1,5 +1,5 @@
 {
-  "required": "<! required !>",
+  "project_name": "<! required_project_name | to_snowflake_identifier !>",
   "optional_int": <! optional_int !>,
   "optional_str": "<! optional_str !>",
   "optional_float": <! optional_float !>,

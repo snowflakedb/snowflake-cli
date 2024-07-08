@@ -28,9 +28,12 @@ def assert_project_contents(origin: Path, created: Path):
     assert origin_contents == set(all_contents(created))
 
 
+def _get_values_from_created_project_as_str(created: Path):
+    return (created / "variable_values.json").read_text()
+
+
 def _get_values_from_created_project(created: Path):
-    print((created / "variable_values.json").read_text())
-    return json.loads((created / "variable_values.json").read_text())
+    return json.loads(_get_values_from_created_project_as_str(created))
 
 
 @pytest.fixture
@@ -131,7 +134,9 @@ def test_input_errors(
         )
         from jinja2 import UndefinedError
 
-        with pytest.raises(UndefinedError, match="'required' is undefined"):
+        with pytest.raises(
+            UndefinedError, match="'required_project_name' is undefined"
+        ):
             runner.invoke(
                 [
                     "init",
@@ -175,7 +180,7 @@ def test_init_default_values(runner, temp_dir, test_projects_path):
         "optional_int": 4,
         "optional_str": "default value for string",
         "optional_unchecked": "5",
-        "required": "required",
+        "project_name": "required",
         "jinja_sum_filter": 5.5,
     }
 
@@ -190,7 +195,7 @@ def test_rename_project(runner, temp_dir, test_projects_path):
             str(new_path),
             "--template-source",
             test_projects_path / project_name,
-            f"-D required=r",
+            f"-D required_project_name=name",
         ],
     )
     assert result.exit_code == 0, result.output
@@ -201,7 +206,7 @@ def test_rename_project(runner, temp_dir, test_projects_path):
         "optional_int": 4,
         "optional_str": "default value for string",
         "optional_unchecked": "5",
-        "required": "r",
+        "project_name": "name",
         "jinja_sum_filter": 5.5,
     }
 
@@ -209,7 +214,7 @@ def test_rename_project(runner, temp_dir, test_projects_path):
 def test_init_prompted_values(runner, temp_dir, test_projects_path):
     project_name = "project_templating"
     communication = [
-        "required",
+        "a_project_name",
         "17",
         "custom value for string",
         "2.7",
@@ -227,7 +232,7 @@ def test_init_prompted_values(runner, temp_dir, test_projects_path):
         "optional_int": 17,
         "optional_str": "custom value for string",
         "optional_unchecked": "another custom value",
-        "required": "required",
+        "project_name": "a_project_name",
         "jinja_sum_filter": 19.7,
     }
 
@@ -235,7 +240,7 @@ def test_init_prompted_values(runner, temp_dir, test_projects_path):
 def test_template_flag(runner, temp_dir, test_projects_path):
     project_name = "project_templating"
     communication = [
-        "required",
+        "project_name",
         "17",
         "custom value for string",
         "2.7",
@@ -260,7 +265,7 @@ def test_template_flag(runner, temp_dir, test_projects_path):
         "optional_int": 17,
         "optional_str": "custom value for string",
         "optional_unchecked": "another custom value",
-        "required": "required",
+        "project_name": "project_name",
         "jinja_sum_filter": 19.7,
     }
 
@@ -277,7 +282,7 @@ def test_typechecking(runner, temp_dir, test_projects_path, snapshot):
                 project_name,
                 "--template-source",
                 test_projects_path / project_name,
-                "-D required=r",
+                "-D required_project_name=a_project_name",
                 "-D optional_int=not an int",
                 "--no-interactive",
             ]
@@ -286,7 +291,7 @@ def test_typechecking(runner, temp_dir, test_projects_path, snapshot):
 
     # incorrect value passed in interactive mode
     communication = [
-        "required",
+        "project_name",
         "23.1",
         "23",
         "custom value for string",
@@ -302,7 +307,7 @@ def test_typechecking(runner, temp_dir, test_projects_path, snapshot):
     assert result.output == snapshot
     assert_project_contents(test_projects_path / project_name, Path(project_name))
     assert _get_values_from_created_project(Path(temp_dir) / project_name) == {
-        "required": "required",
+        "project_name": "project_name",
         "optional_int": 23,
         "optional_str": "custom value for string",
         "optional_float": 3.14,
@@ -320,7 +325,7 @@ def test_variables_flags(runner, temp_dir, test_projects_path, snapshot):
             project_name,
             "--template-source",
             test_projects_path / project_name,
-            "-D required=required",
+            "-D required_project_name=name",
             "-D optional_int=4",
             "-D optional_float=-100.5",
             "-D optional_unchecked=21",
@@ -331,7 +336,7 @@ def test_variables_flags(runner, temp_dir, test_projects_path, snapshot):
     assert result.output == snapshot
     assert_project_contents(test_projects_path / project_name, Path(project_name))
     assert _get_values_from_created_project(Path(temp_dir) / project_name) == {
-        "required": "required",
+        "project_name": "name",
         "optional_int": 4,
         "optional_str": "default value for string",
         "optional_float": -100.5,
@@ -355,7 +360,7 @@ def test_init_no_interactive(runner, temp_dir, test_projects_path):
     )
     assert result.exit_code == 1, result.output
     assert "Error" in result.output
-    assert "Cannot determine value of variable required" in result.output
+    assert "Cannot determine value of variable required_project_name" in result.output
 
     # successful run
     result = runner.invoke(
@@ -365,17 +370,67 @@ def test_init_no_interactive(runner, temp_dir, test_projects_path):
             "--template-source",
             test_projects_path / project_name,
             "--no-interactive",
-            "-D required='a value of required variable'",
+            "-D required_project_name=particular_project_name",
         ],
     )
     assert result.exit_code == 0, result.output
     assert f"Initialized the new project in {project_name}" in result.output
     assert_project_contents(test_projects_path / project_name, Path(project_name))
     assert _get_values_from_created_project(Path(temp_dir) / project_name) == {
-        "required": "'a value of required variable'",
+        "project_name": "particular_project_name",
         "optional_int": 4,
         "optional_str": "default value for string",
         "optional_float": 1.5,
         "optional_unchecked": "5",
         "jinja_sum_filter": 5.5,
     }
+
+
+@pytest.mark.parametrize(
+    "project_identifier,expected",
+    [
+        ("Project Name", "Project_Name"),
+        ("project-name", "project_name"),
+        ("project.name", "project_name"),
+        ("project-name.12", "project_name_12"),
+        ('"project-name.12"', '"project-name.12"'),
+    ],
+)
+def test_to_project_identifier_filter(
+    runner, temp_dir, test_projects_path, project_identifier, expected
+):
+    project_name = "project_templating"
+    result = runner.invoke(
+        [
+            "init",
+            project_name,
+            "--template-source",
+            test_projects_path / project_name,
+            "--no-interactive",
+            f"-D required_project_name={project_identifier}",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+
+    assert f'"project_name": "{expected}"' in _get_values_from_created_project_as_str(
+        Path(temp_dir) / project_name
+    )
+
+
+@pytest.mark.parametrize("project_identifier", ["7days", "123name123"])
+def test_validate_snowflake_identifier(
+    runner, temp_dir, test_projects_path, project_identifier
+):
+    project_name = "project_templating"
+    result = runner.invoke(
+        [
+            "init",
+            project_name,
+            "--template-source",
+            test_projects_path / project_name,
+            "--no-interactive",
+            f"-D required_project_name={project_identifier}",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "cannot be converted to valid Snowflake identifier" in result.output

@@ -1,7 +1,7 @@
 files_to_render:
   - variable_values.json
 variables:
-  - name: required
+  - name: required_project_name
   - name: optional_int
     default: 4
     type: int

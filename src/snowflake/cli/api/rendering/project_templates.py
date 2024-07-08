@@ -14,8 +14,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
+from click import ClickException
 from jinja2 import Environment, StrictUndefined, loaders
 from snowflake.cli.api.rendering.jinja import IgnoreAttrEnvironment, env_bootstrap
 from snowflake.cli.api.secure_path import SecurePath
@@ -24,9 +25,35 @@ _PROJECT_TEMPLATE_START = "<!"
 _PROJECT_TEMPLATE_END = "!>"
 
 
+def to_snowflake_identifier(value: Optional[str]) -> Optional[str]:
+    if not value:
+        # passing "None" through filter to allow jinja to handle "undefined value" exception
+        return value
+
+    import re
+
+    # See https://docs.snowflake.com/en/sql-reference/identifiers-syntax for identifier syntax
+    unquoted_identifier_regex = r"([a-zA-Z_])([a-zA-Z0-9_$]{0,254})"
+    quoted_identifier_regex = r'"((""|[^"]){0,255})"'
+
+    if re.fullmatch(quoted_identifier_regex, value):
+        return value
+
+    result = re.sub(r"[. -]+", "_", value)
+    if not re.fullmatch(unquoted_identifier_regex, result):
+        raise ClickException(
+            f"Value '{value}' cannot be converted to valid Snowflake identifier."
+            ' Consider enclosing it in double quotes: ""'
+        )
+    return result
+
+
+PROJECT_TEMPLATE_FILTERS = [to_snowflake_identifier]
+
+
 def get_template_cli_jinja_env(template_root: SecurePath) -> Environment:
     _random_block = "___very___unique___block___to___disable___logic___blocks___"
-    return env_bootstrap(
+    env = env_bootstrap(
         IgnoreAttrEnvironment(
             loader=loaders.FileSystemLoader(searchpath=template_root.path),
             keep_trailing_newline=True,
@@ -37,6 +64,9 @@ def get_template_cli_jinja_env(template_root: SecurePath) -> Environment:
             undefined=StrictUndefined,
         )
     )
+    env.filters["to_snowflake_identifier"] = to_snowflake_identifier
+
+    return env
 
 
 def render_template_files(
