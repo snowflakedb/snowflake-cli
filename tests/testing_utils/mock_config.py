@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-SPECIAL_COMMENT_OLD = "GENERATED_BY_SNOWCLI"
-SPECIAL_COMMENT = "GENERATED_BY_SNOWFLAKECLI"
-ALLOWED_SPECIAL_COMMENTS = {SPECIAL_COMMENT, SPECIAL_COMMENT_OLD}
-LOOSE_FILES_MAGIC_VERSION = "UNVERSIONED"
+from unittest import mock
 
-NAME_COL = "name"
-COMMENT_COL = "comment"
-OWNER_COL = "owner"
-VERSION_COL = "version"
-PATCH_COL = "patch"
+from snowflake.cli.api.config import get_config_value
 
-INTERNAL_DISTRIBUTION = "internal"
-EXTERNAL_DISTRIBUTION = "external"
+
+def mock_config_key(key, value):
+    def get_config_side_effect_func(*args, **kwargs):
+        if kwargs["key"] == key:
+            return value
+        return get_config_value(*args, **kwargs)
+
+    return mock.patch(
+        "snowflake.cli.api.config.get_config_value",
+        side_effect=get_config_side_effect_func,
+    )

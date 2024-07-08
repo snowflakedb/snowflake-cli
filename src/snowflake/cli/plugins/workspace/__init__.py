@@ -11,17 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-SPECIAL_COMMENT_OLD = "GENERATED_BY_SNOWCLI"
-SPECIAL_COMMENT = "GENERATED_BY_SNOWFLAKECLI"
-ALLOWED_SPECIAL_COMMENTS = {SPECIAL_COMMENT, SPECIAL_COMMENT_OLD}
-LOOSE_FILES_MAGIC_VERSION = "UNVERSIONED"
-
-NAME_COL = "name"
-COMMENT_COL = "comment"
-OWNER_COL = "owner"
-VERSION_COL = "version"
-PATCH_COL = "patch"
-
-INTERNAL_DISTRIBUTION = "internal"
-EXTERNAL_DISTRIBUTION = "external"

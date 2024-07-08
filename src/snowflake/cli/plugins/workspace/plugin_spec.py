@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-SPECIAL_COMMENT_OLD = "GENERATED_BY_SNOWCLI"
-SPECIAL_COMMENT = "GENERATED_BY_SNOWFLAKECLI"
-ALLOWED_SPECIAL_COMMENTS = {SPECIAL_COMMENT, SPECIAL_COMMENT_OLD}
-LOOSE_FILES_MAGIC_VERSION = "UNVERSIONED"
+from snowflake.cli.api.plugins.command import (
+    SNOWCLI_ROOT_COMMAND_PATH,
+    CommandSpec,
+    CommandType,
+    plugin_hook_impl,
+)
+from snowflake.cli.plugins.workspace import commands
 
-NAME_COL = "name"
-COMMENT_COL = "comment"
-OWNER_COL = "owner"
-VERSION_COL = "version"
-PATCH_COL = "patch"
 
-INTERNAL_DISTRIBUTION = "internal"
-EXTERNAL_DISTRIBUTION = "external"
+@plugin_hook_impl
+def command_spec():
+    return CommandSpec(
+        parent_command_path=SNOWCLI_ROOT_COMMAND_PATH,
+        command_type=CommandType.COMMAND_GROUP,
+        typer_instance=commands.ws,
+    )

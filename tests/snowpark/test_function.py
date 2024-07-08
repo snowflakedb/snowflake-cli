@@ -18,6 +18,7 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.connector import ProgrammingError
 
 
@@ -31,7 +32,7 @@ def test_deploy_function(
     project_directory,
 ):
     mock_object_manager.return_value.describe.side_effect = ProgrammingError(
-        "does not exist or not authorized"
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
     )
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -78,7 +79,7 @@ def test_deploy_function_with_external_access(
         {"name": "external_2", "type": "EXTERNAL_ACCESS"},
     ]
     mock_object_manager.return_value.describe.side_effect = ProgrammingError(
-        "does not exist or not authorized"
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
     )
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -298,7 +299,7 @@ def test_deploy_procedure_fully_qualified_name(
 ):
     number_of_functions_in_project = 6
     mock_om_describe.side_effect = [
-        ProgrammingError("does not exist or not authorized"),
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
     ] * number_of_functions_in_project
     ctx = mock_ctx()
     mock_conn.return_value = ctx

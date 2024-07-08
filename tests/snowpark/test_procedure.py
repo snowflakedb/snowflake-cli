@@ -20,6 +20,7 @@ from unittest.mock import call
 
 import pytest
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.connector import ProgrammingError
 
 
@@ -47,7 +48,9 @@ def test_deploy_procedure(
     project_directory,
 ):
 
-    mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    mock_om_describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
@@ -107,7 +110,9 @@ def test_deploy_procedure_with_external_access(
     mock_ctx,
     project_directory,
 ):
-    mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    mock_om_describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
     mock_om_show.return_value = [
         {"name": "external_1", "type": "EXTERNAL_ACCESS"},
         {"name": "external_2", "type": "EXTERNAL_ACCESS"},
@@ -382,7 +387,7 @@ def test_deploy_procedure_replace_creates_missing_object(
             ],
             columns=["key", "value"],
         ),
-        ProgrammingError("does not exist or not authorized"),
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
     ]
     ctx = mock_ctx()
     mock_conn.return_value = ctx
@@ -420,7 +425,7 @@ def test_deploy_procedure_fully_qualified_name(
 ):
     number_of_procedures_in_projects = 6
     mock_om_describe.side_effect = [
-        ProgrammingError("does not exist or not authorized"),
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
     ] * number_of_procedures_in_projects
     ctx = mock_ctx()
     mock_conn.return_value = ctx

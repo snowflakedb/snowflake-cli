@@ -25,6 +25,11 @@ from typing import List, Optional, TypedDict
 import jinja2
 from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.errno import (
+    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
+    NO_WAREHOUSE_SELECTED_IN_SESSION,
+)
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.native_app.application import (
     ApplicationPostDeployHook,
@@ -48,9 +53,6 @@ from snowflake.cli.plugins.nativeapp.codegen.compiler import (
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
-    ERROR_MESSAGE_606,
-    ERROR_MESSAGE_2003,
-    ERROR_MESSAGE_2043,
     INTERNAL_DISTRIBUTION,
     NAME_COL,
     OWNER_COL,
@@ -87,7 +89,7 @@ def generic_sql_error_handler(
     err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
 ):
     # Potential refactor: If moving away from Python 3.8 and 3.9 to >= 3.10, use match ... case
-    if err.errno == 2043 or err.msg.__contains__(ERROR_MESSAGE_2043):
+    if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
         raise ProgrammingError(
             msg=dedent(
                 f"""\
@@ -98,7 +100,7 @@ def generic_sql_error_handler(
             ),
             errno=err.errno,
         )
-    elif err.errno == 606 or err.msg.__contains__(ERROR_MESSAGE_606):
+    elif err.errno == NO_WAREHOUSE_SELECTED_IN_SESSION:
         raise ProgrammingError(
             msg=dedent(
                 f"""\
@@ -108,7 +110,7 @@ def generic_sql_error_handler(
             ),
             errno=err.errno,
         )
-    elif err.msg.__contains__("does not exist or not authorized"):
+    elif "does not exist or not authorized" in err.msg:
         raise ProgrammingError(
             msg=dedent(
                 f"""\
@@ -642,7 +644,7 @@ class NativeAppManager(SqlExecutionMixin):
                 f"call system$validate_native_app_setup('{prefixed_stage_fqn}')"
             )
         except ProgrammingError as err:
-            if err.errno == 2003 and ERROR_MESSAGE_2003 in err.msg:
+            if err.errno == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
                 raise ApplicationPackageDoesNotExistError(self.package_name)
             generic_sql_error_handler(err)
         else:
