@@ -27,6 +27,7 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
@@ -123,8 +124,8 @@ def _read_template_metadata(template_root: SecurePath) -> Template:
     template_metadata_path = template_root / TEMPLATE_METADATA_FILE_NAME
     log.debug("Reading template metadata from %s", template_metadata_path.path)
     if not template_metadata_path.exists():
-        raise FileNotFoundError(
-            f"Template does not have {TEMPLATE_METADATA_FILE_NAME} file"
+        raise InvalidTemplate(
+            f"Template does not have {TEMPLATE_METADATA_FILE_NAME} file."
         )
     with template_metadata_path.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
         yaml_contents = yaml.safe_load(fd) or {}

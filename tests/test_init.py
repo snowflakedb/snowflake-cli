@@ -51,20 +51,21 @@ def project_definition_copy(test_projects_path):
     yield copy_project_definition
 
 
-def test_input_errors(
+def test_error_handling(
     runner, test_projects_path, temp_dir, project_definition_copy, monkeypatch, snapshot
 ):
     # no template.yml
     project_name = "example_streamlit_no_defaults"
-    with pytest.raises(FileNotFoundError, match=r".*template\.yml.*"):
-        runner.invoke(
-            [
-                "init",
-                project_name,
-                "--template-source",
-                test_projects_path / project_name,
-            ]
-        )
+    result = runner.invoke(
+        [
+            "init",
+            project_name,
+            "--template-source",
+            test_projects_path / project_name,
+        ]
+    )
+    assert result.exit_code == 1
+    assert "Template does not have template.yml file." in result.output
     assert not Path(project_name).exists()
 
     # project already exists
@@ -126,25 +127,22 @@ def test_input_errors(
         assert result.output == snapshot
         assert not Path(project_name).exists()
 
-    # variable not mentioned in template.yml
+    # variable not defined in template.yml
     project_name = "project_templating"
     with project_definition_copy(project_name) as template_root:
         (template_root / "template.yml").write_text(
             "files_to_render:\n - variable_values.json"
         )
-        from jinja2 import UndefinedError
-
-        with pytest.raises(
-            UndefinedError, match="'required_project_name' is undefined"
-        ):
-            runner.invoke(
-                [
-                    "init",
-                    project_name,
-                    "--template-source",
-                    template_root,
-                ]
-            )
+        result = runner.invoke(
+            [
+                "init",
+                project_name,
+                "--template-source",
+                template_root,
+            ]
+        )
+        assert result.exit_code == 1
+        assert "'required_project_name' is undefined" in result.output
         assert not Path(project_name).exists()
 
 
