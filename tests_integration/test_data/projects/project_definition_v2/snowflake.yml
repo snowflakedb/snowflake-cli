@@ -1,0 +1,35 @@
+definition_version: 2
+
+entities:
+  pkg:
+    type: application package
+    name: my_app_pkg
+    artifacts:
+      - src: src/**/*
+        dest: /
+    deploy_root: output/deploy/
+    stage: app_src.stage2
+    distribution: internal
+    manifest: src/manifest.yml
+    meta:
+      warehouse: my_wh
+      role: my_role
+      post_deploy:
+        - scripts/post_pkg_deploy.sql
+  app:
+    type: application
+    name: my_app_pkg
+    from:
+      target: pkg
+    meta:
+      warehouse: my_wh
+      role: my_role
+      post_deploy:
+        - scripts/post_pkg_deploy.sql
+
+defaults:
+  schema: default_schema
+  stage: default_stage
+
+env:
+  foo: bar
