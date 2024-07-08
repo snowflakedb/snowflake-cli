@@ -154,7 +154,7 @@ class DefinitionV20(_ProjectDefinitionBase):
     def validate_entities(cls, entities) -> Dict:
         for key, entity in entities.items():
             # TODO Automatically detect TargetFields to validate
-            if entity.entity_type == EntityType.APPLICATION:
+            if entity.type_ == EntityType.APPLICATION:
                 if isinstance(entity.from_.target, TargetField):
                     target = str(entity.from_.target)
                     if target not in entities:

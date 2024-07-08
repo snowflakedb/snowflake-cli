@@ -59,15 +59,15 @@ class DefaultsField(UpdatableModel):
 class EntityBase(ABC, UpdatableModel):
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
-        self.entity_type = self.__class__.type_  # type: ignore[assignment]
+        self.type_ = self.__class__.entity_type  # type: ignore[assignment]
         # TODO Apply defaults
 
     @property
     @abstractmethod
-    def type_(self) -> EntityType:
+    def entity_type(self) -> EntityType:
         pass
 
-    entity_type: EntityType = Field(
+    type_: EntityType = Field(
         title="Entity type",
         validation_alias=AliasChoices("type"),
     )
