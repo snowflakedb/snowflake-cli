@@ -79,14 +79,14 @@ class MissingSchemaError(ClickException):
 class CouldNotDropApplicationPackageWithVersions(ClickException):
     """Application package could not be dropped as it has versions associated with it."""
 
-    def __init__(self):
+    def __init__(self, additional_msg: str = ""):
         super().__init__(
             dedent(
                 f"""
             {self.__doc__}
-            Versions must be dropped first using “snow app version drop”.
+            {additional_msg}
             """
-            )
+            ).strip()
         )
 
 
