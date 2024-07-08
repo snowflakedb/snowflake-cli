@@ -15,10 +15,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Union
+from typing import Dict, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
@@ -46,7 +47,7 @@ class ProjectProperties:
     project_context: Context
 
 
-class _BaseDefinition(UpdatableModel):
+class _ProjectDefinitionBase(UpdatableModel):
     def __init__(self, *args, **kwargs):
         try:
             super().__init__(**kwargs)
@@ -61,9 +62,10 @@ class _BaseDefinition(UpdatableModel):
     @classmethod
     def _is_supported_version(cls, version: str) -> str:
         version = str(version)
-        if version not in _version_map:
+        version_map = get_version_map()
+        if version not in version_map:
             raise ValueError(
-                f'Version {version} is not supported. Supported versions: {", ".join(_version_map)}'
+                f'Version {version} is not supported. Supported versions: {", ".join(version_map)}'
             )
         return version
 
@@ -71,7 +73,7 @@ class _BaseDefinition(UpdatableModel):
         return Version(self.definition_version) >= Version(required_version)
 
 
-class _DefinitionV10(_BaseDefinition):
+class DefinitionV10(_ProjectDefinitionBase):
     native_app: Optional[NativeApp] = Field(
         title="Native app definitions for the project", default=None
     )
@@ -84,7 +86,7 @@ class _DefinitionV10(_BaseDefinition):
     )
 
 
-class _DefinitionV11(_DefinitionV10):
+class DefinitionV11(DefinitionV10):
     env: Union[Dict[str, str], ProjectEnvironment, None] = Field(
         title="Environment specification for this project.",
         default=None,
@@ -102,23 +104,55 @@ class _DefinitionV11(_DefinitionV10):
         return ProjectEnvironment(default_env=(env or {}), override_env={})
 
 
-class ProjectDefinition(_DefinitionV11):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._validate(kwargs)
+class DefinitionV20(_ProjectDefinitionBase):
+    entities: Dict = Field(
+        title="Entity definitions.",
+    )
 
-    @staticmethod
-    def _validate(data: Any):
-        if not isinstance(data, dict):
-            return
-        if version := str(data.get("definition_version")):
-            version_model = _version_map.get(version)
-            if not version_model:
-                raise ValueError(
-                    f"Unknown schema version: {version}. Supported version: {_supported_version}"
-                )
-            version_model(**data)
+    env: Union[Dict[str, str], ProjectEnvironment, None] = Field(
+        title="Environment specification for this project.",
+        default=None,
+        validation_alias="env",
+        union_mode="smart",
+    )
+
+    @field_validator("env")
+    @classmethod
+    def _convert_env(
+        cls, env: Union[Dict, ProjectEnvironment, None]
+    ) -> ProjectEnvironment:
+        if isinstance(env, ProjectEnvironment):
+            return env
+        return ProjectEnvironment(default_env=(env or {}), override_env={})
+
+    @field_validator("entities")
+    @classmethod
+    def validate_entities(cls, entities: Dict) -> Dict:
+        # TODO Add entities validation logic
+        return entities
 
 
-_version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11}
-_supported_version = tuple(_version_map.keys())
+def build_project_definition(**data):
+    """
+    Returns a ProjectDefinition instance with a version matching the provided definition_version value
+    """
+    if not isinstance(data, dict):
+        return
+    version = data.get("definition_version")
+    version_model = get_version_map().get(str(version))
+    if not version or not version_model:
+        # Raises a SchemaValidationError
+        _ProjectDefinitionBase(**data)
+    return version_model(**data)
+
+
+ProjectDefinitionV1 = Union[DefinitionV10, DefinitionV11]
+ProjectDefinitionV2 = DefinitionV20
+ProjectDefinition = Union[ProjectDefinitionV1, ProjectDefinitionV2]
+
+
+def get_version_map():
+    version_map = {"1": DefinitionV10, "1.1": DefinitionV11}
+    if FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled():
+        version_map["2"] = DefinitionV20
+    return version_map
