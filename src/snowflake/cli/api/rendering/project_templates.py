@@ -32,6 +32,7 @@ def to_snowflake_identifier(value: Optional[str]) -> Optional[str]:
 
     import re
 
+    # TODO: remove code duplication when joining "init" with "snow app init"
     # See https://docs.snowflake.com/en/sql-reference/identifiers-syntax for identifier syntax
     unquoted_identifier_regex = r"([a-zA-Z_])([a-zA-Z0-9_$]{0,254})"
     quoted_identifier_regex = r'"((""|[^"]){0,255})"'

@@ -289,7 +289,7 @@ def render_definition_template(
         return ProjectProperties(None, {CONTEXT_KEY: {"env": environment_overrides}})
 
     project_context = {CONTEXT_KEY: definition}
-    template_env = TemplatedEnvironment(get_snowflake_cli_jinja_env())
+    template_env = TemplatedEnvironment(get_project_definition_cli_jinja_env())
 
     if "definition_version" not in definition or Version(
         definition["definition_version"]
