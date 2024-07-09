@@ -56,7 +56,7 @@ class StagePathParts:
     def path(self) -> str:
         raise NotImplementedError
 
-    def file_stage_path(self, file: str) -> str:
+    def add_stage_prefix(self, file_path: str) -> str:
         raise NotImplementedError
 
 
@@ -89,10 +89,10 @@ class DefaultStagePathParts(StagePathParts):
             else f"{self.stage_name}/{self.directory}".lower()
         )
 
-    def file_stage_path(self, file: str) -> str:
+    def add_stage_prefix(self, file_path: str) -> str:
         stage = Path(self.stage).parts[0]
-        file_path = Path(file).parts[1:]
-        return f"{stage}/{'/'.join(file_path)}"
+        file_path_without_prefix = Path(file_path).parts[1:]
+        return f"{stage}/{'/'.join(file_path_without_prefix)}"
 
 
 @dataclass
@@ -113,8 +113,8 @@ class UserStagePathParts(StagePathParts):
     def path(self) -> str:
         return f"{self.directory}".lower()
 
-    def file_stage_path(self, file: str) -> str:
-        return f"{self.stage}/{file}"
+    def add_stage_prefix(self, file_path: str) -> str:
+        return f"{self.stage}/{file_path}"
 
 
 class StageManager(SqlExecutionMixin):
@@ -278,17 +278,17 @@ class StageManager(SqlExecutionMixin):
             raise ClickException(f"No files matched pattern '{stage_path}'")
 
         # sort filtered files in alphabetical order with directories at the end
-        sorted_file_list = sorted(
+        sorted_file_path_list = sorted(
             filtered_file_list, key=lambda f: (path.dirname(f), path.basename(f))
         )
 
         sql_variables = self._parse_execute_variables(variables)
         results = []
-        for file in sorted_file_list:
+        for file_path in sorted_file_path_list:
             results.append(
                 self._call_execute_immediate(
                     stage_path_parts=stage_path_parts,
-                    file=file,
+                    file_path=file_path,
                     variables=sql_variables,
                     on_error=on_error,
                 )
@@ -346,11 +346,11 @@ class StageManager(SqlExecutionMixin):
     def _call_execute_immediate(
         self,
         stage_path_parts: StagePathParts,
-        file: str,
+        file_path: str,
         variables: Optional[str],
         on_error: OnErrorType,
     ) -> Dict:
-        file_stage_path = stage_path_parts.file_stage_path(file)
+        file_stage_path = stage_path_parts.add_stage_prefix(file_path)
         try:
             query = f"execute immediate from {file_stage_path}"
             if variables:

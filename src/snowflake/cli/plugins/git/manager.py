@@ -37,10 +37,10 @@ class GitStagePathParts(StagePathParts):
             else f"{self.stage_name}/{self.directory}".lower()
         )
 
-    def file_stage_path(self, file: str) -> str:
+    def add_stage_prefix(self, file_path: str) -> str:
         stage = Path(self.stage).parts[0]
-        file_path = Path(file).parts[1:]
-        return f"{stage}/{'/'.join(file_path)}"
+        file_path_without_prefix = Path(file_path).parts[1:]
+        return f"{stage}/{'/'.join(file_path_without_prefix)}"
 
 
 class GitManager(StageManager):
