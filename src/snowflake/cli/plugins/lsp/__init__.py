@@ -11,17 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from snowflake.cli.api.plugins.command import lsp_plugin_hook_spec, plugin_hook_spec
-
-
-@plugin_hook_spec
-def command_spec():
-    """Command spec"""
-    pass
-
-
-@lsp_plugin_hook_spec
-def lsp_spec():
-    """LSP spec"""
-    pass

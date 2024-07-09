@@ -2807,6 +2807,43 @@
   
   '''
 # ---
+# name: test_help_messages[lsp.start]
+  '''
+
+  Usage: snow lsp start [OPTIONS]
+
+  Initializes the LSP language server.
+
+  ╭─ Options ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                                                                          │
+  ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Global configuration ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  │ --format           [TABLE|JSON]  Specifies the output format. [default: TABLE]                                                         │
+  │ --verbose  -v                    Displays log entries for log levels `info` and higher.                                                │
+  │ --debug                          Displays log entries for log levels `debug` and higher; debug logs contains additional information.   │
+  │ --silent                         Turns off intermediate output to console.                                                             │
+  ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+  
+  '''
+# ---
+# name: test_help_messages[lsp]
+  '''
+
+  Usage: snow lsp [OPTIONS] COMMAND [ARGS]...
+
+  Manages a Snowflake LSP server.
+
+  ╭─ Options ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  │ --help  -h        Show this message and exit.                                                                                          │
+  ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+  ╭─ Commands ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  │ start   Initializes the LSP language server.                                                                                           │
+  ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+  
+  '''
+# ---
 # name: test_help_messages[snowpark.build]
   '''
                                                                                   
@@ -7658,7 +7695,12 @@
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
+<<<<<<< HEAD
   | init         Creates project directory from template.                        |
+||||||| parent of 8c4c29d6 (Squash commits into one for easier rebase, following pluggy pattern)
+=======
+  │ lsp          Manages a Snowflake LSP server.                                 │
+>>>>>>> 8c4c29d6 (Squash commits into one for easier rebase, following pluggy pattern)
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
   | snowpark     Manages procedures and functions.                               |

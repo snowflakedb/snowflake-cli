@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli.api.plugins.command import lsp_plugin_hook_spec, plugin_hook_spec
+from pygls.server import LanguageServer
 
 
-@plugin_hook_spec
-def command_spec():
-    """Command spec"""
-    pass
+def load_lsp_plugins():
+    server = LanguageServer(name="lsp_controller", version="v0.0.1")
 
+    # Use a dynamic import to avoid semi-circular imports if at top level
+    from snowflake.cli.app.commands_registration.command_plugins_loader import (
+        load_only_builtin_command_plugins,
+    )
 
-@lsp_plugin_hook_spec
-def lsp_spec():
-    """LSP spec"""
-    pass
+    plugins = load_only_builtin_command_plugins()
+    for plugin_func in plugins:
+        if getattr(plugin_func, "lsp_spec", None) is not None:
+            plugin_func.lsp_spec(server)
+    server.start_io()
