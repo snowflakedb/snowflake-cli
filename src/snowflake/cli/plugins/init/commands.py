@@ -214,7 +214,7 @@ def init(
             variables_from_flags=variables_from_flags,
             no_interactive=no_interactive,
         )
-        variable_values["PROJECT_DIR_NAME"] = SecurePath(path).name
+        variable_values["project_dir_name"] = SecurePath(path).name
         log.debug(
             "Rendering template files: %s", ", ".join(template_metadata.files_to_render)
         )

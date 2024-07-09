@@ -439,7 +439,7 @@ def test_project_directory_name_variable(runner, temp_dir, project_definition_co
     with project_definition_copy(project_name) as template_root:
         (template_root / "template.yml").write_text("files_to_render:\n - file.txt")
         (template_root / "file.txt").write_text(
-            "project directory name: <! PROJECT_DIR_NAME !>"
+            "project directory name: <! project_dir_name !>"
         )
         for project_path in [
             Path("new_project"),
