@@ -13,75 +13,12 @@
 # limitations under the License.
 from __future__ import annotations
 
-import inspect
-from typing import Callable, TypedDict
-
 from pygls.server import LanguageServer
 from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.app.snow_connector import connect_to_snowflake
+from snowflake.cli.plugins.lsp.utils import lsp_plugin, server_command
 from snowflake.cli.plugins.nativeapp.manager import NativeAppManager
 from snowflake.connector import SnowflakeConnection
-
-
-def lsp_plugin(name: str, version: str, capabilities: dict) -> Callable:
-    def _decorator(func: Callable) -> Callable:
-        setattr(
-            func,
-            "_lsp_context",
-            {
-                "lsp_plugin_name": name,
-                "lsp_plugin_version": version,
-                "lsp_plugin_capabilities": capabilities,
-            },
-        )
-        return func
-
-    return _decorator
-
-
-class ConnectionParams(TypedDict):
-    session_token: str
-    master_token: str
-    account: str
-    connection_name: str
-    params: dict
-
-
-def server_command(server: LanguageServer, command_name: str):
-    """
-    Wrap the pygls @server.command to provide the Snowflake connection
-    and to unpack the parameters from the list of positional arguments
-    """
-
-    def _decorator(func):
-        sig = inspect.signature(func)
-        params = list(sig.parameters.values())
-        if params and params[0].annotation == "SnowflakeConnection":
-
-            @server.command(command_name)
-            def wrapper(params: list[ConnectionParams]):
-                connection_attributes = {
-                    "account": params[0]["account"],
-                    "session_token": params[0]["session_token"],
-                    "master_token": params[0]["master_token"],
-                }
-                parameters = params[0]["params"]
-                connection = connect_to_snowflake(
-                    temporary_connection=True, **connection_attributes
-                )
-                return func(connection, **parameters)
-
-        else:
-
-            @server.command(command_name)
-            def wrapper(params: list[ConnectionParams]):
-                parameters = params[0]["params"]
-                return func(**parameters)
-
-        return wrapper
-
-    return _decorator
 
 
 @lsp_plugin(

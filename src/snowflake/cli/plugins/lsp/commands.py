@@ -15,26 +15,16 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, TypedDict
 
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MessageResult
-from snowflake.cli.plugins.lsp.manager import (
+from snowflake.cli.plugins.lsp.utils import (
     load_lsp_plugins,
 )
 
-app = SnowTyper(
-    name="lsp",
-    help="Manages a Snowflake LSP server.",
-)
+app = SnowTyper(name="lsp", help="Manages a Snowflake LSP server.", hidden=True)
 
 log = logging.getLogger(__name__)
-
-
-class ConnectionDict(TypedDict):
-    sessionToken: Optional[str]
-    masterToken: Optional[str]
-    account: Optional[str]
 
 
 @app.command("start")
