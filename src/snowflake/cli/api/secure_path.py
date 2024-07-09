@@ -166,7 +166,7 @@ class SecurePath:
         self.path.write_text(*args, **kwargs)
 
     @contextmanager
-    def open(  # noqa: A003
+    def open(
         self,
         mode="r",
         read_file_limit_mb: Optional[int] = None,

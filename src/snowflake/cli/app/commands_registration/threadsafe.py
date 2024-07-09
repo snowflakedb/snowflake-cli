@@ -25,7 +25,7 @@ class ThreadsafeValue(Generic[T]):
         self._value = value
         self._lock = threading.Lock()
 
-    def set(self, new_value: T) -> T:  # noqa: A003
+    def set(self, new_value: T) -> T:
         return self.transform(lambda _: new_value)
 
     def transform(self, f: Callable[[T], T]) -> T:
