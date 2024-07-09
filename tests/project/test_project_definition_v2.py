@@ -66,8 +66,11 @@ from tests.testing_utils.mock_config import mock_config_key
                         "name": "",
                         "artifacts": [],
                         "manifest": "",
+                        "bundle_root": "",
                         "deploy_root": "",
+                        "generated_root": "",
                         "stage": "",
+                        "scratch_stage": "",
                         "distribution": "internal",
                     }
                 }

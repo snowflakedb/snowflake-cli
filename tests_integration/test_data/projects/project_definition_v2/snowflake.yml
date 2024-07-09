@@ -7,8 +7,11 @@ entities:
     artifacts:
       - src: src/**/*
         dest: /
+    bundle_root: output/bundle/
     deploy_root: output/deploy/
+    generated_root: __generated/
     stage: app_src.stage2
+    scratch_stage: app_src.stage_snowflake_cli_scratch
     distribution: internal
     manifest: src/manifest.yml
     meta:
