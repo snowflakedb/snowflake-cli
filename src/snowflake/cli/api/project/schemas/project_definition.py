@@ -130,7 +130,7 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     @model_validator(mode="before")
     @classmethod
-    def instantiate_entities(cls, data):
+    def instantiate_entities(cls, data: Dict) -> Dict:
         if "entities" in data:
             for key, entity in data["entities"].items():
                 entity_type = entity["type"]
@@ -151,7 +151,7 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     @field_validator("entities", mode="before")
     @classmethod
-    def validate_entities(cls, entities) -> Dict:
+    def validate_entities(cls, entities: Dict[str, Entity]) -> Dict[str, Entity]:
         for key, entity in entities.items():
             # TODO Automatically detect TargetFields to validate
             if entity.type_ == EntityType.APPLICATION:

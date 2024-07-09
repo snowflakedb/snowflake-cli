@@ -89,7 +89,7 @@ class TargetField(Generic[TargetType]):
         return self.value
 
     @classmethod
-    def validate(cls, value: str, info: ValidationInfo):
+    def validate(cls, value: str, info: ValidationInfo) -> TargetField:
         return cls(value)
 
     @classmethod
