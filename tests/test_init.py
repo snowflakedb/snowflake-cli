@@ -432,3 +432,29 @@ def test_validate_snowflake_identifier(
     )
     assert result.exit_code == 1
     assert "cannot be converted to valid Snowflake identifier" in result.output
+
+
+def test_project_directory_name_variable(runner, temp_dir, project_definition_copy):
+    project_name = "project_templating"
+    with project_definition_copy(project_name) as template_root:
+        (template_root / "template.yml").write_text("files_to_render:\n - file.txt")
+        (template_root / "file.txt").write_text(
+            "project directory name: <! PROJECT_DIR_NAME !>"
+        )
+        for project_path in [
+            Path("new_project"),
+            Path("very") / "nested" / "directory_with_stuff",
+        ]:
+            result = runner.invoke(
+                [
+                    "init",
+                    str(project_path),
+                    "--template-source",
+                    template_root,
+                ]
+            )
+            assert result.exit_code == 0, result.output
+            assert f"Initialized the new project in {project_path}" in result.output
+            assert (
+                project_path / "file.txt"
+            ).read_text() == f"project directory name: {project_path.name}"

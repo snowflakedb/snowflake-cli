@@ -214,6 +214,7 @@ def init(
             variables_from_flags=variables_from_flags,
             no_interactive=no_interactive,
         )
+        variable_values["PROJECT_DIR_NAME"] = SecurePath(path).name
         log.debug(
             "Rendering template files: %s", ", ".join(template_metadata.files_to_render)
         )
@@ -223,6 +224,7 @@ def init(
             data=variable_values,
         )
         _remove_template_metadata_file(template_root)
+        SecurePath(path).parent.mkdir(exist_ok=True, parents=True)
         template_root.copy(path)
 
     return MessageResult(f"Initialized the new project in {path}")
