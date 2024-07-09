@@ -21,9 +21,7 @@ from unittest import mock
 @mock.patch.dict(
     os.environ,
     {
-        "SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2": os.environ.get(
-            "SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2", "true"
-        ),
+        "SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2": "true",
     },
     clear=True,
 )

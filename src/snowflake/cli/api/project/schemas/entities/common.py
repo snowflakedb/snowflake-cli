@@ -64,7 +64,6 @@ class EntityBase(ABC, UpdatableModel):
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
         self.type_ = self.__class__.entity_type  # type: ignore[assignment]
-        # TODO Apply defaults
 
     @property
     @abstractmethod
@@ -83,8 +82,8 @@ TargetType = TypeVar("TargetType")
 
 
 class TargetField(Generic[TargetType]):
-    def __init__(self, value: str):
-        self.value = value
+    def __init__(self, entity_target_key: str):
+        self.value = entity_target_key
 
     def __repr__(self):
         return self.value
