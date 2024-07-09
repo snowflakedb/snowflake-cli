@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import Callable, Optional
 
 from snowflake.cli.api.plugins.command import CommandSpec
 
@@ -21,6 +24,7 @@ from snowflake.cli.api.plugins.command import CommandSpec
 class LoadedCommandPlugin:
     plugin_name: str
     command_spec: CommandSpec
+    lsp_spec: Optional[Callable] = None
 
 
 @dataclass
