@@ -321,3 +321,65 @@ def test_nativeapp_version_create_patch_is_integer(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+
+# Tests creating a version for a package that was not created by the CLI
+# (doesn't have the magic CLI comment)
+@pytest.mark.integration
+@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+def test_nativeapp_version_create_package_no_magic_comment(
+    runner,
+    snowflake_session,
+    project_definition_files: List[Path],
+):
+    project_name = "integration"
+    project_dir = project_definition_files[0].parent
+    with pushd(project_dir):
+        result_create = runner.invoke_with_connection_json(
+            ["app", "deploy"],
+            env=TEST_ENV,
+        )
+        assert result_create.exit_code == 0
+
+        try:
+            # package exist
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show application packages like '{package_name}'",
+                    )
+                ),
+                dict(name=package_name),
+            )
+
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"alter application package {package_name} set comment = 'not the magic comment'"
+                    )
+                ),
+                dict(status="Statement executed successfully."),
+            )
+
+            result_create = runner.invoke_with_connection_json(
+                ["app", "version", "create", "v1", "--force", "--skip-git-check"],
+                env=TEST_ENV,
+            )
+            assert result_create.exit_code == 0
+
+            # app package contains version v1
+            expect = snowflake_session.execute_string(
+                f"show versions in application package {package_name}"
+            )
+            actual = runner.invoke_with_connection_json(
+                ["app", "version", "list"], env=TEST_ENV
+            )
+            assert actual.json == row_from_snowflake_session(expect)
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
