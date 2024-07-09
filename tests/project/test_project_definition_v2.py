@@ -17,6 +17,7 @@ import pytest
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV20,
+    _v2_entity_types_map,
 )
 
 from tests.testing_utils.mock_config import mock_config_key
@@ -213,20 +214,9 @@ def test_defaults_do_not_override_values():
         assert project.entities["pkg"].stage == "pkg_stage"
 
 
-# def test_entity_types():
-#     definition_input = {
-#         "definition_version": "2",
-#         "entities": {
-#             "pkg": {
-#                 "type": "application package",
-#                 "name": "",
-#                 "artifacts": [],
-#                 "manifest": "",
-#                 "stage": "pkg_stage",
-#             }
-#         },
-#         "defaults": {"stage": "default_stage"},
-#     }
-#     with mock_config_key("enable_project_definition_v2", True):
-#         project = DefinitionV20(**definition_input)
-#         assert project.entities["pkg"].stage == "pkg_stage"
+# Verify that each entity type has the correct "type" field
+def test_entity_types():
+    _v2_entity_types_map
+    for entity_type, entity_class in _v2_entity_types_map.items():
+        model_entity_type = entity_class.model_fields["type"].annotation.__args__[0]
+        assert model_entity_type == entity_type
