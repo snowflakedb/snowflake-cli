@@ -738,6 +738,46 @@ def test_execute(
     assert result.output == snapshot
 
 
+@pytest.mark.parametrize(
+    "stage_path, expected_files",
+    [
+        ("@~", ["@~/s1.sql", "@~/a/s3.sql", "@~/a/b/s4.sql"]),
+        ("@~/s1.sql", ["@~/s1.sql"]),
+        ("@~/a", ["@~/a/s3.sql", "@~/a/b/s4.sql"]),
+        ("@~/a/s3.sql", ["@~/a/s3.sql"]),
+        ("@~/a/b", ["@~/a/b/s4.sql"]),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_from_user_stage(
+    mock_execute,
+    mock_cursor,
+    runner,
+    stage_path,
+    expected_files,
+    snapshot,
+):
+    mock_execute.return_value = mock_cursor(
+        [
+            {"name": "a/s3.sql"},
+            {"name": "a/b/s4.sql"},
+            {"name": "s1.sql"},
+            {"name": "s2"},
+        ],
+        [],
+    )
+
+    result = runner.invoke(["stage", "execute", stage_path])
+
+    assert result.exit_code == 0, result.output
+    ls_call, *execute_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls '@~'", cursor_class=DictCursor)
+    assert execute_calls == [
+        mock.call(f"execute immediate from {p}") for p in expected_files
+    ]
+    assert result.output == snapshot
+
+
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_execute_with_variables(mock_execute, mock_cursor, runner):
     mock_execute.return_value = mock_cursor([{"name": "exe/s1.sql"}], [])

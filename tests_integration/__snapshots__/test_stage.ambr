@@ -77,3 +77,31 @@
     }),
   ])
 # ---
+# name: test_user_stage_execute
+  list([
+    dict({
+      'Error': None,
+      'File': '@~/execute/sql/script1.sql',
+      'Status': 'SUCCESS',
+    }),
+    dict({
+      'Error': None,
+      'File': '@~/execute/sql/directory/script2.sql',
+      'Status': 'SUCCESS',
+    }),
+    dict({
+      'Error': None,
+      'File': '@~/execute/sql/directory/subdirectory/script3.sql',
+      'Status': 'SUCCESS',
+    }),
+  ])
+# ---
+# name: test_user_stage_execute.1
+  list([
+    dict({
+      'Error': None,
+      'File': '@~/execute/template/script_template.sql',
+      'Status': 'SUCCESS',
+    }),
+  ])
+# ---
