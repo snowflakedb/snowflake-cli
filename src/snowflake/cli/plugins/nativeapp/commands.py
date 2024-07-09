@@ -343,3 +343,28 @@ def app_validate(**options):
 
     manager.validate(use_scratch_stage=True)
     return MessageResult("Snowflake Native App validation succeeded.")
+
+
+@app.command("events", requires_connection=True)
+@with_project_definition("native_app")
+def app_events(
+    since: str = typer.Option(default=""),
+    until: str = typer.Option(default=""),
+    **options,
+):
+    """
+    Validates a deployed Snowflake Native App's setup script.
+    """
+    manager = NativeAppManager(
+        project_definition=cli_context.project_definition.native_app,
+        project_root=cli_context.project_root,
+    )
+    events = manager.get_events(since, until)
+    if not events:
+        return MessageResult("No events found.")
+
+    if cli_context.output_format == OutputFormat.JSON:
+        return ObjectResult(events)
+    return MessageResult(
+        "\n".join((f"[{e['TIMESTAMP']}] {e['VALUE']}" for e in events))
+    )
