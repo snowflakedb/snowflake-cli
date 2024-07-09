@@ -1952,7 +1952,7 @@
                                                                                   
    Usage: default init [OPTIONS] PATH                                             
                                                                                   
-   Creates project from template.                                                 
+   Creates project directory from template.                                       
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    path      TEXT  Directory to be initialized with the project. This      |
