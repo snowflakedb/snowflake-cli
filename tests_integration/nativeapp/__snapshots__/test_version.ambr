@@ -3,7 +3,6 @@
   list([
     dict({
       'comment': 'Default version used for development. Override for actual deployment.',
-      'created_on': '2024-07-09T11:53:43.234000-07:00',
       'dropped_on': None,
       'label': 'Dev Version',
       'log_level': 'INFO',
@@ -15,7 +14,6 @@
     }),
     dict({
       'comment': 'Default version used for development. Override for actual deployment.',
-      'created_on': '2024-07-09T11:54:02.487000-07:00',
       'dropped_on': None,
       'label': 'Dev Version',
       'log_level': 'INFO',

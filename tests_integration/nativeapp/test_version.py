@@ -406,6 +406,9 @@ def test_nativeapp_version_create_package_no_magic_comment(
             actual = runner.invoke_with_connection_json(
                 ["app", "version", "list"], env=TEST_ENV
             )
+            for row in actual.json:
+                # Remove date field
+                row.pop("created_on", None)
             assert actual.json == snapshot
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
