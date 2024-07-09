@@ -18,7 +18,7 @@ from abc import ABC
 from enum import Enum
 from typing import Generic, List, Optional, TypeVar
 
-from pydantic import AliasChoices, Field, GetCoreSchemaHandler, ValidationInfo
+from pydantic import Field, GetCoreSchemaHandler, ValidationInfo
 from pydantic_core import core_schema
 from snowflake.cli.api.project.schemas.native_app.application import (
     ApplicationPostDeployHook,
@@ -49,9 +49,8 @@ class MetaField(UpdatableModel):
 
 
 class DefaultsField(UpdatableModel):
-    schema_: Optional[str] = Field(
+    schema: Optional[str] = Field(
         title="Schema.",
-        validation_alias=AliasChoices("schema"),
         default=None,
     )
     stage: Optional[str] = Field(
