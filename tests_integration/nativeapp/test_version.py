@@ -330,16 +330,17 @@ def test_nativeapp_version_create_patch_is_integer(
 def test_nativeapp_version_create_package_no_magic_comment(
     runner,
     snowflake_session,
+    snapshot,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
-        result_create = runner.invoke_with_connection_json(
+        result_create_abort = runner.invoke_with_connection_json(
             ["app", "deploy"],
             env=TEST_ENV,
         )
-        assert result_create.exit_code == 0
+        assert result_create_abort.exit_code == 0
 
         try:
             # package exist
@@ -362,28 +363,50 @@ def test_nativeapp_version_create_package_no_magic_comment(
                 dict(status="Statement executed successfully."),
             )
 
-            result_create = runner.invoke_with_connection_json(
-                ["app", "version", "create", "v1", "--skip-git-check"],
+            # say no
+            result_create_abort = runner.invoke_with_connection(
+                ["app", "version", "create", "v1", "--skip-git-check", "--interactive"],
                 env=TEST_ENV,
                 input="n\n",
             )
-            assert result_create.exit_code == 1
-            assert result_create.output == "Aborted.\n"
+            assert result_create_abort.exit_code == 1
+            assert (
+                f"An Application Package {package_name} already exists in account "
+                "that may have been created without Snowflake CLI.".upper()
+                in result_create_abort.output.upper()
+            )
+            assert "Aborted." in result_create_abort.output
 
-            result_create_force = runner.invoke_with_connection_json(
+            # say yes
+            result_create_yes = runner.invoke_with_connection(
+                ["app", "version", "create", "v1", "--skip-git-check", "--interactive"],
+                env=TEST_ENV,
+                input="y\n",
+            )
+            assert result_create_yes.exit_code == 0
+            assert (
+                f"An Application Package {package_name} already exists in account "
+                "that may have been created without Snowflake CLI.".upper()
+                in result_create_yes.output.upper()
+            )
+
+            # force
+            result_create_force = runner.invoke_with_connection(
                 ["app", "version", "create", "v1", "--force", "--skip-git-check"],
                 env=TEST_ENV,
             )
             assert result_create_force.exit_code == 0
-
-            # app package contains version v1
-            expect = snowflake_session.execute_string(
-                f"show versions in application package {package_name}"
+            assert (
+                f"An Application Package {package_name} already exists in account "
+                "that may have been created without Snowflake CLI.".upper()
+                in result_create_force.output.upper()
             )
+
+            # app package contains version v1 with 2 patches
             actual = runner.invoke_with_connection_json(
                 ["app", "version", "list"], env=TEST_ENV
             )
-            assert actual.json == row_from_snowflake_session(expect)
+            assert actual.json == snapshot
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection_json(
