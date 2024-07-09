@@ -7696,11 +7696,16 @@
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
 <<<<<<< HEAD
+<<<<<<< HEAD
   | init         Creates project directory from template.                        |
 ||||||| parent of 8c4c29d6 (Squash commits into one for easier rebase, following pluggy pattern)
 =======
   │ lsp          Manages a Snowflake LSP server.                                 │
 >>>>>>> 8c4c29d6 (Squash commits into one for easier rebase, following pluggy pattern)
+||||||| parent of f459eab8 (If lsp is hidden then it won)
+  │ lsp          Manages a Snowflake LSP server.                                 │
+=======
+>>>>>>> f459eab8 (If lsp is hidden then it won)
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
   | snowpark     Manages procedures and functions.                               |
