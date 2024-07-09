@@ -22,8 +22,8 @@ from packaging.version import Version
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
 from snowflake.cli.api.project.schemas.project_definition import (
-    ProjectDefinition,
     ProjectProperties,
+    build_project_definition,
 )
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 from snowflake.cli.api.rendering.project_definition_templates import (
@@ -304,7 +304,7 @@ def render_definition_template(
             # also warn on Exception, as it means the user is incorrectly attempting to use templating
             _template_version_warning()
 
-        project_definition = ProjectDefinition(**original_definition)
+        project_definition = build_project_definition(**original_definition)
         project_context[CONTEXT_KEY]["env"] = environment_overrides
         return ProjectProperties(project_definition, project_context)
 
@@ -340,5 +340,5 @@ def render_definition_template(
 
     definition["env"] = ProjectEnvironment(default_env, override_env)
     project_context[CONTEXT_KEY] = definition
-    project_definition = ProjectDefinition(**definition)
+    project_definition = build_project_definition(**definition)
     return ProjectProperties(project_definition, project_context)

@@ -505,15 +505,10 @@ def test_drop_package_incorrect_owner(
 @mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
 @mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@pytest.mark.parametrize(
-    "auto_yes_param",
-    [True, False],  # This should have no effect on the test
-)
 def test_show_versions_failure_w_exception(
     mock_execute,
     mock_is_correct_owner,
     mock_get_existing_app_pkg_info,
-    auto_yes_param,
     temp_dir,
     mock_cursor,
 ):
@@ -547,7 +542,7 @@ def test_show_versions_failure_w_exception(
 
     teardown_processor = _get_na_teardown_processor()
     with pytest.raises(CouldNotDropApplicationPackageWithVersions):
-        teardown_processor.drop_package(auto_yes_param)
+        teardown_processor.drop_package(auto_yes=False)
     mock_is_correct_owner.assert_called_once()
     mock_get_existing_app_pkg_info.assert_called_once()
 

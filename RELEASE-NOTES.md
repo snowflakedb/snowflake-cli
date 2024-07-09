@@ -22,7 +22,8 @@
 ## New additions
 
 ## Fixes and improvements
-
+* The `snow app run` command now allows upgrading to unversioned mode from a versioned or release mode application installation
+* The `snow app teardown` command now allows dropping a package with versions when the `--force` flag is provided
 
 # v2.6.0
 ## Backward incompatibility
@@ -58,6 +59,7 @@
 * Added log into the file with loaded external plugins
 * Warn users if they attempt to use templating with project definition version 1
 * Improved output and format of Pydantic validation errors
+* Improved support for quoted identifiers in streamlit commands.
 * The `snow app run` command will no longer override debug mode during an application upgrade unless explicitly set in `snowflake.yml`
 
 # v2.5.0

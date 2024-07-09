@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from snowflake.cli.api.project.definition import ProjectProperties, load_project
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+from snowflake.cli.api.project.schemas.project_definition import ProjectDefinitionV1
 from snowflake.cli.api.utils.types import Context
 
 
@@ -126,7 +126,7 @@ class DefinitionManager:
         return load_project(self._project_config_paths, self._context_overrides)
 
     @functools.cached_property
-    def project_definition(self) -> ProjectDefinition:
+    def project_definition(self) -> ProjectDefinitionV1:
         return self._project_properties.project_definition
 
     @functools.cached_property

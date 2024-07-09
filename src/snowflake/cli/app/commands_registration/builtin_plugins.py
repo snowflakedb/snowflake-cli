@@ -29,6 +29,7 @@ from snowflake.cli.plugins.spcs import plugin_spec as spcs_plugin_spec
 from snowflake.cli.plugins.sql import plugin_spec as sql_plugin_spec
 from snowflake.cli.plugins.stage import plugin_spec as stage_plugin_spec
 from snowflake.cli.plugins.streamlit import plugin_spec as streamlit_plugin_spec
+from snowflake.cli.plugins.workspace import plugin_spec as workspace_plugin_spec
 
 
 # plugin name to plugin spec
@@ -47,6 +48,7 @@ def get_builtin_plugin_name_to_plugin_spec():
         "object-stage-deprecated": object_stage_deprecated_plugin_spec,
         "cortex": cortex_plugin_spec,
         "init": init_plugin_spec,
+        "workspace": workspace_plugin_spec,
     }
 
     return plugin_specs

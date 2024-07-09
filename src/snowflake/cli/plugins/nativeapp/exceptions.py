@@ -36,12 +36,12 @@ class ApplicationPackageDoesNotExistError(ClickException):
         )
 
 
-class ApplicationAlreadyExistsError(ClickException):
+class ApplicationCreatedExternallyError(ClickException):
     """An application object not created by Snowflake CLI exists with the same name."""
 
     def __init__(self, name: str):
         super().__init__(
-            f'A application object "{name}" not created in development mode using files on a named stage already exists in the account.'
+            f'An application object "{name}" not created by Snowflake CLI already exists in the account.'
         )
 
 
@@ -79,14 +79,14 @@ class MissingSchemaError(ClickException):
 class CouldNotDropApplicationPackageWithVersions(ClickException):
     """Application package could not be dropped as it has versions associated with it."""
 
-    def __init__(self):
+    def __init__(self, additional_msg: str = ""):
         super().__init__(
             dedent(
                 f"""
             {self.__doc__}
-            Versions must be dropped first using “snow app version drop”.
+            {additional_msg}
             """
-            )
+            ).strip()
         )
 
 

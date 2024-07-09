@@ -64,6 +64,10 @@ class FQN:
     def url_identifier(self) -> str:
         return ".".join(identifier_for_url(part) for part in self.identifier.split("."))
 
+    @property
+    def sql_identifier(self) -> str:
+        return f"IDENTIFIER('{self.identifier}')"
+
     def __str__(self):
         return self.identifier
 

@@ -20,13 +20,18 @@ from unittest import mock
 from unittest.mock import PropertyMock
 
 import pytest
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.definition import (
     generate_local_override_yml,
     load_project,
 )
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+from snowflake.cli.api.project.schemas.project_definition import (
+    build_project_definition,
+)
+
+from tests.testing_utils.mock_config import mock_config_key
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
@@ -145,6 +150,20 @@ def test_fields_are_parsed_correctly(project_definition_files, snapshot):
 )
 def test_schema_is_validated_for_version(data):
     with pytest.raises(SchemaValidationError) as err:
-        ProjectDefinition(**data)
+        build_project_definition(**data)
 
     assert "is not supported in given version" in str(err.value)
+
+
+def test_project_definition_v2_is_disabled():
+    assert FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled() == False
+    with pytest.raises(SchemaValidationError) as err:
+        build_project_definition(**{"definition_version": "2", "entities": {}})
+    assert "Version 2 is not supported" in str(err.value)
+
+
+def test_project_definition_v2_is_enabled_with_feature_flag():
+    with mock_config_key("enable_project_definition_v2", True):
+        assert FeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled() == False
+        assert FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled() == True
+        build_project_definition(**{"definition_version": "2", "entities": {}})
