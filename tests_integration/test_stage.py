@@ -230,6 +230,68 @@ def test_stage_execute(runner, test_database, test_root_path, snapshot):
 
 
 @pytest.mark.integration
+def test_user_stage_execute(runner, test_database, test_root_path, snapshot):
+    project_path = test_root_path / "test_data/projects/stage_execute"
+    user_stage_name = "@~"
+
+    files = [
+        ("script1.sql", "execute/sql"),
+        ("script2.sql", "execute/sql/directory"),
+        ("script3.sql", "execute/sql/directory/subdirectory"),
+    ]
+    for name, stage_path in files:
+        result = runner.invoke_with_connection_json(
+            [
+                "stage",
+                "copy",
+                f"{project_path}/{name}",
+                f"{user_stage_name}/{stage_path}",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert contains_row_with(
+            result.json, {"status": "SKIPPED"}
+        ) or contains_row_with(result.json, {"status": "UPLOADED"})
+
+    result = runner.invoke_with_connection_json(
+        ["stage", "execute", f"{user_stage_name}/execute/sql"]
+    )
+    assert result.exit_code == 0
+    assert result.json == snapshot
+
+    result = runner.invoke_with_connection_json(
+        [
+            "stage",
+            "copy",
+            f"{project_path}/script_template.sql",
+            f"{user_stage_name}/execute/template",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert contains_row_with(result.json, {"status": "SKIPPED"}) or contains_row_with(
+        result.json, {"status": "UPLOADED"}
+    )
+
+    result = runner.invoke_with_connection_json(
+        [
+            "stage",
+            "execute",
+            f"{user_stage_name}/execute/template/script_template.sql",
+            "-D",
+            " text = 'string' ",
+            "-D",
+            "value=1",
+            "-D",
+            "boolean=TRUE",
+            "-D",
+            "null_value= NULL",
+        ]
+    )
+    assert result.exit_code == 0
+    assert result.json == snapshot
+
+
+@pytest.mark.integration
 def test_stage_diff(runner, snowflake_session, test_database, tmp_path, snapshot):
     stage_name = "test_stage"
 
