@@ -363,10 +363,18 @@ def test_nativeapp_version_create_package_no_magic_comment(
             )
 
             result_create = runner.invoke_with_connection_json(
+                ["app", "version", "create", "v1", "--skip-git-check"],
+                env=TEST_ENV,
+                input="n\n",
+            )
+            assert result_create.exit_code == 1
+            assert result_create.output == "Aborted.\n"
+
+            result_create_force = runner.invoke_with_connection_json(
                 ["app", "version", "create", "v1", "--force", "--skip-git-check"],
                 env=TEST_ENV,
             )
-            assert result_create.exit_code == 0
+            assert result_create_force.exit_code == 0
 
             # app package contains version v1
             expect = snowflake_session.execute_string(
