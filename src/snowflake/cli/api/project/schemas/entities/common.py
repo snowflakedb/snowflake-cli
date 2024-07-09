@@ -14,9 +14,9 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from enum import Enum
-from typing import Any, Generic, List, Optional, TypeVar
+from typing import Generic, List, Optional, TypeVar
 
 from pydantic import AliasChoices, Field, GetCoreSchemaHandler, ValidationInfo
 from pydantic_core import core_schema
@@ -61,20 +61,6 @@ class DefaultsField(UpdatableModel):
 
 
 class EntityBase(ABC, UpdatableModel):
-    def __init__(self, **data: Any) -> None:
-        super().__init__(**data)
-        self.type_ = self.__class__.entity_type  # type: ignore[assignment]
-
-    @property
-    @abstractmethod
-    def entity_type(self) -> EntityType:
-        pass
-
-    type_: EntityType = Field(
-        title="Entity type",
-        validation_alias=AliasChoices("type"),
-    )
-
     meta: Optional[MetaField] = Field(title="Meta fields", default=None)
 
 

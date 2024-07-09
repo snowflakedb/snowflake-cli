@@ -41,6 +41,7 @@ from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.utils.models import ProjectEnvironment
 from snowflake.cli.api.utils.types import Context
+from typing_extensions import Annotated
 
 _v2_entity_types_map = {
     EntityType.APPLICATION.value: ApplicationEntity,
@@ -124,37 +125,37 @@ class DefinitionV11(DefinitionV10):
 
 
 class DefinitionV20(_ProjectDefinitionBase):
-    entities: Dict[str, Entity] = Field(
-        title="Entity definitions.",
+    entities: Dict[str, Annotated[Entity, Field(discriminator="type")]] = Field(
+        title="Entity definitions."
     )
 
     @model_validator(mode="before")
     @classmethod
-    def instantiate_entities(cls, data: Dict) -> Dict:
-        if "entities" in data:
-            for key, entity in data["entities"].items():
-                entity_type = entity["type"]
-                if entity_type not in _v2_entity_types_map:
-                    raise ValueError(f"Unsupported entity type: {entity_type}")
-                entity_model = _v2_entity_types_map[entity_type]
-                # Apply default values if exist on the model but not specified in yml
-                if "defaults" in data:
+    def apply_defaults(cls, data: Dict) -> Dict:
+        """
+        Applies default values that exist on the model but not specified in yml
+        """
+        if "defaults" in data:
+            if "entities" in data:
+                for key, entity in data["entities"].items():
+                    entity_type = entity["type"]
+                    if entity_type not in _v2_entity_types_map:
+                        continue
+                    entity_model = _v2_entity_types_map[entity_type]
                     for default_key, default_value in data["defaults"].items():
                         if (
                             default_key in entity_model.model_fields
                             and default_key not in entity
                         ):
                             entity[default_key] = default_value
-                # Instantiate the entity object
-                data["entities"][key] = entity_model(**entity)
         return data
 
-    @field_validator("entities", mode="before")
+    @field_validator("entities", mode="after")
     @classmethod
     def validate_entities(cls, entities: Dict[str, Entity]) -> Dict[str, Entity]:
         for key, entity in entities.items():
             # TODO Automatically detect TargetFields to validate
-            if entity.type_ == EntityType.APPLICATION:
+            if entity.type == EntityType.APPLICATION.value:
                 if isinstance(entity.from_.target, TargetField):
                     target = str(entity.from_.target)
                     if target not in entities:

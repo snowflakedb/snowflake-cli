@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar, Optional
+from typing import Literal, Optional
 
 from pydantic import AliasChoices, Field
 from snowflake.cli.api.project.schemas.entities.application_package_entity import (
@@ -22,7 +22,6 @@ from snowflake.cli.api.project.schemas.entities.application_package_entity impor
 )
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityBase,
-    EntityType,
     TargetField,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
@@ -31,7 +30,7 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 
 
 class ApplicationEntity(EntityBase):
-    entity_type: ClassVar[EntityType] = EntityType.APPLICATION
+    type: Literal["application"]
     name: str = Field(
         title="Name of the application created when this entity is deployed"
     )

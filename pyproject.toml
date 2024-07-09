@@ -143,6 +143,9 @@ select = [
   "FA100",  # Missing from __future__ import annotations
   "W605",   # Invalid escape sequences
 ]
+ignore = [
+  "A003"    # Class attribute shadowing a Python builtin
+]
 
 [tool.pytest.ini_options]
 addopts = "-vv --maxfail=10 -m 'not integration and not performance and not e2e and not spcs and not loaded_modules and not integration_experimental'"

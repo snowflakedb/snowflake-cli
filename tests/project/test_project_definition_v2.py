@@ -34,15 +34,15 @@ from tests.testing_utils.mock_config import mock_config_key
         ],
         [
             {"entities": {"entity": {"type": "invalid_type"}}},
-            "Unsupported entity type: invalid_type",
+            "Input tag 'invalid_type' found using 'type' does not match any of the expected tags",
         ],
         # Application package tests
         [
             {"entities": {"pkg": {"type": "application package"}}},
             [
-                "missing the following field: 'name'",
-                "missing the following field: 'artifacts'",
-                "missing the following field: 'manifest'",
+                "missing the following field: 'entities.pkg.application package.name'",
+                "missing the following field: 'entities.pkg.application package.artifacts'",
+                "missing the following field: 'entities.pkg.application package.manifest'",
             ],
         ],
         [
@@ -95,8 +95,8 @@ from tests.testing_utils.mock_config import mock_config_key
         [
             {"entities": {"app": {"type": "application"}}},
             [
-                "missing the following field: 'name'",
-                "missing the following field: 'from'",
+                "Your project definition is missing the following field: 'entities.app.application.name'",
+                "Your project definition is missing the following field: 'entities.app.application.from'",
             ],
         ],
         [
@@ -211,3 +211,22 @@ def test_defaults_do_not_override_values():
     with mock_config_key("enable_project_definition_v2", True):
         project = DefinitionV20(**definition_input)
         assert project.entities["pkg"].stage == "pkg_stage"
+
+
+# def test_entity_types():
+#     definition_input = {
+#         "definition_version": "2",
+#         "entities": {
+#             "pkg": {
+#                 "type": "application package",
+#                 "name": "",
+#                 "artifacts": [],
+#                 "manifest": "",
+#                 "stage": "pkg_stage",
+#             }
+#         },
+#         "defaults": {"stage": "default_stage"},
+#     }
+#     with mock_config_key("enable_project_definition_v2", True):
+#         project = DefinitionV20(**definition_input)
+#         assert project.entities["pkg"].stage == "pkg_stage"

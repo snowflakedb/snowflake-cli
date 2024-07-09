@@ -14,19 +14,18 @@
 
 from __future__ import annotations
 
-from typing import ClassVar, List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from pydantic import Field
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityBase,
-    EntityType,
 )
 from snowflake.cli.api.project.schemas.native_app.package import DistributionOptions
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 
 
 class ApplicationPackageEntity(EntityBase):
-    entity_type: ClassVar[EntityType] = EntityType.APPLICATION_PACKAGE
+    type: Literal["application package"]
     name: str = Field(
         title="Name of the application package created when this entity is deployed"
     )
