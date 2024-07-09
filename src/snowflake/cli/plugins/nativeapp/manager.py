@@ -64,6 +64,7 @@ from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
     InvalidScriptError,
     MissingScriptError,
+    NoEventTableForAccount,
     SetupScriptFailedValidation,
     UnexpectedOwnerError,
 )
@@ -81,7 +82,7 @@ from snowflake.cli.plugins.stage.diff import (
     to_stage_path,
 )
 from snowflake.cli.plugins.stage.manager import StageManager
-from snowflake.connector import ProgrammingError
+from snowflake.connector import DictCursor, ProgrammingError
 
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
@@ -312,6 +313,12 @@ class NativeAppManager(SqlExecutionMixin):
                 """
             )
         )
+
+    @cached_property
+    def account_event_table(self) -> str | None:
+        query = "show parameters like 'event_table' in account"
+        results = self._execute_query(query, cursor_class=DictCursor)
+        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), None)
 
     def verify_project_distribution(
         self, expected_distribution: Optional[str] = None
@@ -706,6 +713,11 @@ class NativeAppManager(SqlExecutionMixin):
                     self._execute_query(
                         f"drop stage if exists {self.scratch_stage_fqn}"
                     )
+
+    def get_events(self) -> list[dict]:
+        if self.account_event_table is None:
+            raise NoEventTableForAccount()
+        return []
 
 
 def _validation_item_to_str(item: dict[str, str | int]):

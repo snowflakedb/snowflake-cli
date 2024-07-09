@@ -369,3 +369,18 @@ def app_validate(**options):
 
     manager.validate(use_scratch_stage=True)
     return MessageResult("Snowflake Native App validation succeeded.")
+
+
+@app.command("events", hidden=True, requires_connection=True)
+@with_project_definition("native_app")
+def app_events(**options):
+    """Fetches events for this app from the event table configured in Snowflake."""
+    # WIP: only validates event table setup for now while the command is hidden
+
+    manager = NativeAppManager(
+        project_definition=cli_context.project_definition.native_app,
+        project_root=cli_context.project_root,
+    )
+    events = manager.get_events()
+    if not events:
+        return MessageResult("No events found.")
