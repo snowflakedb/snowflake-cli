@@ -225,3 +225,75 @@ def test_nativeapp_teardown_unowned_app(
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("default_release_directive", [True, False])
+def test_nativeapp_teardown_pkg_versions(
+    runner,
+    snowflake_session,
+    temporary_working_directory,
+    default_release_directive,
+):
+    project_name = "myapp"
+    pkg_name = f"{project_name}_pkg_{USER_NAME}"
+
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        result = runner.invoke_with_connection(
+            ["app", "version", "create", "v1"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # when setting a release directive, we will not have the ability to drop the version later
+            if default_release_directive:
+                result = runner.invoke_with_connection(
+                    [
+                        "sql",
+                        "-q",
+                        f"alter application package {pkg_name} set default release directive version = v1 patch = 0",
+                    ],
+                    env=TEST_ENV,
+                )
+                assert result.exit_code == 0
+
+            # try to teardown; fail because we have a version
+            result = runner.invoke_with_connection(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 1
+            assert f"Drop versions first, or use --force to override." in result.output
+
+            teardown_args = []
+            if not default_release_directive:
+                # if we didn't set a release directive, we can drop the version and try again
+                result = runner.invoke_with_connection(
+                    ["app", "version", "drop", "v1", "--force"],
+                    env=TEST_ENV,
+                )
+                assert result.exit_code == 0
+            else:
+                # if we did set a release directive, we need --force for teardown to work
+                teardown_args = ["--force"]
+
+            # either way, we can now tear down the application package
+            result = runner.invoke_with_connection(
+                ["app", "teardown"] + teardown_args,
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+        finally:
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0

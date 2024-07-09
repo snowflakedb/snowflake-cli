@@ -22,7 +22,8 @@
 ## New additions
 
 ## Fixes and improvements
-
+* The `snow app run` command now allows upgrading to unversioned mode from a versioned or release mode application installation
+* The `snow app teardown` command now allows dropping a package with versions when the `--force` flag is provided
 
 # v2.6.0
 ## Backward incompatibility

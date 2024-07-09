@@ -41,13 +41,12 @@ from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
-    LOOSE_FILES_MAGIC_VERSION,
     PATCH_COL,
     SPECIAL_COMMENT,
     VERSION_COL,
 )
 from snowflake.cli.plugins.nativeapp.exceptions import (
-    ApplicationAlreadyExistsError,
+    ApplicationCreatedExternallyError,
     ApplicationPackageDoesNotExistError,
 )
 from snowflake.cli.plugins.nativeapp.manager import (
@@ -124,11 +123,9 @@ class SameAccountInstallMethod:
         """Raise an exception if we cannot proceed with install given the pre-existing application object"""
 
         if self._requires_created_by_cli:
-            if show_app_row[COMMENT_COL] not in ALLOWED_SPECIAL_COMMENTS or (
-                show_app_row[VERSION_COL] != LOOSE_FILES_MAGIC_VERSION
-            ):
+            if show_app_row[COMMENT_COL] not in ALLOWED_SPECIAL_COMMENTS:
                 # this application object was not created by this tooling
-                raise ApplicationAlreadyExistsError(app.app_name)
+                raise ApplicationCreatedExternallyError(app.app_name)
 
         # expected owner
         ensure_correct_owner(row=show_app_row, role=app.app_role, obj_name=app.app_name)
@@ -248,6 +245,8 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 )
                 raise typer.Exit(1)
         try:
+            cascade_msg = " (cascade)" if cascade else ""
+            cc.step(f"Dropping application object {self.app_name}{cascade_msg}.")
             cascade_sql = " cascade" if cascade else ""
             self._execute_query(f"drop application {self.app_name}{cascade_sql}")
         except ProgrammingError as err:
