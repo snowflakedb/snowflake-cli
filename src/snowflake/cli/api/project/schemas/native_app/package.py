@@ -21,6 +21,7 @@ from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
 )
+from snowflake.cli.api.project.util import default_app_package
 
 DistributionOptions = Literal["internal", "external", "INTERNAL", "EXTERNAL"]
 
@@ -35,7 +36,7 @@ class Package(UpdatableModel):
     )
     name: Optional[str] = IdentifierField(
         title="Name of the application package created when you run the snow app run command",
-        default=None,
+        default=default_app_package("<% ctx.native_app.name %>"),
     )
     warehouse: Optional[str] = IdentifierField(
         title="Warehouse used to run the scripts", default=None

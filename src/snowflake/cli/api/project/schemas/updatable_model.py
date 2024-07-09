@@ -16,15 +16,29 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+)
 from snowflake.cli.api.project.util import IDENTIFIER_NO_LENGTH
 
 
 class UpdatableModel(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(**kwargs)
+    @field_validator("*", mode="wrap")
+    @classmethod
+    def check_custom_flag(cls, value, handler, info: ValidationInfo):
+        # if isinstance(value, str) and '<%' in value:
+        #     return value
+        result = handler(value)
+        return result
+
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(**kwargs)
 
     def update_from_dict(self, update_values: Dict[str, Any]):
         """

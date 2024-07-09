@@ -54,7 +54,7 @@ class NativeApp(UpdatableModel):
         title="Identifier of the stage that stores temporary scratch data used by the Snowflake CLI.",
         default="app_src.stage_snowflake_cli_scratch",
     )
-    package: Optional[Package] = Field(title="PackageSchema", default=None)
+    package: Optional[Package] = Field(title="PackageSchema", default=Package())
     application: Optional[Application] = Field(title="Application info", default=None)
 
     @field_validator("source_stage")

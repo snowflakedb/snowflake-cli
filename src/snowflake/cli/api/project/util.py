@@ -183,6 +183,14 @@ def get_env_username() -> Optional[str]:
     return first_set_env("USER", "USERNAME", "LOGNAME")
 
 
+DEFAULT_USERNAME = "unknown_user"
+
+
+def default_app_package(project_name: str):
+    user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
+    return append_to_identifier(to_identifier(project_name), f"_pkg_{user}")
+
+
 SUPPORTED_VERSIONS = [1]
 
 

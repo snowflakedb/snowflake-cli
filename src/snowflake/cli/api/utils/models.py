@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
@@ -31,13 +31,13 @@ class ProjectEnvironment(UpdatableModel):
     - Check for default values from the project definition file.
     """
 
-    override_env: Dict[str, Any] = {}
     default_env: Dict[str, Any] = {}
+    override_env: Dict[str, Any] = {}
 
-    def __init__(
-        self, default_env: Dict[str, Any], override_env: Optional[Dict[str, Any]] = None
-    ):
-        super().__init__(self, default_env=default_env, override_env=override_env or {})
+    # def __init__(
+    #     self, default_env: Dict[str, Any], override_env: Optional[Dict[str, Any]] = None
+    # ):
+    #     super().__init__(self, default_env=default_env, override_env=override_env or {})
 
     def __getitem__(self, item):
         if item in self.override_env:

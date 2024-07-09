@@ -18,8 +18,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional, Union
 
 from packaging.version import Version
-from pydantic import Field, ValidationError, field_validator
-from snowflake.cli.api.project.errors import SchemaValidationError
+from pydantic import (
+    Field,
+    ValidationInfo,
+    field_validator,
+)
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
@@ -47,11 +50,11 @@ class ProjectProperties:
 
 
 class _BaseDefinition(UpdatableModel):
-    def __init__(self, *args, **kwargs):
-        try:
-            super().__init__(**kwargs)
-        except ValidationError as e:
-            raise SchemaValidationError(e) from e
+    # def __init__(self, *a, **kwargs):
+    #     try:
+    #         super().__init__(*a, **kwargs)
+    #     except ValidationError as e:
+    #         raise SchemaValidationError(e) from e
 
     definition_version: Union[str, int] = Field(
         title="Version of the project definition schema, which is currently 1",
@@ -82,6 +85,10 @@ class _DefinitionV10(_BaseDefinition):
     streamlit: Optional[Streamlit] = Field(
         title="Streamlit definitions for the project", default=None
     )
+    michel: Optional[int] = Field(
+        title="Snowpark functions and procedures definitions for the project",
+        default=None,
+    )
 
 
 class _DefinitionV11(_DefinitionV10):
@@ -89,17 +96,13 @@ class _DefinitionV11(_DefinitionV10):
         title="Environment specification for this project.",
         default=None,
         validation_alias="env",
-        union_mode="smart",
     )
 
     @field_validator("env")
     @classmethod
-    def _convert_env(
-        cls, env: Union[Dict, ProjectEnvironment, None]
-    ) -> ProjectEnvironment:
-        if isinstance(env, ProjectEnvironment):
-            return env
-        return ProjectEnvironment(default_env=(env or {}), override_env={})
+    def some_test_work(cls, v: str, info: ValidationInfo):
+        context = info.context
+        return v
 
 
 class ProjectDefinition(_DefinitionV11):
