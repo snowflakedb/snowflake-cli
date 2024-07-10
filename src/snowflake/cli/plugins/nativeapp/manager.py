@@ -40,6 +40,7 @@ from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     identifier_for_url,
+    to_identifier,
     unquote_identifier,
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -267,19 +268,58 @@ class NativeAppManager(SqlExecutionMixin):
         wh_result = self._execute_query(
             f"select current_warehouse()", cursor_class=DictCursor
         ).fetchone()
+        # If user has an assigned default warehouse, prev_wh will contain a value even if the warehouse is suspended.
         prev_wh = wh_result["CURRENT_WAREHOUSE()"]
-        is_different_wh = (new_wh is not None) and (new_wh.lower() != prev_wh.lower())
-        if is_different_wh:
-            self._log.debug(
-                "Temporarily switching to a different warehouse: %s", new_wh
+
+        if new_wh is not None:
+            new_wh_id = to_identifier(new_wh)
+
+        if prev_wh is None and new_wh is None:
+            raise ClickException(
+                "Could not find both the connection and the requested warehouse in the Snowflake account for this user."
             )
-            self.use(object_type=ObjectType.WAREHOUSE, name=new_wh)
-        try:
-            yield
-        finally:
+
+        elif prev_wh is None:
+            self._log.debug("Using warehouse: %s", new_wh_id)
+            self.use(object_type=ObjectType.WAREHOUSE, name=new_wh_id)
+            try:
+                yield
+            finally:
+                self._log.debug(
+                    "Continuing to use warehouse unless requested otherwise: %s",
+                    new_wh_id,
+                )
+
+        elif new_wh is None:
+            self._log.debug(
+                "Requested warehouse is empty, continuing to use the connection warehouse: %s",
+                prev_wh,
+            )
+            # Activate a suspended warehouse, will be a no-op will already active
+            self.use(object_type=ObjectType.WAREHOUSE, name=prev_wh)
+            try:
+                yield
+            finally:
+                self._log.debug(
+                    "Continuing to use warehouse unless requested otherwise: %s",
+                    prev_wh,
+                )
+
+        else:
+            is_different_wh = new_wh_id != prev_wh
+            self._log.debug("Using warehouse: %s", new_wh_id)
             if is_different_wh:
-                self._log.debug("Switching back to the original warehouse: %s", prev_wh)
+                # Activate the new warehouse
+                self.use(object_type=ObjectType.WAREHOUSE, name=new_wh_id)
+            else:
+                # Activate a suspended warehouse, will be a no-op will already active
                 self.use(object_type=ObjectType.WAREHOUSE, name=prev_wh)
+            try:
+                yield
+            finally:
+                if is_different_wh:
+                    self._log.debug("Switching back to warehouse: %s", prev_wh)
+                    self.use(object_type=ObjectType.WAREHOUSE, name=prev_wh)
 
     @cached_property
     def get_app_pkg_distribution_in_snowflake(self) -> str:
@@ -585,17 +625,15 @@ class NativeAppManager(SqlExecutionMixin):
                 raise InvalidPackageScriptError(relpath, e)
 
         # once we're sure all the templates expanded correctly, execute all of them
-        try:
-            if self.package_warehouse:
-                self._execute_query(f"use warehouse {self.package_warehouse}")
-
-            for i, queries in enumerate(queued_queries):
-                cc.step(f"Applying package script: {self.package_scripts[i]}")
-                self._execute_queries(queries)
-        except ProgrammingError as err:
-            generic_sql_error_handler(
-                err, role=self.package_role, warehouse=self.package_warehouse
-            )
+        with self.use_warehouse(self.package_warehouse):
+            try:
+                for i, queries in enumerate(queued_queries):
+                    cc.step(f"Applying package script: {self.package_scripts[i]}")
+                    self._execute_queries(queries)
+            except ProgrammingError as err:
+                generic_sql_error_handler(
+                    err, role=self.package_role, warehouse=self.package_warehouse
+                )
 
     def deploy(
         self,

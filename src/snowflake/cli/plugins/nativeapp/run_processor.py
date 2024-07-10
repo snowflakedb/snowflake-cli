@@ -142,15 +142,14 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         """
         with open(sql_script_path) as f:
             sql_script = f.read()
-            try:
-                if self.application_warehouse:
-                    self._execute_query(f"use warehouse {self.application_warehouse}")
-                if self._conn.database:
-                    self._execute_query(f"use database {self._conn.database}")
-                sql_script = snowflake_sql_jinja_render(content=sql_script)
-                self._execute_queries(sql_script)
-            except ProgrammingError as err:
-                generic_sql_error_handler(err)
+
+        try:
+            if self._conn.database:
+                self._execute_query(f"use database {self._conn.database}")
+            sql_script = snowflake_sql_jinja_render(content=sql_script)
+            self._execute_queries(sql_script)
+        except ProgrammingError as err:
+            generic_sql_error_handler(err)
 
     def _execute_post_deploy_hooks(self):
         post_deploy_script_hooks = self.app_post_deploy_hooks
@@ -267,89 +266,85 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         with self.use_role(self.app_role):
 
             # 1. Need to use a warehouse to create an application object
-            try:
-                if self.application_warehouse:
-                    self._execute_query(f"use warehouse {self.application_warehouse}")
-            except ProgrammingError as err:
-                generic_sql_error_handler(
-                    err=err, role=self.app_role, warehouse=self.application_warehouse
-                )
+            with self.use_warehouse(self.application_warehouse):
 
-            # 2. Check for an existing application by the same name
-            show_app_row = self.get_existing_app_info()
+                # 2. Check for an existing application by the same name
+                show_app_row = self.get_existing_app_info()
 
-            # 3. If existing application is found, perform a few validations and upgrade the application object.
-            if show_app_row:
+                # 3. If existing application is found, perform a few validations and upgrade the application object.
+                if show_app_row:
 
-                install_method.ensure_app_usable(self._na_project, show_app_row)
+                    install_method.ensure_app_usable(self._na_project, show_app_row)
 
-                # If all the above checks are in order, proceed to upgrade
+                    # If all the above checks are in order, proceed to upgrade
+                    try:
+                        cc.step(
+                            f"Upgrading existing application object {self.app_name}."
+                        )
+                        using_clause = install_method.using_clause(self._na_project)
+                        self._execute_query(
+                            f"alter application {self.app_name} upgrade {using_clause}"
+                        )
+
+                        if install_method.is_dev_mode:
+                            # if debug_mode is present (controlled), ensure it is up-to-date
+                            if self.debug_mode is not None:
+                                self._execute_query(
+                                    f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
+                                )
+
+                        # hooks always executed after a create or upgrade
+                        self._execute_post_deploy_hooks()
+                        return
+
+                    except ProgrammingError as err:
+                        if err.errno not in UPGRADE_RESTRICTION_CODES:
+                            generic_sql_error_handler(err=err)
+                        else:  # The existing application object was created from a different process.
+                            cc.warning(err.msg)
+                            self.drop_application_before_upgrade(policy, is_interactive)
+
+                # 4. With no (more) existing application objects, create an application object using the release directives
+                cc.step(f"Creating new application object {self.app_name} in account.")
+
+                if self.app_role != self.package_role:
+                    with self.use_role(self.package_role):
+                        self._execute_query(
+                            f"grant install, develop on application package {self.package_name} to role {self.app_role}"
+                        )
+                        self._execute_query(
+                            f"grant usage on schema {self.package_name}.{self.stage_schema} to role {self.app_role}"
+                        )
+                        self._execute_query(
+                            f"grant read on stage {self.stage_fqn} to role {self.app_role}"
+                        )
+
                 try:
-                    cc.step(f"Upgrading existing application object {self.app_name}.")
+                    # by default, applications are created in debug mode when possible;
+                    # this can be overridden in the project definition
+                    debug_mode_clause = ""
+                    if install_method.is_dev_mode:
+                        initial_debug_mode = (
+                            self.debug_mode if self.debug_mode is not None else True
+                        )
+                        debug_mode_clause = f"debug_mode = {initial_debug_mode}"
+
                     using_clause = install_method.using_clause(self._na_project)
                     self._execute_query(
-                        f"alter application {self.app_name} upgrade {using_clause}"
+                        dedent(
+                            f"""\
+                        create application {self.app_name}
+                            from application package {self.package_name} {using_clause} {debug_mode_clause}
+                            comment = {SPECIAL_COMMENT}
+                        """
+                        )
                     )
-
-                    if install_method.is_dev_mode:
-                        # if debug_mode is present (controlled), ensure it is up-to-date
-                        if self.debug_mode is not None:
-                            self._execute_query(
-                                f"alter application {self.app_name} set debug_mode = {self.debug_mode}"
-                            )
 
                     # hooks always executed after a create or upgrade
                     self._execute_post_deploy_hooks()
-                    return
 
                 except ProgrammingError as err:
-                    if err.errno not in UPGRADE_RESTRICTION_CODES:
-                        generic_sql_error_handler(err=err)
-                    else:  # The existing application object was created from a different process.
-                        cc.warning(err.msg)
-                        self.drop_application_before_upgrade(policy, is_interactive)
-
-            # 4. With no (more) existing application objects, create an application object using the release directives
-            cc.step(f"Creating new application object {self.app_name} in account.")
-
-            if self.app_role != self.package_role:
-                with self.use_role(self.package_role):
-                    self._execute_query(
-                        f"grant install, develop on application package {self.package_name} to role {self.app_role}"
-                    )
-                    self._execute_query(
-                        f"grant usage on schema {self.package_name}.{self.stage_schema} to role {self.app_role}"
-                    )
-                    self._execute_query(
-                        f"grant read on stage {self.stage_fqn} to role {self.app_role}"
-                    )
-
-            try:
-                # by default, applications are created in debug mode when possible;
-                # this can be overridden in the project definition
-                debug_mode_clause = ""
-                if install_method.is_dev_mode:
-                    initial_debug_mode = (
-                        self.debug_mode if self.debug_mode is not None else True
-                    )
-                    debug_mode_clause = f"debug_mode = {initial_debug_mode}"
-
-                using_clause = install_method.using_clause(self._na_project)
-                self._execute_query(
-                    dedent(
-                        f"""\
-                    create application {self.app_name}
-                        from application package {self.package_name} {using_clause} {debug_mode_clause}
-                        comment = {SPECIAL_COMMENT}
-                    """
-                    )
-                )
-
-                # hooks always executed after a create or upgrade
-                self._execute_post_deploy_hooks()
-
-            except ProgrammingError as err:
-                generic_sql_error_handler(err)
+                    generic_sql_error_handler(err)
 
     def process(
         self,
