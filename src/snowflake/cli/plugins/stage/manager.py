@@ -83,6 +83,7 @@ class StagePathParts:
             return prefix + "." + path
         return path
 
+
 @dataclass
 class DefaultStagePathParts(StagePathParts):
     """
