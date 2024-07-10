@@ -28,8 +28,8 @@ from snowflake.cli.api.project.util import (
     is_valid_unquoted_identifier,
     to_identifier,
 )
+from snowflake.cli.api.rendering.jinja import jinja_render_from_file
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.api.utils.rendering import jinja_render_from_file
 from yaml import dump, safe_dump, safe_load
 
 log = logging.getLogger(__name__)

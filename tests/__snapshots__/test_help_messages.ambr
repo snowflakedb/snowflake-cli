@@ -2004,6 +2004,47 @@
   
   '''
 # ---
+# name: test_help_messages[init]
+  '''
+                                                                                  
+   Usage: default init [OPTIONS] PATH                                             
+                                                                                  
+   Creates project directory from template.                                       
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    path      TEXT  Directory to be initialized with the project. This      |
+  |                      directory must not already exist                        |
+  |                      [required]                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --template                 TEXT  which template (subdirectory of             |
+  |                                  --template-source) should be used. If not   |
+  |                                  provided, whole source will be used as the  |
+  |                                  template.                                   |
+  | --template-source          TEXT  local path to template directory or URL to  |
+  |                                  git repository with templates.              |
+  |                                  [default:                                   |
+  |                                  https://github.com/snowflakedb/snowflake-c… |
+  | --variable         -D      TEXT  Variables for the template. For example:    |
+  |                                  `-D "<key>=<value>"`, string values must be |
+  |                                  in `''`.                                    |
+  | --no-interactive                 Disable prompting.                          |
+  | --help             -h            Show this message and exit.                 |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels `info`  |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels `debug` |
+  |                                  and higher; debug logs contains additional  |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[notebook.create]
   '''
                                                                                   

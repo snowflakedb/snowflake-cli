@@ -1,0 +1,17 @@
+files_to_render:
+  - variable_values.json
+variables:
+  - name: required_project_name
+  - name: optional_int
+    default: 4
+    type: int
+  - name: optional_str
+    type: string
+    default: "default value for string"
+    prompt: "Testing prompt of a string"
+  - name: optional_float
+    type: float
+    default: 1.5
+  - name: optional_unchecked
+    default: 5
+    prompt: "An optional value with no type checking"
