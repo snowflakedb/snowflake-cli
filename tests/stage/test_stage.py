@@ -421,6 +421,67 @@ def test_copy_get_recursive(
     assert copy_calls == [mock.call(c.format(temp_dir)) for c in expected_calls]
 
 
+@pytest.mark.parametrize(
+    "stage_path, files_on_stage, expected_stage_path, expected_calls",
+    [
+        (
+            "@~",
+            ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
+            "@~",
+            [
+                "get '@~/a/s2.sql' file://{}/a/ parallel=4",
+                "get '@~/a/b/s3.sql' file://{}/a/b/ parallel=4",
+                "get '@~/s1.sql' file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@~/a",
+            ["a/s2.sql", "a/b/s3.sql"],
+            "@~/a",
+            [
+                "get '@~/a/s2.sql' file://{}/ parallel=4",
+                "get '@~/a/b/s3.sql' file://{}/b/ parallel=4",
+            ],
+        ),
+        (
+            "@~/a/b/s3.sql",
+            ["a/b/s3.sql"],
+            "@~/a/b/s3.sql",
+            [
+                "get '@~/a/b/s3.sql' file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@~/s1.sql",
+            ["s1.sql"],
+            "@~/s1.sql",
+            [
+                "get '@~/s1.sql' file://{}/ parallel=4",
+            ],
+        ),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_copy_get_recursive_from_user_stage(
+    mock_execute,
+    mock_cursor,
+    temp_dir,
+    stage_path,
+    files_on_stage,
+    expected_stage_path,
+    expected_calls,
+):
+    mock_execute.return_value = mock_cursor(
+        [{"name": file} for file in files_on_stage], []
+    )
+
+    StageManager().get_recursive(stage_path, Path(temp_dir))
+
+    ls_call, *copy_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls '{expected_stage_path}'", cursor_class=DictCursor)
+    assert copy_calls == [mock.call(c.format(temp_dir)) for c in expected_calls]
+
+
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_create(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
