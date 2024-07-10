@@ -25,7 +25,7 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMappin
 
 
 class ApplicationPackageEntity(EntityBase):
-    type: Literal["application package"]
+    type: Literal["application package"]  # noqa: A003
     name: str = Field(
         title="Name of the application package created when this entity is deployed"
     )
