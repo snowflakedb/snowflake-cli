@@ -30,7 +30,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import MissingConfiguration, NoProjectDefinitionError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.api.utils.rendering import CONTEXT_KEY
+from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
@@ -443,6 +443,8 @@ OnErrorOption = typer.Option(
     help="What to do when an error occurs. Defaults to break.",
 )
 
+NoInteractiveOption = typer.Option(False, "--no-interactive", help="Disable prompting.")
+
 VariablesOption = typer.Option(
     None,
     "--variable",
@@ -632,8 +634,7 @@ class Variable:
 def parse_key_value_variables(variables: Optional[List[str]]) -> List[Variable]:
     """Util for parsing key=value input. Useful for commands accepting multiple input options."""
     result: List[Variable] = []
-
-    if variables is None:
+    if not variables:
         return result
 
     for p in variables:
