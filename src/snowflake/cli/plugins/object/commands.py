@@ -33,7 +33,7 @@ app = SnowTyperFactory(
 
 NameArgument = typer.Argument(help="Name of the object")
 ObjectArgument = typer.Argument(
-    help="Type of object. For example table, procedure, streamlit.",
+    help="Type of object. For example table, database, compute-pool.",
     case_sensitive=False,
     show_default=False,
 )

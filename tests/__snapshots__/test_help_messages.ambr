@@ -2330,8 +2330,8 @@
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    object_type            TEXT                    Type of object. For      |
-  |                                                     example table,           |
-  |                                                     procedure, streamlit.    |
+  |                                                     example table, database, |
+  |                                                     compute-pool.            |
   |                                                     [required]               |
   |      object_attributes      [OBJECT_ATTRIBUTES]...  Object attributes        |
   |                                                     provided as a list of    |
@@ -2421,8 +2421,8 @@
    secret, service, stage, stream, streamlit, table, task, user, view, warehouse  
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    object_type      TEXT  Type of object. For example table, procedure,    |
-  |                             streamlit.                                       |
+  | *    object_type      TEXT  Type of object. For example table, database,     |
+  |                             compute-pool.                                    |
   |                             [required]                                       |
   | *    object_name      TEXT  Name of the object [default: None] [required]    |
   +------------------------------------------------------------------------------+
@@ -2499,8 +2499,8 @@
    task, user, view, warehouse                                                    
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    object_type      TEXT  Type of object. For example table, procedure,    |
-  |                             streamlit.                                       |
+  | *    object_type      TEXT  Type of object. For example table, database,     |
+  |                             compute-pool.                                    |
   |                             [required]                                       |
   | *    object_name      TEXT  Name of the object [default: None] [required]    |
   +------------------------------------------------------------------------------+
@@ -2577,8 +2577,8 @@
    task, user, view, warehouse                                                    
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    object_type      TEXT  Type of object. For example table, procedure,    |
-  |                             streamlit.                                       |
+  | *    object_type      TEXT  Type of object. For example table, database,     |
+  |                             compute-pool.                                    |
   |                             [required]                                       |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
