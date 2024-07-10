@@ -119,7 +119,7 @@ def test_fetch(mock_connector, runner, mock_ctx):
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch.object(StageManager, "iter_stage")
-@mock.patch("snowflake.cli.plugins.stage.commands.QueryResult")
+@mock.patch("snowflake.cli.plugins.git.commands.QueryResult")
 def test_copy_to_local_file_system(
     mock_result, mock_iter, mock_connector, runner, mock_ctx, temp_dir
 ):

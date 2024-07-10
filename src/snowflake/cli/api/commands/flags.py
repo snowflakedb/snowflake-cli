@@ -30,7 +30,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import MissingConfiguration, NoProjectDefinitionError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.api.utils.rendering import CONTEXT_KEY
+from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
@@ -272,6 +272,20 @@ MasterTokenOption = typer.Option(
     hidden=True,
 )
 
+TokenFilePathOption = typer.Option(
+    None,
+    "--token-file-path",
+    help="Path to file with an OAuth token that should be used when connecting to Snowflake",
+    callback=_callback(
+        lambda: cli_context_manager.connection_context.set_token_file_path
+    ),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+    exists=True,
+    file_okay=True,
+    dir_okay=False,
+)
+
 DatabaseOption = typer.Option(
     None,
     "--database",
@@ -428,6 +442,8 @@ OnErrorOption = typer.Option(
     "--on-error",
     help="What to do when an error occurs. Defaults to break.",
 )
+
+NoInteractiveOption = typer.Option(False, "--no-interactive", help="Disable prompting.")
 
 VariablesOption = typer.Option(
     None,
@@ -618,8 +634,7 @@ class Variable:
 def parse_key_value_variables(variables: Optional[List[str]]) -> List[Variable]:
     """Util for parsing key=value input. Useful for commands accepting multiple input options."""
     result: List[Variable] = []
-
-    if variables is None:
+    if not variables:
         return result
 
     for p in variables:

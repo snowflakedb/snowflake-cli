@@ -20,11 +20,14 @@
 ## Deprecations
 
 ## New additions
+* Added connection option `--token-file-path` allowing passing OAuth token using a file. The function is also
+  supported by setting `token_file_path` in connection definition.
 
 ## Fixes and improvements
 * The `snow app run` command now allows upgrading to unversioned mode from a versioned or release mode application installation
 * The `snow app teardown` command now allows dropping a package with versions when the `--force` flag is provided
 * Added support for user stages in stage execute command
+* Added support for user stages in stage and git copy commands
 
 
 # v2.6.0

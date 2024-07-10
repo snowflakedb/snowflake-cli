@@ -17,13 +17,15 @@ from unittest import mock
 
 import pytest
 from jinja2 import UndefinedError
+from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
 from snowflake.cli.api.utils.models import ProjectEnvironment
-from snowflake.cli.api.utils.rendering import snowflake_sql_jinja_render
 
 
 @pytest.fixture
 def cli_context():
-    with mock.patch("snowflake.cli.api.utils.rendering.cli_context") as cli_context:
+    with mock.patch(
+        "snowflake.cli.api.rendering.sql_templates.cli_context"
+    ) as cli_context:
         cli_context.template_context = {
             "ctx": {"env": ProjectEnvironment(default_env={}, override_env={})}
         }
