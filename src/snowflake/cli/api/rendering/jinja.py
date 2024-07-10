@@ -68,7 +68,7 @@ class IgnoreAttrEnvironment(Environment):
     Only dict items can be used for rendering.
     """
 
-    def getattr(self, obj, attribute):
+    def getattr(self, obj, attribute):  # noqa: A003
         try:
             return obj[attribute]
         except (TypeError, LookupError, AttributeError):
