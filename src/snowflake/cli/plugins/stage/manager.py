@@ -40,6 +40,8 @@ from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import path_resolver
+from snowflake.cli.plugins.snowpark.models import Requirement
+from snowflake.cli.plugins.snowpark.package_utils import parse_requirements
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -431,7 +433,7 @@ class StageManager(SqlExecutionMixin):
 
     def _check_for_requirements_file(
         self, stage_path_parts: StagePathParts
-    ) -> List[str]:
+    ) -> List[Requirement]:
         """Looks for requirements.txt file on stage."""
         req_files_on_stage = self._get_files_list_from_stage(
             stage_path_parts, pattern=r".*requirements\.txt$"
@@ -467,7 +469,9 @@ class StageManager(SqlExecutionMixin):
             self.get(
                 stage_path_parts.get_full_stage_path(requirements_file), Path(tmp_dir)
             )
-            requirements = (Path(tmp_dir) / "requirements.txt").read_text().splitlines()
+            requirements = parse_requirements(
+                requirements_file=SecurePath(tmp_dir) / "requirements.txt"
+            )
 
         return requirements
 
@@ -485,8 +489,7 @@ class StageManager(SqlExecutionMixin):
         self.snowpark_session.add_packages("snowflake-snowpark-python")
         self.snowpark_session.add_packages("snowflake.core")
         requirements = self._check_for_requirements_file(stage_path_parts)
-        for req in requirements:
-            self.snowpark_session.add_packages(req)
+        self.snowpark_session.add_packages(*[req.package_name for req in requirements])
 
         @sproc(is_permanent=False)
         def _python_execution_procedure(
