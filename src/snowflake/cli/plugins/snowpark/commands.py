@@ -67,7 +67,7 @@ from snowflake.cli.plugins.object.commands import (
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.common import (
-    build_udf_sproc_identifier,
+    UdfSprocIdentifier,
     check_if_replace_is_required,
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
@@ -239,14 +239,14 @@ def _assert_object_definitions_are_correct(
 
 def _find_existing_objects(
     object_type: ObjectType,
-    objects: List[Dict],
+    objects: List[FunctionSchema | ProcedureSchema],
     om: ObjectManager,
 ):
     existing_objects = {}
     for object_definition in objects:
-        identifier = build_udf_sproc_identifier(
-            object_definition, om, include_parameter_names=False
-        )
+        identifier = UdfSprocIdentifier.from_definition(
+            object_definition
+        ).identifier_with_arg_types
         try:
             current_state = om.describe(
                 object_type=object_type.value.sf_name,
@@ -300,16 +300,12 @@ def _deploy_single_object(
     snowflake_dependencies: List[str],
     stage_artifact_path: str,
 ):
-    identifier = build_udf_sproc_identifier(
-        object_definition, manager, include_parameter_names=False
+
+    identifiers = UdfSprocIdentifier.from_definition(object_definition)
+
+    log.info(
+        "Deploying %s: %s", object_type, identifiers.identifier_with_arg_names_types
     )
-    identifier_with_default_values = build_udf_sproc_identifier(
-        object_definition,
-        manager,
-        include_parameter_names=True,
-        include_default_values=True,
-    )
-    log.info("Deploying %s: %s", object_type, identifier_with_default_values)
 
     handler = object_definition.handler
     returns = object_definition.returns
@@ -317,11 +313,11 @@ def _deploy_single_object(
     external_access_integrations = object_definition.external_access_integrations
     replace_object = False
 
-    object_exists = identifier in existing_objects
+    object_exists = identifiers.identifier_with_arg_types in existing_objects
     if object_exists:
         replace_object = check_if_replace_is_required(
             object_type=object_type,
-            current_state=existing_objects[identifier],
+            current_state=existing_objects[identifiers.identifier_with_arg_types],
             handler=handler,
             return_type=returns,
             snowflake_dependencies=snowflake_dependencies,
@@ -332,13 +328,13 @@ def _deploy_single_object(
 
     if object_exists and not replace_object:
         return {
-            "object": identifier_with_default_values,
+            "object": identifiers.identifier_with_arg_names_types_defaults,
             "type": str(object_type),
             "status": "packages updated",
         }
 
     create_or_replace_kwargs = {
-        "identifier": identifier_with_default_values,
+        "identifier": identifiers,
         "handler": handler,
         "return_type": returns,
         "artifact_file": stage_artifact_path,
@@ -356,7 +352,7 @@ def _deploy_single_object(
 
     status = "created" if not object_exists else "definition updated"
     return {
-        "object": identifier_with_default_values,
+        "object": identifiers.identifier_with_arg_names_types_defaults,
         "type": str(object_type),
         "status": status,
     }

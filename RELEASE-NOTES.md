@@ -29,7 +29,7 @@
 * The `snow app version create` command now allows operating on application packages created outside the CLI
 * Added support for user stages in stage execute command
 * Added support for user stages in stage and git copy commands
-
+* Improved support for quoted identifiers in snowpark commands.
 
 # v2.6.0
 ## Backward incompatibility

@@ -19,7 +19,10 @@ from typing import Dict, List, Optional, Set
 
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.schemas.snowpark.argument import Argument
+from snowflake.cli.api.project.schemas.snowpark.callable import (
+    FunctionSchema,
+    ProcedureSchema,
+)
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.snowpark.models import Requirement
 from snowflake.cli.plugins.snowpark.package_utils import (
@@ -150,7 +153,7 @@ class SnowparkObjectManager(SqlExecutionMixin):
 
     def create_query(
         self,
-        identifier: str,
+        identifier: UdfSprocIdentifier,
         return_type: str,
         handler: str,
         artifact_file: str,
@@ -166,7 +169,7 @@ class SnowparkObjectManager(SqlExecutionMixin):
         packages_list = ",".join(f"'{p}'" for p in packages)
 
         query = [
-            f"create or replace {self._object_type.value.sf_name} {identifier}",
+            f"create or replace {self._object_type.value.sf_name} {identifier.identifier_for_sql}",
             f"copy grants",
             f"returns {return_type}",
             "language python",
@@ -198,30 +201,69 @@ def _is_signature_type_a_string(sig_type: str) -> bool:
     return sig_type.lower() in ["string", "varchar"]
 
 
-def build_udf_sproc_identifier(
-    udf_sproc,
-    slq_exec_mixin,
-    include_parameter_names,
-    include_default_values=False,
-):
-    def format_arg(arg: Argument):
-        result = f"{arg.arg_type}"
-        if include_parameter_names:
-            result = f"{arg.name} {result}"
-        if include_default_values and arg.default:
-            val = f"{arg.default}"
-            if _is_signature_type_a_string(arg.arg_type):
-                val = f"'{val}'"
-            result += f" default {val}"
-        return result
+class UdfSprocIdentifier:
+    def __init__(self, identifier: FQN, arg_names, arg_types, arg_defaults):
+        self._identifier = identifier
+        self._arg_names = arg_names
+        self._arg_types = arg_types
+        self._arg_defaults = arg_defaults
 
-    if udf_sproc.signature and udf_sproc.signature != "null":
-        arguments = ", ".join(format_arg(arg) for arg in udf_sproc.signature)
-    else:
-        arguments = ""
+    def _identifier_from_signature(self, sig: List[str], for_sql: bool = False):
+        signature = self._comma_join(sig)
+        id_ = self._identifier.sql_identifier if for_sql else self._identifier
+        return f"{id_}({signature})"
 
-    name = FQN.from_identifier_model(udf_sproc).using_context().identifier
-    return f"{name}({arguments})"
+    @staticmethod
+    def _comma_join(*args):
+        return ", ".join(*args)
+
+    @property
+    def identifier_with_arg_names(self):
+        return self._identifier_from_signature(self._arg_names)
+
+    @property
+    def identifier_with_arg_types(self):
+        return self._identifier_from_signature(self._arg_types)
+
+    @property
+    def identifier_with_arg_names_types(self):
+        sig = [f"{n} {t}" for n, t in zip(self._arg_names, self._arg_types)]
+        return self._identifier_from_signature(sig)
+
+    @property
+    def identifier_with_arg_names_types_defaults(self):
+        return self._identifier_from_signature(self._full_signature())
+
+    def _full_signature(self):
+        sig = []
+        for name, _type, _default in zip(
+            self._arg_names, self._arg_types, self._arg_defaults
+        ):
+            s = f"{name} {_type}"
+            if _default:
+                if _is_signature_type_a_string(_type):
+                    _default = f"'{_default}'"
+                s += f" default {_default}"
+            sig.append(s)
+        return sig
+
+    @property
+    def identifier_for_sql(self):
+        return self._identifier_from_signature(self._full_signature(), for_sql=True)
+
+    @classmethod
+    def from_definition(cls, udf_sproc: FunctionSchema | ProcedureSchema):
+        names = []
+        types = []
+        defaults = []
+        if udf_sproc.signature and udf_sproc.signature != "null":
+            for arg in udf_sproc.signature:
+                names.append(arg.name)
+                types.append(arg.arg_type)
+                defaults.append(arg.default)
+
+        identifier = FQN.from_identifier_model(udf_sproc).using_context()
+        return cls(identifier, names, types, defaults)
 
 
 def _compare_imports(
