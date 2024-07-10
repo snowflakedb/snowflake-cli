@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from pathlib import Path
 from textwrap import dedent
+from typing import List
 
 from snowflake.cli.plugins.stage.manager import StageManager, StagePathParts
 from snowflake.connector.cursor import SnowflakeCursor
@@ -41,6 +44,10 @@ class GitStagePathParts(StagePathParts):
         stage = Path(self.stage).parts[0]
         file_path_without_prefix = Path(file_path).parts[1:]
         return f"{stage}/{'/'.join(file_path_without_prefix)}"
+
+    def get_directory_from_file_path(self, file_path: str) -> List[str]:
+        stage_path_length = len(Path(self.directory).parts)
+        return list(Path(file_path).parts[3 + stage_path_length : -1])
 
 
 class GitManager(StageManager):

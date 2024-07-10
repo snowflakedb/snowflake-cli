@@ -19,7 +19,9 @@ jobs:
         && (github.event.comment.user.login == 'sfc-gh-turbaszek'
         || github.event.comment.user.login == 'sfc-gh-astus'
         || github.event.comment.user.login == 'sfc-gh-pjob'
-        || github.event.comment.user.login == 'sfc-gh-jsikorski')
+        || github.event.comment.user.login == 'sfc-gh-jsikorski'
+        || github.event.comment.user.login == 'sfc-gh-pczajka'
+        || github.event.comment.user.login == 'sfc-gh-mraba')
       )
       || (github.event_name == 'issues' && github.event.pull_request.user.login != 'whitesource-for-github-com[bot]'))
     steps:
