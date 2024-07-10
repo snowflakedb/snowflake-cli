@@ -14,7 +14,10 @@
 
 from __future__ import annotations
 
+import itertools
 import logging
+from os import path
+from pathlib import Path
 from typing import List, Optional
 
 import typer
@@ -37,7 +40,6 @@ from snowflake.cli.plugins.object.command_aliases import (
     scope_option,
 )
 from snowflake.cli.plugins.object.manager import ObjectManager
-from snowflake.cli.plugins.stage.commands import get
 from snowflake.cli.plugins.stage.manager import OnErrorType
 
 app = SnowTyperFactory(
@@ -264,7 +266,6 @@ def copy(
             )
         )
     return get(
-        recursive=True,
         source_path=repository_path,
         destination_path=destination_path,
         parallel=parallel,
@@ -287,3 +288,18 @@ def execute(
         stage_path=repository_path, on_error=on_error, variables=variables
     )
     return CollectionResult(results)
+
+
+def get(source_path: str, destination_path: str, parallel: int):
+    target = Path(destination_path).resolve()
+
+    cursors = GitManager().get_recursive(
+        stage_path=source_path, dest_path=target, parallel=parallel
+    )
+    results = [list(QueryResult(c).result) for c in cursors]
+    flattened_results = list(itertools.chain.from_iterable(results))
+    sorted_results = sorted(
+        flattened_results,
+        key=lambda e: (path.dirname(e["file"]), path.basename(e["file"])),
+    )
+    return CollectionResult(sorted_results)

@@ -59,6 +59,9 @@ class StagePathParts:
     def add_stage_prefix(self, file_path: str) -> str:
         raise NotImplementedError
 
+    def get_directory_from_file_path(self, file_path: str) -> List[str]:
+        raise NotImplementedError
+
 
 @dataclass
 class DefaultStagePathParts(StagePathParts):
@@ -94,6 +97,10 @@ class DefaultStagePathParts(StagePathParts):
         file_path_without_prefix = Path(file_path).parts[1:]
         return f"{stage}/{'/'.join(file_path_without_prefix)}"
 
+    def get_directory_from_file_path(self, file_path: str) -> List[str]:
+        stage_path_length = len(Path(self.directory).parts)
+        return list(Path(file_path).parts[1 + stage_path_length : -1])
+
 
 @dataclass
 class UserStagePathParts(StagePathParts):
@@ -115,6 +122,10 @@ class UserStagePathParts(StagePathParts):
 
     def add_stage_prefix(self, file_path: str) -> str:
         return f"{self.stage}/{file_path}"
+
+    def get_directory_from_file_path(self, file_path: str) -> List[str]:
+        stage_path_length = len(Path(self.directory).parts)
+        return list(Path(file_path).parts[stage_path_length:-1])
 
 
 class StageManager(SqlExecutionMixin):
@@ -186,20 +197,17 @@ class StageManager(SqlExecutionMixin):
     def get_recursive(
         self, stage_path: str, dest_path: Path, parallel: int = 4
     ) -> List[SnowflakeCursor]:
-        stage_path = self.get_standard_stage_prefix(stage_path)
-        stage_parts_length = len(Path(stage_path).parts)
+        stage_path_parts = self._stage_path_part_factory(stage_path)
 
         results = []
-        for file in self.iter_stage(stage_path):
-            dest_directory = dest_path / "/".join(
-                Path(file).parts[stage_parts_length:-1]
-            )
-            self._assure_is_existing_directory(Path(dest_directory))
-
-            stage_path_with_prefix = self.get_standard_stage_prefix(file)
+        for file_path in self.iter_stage(stage_path):
+            dest_directory = dest_path
+            for path_part in stage_path_parts.get_directory_from_file_path(file_path):
+                dest_directory = dest_directory / path_part
+            self._assure_is_existing_directory(dest_directory)
 
             result = self._execute_query(
-                f"get {self.quote_stage_name(stage_path_with_prefix)} {self._to_uri(f'{dest_directory}/')} parallel={parallel}"
+                f"get {self.quote_stage_name(stage_path_parts.add_stage_prefix(file_path))} {self._to_uri(f'{dest_directory}/')} parallel={parallel}"
             )
             results.append(result)
 
