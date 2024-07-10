@@ -28,6 +28,7 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "private_key_path",
     "session_token",
     "master_token",
+    "token_file_path",
     "database",
     "schema",
     "role",
