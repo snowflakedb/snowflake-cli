@@ -70,8 +70,8 @@ from tests.testing_utils.mock_config import mock_config_key
                         "bundle_root": "",
                         "deploy_root": "",
                         "generated_root": "",
-                        "stage": "",
-                        "scratch_stage": "",
+                        "stage": "stage",
+                        "scratch_stage": "scratch_stage",
                         "distribution": "internal",
                     }
                 }
