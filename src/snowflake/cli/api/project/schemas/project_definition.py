@@ -135,19 +135,18 @@ class DefinitionV20(_ProjectDefinitionBase):
         """
         Applies default values that exist on the model but not specified in yml
         """
-        if "defaults" in data:
-            if "entities" in data:
-                for key, entity in data["entities"].items():
-                    entity_type = entity["type"]
-                    if entity_type not in _v2_entity_types_map:
-                        continue
-                    entity_model = _v2_entity_types_map[entity_type]
-                    for default_key, default_value in data["defaults"].items():
-                        if (
-                            default_key in entity_model.model_fields
-                            and default_key not in entity
-                        ):
-                            entity[default_key] = default_value
+        if "defaults" in data and "entities" in data:
+            for key, entity in data["entities"].items():
+                entity_type = entity["type"]
+                if entity_type not in _v2_entity_types_map:
+                    continue
+                entity_model = _v2_entity_types_map[entity_type]
+                for default_key, default_value in data["defaults"].items():
+                    if (
+                        default_key in entity_model.model_fields
+                        and default_key not in entity
+                    ):
+                        entity[default_key] = default_value
         return data
 
     @field_validator("entities", mode="after")
