@@ -272,6 +272,20 @@ MasterTokenOption = typer.Option(
     hidden=True,
 )
 
+TokenFilePathOption = typer.Option(
+    None,
+    "--token-file-path",
+    help="Path to file with an OAuth token that should be used when connecting to Snowflake",
+    callback=_callback(
+        lambda: cli_context_manager.connection_context.set_token_file_path
+    ),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+    exists=True,
+    file_okay=True,
+    dir_okay=False,
+)
+
 DatabaseOption = typer.Option(
     None,
     "--database",
