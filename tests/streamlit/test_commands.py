@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import shutil
+from pathlib import Path
 from textwrap import dedent
 from unittest import mock
 
@@ -49,7 +50,7 @@ def test_describe_streamlit(mock_connector, runner, mock_ctx):
 
 def _put_query(source: str, dest: str):
     return dedent(
-        f"put file://{source} {dest} auto_compress=false parallel=4 overwrite=True"
+        f"put file://{Path(source)} {dest} auto_compress=false parallel=4 overwrite=True"
     )
 
 
@@ -649,7 +650,9 @@ def test_deploy_streamlit_nonexisting_file(
     ):
         result = runner.invoke(["streamlit", "deploy"])
 
-        assert f"Provided file {opts[1]} does not exist" in result.output
+        assert f"Provided file {opts[1]} does not exist" in result.output.replace(
+            "\\", "/"
+        )
 
 
 @mock.patch("snowflake.connector.connect")

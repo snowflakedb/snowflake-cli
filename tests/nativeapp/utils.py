@@ -146,18 +146,18 @@ def _all_paths_under_dir(root: Path) -> List[Path]:
 
 
 # TODO: move to shared utils between integration tests and unit tests once available
-def assert_dir_snapshot(root: Path, snapshot) -> None:
+def assert_dir_snapshot(root: Path, os_agnostic_snapshot) -> None:
     all_paths = _all_paths_under_dir(root)
 
     # Verify the contents of the directory matches expectations
-    assert "\n".join([_stringify_path(p) for p in all_paths]) == snapshot
+    assert "\n".join([_stringify_path(p) for p in all_paths]) == os_agnostic_snapshot
 
     # Verify that each file under the directory matches expectations
     for path in all_paths:
         if path.is_file():
             snapshot_contents = f"===== Contents of: {path} =====\n"
             snapshot_contents += path.read_text(encoding="utf-8")
-            assert snapshot_contents == snapshot
+            assert snapshot_contents == os_agnostic_snapshot
 
 
 def create_native_app_project_model(

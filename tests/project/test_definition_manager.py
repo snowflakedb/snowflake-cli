@@ -21,7 +21,7 @@ from snowflake.cli.api.utils.models import ProjectEnvironment
 
 def mock_is_file_for(*known_files):
     def fake_is_file(self):
-        return str(self) in known_files
+        return str(self) in [str(Path(f)) for f in known_files]
 
     return mock.patch.object(Path, "is_file", autospec=True, side_effect=fake_is_file)
 

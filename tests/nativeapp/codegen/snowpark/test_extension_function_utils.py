@@ -176,7 +176,7 @@ class Alternator:
 ).strip()
 
 
-def test_deannotate_module_source_removes_all_annotations(snapshot):
+def test_deannotate_module_source_removes_all_annotations(os_agnostic_snapshot):
     sproc = NativeAppExtensionFunction(
         type="procedure",
         handler="math_fns.sproc_sum",
@@ -205,11 +205,11 @@ def test_deannotate_module_source_removes_all_annotations(snapshot):
     )
     assert (
         ef_utils.deannotate_module_source(TEST_SNOWPARK_CODE, [sproc, udf, udtf])
-        == snapshot
+        == os_agnostic_snapshot
     )
 
 
-def test_deannotate_module_source_preserves_specified_annotations(snapshot):
+def test_deannotate_module_source_preserves_specified_annotations(os_agnostic_snapshot):
     sproc = NativeAppExtensionFunction(
         type="procedure",
         handler="math_fns.sproc_sum",
@@ -240,7 +240,7 @@ def test_deannotate_module_source_preserves_specified_annotations(snapshot):
         ef_utils.deannotate_module_source(
             TEST_SNOWPARK_CODE, [sproc, udf, udtf], annotations_to_preserve=["custom"]
         )
-        == snapshot
+        == os_agnostic_snapshot
     )
     assert (
         ef_utils.deannotate_module_source(
@@ -248,12 +248,12 @@ def test_deannotate_module_source_preserves_specified_annotations(snapshot):
             [sproc, udf, udtf],
             annotations_to_preserve=["module.annotation"],
         )
-        == snapshot
+        == os_agnostic_snapshot
     )
 
 
 def test_deannotate_module_source_is_identity_when_no_functions_present(
-    snapshot,
+    os_agnostic_snapshot,
 ):
     sproc = NativeAppExtensionFunction(
         type="procedure",
@@ -298,7 +298,7 @@ def test_deannotate_module_source_is_identity_when_no_functions_present(
 
 
 def test_deannotate_module_source_is_identity_when_no_annotated_functions_present(
-    snapshot,
+    os_agnostic_snapshot,
 ):
     sproc = NativeAppExtensionFunction(
         type="procedure",
@@ -346,7 +346,7 @@ def test_deannotate_module_source_is_identity_when_no_annotated_functions_presen
 
 
 def test_deannotate_module_source_is_identity_when_extension_function_does_not_match(
-    snapshot,
+    os_agnostic_snapshot,
 ):
     sproc = NativeAppExtensionFunction(
         type="procedure",
