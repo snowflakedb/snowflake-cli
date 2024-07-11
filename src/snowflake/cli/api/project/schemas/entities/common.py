@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 from abc import ABC
-from enum import Enum
 from typing import Generic, List, Optional, TypeVar
 
 from pydantic import AliasChoices, Field, GetCoreSchemaHandler, ValidationInfo
@@ -27,11 +26,6 @@ from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
 )
-
-
-class EntityType(Enum):
-    APPLICATION = "application"
-    APPLICATION_PACKAGE = "application package"
 
 
 class MetaField(UpdatableModel):
@@ -61,6 +55,10 @@ class DefaultsField(UpdatableModel):
 
 
 class EntityBase(ABC, UpdatableModel):
+    @classmethod
+    def get_type(cls) -> str:
+        return cls.model_fields["type"].annotation.__args__[0]
+
     meta: Optional[MetaField] = Field(title="Meta fields", default=None)
 
 

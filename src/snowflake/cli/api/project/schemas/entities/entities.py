@@ -27,6 +27,4 @@ ALL_ENTITIES = [ApplicationEntity, ApplicationPackageEntity]
 
 Entity = Union[*ALL_ENTITIES]  # type: ignore[valid-type]
 
-v2_entity_types_map = {
-    e.model_fields["type"].annotation.__args__[0]: e for e in ALL_ENTITIES
-}
+v2_entity_types_map = {e.get_type(): e for e in ALL_ENTITIES}

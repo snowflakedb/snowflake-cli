@@ -21,9 +21,11 @@ from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.errors import SchemaValidationError
+from snowflake.cli.api.project.schemas.entities.application_entity import (
+    ApplicationEntity,
+)
 from snowflake.cli.api.project.schemas.entities.common import (
     DefaultsField,
-    EntityType,
     TargetField,
 )
 from snowflake.cli.api.project.schemas.entities.entities import (
@@ -144,7 +146,7 @@ class DefinitionV20(_ProjectDefinitionBase):
     def validate_entities(cls, entities: Dict[str, Entity]) -> Dict[str, Entity]:
         for key, entity in entities.items():
             # TODO Automatically detect TargetFields to validate
-            if entity.type == EntityType.APPLICATION.value:
+            if entity.type == ApplicationEntity.get_type():
                 if isinstance(entity.from_.target, TargetField):
                     target = str(entity.from_.target)
                     if target not in entities:
