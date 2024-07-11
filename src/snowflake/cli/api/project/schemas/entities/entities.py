@@ -25,6 +25,6 @@ from snowflake.cli.api.project.schemas.entities.application_package_entity impor
 
 ALL_ENTITIES = [ApplicationEntity, ApplicationPackageEntity]
 
-Entity = Union[*ALL_ENTITIES]  # type: ignore[valid-type]
+Entity = Union[ApplicationEntity, ApplicationPackageEntity]
 
 v2_entity_types_map = {e.get_type(): e for e in ALL_ENTITIES}
