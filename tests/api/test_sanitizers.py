@@ -17,11 +17,6 @@ from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from typer.testing import CliRunner
 
-from tests_common import IS_WINDOWS
-
-if IS_WINDOWS:
-    pytest.skip("Does not work on Windows", allow_module_level=True)
-
 
 @pytest.mark.parametrize(
     "text, expected",
