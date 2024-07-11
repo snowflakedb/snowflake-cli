@@ -153,7 +153,7 @@ def assert_dir_snapshot(root: Path, os_agnostic_snapshot) -> None:
     assert "\n".join([_stringify_path(p) for p in all_paths]) == os_agnostic_snapshot
 
     # Verify that each file under the directory matches expectations
-    for path in sorted(all_paths):
+    for path in all_paths:
         if path.is_file():
             snapshot_contents = f"===== Contents of: {path.as_posix()} =====\n"
             snapshot_contents += path.read_text(encoding="utf-8")
