@@ -465,10 +465,10 @@ class StageManager(SqlExecutionMixin):
         # req_file at this moment is the first found requirements file
         with SecurePath.temporary_directory() as tmp_dir:
             self.get(
-                stage_path_parts.get_full_stage_path(requirements_file), Path(tmp_dir)
+                stage_path_parts.get_full_stage_path(requirements_file), tmp_dir.path
             )
             requirements = parse_requirements(
-                requirements_file=SecurePath(tmp_dir) / "requirements.txt"
+                requirements_file=tmp_dir / "requirements.txt"
             )
 
         return [req.package_name for req in requirements]

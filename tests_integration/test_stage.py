@@ -355,7 +355,7 @@ def test_stage_execute_python(
             [
                 "stage",
                 "copy",
-                f"{project_path}/{name}",
+                str(Path(project_path) / name),
                 f"@{stage_name}",
             ]
         )

@@ -1122,7 +1122,7 @@ def test_stage_manager_check_for_requirements_file(
 
         def __call__(self, file_on_stage, target_dir):
             self.download_file = file_on_stage
-            (Path(target_dir) / "requirements.txt").write_text("\n".join(packages))
+            (target_dir / "requirements.txt").write_text("\n".join(packages))
 
     get_mock = _MockGetter()
     sm = StageManager()
