@@ -148,19 +148,25 @@ class DefinitionV20(_ProjectDefinitionBase):
             # TODO Automatically detect TargetFields to validate
             if entity.type == ApplicationEntity.get_type():
                 if isinstance(entity.from_.target, TargetField):
-                    target = str(entity.from_.target)
-                    if target not in entities:
-                        raise ValueError(f"No such target: {target}")
-                    else:
-                        # Validate the target type
-                        target_cls = entity.from_.__class__.model_fields["target"]
-                        target_type = target_cls.annotation.__args__[0]
-                        actual_target_type = entities[target].__class__
-                        if target_type and target_type is not actual_target_type:
-                            raise ValueError(
-                                f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
-                            )
+                    target_key = str(entity.from_.target)
+                    target_class = entity.from_.__class__.model_fields["target"]
+                    target_type = target_class.annotation.__args__[0]
+                    cls._validate_target_field(target_key, target_type, entities)
         return entities
+
+    @classmethod
+    def _validate_target_field(
+        cls, target_key: str, target_type: Entity, entities: Dict[str, Entity]
+    ):
+        if target_key not in entities:
+            raise ValueError(f"No such target: {target_key}")
+        else:
+            # Validate the target type
+            actual_target_type = entities[target_key].__class__
+            if target_type and target_type is not actual_target_type:
+                raise ValueError(
+                    f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
+                )
 
     defaults: Optional[DefaultsField] = Field(
         title="Default key/value entity values that are merged recursively for each entity.",
