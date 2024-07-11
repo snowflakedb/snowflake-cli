@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Union, get_args
 
 from snowflake.cli.api.project.schemas.entities.application_entity import (
     ApplicationEntity,
@@ -23,8 +23,8 @@ from snowflake.cli.api.project.schemas.entities.application_package_entity impor
     ApplicationPackageEntity,
 )
 
-ALL_ENTITIES = [ApplicationEntity, ApplicationPackageEntity]
-
 Entity = Union[ApplicationEntity, ApplicationPackageEntity]
+
+ALL_ENTITIES = [*get_args(Entity)]
 
 v2_entity_types_map = {e.get_type(): e for e in ALL_ENTITIES}

@@ -220,5 +220,5 @@ def test_defaults_do_not_override_values():
 def test_entity_types():
     v2_entity_types_map
     for entity_type, entity_class in v2_entity_types_map.items():
-        model_entity_type = entity_class.model_fields["type"].annotation.__args__[0]
+        model_entity_type = entity_class.get_type()
         assert model_entity_type == entity_type
