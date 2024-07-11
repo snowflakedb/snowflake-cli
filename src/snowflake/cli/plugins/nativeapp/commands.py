@@ -33,6 +33,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     ObjectResult,
 )
+from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.nativeapp.common_flags import (
     ForceOption,
@@ -145,13 +146,16 @@ def app_list_templates(**options) -> CommandResult:
 
 
 @app.command("bundle")
-@with_project_definition("native_app")
+@with_project_definition()
 def app_bundle(
     **options,
 ) -> CommandResult:
     """
     Prepares a local folder with configured app artifacts.
     """
+
+    assert_project_type("native_app")
+
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -161,7 +165,7 @@ def app_bundle(
 
 
 @app.command("run", requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
 def app_run(
     version: Optional[str] = typer.Option(
         None,
@@ -190,6 +194,8 @@ def app_run(
     Creates an application package in your Snowflake account, uploads code files to its stage,
     then creates or upgrades an application object from the application package.
     """
+
+    assert_project_type("native_app")
 
     is_interactive = False
     if force:
@@ -221,7 +227,7 @@ def app_run(
 
 
 @app.command("open", requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
 def app_open(
     **options,
 ) -> CommandResult:
@@ -229,6 +235,9 @@ def app_open(
     Opens the Snowflake Native App inside of your browser,
     once it has been installed in your account.
     """
+
+    assert_project_type("native_app")
+
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -243,7 +252,7 @@ def app_open(
 
 
 @app.command("teardown", requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
 def app_teardown(
     force: Optional[bool] = ForceOption,
     cascade: Optional[bool] = typer.Option(
@@ -257,6 +266,9 @@ def app_teardown(
     """
     Attempts to drop both the application object and application package as defined in the project definition file.
     """
+
+    assert_project_type("native_app")
+
     processor = NativeAppTeardownProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -266,7 +278,7 @@ def app_teardown(
 
 
 @app.command("deploy", requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
@@ -296,6 +308,9 @@ def app_deploy(
     Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
     Running this command with no arguments at all, as in `snow app deploy`, is a shorthand for `snow app deploy --prune --recursive`.
     """
+
+    assert_project_type("native_app")
+
     has_paths = paths is not None and len(paths) > 0
     if prune is None and recursive is None and not has_paths:
         prune = True
@@ -329,11 +344,14 @@ def app_deploy(
 
 
 @app.command("validate", requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
 def app_validate(**options):
     """
     Validates a deployed Snowflake Native App's setup script.
     """
+
+    assert_project_type("native_app")
+
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,

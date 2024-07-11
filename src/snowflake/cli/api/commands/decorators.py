@@ -74,9 +74,7 @@ def global_options_with_connection(func: Callable):
     )
 
 
-def with_project_definition(
-    project_name: Optional[str] = None, is_optional: bool = False
-):
+def with_project_definition(is_optional: bool = False):
     def _decorator(func: Callable):
 
         return _options_decorator_factory(
@@ -86,7 +84,7 @@ def with_project_definition(
                     "project_definition",
                     inspect.Parameter.KEYWORD_ONLY,
                     annotation=Optional[str],
-                    default=project_definition_option(project_name, is_optional),
+                    default=project_definition_option(is_optional),
                 ),
                 inspect.Parameter(
                     "env_overrides",
