@@ -27,7 +27,7 @@ from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.commands.typer_pre_execute import register_pre_execute_command
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.exceptions import MissingConfiguration, NoProjectDefinitionError
+from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
@@ -516,7 +516,7 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
     )
 
 
-def register_project_definition(project_name: Optional[str], is_optional: bool) -> None:
+def register_project_definition(is_optional: bool) -> None:
     project_path = cli_context_manager.project_path_arg
     env_overrides_args = cli_context_manager.project_env_overrides_args
 
@@ -530,42 +530,21 @@ def register_project_definition(project_name: Optional[str], is_optional: bool) 
             "Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
         )
 
-    if project_name is not None and not getattr(project_definition, project_name, None):
-        raise NoProjectDefinitionError(
-            project_type=project_name, project_file=project_path
-        )
-
     cli_context_manager.set_project_definition(project_definition)
     cli_context_manager.set_project_root(project_root)
     cli_context_manager.set_template_context(template_context)
 
 
-def _get_project_long_name(project_short_name: Optional[str]) -> str:
-    if project_short_name is None:
-        return "Snowflake"
-
-    if project_short_name == "native_app":
-        project_long_name = "Snowflake Native App"
-    elif project_short_name == "streamlit":
-        project_long_name = "Streamlit app"
-    else:
-        project_long_name = project_short_name.replace("_", " ").capitalize()
-
-    return f"the {project_long_name}"
-
-
-def project_definition_option(project_name: Optional[str], is_optional: bool):
+def project_definition_option(is_optional: bool):
     def project_definition_callback(project_path: str) -> None:
         cli_context_manager.set_project_path_arg(project_path)
-        register_pre_execute_command(
-            lambda: register_project_definition(project_name, is_optional)
-        )
+        register_pre_execute_command(lambda: register_project_definition(is_optional))
 
     return typer.Option(
         None,
         "-p",
         "--project",
-        help=f"Path where {_get_project_long_name(project_name)} project resides. "
+        help=f"Path where Snowflake project resides. "
         f"Defaults to current working directory.",
         callback=_callback(lambda: project_definition_callback),
         show_default=False,

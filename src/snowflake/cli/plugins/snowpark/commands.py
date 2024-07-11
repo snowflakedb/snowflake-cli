@@ -38,9 +38,7 @@ from snowflake.cli.api.constants import (
     DEPLOYMENT_STAGE,
     ObjectType,
 )
-from snowflake.cli.api.exceptions import (
-    SecretsWithoutExternalAccessIntegrationError,
-)
+from snowflake.cli.api.exceptions import SecretsWithoutExternalAccessIntegrationError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -48,6 +46,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.api.project.schemas.snowpark.callable import (
     FunctionSchema,
     ProcedureSchema,
@@ -116,7 +115,7 @@ add_init_command(app, project_type="Snowpark", template="default_snowpark")
 
 
 @app.command("deploy", requires_connection=True)
-@with_project_definition("snowpark")
+@with_project_definition()
 def deploy(
     replace: bool = ReplaceOption(
         help="Replaces procedure or function, even if no detected changes to metadata"
@@ -128,6 +127,9 @@ def deploy(
     By default, if any of the objects exist already the commands will fail unless `--replace` flag is provided.
     All deployed objects use the same artifact which is deployed only once.
     """
+
+    assert_project_type("snowpark")
+
     snowpark = cli_context.project_definition.snowpark
     paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
@@ -379,7 +381,7 @@ def _read_snowflake_requrements_file(file_path: SecurePath):
 
 
 @app.command("build", requires_connection=True)
-@with_project_definition("snowpark")
+@with_project_definition()
 def build(
     ignore_anaconda: bool = IgnoreAnacondaOption,
     allow_shared_libraries: bool = AllowSharedLibrariesOption,
@@ -396,6 +398,9 @@ def build(
     Builds the Snowpark project as a `.zip` archive that can be used by `deploy` command.
     The archive is built using only the `src` directory specified in the project file.
     """
+
+    assert_project_type("snowpark")
+
     if not deprecated_check_anaconda_for_pypi_deps:
         ignore_anaconda = True
     snowpark_paths = SnowparkPackagePaths.for_snowpark_project(

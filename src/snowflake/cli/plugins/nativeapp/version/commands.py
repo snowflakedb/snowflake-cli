@@ -25,6 +25,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
+from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli.plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
@@ -46,7 +47,7 @@ log = logging.getLogger(__name__)
 
 
 @app.command(requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
 def create(
     version: Optional[str] = typer.Argument(
         None,
@@ -71,6 +72,9 @@ def create(
     """
     Adds a new patch to the provided version defined in your application package. If the version does not exist, creates a version with patch 0.
     """
+
+    assert_project_type("native_app")
+
     if version is None and patch is not None:
         raise MissingParameter("Cannot provide a patch without version!")
 
@@ -107,13 +111,16 @@ def create(
 
 
 @app.command("list", requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
 def version_list(
     **options,
 ) -> CommandResult:
     """
     Lists all versions defined in an application package.
     """
+
+    assert_project_type("native_app")
+
     processor = NativeAppRunProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -123,7 +130,7 @@ def version_list(
 
 
 @app.command(requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
 def drop(
     version: Optional[str] = typer.Argument(
         None,
@@ -137,6 +144,9 @@ def drop(
     Drops a version defined in your application package. Versions can either be passed in as an argument to the command or read from the `manifest.yml` file.
     Dropping patches is not allowed.
     """
+
+    assert_project_type("native_app")
+
     is_interactive = False
     if force:
         policy = AllowAlwaysPolicy()
