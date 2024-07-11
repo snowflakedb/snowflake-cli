@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_error_handling
+# name: test_error_too_low_cli_version
   '''
   +- Error ----------------------------------------------------------------------+
   | Snowflake CLI version (915.6.0) is too low - minimum version required by     |
