@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
@@ -218,33 +219,39 @@ class NativeAppManager(SqlExecutionMixin):
     def package_warehouse(self) -> Optional[str]:
         return self.na_project.package_warehouse
 
-    def use_package_warehouse(self) -> str:
+    @contextmanager
+    def use_package_warehouse(self):
         if self.package_warehouse:
-            return self.package_warehouse
-        raise ClickException(
-            dedent(
-                f"""\
-            Application package warehouse cannot be empty.
-            Please provide a value for it in your connection information or your project definition file.
-            """
+            with self.use_warehouse(self.package_warehouse):
+                yield
+        else:
+            raise ClickException(
+                dedent(
+                    f"""\
+                Application package warehouse cannot be empty.
+                Please provide a value for it in your connection information or your project definition file.
+                """
+                )
             )
-        )
 
     @property
     def application_warehouse(self) -> Optional[str]:
         return self.na_project.application_warehouse
 
-    def use_application_warehouse(self) -> str:
+    @contextmanager
+    def use_application_warehouse(self):
         if self.application_warehouse:
-            return self.application_warehouse
-        raise ClickException(
-            dedent(
-                f"""\
-            Application warehouse cannot be empty.
-            Please provide a value for it in your connection information or your project definition file.
-            """
+            with self.use_warehouse(self.application_warehouse):
+                yield
+        else:
+            raise ClickException(
+                dedent(
+                    f"""\
+                Application warehouse cannot be empty.
+                Please provide a value for it in your connection information or your project definition file.
+                """
+                )
             )
-        )
 
     @property
     def project_identifier(self) -> str:
@@ -508,7 +515,7 @@ class NativeAppManager(SqlExecutionMixin):
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
         name = identifier_for_url(self.app_name)
-        with self.use_warehouse(self.use_application_warehouse()):
+        with self.use_application_warehouse():
             return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
 
     def create_app_package(self) -> None:
@@ -582,7 +589,7 @@ class NativeAppManager(SqlExecutionMixin):
                 raise InvalidPackageScriptError(relpath, e)
 
         # once we're sure all the templates expanded correctly, execute all of them
-        with self.use_warehouse(self.use_package_warehouse()):
+        with self.use_package_warehouse():
             try:
                 for i, queries in enumerate(queued_queries):
                     cc.step(f"Applying package script: {self.package_scripts[i]}")
