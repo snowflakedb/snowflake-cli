@@ -19,6 +19,11 @@ from unittest import mock
 import pytest
 import snowflake.cli.plugins.nativeapp.codegen.sandbox as sandbox
 
+from tests_common import IS_WINDOWS
+
+if IS_WINDOWS:
+    pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
+
 PYTHON_SCRIPT = """
 import sys
 

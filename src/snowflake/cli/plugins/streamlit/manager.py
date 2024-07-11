@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -47,7 +48,7 @@ class StreamlitManager(SqlExecutionMixin):
         main_file: Path,
         environment_file: Optional[Path],
         pages_dir: Optional[Path],
-        additional_source_files: Optional[List[str]],
+        additional_source_files: Optional[List[Path]],
     ):
         stage_manager = StageManager()
 
@@ -61,13 +62,10 @@ class StreamlitManager(SqlExecutionMixin):
 
         if additional_source_files:
             for file in additional_source_files:
-                # If the file is in a folder, PUT it to the same folder in the stage
-                # If not, just PUT it to the root of the stage
-                destination = (
-                    f"{root_location}/{str(Path(file).parent)}"
-                    if "/" in file
-                    else root_location
-                )
+                if os.sep in str(file):
+                    destination = f"{root_location}/{str(file.parent)}"
+                else:
+                    destination = root_location
                 stage_manager.put(file, destination, 4, True)
 
     def _create_streamlit(
@@ -115,7 +113,7 @@ class StreamlitManager(SqlExecutionMixin):
         stage_name: Optional[str] = None,
         query_warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
-        additional_source_files: Optional[List[str]] = None,
+        additional_source_files: Optional[List[Path]] = None,
         title: Optional[str] = None,
         **options,
     ):

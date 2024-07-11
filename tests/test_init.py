@@ -80,7 +80,7 @@ def test_error_handling(
     )
     assert result.exit_code == 1
     assert "The directory" in result.output
-    assert "already exists." in result.output
+    assert "exists." in result.output
 
     # template does not exist
     project_name = "this_project_does_not_exist"

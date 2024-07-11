@@ -156,37 +156,37 @@ def test_pre_callback_error_path(cli):
     assert len(exception_callback.call_args_list) == 1
 
 
-def test_command_without_any_options(cli, snapshot):
+def test_command_without_any_options(cli, os_agnostic_snapshot):
     result = cli(app_factory(SnowTyperFactory))(["simple_cmd", "--help"])
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
-def test_command_with_global_options(cli, snapshot):
+def test_command_with_global_options(cli, os_agnostic_snapshot):
     result = cli(app_factory(SnowTyperFactory))(["cmd_with_global_options", "--help"])
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
-def test_command_with_connection_options(cli, snapshot):
+def test_command_with_connection_options(cli, os_agnostic_snapshot):
     result = cli(app_factory(SnowTyperFactory))(
         ["cmd_with_connection_options", "--help"]
     )
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
-def test_enabled_command_is_visible(cli, snapshot):
+def test_enabled_command_is_visible(cli, os_agnostic_snapshot):
     global _ENABLED_FLAG
     _ENABLED_FLAG = True
     result = cli(app_factory(SnowTyperFactory))(["switchable_cmd", "--help"])
     assert result.exit_code == 0
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
-def test_enabled_command_is_not_visible(cli, snapshot):
+def test_enabled_command_is_not_visible(cli, os_agnostic_snapshot):
     global _ENABLED_FLAG
     _ENABLED_FLAG = False
     result = cli(app_factory(SnowTyperFactory))(["switchable_cmd", "--help"])
     assert result.exit_code == 2
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch("snowflake.cli.app.telemetry.log_command_usage")
