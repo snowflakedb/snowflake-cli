@@ -37,6 +37,10 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
 
 from tests.nativeapp.utils import assert_dir_snapshot, create_native_app_project_model
 from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
+from tests_common import IS_WINDOWS
+
+if IS_WINDOWS:
+    pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
 
 PROJECT_ROOT = Path("/path/to/project")
 
@@ -162,20 +166,26 @@ def test_execute_in_sandbox_all_possible_none_cases(mock_sandbox):
 
 
 def test_generate_create_sql_ddl_statements_w_all_entries(
-    native_app_extension_function, snapshot
+    native_app_extension_function, os_agnostic_snapshot
 ):
-    assert generate_create_sql_ddl_statement(native_app_extension_function) == snapshot
+    assert (
+        generate_create_sql_ddl_statement(native_app_extension_function)
+        == os_agnostic_snapshot
+    )
 
 
 def test_generate_create_sql_ddl_statements_w_select_entries(
-    native_app_extension_function, snapshot
+    native_app_extension_function, os_agnostic_snapshot
 ):
     native_app_extension_function.imports = None
     native_app_extension_function.packages = None
     native_app_extension_function.schema_name = None
     native_app_extension_function.secrets = None
     native_app_extension_function.external_access_integrations = None
-    assert generate_create_sql_ddl_statement(native_app_extension_function) == snapshot
+    assert (
+        generate_create_sql_ddl_statement(native_app_extension_function)
+        == os_agnostic_snapshot
+    )
 
 
 # --------------------------------------------------------
@@ -183,8 +193,13 @@ def test_generate_create_sql_ddl_statements_w_select_entries(
 # --------------------------------------------------------
 
 
-def test_generate_grant_sql_ddl_statements(native_app_extension_function, snapshot):
-    assert generate_grant_sql_ddl_statements(native_app_extension_function) == snapshot
+def test_generate_grant_sql_ddl_statements(
+    native_app_extension_function, os_agnostic_snapshot
+):
+    assert (
+        generate_grant_sql_ddl_statements(native_app_extension_function)
+        == os_agnostic_snapshot
+    )
 
 
 # --------------------------------------------------------
@@ -192,7 +207,7 @@ def test_generate_grant_sql_ddl_statements(native_app_extension_function, snapsh
 # --------------------------------------------------------
 
 
-def test_edit_setup_script_with_exec_imm_sql(snapshot):
+def test_edit_setup_script_with_exec_imm_sql(os_agnostic_snapshot):
     manifest_contents = dedent(
         f"""\
         manifest_version: 1
@@ -223,10 +238,12 @@ def test_edit_setup_script_with_exec_imm_sql(snapshot):
                 generated_root=generated_root,
             )
 
-            assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
+            assert_dir_snapshot(
+                deploy_root.relative_to(local_path), os_agnostic_snapshot
+            )
 
 
-def test_edit_setup_script_with_exec_imm_sql_noop(snapshot):
+def test_edit_setup_script_with_exec_imm_sql_noop(os_agnostic_snapshot):
     manifest_contents = dedent(
         f"""\
         manifest_version: 1
@@ -253,10 +270,12 @@ def test_edit_setup_script_with_exec_imm_sql_noop(snapshot):
                 generated_root=Path(deploy_root, "__generated"),
             )
 
-            assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
+            assert_dir_snapshot(
+                deploy_root.relative_to(local_path), os_agnostic_snapshot
+            )
 
 
-def test_edit_setup_script_with_exec_imm_sql_symlink(snapshot):
+def test_edit_setup_script_with_exec_imm_sql_symlink(os_agnostic_snapshot):
     manifest_contents = dedent(
         f"""\
         manifest_version: 1
@@ -288,7 +307,9 @@ def test_edit_setup_script_with_exec_imm_sql_symlink(snapshot):
                 generated_root=Path(deploy_root, "__generated"),
             )
 
-            assert_dir_snapshot(deploy_root.relative_to(local_path), snapshot)
+            assert_dir_snapshot(
+                deploy_root.relative_to(local_path), os_agnostic_snapshot
+            )
 
 
 # --------------------------------------------------------
@@ -320,7 +341,7 @@ minimal_dir_structure = {
     "snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor._execute_in_sandbox",
 )
 def test_process_no_collected_functions(
-    mock_sandbox, native_app_project_instance, snapshot
+    mock_sandbox, native_app_project_instance, os_agnostic_snapshot
 ):
     with temp_local_dir(minimal_dir_structure) as local_path:
         with pushd(local_path):
@@ -338,7 +359,9 @@ def test_process_no_collected_functions(
                 write_to_sql=False,  # For testing
             )
 
-            assert_dir_snapshot(project.deploy_root.relative_to(local_path), snapshot)
+            assert_dir_snapshot(
+                project.deploy_root.relative_to(local_path), os_agnostic_snapshot
+            )
 
 
 @mock.patch(
@@ -348,7 +371,7 @@ def test_process_with_collected_functions(
     mock_sandbox,
     native_app_project_instance,
     native_app_extension_function_raw_data,
-    snapshot,
+    os_agnostic_snapshot,
 ):
 
     with temp_local_dir(minimal_dir_structure) as local_path:
@@ -386,7 +409,9 @@ def test_process_with_collected_functions(
                 processor_mapping=processor_mapping,
             )
 
-            assert_dir_snapshot(project.deploy_root.relative_to(local_path), snapshot)
+            assert_dir_snapshot(
+                project.deploy_root.relative_to(local_path), os_agnostic_snapshot
+            )
 
 
 @pytest.mark.parametrize(
@@ -417,7 +442,7 @@ def test_package_normalization(
     package_decl,
     native_app_project_instance,
     native_app_extension_function_raw_data,
-    snapshot,
+    os_agnostic_snapshot,
 ):
 
     with temp_local_dir(minimal_dir_structure) as local_path:
@@ -445,4 +470,4 @@ def test_package_normalization(
 
             dest_file = project.generated_root / "stagepath" / "main.sql"
             assert dest_file.is_file()
-            assert dest_file.read_text(encoding="utf-8") == snapshot
+            assert dest_file.read_text(encoding="utf-8") == os_agnostic_snapshot

@@ -108,7 +108,8 @@ repos:
           (?x)
           ^\.github/|
           tests/test_data/projects/.*|
-          tests_integration/test_data/projects/.*
+          tests_integration/test_data/projects/.*|
+          src/snowflake/cli/templates/.*
         files: \.py$|\.pyi$
         args:
           - --comment-style

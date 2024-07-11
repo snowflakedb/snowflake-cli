@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -25,9 +24,9 @@ from tempfile import TemporaryDirectory
 import pytest
 from snowflake.cli import __about__
 
-TEST_DIR = Path(__file__).parent
+from tests_common import IS_WINDOWS
 
-IS_WINDOWS = platform.system() == "Windows"
+TEST_DIR = Path(__file__).parent
 
 
 def _clean_output(text: str):

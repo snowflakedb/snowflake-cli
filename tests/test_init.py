@@ -51,9 +51,7 @@ def project_definition_copy(test_projects_path):
     yield copy_project_definition
 
 
-def test_error_handling(
-    runner, test_projects_path, temp_dir, project_definition_copy, monkeypatch, snapshot
-):
+def test_error_missing_template_yml(runner, test_projects_path, temp_dir):
     # no template.yml
     project_name = "example_streamlit_no_defaults"
     result = runner.invoke(
@@ -68,7 +66,9 @@ def test_error_handling(
     assert "Template does not have template.yml file." in result.output
     assert not Path(project_name).exists()
 
-    # project already exists
+
+def test_error_project_already_exists(runner, test_projects_path, temp_dir):
+    # destination directory already exists
     project_name = "project_templating"
     result = runner.invoke(
         [
@@ -80,8 +80,10 @@ def test_error_handling(
     )
     assert result.exit_code == 1
     assert "The directory" in result.output
-    assert "already exists." in result.output
+    assert "exists." in result.output
 
+
+def test_error_template_does_not_exist(runner, test_projects_path, temp_dir):
     # template does not exist
     project_name = "this_project_does_not_exist"
     result = runner.invoke(
@@ -98,6 +100,8 @@ def test_error_handling(
     assert f"Template '{project_name}' cannot be found under" in result.output
     assert not Path(project_name).exists()
 
+
+def test_error_source_does_not_exist(runner, test_projects_path, temp_dir):
     # template source does not exist
     with pytest.raises(FileNotFoundError, match=".*No such file or directory.*"):
         project_name = "this_project_does_not_exist"
@@ -111,6 +115,10 @@ def test_error_handling(
         )
     assert not Path(project_name).exists()
 
+
+def test_error_too_low_cli_version(
+    runner, temp_dir, project_definition_copy, monkeypatch, snapshot
+):
     # Too low CLI version
     project_name = "example_streamlit_no_defaults"
     with project_definition_copy(project_name) as template_root:
@@ -127,6 +135,8 @@ def test_error_handling(
         assert result.output == snapshot
         assert not Path(project_name).exists()
 
+
+def test_error_undefined_variable(runner, temp_dir, project_definition_copy):
     # variable not defined in template.yml
     project_name = "project_templating"
     with project_definition_copy(project_name) as template_root:

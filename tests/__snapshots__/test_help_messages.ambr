@@ -46,8 +46,8 @@
    Prepares a local folder with configured app artifacts.                         
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --project  -p      TEXT  Path where the Snowflake Native App project         |
-  |                          resides. Defaults to current working directory.     |
+  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
+  |                          current working directory.                          |
   | --env              TEXT  String in format of key=value. Overrides variables  |
   |                          from env section used for templating.               |
   | --help     -h            Show this message and exit.                         |
@@ -106,9 +106,9 @@
   |                                          validation of a deployed Snowflake  |
   |                                          Native App's setup script SQL       |
   |                                          [default: validate]                 |
-  | --project    -p                    TEXT  Path where the Snowflake Native App |
-  |                                          project resides. Defaults to        |
-  |                                          current working directory.          |
+  | --project    -p                    TEXT  Path where Snowflake project        |
+  |                                          resides. Defaults to current        |
+  |                                          working directory.                  |
   | --env                              TEXT  String in format of key=value.      |
   |                                          Overrides variables from env        |
   |                                          section used for templating.        |
@@ -267,8 +267,8 @@
    installed in your account.                                                     
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --project  -p      TEXT  Path where the Snowflake Native App project         |
-  |                          resides. Defaults to current working directory.     |
+  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
+  |                          current working directory.                          |
   | --env              TEXT  String in format of key=value. Overrides variables  |
   |                          from env section used for templating.               |
   | --help     -h            Show this message and exit.                         |
@@ -414,8 +414,7 @@
   |                                                        Native App's setup    |
   |                                                        script SQL            |
   |                                                        [default: validate]   |
-  | --project             -p                      TEXT     Path where the        |
-  |                                                        Snowflake Native App  |
+  | --project             -p                      TEXT     Path where Snowflake  |
   |                                                        project resides.      |
   |                                                        Defaults to current   |
   |                                                        working directory.    |
@@ -514,9 +513,9 @@
   |                                              to True in an interactive shell |
   |                                              environment, and False          |
   |                                              otherwise.                      |
-  | --project      -p                      TEXT  Path where the Snowflake Native |
-  |                                              App project resides. Defaults   |
-  |                                              to current working directory.   |
+  | --project      -p                      TEXT  Path where Snowflake project    |
+  |                                              resides. Defaults to current    |
+  |                                              working directory.              |
   | --env                                  TEXT  String in format of key=value.  |
   |                                              Overrides variables from env    |
   |                                              section used for templating.    |
@@ -588,8 +587,8 @@
    Validates a deployed Snowflake Native App's setup script.                      
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --project  -p      TEXT  Path where the Snowflake Native App project         |
-  |                          resides. Defaults to current working directory.     |
+  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
+  |                          current working directory.                          |
   | --env              TEXT  String in format of key=value. Overrides variables  |
   |                          from env section used for templating.               |
   | --help     -h            Show this message and exit.                         |
@@ -704,10 +703,9 @@
   |                                                    want perform potentially  |
   |                                                    destructive actions.      |
   |                                                    Defaults to unset.        |
-  | --project         -p                      TEXT     Path where the Snowflake  |
-  |                                                    Native App project        |
-  |                                                    resides. Defaults to      |
-  |                                                    current working           |
+  | --project         -p                      TEXT     Path where Snowflake      |
+  |                                                    project resides. Defaults |
+  |                                                    to current working        |
   |                                                    directory.                |
   | --env                                     TEXT     String in format of       |
   |                                                    key=value. Overrides      |
@@ -807,9 +805,9 @@
   |                                              want perform potentially        |
   |                                              destructive actions. Defaults   |
   |                                              to unset.                       |
-  | --project      -p                      TEXT  Path where the Snowflake Native |
-  |                                              App project resides. Defaults   |
-  |                                              to current working directory.   |
+  | --project      -p                      TEXT  Path where Snowflake project    |
+  |                                              resides. Defaults to current    |
+  |                                              working directory.              |
   | --env                                  TEXT  String in format of key=value.  |
   |                                              Overrides variables from env    |
   |                                              section used for templating.    |
@@ -881,8 +879,8 @@
    Lists all versions defined in an application package.                          
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --project  -p      TEXT  Path where the Snowflake Native App project         |
-  |                          resides. Defaults to current working directory.     |
+  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
+  |                          current working directory.                          |
   | --env              TEXT  String in format of key=value. Overrides variables  |
   |                          from env section used for templating.               |
   | --help     -h            Show this message and exit.                         |
@@ -3160,7 +3158,7 @@
   | --skip-version-check                    Skip comparing versions of           |
   |                                         dependencies between requirements    |
   |                                         and Anaconda.                        |
-  | --project                 -p      TEXT  Path where the Snowpark project      |
+  | --project                 -p      TEXT  Path where Snowflake project         |
   |                                         resides. Defaults to current working |
   |                                         directory.                           |
   | --env                             TEXT  String in format of key=value.       |
@@ -3239,8 +3237,8 @@
   +- Options --------------------------------------------------------------------+
   | --replace                Replaces procedure or function, even if no detected |
   |                          changes to metadata                                 |
-  | --project  -p      TEXT  Path where the Snowpark project resides. Defaults   |
-  |                          to current working directory.                       |
+  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
+  |                          current working directory.                          |
   | --env              TEXT  String in format of key=value. Overrides variables  |
   |                          from env section used for templating.               |
   | --help     -h            Show this message and exit.                         |
@@ -7538,8 +7536,8 @@
   +- Options --------------------------------------------------------------------+
   | --replace                Replace the Streamlit app if it already exists.     |
   | --open                   Whether to open the Streamlit app in a browser.     |
-  | --project  -p      TEXT  Path where the Streamlit app project resides.       |
-  |                          Defaults to current working directory.              |
+  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
+  |                          current working directory.                          |
   | --env              TEXT  String in format of key=value. Overrides variables  |
   |                          from env section used for templating.               |
   | --help     -h            Show this message and exit.                         |

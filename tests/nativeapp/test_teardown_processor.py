@@ -1073,7 +1073,7 @@ def test_drop_application_cascade(
     expected_cascade,
     temp_dir,
     capsys,
-    snapshot,
+    os_agnostic_snapshot,
 ):
     if isinstance(application_objects, Exception):
         mock_get_objects_owned_by_application.side_effect = application_objects
@@ -1106,4 +1106,4 @@ def test_drop_application_cascade(
             cascade=expected_cascade,
         )
         stdout, _ = capsys.readouterr()
-        assert stdout == snapshot
+        assert stdout == os_agnostic_snapshot

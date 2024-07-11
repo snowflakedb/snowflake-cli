@@ -11,8 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import platform
 
-from tests_common.path_utils import *
+from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.exceptions import NoProjectDefinitionError
 
-IS_WINDOWS = platform.system() == "Windows"
+
+def assert_project_type(project_type: str):
+    if not getattr(cli_context.project_definition, project_type, None):
+        raise NoProjectDefinitionError(
+            project_type=project_type, project_file=cli_context.project_root
+        )

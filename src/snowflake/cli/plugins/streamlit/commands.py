@@ -35,6 +35,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.plugins.object.command_aliases import (
     add_object_command_aliases,
@@ -118,7 +119,7 @@ def _default_file_callback(param_name: str):
 
 
 @app.command("deploy", requires_connection=True)
-@with_project_definition("streamlit")
+@with_project_definition()
 @with_experimental_behaviour()
 def streamlit_deploy(
     replace: bool = ReplaceOption(
@@ -132,6 +133,9 @@ def streamlit_deploy(
     environment.yml and any other pages or folders, if present. If you don’t specify a stage name, the `streamlit`
     stage is used. If the specified stage does not exist, the command creates it.
     """
+
+    assert_project_type("streamlit")
+
     streamlit: Streamlit = cli_context.project_definition.streamlit
     if not streamlit:
         return MessageResult("No streamlit were specified in project definition.")

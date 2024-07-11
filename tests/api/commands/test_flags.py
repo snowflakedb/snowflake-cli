@@ -28,12 +28,12 @@ from typer.core import TyperOption
 from typer.testing import CliRunner
 
 
-def test_format(runner, snapshot):
+def test_format(runner, os_agnostic_snapshot):
     result = runner.invoke(
         ["stage", "list-files", "stage_name", "--format", "invalid_format"]
     )
 
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 def test_password_flag():
@@ -101,7 +101,7 @@ def test_mutually_exclusive_options_no_error(set1, set2):
     assert result.exit_code == 0
 
 
-def test_mutually_exclusive_options_error(snapshot):
+def test_mutually_exclusive_options_error(os_agnostic_snapshot):
     app = Typer()
 
     @app.command()
@@ -112,7 +112,7 @@ def test_mutually_exclusive_options_error(snapshot):
     runner = CliRunner()
     result = runner.invoke(app, command)
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 def test_overrideable_option_callback_passthrough():
@@ -185,7 +185,7 @@ def test_overrideable_option_invalid_callback_signature(callback):
         invalid_callback_option()
 
 
-def test_overrideable_option_callback_with_mutually_exclusive(snapshot):
+def test_overrideable_option_callback_with_mutually_exclusive(os_agnostic_snapshot):
     """
     Tests that is both 'callback' and 'mutually_exclusive' are passed to OverrideableOption, both are respected. This
     is mainly for the rare use case where you are using 'mutually_exclusive' with non-flag options.
@@ -213,4 +213,4 @@ def test_overrideable_option_callback_with_mutually_exclusive(snapshot):
     # test that we can't provide both options as non-falsey values without throwing error
     result = runner.invoke(app, ["--option1", "1", "--option2", "2"])
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot

@@ -40,13 +40,13 @@ def test_sql_execute_query(mock_execute, runner, mock_cursor):
 
 
 @mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
-def test_sql_execute_file(mock_execute, runner, mock_cursor):
+def test_sql_execute_file(mock_execute, runner, mock_cursor, named_temporary_file):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from file"
 
-    with NamedTemporaryFile("r") as tmp_file:
-        Path(tmp_file.name).write_text(query)
-        result = runner.invoke(["sql", "-f", tmp_file.name])
+    with named_temporary_file() as tmp_file:
+        tmp_file.write_text(query)
+        result = runner.invoke(["sql", "-f", tmp_file])
 
     assert result.exit_code == 0
     mock_execute.assert_called_once_with(query, cursor_class=VerboseCursor)
@@ -85,10 +85,10 @@ def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with(query, cursor_class=VerboseCursor)
 
 
-def test_sql_help_if_no_query_file_or_stdin(runner, snapshot):
+def test_sql_help_if_no_query_file_or_stdin(runner, os_agnostic_snapshot):
     result = runner.invoke(["sql"])
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @pytest.mark.parametrize("inputs", [("-i", "-q", "foo"), ("-i",), ("-q", "foo")])

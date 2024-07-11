@@ -27,6 +27,9 @@ from snowflake.cli.api.config import config_init
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.app import loggers
+from syrupy.extensions import AmberSnapshotExtension
+
+from tests_common import IS_WINDOWS
 
 pytest_plugins = [
     "tests_common",
@@ -34,6 +37,30 @@ pytest_plugins = [
     "tests.project.fixtures",
     "tests.nativeapp.fixtures",
 ]
+
+
+class CustomSnapshotExtension(AmberSnapshotExtension):
+    def matches(
+        self,
+        *,
+        serialized_data,
+        snapshot_data,
+    ) -> bool:
+        if isinstance(serialized_data, str) and IS_WINDOWS:
+            # To make Windows path to work with snapshots
+            serialized_data = serialized_data.replace("\\", "/")
+            # To make POSIX path snapshot work with Windows
+            serialized_data = serialized_data.replace("//", "/")
+            # To fix side effects of above replace change
+            serialized_data = serialized_data.replace("https:/", "https://")
+        return super().matches(
+            serialized_data=serialized_data, snapshot_data=snapshot_data
+        )
+
+
+@pytest.fixture()
+def os_agnostic_snapshot(snapshot):
+    return snapshot.use_extension(CustomSnapshotExtension)
 
 
 @pytest.fixture(autouse=True)
