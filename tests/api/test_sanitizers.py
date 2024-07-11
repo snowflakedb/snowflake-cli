@@ -17,6 +17,11 @@ from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from typer.testing import CliRunner
 
+from tests_common import IS_WINDOWS
+
+if IS_WINDOWS:
+    pytest.skip("Does not work on Windows", allow_module_level=True)
+
 
 @pytest.mark.parametrize(
     "text, expected",
@@ -35,7 +40,7 @@ def test_sanitize_for_terminal(text, expected):
     assert result == expected
 
 
-def test_snow_typer_help_sanitization(snapshot):
+def test_snow_typer_help_sanitization(os_agnostic_snapshot):
     app = SnowTyper()
 
     escape_text = "'\033[0i\007'"
@@ -62,7 +67,7 @@ def test_snow_typer_help_sanitization(snapshot):
 
     runner = CliRunner()
     result = runner.invoke(app, ["--help"])
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
     result = runner.invoke(app, ["func2"])
     assert result.output == ""

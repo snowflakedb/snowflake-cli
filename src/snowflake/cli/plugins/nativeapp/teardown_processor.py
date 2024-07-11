@@ -20,6 +20,7 @@ from typing import Dict, Optional
 
 import typer
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.errno import APPLICATION_NO_LONGER_AVAILABLE
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
@@ -28,7 +29,6 @@ from snowflake.cli.plugins.nativeapp.constants import (
     INTERNAL_DISTRIBUTION,
     OWNER_COL,
 )
-from snowflake.cli.plugins.nativeapp.errno import APPLICATION_NO_LONGER_AVAILABLE
 from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
 )
@@ -226,8 +226,13 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
             )
             if show_versions_cursor.rowcount is None:
                 raise SnowflakeSQLExecutionError(show_versions_query)
+
             if show_versions_cursor.rowcount > 0:
-                raise CouldNotDropApplicationPackageWithVersions()
+                # allow dropping a package with versions when --force is set
+                if not auto_yes:
+                    raise CouldNotDropApplicationPackageWithVersions(
+                        "Drop versions first, or use --force to override."
+                    )
 
         # 4. Check distribution of the existing application package
         actual_distribution = self.get_app_pkg_distribution_in_snowflake

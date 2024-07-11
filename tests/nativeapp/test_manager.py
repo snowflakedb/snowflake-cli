@@ -20,6 +20,7 @@ from unittest import mock
 from unittest.mock import call
 
 import pytest
+from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -252,7 +253,8 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
             (None, mock.call("use role package_role")),
             (
                 ProgrammingError(
-                    msg="Application package app_pkg does not exist or not authorized."
+                    msg="Application package app_pkg does not exist or not authorized.",
+                    errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
                 ),
                 mock.call("describe application package app_pkg"),
             ),
@@ -1008,7 +1010,7 @@ def test_validate_not_deployed(mock_execute, temp_dir, mock_cursor):
             (
                 ProgrammingError(
                     msg="Application package app_pkg does not exist or not authorized.",
-                    errno=2003,
+                    errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
                 ),
                 mock.call(
                     "call system$validate_native_app_setup('@app_pkg.app_src.stage')"

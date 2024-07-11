@@ -1,0 +1,32 @@
+# serializer version: 1
+# name: test_error_too_low_cli_version
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Snowflake CLI version (915.6.0) is too low - minimum version required by     |
+  | template is 916.0.0. Please upgrade before continuing.                       |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_typechecking
+  '''
+  required_project_name: project_name
+  optional_int [4]: 23.1
+  Error: '23.1' is not a valid integer.
+  optional_int [4]: 23
+  Testing prompt of a string [default value for string]: custom value for string
+  optional_float [1.5]: 3..14
+  Error: '3..14' is not a valid float.
+  optional_float [1.5]: 3.14
+  An optional value with no type checking [5]: another custom value
+  Initialized the new project in project_templating
+  
+  '''
+# ---
+# name: test_variables_flags
+  '''
+  Testing prompt of a string [default value for string]: 
+  Initialized the new project in project_templating
+  
+  '''
+# ---

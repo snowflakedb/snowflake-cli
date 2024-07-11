@@ -17,6 +17,10 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.errno import (
+    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    NO_WAREHOUSE_SELECTED_IN_SESSION,
+)
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.exceptions import (
     InvalidPackageScriptError,
@@ -151,7 +155,8 @@ def test_package_scripts_w_missing_warehouse_exception(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute_query.return_value = mock_cursor(["row"], [])
     mock_execute_queries.side_effect = ProgrammingError(
-        msg="No active warehouse selected in the current session.", errno=606
+        msg="No active warehouse selected in the current session.",
+        errno=NO_WAREHOUSE_SELECTED_IN_SESSION,
     )
 
     working_dir: Path = project_definition_files[0].parent
@@ -173,7 +178,8 @@ def test_package_scripts_w_warehouse_access_exception(
 ):
     mock_conn.return_value = MockConnectionCtx()
     mock_execute_query.side_effect = ProgrammingError(
-        msg="Object does not exist, or operation cannot be performed.", errno=2043
+        msg="Object does not exist, or operation cannot be performed.",
+        errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     )
 
     working_dir: Path = project_definition_files[0].parent

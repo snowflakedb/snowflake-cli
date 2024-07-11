@@ -25,7 +25,6 @@ from tests_integration.test_utils import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
-    rows_from_snowflake_session,
 )
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
@@ -423,17 +422,34 @@ def test_nativeapp_init_from_repo_with_single_template(
 
 # Tests that application post-deploy scripts are executed by creating a post_deploy_log table and having each post-deploy script add a record to it
 @pytest.mark.integration
-def test_nativeapp_app_post_deploy(runner, snowflake_session, project_directory):
+@pytest.mark.parametrize("is_versioned", [True, False])
+def test_nativeapp_app_post_deploy(
+    runner, snowflake_session, project_directory, is_versioned
+):
+    version = "v1"
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
-    with project_directory("napp_application_post_deploy") as tmp_dir:
-        try:
-            # First run, application is created
+
+    def run():
+        """(maybe) create a version, then snow app run"""
+        if is_versioned:
             result = runner.invoke_with_connection_json(
-                ["app", "run"],
+                ["app", "version", "create", version],
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
+
+        run_args = ["--version", version] if is_versioned else []
+        result = runner.invoke_with_connection_json(
+            ["app", "run"] + run_args,
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+    with project_directory("napp_application_post_deploy") as tmp_dir:
+        try:
+            # First run, application is created (and maybe a version)
+            run()
 
             # Verify both scripts were executed
             assert row_from_snowflake_session(
@@ -446,11 +462,7 @@ def test_nativeapp_app_post_deploy(runner, snowflake_session, project_directory)
             ]
 
             # Second run, application is upgraded
-            result = runner.invoke_with_connection_json(
-                ["app", "run"],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
+            run()
 
             # Verify both scripts were executed
             assert row_from_snowflake_session(
@@ -465,6 +477,14 @@ def test_nativeapp_app_post_deploy(runner, snowflake_session, project_directory)
             ]
 
         finally:
+            # need to drop the version before we can teardown
+            if is_versioned:
+                result = runner.invoke_with_connection_json(
+                    ["app", "version", "drop", version, "--force"],
+                    env=TEST_ENV,
+                )
+                assert result.exit_code == 0
+
             result = runner.invoke_with_connection_json(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
@@ -587,6 +607,86 @@ def test_nativeapp_run_orphan(
 
             # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+# Verifies that we can always cross-upgrade between different
+# run configurations as long as we pass the --force flag to "app run"
+# TODO: add back all parameterizations and implement --force for "app teardown"
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "run_args_from, run_args_to",
+    [
+        ([], []),
+        ([], ["--version", "v1"]),
+        ([], ["--from-release-directive"]),
+        (["--version", "v1"], []),
+        (["--version", "v1"], ["--version", "v1"]),
+        (["--version", "v1"], ["--from-release-directive"]),
+        (["--from-release-directive"], []),
+        (["--from-release-directive"], ["--version", "v1"]),
+        (["--from-release-directive"], ["--from-release-directive"]),
+    ],
+)
+def test_nativeapp_force_cross_upgrade(
+    runner,
+    temporary_working_directory,
+    run_args_from,
+    run_args_to,
+):
+    project_name = "xupgrade"
+    app_name = f"{project_name}_{USER_NAME}"
+    pkg_name = f"{project_name}_pkg_{USER_NAME}"
+
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    with pushd(Path(os.getcwd(), project_name)):
+        try:
+            # Create version
+            result = runner.invoke_with_connection(
+                ["app", "version", "create", "v1"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # Set default release directive
+            result = runner.invoke_with_connection(
+                [
+                    "sql",
+                    "-q",
+                    f"alter application package {pkg_name} set default release directive version = v1 patch = 0",
+                ],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # Initial run
+            result = runner.invoke_with_connection(
+                ["app", "run"] + run_args_from,
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+            # (Cross-)upgrade
+            is_cross_upgrade = run_args_from != run_args_to
+            result = runner.invoke_with_connection(
+                ["app", "run"] + run_args_to + ["--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+            if is_cross_upgrade:
+                assert f"Dropping application object {app_name}." in result.output
+
+        finally:
+            # Drop the package
+            result = runner.invoke_with_connection(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
             )

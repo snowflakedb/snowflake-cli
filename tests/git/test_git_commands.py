@@ -17,6 +17,7 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import DictCursor, ProgrammingError
 
@@ -118,7 +119,7 @@ def test_fetch(mock_connector, runner, mock_ctx):
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch.object(StageManager, "iter_stage")
-@mock.patch("snowflake.cli.plugins.stage.commands.QueryResult")
+@mock.patch("snowflake.cli.plugins.git.commands.QueryResult")
 def test_copy_to_local_file_system(
     mock_result, mock_iter, mock_connector, runner, mock_ctx, temp_dir
 ):
@@ -140,7 +141,7 @@ def test_copy_to_local_file_system(
     assert (
         ctx.get_query()
         == f"""get {repo_prefix}file.txt file://{local_path.resolve()}/ parallel=4
-get {repo_prefix}dir/file_in_dir.txt file://{local_path.resolve()}/dir/ parallel=4"""
+get {repo_prefix}dir/file_in_dir.txt file://{local_path.resolve() / 'dir'}/ parallel=4"""
     )
 
 
@@ -187,7 +188,9 @@ def test_setup_already_exists_error(mock_om_describe, mock_connector, runner, mo
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
 def test_setup_invalid_url_error(mock_om_describe, mock_connector, runner, mock_ctx):
-    mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    mock_om_describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     communication = "http://invalid_url.git\ns"
@@ -204,7 +207,7 @@ def test_setup_no_secret_existing_api(
     mock_om_describe, mock_connector, runner, mock_ctx
 ):
     mock_om_describe.side_effect = [
-        ProgrammingError("does not exist or not authorized"),
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
         None,
     ]
     mock_om_describe.return_value = [None, {"object_details": "something"}]
@@ -237,7 +240,9 @@ def test_setup_no_secret_existing_api(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
 def test_setup_no_secret_create_api(mock_om_describe, mock_connector, runner, mock_ctx):
-    mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    mock_om_describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
@@ -277,7 +282,7 @@ def test_setup_existing_secret_existing_api(
     mock_om_describe, mock_connector, runner, mock_ctx
 ):
     mock_om_describe.side_effect = [
-        ProgrammingError("does not exist or not authorized"),
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
         None,
         None,
     ]
@@ -319,9 +324,9 @@ def test_setup_existing_secret_create_api(
     mock_om_describe, mock_connector, runner, mock_ctx
 ):
     mock_om_describe.side_effect = [
-        ProgrammingError("does not exist or not authorized"),
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
         None,
-        ProgrammingError("does not exist or not authorized"),
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
     ]
     mock_om_describe.return_value = [None, "secret_details", None]
     ctx = mock_ctx()
@@ -365,7 +370,9 @@ def test_setup_existing_secret_create_api(
 def test_setup_create_secret_create_api(
     mock_om_describe, mock_connector, runner, mock_ctx
 ):
-    mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    mock_om_describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
@@ -449,7 +456,7 @@ def test_execute(
     repository_path,
     expected_stage,
     expected_files,
-    snapshot,
+    os_agnostic_snapshot,
 ):
     mock_execute.return_value = mock_cursor(
         [
@@ -468,7 +475,7 @@ def test_execute(
     assert execute_calls == [
         mock.call(f"execute immediate from {p}") for p in expected_files
     ]
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")

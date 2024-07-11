@@ -20,7 +20,13 @@ from unittest.mock import call
 
 import pytest
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.connector import ProgrammingError
+
+from tests_common import IS_WINDOWS
+
+if IS_WINDOWS:
+    pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
 
 
 def test_deploy_function_no_procedure(runner, project_directory):
@@ -47,7 +53,9 @@ def test_deploy_procedure(
     project_directory,
 ):
 
-    mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    mock_om_describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
@@ -107,7 +115,9 @@ def test_deploy_procedure_with_external_access(
     mock_ctx,
     project_directory,
 ):
-    mock_om_describe.side_effect = ProgrammingError("does not exist or not authorized")
+    mock_om_describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
     mock_om_show.return_value = [
         {"name": "external_1", "type": "EXTERNAL_ACCESS"},
         {"name": "external_2", "type": "EXTERNAL_ACCESS"},
@@ -164,7 +174,7 @@ def test_deploy_procedure_secrets_without_external_access(
     runner,
     mock_ctx,
     project_directory,
-    snapshot,
+    os_agnostic_snapshot,
 ):
     ctx = mock_ctx()
     mock_conn.return_value = ctx
@@ -184,7 +194,7 @@ def test_deploy_procedure_secrets_without_external_access(
         )
 
     assert result.exit_code == 1, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch("snowflake.connector.connect")
@@ -197,7 +207,7 @@ def test_deploy_procedure_fails_if_integration_does_not_exists(
     runner,
     mock_ctx,
     project_directory,
-    snapshot,
+    os_agnostic_snapshot,
 ):
     ctx = mock_ctx()
     mock_conn.return_value = ctx
@@ -216,7 +226,7 @@ def test_deploy_procedure_fails_if_integration_does_not_exists(
         )
 
     assert result.exit_code == 1, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch(
@@ -234,7 +244,7 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
     mock_cursor,
     mock_ctx,
     project_directory,
-    snapshot,
+    os_agnostic_snapshot,
 ):
     mock_om_describe.return_value = mock_cursor(
         [
@@ -251,7 +261,7 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
         result = runner.invoke(["snowpark", "deploy"])
 
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch("snowflake.connector.connect")
@@ -382,7 +392,7 @@ def test_deploy_procedure_replace_creates_missing_object(
             ],
             columns=["key", "value"],
         ),
-        ProgrammingError("does not exist or not authorized"),
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
     ]
     ctx = mock_ctx()
     mock_conn.return_value = ctx
@@ -416,18 +426,18 @@ def test_deploy_procedure_fully_qualified_name(
     mock_ctx,
     project_directory,
     alter_snowflake_yml,
-    snapshot,
+    os_agnostic_snapshot,
 ):
     number_of_procedures_in_projects = 6
     mock_om_describe.side_effect = [
-        ProgrammingError("does not exist or not authorized"),
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
     ] * number_of_procedures_in_projects
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
     with project_directory("snowpark_procedure_fully_qualified_name") as tmp_dir:
         result = runner.invoke(["snowpark", "deploy"])
-        assert result.output == snapshot(name="database error")
+        assert result.output == os_agnostic_snapshot(name="database error")
 
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
@@ -435,7 +445,7 @@ def test_deploy_procedure_fully_qualified_name(
             value="custom_schema.fqn_procedure_error",
         )
         result = runner.invoke(["snowpark", "deploy"])
-        assert result.output == snapshot(name="schema error")
+        assert result.output == os_agnostic_snapshot(name="schema error")
 
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
@@ -444,7 +454,7 @@ def test_deploy_procedure_fully_qualified_name(
         )
         result = runner.invoke(["snowpark", "deploy"])
         assert result.exit_code == 0
-        assert result.output == snapshot(name="ok")
+        assert result.output == os_agnostic_snapshot(name="ok")
 
 
 @mock.patch("snowflake.connector.connect")

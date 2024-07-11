@@ -17,13 +17,15 @@ from unittest import mock
 
 import pytest
 from jinja2 import UndefinedError
+from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
 from snowflake.cli.api.utils.models import ProjectEnvironment
-from snowflake.cli.api.utils.rendering import snowflake_sql_jinja_render
 
 
 @pytest.fixture
 def cli_context():
-    with mock.patch("snowflake.cli.api.utils.rendering.cli_context") as cli_context:
+    with mock.patch(
+        "snowflake.cli.api.rendering.sql_templates.cli_context"
+    ) as cli_context:
         cli_context.template_context = {
             "ctx": {"env": ProjectEnvironment(default_env={}, override_env={})}
         }
@@ -94,5 +96,8 @@ def test_that_undefined_variables_raise_error(text, cli_context):
         snowflake_sql_jinja_render(text)
 
 
+@mock.patch.dict(os.environ, {"TEST_ENV_VAR": "foo"})
 def test_contex_can_access_environment_variable(cli_context):
-    assert snowflake_sql_jinja_render("&{ ctx.env.USER }") == os.environ.get("USER")
+    assert snowflake_sql_jinja_render("&{ ctx.env.TEST_ENV_VAR }") == os.environ.get(
+        "TEST_ENV_VAR"
+    )

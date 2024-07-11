@@ -17,9 +17,16 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
+
+from tests_common import IS_WINDOWS
+
+if IS_WINDOWS:
+    pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
+
 
 STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
 
@@ -318,10 +325,12 @@ def test_stage_copy_local_to_remote_star(mock_execute, runner, mock_cursor):
         ("local/path", "other/local/path"),
     ],
 )
-def test_copy_throws_error_for_same_platform_operation(runner, source, dest, snapshot):
+def test_copy_throws_error_for_same_platform_operation(
+    runner, source, dest, os_agnostic_snapshot
+):
     result = runner.invoke(["stage", "copy", source, dest])
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @pytest.mark.parametrize(
@@ -420,6 +429,67 @@ def test_copy_get_recursive(
     assert copy_calls == [mock.call(c.format(temp_dir)) for c in expected_calls]
 
 
+@pytest.mark.parametrize(
+    "stage_path, files_on_stage, expected_stage_path, expected_calls",
+    [
+        (
+            "@~",
+            ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
+            "@~",
+            [
+                "get '@~/a/s2.sql' file://{}/a/ parallel=4",
+                "get '@~/a/b/s3.sql' file://{}/a/b/ parallel=4",
+                "get '@~/s1.sql' file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@~/a",
+            ["a/s2.sql", "a/b/s3.sql"],
+            "@~/a",
+            [
+                "get '@~/a/s2.sql' file://{}/ parallel=4",
+                "get '@~/a/b/s3.sql' file://{}/b/ parallel=4",
+            ],
+        ),
+        (
+            "@~/a/b/s3.sql",
+            ["a/b/s3.sql"],
+            "@~/a/b/s3.sql",
+            [
+                "get '@~/a/b/s3.sql' file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@~/s1.sql",
+            ["s1.sql"],
+            "@~/s1.sql",
+            [
+                "get '@~/s1.sql' file://{}/ parallel=4",
+            ],
+        ),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_copy_get_recursive_from_user_stage(
+    mock_execute,
+    mock_cursor,
+    temp_dir,
+    stage_path,
+    files_on_stage,
+    expected_stage_path,
+    expected_calls,
+):
+    mock_execute.return_value = mock_cursor(
+        [{"name": file} for file in files_on_stage], []
+    )
+
+    StageManager().get_recursive(stage_path, Path(temp_dir))
+
+    ls_call, *copy_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls '{expected_stage_path}'", cursor_class=DictCursor)
+    assert copy_calls == [mock.call(c.format(temp_dir)) for c in expected_calls]
+
+
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_create(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
@@ -474,7 +544,7 @@ def test_stage_remove_quoted(mock_execute, runner, mock_cursor):
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_print_result_for_put_directory(
-    mock_execute, mock_cursor, runner, snapshot
+    mock_execute, mock_cursor, runner, os_agnostic_snapshot
 ):
     mock_execute.return_value = mock_cursor(
         rows=[
@@ -502,12 +572,12 @@ def test_stage_print_result_for_put_directory(
         result = runner.invoke(["stage", "copy", tmp_dir, "@stageName"])
 
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_print_result_for_get_all_files_from_stage(
-    mock_execute, mock_cursor, runner, snapshot
+    mock_execute, mock_cursor, runner, os_agnostic_snapshot
 ):
     mock_execute.return_value = mock_cursor(
         rows=[
@@ -527,12 +597,12 @@ def test_stage_print_result_for_get_all_files_from_stage(
         result = runner.invoke(["stage", "copy", "@stageName", tmp_dir])
 
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_print_result_for_get_all_files_from_stage_recursive(
-    mock_execute, mock_cursor, runner, snapshot
+    mock_execute, mock_cursor, runner, os_agnostic_snapshot
 ):
     columns = ["file", "size", "status", "message"]
     mock_execute.side_effect = [
@@ -553,7 +623,7 @@ def test_stage_print_result_for_get_all_files_from_stage_recursive(
         result = runner.invoke(["stage", "copy", "@stageName", tmp_dir, "--recursive"])
 
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -714,7 +784,7 @@ def test_execute(
     stage_path,
     expected_stage,
     expected_files,
-    snapshot,
+    os_agnostic_snapshot,
 ):
     mock_execute.return_value = mock_cursor(
         [
@@ -731,6 +801,46 @@ def test_execute(
     assert result.exit_code == 0, result.output
     ls_call, *execute_calls = mock_execute.mock_calls
     assert ls_call == mock.call(f"ls {expected_stage}", cursor_class=DictCursor)
+    assert execute_calls == [
+        mock.call(f"execute immediate from {p}") for p in expected_files
+    ]
+    assert result.output == os_agnostic_snapshot
+
+
+@pytest.mark.parametrize(
+    "stage_path, expected_files",
+    [
+        ("@~", ["@~/s1.sql", "@~/a/s3.sql", "@~/a/b/s4.sql"]),
+        ("@~/s1.sql", ["@~/s1.sql"]),
+        ("@~/a", ["@~/a/s3.sql", "@~/a/b/s4.sql"]),
+        ("@~/a/s3.sql", ["@~/a/s3.sql"]),
+        ("@~/a/b", ["@~/a/b/s4.sql"]),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_from_user_stage(
+    mock_execute,
+    mock_cursor,
+    runner,
+    stage_path,
+    expected_files,
+    snapshot,
+):
+    mock_execute.return_value = mock_cursor(
+        [
+            {"name": "a/s3.sql"},
+            {"name": "a/b/s4.sql"},
+            {"name": "s1.sql"},
+            {"name": "s2"},
+        ],
+        [],
+    )
+
+    result = runner.invoke(["stage", "execute", stage_path])
+
+    assert result.exit_code == 0, result.output
+    ls_call, *execute_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls '@~'", cursor_class=DictCursor)
     assert execute_calls == [
         mock.call(f"execute immediate from {p}") for p in expected_files
     ]
@@ -770,7 +880,7 @@ def test_execute_with_variables(mock_execute, mock_cursor, runner):
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_execute_raise_invalid_variables_error(
-    mock_execute, mock_cursor, runner, snapshot
+    mock_execute, mock_cursor, runner, os_agnostic_snapshot
 ):
     mock_execute.return_value = mock_cursor([{"name": "exe/s1.sql"}], [])
 
@@ -785,12 +895,12 @@ def test_execute_raise_invalid_variables_error(
     )
 
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_execute_raise_invalid_file_extension_error(
-    mock_execute, mock_cursor, runner, snapshot
+    mock_execute, mock_cursor, runner, os_agnostic_snapshot
 ):
     mock_execute.return_value = mock_cursor([{"name": "exe/s1.txt"}], [])
 
@@ -803,14 +913,17 @@ def test_execute_raise_invalid_file_extension_error(
     )
 
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_execute_not_existing_stage(mock_execute, mock_cursor, runner):
     stage_name = "not_existing_stage"
     mock_execute.side_effect = [
-        ProgrammingError(f"Stage '{stage_name}' does not exist or not authorized.")
+        ProgrammingError(
+            f"Stage '{stage_name}' does not exist or not authorized.",
+            errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
+        )
     ]
 
     with pytest.raises(ProgrammingError) as e:
@@ -819,7 +932,10 @@ def test_execute_not_existing_stage(mock_execute, mock_cursor, runner):
     assert mock_execute.mock_calls == [
         mock.call(f"ls @{stage_name}", cursor_class=DictCursor)
     ]
-    assert e.value.msg == f"Stage '{stage_name}' does not exist or not authorized."
+    assert (
+        e.value.msg
+        == f"002003: 2003: Stage '{stage_name}' does not exist or not authorized."
+    )
 
 
 @pytest.mark.parametrize(
@@ -877,7 +993,9 @@ def test_execute_stop_on_error(mock_execute, mock_cursor, runner):
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_execute_continue_on_error(mock_execute, mock_cursor, runner, snapshot):
+def test_execute_continue_on_error(
+    mock_execute, mock_cursor, runner, os_agnostic_snapshot
+):
     mock_execute.side_effect = [
         mock_cursor(
             [
@@ -895,7 +1013,7 @@ def test_execute_continue_on_error(mock_execute, mock_cursor, runner, snapshot):
     result = runner.invoke(["stage", "execute", "exe", "--on-error", "continue"])
 
     assert result.exit_code == 0
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
     assert mock_execute.mock_calls == [
         mock.call("ls @exe", cursor_class=DictCursor),
         mock.call(f"execute immediate from @exe/s1.sql"),

@@ -28,7 +28,9 @@ from unittest import mock
 
 import pytest
 import yaml
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+from snowflake.cli.api.project.schemas.project_definition import (
+    build_project_definition,
+)
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
 from snowflake.cli.app.cli_app import app_factory
@@ -46,6 +48,7 @@ from tests.testing_utils.files_and_dirs import (
     create_temp_file,
     merge_left,
 )
+from tests_common import IS_WINDOWS
 
 REQUIREMENTS_SNOWFLAKE = "requirements.snowflake.txt"
 REQUIREMENTS_TXT = "requirements.txt"
@@ -237,6 +240,21 @@ def temp_dir():
     tmp.cleanup()
 
 
+@contextmanager
+def _named_temporary_file(suffix=None, prefix=None):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        suffix = suffix or ""
+        prefix = prefix or ""
+        f = Path(tmp_dir) / f"{prefix}tmp_file{suffix}"
+        f.touch()
+        yield f
+
+
+@pytest.fixture()
+def named_temporary_file():
+    return _named_temporary_file
+
+
 @pytest.fixture
 def temp_directory_for_app_zip(temp_dir) -> Generator:
     temp_dir = tempfile.TemporaryDirectory(dir=temp_dir)
@@ -246,15 +264,20 @@ def temp_directory_for_app_zip(temp_dir) -> Generator:
 @pytest.fixture(scope="session")
 def test_snowcli_config():
     test_config = TEST_DIR / "test.toml"
-    with tempfile.NamedTemporaryFile(suffix=".toml", mode="w+") as fh:
-        fh.write(test_config.read_text())
-        fh.flush()
-        yield Path(fh.name)
+    with _named_temporary_file(suffix=".toml") as p:
+        p.write_text(test_config.read_text())
+        p.chmod(0o777)
+        yield p
 
 
 @pytest.fixture(scope="session")
 def test_root_path():
     return TEST_DIR
+
+
+@pytest.fixture(scope="session")
+def test_projects_path(test_root_path):
+    return test_root_path / "test_data" / "projects"
 
 
 @pytest.fixture
@@ -264,12 +287,12 @@ def txt_file_in_a_subdir(temp_dir: str) -> Generator:
 
 
 @pytest.fixture
-def project_directory(temp_dir, test_root_path):
+def project_directory(temp_dir, test_projects_path):
     @contextmanager
     def _temporary_project_directory(
         project_name, merge_project_definition: Optional[dict] = None
     ):
-        test_data_file = test_root_path / "test_data" / "projects" / project_name
+        test_data_file = test_projects_path / project_name
         shutil.copytree(test_data_file, temp_dir, dirs_exist_ok=True)
         if merge_project_definition:
             project_definition = yaml.load(
@@ -282,6 +305,12 @@ def project_directory(temp_dir, test_root_path):
         yield Path(temp_dir)
 
     return _temporary_project_directory
+
+
+@pytest.fixture(autouse=True)
+def global_setup(monkeypatch):
+    width = 81 if IS_WINDOWS else 80
+    monkeypatch.setenv("COLUMNS", str(width))
 
 
 @pytest.fixture
@@ -348,7 +377,7 @@ def function_instance():
 
 @pytest.fixture()
 def native_app_project_instance():
-    return ProjectDefinition(
+    return build_project_definition(
         **{
             "definition_version": "1",
             "native_app": {

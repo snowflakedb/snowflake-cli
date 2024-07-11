@@ -1,4 +1,4 @@
-create application role app_public;
+create application role if not exists app_public;
 create or alter versioned schema core;
 
     create or replace procedure core.echo(inp varchar)

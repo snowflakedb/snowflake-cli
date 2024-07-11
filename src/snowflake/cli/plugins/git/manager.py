@@ -12,11 +12,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from pathlib import Path
 from textwrap import dedent
+from typing import List
 
 from snowflake.cli.plugins.stage.manager import StageManager, StagePathParts
 from snowflake.connector.cursor import SnowflakeCursor
+
+
+class GitStagePathParts(StagePathParts):
+    def __init__(self, stage_path: str):
+        self.stage = GitManager.get_stage_from_path(stage_path)
+        stage_path_parts = Path(stage_path).parts
+        git_repo_name = stage_path_parts[0].split(".")[-1]
+        if git_repo_name.startswith("@"):
+            git_repo_name = git_repo_name[1:]
+        self.stage_name = "/".join([git_repo_name, *stage_path_parts[1:3], ""])
+        self.directory = "/".join(stage_path_parts[3:])
+
+    @property
+    def path(self) -> str:
+        return (
+            f"{self.stage_name}{self.directory}".lower()
+            if self.stage_name.endswith("/")
+            else f"{self.stage_name}/{self.directory}".lower()
+        )
+
+    def add_stage_prefix(self, file_path: str) -> str:
+        stage = Path(self.stage).parts[0]
+        file_path_without_prefix = Path(file_path).parts[1:]
+        return f"{stage}/{'/'.join(file_path_without_prefix)}"
+
+    def get_directory_from_file_path(self, file_path: str) -> List[str]:
+        stage_path_length = len(Path(self.directory).parts)
+        return list(Path(file_path).parts[3 + stage_path_length : -1])
 
 
 class GitManager(StageManager):
@@ -51,22 +82,7 @@ class GitManager(StageManager):
         """
         return f"{'/'.join(Path(path).parts[0:3])}/"
 
-    def _split_stage_path(self, stage_path: str) -> StagePathParts:
-        """
-        Splits Git repository path `@repo/branch/main/dir`
-            stage -> @repo/branch/main/
-            stage_name -> repo/branch/main/
-            directory -> dir
-        For Git repository with fully qualified name `@db.schema.repo/branch/main/dir`
-            stage -> @db.schema.repo/branch/main/
-            stage_name -> repo/branch/main/
-            directory -> dir
-        """
-        stage = self.get_stage_from_path(stage_path)
-        stage_path_parts = Path(stage_path).parts
-        git_repo_name = stage_path_parts[0].split(".")[-1]
-        if git_repo_name.startswith("@"):
-            git_repo_name = git_repo_name[1:]
-        stage_name = "/".join([git_repo_name, *stage_path_parts[1:3], ""])
-        directory = "/".join(stage_path_parts[3:])
-        return StagePathParts(stage, stage_name, directory)
+    @staticmethod
+    def _stage_path_part_factory(stage_path: str) -> StagePathParts:
+        stage_path = StageManager.get_standard_stage_prefix(stage_path)
+        return GitStagePathParts(stage_path)

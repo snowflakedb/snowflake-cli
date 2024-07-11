@@ -18,12 +18,15 @@ from unittest import mock
 import pytest
 import typer
 from click import Abort
+from snowflake.cli.api.errno import (
+    APPLICATION_NO_LONGER_AVAILABLE,
+    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+)
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import (
     SPECIAL_COMMENT,
     SPECIAL_COMMENT_OLD,
 )
-from snowflake.cli.plugins.nativeapp.errno import APPLICATION_NO_LONGER_AVAILABLE
 from snowflake.cli.plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
     UnexpectedOwnerError,
@@ -105,7 +108,7 @@ def test_drop_generic_object_failure_w_exception(mock_execute, temp_dir, mock_cu
             (
                 ProgrammingError(
                     msg="Object does not exist, or operation cannot be performed.",
-                    errno=2043,
+                    errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
                 ),
                 mock.call("drop application package app_pkg"),
             ),
@@ -502,15 +505,10 @@ def test_drop_package_incorrect_owner(
 @mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
 @mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@pytest.mark.parametrize(
-    "auto_yes_param",
-    [True, False],  # This should have no effect on the test
-)
 def test_show_versions_failure_w_exception(
     mock_execute,
     mock_is_correct_owner,
     mock_get_existing_app_pkg_info,
-    auto_yes_param,
     temp_dir,
     mock_cursor,
 ):
@@ -544,7 +542,7 @@ def test_show_versions_failure_w_exception(
 
     teardown_processor = _get_na_teardown_processor()
     with pytest.raises(CouldNotDropApplicationPackageWithVersions):
-        teardown_processor.drop_package(auto_yes_param)
+        teardown_processor.drop_package(auto_yes=False)
     mock_is_correct_owner.assert_called_once()
     mock_get_existing_app_pkg_info.assert_called_once()
 
@@ -1075,7 +1073,7 @@ def test_drop_application_cascade(
     expected_cascade,
     temp_dir,
     capsys,
-    snapshot,
+    os_agnostic_snapshot,
 ):
     if isinstance(application_objects, Exception):
         mock_get_objects_owned_by_application.side_effect = application_objects
@@ -1108,4 +1106,4 @@ def test_drop_application_cascade(
             cascade=expected_cascade,
         )
         stdout, _ = capsys.readouterr()
-        assert stdout == snapshot
+        assert stdout == os_agnostic_snapshot

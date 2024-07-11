@@ -144,6 +144,45 @@ def test_stage_get_recursive(
 
 
 @pytest.mark.integration
+def test_user_stage_get_recursive(
+    runner,
+    snowflake_session,
+    test_database,
+    test_root_path,
+    temporary_working_directory,
+):
+    project_path = test_root_path / "test_data/projects/stage_get_directory_structure"
+    user_stage_name = "@~"
+
+    file_paths = glob.glob(f"{project_path}/**/*.sql", recursive=True)
+    project_path_parts_length = len(project_path.parts)
+    for path in file_paths:
+        dest_path = "/".join(Path(path).parts[project_path_parts_length:-1])
+        result = runner.invoke_with_connection_json(
+            ["stage", "copy", path, f"{user_stage_name}/copy/{dest_path}"]
+        )
+        assert result.exit_code == 0, result.output
+        assert contains_row_with(
+            result.json, {"status": "SKIPPED"}
+        ) or contains_row_with(result.json, {"status": "UPLOADED"})
+
+    runner.invoke_with_connection_json(
+        [
+            "stage",
+            "copy",
+            f"{user_stage_name}/copy",
+            str(temporary_working_directory),
+            "--recursive",
+        ]
+    )
+
+    downloaded_file_paths = glob.glob("**/*.sql", recursive=True)
+    assert downloaded_file_paths == [
+        os.path.join(*Path(f).parts[project_path_parts_length:]) for f in file_paths
+    ]
+
+
+@pytest.mark.integration
 def test_stage_execute(runner, test_database, test_root_path, snapshot):
     project_path = test_root_path / "test_data/projects/stage_execute"
     stage_name = "test_stage_execute"
@@ -227,6 +266,68 @@ def test_stage_execute(runner, test_database, test_root_path, snapshot):
             "Error": None,
         }
     ]
+
+
+@pytest.mark.integration
+def test_user_stage_execute(runner, test_database, test_root_path, snapshot):
+    project_path = test_root_path / "test_data/projects/stage_execute"
+    user_stage_name = "@~"
+
+    files = [
+        ("script1.sql", "execute/sql"),
+        ("script2.sql", "execute/sql/directory"),
+        ("script3.sql", "execute/sql/directory/subdirectory"),
+    ]
+    for name, stage_path in files:
+        result = runner.invoke_with_connection_json(
+            [
+                "stage",
+                "copy",
+                f"{project_path}/{name}",
+                f"{user_stage_name}/{stage_path}",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert contains_row_with(
+            result.json, {"status": "SKIPPED"}
+        ) or contains_row_with(result.json, {"status": "UPLOADED"})
+
+    result = runner.invoke_with_connection_json(
+        ["stage", "execute", f"{user_stage_name}/execute/sql"]
+    )
+    assert result.exit_code == 0
+    assert result.json == snapshot
+
+    result = runner.invoke_with_connection_json(
+        [
+            "stage",
+            "copy",
+            f"{project_path}/script_template.sql",
+            f"{user_stage_name}/execute/template",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert contains_row_with(result.json, {"status": "SKIPPED"}) or contains_row_with(
+        result.json, {"status": "UPLOADED"}
+    )
+
+    result = runner.invoke_with_connection_json(
+        [
+            "stage",
+            "execute",
+            f"{user_stage_name}/execute/template/script_template.sql",
+            "-D",
+            " text = 'string' ",
+            "-D",
+            "value=1",
+            "-D",
+            "boolean=TRUE",
+            "-D",
+            "null_value= NULL",
+        ]
+    )
+    assert result.exit_code == 0
+    assert result.json == snapshot
 
 
 @pytest.mark.integration

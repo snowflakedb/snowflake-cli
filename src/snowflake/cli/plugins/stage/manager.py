@@ -39,17 +39,50 @@ log = logging.getLogger(__name__)
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
 EXECUTE_SUPPORTED_FILES_FORMATS = {".sql"}
+USER_STAGE_PREFIX = "@~"
 
 
 @dataclass
 class StagePathParts:
-    # For path like @db.schema.stage/dir the values will be:
-    # stage = @db.schema.stage
-    stage: str
-    # stage_name = stage/dir
-    stage_name: str
-    # directory = dir
     directory: str
+    stage: str
+    stage_name: str
+
+    @staticmethod
+    def get_directory(stage_path: str) -> str:
+        return "/".join(Path(stage_path).parts[1:])
+
+    @property
+    def path(self) -> str:
+        raise NotImplementedError
+
+    def add_stage_prefix(self, file_path: str) -> str:
+        raise NotImplementedError
+
+    def get_directory_from_file_path(self, file_path: str) -> List[str]:
+        raise NotImplementedError
+
+
+@dataclass
+class DefaultStagePathParts(StagePathParts):
+    """
+    For path like @db.schema.stage/dir the values will be:
+        directory = dir
+        stage = @db.schema.stage
+        stage_name = stage
+    For `@stage/dir` to
+        stage -> @stage
+        stage_name -> stage
+        directory -> dir
+    """
+
+    def __init__(self, stage_path: str):
+        self.directory = self.get_directory(stage_path)
+        self.stage = StageManager.get_stage_from_path(stage_path)
+        stage_name = self.stage.split(".")[-1]
+        if stage_name.startswith("@"):
+            stage_name = stage_name[1:]
+        self.stage_name = stage_name
 
     @property
     def path(self) -> str:
@@ -58,6 +91,41 @@ class StagePathParts:
             if self.stage_name.endswith("/")
             else f"{self.stage_name}/{self.directory}".lower()
         )
+
+    def add_stage_prefix(self, file_path: str) -> str:
+        stage = Path(self.stage).parts[0]
+        file_path_without_prefix = Path(file_path).parts[1:]
+        return f"{stage}/{'/'.join(file_path_without_prefix)}"
+
+    def get_directory_from_file_path(self, file_path: str) -> List[str]:
+        stage_path_length = len(Path(self.directory).parts)
+        return list(Path(file_path).parts[1 + stage_path_length : -1])
+
+
+@dataclass
+class UserStagePathParts(StagePathParts):
+    """
+    For path like @db.schema.stage/dir the values will be:
+        directory = dir
+        stage = @~
+        stage_name = @~
+    """
+
+    def __init__(self, stage_path: str):
+        self.directory = self.get_directory(stage_path)
+        self.stage = "@~"
+        self.stage_name = "@~"
+
+    @property
+    def path(self) -> str:
+        return f"{self.directory}".lower()
+
+    def add_stage_prefix(self, file_path: str) -> str:
+        return f"{self.stage}/{file_path}"
+
+    def get_directory_from_file_path(self, file_path: str) -> List[str]:
+        stage_path_length = len(Path(self.directory).parts)
+        return list(Path(file_path).parts[stage_path_length:-1])
 
 
 class StageManager(SqlExecutionMixin):
@@ -96,12 +164,6 @@ class StageManager(SqlExecutionMixin):
 
         return standard_name
 
-    @staticmethod
-    def remove_stage_prefix(stage_path: str) -> str:
-        if stage_path.startswith("@"):
-            return stage_path[1:]
-        return stage_path
-
     def _to_uri(self, local_path: str):
         uri = f"file://{local_path}"
         if re.fullmatch(UNQUOTED_FILE_URI_REGEX, uri):
@@ -135,20 +197,17 @@ class StageManager(SqlExecutionMixin):
     def get_recursive(
         self, stage_path: str, dest_path: Path, parallel: int = 4
     ) -> List[SnowflakeCursor]:
-        stage_path = self.get_standard_stage_prefix(stage_path)
-        stage_parts_length = len(Path(stage_path).parts)
+        stage_path_parts = self._stage_path_part_factory(stage_path)
 
         results = []
-        for file in self.iter_stage(stage_path):
-            dest_directory = dest_path / "/".join(
-                Path(file).parts[stage_parts_length:-1]
-            )
-            self._assure_is_existing_directory(Path(dest_directory))
-
-            stage_path_with_prefix = self.get_standard_stage_prefix(file)
+        for file_path in self.iter_stage(stage_path):
+            dest_directory = dest_path
+            for path_part in stage_path_parts.get_directory_from_file_path(file_path):
+                dest_directory = dest_directory / path_part
+            self._assure_is_existing_directory(dest_directory)
 
             result = self._execute_query(
-                f"get {self.quote_stage_name(stage_path_with_prefix)} {self._to_uri(f'{dest_directory}/')} parallel={parallel}"
+                f"get {self.quote_stage_name(stage_path_parts.add_stage_prefix(file_path))} {self._to_uri(f'{dest_directory}/')} parallel={parallel}"
             )
             results.append(result)
 
@@ -217,8 +276,7 @@ class StageManager(SqlExecutionMixin):
         on_error: OnErrorType,
         variables: Optional[List[str]] = None,
     ):
-        stage_path_with_prefix = self.get_standard_stage_prefix(stage_path)
-        stage_path_parts = self._split_stage_path(stage_path_with_prefix)
+        stage_path_parts = self._stage_path_part_factory(stage_path)
         all_files_list = self._get_files_list_from_stage(stage_path_parts)
 
         # filter files from stage if match stage_path pattern
@@ -228,41 +286,23 @@ class StageManager(SqlExecutionMixin):
             raise ClickException(f"No files matched pattern '{stage_path}'")
 
         # sort filtered files in alphabetical order with directories at the end
-        sorted_file_list = sorted(
+        sorted_file_path_list = sorted(
             filtered_file_list, key=lambda f: (path.dirname(f), path.basename(f))
         )
 
         sql_variables = self._parse_execute_variables(variables)
         results = []
-        for file in sorted_file_list:
+        for file_path in sorted_file_path_list:
             results.append(
                 self._call_execute_immediate(
                     stage_path_parts=stage_path_parts,
-                    file=file,
+                    file_path=file_path,
                     variables=sql_variables,
                     on_error=on_error,
                 )
             )
 
         return results
-
-    def _split_stage_path(self, stage_path: str) -> StagePathParts:
-        """
-        Splits stage path `@stage/dir` to
-            stage -> @stage
-            stage_name -> stage
-            directory -> dir
-        For stage path with fully qualified name `@db.schema.stage/dir`
-            stage -> @db.schema.stage
-            stage_name -> stage
-            directory -> dir
-        """
-        stage = self.get_stage_from_path(stage_path)
-        stage_name = stage.split(".")[-1]
-        if stage_name.startswith("@"):
-            stage_name = stage_name[1:]
-        directory = "/".join(Path(stage_path).parts[1:])
-        return StagePathParts(stage, stage_name, directory)
 
     def _get_files_list_from_stage(self, stage_path_parts: StagePathParts) -> List[str]:
         files_list_result = self.list_files(stage_path_parts.stage).fetchall()
@@ -314,11 +354,11 @@ class StageManager(SqlExecutionMixin):
     def _call_execute_immediate(
         self,
         stage_path_parts: StagePathParts,
-        file: str,
+        file_path: str,
         variables: Optional[str],
         on_error: OnErrorType,
     ) -> Dict:
-        file_stage_path = self._build_file_stage_path(stage_path_parts, file)
+        file_stage_path = stage_path_parts.add_stage_prefix(file_path)
         try:
             query = f"execute immediate from {file_stage_path}"
             if variables:
@@ -332,9 +372,9 @@ class StageManager(SqlExecutionMixin):
                 raise e
             return {"File": file_stage_path, "Status": "FAILURE", "Error": e.msg}
 
-    def _build_file_stage_path(
-        self, stage_path_parts: StagePathParts, file: str
-    ) -> str:
-        stage = Path(stage_path_parts.stage).parts[0]
-        file_path = Path(file).parts[1:]
-        return f"{stage}/{'/'.join(file_path)}"
+    @staticmethod
+    def _stage_path_part_factory(stage_path: str) -> StagePathParts:
+        stage_path = StageManager.get_standard_stage_prefix(stage_path)
+        if stage_path.startswith(USER_STAGE_PREFIX):
+            return UserStagePathParts(stage_path)
+        return DefaultStagePathParts(stage_path)

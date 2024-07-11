@@ -20,6 +20,23 @@
 ## Deprecations
 
 ## New additions
+* Added connection option `--token-file-path` allowing passing OAuth token using a file. The function is also
+  supported by setting `token_file_path` in connection definition.
+
+## Fixes and improvements
+* The `snow app run` command now allows upgrading to unversioned mode from a versioned or release mode application installation
+* The `snow app teardown` command now allows dropping a package with versions when the `--force` flag is provided
+* The `snow app version create` command now allows operating on application packages created outside the CLI
+* Added support for user stages in stage execute command
+* Added support for user stages in stage and git copy commands
+
+
+# v2.6.0
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
 * Add `snow object create` command
 * Added support for `title` field in Streamlit definition in `snowflake.yml` project file.
 * Added `--auto-compress` flag to `snow stage copy` command enabling use of gzip to compress files during upload.
@@ -48,6 +65,8 @@
 * Added log into the file with loaded external plugins
 * Warn users if they attempt to use templating with project definition version 1
 * Improved output and format of Pydantic validation errors
+* Improved support for quoted identifiers in streamlit commands.
+* The `snow app run` command will no longer override debug mode during an application upgrade unless explicitly set in `snowflake.yml`
 
 # v2.5.0
 ## Backward incompatibility

@@ -133,6 +133,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -289,6 +292,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -439,6 +445,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -531,6 +540,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -600,6 +612,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -719,6 +734,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -814,6 +832,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -883,6 +904,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -1110,6 +1134,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -1214,6 +1241,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -1283,6 +1313,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -1352,6 +1385,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -1434,6 +1470,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -1504,6 +1543,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -1578,6 +1620,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -1654,6 +1699,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -1728,6 +1776,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -1802,6 +1853,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -1878,6 +1932,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -1945,6 +2002,47 @@
   
   '''
 # ---
+# name: test_help_messages[init]
+  '''
+                                                                                  
+   Usage: default init [OPTIONS] PATH                                             
+                                                                                  
+   Creates project directory from template.                                       
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    path      TEXT  Directory to be initialized with the project. This      |
+  |                      directory must not already exist                        |
+  |                      [required]                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --template                 TEXT  which template (subdirectory of             |
+  |                                  --template-source) should be used. If not   |
+  |                                  provided, whole source will be used as the  |
+  |                                  template.                                   |
+  | --template-source          TEXT  local path to template directory or URL to  |
+  |                                  git repository with templates.              |
+  |                                  [default:                                   |
+  |                                  https://github.com/snowflakedb/snowflake-c… |
+  | --variable         -D      TEXT  Variables for the template. For example:    |
+  |                                  `-D "<key>=<value>"`, string values must be |
+  |                                  in `''`.                                    |
+  | --no-interactive                 Disable prompting.                          |
+  | --help             -h            Show this message and exit.                 |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels `info`  |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels `debug` |
+  |                                  and higher; debug logs contains additional  |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[notebook.create]
   '''
                                                                                   
@@ -1983,6 +2081,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -2053,6 +2154,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -2123,6 +2227,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -2193,6 +2300,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -2259,8 +2369,8 @@
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    object_type            TEXT                    Type of object. For      |
-  |                                                     example table,           |
-  |                                                     procedure, streamlit.    |
+  |                                                     example table, database, |
+  |                                                     compute-pool.            |
   |                                                     [required]               |
   |      object_attributes      [OBJECT_ATTRIBUTES]...  Object attributes        |
   |                                                     provided as a list of    |
@@ -2300,6 +2410,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -2347,8 +2460,8 @@
    secret, service, stage, stream, streamlit, table, task, user, view, warehouse  
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    object_type      TEXT  Type of object. For example table, procedure,    |
-  |                             streamlit.                                       |
+  | *    object_type      TEXT  Type of object. For example table, database,     |
+  |                             compute-pool.                                    |
   |                             [required]                                       |
   | *    object_name      TEXT  Name of the object [default: None] [required]    |
   +------------------------------------------------------------------------------+
@@ -2374,6 +2487,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -2422,8 +2538,8 @@
    task, user, view, warehouse                                                    
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    object_type      TEXT  Type of object. For example table, procedure,    |
-  |                             streamlit.                                       |
+  | *    object_type      TEXT  Type of object. For example table, database,     |
+  |                             compute-pool.                                    |
   |                             [required]                                       |
   | *    object_name      TEXT  Name of the object [default: None] [required]    |
   +------------------------------------------------------------------------------+
@@ -2449,6 +2565,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -2497,8 +2616,8 @@
    task, user, view, warehouse                                                    
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    object_type      TEXT  Type of object. For example table, procedure,    |
-  |                             streamlit.                                       |
+  | *    object_type      TEXT  Type of object. For example table, database,     |
+  |                             compute-pool.                                    |
   |                             [required]                                       |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -2534,6 +2653,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -2623,6 +2745,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -2694,6 +2819,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -2767,6 +2895,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -2841,6 +2972,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -2914,6 +3048,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -3048,6 +3185,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -3122,6 +3262,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -3197,6 +3340,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -3272,6 +3418,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -3349,6 +3498,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -3457,6 +3609,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -3541,6 +3696,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -3609,6 +3767,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -3682,6 +3843,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -3854,6 +4018,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -3922,6 +4089,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -3990,6 +4160,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -4059,6 +4232,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -4127,6 +4303,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -4220,6 +4399,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -4289,6 +4471,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -4357,6 +4542,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -4426,6 +4614,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -4503,6 +4694,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -4600,6 +4794,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -4667,6 +4864,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -4741,6 +4941,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -4833,6 +5036,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -4901,6 +5107,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -4969,6 +5178,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -5041,6 +5253,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -5115,6 +5330,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -5183,6 +5401,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -5277,6 +5498,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -5347,6 +5571,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -5415,6 +5642,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -5564,6 +5794,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -5632,6 +5865,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -5700,6 +5936,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -5768,6 +6007,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -5841,6 +6083,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -5915,6 +6160,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -5983,6 +6231,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -6080,6 +6331,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -6148,6 +6402,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -6216,6 +6473,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -6297,6 +6557,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -6366,6 +6629,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -6500,6 +6766,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -6597,6 +6866,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -6665,6 +6937,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -6733,6 +7008,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -6802,6 +7080,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -6870,6 +7151,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -6948,6 +7232,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -7019,6 +7306,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -7092,6 +7382,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -7161,6 +7454,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -7265,6 +7561,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -7333,6 +7632,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -7401,6 +7703,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -7470,6 +7775,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -7574,6 +7882,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
@@ -7645,6 +7956,9 @@
   | --private-key-path                  TEXT  Snowflake private key path.        |
   |                                           Overrides the value specified for  |
   |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
   | --database,--dbname                 TEXT  Database to use. Overrides the     |
   |                                           value specified for the            |
   |                                           connection.                        |
