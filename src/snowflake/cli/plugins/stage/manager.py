@@ -23,7 +23,6 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from os import path
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from textwrap import dedent
 from typing import Dict, List, Optional, Union
 
@@ -464,7 +463,7 @@ class StageManager(SqlExecutionMixin):
             return []
 
         # req_file at this moment is the first found requirements file
-        with TemporaryDirectory() as tmp_dir:
+        with SecurePath.temporary_directory() as tmp_dir:
             self.get(
                 stage_path_parts.get_full_stage_path(requirements_file), Path(tmp_dir)
             )
