@@ -17,7 +17,6 @@ from __future__ import annotations
 import json
 import os
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
@@ -26,7 +25,6 @@ from typing import List, Optional, TypedDict
 import jinja2
 from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
@@ -83,7 +81,6 @@ from snowflake.cli.plugins.stage.diff import (
 )
 from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor
 
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
@@ -221,9 +218,33 @@ class NativeAppManager(SqlExecutionMixin):
     def package_warehouse(self) -> Optional[str]:
         return self.na_project.package_warehouse
 
+    def use_package_warehouse(self) -> str:
+        if self.package_warehouse:
+            return self.package_warehouse
+        raise ClickException(
+            dedent(
+                f"""\
+            Application package warehouse cannot be empty.
+            Please provide a value for it in your connection information or your project definition file.
+            """
+            )
+        )
+
     @property
     def application_warehouse(self) -> Optional[str]:
         return self.na_project.application_warehouse
+
+    def use_application_warehouse(self) -> str:
+        if self.application_warehouse:
+            return self.application_warehouse
+        raise ClickException(
+            dedent(
+                f"""\
+            Application warehouse cannot be empty.
+            Please provide a value for it in your connection information or your project definition file.
+            """
+            )
+        )
 
     @property
     def project_identifier(self) -> str:
@@ -256,39 +277,6 @@ class NativeAppManager(SqlExecutionMixin):
     @property
     def debug_mode(self) -> bool:
         return self.na_project.debug_mode
-
-    @contextmanager
-    def use_warehouse(self, new_wh: Optional[str]):
-        """
-        Switches to a different warehouse for a while, then switches back.
-        This is a no-op if the requested warehouse is already active.
-        If there is no default warehouse in the account, it will throw an error.
-        """
-
-        if new_wh is None:
-            # The new_wh parameter is an Optional[str] as the project definition attributes are Optional[str], passed directly to this method.
-            raise ClickException("Requested warehouse cannot be None.")
-
-        wh_result = self._execute_query(
-            f"select current_warehouse()", cursor_class=DictCursor
-        ).fetchone()
-        # If user has an assigned default warehouse, prev_wh will contain a value even if the warehouse is suspended.
-        try:
-            prev_wh = wh_result["CURRENT_WAREHOUSE()"]
-        except:
-            prev_wh = None
-
-        # new_wh is not None, and should already be a valid identifier, no additional check is performed here.
-        is_different_wh = new_wh != prev_wh
-        try:
-            if is_different_wh:
-                self._log.debug("Using warehouse: %s", new_wh)
-                self.use(object_type=ObjectType.WAREHOUSE, name=new_wh)
-            yield
-        finally:
-            if prev_wh and is_different_wh:
-                self._log.debug("Switching back to warehouse: %s", prev_wh)
-                self.use(object_type=ObjectType.WAREHOUSE, name=prev_wh)
 
     @cached_property
     def get_app_pkg_distribution_in_snowflake(self) -> str:
@@ -520,7 +508,7 @@ class NativeAppManager(SqlExecutionMixin):
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
         name = identifier_for_url(self.app_name)
-        with self.use_warehouse(self.application_warehouse):
+        with self.use_warehouse(self.use_application_warehouse()):
             return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
 
     def create_app_package(self) -> None:
@@ -594,7 +582,7 @@ class NativeAppManager(SqlExecutionMixin):
                 raise InvalidPackageScriptError(relpath, e)
 
         # once we're sure all the templates expanded correctly, execute all of them
-        with self.use_warehouse(self.package_warehouse):
+        with self.use_warehouse(self.use_package_warehouse()):
             try:
                 for i, queries in enumerate(queued_queries):
                     cc.step(f"Applying package script: {self.package_scripts[i]}")

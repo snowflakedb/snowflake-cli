@@ -11,15 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
 import json
 import os
 from pathlib import Path
 from textwrap import dedent
+from typing import Optional
 from unittest import mock
 from unittest.mock import call
 
 import pytest
+from click import ClickException
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
@@ -80,8 +83,8 @@ mock_project_definition_override = {
 }
 
 
-def _get_na_manager():
-    dm = DefinitionManager()
+def _get_na_manager(working_dir: Optional[str] = None):
+    dm = DefinitionManager(working_dir)
     return NativeAppManager(
         project_definition=dm.project_definition.native_app,
         project_root=dm.project_root,
@@ -580,21 +583,41 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
     assert mock_execute.mock_calls == expected
 
 
+# With connection warehouse, with PDF warehouse
+# Without connection warehouse, with PDF warehouse
 @mock.patch("snowflake.cli.plugins.connection.util.get_context")
 @mock.patch("snowflake.cli.plugins.connection.util.get_account")
 @mock.patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection()
-def test_get_snowsight_url(
+@pytest.mark.parametrize(
+    "warehouse, fallback_warehouse_call, fallback_side_effect",
+    [
+        (
+            "MockWarehouse",
+            [mock.call("use warehouse MockWarehouse")],
+            [None],
+        ),
+        (
+            None,
+            [],
+            [],
+        ),
+    ],
+)
+def test_get_snowsight_url_with_pdf_warehouse(
     mock_conn,
     mock_execute_query,
     mock_snowsight_host,
     mock_account,
     mock_context,
+    warehouse,
+    fallback_warehouse_call,
+    fallback_side_effect,
     temp_dir,
     mock_cursor,
 ):
-    mock_conn.return_value = MockConnectionCtx()
+    mock_conn.return_value = MockConnectionCtx(warehouse=warehouse)
     mock_snowsight_host.return_value = "https://host"
     mock_context.return_value = "organization"
     mock_account.return_value = "account"
@@ -609,21 +632,82 @@ def test_get_snowsight_url(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
+                mock_cursor([{"CURRENT_WAREHOUSE()": warehouse}], []),
                 mock.call("select current_warehouse()", cursor_class=DictCursor),
             ),
             (None, mock.call("use warehouse app_warehouse")),
-            (None, mock.call("use warehouse old_wh")),
         ]
     )
-    mock_execute_query.side_effect = side_effects
+    mock_execute_query.side_effect = side_effects + fallback_side_effect
 
     native_app_manager = _get_na_manager()
     assert (
         native_app_manager.get_snowsight_url()
         == "https://host/organization/account/#/apps/application/MYAPP"
     )
-    assert mock_execute_query.mock_calls == expected
+    assert mock_execute_query.mock_calls == expected + fallback_warehouse_call
+
+
+# With connection warehouse, without PDF warehouse
+# Without connection warehouse, without PDF warehouse
+@mock.patch("snowflake.cli.plugins.connection.util.get_context")
+@mock.patch("snowflake.cli.plugins.connection.util.get_account")
+@mock.patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock_connection()
+@pytest.mark.parametrize(
+    "project_definition_files, warehouse, expected_calls, fallback_side_effect",
+    [
+        (
+            "napp_project_1",
+            "MockWarehouse",
+            [mock.call("select current_warehouse()", cursor_class=DictCursor)],
+            [None],
+        ),
+        (
+            "napp_project_1",
+            None,
+            [],
+            [],
+        ),
+    ],
+    indirect=["project_definition_files"],
+)
+def test_get_snowsight_url_without_pdf_warehouse(
+    mock_conn,
+    mock_execute_query,
+    mock_snowsight_host,
+    mock_account,
+    mock_context,
+    project_definition_files,
+    warehouse,
+    expected_calls,
+    fallback_side_effect,
+    mock_cursor,
+):
+    mock_conn.return_value = MockConnectionCtx(warehouse=warehouse)
+    mock_snowsight_host.return_value = "https://host"
+    mock_context.return_value = "organization"
+    mock_account.return_value = "account"
+
+    working_dir: Path = project_definition_files[0].parent
+
+    mock_execute_query.side_effect = [
+        mock_cursor([{"CURRENT_WAREHOUSE()": warehouse}], [])
+    ] + fallback_side_effect
+
+    native_app_manager = _get_na_manager(str(working_dir))
+    if warehouse:
+        assert (
+            native_app_manager.get_snowsight_url()
+            == "https://host/organization/account/#/apps/application/MYAPP_POLLY"
+        )
+    else:
+        with pytest.raises(ClickException) as err:
+            native_app_manager.get_snowsight_url()
+        assert "Application warehouse cannot be empty." in err.value.message
+
+    assert mock_execute_query.mock_calls == expected_calls
 
 
 def test_ensure_correct_owner():

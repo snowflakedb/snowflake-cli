@@ -17,6 +17,7 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+from click import ClickException
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
@@ -53,13 +54,13 @@ def _get_na_manager(working_dir):
     "project_definition_files, expected_calls",
     [
         (
-            "napp_project_1",
+            "napp_project_1",  # With connection warehouse, without PDF warehouse
             [
                 mock.call("select current_warehouse()", cursor_class=DictCursor),
             ],
         ),
         (
-            "napp_project_with_pkg_warehouse",
+            "napp_project_with_pkg_warehouse",  # With connection warehouse, with PDF warehouse
             [
                 mock.call("select current_warehouse()", cursor_class=DictCursor),
                 mock.call("use warehouse myapp_pkg_warehouse"),
@@ -69,7 +70,7 @@ def _get_na_manager(working_dir):
     ],
     indirect=["project_definition_files"],
 )
-def test_package_scripts(
+def test_package_scripts_with_conn_info(
     mock_conn,
     mock_execute_query,
     mock_execute_queries,
@@ -86,6 +87,83 @@ def test_package_scripts(
     native_app_manager = _get_na_manager(str(working_dir))
     native_app_manager._apply_package_scripts()  # noqa: SLF001
     assert mock_execute_query.mock_calls == expected_calls
+    assert mock_execute_queries.mock_calls == [
+        mock.call(
+            dedent(
+                f"""\
+                    -- package script (1/2)
+
+                    create schema if not exists myapp_pkg_polly.my_shared_content;
+                    grant usage on schema myapp_pkg_polly.my_shared_content
+                      to share in application package myapp_pkg_polly;
+                """
+            )
+        ),
+        mock.call(
+            dedent(
+                f"""\
+                    -- package script (2/2)
+
+                    create or replace table myapp_pkg_polly.my_shared_content.shared_table (
+                      col1 number,
+                      col2 varchar
+                    );
+                    grant select on table myapp_pkg_polly.my_shared_content.shared_table
+                      to share in application package myapp_pkg_polly;
+                """
+            )
+        ),
+    ]
+
+
+# Without connection warehouse, without PDF warehouse
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock_connection()
+@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
+def test_package_scripts_without_conn_info_throws_error(
+    mock_conn,
+    mock_execute_query,
+    mock_execute_queries,
+    project_definition_files,
+    mock_cursor,
+):
+    mock_conn.return_value = MockConnectionCtx(warehouse=None)
+    working_dir: Path = project_definition_files[0].parent
+    mock_execute_query.return_value = mock_cursor([{"CURRENT_WAREHOUSE()": None}], [])
+    native_app_manager = _get_na_manager(str(working_dir))
+    with pytest.raises(ClickException) as err:
+        native_app_manager._apply_package_scripts()  # noqa: SLF001
+
+    assert "Application package warehouse cannot be empty." in err.value.message
+    assert mock_execute_query.mock_calls == []
+    assert mock_execute_queries.mock_calls == []
+
+
+# Without connection warehouse, with PDF warehouse
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock_connection()
+@pytest.mark.parametrize(
+    "project_definition_files", ["napp_project_with_pkg_warehouse"], indirect=True
+)
+def test_package_scripts_without_conn_info_succeeds(
+    mock_conn,
+    mock_execute_query,
+    mock_execute_queries,
+    project_definition_files,
+    mock_cursor,
+):
+    mock_conn.return_value = MockConnectionCtx(warehouse=None)
+    working_dir: Path = project_definition_files[0].parent
+    mock_execute_query.return_value = mock_cursor([{"CURRENT_WAREHOUSE()": None}], [])
+    native_app_manager = _get_na_manager(str(working_dir))
+    native_app_manager._apply_package_scripts()  # noqa: SLF001
+
+    assert mock_execute_query.mock_calls == [
+        mock.call("select current_warehouse()", cursor_class=DictCursor),
+        mock.call("use warehouse myapp_pkg_warehouse"),
+    ]
     assert mock_execute_queries.mock_calls == [
         mock.call(
             dedent(
