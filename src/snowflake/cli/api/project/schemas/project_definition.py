@@ -21,12 +21,6 @@ from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.errors import SchemaValidationError
-from snowflake.cli.api.project.schemas.entities.application_entity import (
-    ApplicationEntity,
-)
-from snowflake.cli.api.project.schemas.entities.application_package_entity import (
-    ApplicationPackageEntity,
-)
 from snowflake.cli.api.project.schemas.entities.common import (
     DefaultsField,
     EntityType,
@@ -34,6 +28,7 @@ from snowflake.cli.api.project.schemas.entities.common import (
 )
 from snowflake.cli.api.project.schemas.entities.entities import (
     Entity,
+    v2_entity_types_map,
 )
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
@@ -42,11 +37,6 @@ from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.utils.models import ProjectEnvironment
 from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
-
-_v2_entity_types_map = {
-    EntityType.APPLICATION.value: ApplicationEntity,
-    EntityType.APPLICATION_PACKAGE.value: ApplicationPackageEntity,
-}
 
 
 @dataclass
@@ -138,9 +128,9 @@ class DefinitionV20(_ProjectDefinitionBase):
         if "defaults" in data and "entities" in data:
             for key, entity in data["entities"].items():
                 entity_type = entity["type"]
-                if entity_type not in _v2_entity_types_map:
+                if entity_type not in v2_entity_types_map:
                     continue
-                entity_model = _v2_entity_types_map[entity_type]
+                entity_model = v2_entity_types_map[entity_type]
                 for default_key, default_value in data["defaults"].items():
                     if (
                         default_key in entity_model.model_fields

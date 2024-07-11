@@ -15,9 +15,11 @@
 
 import pytest
 from snowflake.cli.api.project.errors import SchemaValidationError
+from snowflake.cli.api.project.schemas.entities.entities import (
+    v2_entity_types_map,
+)
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV20,
-    _v2_entity_types_map,
 )
 
 from tests.testing_utils.mock_config import mock_config_key
@@ -216,7 +218,7 @@ def test_defaults_do_not_override_values():
 
 # Verify that each entity type has the correct "type" field
 def test_entity_types():
-    _v2_entity_types_map
-    for entity_type, entity_class in _v2_entity_types_map.items():
+    v2_entity_types_map
+    for entity_type, entity_class in v2_entity_types_map.items():
         model_entity_type = entity_class.model_fields["type"].annotation.__args__[0]
         assert model_entity_type == entity_type
