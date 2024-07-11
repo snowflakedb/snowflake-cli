@@ -114,6 +114,10 @@ def test_create_dev_app_w_warehouse_access_exception(
                 ),
                 mock.call("use warehouse app_warehouse"),
             ),
+            (
+                None,
+                mock.call("use warehouse old_wh"),
+            ),
             (None, mock.call("use role old_role")),
         ]
     )
@@ -1109,6 +1113,10 @@ def test_upgrade_app_warehouse_error(
                     errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
                 ),
                 mock.call("use warehouse app_warehouse"),
+            ),
+            (
+                None,
+                mock.call("use warehouse old_wh"),
             ),
             (None, mock.call("use role old_role")),
         ]

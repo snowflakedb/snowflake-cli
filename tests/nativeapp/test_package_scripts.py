@@ -56,7 +56,6 @@ def _get_na_manager(working_dir):
             "napp_project_1",
             [
                 mock.call("select current_warehouse()", cursor_class=DictCursor),
-                mock.call("use warehouse MockWarehouse"),
             ],
         ),
         (
@@ -205,6 +204,7 @@ def test_package_scripts_w_warehouse_access_exception(
             msg="Object does not exist, or operation cannot be performed.",
             errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
         ),
+        None,
     ]
 
     mock_conn.return_value = MockConnectionCtx()

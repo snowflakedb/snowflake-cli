@@ -40,7 +40,6 @@ from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     identifier_for_url,
-    to_identifier,
     unquote_identifier,
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -265,61 +264,31 @@ class NativeAppManager(SqlExecutionMixin):
         This is a no-op if the requested warehouse is already active.
         If there is no default warehouse in the account, it will throw an error.
         """
+
+        if new_wh is None:
+            # The new_wh parameter is an Optional[str] as the project definition attributes are Optional[str], passed directly to this method.
+            raise ClickException("Requested warehouse cannot be None.")
+
         wh_result = self._execute_query(
             f"select current_warehouse()", cursor_class=DictCursor
         ).fetchone()
         # If user has an assigned default warehouse, prev_wh will contain a value even if the warehouse is suspended.
-        prev_wh = wh_result["CURRENT_WAREHOUSE()"]
+        try:
+            prev_wh = wh_result["CURRENT_WAREHOUSE()"]
+        except:
+            prev_wh = None
 
-        if new_wh is not None:
-            new_wh_id = to_identifier(new_wh)
-
-        if prev_wh is None and new_wh is None:
-            raise ClickException(
-                "Could not find both the connection and the requested warehouse in the Snowflake account for this user."
-            )
-
-        elif prev_wh is None:
-            self._log.debug("Using warehouse: %s", new_wh_id)
-            self.use(object_type=ObjectType.WAREHOUSE, name=new_wh_id)
-            try:
-                yield
-            finally:
-                self._log.debug(
-                    "Continuing to use warehouse unless requested otherwise: %s",
-                    new_wh_id,
-                )
-
-        elif new_wh is None:
-            self._log.debug(
-                "Requested warehouse is empty, continuing to use the connection warehouse: %s",
-                prev_wh,
-            )
-            # Activate a suspended warehouse, will be a no-op will already active
-            self.use(object_type=ObjectType.WAREHOUSE, name=prev_wh)
-            try:
-                yield
-            finally:
-                self._log.debug(
-                    "Continuing to use warehouse unless requested otherwise: %s",
-                    prev_wh,
-                )
-
-        else:
-            is_different_wh = new_wh_id != prev_wh
-            self._log.debug("Using warehouse: %s", new_wh_id)
+        # new_wh is not None, and should already be a valid identifier, no additional check is performed here.
+        is_different_wh = new_wh != prev_wh
+        try:
             if is_different_wh:
-                # Activate the new warehouse
-                self.use(object_type=ObjectType.WAREHOUSE, name=new_wh_id)
-            else:
-                # Activate a suspended warehouse, will be a no-op will already active
+                self._log.debug("Using warehouse: %s", new_wh)
+                self.use(object_type=ObjectType.WAREHOUSE, name=new_wh)
+            yield
+        finally:
+            if prev_wh and is_different_wh:
+                self._log.debug("Switching back to warehouse: %s", prev_wh)
                 self.use(object_type=ObjectType.WAREHOUSE, name=prev_wh)
-            try:
-                yield
-            finally:
-                if is_different_wh:
-                    self._log.debug("Switching back to warehouse: %s", prev_wh)
-                    self.use(object_type=ObjectType.WAREHOUSE, name=prev_wh)
 
     @cached_property
     def get_app_pkg_distribution_in_snowflake(self) -> str:

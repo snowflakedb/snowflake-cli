@@ -138,7 +138,8 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def _execute_sql_script(self, sql_script_path):
         """
         Executing the SQL script in the provided file path after expanding template variables.
-        "use warehouse" and "use database" will be executed first if they are set in definition file or in the current connection.
+        This assumes that a relevant warehouse is already active.
+        Consequently, "use database" will be executed first if it is set in definition file or in the current connection.
         """
         with open(sql_script_path) as f:
             sql_script = f.read()
