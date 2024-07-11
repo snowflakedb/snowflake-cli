@@ -206,10 +206,6 @@ def test_log_files_permissions(setup_config_and_logs):
     if IS_WINDOWS:
         pytest.skip("Permissions for new files aren't strict in Windows")
 
-    original_mask = os.umask(0o000)
-    try:
-        with setup_config_and_logs(save_logs=True) as logs_path:
-            print_log_messages()
-            assert_file_permissions_are_strict(_get_logs_file(logs_path))
-    finally:
-        os.umask(original_mask)
+    with setup_config_and_logs(save_logs=True) as logs_path:
+        print_log_messages()
+        assert_file_permissions_are_strict(_get_logs_file(logs_path))
