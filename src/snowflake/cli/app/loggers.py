@@ -142,8 +142,9 @@ def create_initial_loggers():
     config = InitialLoggingConfig()
     try:
         file_logs_config = FileLogsConfig(debug=False)
-        config.handlers["file"]["filename"] = file_logs_config.filename
-        _configurate_logging(config)
+        if file_logs_config.save_logs:
+            config.handlers["file"]["filename"] = file_logs_config.filename
+            _configurate_logging(config)
     except ConfigSourceError:
         pass
 
