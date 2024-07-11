@@ -37,10 +37,9 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
 
 from tests.nativeapp.utils import assert_dir_snapshot, create_native_app_project_model
 from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
-from tests_common import IS_WINDOWS
 
-if IS_WINDOWS:
-    pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
+# if IS_WINDOWS:
+#     pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
 
 PROJECT_ROOT = Path("/path/to/project")
 

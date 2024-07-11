@@ -153,11 +153,13 @@ def assert_dir_snapshot(root: Path, os_agnostic_snapshot) -> None:
     assert "\n".join([_stringify_path(p) for p in all_paths]) == os_agnostic_snapshot
 
     # Verify that each file under the directory matches expectations
-    for path in all_paths:
+    for path in sorted(all_paths):
         if path.is_file():
-            snapshot_contents = f"===== Contents of: {path} =====\n"
+            snapshot_contents = f"===== Contents of: {path.as_posix()} =====\n"
             snapshot_contents += path.read_text(encoding="utf-8")
-            assert snapshot_contents == os_agnostic_snapshot
+            assert (
+                snapshot_contents == os_agnostic_snapshot
+            ), f"\nExpected:\n{os_agnostic_snapshot}\nGot:\n{snapshot_contents}"
 
 
 def create_native_app_project_model(
