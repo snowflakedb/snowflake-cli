@@ -11,14 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import logging
 import os
 import re
 import shutil
 import stat
+from functools import reduce
 from pathlib import Path
 
 import pytest
+import tomlkit
 from snowflake.cli.api import secure_path
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.exceptions import DirectoryIsNotEmptyError, FileTooLargeError
@@ -36,14 +38,21 @@ if IS_WINDOWS:
 def save_logs(snowflake_home):
     config = snowflake_home / "config.toml"
     logs_path = snowflake_home / "logs"
-    config.write_text(
-        "\n".join(["[cli.logs]", "save_logs = true", f'path = "{logs_path}"'])
+    config_data = dict(
+        cli=dict(
+            logs=dict(
+                save_logs=True,
+                path=str(logs_path),
+            )
+        )
     )
+    tomlkit.dump(config_data, config.open("w"))
     config_init(config)
     loggers.create_loggers(False, False)
 
     yield logs_path
 
+    logging.shutdown()
     shutil.rmtree(logs_path)
 
 
@@ -159,7 +168,8 @@ def test_open_read(temp_dir, save_logs):
 
 def test_navigation():
     p = SecurePath("a/b/c")
-    assert str(p / "b" / "c" / "d" / "e") == 'SecurePath("a/b/c/b/c/d/e")'
+    pathstring = reduce(os.path.join, ["a", "b", "c", "b", "c", "d", "e"])
+    assert str(p / "b" / "c" / "d" / "e") == f'SecurePath("{pathstring}")'
     assert str(p.parent.parent) == 'SecurePath("a")'
     assert type(p.absolute()) is SecurePath
 
