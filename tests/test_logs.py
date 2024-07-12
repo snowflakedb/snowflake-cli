@@ -61,8 +61,8 @@ def setup_config_and_logs(snowflake_home):
         config_path.chmod(0o700)
 
         # Make sure we start without any leftovers
-        shutil.rmtree(logs_path, ignore_errors=True)
         clean_logging_handlers()
+        shutil.rmtree(logs_path, ignore_errors=True)
 
         # Setup loggers
         config_init(config_path)
