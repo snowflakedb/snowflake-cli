@@ -20,9 +20,6 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List
 
 import typer
-from snowflake.cli.api.config import (
-    get_logs_config,
-)
 from snowflake.cli.api.exceptions import InvalidLogsConfiguration
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.errors import ConfigSourceError
@@ -103,6 +100,10 @@ def _remove_underscore_prefixes_from_keys(d: Dict[str, Any]) -> None:
 
 class FileLogsConfig:
     def __init__(self, debug: bool) -> None:
+        from snowflake.cli.api.config import (
+            get_logs_config,
+        )
+
         config = get_logs_config()
 
         self.path: SecurePath = SecurePath(config["path"])
@@ -142,8 +143,9 @@ def create_initial_loggers():
     config = InitialLoggingConfig()
     try:
         file_logs_config = FileLogsConfig(debug=False)
-        config.handlers["file"]["filename"] = file_logs_config.filename
-        _configurate_logging(config)
+        if file_logs_config.save_logs:
+            config.handlers["file"]["filename"] = file_logs_config.filename
+            _configurate_logging(config)
     except ConfigSourceError:
         pass
 
