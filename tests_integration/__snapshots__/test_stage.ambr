@@ -77,6 +77,20 @@
     }),
   ])
 # ---
+# name: test_stage_execute_python
+  list([
+    dict({
+      'Error': None,
+      'File': '@test_stage_execute/script1.py',
+      'Status': 'SUCCESS',
+    }),
+    dict({
+      'Error': None,
+      'File': '@test_stage_execute/script_template.py',
+      'Status': 'SUCCESS',
+    }),
+  ])
+# ---
 # name: test_user_stage_execute
   list([
     dict({
