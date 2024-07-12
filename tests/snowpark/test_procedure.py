@@ -79,7 +79,7 @@ def test_deploy_procedure(
         f"put file://{Path(tmp).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace procedure MockDatabase.MockSchema.procedureName(name string)
+            create or replace procedure IDENTIFIER('MockDatabase.MockSchema.procedureName')(name string)
             copy grants
             returns string
             language python
@@ -91,7 +91,7 @@ def test_deploy_procedure(
         ).strip(),
         dedent(
             """\
-            create or replace procedure MockDatabase.MockSchema.test()
+            create or replace procedure IDENTIFIER('MockDatabase.MockSchema.test')()
             copy grants
             returns string
             language python
@@ -149,7 +149,7 @@ def test_deploy_procedure_with_external_access(
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace procedure MockDatabase.MockSchema.procedureName(name string)
+            create or replace procedure IDENTIFIER('MockDatabase.MockSchema.procedureName')(name string)
             copy grants
             returns string
             language python
