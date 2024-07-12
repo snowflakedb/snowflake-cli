@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
 import os
 import re
 import shutil
@@ -27,6 +26,7 @@ from snowflake.cli.api.exceptions import DirectoryIsNotEmptyError, FileTooLargeE
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.app import loggers
 
+from tests.conftest import clean_logging_handlers
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
 from tests_common import IS_WINDOWS
 
@@ -52,7 +52,7 @@ def save_logs(snowflake_home):
 
     yield logs_path
 
-    logging.shutdown()
+    clean_logging_handlers()
     shutil.rmtree(logs_path)
 
 
