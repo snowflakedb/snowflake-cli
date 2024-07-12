@@ -272,10 +272,10 @@ def test_edit_setup_script_with_exec_imm_sql_noop(os_agnostic_snapshot):
             )
 
 
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
 def test_edit_setup_script_with_exec_imm_sql_symlink(os_agnostic_snapshot):
-    if IS_WINDOWS:
-        pytest.skip("Symlinks on Windows are restricted to Developer mode or admins")
-
     manifest_contents = dedent(
         f"""\
         manifest_version: 1

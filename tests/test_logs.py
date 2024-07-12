@@ -206,10 +206,10 @@ def test_incorrect_log_level_in_config(setup_config_and_logs):
         )
 
 
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Permissions for new files aren't strict in Windows"
+)
 def test_log_files_permissions(setup_config_and_logs):
-    if IS_WINDOWS:
-        pytest.skip("Permissions for new files aren't strict in Windows")
-
     with setup_config_and_logs(save_logs=True) as logs_path:
         print_log_messages()
         assert_file_permissions_are_strict(get_logs_file(logs_path))
