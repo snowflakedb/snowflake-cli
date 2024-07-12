@@ -26,6 +26,7 @@ from tests_integration.snowflake_connector import (
 def test_connection_test_simple(runner):
     result = runner.invoke_with_connection_json(["connection", "test"])
     assert result.exit_code == 0, result.output
+    assert result.json["Connection name"] == "integration"
     assert result.json["Status"] == "OK"
 
 
