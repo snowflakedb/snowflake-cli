@@ -137,6 +137,7 @@ def test_execute_in_named_conda_env(
         input=PYTHON_SCRIPT,
         cwd=expected_cwd,
         timeout=expected_timeout,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -179,6 +180,7 @@ def test_execute_in_conda_env_falls_back_to_activated_one(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -259,6 +261,7 @@ def test_execute_in_specified_venv_root_unix(
         input=PYTHON_SCRIPT,
         cwd=expected_cwd,
         timeout=expected_timeout,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -292,6 +295,7 @@ def test_execute_in_specified_venv_root_as_string(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -323,6 +327,7 @@ def test_execute_in_specified_venv_root_windows(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -354,6 +359,7 @@ def test_execute_in_venv_falls_back_to_activated_one(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -446,6 +452,7 @@ def test_execute_system_python_looks_for_python3(
         input=PYTHON_SCRIPT,
         cwd=expected_cwd,
         timeout=expected_timeout,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -478,6 +485,7 @@ def test_execute_system_python_falls_back_to_python(mock_which, mock_run, mock_e
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -514,6 +522,7 @@ def test_execute_system_python_falls_back_to_current_interpreter(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -581,6 +590,7 @@ def test_execute_in_current_interpreter(
         input=PYTHON_SCRIPT,
         cwd=expected_cwd,
         timeout=expected_timeout,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -613,6 +623,7 @@ def test_execute_auto_detects_venv(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -653,6 +664,7 @@ def test_execute_auto_detects_conda(mock_which, mock_run, mock_environ):
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -687,6 +699,7 @@ def test_execute_auto_detect_falls_back_to_system_python(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -721,6 +734,7 @@ def test_execute_auto_detect_chooses_venv_over_conda(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -755,6 +769,7 @@ def test_execute_auto_detect_is_default(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -789,6 +804,7 @@ def test_execute_does_not_interpret_return_codes(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS

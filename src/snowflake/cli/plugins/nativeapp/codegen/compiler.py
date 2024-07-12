@@ -72,6 +72,11 @@ class NativeAppCompiler:
             return
 
         with cc.phase("Invoking artifact processors"):
+            if self._na_project.generated_root.exists():
+                raise ClickException(
+                    f"Path {self._na_project.generated_root} already exists. Please choose a different name for your generated directory in the project definition file."
+                )
+
             for artifact in self._na_project.artifacts:
                 for processor in artifact.processors:
                     artifact_processor = self._try_create_processor(

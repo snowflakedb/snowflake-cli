@@ -216,14 +216,14 @@ def test_edit_setup_script_with_exec_imm_sql(os_agnostic_snapshot):
     dir_structure = {
         "output/deploy/manifest.yml": manifest_contents,
         "output/deploy/moduleA/moduleC/setup.sql": "create application role app_public;",
-        "output/deploy/__generated/moduleB/dummy.sql": "#this is a file",
-        "output/deploy/__generated/dummy.sql": "#this is a file",
+        "output/deploy/__generated/snowpark/moduleB/dummy.sql": "#this is a file",
+        "output/deploy/__generated/snowpark/dummy.sql": "#this is a file",
     }
 
     with temp_local_dir(dir_structure=dir_structure) as local_path:
         with pushd(local_path):
             deploy_root = Path(local_path, "output", "deploy")
-            generated_root = Path(deploy_root, "__generated")
+            generated_root = Path(deploy_root, "__generated", "snowpark")
             collected_sql_files = [
                 Path(generated_root, "moduleB", "dummy.sql"),
                 Path(generated_root, "dummy.sql"),
@@ -252,19 +252,19 @@ def test_edit_setup_script_with_exec_imm_sql_noop(os_agnostic_snapshot):
     dir_structure = {
         "output/deploy/manifest.yml": manifest_contents,
         "output/deploy/moduleA/moduleC/setup.sql": None,
-        "output/deploy/__generated/__generated.sql": "#some text",
+        "output/deploy/__generated/snowpark/__generated.sql": "#some text",
     }
 
     with temp_local_dir(dir_structure=dir_structure) as local_path:
         with pushd(local_path):
             deploy_root = Path(local_path, "output", "deploy")
             collected_sql_files = [
-                Path(deploy_root, "__generated", "dummy.sql"),
+                Path(deploy_root, "__generated", "snowpark", "dummy.sql"),
             ]
             edit_setup_script_with_exec_imm_sql(
                 collected_sql_files=collected_sql_files,
                 deploy_root=deploy_root,
-                generated_root=Path(deploy_root, "__generated"),
+                generated_root=Path(deploy_root, "__generated", "snowpark"),
             )
 
             assert_dir_snapshot(
@@ -296,7 +296,7 @@ def test_edit_setup_script_with_exec_imm_sql_symlink(os_agnostic_snapshot):
             deploy_root_setup_script = Path(deploy_root, "setup.sql")
             deploy_root_setup_script.symlink_to(Path(local_path, "setup.sql"))
 
-            generated_root = Path(deploy_root, "__generated")
+            generated_root = Path(deploy_root, "__generated", "snowpark")
             collected_sql_files = [
                 Path(generated_root, "moduleB", "dummy.sql"),
                 Path(generated_root, "dummy.sql"),
@@ -304,7 +304,7 @@ def test_edit_setup_script_with_exec_imm_sql_symlink(os_agnostic_snapshot):
             edit_setup_script_with_exec_imm_sql(
                 collected_sql_files=collected_sql_files,
                 deploy_root=deploy_root,
-                generated_root=Path(deploy_root, "__generated"),
+                generated_root=Path(deploy_root, "__generated", "snowpark"),
             )
 
             assert_dir_snapshot(
@@ -468,6 +468,6 @@ def test_package_normalization(
                 processor_mapping=processor_mapping,
             )
 
-            dest_file = project.generated_root / "stagepath" / "main.sql"
+            dest_file = project.generated_root / "snowpark" / "stagepath" / "main.sql"
             assert dest_file.is_file()
             assert dest_file.read_text(encoding="utf-8") == os_agnostic_snapshot

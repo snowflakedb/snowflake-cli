@@ -20,7 +20,6 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Any, Dict, List, Optional, Set
 
-from click import ClickException
 from pydantic import ValidationError
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
@@ -170,16 +169,6 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
     ):
         super().__init__(na_project=na_project)
 
-        assert self._na_project.bundle_root.is_absolute()
-        assert self._na_project.deploy_root.is_absolute()
-        assert self._na_project.generated_root.is_absolute()
-        assert self._na_project.project_root.is_absolute()
-
-        if self._na_project.generated_root.exists():
-            raise ClickException(
-                f"Path {self._na_project.generated_root} already exists. Please choose a different name for your generated directory in the project definition file."
-            )
-
     def process(
         self,
         artifact_to_process: PathMapping,
@@ -241,8 +230,12 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             edit_setup_script_with_exec_imm_sql(
                 collected_sql_files=collected_sql_files,
                 deploy_root=bundle_map.deploy_root(),
-                generated_root=self._na_project.generated_root,
+                generated_root=self._generated_root,
             )
+
+    @property
+    def _generated_root(self):
+        return self._na_project.generated_root / "snowpark"
 
     def _normalize_imports(
         self,
@@ -377,9 +370,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         Generates a SQL filename for the generated root from the python file, and creates its parent directories.
         """
         relative_py_file = py_file.relative_to(self._na_project.deploy_root)
-        sql_file = Path(
-            self._na_project.generated_root, relative_py_file.with_suffix(".sql")
-        )
+        sql_file = Path(self._generated_root, relative_py_file.with_suffix(".sql"))
         if sql_file.exists():
             cc.warning(
                 f"""\
@@ -497,7 +488,7 @@ def edit_setup_script_with_exec_imm_sql(
     Adds an 'execute immediate' to setup script for every SQL file in the map
     """
     # Create a __generated.sql in the __generated folder
-    generated_file_path = Path(generated_root, f"{generated_root.stem}.sql")
+    generated_file_path = Path(generated_root, f"__generated.sql")
     generated_file_path.parent.mkdir(exist_ok=True, parents=True)
 
     if generated_file_path.exists():
