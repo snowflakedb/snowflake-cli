@@ -65,12 +65,17 @@ def setup_config_and_logs(snowflake_home):
         )
         config_path.chmod(0o700)
 
+        # Make sure we start without any leftovers
+        shutil.rmtree(logs_path, ignore_errors=True)
         clean_logging_handlers()
+
+        # Setup loggers
         config_init(config_path)
         loggers.create_loggers(verbose=verbose, debug=debug)
         assert len(_list_handlers()) == (2 if save_logs else 1)
+
         yield logs_path
-        shutil.rmtree(logs_path)
+        shutil.rmtree(logs_path, ignore_errors=True)
 
     return _setup_config_and_logs
 
@@ -94,7 +99,7 @@ def _list_handlers():
     return logging.getLogger("snowflake.cli").handlers
 
 
-def _get_logs_file(logs_path: Path) -> Path:
+def get_logs_file(logs_path: Path) -> Path:
     return next(logs_path.iterdir())
 
 
@@ -110,11 +115,11 @@ def assert_log_level(log_messages: str, expected_level: str) -> None:
 
 
 def assert_file_log_level(logs_path: Path, expected_level: str) -> None:
-    assert_log_level(_get_logs_file(logs_path).read_text(), expected_level)
+    assert_log_level(get_logs_file(logs_path).read_text(), expected_level)
 
 
 def assert_log_is_empty(logs_path: Path) -> None:
-    assert _get_logs_file(logs_path).read_text() == ""
+    assert get_logs_file(logs_path).read_text() == ""
 
 
 def test_logs_section_appears_in_fresh_config_file(temp_dir):
@@ -141,7 +146,7 @@ def test_default_logs_location_is_created_automatically(setup_config_and_logs):
 def test_logs_can_be_turned_off_by_config(setup_config_and_logs):
     with setup_config_and_logs(save_logs=False) as logs_path:
         print_log_messages()
-        assert_log_is_empty(logs_path)
+        assert not logs_path.exists()
 
 
 def test_logs_path_is_configurable(setup_config_and_logs):
@@ -205,4 +210,4 @@ def test_incorrect_log_level_in_config(setup_config_and_logs):
 def test_log_files_permissions(setup_config_and_logs):
     with setup_config_and_logs(save_logs=True) as logs_path:
         print_log_messages()
-        assert_file_permissions_are_strict(_get_logs_file(logs_path))
+        assert_file_permissions_are_strict(get_logs_file(logs_path))
