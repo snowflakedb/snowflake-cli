@@ -140,6 +140,9 @@ class OverrideableOption:
         return generated_callback
 
 
+from snowflake.cli.api.config import get_all_connections
+
+
 def _callback(provide_setter: Callable[[], Callable[[Any], Any]]):
     def callback(value):
         set_value = provide_setter()
@@ -160,6 +163,7 @@ ConnectionOption = typer.Option(
     ),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
+    autocompletion=lambda: list(get_all_connections()),
 )
 
 TemporaryConnectionOption = typer.Option(
