@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
@@ -29,6 +29,10 @@ if IS_WINDOWS:
 
 
 STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
+
+skip_python_3_12 = pytest.mark.skipif(
+    sys.version_info >= (3, 12), reason="Snowpark is not supported in Python >= 3.12"
+)
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -848,8 +852,12 @@ def test_execute_from_user_stage(
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_execute_with_variables(mock_execute, mock_cursor, runner):
-    mock_execute.return_value = mock_cursor([{"name": "exe/s1.sql"}], [])
+@mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+@skip_python_3_12
+def test_execute_with_variables(mock_bootstrap, mock_execute, mock_cursor, runner):
+    mock_execute.return_value = mock_cursor(
+        [{"name": "exe/s1.sql"}, {"name": "exe/s2.py"}], []
+    )
 
     result = runner.invoke(
         [
@@ -861,7 +869,7 @@ def test_execute_with_variables(mock_execute, mock_cursor, runner):
             "-D",
             "key2=1",
             "-D",
-            "key3=TRUE",
+            "KEY3=TRUE",
             "-D",
             "key4=NULL",
             "-D",
@@ -873,9 +881,19 @@ def test_execute_with_variables(mock_execute, mock_cursor, runner):
     assert mock_execute.mock_calls == [
         mock.call("ls @exe", cursor_class=DictCursor),
         mock.call(
-            f"execute immediate from @exe/s1.sql using (key1=>'string value', key2=>1, key3=>TRUE, key4=>NULL, key5=>'var=value')"
+            f"execute immediate from @exe/s1.sql using (key1=>'string value', key2=>1, KEY3=>TRUE, key4=>NULL, key5=>'var=value')"
         ),
     ]
+    mock_bootstrap.return_value.assert_called_once_with(
+        "@exe/s2.py",
+        {
+            "key1": "'string value'",
+            "key2": "1",
+            "KEY3": "TRUE",
+            "key4": "NULL",
+            "key5": "'var=value'",
+        },
+    )
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -966,13 +984,17 @@ def test_execute_no_files_for_stage_path(
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_execute_stop_on_error(mock_execute, mock_cursor, runner):
+@mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+@skip_python_3_12
+def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner):
     error_message = "Error"
     mock_execute.side_effect = [
         mock_cursor(
             [
                 {"name": "exe/s1.sql"},
+                {"name": "exe/p1.py"},
                 {"name": "exe/s2.sql"},
+                {"name": "exe/p2.py"},
                 {"name": "exe/s3.sql"},
             ],
             [],
@@ -989,18 +1011,28 @@ def test_execute_stop_on_error(mock_execute, mock_cursor, runner):
         mock.call(f"execute immediate from @exe/s1.sql"),
         mock.call(f"execute immediate from @exe/s2.sql"),
     ]
+    assert mock_bootstrap.return_value.mock_calls == [
+        mock.call("@exe/p1.py", {}),
+        mock.call("@exe/p2.py", {}),
+    ]
     assert e.value.msg == error_message
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+@skip_python_3_12
 def test_execute_continue_on_error(
-    mock_execute, mock_cursor, runner, os_agnostic_snapshot
+    mock_bootstrap, mock_execute, mock_cursor, runner, os_agnostic_snapshot
 ):
+    from snowflake.snowpark.exceptions import SnowparkSQLException
+
     mock_execute.side_effect = [
         mock_cursor(
             [
                 {"name": "exe/s1.sql"},
+                {"name": "exe/p1.py"},
                 {"name": "exe/s2.sql"},
+                {"name": "exe/p2.py"},
                 {"name": "exe/s3.sql"},
             ],
             [],
@@ -1009,6 +1041,8 @@ def test_execute_continue_on_error(
         ProgrammingError("Error"),
         mock_cursor([{"3": 3}], []),
     ]
+
+    mock_bootstrap.return_value.side_effect = ["ok", SnowparkSQLException("Test error")]
 
     result = runner.invoke(["stage", "execute", "exe", "--on-error", "continue"])
 
@@ -1019,6 +1053,11 @@ def test_execute_continue_on_error(
         mock.call(f"execute immediate from @exe/s1.sql"),
         mock.call(f"execute immediate from @exe/s2.sql"),
         mock.call(f"execute immediate from @exe/s3.sql"),
+    ]
+
+    assert mock_bootstrap.return_value.mock_calls == [
+        mock.call("@exe/p1.py", {}),
+        mock.call("@exe/p2.py", {}),
     ]
 
 
@@ -1043,3 +1082,58 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
 
     queries = ctx.get_queries()
     assert queries[0] == queries[1]
+
+
+@pytest.mark.parametrize(
+    "files, selected, packages",
+    [
+        ([], None, []),
+        (["my_stage/dir/parallel/requirements.txt"], None, []),
+        (
+            ["my_stage/dir/files/requirements.txt"],
+            "db.schema.my_stage/dir/files/requirements.txt",
+            ["aaa", "bbb"],
+        ),
+        (
+            [
+                "my_stage/requirements.txt",
+                "my_stage/dir/requirements.txt",
+                "my_stage/dir/files/requirements.txt",
+            ],
+            "db.schema.my_stage/dir/files/requirements.txt",
+            ["aaa", "bbb"],
+        ),
+        (
+            ["my_stage/requirements.txt"],
+            "db.schema.my_stage/requirements.txt",
+            ["aaa", "bbb"],
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "input_path", ["@db.schema.my_stage/dir/files", "@db.schema.my_stage/dir/files/"]
+)
+def test_stage_manager_check_for_requirements_file(
+    files, selected, packages, input_path
+):
+    class _MockGetter:
+        def __init__(self):
+            self.download_file = None
+
+        def __call__(self, file_on_stage, target_dir):
+            self.download_file = file_on_stage
+            (target_dir / "requirements.txt").write_text("\n".join(packages))
+
+    get_mock = _MockGetter()
+    sm = StageManager()
+    with mock.patch.object(
+        sm, "_get_files_list_from_stage", lambda parts, pattern: files
+    ):
+        with mock.patch.object(StageManager, "get", get_mock) as get_mock:
+            result = sm._check_for_requirements_file(  # noqa: SLF001
+                stage_path_parts=sm._stage_path_part_factory(input_path)  # noqa: SLF001
+            )
+
+    assert result == packages
+
+    assert get_mock.download_file == selected

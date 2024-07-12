@@ -22,6 +22,7 @@
 ## New additions
 * Added connection option `--token-file-path` allowing passing OAuth token using a file. The function is also
   supported by setting `token_file_path` in connection definition.
+* Support for Python remote execution via `snow stage execute` and `snow git execute` similar to existing EXECUTE IMMEDIATE support.
 
 ## Fixes and improvements
 * The `snow app run` command now allows upgrading to unversioned mode from a versioned or release mode application installation
@@ -29,7 +30,7 @@
 * The `snow app version create` command now allows operating on application packages created outside the CLI
 * Added support for user stages in stage execute command
 * Added support for user stages in stage and git copy commands
-
+* Improved support for quoted identifiers in snowpark commands.
 
 # v2.6.0
 ## Backward incompatibility
