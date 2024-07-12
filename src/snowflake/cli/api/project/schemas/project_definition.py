@@ -18,15 +18,27 @@ from dataclasses import dataclass
 from typing import Dict, Optional, Union
 
 from packaging.version import Version
-from pydantic import Field, ValidationError, field_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.errors import SchemaValidationError
+from snowflake.cli.api.project.schemas.entities.application_entity import (
+    ApplicationEntity,
+)
+from snowflake.cli.api.project.schemas.entities.common import (
+    DefaultsField,
+    TargetField,
+)
+from snowflake.cli.api.project.schemas.entities.entities import (
+    Entity,
+    v2_entity_types_map,
+)
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.utils.models import ProjectEnvironment
 from snowflake.cli.api.utils.types import Context
+from typing_extensions import Annotated
 
 
 @dataclass
@@ -105,8 +117,60 @@ class DefinitionV11(DefinitionV10):
 
 
 class DefinitionV20(_ProjectDefinitionBase):
-    entities: Dict = Field(
-        title="Entity definitions.",
+    entities: Dict[str, Annotated[Entity, Field(discriminator="type")]] = Field(
+        title="Entity definitions."
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def apply_defaults(cls, data: Dict) -> Dict:
+        """
+        Applies default values that exist on the model but not specified in yml
+        """
+        if "defaults" in data and "entities" in data:
+            for key, entity in data["entities"].items():
+                entity_type = entity["type"]
+                if entity_type not in v2_entity_types_map:
+                    continue
+                entity_model = v2_entity_types_map[entity_type]
+                for default_key, default_value in data["defaults"].items():
+                    if (
+                        default_key in entity_model.model_fields
+                        and default_key not in entity
+                    ):
+                        entity[default_key] = default_value
+        return data
+
+    @field_validator("entities", mode="after")
+    @classmethod
+    def validate_entities(cls, entities: Dict[str, Entity]) -> Dict[str, Entity]:
+        for key, entity in entities.items():
+            # TODO Automatically detect TargetFields to validate
+            if entity.type == ApplicationEntity.get_type():
+                if isinstance(entity.from_.target, TargetField):
+                    target_key = str(entity.from_.target)
+                    target_class = entity.from_.__class__.model_fields["target"]
+                    target_type = target_class.annotation.__args__[0]
+                    cls._validate_target_field(target_key, target_type, entities)
+        return entities
+
+    @classmethod
+    def _validate_target_field(
+        cls, target_key: str, target_type: Entity, entities: Dict[str, Entity]
+    ):
+        if target_key not in entities:
+            raise ValueError(f"No such target: {target_key}")
+        else:
+            # Validate the target type
+            actual_target_type = entities[target_key].__class__
+            if target_type and target_type is not actual_target_type:
+                raise ValueError(
+                    f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
+                )
+
+    defaults: Optional[DefaultsField] = Field(
+        title="Default key/value entity values that are merged recursively for each entity.",
+        default=None,
     )
 
     env: Union[Dict[str, str], ProjectEnvironment, None] = Field(
@@ -124,12 +188,6 @@ class DefinitionV20(_ProjectDefinitionBase):
         if isinstance(env, ProjectEnvironment):
             return env
         return ProjectEnvironment(default_env=(env or {}), override_env={})
-
-    @field_validator("entities")
-    @classmethod
-    def validate_entities(cls, entities: Dict) -> Dict:
-        # TODO Add entities validation logic
-        return entities
 
 
 def build_project_definition(**data):
