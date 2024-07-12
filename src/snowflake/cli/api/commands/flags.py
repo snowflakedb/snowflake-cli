@@ -162,6 +162,7 @@ ConnectionOption = typer.Option(
         lambda: cli_context_manager.connection_context.set_connection_name
     ),
     show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
     autocompletion=lambda: list(get_all_connections()),
 )
 
