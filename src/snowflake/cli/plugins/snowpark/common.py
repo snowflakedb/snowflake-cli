@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Union
 
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
@@ -31,6 +31,7 @@ from snowflake.cli.plugins.snowpark.package_utils import (
 from snowflake.connector.cursor import SnowflakeCursor
 
 DEFAULT_RUNTIME = "3.8"
+FunctionOrProcedure = Union[FunctionSchema, ProcedureSchema]
 
 
 def check_if_replace_is_required(
@@ -252,7 +253,7 @@ class UdfSprocIdentifier:
         return self._identifier_from_signature(self._full_signature(), for_sql=True)
 
     @classmethod
-    def from_definition(cls, udf_sproc: FunctionSchema | ProcedureSchema):
+    def from_definition(cls, udf_sproc: FunctionOrProcedure):
         names = []
         types = []
         defaults = []

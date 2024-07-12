@@ -67,6 +67,7 @@ from snowflake.cli.plugins.object.commands import (
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.common import (
+    FunctionOrProcedure,
     UdfSprocIdentifier,
     check_if_replace_is_required,
 )
@@ -220,7 +221,7 @@ def deploy(
 
 
 def _assert_object_definitions_are_correct(
-    object_type, object_definitions: List[FunctionSchema | ProcedureSchema]
+    object_type, object_definitions: List[FunctionOrProcedure]
 ):
     for definition in object_definitions:
         database = definition.database
@@ -239,7 +240,7 @@ def _assert_object_definitions_are_correct(
 
 def _find_existing_objects(
     object_type: ObjectType,
-    objects: List[FunctionSchema | ProcedureSchema],
+    objects: List[FunctionOrProcedure],
     om: ObjectManager,
 ):
     existing_objects = {}
@@ -295,7 +296,7 @@ def get_app_stage_path(stage_name: Optional[str], project_name: str) -> str:
 def _deploy_single_object(
     manager: FunctionManager | ProcedureManager,
     object_type: ObjectType,
-    object_definition: FunctionSchema | ProcedureSchema,
+    object_definition: FunctionOrProcedure,
     existing_objects: Dict[str, Dict],
     snowflake_dependencies: List[str],
     stage_artifact_path: str,
