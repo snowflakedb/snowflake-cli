@@ -30,7 +30,6 @@ from snowflake.cli.api.config import config_init
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import CollectionResult
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.app import loggers
 from snowflake.cli.app.api_impl.plugin.plugin_config_provider_impl import (
     PluginConfigProviderImpl,
 )
@@ -89,7 +88,6 @@ def _commands_registration_callback(value: bool):
 @_commands_registration.before
 def _config_init_callback(configuration_file: Optional[Path]):
     config_init(configuration_file)
-    loggers.create_initial_loggers()
 
 
 @_commands_registration.before

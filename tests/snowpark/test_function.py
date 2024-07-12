@@ -57,7 +57,7 @@ def test_deploy_function(
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function MockDatabase.MockSchema.func1(a string default 'default value', b variant)
+            create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a string default 'default value', b variant)
             copy grants
             returns string
             language python
@@ -105,7 +105,7 @@ def test_deploy_function_with_external_access(
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function MockDatabase.MockSchema.func1(a string, b variant)
+            create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a string, b variant)
             copy grants
             returns string
             language python
@@ -225,7 +225,7 @@ def test_deploy_function_needs_update_because_packages_changes(
         f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function MockDatabase.MockSchema.func1(a string default 'default value', b variant)
+            create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a string default 'default value', b variant)
             copy grants
             returns string
             language python
@@ -276,7 +276,7 @@ def test_deploy_function_needs_update_because_handler_changes(
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
-            create or replace function MockDatabase.MockSchema.func1(a string default 'default value', b variant)
+            create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a string default 'default value', b variant)
             copy grants
             returns string
             language python
