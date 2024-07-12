@@ -449,7 +449,10 @@ VariablesOption = typer.Option(
     None,
     "--variable",
     "-D",
-    help="Variables for the template. For example: `-D \"<key>=<value>\"`, string values must be in `''`.",
+    help='Variables for the execution context. For example: `-D "<key>=<value>"`. '
+    "For SQL files variables are use to expand the template and any unknown variable will cause an error. "
+    "For Python files variables are used to update os.environ dictionary. Provided keys are capitalized to adhere to best practices."
+    "In case of SQL files string values must be quoted in `''` (consider embedding quoting in the file).",
     show_default=False,
 )
 
@@ -612,10 +615,11 @@ class Variable:
 
 def parse_key_value_variables(variables: Optional[List[str]]) -> List[Variable]:
     """Util for parsing key=value input. Useful for commands accepting multiple input options."""
+    if not variables:
+        return []
     result: List[Variable] = []
     if not variables:
         return result
-
     for p in variables:
         if "=" not in p:
             raise ClickException(f"Invalid variable: '{p}'")
