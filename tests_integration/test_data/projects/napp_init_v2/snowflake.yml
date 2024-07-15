@@ -1,0 +1,14 @@
+definition_version: 2
+entities:
+  pkg:
+    type: application package
+    name: myapp_pkg_<% ctx.env.USER %>
+    artifacts:
+      - src: app/*
+        dest: ./
+    manifest: app/manifest.yml
+  app:
+    type: application
+    name: myapp_<% ctx.env.USER %>
+    from:
+      target: pkg
