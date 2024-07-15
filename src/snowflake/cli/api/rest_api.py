@@ -27,6 +27,16 @@ from snowflake.connector.network import SnowflakeRestful
 log = logging.getLogger(__name__)
 
 
+def _pluralize_object_type(object_type: str) -> str:
+    """
+    Pluralize object type without depending on OBJECT_TO_NAMES.
+    """
+    if object_type.endswith("y"):
+        return object_type[:-1].lower() + "ies"
+    else:
+        return object_type.lower() + "s"
+
+
 class RestApi:
     def __init__(self, connection: SnowflakeConnection):
         self.conn = connection
@@ -43,6 +53,13 @@ class RestApi:
             if "404 Not Found" in str(err):
                 return False
             raise err
+
+    def _fetch_endpoint_exists(self, url: str) -> bool:
+        try:
+            result = self.send_rest_request(url, method="get")
+            return bool(result)
+        except BadRequest:
+            return False
 
     def send_rest_request(
         self, url: str, method: str, data: Optional[Dict[str, Any]] = None
@@ -77,29 +94,17 @@ class RestApi:
         )
 
     def _database_exists(self, db_name: str) -> bool:
-        fetch_url = f"{SF_REST_API_URL_PREFIX}/databases/{db_name}"
-        try:
-            result = self.send_rest_request(fetch_url, method="GET")
-            return bool(result)
-        except BadRequest:
-            return False
+        url = f"{SF_REST_API_URL_PREFIX}/databases/{db_name}"
+        return self._fetch_endpoint_exists(url)
 
     def _schema_exists(self, db_name: str, schema_name: str) -> bool:
-        fetch_url = (
-            f"{SF_REST_API_URL_PREFIX}/databases/{db_name}/schemas/{schema_name}"
-        )
-        try:
-            result = self.send_rest_request(fetch_url, method="GET")
-            return bool(result)
-        except BadRequest:
-            return False
+        url = f"{SF_REST_API_URL_PREFIX}/databases/{db_name}/schemas/{schema_name}"
+        return self._fetch_endpoint_exists(url)
 
-    def determine_url_for_create_query(
-        self, *, object_type: str, plural_object_type: str
-    ) -> str:
+    def determine_url_for_create_query(self, object_type: str) -> str:
         """
         Determine an url for creating an object of given type via REST API.
-        If URL cannot be determined, the function throws <TODO> exception.
+        If URL cannot be determined, the function throws CannotDetermineCreateURLException exception.
 
         URLs we check:
          * /api/v2/<type>/
@@ -111,6 +116,8 @@ class RestApi:
          To check whether an URL exists, we send read-only GET request (LIST endpoint,
          which should imply CREATE endpoint).
         """
+        plural_object_type = _pluralize_object_type(object_type)
+
         if self.get_endpoint_exists(
             url := f"{SF_REST_API_URL_PREFIX}/{plural_object_type}/"
         ):
@@ -118,11 +125,11 @@ class RestApi:
 
         db = self.conn.database
         if not db:
-            raise ClickException(
+            raise DatabaseNotDefinedException(
                 "Database not defined in connection. Please try again with `--database` flag."
             )
         if not self._database_exists(db):
-            raise ClickException(f"Database '{db}' does not exist.")
+            raise DatabaseNotExistsException(f"Database '{db}' does not exist.")
         if self.get_endpoint_exists(
             url := f"{SF_REST_API_URL_PREFIX}/databases/{db}/{plural_object_type}/"
         ):
@@ -130,16 +137,36 @@ class RestApi:
 
         schema = self.conn.schema
         if not schema:
-            raise ClickException(
+            raise SchemaNotDefinedException(
                 "Schema not defined in connection. Please try again with `--schema` flag."
             )
         if not self._schema_exists(db_name=db, schema_name=schema):
-            raise ClickException(f"Schema '{schema}' does not exist.")
+            raise SchemaNotExistsException(f"Schema '{schema}' does not exist.")
         if self.get_endpoint_exists(
             url := f"{SF_REST_API_URL_PREFIX}/databases/{self.conn.database}/schemas/{self.conn.schema}/{plural_object_type}/"
         ):
             return url
 
-        raise ClickException(
+        raise CannotDetermineCreateURLException(
             f"Create operation for type {object_type} is not supported. Try using `sql -q 'CREATE ...'` command."
         )
+
+
+class DatabaseNotDefinedException(ClickException):
+    pass
+
+
+class SchemaNotDefinedException(ClickException):
+    pass
+
+
+class DatabaseNotExistsException(ClickException):
+    pass
+
+
+class SchemaNotExistsException(ClickException):
+    pass
+
+
+class CannotDetermineCreateURLException(ClickException):
+    pass

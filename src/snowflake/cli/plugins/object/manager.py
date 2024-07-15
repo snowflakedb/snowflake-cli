@@ -36,16 +36,6 @@ def _get_object_names(object_type: str) -> ObjectNames:
     return OBJECT_TO_NAMES[object_type]
 
 
-def _pluralize_object_type(object_type: str) -> str:
-    """
-    Pluralize object type without depending on OBJECT_TO_NAMES.
-    """
-    if object_type.endswith("y"):
-        return object_type[:-1].lower() + "ies"
-    else:
-        return object_type.lower() + "s"
-
-
 class ObjectManager(SqlExecutionMixin):
     def show(
         self,
@@ -85,10 +75,7 @@ class ObjectManager(SqlExecutionMixin):
 
     def create(self, object_type: str, object_data: Dict[str, Any]) -> str:
         rest = RestApi(self._conn)
-        url = rest.determine_url_for_create_query(
-            object_type=object_type,
-            plural_object_type=_pluralize_object_type(object_type),
-        )
+        url = rest.determine_url_for_create_query(object_type=object_type)
 
         try:
             response = rest.send_rest_request(url=url, method="post", data=object_data)
