@@ -32,6 +32,7 @@
 * Added support for user stages in stage execute command
 * Added support for user stages in stage and git copy commands
 * Improved support for quoted identifiers in snowpark commands.
+* `snow object create` message returns meaningful error if connection database is not defined.
 
 
 # v2.6.0
