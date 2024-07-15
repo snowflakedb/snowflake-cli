@@ -22,8 +22,8 @@ from typing import Any, Dict, Union
 import click
 from snowflake.cli.__about__ import VERSION
 from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.commands.execution_metadata import ExecutionMetadata
 from snowflake.cli.api.config import get_feature_flags_section
-from snowflake.cli.api.execution_metadata import ExecutionMetadata
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
 from snowflake.cli.app.constants import PARAM_APPLICATION_NAME
