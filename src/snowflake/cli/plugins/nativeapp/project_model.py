@@ -105,16 +105,20 @@ class NativeAppProjectModel:
     @cached_property
     def package_warehouse(self) -> Optional[str]:
         if self.definition.package and self.definition.package.warehouse:
-            return self.definition.package.warehouse
+            return to_identifier(self.definition.package.warehouse)
         else:
-            return cli_context.connection.warehouse
+            if cli_context.connection.warehouse:
+                return to_identifier(cli_context.connection.warehouse)
+            return None
 
     @cached_property
     def application_warehouse(self) -> Optional[str]:
         if self.definition.application and self.definition.application.warehouse:
-            return self.definition.application.warehouse
+            return to_identifier(self.definition.application.warehouse)
         else:
-            return cli_context.connection.warehouse
+            if cli_context.connection.warehouse:
+                return to_identifier(cli_context.connection.warehouse)
+            return None
 
     @cached_property
     def project_identifier(self) -> str:
