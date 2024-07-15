@@ -39,9 +39,6 @@ from tests.nativeapp.utils import assert_dir_snapshot, create_native_app_project
 from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
 from tests_common import IS_WINDOWS
 
-if IS_WINDOWS:
-    pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
-
 PROJECT_ROOT = Path("/path/to/project")
 
 # --------------------------------------------------------
@@ -275,6 +272,9 @@ def test_edit_setup_script_with_exec_imm_sql_noop(os_agnostic_snapshot):
             )
 
 
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
 def test_edit_setup_script_with_exec_imm_sql_symlink(os_agnostic_snapshot):
     manifest_contents = dedent(
         f"""\
