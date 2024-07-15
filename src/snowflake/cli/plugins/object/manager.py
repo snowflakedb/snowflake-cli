@@ -85,16 +85,10 @@ class ObjectManager(SqlExecutionMixin):
 
     def create(self, object_type: str, object_data: Dict[str, Any]) -> str:
         rest = RestApi(self._conn)
-        try:
-            url = rest.determine_url_for_create_query(
-                plural_object_type=_pluralize_object_type(object_type)
-            )
-        except BadRequest:
-            raise ClickException("Specified database or schema does not exist.")
-        if not url:
-            if not self._conn.database:
-                return "Database not defined in connection. Please try again with `--database` flag."
-            return f"Create operation for type {object_type} is not supported. Try using `sql -q 'CREATE ...'` command"
+        url = rest.determine_url_for_create_query(
+            object_type=object_type,
+            plural_object_type=_pluralize_object_type(object_type),
+        )
 
         try:
             response = rest.send_rest_request(url=url, method="post", data=object_data)
