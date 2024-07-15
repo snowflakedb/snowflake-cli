@@ -109,12 +109,20 @@ def mock_ctx(mock_cursor):
 
 
 class MockConnectionCtx(mock.MagicMock):
-    def __init__(self, cursor=None, role: Optional[str] = "MockRole", *args, **kwargs):
+    def __init__(
+        self,
+        cursor=None,
+        role: Optional[str] = "MockRole",
+        warehouse: Optional[str] = "MockWarehouse",
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.queries: List[str] = []
         self.cs = cursor
         self._checkout_count = 0
         self._role = role
+        self._warehouse = warehouse
 
     def get_query(self):
         return "\n".join(self.queries)
@@ -124,7 +132,7 @@ class MockConnectionCtx(mock.MagicMock):
 
     @property
     def warehouse(self):
-        return "MockWarehouse"
+        return self._warehouse
 
     @property
     def database(self):
