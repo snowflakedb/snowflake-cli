@@ -23,6 +23,15 @@
 
 ## Fixes and improvements
 
+# v2.6.1
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* `snow object create` message returns meaningful error if connection database is not defined.
 
 # v2.6.0
 ## Backward incompatibility
