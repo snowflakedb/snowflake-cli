@@ -86,9 +86,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
 
         env_vars = {
             "_SNOWFLAKE_CLI_PROJECT_PATH": str(self._na_project.project_root),
-            "_SNOWFLAKE_CLI_SETUP_FILES": os.pathsep.join(
-                map(str, py_files)
-            ),  # TODO: escape os.pathsep
+            "_SNOWFLAKE_CLI_SETUP_FILES": os.pathsep.join(map(str, py_files)),
             "_SNOWFLAKE_CLI_APP_NAME": str(self._na_project.package_name),
             "_SNOWFLAKE_CLI_SQL_DEST_DIR": str(self.generated_root),
         }
