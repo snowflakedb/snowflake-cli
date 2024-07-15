@@ -42,6 +42,7 @@
 
 ## Fixes and improvements
 * `snow object create` message returns meaningful error if connection database is not defined.
+* Fixed crashing when save_logs is false and log directory does not exist
 
 # v2.6.0
 ## Backward incompatibility
