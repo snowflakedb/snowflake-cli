@@ -30,6 +30,7 @@ from snowflake.cli.plugins.nativeapp.codegen.setup.native_app_setup_processor im
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
 )
+from snowflake.cli.plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 
 SNOWPARK_PROCESSOR = "snowpark"
@@ -63,12 +64,8 @@ class NativeAppCompiler:
         Go through every artifact object in the project definition of a native app, and execute processors in order of specification for each of the artifact object.
         May have side-effects on the filesystem by either directly editing source files or the deploy root.
         """
-        should_proceed = False
-        for artifact in self._na_project.artifacts:
-            if artifact.processors:
-                should_proceed = True
-                break
-        if not should_proceed:
+
+        if not self._should_invoke_processors():
             return
 
         with cc.phase("Invoking artifact processors"):
@@ -79,17 +76,19 @@ class NativeAppCompiler:
 
             for artifact in self._na_project.artifacts:
                 for processor in artifact.processors:
-                    artifact_processor = self._try_create_processor(
-                        processor_mapping=processor,
-                    )
-                    if artifact_processor is None:
-                        raise UnsupportedArtifactProcessorError(
-                            processor_name=processor.name
+                    if self._is_enabled(processor):
+                        artifact_processor = self._try_create_processor(
+                            processor_mapping=processor,
                         )
-                    else:
-                        artifact_processor.process(
-                            artifact_to_process=artifact, processor_mapping=processor
-                        )
+                        if artifact_processor is None:
+                            raise UnsupportedArtifactProcessorError(
+                                processor_name=processor.name
+                            )
+                        else:
+                            artifact_processor.process(
+                                artifact_to_process=artifact,
+                                processor_mapping=processor,
+                            )
 
     def _try_create_processor(
         self,
@@ -117,3 +116,15 @@ class NativeAppCompiler:
         self.cached_processors[processor_name] = current_processor
 
         return current_processor
+
+    def _should_invoke_processors(self):
+        for artifact in self._na_project.artifacts:
+            for processor in artifact.processors:
+                if self._is_enabled(processor):
+                    return True
+        return False
+
+    def _is_enabled(self, processor: ProcessorMapping) -> bool:
+        if processor.name.lower() == NA_SETUP_PROCESSOR:
+            return FeatureFlag.ENABLE_NATIVE_APP_PYTHON_SETUP.is_enabled()
+        return True
