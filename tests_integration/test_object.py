@@ -274,7 +274,7 @@ def test_create_error_database_not_exist(runner):
 
 @pytest.mark.integration
 def test_create_error_schema_not_exist(runner, test_database):
-    # database does not exist
+    # schema does not exist
     result = runner.invoke_with_connection(
         [
             "object",
