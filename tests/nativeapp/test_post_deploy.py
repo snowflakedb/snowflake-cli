@@ -68,9 +68,7 @@ def test_sql_scripts(
         processor._execute_post_deploy_hooks()  # noqa SLF001
 
         assert mock_execute_query.mock_calls == [
-            mock.call("use warehouse MockWarehouse"),
             mock.call("use database MockDatabase"),
-            mock.call("use warehouse MockWarehouse"),
             mock.call("use database MockDatabase"),
         ]
         assert mock_execute_queries.mock_calls == [
