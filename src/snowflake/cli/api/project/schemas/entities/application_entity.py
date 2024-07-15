@@ -25,16 +25,18 @@ from snowflake.cli.api.project.schemas.entities.common import (
     TargetField,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
+    EntityTypeField,
     UpdatableModel,
 )
 
 
 class ApplicationEntity(EntityBase):
-    type: Literal["application"]  # noqa: A003
+    type: Literal["application"] = EntityTypeField()  # noqa A003
     name: str = Field(
         title="Name of the application created when this entity is deployed"
     )
     from_: ApplicationFromField = Field(
+        alias="from",
         validation_alias=AliasChoices("from"),
         title="An application package this entity should be created from",
     )

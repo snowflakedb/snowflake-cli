@@ -17,11 +17,17 @@ from __future__ import annotations
 import re
 from typing import List, Optional, Union
 
-from pydantic import Field, field_validator
-from snowflake.cli.api.project.schemas.native_app.application import Application
-from snowflake.cli.api.project.schemas.native_app.package import Package
+from pydantic import Field
+from snowflake.cli.api.project.schemas.native_app.application import (
+    Application,
+    ApplicationV11,
+)
+from snowflake.cli.api.project.schemas.native_app.package import Package, PackageV11
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
-from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
+from snowflake.cli.api.project.schemas.updatable_model import (
+    UpdatableModel,
+    field_validator_allowing_templates,
+)
 from snowflake.cli.api.project.util import (
     SCHEMA_AND_NAME,
 )
@@ -57,17 +63,18 @@ class NativeApp(UpdatableModel):
     package: Optional[Package] = Field(title="PackageSchema", default=None)
     application: Optional[Application] = Field(title="Application info", default=None)
 
-    @field_validator("source_stage")
-    @classmethod
-    def validate_source_stage(cls, input_value: str):
+    @field_validator_allowing_templates("source_stage")
+    def validate_source_stage(
+        cls, input_value: str  # noqa: N805, classmethod included
+    ):
         if not re.match(SCHEMA_AND_NAME, input_value):
             raise ValueError("Incorrect value for source_stage value of native_app")
         return input_value
 
-    @field_validator("artifacts")
-    @classmethod
+    @field_validator_allowing_templates("artifacts")
     def transform_artifacts(
-        cls, orig_artifacts: List[Union[PathMapping, str]]
+        cls,  # noqa: N805, classmethod included
+        orig_artifacts: List[Union[PathMapping, str]],
     ) -> List[PathMapping]:
         transformed_artifacts = []
         if orig_artifacts is None:
@@ -80,3 +87,11 @@ class NativeApp(UpdatableModel):
                 transformed_artifacts.append(PathMapping(src=artifact))
 
         return transformed_artifacts
+
+
+class NativeAppV11(NativeApp):
+    # templated defaults are only supported with version 1.1+
+    package: Optional[PackageV11] = Field(title="PackageSchema", default=PackageV11())
+    application: Optional[ApplicationV11] = Field(
+        title="Application info", default=ApplicationV11()
+    )

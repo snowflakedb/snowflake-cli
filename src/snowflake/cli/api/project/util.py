@@ -88,6 +88,11 @@ def is_valid_object_name(name: str, max_depth=2, allow_quoted=True) -> bool:
     return re.fullmatch(pattern, name) is not None
 
 
+def quote_identifier(identifier: str) -> str:
+    # double quote the identifier
+    return '"' + identifier.replace('"', '""') + '"'
+
+
 def to_identifier(name: str) -> str:
     """
     Converts a name to a valid Snowflake identifier. If the name is already a valid
@@ -96,8 +101,15 @@ def to_identifier(name: str) -> str:
     if is_valid_identifier(name):
         return name
 
-    # double quote the identifier
-    return '"' + name.replace('"', '""') + '"'
+    return quote_identifier(name)
+
+
+def identifier_to_str(identifier: str) -> str:
+    if is_valid_quoted_identifier(identifier):
+        unquoted_id = identifier[1:-1]
+        return unquoted_id.replace('""', '"')
+
+    return identifier
 
 
 def append_to_identifier(identifier: str, suffix: str) -> str:
@@ -181,6 +193,34 @@ def first_set_env(*keys: str):
 
 def get_env_username() -> Optional[str]:
     return first_set_env("USER", "USERNAME", "LOGNAME")
+
+
+DEFAULT_USERNAME = "unknown_user"
+
+
+def get_sanitized_username():
+    return clean_identifier(get_env_username() or DEFAULT_USERNAME)
+
+
+def concat_identifiers(identifier1: str, identifier2: str) -> str:
+    """
+    Concatenate 2 identifiers.
+    If any of them is quoted identifier, quote the result.
+    If none of them is quoted, the resulting identifier will be unquoted (even if invalid)
+    """
+    quoted_found = False
+    if is_valid_quoted_identifier(identifier1):
+        identifier1 = identifier_to_str(identifier1)
+        quoted_found = True
+
+    if is_valid_quoted_identifier(identifier2):
+        identifier2 = identifier_to_str(identifier2)
+        quoted_found = True
+
+    if quoted_found:
+        return quote_identifier(f"{identifier1}{identifier2}")
+
+    return f"{identifier1}{identifier2}"
 
 
 SUPPORTED_VERSIONS = [1]

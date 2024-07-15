@@ -25,6 +25,12 @@ from snowflake.cli.api.project.schemas.project_definition import (
     ProjectProperties,
     build_project_definition,
 )
+from snowflake.cli.api.project.schemas.updatable_model import context
+from snowflake.cli.api.project.util import (
+    concat_identifiers,
+    identifier_to_str,
+    to_identifier,
+)
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 from snowflake.cli.api.rendering.project_definition_templates import (
     get_project_definition_cli_jinja_env,
@@ -81,7 +87,16 @@ class TemplatedEnvironment:
             all_referenced_vars.add(TemplateVar(current_attr_chain))
             current_attr_chain = None
         elif (
-            not isinstance(ast_node, (nodes.Template, nodes.TemplateData, nodes.Output))
+            not isinstance(
+                ast_node,
+                (
+                    nodes.Template,
+                    nodes.TemplateData,
+                    nodes.Output,
+                    nodes.Call,
+                    nodes.Const,
+                ),
+            )
             or current_attr_chain is not None
         ):
             raise InvalidTemplate(f"Unexpected templating syntax in {template_value}")
@@ -199,7 +214,6 @@ def _build_dependency_graph(
     dependencies_graph = Graph[TemplateVar]()
     for variable in all_vars:
         dependencies_graph.add(Node[TemplateVar](key=variable.key, data=variable))
-
     for variable in all_vars:
         # If variable is found in os.environ or from cli override, then use the value as is
         # skip rendering by pre-setting the rendered_value attribute
@@ -262,6 +276,38 @@ def _template_version_warning():
     )
 
 
+# def TemplatingFunctions:
+
+
+class TemplatingFunctions:
+    """
+    This class contains all functions available for templating
+    """
+
+    @staticmethod
+    def id_concat(a, b):
+        return concat_identifiers(a, b)
+
+    @staticmethod
+    def to_id(a):
+        return to_identifier(a)
+
+    @staticmethod
+    def to_str(a):
+        return identifier_to_str(a)
+
+
+def _add_defaults_to_definition(definition: Definition):
+    with context({"includes_templates": True}):
+        # pass a flag to Pydantic to skip validation for templated scalars
+        # populate the defaults
+        project_definition = build_project_definition(**definition)
+
+    return project_definition.model_dump(
+        exclude_none=True, warnings=False, by_alias=True
+    )
+
+
 def render_definition_template(
     original_definition: Optional[Definition], context_overrides: Context
 ) -> ProjectProperties:
@@ -281,6 +327,8 @@ def render_definition_template(
 
     # start with an environment from overrides and environment variables:
     override_env = context_overrides.get(CONTEXT_KEY, {}).get("env", {})
+
+    # default_env not resolved yet, because it could be templated
     environment_overrides = ProjectEnvironment(
         default_env={}, override_env=override_env
     )
@@ -288,7 +336,6 @@ def render_definition_template(
     if definition is None:
         return ProjectProperties(None, {CONTEXT_KEY: {"env": environment_overrides}})
 
-    project_context = {CONTEXT_KEY: definition}
     template_env = TemplatedEnvironment(get_project_definition_cli_jinja_env())
 
     if "definition_version" not in definition or Version(
@@ -305,11 +352,19 @@ def render_definition_template(
             _template_version_warning()
 
         project_definition = build_project_definition(**original_definition)
+        project_context = {CONTEXT_KEY: definition}
         project_context[CONTEXT_KEY]["env"] = environment_overrides
         return ProjectProperties(project_definition, project_context)
 
-    default_env = definition.get("env", {})
-    _validate_env_section(default_env)
+    definition = _add_defaults_to_definition(definition)
+    project_context = {CONTEXT_KEY: definition}
+
+    _validate_env_section(definition.get("env", {}))
+
+    # add available templating functions
+    project_context["id_concat"] = TemplatingFunctions.id_concat
+    project_context["to_id"] = TemplatingFunctions.to_id
+    project_context["to_str"] = TemplatingFunctions.to_str
 
     referenced_vars = _get_referenced_vars_in_definition(template_env, definition)
 
@@ -338,7 +393,12 @@ def render_definition_template(
         update_action=lambda val: template_env.render(val, final_context),
     )
 
-    definition["env"] = ProjectEnvironment(default_env, override_env)
+    default_env = definition.get("env", {})
     project_context[CONTEXT_KEY] = definition
     project_definition = build_project_definition(**definition)
+    # Overwrite the env in the Project Context to automatically handle overwrites
+    project_context[CONTEXT_KEY]["env"] = ProjectEnvironment(
+        default_env=default_env, override_env=override_env
+    )
+
     return ProjectProperties(project_definition, project_context)

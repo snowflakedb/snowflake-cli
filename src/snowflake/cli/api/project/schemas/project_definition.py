@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional, Union
 
 from packaging.version import Version
-from pydantic import Field, ValidationError, field_validator, model_validator
+from pydantic import Field, ValidationError, model_validator
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.application_entity import (
@@ -32,11 +32,16 @@ from snowflake.cli.api.project.schemas.entities.entities import (
     Entity,
     v2_entity_types_map,
 )
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
+from snowflake.cli.api.project.schemas.native_app.native_app import (
+    NativeApp,
+    NativeAppV11,
+)
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
-from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
-from snowflake.cli.api.utils.models import ProjectEnvironment
+from snowflake.cli.api.project.schemas.updatable_model import (
+    UpdatableModel,
+    field_validator_allowing_templates,
+)
 from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
 
@@ -70,9 +75,10 @@ class _ProjectDefinitionBase(UpdatableModel):
         title="Version of the project definition schema, which is currently 1",
     )
 
-    @field_validator("definition_version")
-    @classmethod
-    def _is_supported_version(cls, version: str) -> str:
+    @field_validator_allowing_templates("definition_version")
+    def _is_supported_version(
+        cls, version: str  # noqa: N805, classmethod included
+    ) -> str:
         version = str(version)
         version_map = get_version_map()
         if version not in version_map:
@@ -99,21 +105,14 @@ class DefinitionV10(_ProjectDefinitionBase):
 
 
 class DefinitionV11(DefinitionV10):
-    env: Union[Dict[str, str], ProjectEnvironment, None] = Field(
+    native_app: Optional[NativeAppV11] = Field(
+        title="Native app definitions for the project", default=None
+    )
+    env: Union[Dict[str, Union[str, int, bool]], None] = Field(
         title="Environment specification for this project.",
         default=None,
         validation_alias="env",
-        union_mode="smart",
     )
-
-    @field_validator("env")
-    @classmethod
-    def _convert_env(
-        cls, env: Union[Dict, ProjectEnvironment, None]
-    ) -> ProjectEnvironment:
-        if isinstance(env, ProjectEnvironment):
-            return env
-        return ProjectEnvironment(default_env=(env or {}), override_env={})
 
 
 class DefinitionV20(_ProjectDefinitionBase):
@@ -141,9 +140,10 @@ class DefinitionV20(_ProjectDefinitionBase):
                         entity[default_key] = default_value
         return data
 
-    @field_validator("entities", mode="after")
-    @classmethod
-    def validate_entities(cls, entities: Dict[str, Entity]) -> Dict[str, Entity]:
+    @field_validator_allowing_templates("entities", mode="after")
+    def validate_entities(
+        cls, entities: Dict[str, Entity]  # noqa: N805, classmethod included
+    ) -> Dict[str, Entity]:
         for key, entity in entities.items():
             # TODO Automatically detect TargetFields to validate
             if entity.type == ApplicationEntity.get_type():
@@ -173,24 +173,14 @@ class DefinitionV20(_ProjectDefinitionBase):
         default=None,
     )
 
-    env: Union[Dict[str, str], ProjectEnvironment, None] = Field(
+    env: Union[Dict[str, Union[str, int, bool]], None] = Field(
         title="Environment specification for this project.",
         default=None,
         validation_alias="env",
-        union_mode="smart",
     )
 
-    @field_validator("env")
-    @classmethod
-    def _convert_env(
-        cls, env: Union[Dict, ProjectEnvironment, None]
-    ) -> ProjectEnvironment:
-        if isinstance(env, ProjectEnvironment):
-            return env
-        return ProjectEnvironment(default_env=(env or {}), override_env={})
 
-
-def build_project_definition(**data):
+def build_project_definition(**data) -> ProjectDefinition:
     """
     Returns a ProjectDefinition instance with a version matching the provided definition_version value
     """

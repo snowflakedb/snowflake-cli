@@ -45,6 +45,7 @@ class MetaField(UpdatableModel):
 class DefaultsField(UpdatableModel):
     schema_: Optional[str] = Field(
         title="Schema.",
+        alias="schema",
         validation_alias=AliasChoices("schema"),
         default=None,
     )
@@ -73,8 +74,9 @@ class TargetField(Generic[TargetType]):
         return self.value
 
     @classmethod
-    def validate(cls, value: str, info: ValidationInfo) -> TargetField:
-        return cls(value)
+    def validate(cls, value: str, info: ValidationInfo) -> str:
+        # return cls(value)
+        return value  # TODO understand the need for this transformation, and provide alternative
 
     @classmethod
     def __get_pydantic_core_schema__(

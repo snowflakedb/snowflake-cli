@@ -17,7 +17,9 @@ from itertools import permutations
 import pytest
 from snowflake.cli.api.project.util import (
     append_to_identifier,
+    concat_identifiers,
     escape_like_pattern,
+    identifier_to_str,
     is_valid_identifier,
     is_valid_object_name,
     is_valid_quoted_identifier,
@@ -231,3 +233,53 @@ def test_to_string_literal(raw_string, literal):
 )
 def test_escape_like_pattern(raw_string, escaped):
     assert escape_like_pattern(raw_string) == escaped
+
+
+@pytest.mark.parametrize(
+    "id1, id2, concatenated_value",
+    [
+        # both unquoted, no special char -> result unquoted
+        ("Id_1", "_Id_2", "Id_1_Id_2"),
+        # both unquoted, one with special char -> result unquoted
+        ('Id_1."', "_Id_2", 'Id_1."_Id_2'),
+        # both unquoted, one with special char -> result unquoted
+        ("Id_1", '_Id_2."', 'Id_1_Id_2."'),
+        # one quoted, no special chars -> result quoted
+        ('"Id_1"', "_Id_2", '"Id_1_Id_2"'),
+        # one quoted, no special chars -> result quoted
+        ("Id_1", '"_Id_2"', '"Id_1_Id_2"'),
+        # both quoted, no special chars -> result quoted
+        ('"Id_1"', '"_Id_2"', '"Id_1_Id_2"'),
+        # quoted with valid 2 double quotes within -> result quoted
+        ('"Id_""_1"', '"_""_Id_2"', '"Id_""_1_""_Id_2"'),
+        # quoted with invalid single double quotes within
+        # -> result unquoted, and original quotes not removed
+        ('"Id_"_1"', '"_"_Id_2"', '"Id_"_1""_"_Id_2"'),
+        # one quoted with invalid single double quotes within and other properly quoted
+        # -> result quoted, double quotes escaped
+        ('"Id_"_1"', '"_Id_2"', '"""Id_""_1""_Id_2"'),
+        # one quoted with escaped double quotes within
+        # another non quoted with double quotes within
+        # -> result is quoted, and proper escaping of non quoted
+        ('"Id_""_1"', '_Id_"_2', '"Id_""_1_Id_""_2"'),
+    ],
+)
+def test_concat_identifiers(id1, id2, concatenated_value):
+    assert concat_identifiers(id1, id2) == concatenated_value
+
+
+@pytest.mark.parametrize(
+    "identifier, expected_value",
+    [
+        # valid unquoted id -> return same
+        ("Id_1", "Id_1"),
+        # valid quoted id without special chars -> return unquoted
+        ('"Id_1"', "Id_1"),
+        # valid quoted id with special chars -> return unquoted and unescaped "
+        ('"Id_""_._end"', 'Id_"_._end'),
+        # unquoted with unsafe chars -> return the same without unescaping
+        ('Id_""_._end', 'Id_""_._end'),
+    ],
+)
+def test_identifier_to_str(identifier, expected_value):
+    assert identifier_to_str(identifier) == expected_value

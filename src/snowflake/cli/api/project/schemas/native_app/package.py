@@ -16,11 +16,13 @@ from __future__ import annotations
 
 from typing import List, Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
+    field_validator_allowing_templates,
 )
+from snowflake.cli.api.project.util import get_sanitized_username
 
 DistributionOptions = Literal["internal", "external", "INTERNAL", "EXTERNAL"]
 
@@ -45,11 +47,18 @@ class Package(UpdatableModel):
         default="internal",
     )
 
-    @field_validator("scripts")
-    @classmethod
-    def validate_scripts(cls, input_list):
+    @field_validator_allowing_templates("scripts")
+    def validate_scripts(cls, input_list):  # noqa: N805, classmethod included
         if len(input_list) != len(set(input_list)):
             raise ValueError(
                 "package.scripts field should contain unique values. Check the list for duplicates and try again"
             )
         return input_list
+
+
+class PackageV11(Package):
+    # Templated defaults only supported in v1.1+
+    name: Optional[str] = IdentifierField(
+        title="Name of the application package created when you run the snow app run command",
+        default=f"<% id_concat(ctx.native_app.name, '_pkg_{get_sanitized_username()}') %>",
+    )

@@ -15,12 +15,12 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
-
-class ProjectEnvironment(UpdatableModel):
+@dataclass
+class ProjectEnvironment:
     """
     This class handles retrieval of project env variables.
     These env variables can be accessed through templating, as ctx.env.<var_name>
@@ -31,13 +31,14 @@ class ProjectEnvironment(UpdatableModel):
     - Check for default values from the project definition file.
     """
 
-    override_env: Dict[str, Any] = {}
-    default_env: Dict[str, Any] = {}
+    override_env: Dict[str, Any]
+    default_env: Dict[str, Any]
 
     def __init__(
         self, default_env: Dict[str, Any], override_env: Optional[Dict[str, Any]] = None
     ):
-        super().__init__(self, default_env=default_env, override_env=override_env or {})
+        self.override_env = override_env or {}
+        self.default_env = default_env
 
     def __getitem__(self, item):
         if item in self.override_env:

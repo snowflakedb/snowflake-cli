@@ -16,11 +16,12 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Union
 
-from pydantic import Field, field_validator
+from pydantic import Field
 from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierModel
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.updatable_model import (
     UpdatableModel,
+    field_validator_allowing_templates,
 )
 
 
@@ -51,9 +52,10 @@ class _CallableBase(UpdatableModel):
         default=[],
     )
 
-    @field_validator("runtime")
-    @classmethod
-    def convert_runtime(cls, runtime_input: Union[str, float]) -> str:
+    @field_validator_allowing_templates("runtime")
+    def convert_runtime(
+        cls, runtime_input: Union[str, float]  # noqa: N805, classmethod included
+    ) -> str:
         if isinstance(runtime_input, float):
             return str(runtime_input)
         return runtime_input
