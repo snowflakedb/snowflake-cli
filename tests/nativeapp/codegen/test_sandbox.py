@@ -21,9 +21,6 @@ import snowflake.cli.plugins.nativeapp.codegen.sandbox as sandbox
 
 from tests_common import IS_WINDOWS
 
-if IS_WINDOWS:
-    pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
-
 PYTHON_SCRIPT = """
 import sys
 
@@ -49,8 +46,15 @@ def mock_environ():
 
 
 @pytest.fixture
-def fake_venv_root(temp_dir):
-    venv_root = Path(temp_dir) / "venv"
+def fake_venv_root(fake_venv_root_unix, fake_venv_root_win32):
+    if IS_WINDOWS:
+        return fake_venv_root_win32
+    return fake_venv_root_unix
+
+
+@pytest.fixture
+def fake_venv_root_unix(temp_dir):
+    venv_root = Path(temp_dir) / "venv-unix"
     venv_root.mkdir()
 
     bin_dir = venv_root / "bin"
@@ -59,12 +63,12 @@ def fake_venv_root(temp_dir):
     interpreter = bin_dir / "python3"
     interpreter.touch(mode=0o755, exist_ok=True)
 
-    yield venv_root
+    yield venv_root.resolve()
 
 
 @pytest.fixture
 def fake_venv_root_win32(temp_dir):
-    venv_root = Path(temp_dir) / "venv"
+    venv_root = Path(temp_dir) / "venv-win32"
     venv_root.mkdir()
 
     bin_dir = venv_root / "Scripts"
@@ -73,7 +77,24 @@ def fake_venv_root_win32(temp_dir):
     interpreter = bin_dir / "python.exe"
     interpreter.touch(mode=0o755, exist_ok=True)
 
-    yield venv_root
+    yield venv_root.resolve()
+
+
+@pytest.fixture
+def fake_venv_interpreter(fake_venv_interpreter_unix, fake_venv_interpreter_win32):
+    if IS_WINDOWS:
+        return fake_venv_interpreter_win32
+    return fake_venv_interpreter_unix
+
+
+@pytest.fixture
+def fake_venv_interpreter_unix(fake_venv_root_unix):
+    return fake_venv_root_unix / "bin" / "python3"
+
+
+@pytest.fixture
+def fake_venv_interpreter_win32(fake_venv_root_win32):
+    return fake_venv_root_win32 / "Scripts" / "python.exe"
 
 
 @pytest.mark.parametrize(
@@ -209,7 +230,12 @@ def test_execute_in_conda_env_fails_when_conda_env_cannot_be_determined(
 @mock.patch("sys.platform", "darwin")
 @mock.patch("subprocess.run")
 def test_execute_in_specified_venv_root_unix(
-    mock_run, mock_environ, fake_venv_root, expected_timeout, expected_cwd
+    mock_run,
+    mock_environ,
+    fake_venv_root_unix,
+    fake_venv_interpreter_unix,
+    expected_timeout,
+    expected_cwd,
 ):
     mock_environ.side_effect = VENV_ONLY_ENVIRON.get
 
@@ -221,14 +247,13 @@ def test_execute_in_specified_venv_root_unix(
     actual = sandbox.execute_script_in_sandbox(
         PYTHON_SCRIPT,
         sandbox.ExecutionEnvironmentType.VENV,
-        path=fake_venv_root,
+        path=fake_venv_root_unix,
         timeout=expected_timeout,
         cwd=expected_cwd,
     )
 
-    expected_interpreter = fake_venv_root / "bin" / "python3"
     mock_run.assert_called_once_with(
-        [expected_interpreter.resolve(), "-"],
+        [fake_venv_interpreter_unix, "-"],
         capture_output=True,
         text=True,
         input=PYTHON_SCRIPT,
@@ -245,7 +270,7 @@ def test_execute_in_specified_venv_root_unix(
 @mock.patch("sys.platform", "darwin")
 @mock.patch("subprocess.run")
 def test_execute_in_specified_venv_root_as_string(
-    mock_run, mock_environ, fake_venv_root
+    mock_run, mock_environ, fake_venv_root_unix, fake_venv_interpreter_unix
 ):
     mock_environ.side_effect = VENV_ONLY_ENVIRON.get
 
@@ -257,12 +282,11 @@ def test_execute_in_specified_venv_root_as_string(
     actual = sandbox.execute_script_in_sandbox(
         PYTHON_SCRIPT,
         sandbox.ExecutionEnvironmentType.VENV,
-        path=str(fake_venv_root.resolve()),
+        path=str(fake_venv_root_unix),
     )
 
-    expected_interpreter = fake_venv_root / "bin" / "python3"
     mock_run.assert_called_once_with(
-        [expected_interpreter.resolve(), "-"],
+        [fake_venv_interpreter_unix, "-"],
         capture_output=True,
         text=True,
         input=PYTHON_SCRIPT,
@@ -279,7 +303,7 @@ def test_execute_in_specified_venv_root_as_string(
 @mock.patch("sys.platform", "win32")
 @mock.patch("subprocess.run")
 def test_execute_in_specified_venv_root_windows(
-    mock_run, mock_environ, fake_venv_root_win32
+    mock_run, mock_environ, fake_venv_root_win32, fake_venv_interpreter_win32
 ):
     mock_environ.side_effect = VENV_ONLY_ENVIRON.get
 
@@ -292,9 +316,8 @@ def test_execute_in_specified_venv_root_windows(
         PYTHON_SCRIPT, sandbox.ExecutionEnvironmentType.VENV, path=fake_venv_root_win32
     )
 
-    expected_interpreter = fake_venv_root_win32 / "Scripts" / "python.exe"
     mock_run.assert_called_once_with(
-        [expected_interpreter.resolve(), "-"],
+        [fake_venv_interpreter_win32, "-"],
         capture_output=True,
         text=True,
         input=PYTHON_SCRIPT,
@@ -311,9 +334,9 @@ def test_execute_in_specified_venv_root_windows(
 @mock.patch("sys.platform", "darwin")
 @mock.patch("subprocess.run")
 def test_execute_in_venv_falls_back_to_activated_one(
-    mock_run, mock_environ, fake_venv_root
+    mock_run, mock_environ, fake_venv_root_unix, fake_venv_interpreter_unix
 ):
-    mock_environ.side_effect = {"VIRTUAL_ENV": str(fake_venv_root)}.get
+    mock_environ.side_effect = {"VIRTUAL_ENV": str(fake_venv_root_unix)}.get
 
     expected = subprocess.CompletedProcess(
         args=SCRIPT_ARGS, returncode=0, stdout=SCRIPT_OUT, stderr=SCRIPT_ERR
@@ -324,9 +347,8 @@ def test_execute_in_venv_falls_back_to_activated_one(
         PYTHON_SCRIPT, sandbox.ExecutionEnvironmentType.VENV
     )
 
-    expected_interpreter = fake_venv_root / "bin" / "python3"
     mock_run.assert_called_once_with(
-        [expected_interpreter.resolve(), "-"],
+        [fake_venv_interpreter_unix, "-"],
         capture_output=True,
         text=True,
         input=PYTHON_SCRIPT,
@@ -371,12 +393,11 @@ def test_execute_in_venv_fails_when_root_not_found(mock_run, mock_environ):
 @mock.patch("sys.platform", "darwin")
 @mock.patch("subprocess.run")
 def test_execute_in_venv_fails_when_interpreter_not_found(
-    mock_run, mock_environ, fake_venv_root
+    mock_run, mock_environ, fake_venv_root, fake_venv_interpreter
 ):
     mock_environ.side_effect = {}.get
 
-    expected_interpreter = fake_venv_root / "bin" / "python3"
-    expected_interpreter.unlink()
+    fake_venv_interpreter.unlink()
 
     with pytest.raises(sandbox.SandboxExecutionError):
         sandbox.execute_script_in_sandbox(
@@ -419,7 +440,7 @@ def test_execute_system_python_looks_for_python3(
     )
 
     mock_run.assert_called_once_with(
-        [expected_interpreter.resolve(), "-"],
+        [expected_interpreter, "-"],
         capture_output=True,
         text=True,
         input=PYTHON_SCRIPT,
@@ -451,7 +472,7 @@ def test_execute_system_python_falls_back_to_python(mock_which, mock_run, mock_e
     )
 
     mock_run.assert_called_once_with(
-        [expected_interpreter.resolve(), "-"],
+        [expected_interpreter, "-"],
         capture_output=True,
         text=True,
         input=PYTHON_SCRIPT,
@@ -571,7 +592,9 @@ def test_execute_in_current_interpreter(
 
 
 @mock.patch("subprocess.run")
-def test_execute_auto_detects_venv(mock_run, mock_environ, fake_venv_root):
+def test_execute_auto_detects_venv(
+    mock_run, mock_environ, fake_venv_root, fake_venv_interpreter
+):
     mock_environ.side_effect = {"VIRTUAL_ENV": str(fake_venv_root)}.get
 
     expected = subprocess.CompletedProcess(
@@ -583,9 +606,8 @@ def test_execute_auto_detects_venv(mock_run, mock_environ, fake_venv_root):
         PYTHON_SCRIPT, sandbox.ExecutionEnvironmentType.AUTO_DETECT
     )
 
-    expected_interpreter = fake_venv_root / "bin" / "python3"
     mock_run.assert_called_once_with(
-        [expected_interpreter.resolve(), "-"],
+        [fake_venv_interpreter, "-"],
         capture_output=True,
         text=True,
         input=PYTHON_SCRIPT,
@@ -659,7 +681,7 @@ def test_execute_auto_detect_falls_back_to_system_python(
     )
 
     mock_run.assert_called_once_with(
-        [expected_interpreter.resolve(), "-"],
+        [expected_interpreter, "-"],
         capture_output=True,
         text=True,
         input=PYTHON_SCRIPT,
@@ -676,7 +698,7 @@ def test_execute_auto_detect_falls_back_to_system_python(
 @mock.patch("subprocess.run")
 @mock.patch("shutil.which")
 def test_execute_auto_detect_chooses_venv_over_conda(
-    mock_which, mock_run, mock_environ, fake_venv_root
+    mock_which, mock_run, mock_environ, fake_venv_root, fake_venv_interpreter
 ):
     mock_environ.side_effect = {
         "VIRTUAL_ENV": str(fake_venv_root),
@@ -692,9 +714,8 @@ def test_execute_auto_detect_chooses_venv_over_conda(
         PYTHON_SCRIPT, sandbox.ExecutionEnvironmentType.AUTO_DETECT
     )
 
-    expected_interpreter = fake_venv_root / "bin" / "python3"
     mock_run.assert_called_once_with(
-        [expected_interpreter.resolve(), "-"],
+        [fake_venv_interpreter, "-"],
         capture_output=True,
         text=True,
         input=PYTHON_SCRIPT,
@@ -713,7 +734,7 @@ def test_execute_auto_detect_chooses_venv_over_conda(
 @mock.patch("subprocess.run")
 @mock.patch("shutil.which")
 def test_execute_auto_detect_is_default(
-    mock_which, mock_run, mock_environ, fake_venv_root
+    mock_which, mock_run, mock_environ, fake_venv_root, fake_venv_interpreter
 ):
     mock_environ.side_effect = {
         "VIRTUAL_ENV": str(fake_venv_root),
@@ -727,9 +748,8 @@ def test_execute_auto_detect_is_default(
 
     actual = sandbox.execute_script_in_sandbox(PYTHON_SCRIPT)
 
-    expected_interpreter = fake_venv_root / "bin" / "python3"
     mock_run.assert_called_once_with(
-        [expected_interpreter.resolve(), "-"],
+        [fake_venv_interpreter, "-"],
         capture_output=True,
         text=True,
         input=PYTHON_SCRIPT,
@@ -748,7 +768,7 @@ def test_execute_auto_detect_is_default(
 @mock.patch("subprocess.run")
 @mock.patch("shutil.which")
 def test_execute_does_not_interpret_return_codes(
-    mock_which, mock_run, mock_environ, fake_venv_root
+    mock_which, mock_run, mock_environ, fake_venv_root, fake_venv_interpreter
 ):
     mock_environ.side_effect = {
         "VIRTUAL_ENV": str(fake_venv_root),
@@ -762,9 +782,8 @@ def test_execute_does_not_interpret_return_codes(
 
     actual = sandbox.execute_script_in_sandbox(PYTHON_SCRIPT)
 
-    expected_interpreter = fake_venv_root / "bin" / "python3"
     mock_run.assert_called_once_with(
-        [expected_interpreter.resolve(), "-"],
+        [fake_venv_interpreter, "-"],
         capture_output=True,
         text=True,
         input=PYTHON_SCRIPT,

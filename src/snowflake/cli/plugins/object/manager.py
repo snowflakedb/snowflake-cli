@@ -36,16 +36,6 @@ def _get_object_names(object_type: str) -> ObjectNames:
     return OBJECT_TO_NAMES[object_type]
 
 
-def _pluralize_object_type(object_type: str) -> str:
-    """
-    Pluralize object type without depending on OBJECT_TO_NAMES.
-    """
-    if object_type.endswith("y"):
-        return object_type[:-1].lower() + "ies"
-    else:
-        return object_type.lower() + "s"
-
-
 class ObjectManager(SqlExecutionMixin):
     def show(
         self,
@@ -85,11 +75,8 @@ class ObjectManager(SqlExecutionMixin):
 
     def create(self, object_type: str, object_data: Dict[str, Any]) -> str:
         rest = RestApi(self._conn)
-        url = rest.determine_url_for_create_query(
-            plural_object_type=_pluralize_object_type(object_type)
-        )
-        if not url:
-            return f"Create operation for type {object_type} is not supported. Try using `sql -q 'CREATE ...'` command"
+        url = rest.determine_url_for_create_query(object_type=object_type)
+
         try:
             response = rest.send_rest_request(url=url, method="post", data=object_data)
             # workaround as SnowflakeRestful class ignores some errors, dropping their info and returns {} instead.

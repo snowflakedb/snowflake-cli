@@ -41,11 +41,21 @@ from snowflake.connector.errors import ProgrammingError
 
 class SqlExecutionMixin:
     def __init__(self):
-        pass
+        self._snowpark_session = None
 
     @property
     def _conn(self):
         return cli_context.connection
+
+    @property
+    def snowpark_session(self):
+        if not self._snowpark_session:
+            from snowflake.snowpark.session import Session
+
+            self._snowpark_session = Session.builder.configs(
+                {"connection": self._conn}
+            ).create()
+        return self._snowpark_session
 
     @cached_property
     def _log(self):
@@ -106,6 +116,35 @@ class SqlExecutionMixin:
         finally:
             if is_different_role:
                 self._execute_query(f"use role {prev_role}")
+
+    @contextmanager
+    def use_warehouse(self, new_wh: str):
+        """
+        Switches to a different warehouse for a while, then switches back.
+        This is a no-op if the requested warehouse is already active.
+        If there is no default warehouse in the account, it will throw an error.
+        """
+
+        wh_result = self._execute_query(
+            f"select current_warehouse()", cursor_class=DictCursor
+        ).fetchone()
+        # If user has an assigned default warehouse, prev_wh will contain a value even if the warehouse is suspended.
+        try:
+            prev_wh = wh_result["CURRENT_WAREHOUSE()"]
+        except:
+            prev_wh = None
+
+        # new_wh is not None, and should already be a valid identifier, no additional check is performed here.
+        is_different_wh = new_wh != prev_wh
+        try:
+            if is_different_wh:
+                self._log.debug("Using warehouse: %s", new_wh)
+                self.use(object_type=ObjectType.WAREHOUSE, name=new_wh)
+            yield
+        finally:
+            if prev_wh and is_different_wh:
+                self._log.debug("Switching back to warehouse: %s", prev_wh)
+                self.use(object_type=ObjectType.WAREHOUSE, name=prev_wh)
 
     def create_password_secret(
         self, name: str, username: str, password: str

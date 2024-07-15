@@ -12,23 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import subprocess
-from timeit import default_timer as timer
+from __future__ import annotations
 
-import pytest
+from typing import Union, get_args
 
-SAMPLE_AMOUNT = 20
-EXECUTION_TIME_THRESHOLD = 1.4
+from snowflake.cli.api.project.schemas.entities.application_entity import (
+    ApplicationEntity,
+)
+from snowflake.cli.api.project.schemas.entities.application_package_entity import (
+    ApplicationPackageEntity,
+)
 
+Entity = Union[ApplicationEntity, ApplicationPackageEntity]
 
-@pytest.mark.performance
-def test_snow_help_performance():
-    results = []
-    for _ in range(SAMPLE_AMOUNT):
-        start = timer()
-        subprocess.run(["snow", "--help"], stdout=subprocess.DEVNULL)
-        end = timer()
-        results.append(end - start)
+ALL_ENTITIES = [*get_args(Entity)]
 
-    results.sort()
-    assert results[int(SAMPLE_AMOUNT * 0.9)] <= EXECUTION_TIME_THRESHOLD
+v2_entity_types_map = {e.get_type(): e for e in ALL_ENTITIES}

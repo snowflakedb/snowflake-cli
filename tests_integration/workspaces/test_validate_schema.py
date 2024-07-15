@@ -12,23 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import subprocess
-from timeit import default_timer as timer
-
 import pytest
+import os
+from unittest import mock
 
-SAMPLE_AMOUNT = 20
-EXECUTION_TIME_THRESHOLD = 1.4
 
+@pytest.mark.integration
+@mock.patch.dict(
+    os.environ,
+    {
+        "SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2": "true",
+    },
+    clear=True,
+)
+def test_validate_project_definition_v2(runner, snowflake_session, project_directory):
+    with project_directory("project_definition_v2") as tmp_dir:
+        result = runner.invoke_with_connection_json(["ws", "validate"])
 
-@pytest.mark.performance
-def test_snow_help_performance():
-    results = []
-    for _ in range(SAMPLE_AMOUNT):
-        start = timer()
-        subprocess.run(["snow", "--help"], stdout=subprocess.DEVNULL)
-        end = timer()
-        results.append(end - start)
-
-    results.sort()
-    assert results[int(SAMPLE_AMOUNT * 0.9)] <= EXECUTION_TIME_THRESHOLD
+        assert result.exit_code == 0

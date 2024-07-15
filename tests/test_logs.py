@@ -15,12 +15,14 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 
 import pytest
+import tomlkit
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.exceptions import InvalidLogsConfiguration
 from snowflake.cli.app import loggers
@@ -28,9 +30,6 @@ from snowflake.cli.app import loggers
 from tests.conftest import clean_logging_handlers
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
 from tests_common import IS_WINDOWS
-
-if IS_WINDOWS:
-    pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
 
 
 @pytest.fixture
@@ -49,32 +48,33 @@ def setup_config_and_logs(snowflake_home):
             logs_path = snowflake_home / "custom" / "logs"
 
         config_path = snowflake_home / "config.toml"
-        config_path.write_text(
-            "\n".join(
-                x
-                for x in [
-                    "[connections]",
-                    "",
-                    "[cli.logs]",
-                    f'path = "{logs_path}"' if use_custom_logs_path else None,
-                    (
-                        f"save_logs = {str(save_logs).lower()}"
-                        if save_logs is not None
-                        else None
-                    ),
-                    f'level = "{level}"' if level else None,
-                ]
-                if x is not None
-            )
-        )
+        log_config_data: dict[str, str | bool] = {}
+        config_data = dict(connections={}, cli=dict(logs=log_config_data))
+        if use_custom_logs_path:
+            log_config_data["path"] = str(logs_path)
+        if save_logs is not None:
+            log_config_data["save_logs"] = save_logs
+        if level:
+            log_config_data["level"] = level
+        tomlkit.dump(config_data, config_path.open("w"))
+
         config_path.chmod(0o700)
 
+        # Make sure we start without any leftovers
         clean_logging_handlers()
+        shutil.rmtree(logs_path, ignore_errors=True)
+
+        # Setup loggers
         config_init(config_path)
         loggers.create_loggers(verbose=verbose, debug=debug)
         assert len(_list_handlers()) == (2 if save_logs else 1)
+
         yield logs_path
-        shutil.rmtree(logs_path)
+
+        # After the test, logging handlers still have open file handles
+        # Close everything so we can delete the log file
+        clean_logging_handlers()
+        shutil.rmtree(logs_path, ignore_errors=True)
 
     return _setup_config_and_logs
 
@@ -98,7 +98,7 @@ def _list_handlers():
     return logging.getLogger("snowflake.cli").handlers
 
 
-def _get_logs_file(logs_path: Path) -> Path:
+def get_logs_file(logs_path: Path) -> Path:
     return next(logs_path.iterdir())
 
 
@@ -114,11 +114,11 @@ def assert_log_level(log_messages: str, expected_level: str) -> None:
 
 
 def assert_file_log_level(logs_path: Path, expected_level: str) -> None:
-    assert_log_level(_get_logs_file(logs_path).read_text(), expected_level)
+    assert_log_level(get_logs_file(logs_path).read_text(), expected_level)
 
 
 def assert_log_is_empty(logs_path: Path) -> None:
-    assert _get_logs_file(logs_path).read_text() == ""
+    assert get_logs_file(logs_path).read_text() == ""
 
 
 def test_logs_section_appears_in_fresh_config_file(temp_dir):
@@ -127,7 +127,7 @@ def test_logs_section_appears_in_fresh_config_file(temp_dir):
     config_init(config_file)
     assert config_file.exists() is True
     assert '[cli.logs]\nsave_logs = true\npath = "' in config_file.read_text()
-    assert '/logs"\nlevel = "info"' in config_file.read_text()
+    assert f'{os.sep}logs"\nlevel = "info"' in config_file.read_text()
 
 
 def test_logs_saved_by_default(setup_config_and_logs):
@@ -145,7 +145,7 @@ def test_default_logs_location_is_created_automatically(setup_config_and_logs):
 def test_logs_can_be_turned_off_by_config(setup_config_and_logs):
     with setup_config_and_logs(save_logs=False) as logs_path:
         print_log_messages()
-        assert_log_is_empty(logs_path)
+        assert not logs_path.exists()
 
 
 def test_logs_path_is_configurable(setup_config_and_logs):
@@ -189,7 +189,7 @@ def test_log_level_is_not_overriden_by_verbose_flag(capsys, setup_config_and_log
 
 
 def test_stdout_log_level_remains_error(capsys, setup_config_and_logs):
-    with setup_config_and_logs(save_logs=True, level="debug") as logs_path:
+    with setup_config_and_logs(save_logs=True, level="debug"):
         print_log_messages()
         captured = capsys.readouterr()
         assert_log_level(captured.out + captured.err, expected_level="error")
@@ -206,7 +206,10 @@ def test_incorrect_log_level_in_config(setup_config_and_logs):
         )
 
 
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Permissions for new files aren't strict in Windows"
+)
 def test_log_files_permissions(setup_config_and_logs):
     with setup_config_and_logs(save_logs=True) as logs_path:
         print_log_messages()
-        assert_file_permissions_are_strict(_get_logs_file(logs_path))
+        assert_file_permissions_are_strict(get_logs_file(logs_path))
