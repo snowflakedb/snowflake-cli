@@ -149,6 +149,20 @@ def test_show_drop_image_repository(runner, test_database, snowflake_session):
             },
         ),
         ("image-repository", {"name": "test_image_repo"}),
+        (
+            "table",
+            {
+                "name": "test_table",
+                "columns": [{"name": "col1", "datatype": "number", "nullable": False}],
+                "constraints": [
+                    {
+                        "name": "prim_key",
+                        "column_names": ["col1"],
+                        "constraint_type": "PRIMARY KEY",
+                    }
+                ],
+            },
+        ),
     ],
 )
 @pytest.mark.integration
@@ -185,13 +199,14 @@ def test_create(object_type, object_definition, runner, test_database):
         _test_create(["--json", json.dumps(object_definition)])
     # test key=value format
     with _cleanup_object():
-        list_definition = [f"{key}={value}" for key, value in object_definition.items()]
+        list_definition = [
+            f"{key}={json.dumps(value)}" for key, value in object_definition.items()
+        ]
         _test_create(list_definition)
 
 
 @pytest.mark.integration
-def test_create_errors(runner, test_database, caplog):
-
+def test_create_error_conflict(runner, test_database, caplog):
     # conflict - an object already exists
     schema_name = "schema_noble_knight"
     result = runner.invoke_with_connection(
@@ -207,6 +222,9 @@ def test_create_errors(runner, test_database, caplog):
     assert "409 Conflict" in caplog.text
     caplog.clear()
 
+
+@pytest.mark.integration
+def test_create_error_misspelled_argument(runner, test_database, caplog):
     # misspelled argument
     schema_name = "another_schema_name"
     result = runner.invoke_with_connection(
@@ -220,13 +238,67 @@ def test_create_errors(runner, test_database, caplog):
     assert "HTTP 400: Bad Request" in caplog.text
     caplog.clear()
 
+
+@pytest.mark.integration
+def test_create_error_unsupported_type(runner, test_database):
     # object type that don't exist
     result = runner.invoke_with_connection(
-        ["object", "create", "type_that_does_not_exist", "name=anything", "--debug"]
+        ["object", "create", "type_that_does_not_exist", "name=anything"]
     )
-    assert result.exit_code == 0
+    assert result.exit_code == 1
+    assert "Error" in result.output
     assert (
-        "Create operation for type type_that_does_not_exist is not supported. Try using `sql -q 'CREATE ...'` command"
+        "Create operation for type type_that_does_not_exist is not supported."
         in result.output
     )
-    assert "404 Not Found" in caplog.text
+    assert "using `sql -q 'CREATE ...'` command." in result.output
+
+
+@pytest.mark.integration
+def test_create_error_database_not_exist(runner):
+    # database does not exist
+    result = runner.invoke_with_connection(
+        [
+            "object",
+            "create",
+            "schema",
+            "name=test_schema",
+            "--database",
+            "this_db_does_not_exist",
+        ]
+    )
+    assert result.exit_code == 1, result.output
+    assert "Error" in result.output
+    assert "Database 'THIS_DB_DOES_NOT_EXIST' does not exist." in result.output
+
+
+@pytest.mark.integration
+def test_create_error_schema_not_exist(runner, test_database):
+    # database does not exist
+    result = runner.invoke_with_connection(
+        [
+            "object",
+            "create",
+            "image-repository",
+            "name=test_schema",
+            "--schema",
+            "this_schema_does_not_exist",
+        ]
+    )
+    assert result.exit_code == 1, result.output
+    assert "Error" in result.output
+    assert "Schema 'THIS_SCHEMA_DOES_NOT_EXIST' does not exist." in result.output
+
+
+@pytest.mark.integration
+def test_create_error_undefined_database(runner):
+    # undefined database
+    result = runner.invoke_with_connection(
+        ["object", "create", "schema", f"name=test_schema"]
+    )
+    assert result.exit_code == 1, result.output
+    assert "Error" in result.output
+    assert (
+        "Database not defined in connection. Please try again with `--database` flag."
+        in result.output
+    )

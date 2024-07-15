@@ -122,7 +122,7 @@ class RestApi:
                 "Database not defined in connection. Please try again with `--database` flag."
             )
         if not self._database_exists(db):
-            raise ClickException(f"Database '{db}' does not exist")
+            raise ClickException(f"Database '{db}' does not exist.")
         if self.get_endpoint_exists(
             url := f"{SF_REST_API_URL_PREFIX}/databases/{db}/{plural_object_type}/"
         ):
