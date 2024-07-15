@@ -246,24 +246,47 @@ def execute_script_in_sandbox(
 
 
 class SandboxEnvBuilder(EnvBuilder):
+    """
+    A virtual environment builder that can be used to build an environment suitable for
+    executing user-provided python scripts in an isolated sandbox.
+    """
+
     def __init__(self, path: Path, **kwargs) -> None:
+        """
+        Creates a new builder with the specified destination path. The path need not
+        exist, it will be created when needed (recursively if necessary).
+
+        Parameters:
+            path (Path): The directory in which the sandbox environment will be created.
+        """
         super().__init__(**kwargs)
         self.path = path
-        self._context = None
+        self._context: Any = None  # cached context
 
-    def ensure_created(self):
+    def post_setup(self, context) -> None:
+        self._context = context
+
+    def ensure_created(self) -> None:
+        """
+        Ensures that the sandbox environment has been created and correctly initialized.
+        """
         if self.path.exists():
             self._context = self.ensure_directories(self.path)
         else:
             self.path.mkdir(parents=True, exist_ok=True)
-            self.create(self.path)
+            self.create(
+                self.path
+            )  # will set self._context through the post_setup callback
 
-    def run_python(self, *args):
+    def run_python(self, *args) -> None:
+        """
+        Executes the python interpreter in the sandboxed environment with the provided arguments.
+        """
         positional_args = [
             self._context.env_exe,
-            "-E",
+            "-E",  # passing -E ignores all PYTHON* env vars
             *args,
-        ]  # passing -E ignores all PYTHON* env vars
+        ]
         kwargs = {
             "cwd": self._context.env_dir,
             "stderr": subprocess.STDOUT,
@@ -273,23 +296,7 @@ class SandboxEnvBuilder(EnvBuilder):
         subprocess.check_output(positional_args, **kwargs)
 
     def pip_install(self, *args: Any) -> None:
+        """
+        Invokes pip install with the provided arguments.
+        """
         self.run_python("-m", "pip", "install", *[str(arg) for arg in args])
-
-    def post_setup(self, context):
-        self._context = context
-
-    def execute_script(
-        self,
-        script_source: str,
-        cwd: Optional[Union[str, Path]] = None,
-        timeout: Optional[int] = None,
-        env_vars: Optional[EnvVars] = None,
-    ) -> subprocess.CompletedProcess:
-        return execute_script_in_sandbox(
-            script_source,
-            env_type=ExecutionEnvironmentType.VENV,
-            cwd=cwd,
-            timeout=timeout,
-            path=self.path,
-            env_vars=env_vars,
-        )

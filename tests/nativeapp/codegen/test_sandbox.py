@@ -823,3 +823,16 @@ def test_execute_does_not_interpret_return_codes(
     assert actual.stderr == SCRIPT_ERR
 
     assert not mock_which.called
+
+
+def test_sandbox_env_builder(temp_dir):
+    env_path = Path(temp_dir) / "venv"
+    builder = sandbox.SandboxEnvBuilder(env_path)
+    builder.ensure_created()  # exercise the creation path
+
+    builder.run_python("--version")  # should not raise an exception
+
+    # verify that a builder works correctly when the virtual env already exists
+    builder = sandbox.SandboxEnvBuilder(env_path)
+    builder.ensure_created()
+    builder.run_python("--help")  # should not raise an exception
