@@ -38,9 +38,6 @@ from tests.nativeapp.utils import assert_dir_snapshot, touch
 from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
 from tests_common import IS_WINDOWS
 
-if IS_WINDOWS:
-    pytest.skip("Does not work on Windows", allow_module_level=True)
-
 
 def trimmed_contents(path: Path) -> Optional[str]:
     if not path.is_file():
@@ -976,6 +973,9 @@ def test_too_many_files(project_definition_files):
         )
 
 
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
 @pytest.mark.parametrize(
     "project_path,expected_path",
     [
@@ -1033,6 +1033,9 @@ def test_source_path_to_deploy_path(
         assert result == []
 
 
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
 def test_symlink_or_copy_raises_error(temp_dir, os_agnostic_snapshot):
     touch("GrandA/ParentA/ChildA")
     with open(Path(temp_dir, "GrandA/ParentA/ChildA"), "w") as f:
@@ -1093,6 +1096,9 @@ def test_symlink_or_copy_raises_error(temp_dir, os_agnostic_snapshot):
     assert file_in_deploy_root.read_text(encoding="utf-8") == os_agnostic_snapshot
 
 
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
 def test_symlink_or_copy_with_no_symlinks_in_project_root(os_agnostic_snapshot):
     test_dir_structure = {
         "GrandA/ParentA/ChildA/GrandChildA": "Text GrandA/ParentA/ChildA/GrandChildA",
@@ -1200,6 +1206,9 @@ def test_symlink_or_copy_with_no_symlinks_in_project_root(os_agnostic_snapshot):
                 )
 
 
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
 def test_symlink_or_copy_with_symlinks_in_project_root(os_agnostic_snapshot):
     test_dir_structure = {
         "GrandA/ParentA": "Do not use as src of a symlink",

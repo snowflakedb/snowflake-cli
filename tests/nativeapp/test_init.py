@@ -33,10 +33,6 @@ from snowflake.cli.plugins.nativeapp.init import (
 )
 
 from tests.testing_utils.files_and_dirs import create_named_file
-from tests_common import IS_WINDOWS
-
-if IS_WINDOWS:
-    pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
 
 PROJECT_PATH = "demo-na-project"
 PROJECT_NAME = "demo_na_project"
