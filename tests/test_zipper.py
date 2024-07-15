@@ -16,13 +16,7 @@ import os
 from pathlib import Path
 from zipfile import ZipFile
 
-import pytest
 from snowflake.cli.plugins.snowpark.zipper import add_file_to_existing_zip, zip_dir
-
-from tests_common import IS_WINDOWS
-
-if IS_WINDOWS:
-    pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
 
 
 def test_zip_current_dir(temp_dir):
