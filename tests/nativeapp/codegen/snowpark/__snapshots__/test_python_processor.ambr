@@ -549,8 +549,8 @@
 # name: test_process_with_collected_functions.1
   '''
   ===== Contents of: output/deploy/__generated/snowpark/__generated.sql =====
-  EXECUTE IMMEDIATE FROM '/__generated/snowpark/stagepath/main.sql';
   EXECUTE IMMEDIATE FROM '/__generated/snowpark/stagepath/data.sql';
+  EXECUTE IMMEDIATE FROM '/__generated/snowpark/stagepath/main.sql';
   
   '''
 # ---
