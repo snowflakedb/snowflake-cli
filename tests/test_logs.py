@@ -213,3 +213,9 @@ def test_log_files_permissions(setup_config_and_logs):
     with setup_config_and_logs(save_logs=True) as logs_path:
         print_log_messages()
         assert_file_permissions_are_strict(get_logs_file(logs_path))
+
+
+def test_disabled_logs_with_debug_flag(setup_config_and_logs):
+    with setup_config_and_logs(save_logs=False, debug=True):
+        print_log_messages()
+    # Should not raise exception
