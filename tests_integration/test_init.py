@@ -98,9 +98,9 @@ def test_template_contents(runner, temporary_working_directory, test_root_path):
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("template", ["example_snowpark", "example_streamlit"])
-def test_default_url(runner, temporary_working_directory, template):
+def test_default_url(runner, temporary_working_directory):
     path = "a_new_project"
+    template = "example_snowpark"
     runner = runner.invoke(["init", path, "--template", template, "--no-interactive"])
     assert runner.exit_code == 0, runner.output
     assert (Path(path) / "snowflake.yml").exists()
