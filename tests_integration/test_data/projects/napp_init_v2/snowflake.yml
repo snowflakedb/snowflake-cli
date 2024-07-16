@@ -1,3 +1,5 @@
+# This is the v2 version of the napp_init_v1 project definition
+
 definition_version: 2
 entities:
   pkg:

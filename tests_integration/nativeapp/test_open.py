@@ -83,7 +83,7 @@ def test_nativeapp_open_v2(
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
 
-    # "snow app run" doesn't support definition v2 yet, so creating the app with a v1 project first
+    # TODO Move to napp_init_v2 block once "snow app run" supports definition v2
     with project_directory("napp_init_v1"):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
@@ -108,7 +108,7 @@ def test_nativeapp_open_v2(
             )
 
         finally:
-            # "snow app teardown" doesn't support definition v2 yet
+            # TODO Move to napp_init_v2 block once "snow app run" supports definition v2
             with project_directory("napp_init_v1"):
                 result = runner.invoke_with_connection_json(
                     ["app", "teardown", "--force", "--cascade"],
