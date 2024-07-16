@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     ProjectFileContextManager,
 )
 
 from tests.testing_utils.files_and_dirs import temp_local_dir
+from tests_common import IS_WINDOWS
 
 ORIGINAL_CONTENTS = "# This is the original contents"
 EDITED_CONTENTS = "# This is the edited contents"
@@ -34,6 +36,9 @@ def test_project_file_context_manager():
         assert foo_path.read_text(encoding="utf-8") == EDITED_CONTENTS
 
 
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
 def test_project_file_context_manager_unlinks_symlinks():
     dir_contents = {"foo.txt": ORIGINAL_CONTENTS}
     with temp_local_dir(dir_contents) as root:

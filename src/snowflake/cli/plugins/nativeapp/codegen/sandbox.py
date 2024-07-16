@@ -278,9 +278,13 @@ class SandboxEnvBuilder(EnvBuilder):
                 self.path
             )  # will set self._context through the post_setup callback
 
-    def run_python(self, *args) -> None:
+    def run_python(self, *args) -> str:
         """
         Executes the python interpreter in the sandboxed environment with the provided arguments.
+        This raises a CalledProcessError if the python interpreter was not executed successfully.
+
+        Returns:
+            The output of running the command.
         """
         positional_args = [
             self._context.env_exe,
@@ -293,7 +297,7 @@ class SandboxEnvBuilder(EnvBuilder):
         }
         env = dict(os.environ)
         env["VIRTUAL_ENV"] = self._context.env_dir
-        subprocess.check_output(positional_args, **kwargs)
+        return subprocess.check_output(positional_args, **kwargs)
 
     def pip_install(self, *args: Any) -> None:
         """

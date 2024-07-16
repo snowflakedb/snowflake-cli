@@ -56,7 +56,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
         **kwargs,
     ) -> None:
         """
-        Processes a Python setup script and generated the corresponding SQL commands.
+        Processes a Python setup script and generates the corresponding SQL commands.
         """
         bundle_map = BundleMap(
             project_root=self._na_project.project_root,
