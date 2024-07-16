@@ -15,9 +15,9 @@
 import uuid
 from unittest import mock
 import re
-import os
 
 from snowflake.cli.api.project.util import generate_user_env
+from tests_integration.test_utils import enable_definition_v2_feature_flag
 
 from tests.project.fixtures import *
 
@@ -67,12 +67,7 @@ def test_nativeapp_open(
 
 
 @pytest.mark.integration
-@mock.patch.dict(
-    os.environ,
-    {
-        "SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2": "true",
-    },
-)
+@enable_definition_v2_feature_flag
 @mock.patch("typer.launch")
 @pytest.mark.parametrize("project_definition", ["v1", "v2"])
 def test_nativeapp_open_v2(

@@ -25,6 +25,7 @@ from tests_integration.test_utils import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
+    enable_definition_v2_feature_flag,
 )
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
@@ -177,12 +178,7 @@ def test_nativeapp_teardown_cascade(
 
 
 @pytest.mark.integration
-@mock.patch.dict(
-    os.environ,
-    {
-        "SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2": "true",
-    },
-)
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize("project_definition", ["v1", "v2"])
 def test_nativeapp_teardown_unowned_app(
@@ -232,28 +228,26 @@ def test_nativeapp_teardown_unowned_app(
 
 
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("default_release_directive", [True, False])
+@pytest.mark.parametrize("project_definition", ["v1", "v2"])
 def test_nativeapp_teardown_pkg_versions(
     runner,
-    snowflake_session,
-    temporary_working_directory,
     default_release_directive,
+    project_definition,
+    project_directory,
 ):
     project_name = "myapp"
     pkg_name = f"{project_name}_pkg_{USER_NAME}"
 
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
-        result = runner.invoke_with_connection(
-            ["app", "version", "create", "v1"],
-            env=TEST_ENV,
-        )
-        assert result.exit_code == 0
+    with project_directory(f"napp_init_{project_definition}"):
+        # TODO Use the main project_directory block once "snow app version" supports definition v2
+        with project_directory("napp_init_v1"):
+            result = runner.invoke_with_connection(
+                ["app", "version", "create", "v1"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
 
         try:
             # when setting a release directive, we will not have the ability to drop the version later
@@ -278,12 +272,14 @@ def test_nativeapp_teardown_pkg_versions(
 
             teardown_args = []
             if not default_release_directive:
-                # if we didn't set a release directive, we can drop the version and try again
-                result = runner.invoke_with_connection(
-                    ["app", "version", "drop", "v1", "--force"],
-                    env=TEST_ENV,
-                )
-                assert result.exit_code == 0
+                # TODO Use the main project_directory block once "snow app version" supports definition v2
+                with project_directory("napp_init_v1"):
+                    # if we didn't set a release directive, we can drop the version and try again
+                    result = runner.invoke_with_connection(
+                        ["app", "version", "drop", "v1", "--force"],
+                        env=TEST_ENV,
+                    )
+                    assert result.exit_code == 0
             else:
                 # if we did set a release directive, we need --force for teardown to work
                 teardown_args = ["--force"]
