@@ -23,7 +23,6 @@ from snowflake.connector import SnowflakeConnection
 
 @lsp_plugin(
     name="nativeapp",
-    version="0.0.1",
     capabilities={
         "openApplication": True,
     },
@@ -44,5 +43,5 @@ def nade_lsp_plugin(server: LanguageServer):
             return MessageResult(f"{url}")
         else:
             return MessageResult(
-                'Snowflake Native App not yet deployed! Please run "snow app run" first.'
+                'Snowflake Native App not yet deployed! Please run "runApplication" first.'
             )
