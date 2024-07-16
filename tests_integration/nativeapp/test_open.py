@@ -74,16 +74,17 @@ def test_nativeapp_open(
     },
 )
 @mock.patch("typer.launch")
+@pytest.mark.parametrize("project_definition", ["v1", "v2"])
 def test_nativeapp_open_v2(
     mock_typer_launch,
     runner,
-    snowflake_session,
+    project_definition,
     project_directory,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
 
-    # TODO Move to napp_init_v2 block once "snow app run" supports definition v2
+    # TODO Use the main project_directory block once "snow app run" supports definition v2
     with project_directory("napp_init_v1"):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
@@ -91,7 +92,7 @@ def test_nativeapp_open_v2(
         )
         assert result.exit_code == 0
 
-    with project_directory("napp_init_v2"):
+    with project_directory(f"napp_init_{project_definition}"):
         try:
             result = runner.invoke_with_connection_json(
                 ["app", "open"],
@@ -108,10 +109,8 @@ def test_nativeapp_open_v2(
             )
 
         finally:
-            # TODO Move to napp_init_v2 block once "snow app run" supports definition v2
-            with project_directory("napp_init_v1"):
-                result = runner.invoke_with_connection_json(
-                    ["app", "teardown", "--force", "--cascade"],
-                    env=TEST_ENV,
-                )
-                assert result.exit_code == 0
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force", "--cascade"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0

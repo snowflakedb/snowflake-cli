@@ -15,6 +15,7 @@
 import os
 import uuid
 from textwrap import dedent
+from unittest import mock
 
 from snowflake.cli.api.project.util import generate_user_env
 
@@ -176,29 +177,32 @@ def test_nativeapp_teardown_cascade(
 
 
 @pytest.mark.integration
+@mock.patch.dict(
+    os.environ,
+    {
+        "SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2": "true",
+    },
+)
 @pytest.mark.parametrize("force", [True, False])
+@pytest.mark.parametrize("project_definition", ["v1", "v2"])
 def test_nativeapp_teardown_unowned_app(
     runner,
-    snowflake_session,
-    temporary_working_directory,
     force,
+    project_definition,
+    project_directory,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
 
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
+    # TODO Use the main project_directory block once "snow app run" supports definition v2
+    with project_directory("napp_init_v1"):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
 
+    with project_directory(f"napp_init_{project_definition}"):
         try:
             result = runner.invoke_with_connection_json(
                 ["sql", "-q", f"alter application {app_name} set comment = 'foo'"],
