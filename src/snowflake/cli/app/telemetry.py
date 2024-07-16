@@ -164,7 +164,7 @@ def log_command_result(execution: ExecutionMetadata):
             TelemetryField.KEY_TYPE: TelemetryEvent.CMD_EXECUTION_RESULT.value,
             CLITelemetryField.COMMAND_EXECUTION_ID: execution.execution_id,
             CLITelemetryField.COMMAND_RESULT_STATUS: execution.status.value,
-            CLITelemetryField.COMMAND_EXECUTION_TIME: execution.duration(),
+            CLITelemetryField.COMMAND_EXECUTION_TIME: execution.get_duration(),
         }
     )
 
@@ -179,7 +179,7 @@ def log_command_execution_error(exception: Exception, execution: ExecutionMetada
             CLITelemetryField.COMMAND_EXECUTION_ID: execution.execution_id,
             CLITelemetryField.ERROR_TYPE: exception_type,
             CLITelemetryField.IS_CLI_EXCEPTION: is_cli_exception,
-            CLITelemetryField.COMMAND_EXECUTION_TIME: execution.duration(),
+            CLITelemetryField.COMMAND_EXECUTION_TIME: execution.get_duration(),
         }
     )
 

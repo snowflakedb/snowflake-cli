@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-import uuid
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -96,7 +95,7 @@ class SnowTyper(typer.Typer):
             @wraps(command_callable)
             def command_callable_decorator(*args, **kw):
                 """Wrapper around command callable. This is what happens at "runtime"."""
-                execution = ExecutionMetadata(uuid.uuid4().hex)
+                execution = ExecutionMetadata()
                 self.pre_execute(execution)
                 try:
                     result = command_callable(*args, **kw)

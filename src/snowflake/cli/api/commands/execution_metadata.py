@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import time
-from dataclasses import dataclass
+import uuid
+from dataclasses import dataclass, field
 from enum import Enum
 
 
@@ -23,10 +24,10 @@ class ExecutionStatus(Enum):
 
 @dataclass
 class ExecutionMetadata:
-    execution_id: str
-    start_time: float = 0
-    end_time: float = 0
+    start_time: float = 0.0
+    end_time: float = 0.0
     status: ExecutionStatus = ExecutionStatus.SUCCESS
+    execution_id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
     def __post_init__(self):
         self.start_time = time.monotonic()
@@ -35,5 +36,5 @@ class ExecutionMetadata:
         self.end_time = time.monotonic()
         self.status = status
 
-    def duration(self):
+    def get_duration(self):
         return self.end_time - self.start_time
