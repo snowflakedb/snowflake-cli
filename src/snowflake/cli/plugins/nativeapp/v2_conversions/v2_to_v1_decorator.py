@@ -78,7 +78,7 @@ def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
 def nativeapp_definition_v2_to_v1(func):
     """
     A command decorator that attempts to automatically convert a native app project from
-    definition v2 to v1.1.
+    definition v2 to v1.1. Assumes with_project_definition() has already been called.
     The definition object in CliGlobalContext will be replaced with the converted object.
     Exactly one application package entity type is expected, and up to one application
     entity type is expected.
@@ -87,6 +87,10 @@ def nativeapp_definition_v2_to_v1(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         original_pdf: DefinitionV20 = cli_context.project_definition
+        if not original_pdf:
+            raise ValueError(
+                "Project definition could not be found. The nativeapp_definition_v2_to_v1 command decorator assumes with_project_definition() was called before it."
+            )
         if original_pdf.definition_version == "2":
             pdfv1 = _pdf_v2_to_v1(original_pdf)
             cli_context_manager.set_project_definition(pdfv1)
