@@ -18,6 +18,8 @@ from typing import Callable, TypedDict
 from pygls.server import LanguageServer
 from snowflake.cli.app.snow_connector import connect_to_snowflake
 
+LSP_VERSION = "0.0.1"
+
 
 class ConnectionParams(TypedDict):
     session_token: str
@@ -27,14 +29,13 @@ class ConnectionParams(TypedDict):
     params: dict
 
 
-def lsp_plugin(name: str, version: str, capabilities: dict) -> Callable:
+def lsp_plugin(name: str, capabilities: dict) -> Callable:
     def _decorator(func: Callable) -> Callable:
         setattr(
             func,
             "_lsp_context",
             {
                 "lsp_plugin_name": name,
-                "lsp_plugin_version": version,
                 "lsp_plugin_capabilities": capabilities,
             },
         )
@@ -80,7 +81,7 @@ def server_command(server: LanguageServer, command_name: str):
 
 
 def load_lsp_plugins():
-    server = LanguageServer(name="lsp_controller", version="v0.0.1")
+    server = LanguageServer(name="lsp_controller", version=LSP_VERSION)
 
     # Use a dynamic import to avoid semi-circular imports if at top level
     from snowflake.cli.app.commands_registration.command_plugins_loader import (
