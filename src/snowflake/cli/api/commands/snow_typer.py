@@ -24,6 +24,10 @@ from snowflake.cli.api.commands.decorators import (
     global_options,
     global_options_with_connection,
 )
+from snowflake.cli.api.commands.execution_metadata import (
+    ExecutionMetadata,
+    ExecutionStatus,
+)
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
 from snowflake.cli.api.commands.typer_pre_execute import run_pre_execute_commands
 from snowflake.cli.api.exceptions import CommandReturnTypeError
@@ -91,15 +95,18 @@ class SnowTyper(typer.Typer):
             @wraps(command_callable)
             def command_callable_decorator(*args, **kw):
                 """Wrapper around command callable. This is what happens at "runtime"."""
-                self.pre_execute()
+                execution = ExecutionMetadata()
+                self.pre_execute(execution)
                 try:
                     result = command_callable(*args, **kw)
-                    return self.process_result(result)
+                    self.process_result(result)
+                    execution.complete(ExecutionStatus.SUCCESS)
                 except Exception as err:
-                    self.exception_handler(err)
+                    execution.complete(ExecutionStatus.FAILURE)
+                    self.exception_handler(err, execution)
                     raise
                 finally:
-                    self.post_execute()
+                    self.post_execute(execution)
 
             return super(SnowTyper, self).command(name=name, **kwargs)(
                 command_callable_decorator
@@ -108,7 +115,7 @@ class SnowTyper(typer.Typer):
         return custom_command
 
     @staticmethod
-    def pre_execute():
+    def pre_execute(execution: ExecutionMetadata):
         """
         Callback executed before running any command callable (after context execution).
         Pay attention to make this method safe to use if performed operations are not necessary
@@ -118,7 +125,7 @@ class SnowTyper(typer.Typer):
 
         log.debug("Executing command pre execution callback")
         run_pre_execute_commands()
-        log_command_usage()
+        log_command_usage(execution)
 
     @staticmethod
     def process_result(result):
@@ -134,21 +141,25 @@ class SnowTyper(typer.Typer):
         print_result(result)
 
     @staticmethod
-    def exception_handler(exception: Exception):
+    def exception_handler(exception: Exception, execution: ExecutionMetadata):
         """
         Callback executed on command execution error.
         """
+        from snowflake.cli.app.telemetry import log_command_execution_error
+
         log.debug("Executing command exception callback")
+        log_command_execution_error(exception, execution)
 
     @staticmethod
-    def post_execute():
+    def post_execute(execution: ExecutionMetadata):
         """
         Callback executed after running any command callable. Pay attention to make this method safe to
         use if performed operations are not necessary for executing the command in proper way.
         """
-        from snowflake.cli.app.telemetry import flush_telemetry
+        from snowflake.cli.app.telemetry import flush_telemetry, log_command_result
 
         log.debug("Executing command post execution callback")
+        log_command_result(execution)
         flush_telemetry()
 
 
