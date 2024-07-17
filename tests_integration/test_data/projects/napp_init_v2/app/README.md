@@ -1,4 +1,3 @@
 # README
 
-This directory contains an extremely simple application that is used for
-integration testing SnowCLI.
+This is the v2 version of the napp_init_v1 project

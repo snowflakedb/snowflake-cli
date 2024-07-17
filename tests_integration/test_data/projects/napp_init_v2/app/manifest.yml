@@ -1,6 +1,4 @@
-# This is a manifest.yml file, a required component of creating a Snowflake Native App. 
-# This file defines properties required by the application package, including the location of the setup script and version definitions.
-# Refer to https://docs.snowflake.com/en/developer-guide/native-apps/creating-manifest for a detailed understanding of this file. 
+# This is the v2 version of the napp_init_v1 project
 
 manifest_version: 1
 
