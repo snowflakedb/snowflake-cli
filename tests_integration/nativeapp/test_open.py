@@ -69,11 +69,11 @@ def test_nativeapp_open(
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @mock.patch("typer.launch")
-@pytest.mark.parametrize("project_definition", ["v1", "v2"])
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_open_v2(
     mock_typer_launch,
     runner,
-    project_definition,
+    definition_version,
     project_directory,
 ):
     project_name = "myapp"
@@ -87,7 +87,7 @@ def test_nativeapp_open_v2(
         )
         assert result.exit_code == 0
 
-    with project_directory(f"napp_init_{project_definition}"):
+    with project_directory(f"napp_init_{definition_version}"):
         try:
             result = runner.invoke_with_connection_json(
                 ["app", "open"],

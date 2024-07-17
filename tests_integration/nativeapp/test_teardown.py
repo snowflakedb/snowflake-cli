@@ -49,12 +49,12 @@ TEST_ENV = generate_user_env(USER_NAME)
     ],
 )
 @pytest.mark.parametrize("orphan_app", [True, False])
-@pytest.mark.parametrize("project_definition", ["v1", "v2"])
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_teardown_cascade(
     command,
     expected_error,
     orphan_app,
-    project_definition,
+    definition_version,
     project_directory,
     runner,
     snowflake_session,
@@ -80,7 +80,7 @@ def test_nativeapp_teardown_cascade(
         )
         assert result.exit_code == 0
 
-    with project_directory(f"napp_create_db_{project_definition}"):
+    with project_directory(f"napp_create_db_{definition_version}"):
         try:
             # Grant permission to create databases
             snowflake_session.execute_string(
@@ -160,11 +160,11 @@ def test_nativeapp_teardown_cascade(
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize("force", [True, False])
-@pytest.mark.parametrize("project_definition", ["v1", "v2"])
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_teardown_unowned_app(
     runner,
     force,
-    project_definition,
+    definition_version,
     project_directory,
 ):
     project_name = "myapp"
@@ -178,7 +178,7 @@ def test_nativeapp_teardown_unowned_app(
         )
         assert result.exit_code == 0
 
-    with project_directory(f"napp_init_{project_definition}"):
+    with project_directory(f"napp_init_{definition_version}"):
         try:
             result = runner.invoke_with_connection_json(
                 ["sql", "-q", f"alter application {app_name} set comment = 'foo'"],
@@ -210,17 +210,17 @@ def test_nativeapp_teardown_unowned_app(
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize("default_release_directive", [True, False])
-@pytest.mark.parametrize("project_definition", ["v1", "v2"])
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_teardown_pkg_versions(
     runner,
     default_release_directive,
-    project_definition,
+    definition_version,
     project_directory,
 ):
     project_name = "myapp"
     pkg_name = f"{project_name}_pkg_{USER_NAME}"
 
-    with project_directory(f"napp_init_{project_definition}"):
+    with project_directory(f"napp_init_{definition_version}"):
         # TODO Use the main project_directory block once "snow app version" supports definition v2
         with project_directory("napp_init_v1"):
             result = runner.invoke_with_connection(
