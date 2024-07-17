@@ -183,7 +183,9 @@ def create_loggers(verbose: bool, debug: bool):
     else:
         # We need to remove handler definition - otherwise it creates file even if `save_logs` is False
         del config.handlers["file"]
-        config.loggers["snowflake.cli"].handlers.remove("file")
+        for logger in config.loggers.values():
+            if "file" in logger.handlers:
+                logger.handlers.remove("file")
 
     config.loggers["snowflake.cli"].level = global_log_level
     config.loggers["snowflake"].level = global_log_level
