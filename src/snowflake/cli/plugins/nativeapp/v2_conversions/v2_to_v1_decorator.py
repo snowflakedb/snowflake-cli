@@ -15,7 +15,8 @@
 from __future__ import annotations
 
 from functools import wraps
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any, Dict, Optional, Union
 
 from click import ClickException
 from snowflake.cli.api.cli_global_context import cli_context, cli_context_manager
@@ -25,10 +26,23 @@ from snowflake.cli.api.project.schemas.entities.application_entity import (
 from snowflake.cli.api.project.schemas.entities.application_package_entity import (
     ApplicationPackageEntity,
 )
+from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV11,
     DefinitionV20,
 )
+
+
+def _convert_v2_artifact_to_v1_dict(
+    v2_artifact: Union[PathMapping, Path]
+) -> Union[Dict, str]:
+    if type(v2_artifact) == PathMapping:
+        return {
+            "src": v2_artifact.src,
+            "dest": v2_artifact.dest,
+            "processors": v2_artifact.processors,
+        }
+    return str(v2_artifact)
 
 
 def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
@@ -57,8 +71,13 @@ def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
 
     # NativeApp
     pdfv1["native_app"]["name"] = "Auto converted NativeApp project from V2"
-    pdfv1["native_app"]["artifacts"] = app_package_definition.artifacts
+    pdfv1["native_app"]["artifacts"] = [
+        _convert_v2_artifact_to_v1_dict(a) for a in app_package_definition.artifacts
+    ]
     pdfv1["native_app"]["source_stage"] = app_package_definition.stage
+    pdfv1["native_app"]["bundle_root"] = str(app_package_definition.bundle_root)
+    pdfv1["native_app"]["generated_root"] = str(app_package_definition.generated_root)
+    pdfv1["native_app"]["deploy_root"] = str(app_package_definition.deploy_root)
 
     # Package
     pdfv1["native_app"]["package"] = {}

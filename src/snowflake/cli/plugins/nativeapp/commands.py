@@ -150,6 +150,7 @@ def app_list_templates(**options) -> CommandResult:
 
 @app.command("bundle")
 @with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_bundle(
     **options,
 ) -> CommandResult:
