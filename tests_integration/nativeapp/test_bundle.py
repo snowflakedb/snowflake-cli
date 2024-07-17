@@ -52,7 +52,7 @@ def template_setup(runner, project_directory, request):
 
 
 def override_snowflake_yml_artifacts(
-    definition_version, artifacts_section, deploy_root="output/deploy"
+    definition_version, artifacts_section, deploy_root=str(Path("output", "deploy"))
 ):
     with open("snowflake.yml", "w") as f:
         if definition_version == "v2":
