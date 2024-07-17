@@ -33,6 +33,7 @@ TEST_ENV = generate_user_env(USER_NAME)
 
 
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "command,expected_error",
     [
@@ -48,52 +49,30 @@ TEST_ENV = generate_user_env(USER_NAME)
     ],
 )
 @pytest.mark.parametrize("orphan_app", [True, False])
+@pytest.mark.parametrize("project_definition", ["v1", "v2"])
 def test_nativeapp_teardown_cascade(
     command,
     expected_error,
     orphan_app,
+    project_definition,
+    project_directory,
     runner,
     snowflake_session,
-    temporary_working_directory,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}".upper()
     db_name = f"{project_name}_db_{USER_NAME}".upper()
 
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
-        # Add a procedure to the setup script that creates an app-owned database
-        with open("app/setup_script.sql", "a") as file:
-            file.write(
-                dedent(
-                    f"""
-                    create or replace procedure core.create_db()
-                        returns boolean
-                        language sql
-                        as $$
-                            begin
-                                create or replace database {db_name};
-                                return true;
-                            end;
-                        $$;
-                    """
-                )
-            )
-        with open("app/manifest.yml", "a") as file:
-            file.write(
-                dedent(
-                    f"""
-                    privileges:
-                    - CREATE DATABASE:
-                        description: "Permission to create databases"
-                    """
-                )
-            )
+    # TODO Use the main project_directory block once "snow app run" supports definition v2
+    with project_directory(f"napp_create_db_v1"):
+        # Replacing the static DB name with a unique one to avoid collisions between tests
+        with open("app/setup_script.sql", "r") as file:
+            setup_script_content = file.read()
+        setup_script_content = setup_script_content.replace(
+            "DB_NAME_PLACEHOLDER", db_name
+        )
+        with open("app/setup_script.sql", "w") as file:
+            file.write(setup_script_content)
 
         result = runner.invoke_with_connection_json(
             ["app", "run"],
@@ -101,6 +80,7 @@ def test_nativeapp_teardown_cascade(
         )
         assert result.exit_code == 0
 
+    with project_directory(f"napp_create_db_{project_definition}"):
         try:
             # Grant permission to create databases
             snowflake_session.execute_string(
