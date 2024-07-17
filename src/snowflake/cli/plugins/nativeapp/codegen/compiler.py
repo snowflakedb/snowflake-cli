@@ -24,12 +24,22 @@ from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     ArtifactProcessor,
     UnsupportedArtifactProcessorError,
 )
+from snowflake.cli.plugins.nativeapp.codegen.setup.native_app_setup_processor import (
+    NativeAppSetupProcessor,
+)
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
 )
+from snowflake.cli.plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 
 SNOWPARK_PROCESSOR = "snowpark"
+NA_SETUP_PROCESSOR = "native-app-setup"
+
+_REGISTERED_PROCESSORS_BY_NAME = {
+    SNOWPARK_PROCESSOR: SnowparkAnnotationProcessor,
+    NA_SETUP_PROCESSOR: NativeAppSetupProcessor,
+}
 
 
 class NativeAppCompiler:
@@ -54,28 +64,31 @@ class NativeAppCompiler:
         Go through every artifact object in the project definition of a native app, and execute processors in order of specification for each of the artifact object.
         May have side-effects on the filesystem by either directly editing source files or the deploy root.
         """
-        should_proceed = False
-        for artifact in self._na_project.artifacts:
-            if artifact.processors:
-                should_proceed = True
-                break
-        if not should_proceed:
+
+        if not self._should_invoke_processors():
             return
 
         with cc.phase("Invoking artifact processors"):
+            if self._na_project.generated_root.exists():
+                raise ClickException(
+                    f"Path {self._na_project.generated_root} already exists. Please choose a different name for your generated directory in the project definition file."
+                )
+
             for artifact in self._na_project.artifacts:
                 for processor in artifact.processors:
-                    artifact_processor = self._try_create_processor(
-                        processor_mapping=processor,
-                    )
-                    if artifact_processor is None:
-                        raise UnsupportedArtifactProcessorError(
-                            processor_name=processor.name
+                    if self._is_enabled(processor):
+                        artifact_processor = self._try_create_processor(
+                            processor_mapping=processor,
                         )
-                    else:
-                        artifact_processor.process(
-                            artifact_to_process=artifact, processor_mapping=processor
-                        )
+                        if artifact_processor is None:
+                            raise UnsupportedArtifactProcessorError(
+                                processor_name=processor.name
+                            )
+                        else:
+                            artifact_processor.process(
+                                artifact_to_process=artifact,
+                                processor_mapping=processor,
+                            )
 
     def _try_create_processor(
         self,
@@ -86,15 +99,32 @@ class NativeAppCompiler:
         Fetch processor object if one already exists in the cached_processors dictionary.
         Else, initialize a new object to return, and add it to the cached_processors dictionary.
         """
-        if processor_mapping.name.lower() == SNOWPARK_PROCESSOR:
-            curr_processor = self.cached_processors.get(SNOWPARK_PROCESSOR, None)
-            if curr_processor is not None:
-                return curr_processor
-            else:
-                curr_processor = SnowparkAnnotationProcessor(
-                    na_project=self._na_project,
-                )
-                self.cached_processors[SNOWPARK_PROCESSOR] = curr_processor
-                return curr_processor
-        else:
+        processor_name = processor_mapping.name.lower()
+        current_processor = self.cached_processors.get(processor_name)
+
+        if current_processor is not None:
+            return current_processor
+
+        processor_factory = _REGISTERED_PROCESSORS_BY_NAME.get(processor_name)
+        if processor_factory is None:
+            # No registered processor with the specified name
             return None
+
+        current_processor = processor_factory(
+            na_project=self._na_project,
+        )
+        self.cached_processors[processor_name] = current_processor
+
+        return current_processor
+
+    def _should_invoke_processors(self):
+        for artifact in self._na_project.artifacts:
+            for processor in artifact.processors:
+                if self._is_enabled(processor):
+                    return True
+        return False
+
+    def _is_enabled(self, processor: ProcessorMapping) -> bool:
+        if processor.name.lower() == NA_SETUP_PROCESSOR:
+            return FeatureFlag.ENABLE_NATIVE_APP_PYTHON_SETUP.is_enabled()
+        return True
