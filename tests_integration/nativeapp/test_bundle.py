@@ -51,14 +51,9 @@ def template_setup(runner, project_directory, request):
         return project_root, runner, definition_version
 
 
-def override_snowflake_yml_artifacts(definition_version, artifacts_section=None):
-    if artifacts_section is None:
-        artifacts_section = dedent(
-            """
-                - src: app/*
-                  dest: ./
-                """
-        )
+def override_snowflake_yml_artifacts(
+    definition_version, artifacts_section, deploy_root="output/deploy"
+):
     with open("snowflake.yml", "w") as f:
         if definition_version == "v2":
             file_content = f"""
@@ -70,6 +65,7 @@ def override_snowflake_yml_artifacts(definition_version, artifacts_section=None)
                     artifacts:
                 {indent(artifacts_section, "                    ")}
                     manifest: app/manifest.yml
+                    deploy_root: {deploy_root}
                 """
         else:
             file_content = f"""
@@ -78,6 +74,7 @@ def override_snowflake_yml_artifacts(definition_version, artifacts_section=None)
                   name: myapp
                   artifacts:
                 {indent(artifacts_section, "                  ")}
+                  deploy_root: {deploy_root}
                 """
         f.write(dedent(file_content))
 
@@ -91,22 +88,17 @@ def test_nativeapp_bundle_does_explicit_copy(
     project_root, runner, definition_version = template_setup
 
     with pushd(project_root):
-        # overwrite the snowflake.yml rules
-        with open("snowflake.yml", "w") as f:
-            f.write(
-                dedent(
-                    f"""
-            definition_version: 1
-            native_app:
-              name: myapp
-              artifacts:
-                - src: app
-                  dest: ./
-                - src: snowflake.yml
-                  dest: ./app/
-            """
-                )
-            )
+        override_snowflake_yml_artifacts(
+            definition_version,
+            artifacts_section=dedent(
+                """
+                    - src: app
+                      dest: ./
+                    - src: snowflake.yml
+                      dest: ./app/
+                """
+            ),
+        )
 
         result = runner.invoke_json(
             ["app", "bundle"],
@@ -173,40 +165,18 @@ def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
         deploy_root.mkdir(parents=True, exist_ok=False)
 
     with pushd(project_root):
-        with open("snowflake.yml", "w") as f:
-            if definition_version == "v2":
-                f.write(
-                    dedent(
-                        f"""
-                definition_version: 2
-                entities:
-                    pkg:
-                        type: application package
-                        name: myapp_pkg_<% ctx.env.USER %>
-                        deploy_root: {deploy_root}
-                        artifacts:
-                            - src: app/*
-                              dest: ./
-                        manifest: app/manifest.yml
+        override_snowflake_yml_artifacts(
+            definition_version,
+            artifacts_section=dedent(
                 """
-                    )
-                )
-            else:
-                f.write(
-                    dedent(
-                        f"""
-                definition_version: 1
-                native_app:
-                    name: myapp
-                    deploy_root: {deploy_root}
-                    artifacts:
-                        - src: app
-                          dest: ./
-                        - src: snowflake.yml
-                          dest: ./app/
+                    - src: app
+                      dest: ./
+                    - src: snowflake.yml
+                      dest: ./app/
                 """
-                    )
-                )
+            ),
+            deploy_root=deploy_root,
+        )
 
         result = runner.invoke_json(
             ["app", "bundle"],
@@ -276,9 +246,9 @@ def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
             definition_version,
             artifacts_section=dedent(
                 """
-            - src: app/*
-              dest: /
-            """
+                    - src: app/*
+                      dest: /
+                """
             ),
         )
 
@@ -295,9 +265,9 @@ def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
             definition_version,
             artifacts_section=dedent(
                 f"""
-            - src: app/*
-              dest: {Path(project_root, "output", "deploy", "stagepath").absolute()}
-            """
+                    - src: app/*
+                      dest: {Path(project_root, "output", "deploy", "stagepath").absolute()}
+                """
             ),
         )
 
@@ -322,11 +292,11 @@ def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup)
             definition_version,
             artifacts_section=dedent(
                 f"""
-            - src: app/manifest.yml
-              dest: manifest.yml
-            - src: app/setup_script.sql
-              dest: manifest.yml
-            """
+                    - src: app/manifest.yml
+                      dest: manifest.yml
+                    - src: app/setup_script.sql
+                      dest: manifest.yml
+                """
             ),
         )
 
