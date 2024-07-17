@@ -397,5 +397,19 @@ class _CliGlobalContextAccess:
         return self._manager.output_format == OutputFormat.JSON
 
 
-cli_context_manager: _CliGlobalContextManager = _CliGlobalContextManager()
-cli_context: _CliGlobalContextAccess = _CliGlobalContextAccess(cli_context_manager)
+_CLI_CONTEXT_MANAGER: _CliGlobalContextManager | None = None
+_CLI_CONTEXT: _CliGlobalContextAccess | None = None
+
+
+def get_cli_context_manager() -> _CliGlobalContextManager:
+    global _CLI_CONTEXT_MANAGER
+    if _CLI_CONTEXT_MANAGER is None:
+        _CLI_CONTEXT_MANAGER = _CliGlobalContextManager()
+    return _CLI_CONTEXT_MANAGER
+
+
+def get_cli_context() -> _CliGlobalContextAccess:
+    global _CLI_CONTEXT
+    if _CLI_CONTEXT is None:
+        _CLI_CONTEXT = _CliGlobalContextAccess(get_cli_context_manager())
+    return _CLI_CONTEXT
