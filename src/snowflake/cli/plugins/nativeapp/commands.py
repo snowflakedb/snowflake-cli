@@ -58,6 +58,9 @@ from snowflake.cli.plugins.nativeapp.utils import (
     get_first_paragraph_from_markdown_file,
     shallow_git_clone,
 )
+from snowflake.cli.plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+    nativeapp_definition_v2_to_v1,
+)
 from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
 
 app = SnowTyperFactory(
@@ -228,6 +231,7 @@ def app_run(
 
 @app.command("open", requires_connection=True)
 @with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_open(
     **options,
 ) -> CommandResult:
