@@ -30,7 +30,6 @@ TEST_ENV = generate_user_env(USER_NAME)
 
 
 @pytest.fixture(scope="function", params=["v1", "v2"])
-@enable_definition_v2_feature_flag
 def template_setup(runner, project_directory, request):
     definition_version = request.param
     with enable_definition_v2_feature_flag:
@@ -49,7 +48,7 @@ def template_setup(runner, project_directory, request):
             assert Path(deploy_root, "setup_script.sql").is_file()
             assert Path(deploy_root, "README.md").is_file()
 
-            return project_root, runner, definition_version
+            yield project_root, runner, definition_version
 
 
 def override_snowflake_yml_artifacts(
@@ -87,7 +86,6 @@ def override_snowflake_yml_artifacts(
 
 # Tests that we copy files/directories directly to the deploy root instead of creating symlinks.
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 def test_nativeapp_bundle_does_explicit_copy(
     template_setup,
 ):
@@ -129,7 +127,6 @@ def test_nativeapp_bundle_does_explicit_copy(
 
 # Tests restrictions on the deploy root: It must be a sub-directory within the project directory
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
     template_setup,
 ):
@@ -186,7 +183,6 @@ def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
 
 # Tests restrictions on the src spec that it must be a glob that returns matches
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 def test_nativeapp_bundle_throws_error_on_incorrect_src_glob(template_setup):
     project_root, runner, definition_version = template_setup
 
@@ -206,7 +202,6 @@ def test_nativeapp_bundle_throws_error_on_incorrect_src_glob(template_setup):
 
 # Tests restrictions on the src spec that it must be relative to project root
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 def test_nativeapp_bundle_throws_error_on_bad_src(template_setup):
     project_root, runner, definition_version = template_setup
 
@@ -228,7 +223,6 @@ def test_nativeapp_bundle_throws_error_on_bad_src(template_setup):
 
 # Tests restrictions on the dest spec: It must be within the deploy root, and must be a relative path
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
     project_root, runner, definition_version = template_setup
 
@@ -269,7 +263,6 @@ def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
 
 # Tests restriction on mapping multiple files to the same destination file
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup):
     project_root, runner, definition_version = template_setup
 
@@ -294,7 +287,6 @@ def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup)
 
 # Tests that bundle wipes out any existing deploy root to recreate it from scratch on every run
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 def test_nativeapp_bundle_deletes_existing_deploy_root(template_setup):
     project_root, runner, definition_version = template_setup
 
