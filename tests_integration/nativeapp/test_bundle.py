@@ -82,7 +82,7 @@ def override_snowflake_yml_artifacts(
                     },
                 }
             )
-        f.write(dedent(file_content))
+        f.write(file_content)
 
 
 # Tests that we copy files/directories directly to the deploy root instead of creating symlinks.
@@ -196,7 +196,7 @@ def test_nativeapp_bundle_throws_error_on_incorrect_src_glob(template_setup):
     with pushd(project_root):
         # incorrect glob
         override_snowflake_yml_artifacts(
-            definition_version, artifacts_section="- app/?"
+            definition_version, artifacts_section=["app/?"]
         )
 
         result = runner.invoke_json(
@@ -220,7 +220,7 @@ def test_nativeapp_bundle_throws_error_on_bad_src(template_setup):
         # absolute path
         src_path = Path(project_root, "app").absolute()
         override_snowflake_yml_artifacts(
-            definition_version, artifacts_section=f"- {src_path}"
+            definition_version, artifacts_section=[f"{src_path}"]
         )
 
         result = runner.invoke_json(
@@ -258,9 +258,9 @@ def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
             artifacts_section=[
                 {
                     "src": "app/*",
-                    "dest": Path(
-                        project_root, "output", "deploy", "stagepath"
-                    ).absolute(),
+                    "dest": str(
+                        Path(project_root, "output", "deploy", "stagepath").absolute()
+                    ),
                 }
             ],
         )
