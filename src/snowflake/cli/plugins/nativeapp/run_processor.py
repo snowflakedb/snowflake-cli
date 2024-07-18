@@ -18,8 +18,10 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
+import jinja2
 import typer
 from click import UsageError
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
@@ -35,7 +37,9 @@ from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
     unquote_identifier,
 )
-from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
+from snowflake.cli.api.rendering.sql_templates import (
+    get_sql_cli_jinja_env,
+)
 from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -141,13 +145,18 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         This assumes that a relevant warehouse is already active.
         Consequently, "use database" will be executed first if it is set in definition file or in the current connection.
         """
-        with open(sql_script_path) as f:
-            sql_script = f.read()
+        env = get_sql_cli_jinja_env(
+            loader=jinja2.loaders.FileSystemLoader(self.project_root)
+        )
 
         try:
             if self._conn.database:
                 self._execute_query(f"use database {self._conn.database}")
-            sql_script = snowflake_sql_jinja_render(content=sql_script)
+
+            context_data = cli_context.template_context
+            sql_script_template = env.get_template(sql_script_path)
+            sql_script = sql_script_template.render(**context_data)
+
             self._execute_queries(sql_script)
         except ProgrammingError as err:
             generic_sql_error_handler(err)

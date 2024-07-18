@@ -492,6 +492,59 @@ def test_nativeapp_app_post_deploy(
             assert result.exit_code == 0
 
 
+# Tests that application post-deploy scripts are executed even when they are used with --project and project is in another directory
+@pytest.mark.integration
+def test_nativeapp_app_post_deploy_with_project_subdirectory(
+    runner, snowflake_session, project_directory
+):
+    project_name = "myapp"
+    app_name = f"{project_name}_{USER_NAME}"
+
+    def run():
+        result = runner.invoke_with_connection_json(
+            ["app", "run", "--project", "project_subdir"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+    with project_directory("napp_application_with_project_subdir") as tmp_dir:
+        try:
+            # First run, application is created
+            run()
+
+            # Verify both scripts were executed
+            assert row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"select * from {app_name}.public.post_deploy_log",
+                )
+            ) == [
+                {"TEXT": "post-deploy-part-1"},
+                {"TEXT": "post-deploy-part-2"},
+            ]
+
+            # Second run, application is upgraded
+            run()
+
+            # Verify both scripts were executed
+            assert row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"select * from {app_name}.public.post_deploy_log",
+                )
+            ) == [
+                {"TEXT": "post-deploy-part-1"},
+                {"TEXT": "post-deploy-part-2"},
+                {"TEXT": "post-deploy-part-1"},
+                {"TEXT": "post-deploy-part-2"},
+            ]
+
+        finally:
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force", "--project", "project_subdir"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
 # Tests running an app whose package was dropped externally (requires dropping and recreating the app)
 @pytest.mark.integration
 @pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
