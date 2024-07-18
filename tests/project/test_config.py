@@ -20,6 +20,7 @@ from unittest import mock
 from unittest.mock import PropertyMock
 
 import pytest
+from nativeapp.factories import ProjectPropertiesFactory
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.definition import (
     generate_local_override_yml,
@@ -36,6 +37,7 @@ from tests.testing_utils.mock_config import mock_config_key
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_napp_project_1(project_definition_files):
+    ProjectPropertiesFactory()
     project = load_project(project_definition_files).project_definition
     assert project.native_app.name == "myapp"
     assert project.native_app.deploy_root == "output/deploy/"
