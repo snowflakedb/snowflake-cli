@@ -62,8 +62,8 @@ from snowflake.cli.plugins.nativeapp.constants import (
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
-    InvalidPackageScriptError,
-    MissingPackageScriptError,
+    InvalidScriptError,
+    MissingScriptError,
     SetupScriptFailedValidation,
     UnexpectedOwnerError,
 )
@@ -561,6 +561,27 @@ class NativeAppManager(SqlExecutionMixin):
                 )
             )
 
+    def _expand_script_templates(
+        self, env: jinja2.Environment, jinja_context, scripts: List[str]
+    ):
+        queued_queries = []
+        for relpath in scripts:
+            try:
+                template = env.get_template(relpath)
+                result = template.render(**jinja_context)
+                queued_queries.append(result)
+
+            except jinja2.TemplateNotFound as e:
+                raise MissingScriptError(e.name) from e
+
+            except jinja2.TemplateSyntaxError as e:
+                raise InvalidScriptError(e.name, e) from e
+
+            except jinja2.UndefinedError as e:
+                raise InvalidScriptError(relpath, e) from e
+
+        return queued_queries
+
     def _apply_package_scripts(self) -> None:
         """
         Assuming the application package exists and we are using the correct role,
@@ -572,21 +593,9 @@ class NativeAppManager(SqlExecutionMixin):
             undefined=jinja2.StrictUndefined,
         )
 
-        queued_queries = []
-        for relpath in self.package_scripts:
-            try:
-                template = env.get_template(relpath)
-                result = template.render(dict(package_name=self.package_name))
-                queued_queries.append(result)
-
-            except jinja2.TemplateNotFound as e:
-                raise MissingPackageScriptError(e.name)
-
-            except jinja2.TemplateSyntaxError as e:
-                raise InvalidPackageScriptError(e.name, e)
-
-            except jinja2.UndefinedError as e:
-                raise InvalidPackageScriptError(relpath, e)
+        queued_queries = self._expand_script_templates(
+            env, dict(package_name=self.package_name), self.package_scripts
+        )
 
         # once we're sure all the templates expanded correctly, execute all of them
         with self.use_package_warehouse():

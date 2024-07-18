@@ -139,25 +139,19 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__(project_definition, project_root)
 
-    def _execute_sql_script(self, sql_script_path):
+    def _execute_sql_script(
+        self, script_content: str, database_name: Optional[str] = None
+    ):
         """
-        Executing the SQL script in the provided file path after expanding template variables.
+        Executing the provided SQL script content.
         This assumes that a relevant warehouse is already active.
-        Consequently, "use database" will be executed first if it is set in definition file or in the current connection.
+        If database_name is passed in, it will be used first.
         """
-        env = get_sql_cli_jinja_env(
-            loader=jinja2.loaders.FileSystemLoader(self.project_root)
-        )
-
         try:
-            if self._conn.database:
-                self._execute_query(f"use database {self._conn.database}")
+            if database_name:
+                self._execute_query(f"use database {database_name}")
 
-            context_data = cli_context.template_context
-            sql_script_template = env.get_template(sql_script_path)
-            sql_script = sql_script_template.render(**context_data)
-
-            self._execute_queries(sql_script)
+            self._execute_queries(script_content)
         except ProgrammingError as err:
             generic_sql_error_handler(err)
 
@@ -165,14 +159,27 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         post_deploy_script_hooks = self.app_post_deploy_hooks
         if post_deploy_script_hooks:
             with cc.phase("Executing application post-deploy actions"):
+                sql_scripts_paths = []
                 for hook in post_deploy_script_hooks:
                     if hook.sql_script:
-                        cc.step(f"Executing SQL script: {hook.sql_script}")
-                        self._execute_sql_script(hook.sql_script)
+                        sql_scripts_paths.append(hook.sql_script)
                     else:
                         raise ValueError(
                             f"Unsupported application post-deploy hook type: {hook}"
                         )
+
+                env = get_sql_cli_jinja_env(
+                    loader=jinja2.loaders.FileSystemLoader(self.project_root)
+                )
+                scripts_content_list = self._expand_script_templates(
+                    env, cli_context.template_context, sql_scripts_paths
+                )
+
+                for index, sql_script_path in enumerate(sql_scripts_paths):
+                    cc.step(f"Executing SQL script: {sql_script_path}")
+                    self._execute_sql_script(
+                        scripts_content_list[index], self._conn.database
+                    )
 
     def get_all_existing_versions(self) -> SnowflakeCursor:
         """

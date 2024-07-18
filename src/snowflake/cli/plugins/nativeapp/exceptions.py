@@ -54,18 +54,18 @@ class UnexpectedOwnerError(ClickException):
         )
 
 
-class MissingPackageScriptError(ClickException):
-    """A referenced package script was not found."""
+class MissingScriptError(ClickException):
+    """A referenced script was not found."""
 
     def __init__(self, relpath: str):
-        super().__init__(f'Package script "{relpath}" does not exist')
+        super().__init__(f'Script "{relpath}" does not exist')
 
 
-class InvalidPackageScriptError(ClickException):
-    """A referenced package script had syntax error(s)."""
+class InvalidScriptError(ClickException):
+    """A referenced script had syntax error(s)."""
 
     def __init__(self, relpath: str, err: jinja2.TemplateError):
-        super().__init__(f'Package script "{relpath}" is not a valid jinja2 template')
+        super().__init__(f'Script "{relpath}" does not contain a valid template')
         self.err = err
 
 
