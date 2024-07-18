@@ -14,6 +14,8 @@
 
 import os
 import datetime
+from functools import wraps
+from unittest import mock
 from typing import Any, Dict, List
 from contextlib import contextmanager
 from pathlib import Path
@@ -78,3 +80,11 @@ def not_contains_row_with(rows: List[Dict[str, Any]], values: Dict[str, Any]) ->
         if row.items() >= values_items:
             return False
     return True
+
+
+enable_definition_v2_feature_flag = mock.patch.dict(
+    os.environ,
+    {
+        "SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2": "true",
+    },
+)

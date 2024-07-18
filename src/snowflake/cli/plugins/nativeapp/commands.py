@@ -257,6 +257,7 @@ def app_open(
 
 @app.command("teardown", requires_connection=True)
 @with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_teardown(
     force: Optional[bool] = ForceOption,
     cascade: Optional[bool] = typer.Option(
