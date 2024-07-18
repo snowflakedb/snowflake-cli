@@ -285,6 +285,7 @@ def app_teardown(
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
@@ -351,6 +352,7 @@ def app_deploy(
 
 @app.command("validate", requires_connection=True)
 @with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_validate(**options):
     """
     Validates a deployed Snowflake Native App's setup script.
