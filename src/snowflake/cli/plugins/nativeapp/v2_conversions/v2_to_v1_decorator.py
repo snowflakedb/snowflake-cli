@@ -36,7 +36,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
 def _convert_v2_artifact_to_v1_dict(
     v2_artifact: Union[PathMapping, Path]
 ) -> Union[Dict, str]:
-    if type(v2_artifact) == PathMapping:
+    if isinstance(v2_artifact, PathMapping):
         return {
             "src": v2_artifact.src,
             "dest": v2_artifact.dest,

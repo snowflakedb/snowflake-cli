@@ -14,6 +14,7 @@
 
 import os
 import os.path
+import yaml
 import uuid
 from textwrap import dedent, indent
 
@@ -48,34 +49,39 @@ def template_setup(runner, project_directory, request):
         assert Path(deploy_root, "setup_script.sql").is_file()
         assert Path(deploy_root, "README.md").is_file()
 
-        return project_root, runner, definition_version
+        yield project_root, runner, definition_version
 
 
 def override_snowflake_yml_artifacts(
-    definition_version, artifacts_section, deploy_root=str(Path("output", "deploy"))
+    definition_version, artifacts_section, deploy_root=Path("output", "deploy")
 ):
     with open("snowflake.yml", "w") as f:
         if definition_version == "v2":
-            file_content = f"""
-                definition_version: 2
-                entities:
-                  pkg:
-                    type: application package
-                    name: myapp_pkg_<% ctx.env.USER %>
-                    artifacts:
-                {indent(artifacts_section, "                    ")}
-                    manifest: app/manifest.yml
-                    deploy_root: {deploy_root}
-                """
+            file_content = yaml.dump(
+                {
+                    "definition_version": "2",
+                    "entities": {
+                        "pkg": {
+                            "type": "application package",
+                            "name": "myapp_pkg_<% ctx.env.USER %>",
+                            "artifacts": yaml.load(artifacts_section, yaml.BaseLoader),
+                            "manifest": "app/manifest.yml",
+                            "deploy_root": str(deploy_root),
+                        }
+                    },
+                }
+            )
         else:
-            file_content = f"""
-                definition_version: 1
-                native_app:
-                  name: myapp
-                  artifacts:
-                {indent(artifacts_section, "                  ")}
-                  deploy_root: {deploy_root}
-                """
+            file_content = yaml.dump(
+                {
+                    "definition_version": "1",
+                    "native_app": {
+                        "name": "myapp",
+                        "artifacts": yaml.load(artifacts_section, yaml.BaseLoader),
+                        "deploy_root": str(deploy_root),
+                    },
+                }
+            )
         f.write(dedent(file_content))
 
 
@@ -85,7 +91,7 @@ def override_snowflake_yml_artifacts(
 def test_nativeapp_bundle_does_explicit_copy(
     template_setup,
 ):
-    project_root, runner, definition_version = template_setup
+    project_root, runner, definition_version = next(template_setup)
 
     with pushd(project_root):
         override_snowflake_yml_artifacts(
@@ -133,7 +139,7 @@ def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
     template_setup,
 ):
 
-    project_root, runner, definition_version = template_setup
+    project_root, runner, definition_version = next(template_setup)
     # Delete deploy_root since we test requirement of deploy_root being a directory
     shutil.rmtree(Path(project_root, "output", "deploy"))
 
@@ -193,7 +199,7 @@ def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 def test_nativeapp_bundle_throws_error_on_incorrect_src_glob(template_setup):
-    project_root, runner, definition_version = template_setup
+    project_root, runner, definition_version = next(template_setup)
 
     with pushd(project_root):
         # incorrect glob
@@ -216,7 +222,7 @@ def test_nativeapp_bundle_throws_error_on_incorrect_src_glob(template_setup):
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 def test_nativeapp_bundle_throws_error_on_bad_src(template_setup):
-    project_root, runner, definition_version = template_setup
+    project_root, runner, definition_version = next(template_setup)
 
     with pushd(project_root):
         # absolute path
@@ -239,7 +245,7 @@ def test_nativeapp_bundle_throws_error_on_bad_src(template_setup):
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
-    project_root, runner, definition_version = template_setup
+    project_root, runner, definition_version = next(template_setup)
 
     with pushd(project_root):
         override_snowflake_yml_artifacts(
@@ -285,7 +291,7 @@ def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup):
-    project_root, runner, definition_version = template_setup
+    project_root, runner, definition_version = next(template_setup)
 
     with pushd(project_root):
         override_snowflake_yml_artifacts(
@@ -315,7 +321,7 @@ def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup)
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 def test_nativeapp_bundle_deletes_existing_deploy_root(template_setup):
-    project_root, runner, definition_version = template_setup
+    project_root, runner, definition_version = next(template_setup)
 
     with pushd(project_root) as project_dir:
         existing_deploy_root_dest = Path(project_dir, "output", "deploy", "dummy.txt")
