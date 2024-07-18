@@ -88,6 +88,9 @@ from tests.testing_utils.mock_config import mock_config_key
                         "artifacts": [{"src": "app/*", "dest": "./"}],
                         "manifest": "",
                         "stage": "app.stage",
+                        "bundle_root": "bundle_root",
+                        "generated_root": "generated_root",
+                        "deploy_root": "deploy_root",
                     },
                     "app": {
                         "type": "application",
@@ -103,6 +106,9 @@ from tests.testing_utils.mock_config import mock_config_key
                     "name": "Auto converted NativeApp project from V2",
                     "artifacts": [{"src": "app/*", "dest": "./"}],
                     "source_stage": "app.stage",
+                    "bundle_root": "bundle_root",
+                    "generated_root": "generated_root",
+                    "deploy_root": "deploy_root",
                     "package": {
                         "name": "pkg_name",
                     },
