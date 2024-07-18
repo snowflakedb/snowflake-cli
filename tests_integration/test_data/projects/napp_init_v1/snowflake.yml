@@ -1,0 +1,7 @@
+definition_version: 1
+native_app:
+  name: myapp
+  source_stage: app_src.stage
+  artifacts:
+    - src: app/*
+      dest: ./

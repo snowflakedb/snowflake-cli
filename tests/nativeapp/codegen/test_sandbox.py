@@ -36,6 +36,7 @@ CONDA_ONLY_ENVIRON = {"CONDA_DEFAULT_ENV": CONDA_ENV_NAME_FROM_ENVIRON}
 VENV_ONLY_ENVIRON = {"VIRTUAL_ENV": VIRTUAL_ENV_ROOT_FROM_ENVIRON}
 TIMEOUT = 60
 NEW_CWD = "/path/to/cwd"
+ENV_VARS = {"TEST_VAR": "foo"}
 
 
 @pytest.fixture
@@ -98,19 +99,20 @@ def fake_venv_interpreter_win32(fake_venv_root_win32):
 
 
 @pytest.mark.parametrize(
-    "expected_timeout, expected_cwd",
+    "expected_timeout, expected_cwd, expected_env",
     [
-        (None, None),
-        (TIMEOUT, None),
-        (None, NEW_CWD),
-        (None, Path(NEW_CWD)),
-        (TIMEOUT, NEW_CWD),
+        (None, None, None),
+        (TIMEOUT, None, None),
+        (None, NEW_CWD, None),
+        (None, Path(NEW_CWD), None),
+        (None, None, ENV_VARS),
+        (TIMEOUT, NEW_CWD, ENV_VARS),
     ],
 )
 @mock.patch("subprocess.run")
 @mock.patch("shutil.which")
 def test_execute_in_named_conda_env(
-    mock_which, mock_run, mock_environ, expected_timeout, expected_cwd
+    mock_which, mock_run, mock_environ, expected_timeout, expected_cwd, expected_env
 ):
     mock_which.side_effect = (
         lambda executable: "/path/to/conda" if executable == "conda" else None
@@ -128,6 +130,7 @@ def test_execute_in_named_conda_env(
         name="foo",
         timeout=expected_timeout,
         cwd=expected_cwd,
+        env_vars=expected_env,
     )
 
     mock_run.assert_called_once_with(
@@ -137,6 +140,7 @@ def test_execute_in_named_conda_env(
         input=PYTHON_SCRIPT,
         cwd=expected_cwd,
         timeout=expected_timeout,
+        env=expected_env,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -179,6 +183,7 @@ def test_execute_in_conda_env_falls_back_to_activated_one(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -218,13 +223,14 @@ def test_execute_in_conda_env_fails_when_conda_env_cannot_be_determined(
 
 
 @pytest.mark.parametrize(
-    "expected_timeout, expected_cwd",
+    "expected_timeout, expected_cwd, expected_env",
     [
-        (None, None),
-        (TIMEOUT, None),
-        (None, NEW_CWD),
-        (None, Path(NEW_CWD)),
-        (TIMEOUT, NEW_CWD),
+        (None, None, None),
+        (TIMEOUT, None, None),
+        (None, NEW_CWD, None),
+        (None, Path(NEW_CWD), None),
+        (None, None, ENV_VARS),
+        (TIMEOUT, NEW_CWD, ENV_VARS),
     ],
 )
 @mock.patch("sys.platform", "darwin")
@@ -236,6 +242,7 @@ def test_execute_in_specified_venv_root_unix(
     fake_venv_interpreter_unix,
     expected_timeout,
     expected_cwd,
+    expected_env,
 ):
     mock_environ.side_effect = VENV_ONLY_ENVIRON.get
 
@@ -250,6 +257,7 @@ def test_execute_in_specified_venv_root_unix(
         path=fake_venv_root_unix,
         timeout=expected_timeout,
         cwd=expected_cwd,
+        env_vars=expected_env,
     )
 
     mock_run.assert_called_once_with(
@@ -259,6 +267,7 @@ def test_execute_in_specified_venv_root_unix(
         input=PYTHON_SCRIPT,
         cwd=expected_cwd,
         timeout=expected_timeout,
+        env=expected_env,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -292,6 +301,7 @@ def test_execute_in_specified_venv_root_as_string(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -323,6 +333,7 @@ def test_execute_in_specified_venv_root_windows(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -354,6 +365,7 @@ def test_execute_in_venv_falls_back_to_activated_one(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -408,19 +420,20 @@ def test_execute_in_venv_fails_when_interpreter_not_found(
 
 
 @pytest.mark.parametrize(
-    "expected_timeout, expected_cwd",
+    "expected_timeout, expected_cwd, expected_env",
     [
-        (None, None),
-        (TIMEOUT, None),
-        (None, NEW_CWD),
-        (None, Path(NEW_CWD)),
-        (TIMEOUT, NEW_CWD),
+        (None, None, None),
+        (TIMEOUT, None, None),
+        (None, NEW_CWD, None),
+        (None, Path(NEW_CWD), None),
+        (None, None, ENV_VARS),
+        (TIMEOUT, NEW_CWD, ENV_VARS),
     ],
 )
 @mock.patch("subprocess.run")
 @mock.patch("shutil.which")
 def test_execute_system_python_looks_for_python3(
-    mock_which, mock_run, mock_environ, expected_timeout, expected_cwd
+    mock_which, mock_run, mock_environ, expected_timeout, expected_cwd, expected_env
 ):
     expected_interpreter = Path("/path/to/python3")
     mock_which.side_effect = (
@@ -437,6 +450,7 @@ def test_execute_system_python_looks_for_python3(
         sandbox.ExecutionEnvironmentType.SYSTEM_PATH,
         cwd=expected_cwd,
         timeout=expected_timeout,
+        env_vars=expected_env,
     )
 
     mock_run.assert_called_once_with(
@@ -446,6 +460,7 @@ def test_execute_system_python_looks_for_python3(
         input=PYTHON_SCRIPT,
         cwd=expected_cwd,
         timeout=expected_timeout,
+        env=expected_env,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -478,6 +493,7 @@ def test_execute_system_python_falls_back_to_python(mock_which, mock_run, mock_e
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -514,6 +530,7 @@ def test_execute_system_python_falls_back_to_current_interpreter(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -544,20 +561,21 @@ def test_execute_system_python_fails_when_no_interpreter_available(
 
 
 @pytest.mark.parametrize(
-    "expected_timeout, expected_cwd",
+    "expected_timeout, expected_cwd, expected_env",
     [
-        (None, None),
-        (TIMEOUT, None),
-        (None, NEW_CWD),
-        (None, Path(NEW_CWD)),
-        (TIMEOUT, NEW_CWD),
+        (None, None, None),
+        (TIMEOUT, None, None),
+        (None, NEW_CWD, None),
+        (None, Path(NEW_CWD), None),
+        (None, None, ENV_VARS),
+        (TIMEOUT, NEW_CWD, ENV_VARS),
     ],
 )
 @mock.patch("subprocess.run")
 @mock.patch("shutil.which")
 @mock.patch("sys.executable", "/path/to/python")
 def test_execute_in_current_interpreter(
-    mock_which, mock_run, mock_environ, expected_timeout, expected_cwd
+    mock_which, mock_run, mock_environ, expected_timeout, expected_cwd, expected_env
 ):
     expected_interpreter = "/path/to/python"
     mock_which.return_value = "/path/to/ignored/python"
@@ -572,6 +590,7 @@ def test_execute_in_current_interpreter(
         sandbox.ExecutionEnvironmentType.CURRENT,
         timeout=expected_timeout,
         cwd=expected_cwd,
+        env_vars=expected_env,
     )
 
     mock_run.assert_called_once_with(
@@ -581,6 +600,7 @@ def test_execute_in_current_interpreter(
         input=PYTHON_SCRIPT,
         cwd=expected_cwd,
         timeout=expected_timeout,
+        env=expected_env,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -613,6 +633,7 @@ def test_execute_auto_detects_venv(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -653,6 +674,7 @@ def test_execute_auto_detects_conda(mock_which, mock_run, mock_environ):
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -687,6 +709,7 @@ def test_execute_auto_detect_falls_back_to_system_python(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -721,6 +744,7 @@ def test_execute_auto_detect_chooses_venv_over_conda(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -755,6 +779,7 @@ def test_execute_auto_detect_is_default(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -789,6 +814,7 @@ def test_execute_does_not_interpret_return_codes(
         input=PYTHON_SCRIPT,
         cwd=None,
         timeout=None,
+        env=None,
     )
 
     assert actual.args == SCRIPT_ARGS
@@ -797,3 +823,16 @@ def test_execute_does_not_interpret_return_codes(
     assert actual.stderr == SCRIPT_ERR
 
     assert not mock_which.called
+
+
+def test_sandbox_env_builder(temp_dir):
+    env_path = Path(temp_dir) / "venv"
+    builder = sandbox.SandboxEnvBuilder(env_path)
+    builder.ensure_created()  # exercise the creation path
+
+    builder.run_python("--version")  # should not raise an exception
+
+    # verify that a builder works correctly when the virtual env already exists
+    builder = sandbox.SandboxEnvBuilder(env_path)
+    builder.ensure_created()
+    builder.run_python("--help")  # should not raise an exception
