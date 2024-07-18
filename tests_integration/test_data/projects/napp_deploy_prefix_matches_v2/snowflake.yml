@@ -1,0 +1,19 @@
+# This is the v2 version of the napp_deploy_prefix_matches_v1 project definition
+
+definition_version: 2
+entities:
+  pkg:
+    type: application package
+    name: myapp_pkg_<% ctx.env.USER %>
+    artifacts:
+      - src: app/*
+        dest: ./
+      - src
+      - src: lib/parent
+        dest: parent-lib
+    manifest: app/manifest.yml
+  app:
+    type: application
+    name: myapp_<% ctx.env.USER %>
+    from:
+      target: pkg

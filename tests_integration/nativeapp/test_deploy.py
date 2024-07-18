@@ -28,6 +28,7 @@ from tests_integration.test_utils import (
     not_contains_row_with,
     pushd,
     row_from_snowflake_session,
+    enable_definition_v2_feature_flag,
 )
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
@@ -46,21 +47,18 @@ def sanitize_deploy_output(output):
 
 # Tests a simple flow of executing "snow app deploy", verifying that an application package was created, and an application was not
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_deploy(
+    definition_version,
+    project_directory,
     runner,
     snowflake_session,
-    temporary_working_directory,
     snapshot,
     print_paths_as_posix,
 ):
     project_name = "myapp"
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
+    with project_directory(f"napp_init_{definition_version}"):
         result = runner.invoke_with_connection(
             ["app", "deploy"],
             env=TEST_ENV,
@@ -117,6 +115,7 @@ def test_nativeapp_deploy(
 
 
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "command,contains,not_contains",
     [
@@ -132,24 +131,19 @@ def test_nativeapp_deploy(
         ["app deploy --no-prune", ["stage/README.md"], []],
     ],
 )
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_deploy_prune(
     command,
     contains,
     not_contains,
+    definition_version,
+    project_directory,
     runner,
-    snowflake_session,
-    temporary_working_directory,
     snapshot,
     print_paths_as_posix,
 ):
     project_name = "myapp"
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
+    with project_directory(f"napp_init_{definition_version}"):
         result = runner.invoke_with_connection_json(
             ["app", "deploy"],
             env=TEST_ENV,
@@ -198,20 +192,17 @@ def test_nativeapp_deploy_prune(
 
 # Tests a simple flow of executing "snow app deploy [files]", verifying that only the specified files are synced to the stage
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_deploy_files(
+    definition_version,
+    project_directory,
     runner,
-    temporary_working_directory,
     snapshot,
     print_paths_as_posix,
 ):
     project_name = "myapp"
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
+    with project_directory(f"napp_init_{definition_version}"):
         # sync only two specific files to stage
         result = runner.invoke_with_connection(
             [
@@ -258,21 +249,17 @@ def test_nativeapp_deploy_files(
 
 # Tests that files inside of a symlinked directory are deployed
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_deploy_nested_directories(
+    definition_version,
+    project_directory,
     runner,
-    temporary_working_directory,
     snapshot,
     print_paths_as_posix,
 ):
     project_name = "myapp"
-    project_dir = "app root"
-    result = runner.invoke_json(
-        ["app", "init", project_dir, "--name", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_dir)):
+    with project_directory(f"napp_init_{definition_version}"):
         # create nested file under app/
         touch("app/nested/dir/file.txt")
 
@@ -312,19 +299,15 @@ def test_nativeapp_deploy_nested_directories(
 
 # Tests that deploying a directory recursively syncs all of its contents
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_deploy_directory(
+    definition_version,
+    project_directory,
     runner,
-    temporary_working_directory,
 ):
     project_name = "myapp"
-    project_dir = "app root"
-    result = runner.invoke_json(
-        ["app", "init", project_dir, "--name", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_dir)):
+    with project_directory(f"napp_init_{definition_version}"):
         touch("app/dir/file.txt")
         result = runner.invoke_with_connection(
             ["app", "deploy", "app/dir", "--no-recursive", "--no-validate"],
@@ -367,19 +350,14 @@ def test_nativeapp_deploy_directory(
 
 # Tests that deploying a directory without specifying -r returns an error
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_deploy_directory_no_recursive(
+    definition_version,
+    project_directory,
     runner,
-    temporary_working_directory,
 ):
-    project_name = "myapp"
-    project_dir = "app root"
-    result = runner.invoke_json(
-        ["app", "init", project_dir, "--name", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_dir)):
+    with project_directory(f"napp_init_{definition_version}"):
         try:
             touch("app/nested/dir/file.txt")
             result = runner.invoke_with_connection_json(
@@ -399,19 +377,14 @@ def test_nativeapp_deploy_directory_no_recursive(
 
 # Tests that specifying an unknown path to deploy results in an error
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_deploy_unknown_path(
+    definition_version,
+    project_directory,
     runner,
-    temporary_working_directory,
 ):
-    project_name = "myapp"
-    project_dir = "app root"
-    result = runner.invoke_json(
-        ["app", "init", project_dir, "--name", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_dir)):
+    with project_directory(f"napp_init_{definition_version}"):
         try:
             result = runner.invoke_with_connection_json(
                 ["app", "deploy", "does_not_exist", "--no-validate"],
@@ -431,19 +404,14 @@ def test_nativeapp_deploy_unknown_path(
 
 # Tests that specifying a path with no deploy artifact results in an error
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_deploy_path_with_no_mapping(
+    definition_version,
+    project_directory,
     runner,
-    temporary_working_directory,
 ):
-    project_name = "myapp"
-    project_dir = "app root"
-    result = runner.invoke_json(
-        ["app", "init", project_dir, "--name", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_dir)):
+    with project_directory(f"napp_init_{definition_version}"):
         try:
             result = runner.invoke_with_connection_json(
                 ["app", "deploy", "snowflake.yml", "--no-validate"],
@@ -463,19 +431,14 @@ def test_nativeapp_deploy_path_with_no_mapping(
 
 # Tests that specifying a path and pruning result in an error
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
+    definition_version,
+    project_directory,
     runner,
-    temporary_working_directory,
 ):
-    project_name = "myapp"
-    project_dir = "app root"
-    result = runner.invoke_json(
-        ["app", "init", project_dir, "--name", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_dir)):
+    with project_directory(f"napp_init_{definition_version}"):
         try:
             os.unlink("app/README.md")
             result = runner.invoke_with_connection_json(
@@ -498,39 +461,19 @@ def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
 
 # Tests that specifying a path with no direct mapping falls back to search for prefix matches
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_deploy_looks_for_prefix_matches(
+    definition_version,
+    project_directory,
     runner,
-    temporary_working_directory,
     snapshot,
     print_paths_as_posix,
 ):
     project_name = "myapp"
-    project_dir = "app root"
-    result = runner.invoke_json(
-        ["app", "init", project_dir, "--name", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
 
-    project_dir = Path(os.getcwd(), project_dir)
-    with pushd(project_dir):
+    with project_directory(f"napp_deploy_prefix_matches_{definition_version}"):
         try:
-            snowflake_yml = project_dir / "snowflake.yml"
-            project_definition_file = yaml.load(
-                snowflake_yml.read_text(), yaml.BaseLoader
-            )
-            project_definition_file["native_app"]["artifacts"].append("src")
-            project_definition_file["native_app"]["artifacts"].append(
-                {"src": "lib/parent", "dest": "parent-lib"}
-            )
-            snowflake_yml.write_text(yaml.dump(project_definition_file))
-
-            touch(str(project_dir / "src/main.py"))
-
-            touch(str(project_dir / "lib/parent/child/a.py"))
-            touch(str(project_dir / "lib/parent/child/b.py"))
-            touch(str(project_dir / "lib/parent/child/c/c.py"))
-
             result = runner.invoke_with_connection(
                 ["app", "deploy", "-r", "app"],
                 env=TEST_ENV,
@@ -623,21 +566,17 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
 
 # Tests that snow app deploy -r . deploys all changes
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_deploy_dot(
+    definition_version,
+    project_directory,
     runner,
-    temporary_working_directory,
     snapshot,
     print_paths_as_posix,
 ):
     project_name = "myapp"
-    project_dir = "app root"
-    result = runner.invoke_json(
-        ["app", "init", project_dir, "--name", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_dir)):
+    with project_directory(f"napp_init_{definition_version}"):
         try:
             result = runner.invoke_with_connection(
                 ["app", "deploy", "-r", "."],

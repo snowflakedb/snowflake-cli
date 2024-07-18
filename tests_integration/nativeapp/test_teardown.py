@@ -12,16 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import uuid
-from textwrap import dedent
-from unittest import mock
 
 from snowflake.cli.api.project.util import generate_user_env
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
-    pushd,
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
