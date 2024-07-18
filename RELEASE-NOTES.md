@@ -33,6 +33,7 @@
 * Added support for user stages in stage execute command
 * Added support for user stages in stage and git copy commands
 * Improved support for quoted identifiers in snowpark commands.
+* Updated post_install SQL script default database to be the application database
 
 # v2.6.1
 ## Backward incompatibility

@@ -178,7 +178,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 for index, sql_script_path in enumerate(sql_scripts_paths):
                     cc.step(f"Executing SQL script: {sql_script_path}")
                     self._execute_sql_script(
-                        scripts_content_list[index], self._conn.database
+                        scripts_content_list[index], self.app_name
                     )
 
     def get_all_existing_versions(self) -> SnowflakeCursor:
