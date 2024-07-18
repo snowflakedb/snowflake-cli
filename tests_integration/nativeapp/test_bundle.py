@@ -16,7 +16,6 @@ import os
 import os.path
 import yaml
 import uuid
-from textwrap import dedent, indent
 
 from snowflake.cli.api.project.util import generate_user_env
 
@@ -34,22 +33,23 @@ TEST_ENV = generate_user_env(USER_NAME)
 @enable_definition_v2_feature_flag
 def template_setup(runner, project_directory, request):
     definition_version = request.param
-    with project_directory(f"napp_init_{definition_version}") as project_root:
-        # Vanilla bundle on the unmodified template
-        result = runner.invoke_json(
-            ["app", "bundle"],
-            env=TEST_ENV,
-        )
-        assert result.exit_code == 0
+    with enable_definition_v2_feature_flag:
+        with project_directory(f"napp_init_{definition_version}") as project_root:
+            # Vanilla bundle on the unmodified template
+            result = runner.invoke_json(
+                ["app", "bundle"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
 
-        # The newly created deploy_root is explicitly deleted here, as bundle should take care of it.
+            # The newly created deploy_root is explicitly deleted here, as bundle should take care of it.
 
-        deploy_root = Path(project_root, "output", "deploy")
-        assert Path(deploy_root, "manifest.yml").is_file()
-        assert Path(deploy_root, "setup_script.sql").is_file()
-        assert Path(deploy_root, "README.md").is_file()
+            deploy_root = Path(project_root, "output", "deploy")
+            assert Path(deploy_root, "manifest.yml").is_file()
+            assert Path(deploy_root, "setup_script.sql").is_file()
+            assert Path(deploy_root, "README.md").is_file()
 
-        yield project_root, runner, definition_version
+            return project_root, runner, definition_version
 
 
 def override_snowflake_yml_artifacts(
@@ -91,7 +91,7 @@ def override_snowflake_yml_artifacts(
 def test_nativeapp_bundle_does_explicit_copy(
     template_setup,
 ):
-    project_root, runner, definition_version = next(template_setup)
+    project_root, runner, definition_version = template_setup
 
     with pushd(project_root):
         override_snowflake_yml_artifacts(
@@ -135,7 +135,7 @@ def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
     template_setup,
 ):
 
-    project_root, runner, definition_version = next(template_setup)
+    project_root, runner, definition_version = template_setup
     # Delete deploy_root since we test requirement of deploy_root being a directory
     shutil.rmtree(Path(project_root, "output", "deploy"))
 
@@ -191,7 +191,7 @@ def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 def test_nativeapp_bundle_throws_error_on_incorrect_src_glob(template_setup):
-    project_root, runner, definition_version = next(template_setup)
+    project_root, runner, definition_version = template_setup
 
     with pushd(project_root):
         # incorrect glob
@@ -214,7 +214,7 @@ def test_nativeapp_bundle_throws_error_on_incorrect_src_glob(template_setup):
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 def test_nativeapp_bundle_throws_error_on_bad_src(template_setup):
-    project_root, runner, definition_version = next(template_setup)
+    project_root, runner, definition_version = template_setup
 
     with pushd(project_root):
         # absolute path
@@ -237,7 +237,7 @@ def test_nativeapp_bundle_throws_error_on_bad_src(template_setup):
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
-    project_root, runner, definition_version = next(template_setup)
+    project_root, runner, definition_version = template_setup
 
     with pushd(project_root):
         override_snowflake_yml_artifacts(
@@ -279,7 +279,7 @@ def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup):
-    project_root, runner, definition_version = next(template_setup)
+    project_root, runner, definition_version = template_setup
 
     with pushd(project_root):
         override_snowflake_yml_artifacts(
@@ -305,7 +305,7 @@ def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup)
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 def test_nativeapp_bundle_deletes_existing_deploy_root(template_setup):
-    project_root, runner, definition_version = next(template_setup)
+    project_root, runner, definition_version = template_setup
 
     with pushd(project_root) as project_dir:
         existing_deploy_root_dest = Path(project_dir, "output", "deploy", "dummy.txt")
