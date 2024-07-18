@@ -64,7 +64,7 @@ def override_snowflake_yml_artifacts(
                         "pkg": {
                             "type": "application package",
                             "name": "myapp_pkg_<% ctx.env.USER %>",
-                            "artifacts": yaml.load(artifacts_section, yaml.BaseLoader),
+                            "artifacts": artifacts_section,
                             "manifest": "app/manifest.yml",
                             "deploy_root": str(deploy_root),
                         }
@@ -77,7 +77,7 @@ def override_snowflake_yml_artifacts(
                     "definition_version": "1",
                     "native_app": {
                         "name": "myapp",
-                        "artifacts": yaml.load(artifacts_section, yaml.BaseLoader),
+                        "artifacts": artifacts_section,
                         "deploy_root": str(deploy_root),
                     },
                 }
@@ -96,14 +96,10 @@ def test_nativeapp_bundle_does_explicit_copy(
     with pushd(project_root):
         override_snowflake_yml_artifacts(
             definition_version,
-            artifacts_section=dedent(
-                """
-                    - src: app
-                      dest: ./
-                    - src: snowflake.yml
-                      dest: ./app/
-                """
-            ),
+            artifacts_section=[
+                {"src": "app", "dest": "./"},
+                {"src": "snowflake.yml", "dest": "./app/"},
+            ],
         )
 
         result = runner.invoke_json(
@@ -173,14 +169,10 @@ def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
     with pushd(project_root):
         override_snowflake_yml_artifacts(
             definition_version,
-            artifacts_section=dedent(
-                """
-                    - src: app
-                      dest: ./
-                    - src: snowflake.yml
-                      dest: ./app/
-                """
-            ),
+            artifacts_section=[
+                {"src": "app", "dest": "./"},
+                {"src": "snowflake.yml", "dest": "./app/"},
+            ],
             deploy_root=deploy_root,
         )
 
@@ -249,13 +241,7 @@ def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
 
     with pushd(project_root):
         override_snowflake_yml_artifacts(
-            definition_version,
-            artifacts_section=dedent(
-                """
-                    - src: app/*
-                      dest: /
-                """
-            ),
+            definition_version, artifacts_section=[{"src": "app/*", "dest": "/"}]
         )
 
         result = runner.invoke_json(
@@ -269,12 +255,14 @@ def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
 
         override_snowflake_yml_artifacts(
             definition_version,
-            artifacts_section=dedent(
-                f"""
-                    - src: app/*
-                      dest: {Path(project_root, "output", "deploy", "stagepath").absolute()}
-                """
-            ),
+            artifacts_section=[
+                {
+                    "src": "app/*",
+                    "dest": Path(
+                        project_root, "output", "deploy", "stagepath"
+                    ).absolute(),
+                }
+            ],
         )
 
         result = runner.invoke_json(
@@ -296,14 +284,10 @@ def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup)
     with pushd(project_root):
         override_snowflake_yml_artifacts(
             definition_version,
-            artifacts_section=dedent(
-                f"""
-                    - src: app/manifest.yml
-                      dest: manifest.yml
-                    - src: app/setup_script.sql
-                      dest: manifest.yml
-                """
-            ),
+            artifacts_section=[
+                {"src": "app/manifest.yml", "dest": "manifest.yml"},
+                {"src": "app/setup_script.sql", "dest": "manifest.yml"},
+            ],
         )
 
         result = runner.invoke_json(
