@@ -24,6 +24,7 @@ from unittest.mock import call
 
 import pytest
 from click import ClickException
+from nativeapp.factories import ProjectPropertiesFactory
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
@@ -113,12 +114,14 @@ def test_sync_deploy_root_with_stage(
     mock_diff_result = DiffResult(different=[StagePath("setup.sql")])
     mock_compute_stage_diff.return_value = mock_diff_result
     mock_local_diff_with_stage.return_value = None
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
-    )
+
+    ProjectPropertiesFactory(project_definition__foo="far")
+    # current_working_directory = os.getcwd()
+    # create_named_file(
+    #     file_name="snowflake.yml",
+    #     dir_name=current_working_directory,
+    #     contents=[mock_snowflake_yml_file],
+    # )
 
     native_app_manager = _get_na_manager()
     assert mock_diff_result.has_changes()
