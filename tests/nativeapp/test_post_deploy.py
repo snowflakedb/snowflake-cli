@@ -71,7 +71,7 @@ def test_sql_scripts(
         processor._execute_post_deploy_hooks()  # noqa SLF001
 
         assert mock_execute_query.mock_calls == [
-            mock.call(f"use database myapp_test_user"),
+            mock.call("use database myapp_test_user"),
             mock.call("use database myapp_test_user"),
         ]
         assert mock_execute_queries.mock_calls == [
@@ -120,7 +120,7 @@ def test_sql_scripts_with_no_warehouse_no_database(
         # Verify no "use warehouse"
         # Verify "use database" applies to current application
         assert mock_execute_query.mock_calls == [
-            mock.call(f"use database myapp_test_user"),
+            mock.call("use database myapp_test_user"),
             mock.call("use database myapp_test_user"),
         ]
         assert mock_execute_queries.mock_calls == [
