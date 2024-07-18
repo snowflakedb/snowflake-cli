@@ -13,6 +13,10 @@
 # limitations under the License.
 
 import asyncio
+import pathlib
+import subprocess
+import sys
+from typing import Optional, AsyncIterator
 import pytest
 from pygls.lsp.client import BaseLanguageClient
 from lsprotocol import types
@@ -51,6 +55,11 @@ async def lsp_client():
 @pytest.fixture
 def lsp_connection_params(snowflake_session: SnowflakeConnection) -> ConnectionParams:
 
+    # without this, we don't have an actual connection...
+    # but it doesn't seem to like my local connection credentials
+    # I get snowflake.connector.errors.DatabaseError: 250001 (08001): Failed to connect to DB: na_provider_consumer_qa6.qa6.us-west-2.aws.snowflakecomputing.com:443. User needs to select a sign in option
+    snowflake_session.connect()
+
     # Grab the connection! And the tokens are on the connection.rest object. Alarmingly which might get removed in the future?
     # maybe we should save the master/session on the connection object itself rather than in SnowflakeRestful.
     connection = snowflake_session
@@ -65,7 +74,6 @@ def lsp_connection_params(snowflake_session: SnowflakeConnection) -> ConnectionP
         master_token=connection.rest._master_token,
         account=connection.account,
         connection_name="",
-        params={},
     )
 
 
@@ -87,6 +95,6 @@ async def test_lsp_client_and_server(
     }
 
     response = await lsp_client.workspace_execute_command_async(
-        types.ExecuteCommandParams("openApplication", [params])
+        types.ExecuteCommandParams("bundleApplication", [params])
     )
     assert response["_message"] == "https://..."  # TODO: valid URL
