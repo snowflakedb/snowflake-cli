@@ -58,6 +58,9 @@ from snowflake.cli.plugins.nativeapp.utils import (
     get_first_paragraph_from_markdown_file,
     shallow_git_clone,
 )
+from snowflake.cli.plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+    nativeapp_definition_v2_to_v1,
+)
 from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
 
 app = SnowTyperFactory(
@@ -147,6 +150,7 @@ def app_list_templates(**options) -> CommandResult:
 
 @app.command("bundle")
 @with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_bundle(
     **options,
 ) -> CommandResult:
@@ -228,6 +232,7 @@ def app_run(
 
 @app.command("open", requires_connection=True)
 @with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_open(
     **options,
 ) -> CommandResult:
@@ -253,6 +258,7 @@ def app_open(
 
 @app.command("teardown", requires_connection=True)
 @with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_teardown(
     force: Optional[bool] = ForceOption,
     cascade: Optional[bool] = typer.Option(
@@ -279,6 +285,7 @@ def app_teardown(
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
@@ -345,6 +352,7 @@ def app_deploy(
 
 @app.command("validate", requires_connection=True)
 @with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_validate(**options):
     """
     Validates a deployed Snowflake Native App's setup script.
