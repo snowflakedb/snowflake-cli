@@ -372,10 +372,12 @@ def app_validate(**options):
 
 
 @app.command("events", hidden=True, requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_events(**options):
     """Fetches events for this app from the event table configured in Snowflake."""
     # WIP: only validates event table setup for now while the command is hidden
+    assert_project_type("native_app")
 
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
