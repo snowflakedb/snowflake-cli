@@ -20,7 +20,6 @@
   | --variable  -D      TEXT  String in format of key=value. If provided the SQL |
   |                           content will be treated as template and rendered   |
   |                           using provided data.                               |
-  |                           [default: None]                                    |
   | --project   -p      TEXT  Path where Snowflake project resides. Defaults to  |
   |                           current working directory.                         |
   | --env               TEXT  String in format of key=value. Overrides variables |
