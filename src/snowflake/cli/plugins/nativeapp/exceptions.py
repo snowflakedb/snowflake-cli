@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from textwrap import dedent
+from typing import Optional
 
 import jinja2
 from click.exceptions import ClickException
@@ -64,8 +67,13 @@ class MissingScriptError(ClickException):
 class InvalidScriptError(ClickException):
     """A referenced script had syntax error(s)."""
 
-    def __init__(self, relpath: str, err: jinja2.TemplateError):
-        super().__init__(f'Script "{relpath}" does not contain a valid template')
+    def __init__(
+        self, relpath: str, err: jinja2.TemplateError, lineno: Optional[int] = None
+    ):
+        lineno_str = f":{lineno}" if lineno is not None else ""
+        super().__init__(
+            f'Script "{relpath}{lineno_str}" does not contain a valid template: {err.message}'
+        )
         self.err = err
 
 

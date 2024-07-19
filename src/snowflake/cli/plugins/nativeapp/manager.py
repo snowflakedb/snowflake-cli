@@ -575,7 +575,7 @@ class NativeAppManager(SqlExecutionMixin):
                 raise MissingScriptError(e.name) from e
 
             except jinja2.TemplateSyntaxError as e:
-                raise InvalidScriptError(e.name, e) from e
+                raise InvalidScriptError(e.name, e, e.lineno) from e
 
             except jinja2.UndefinedError as e:
                 raise InvalidScriptError(relpath, e) from e
