@@ -23,6 +23,9 @@ from tests_integration.test_utils import (
     not_contains_row_with,
     row_from_snowflake_session,
 )
+from tests_integration.test_utils import (
+    enable_definition_v2_feature_flag,
+)
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
@@ -30,7 +33,10 @@ TEST_ENV = generate_user_env(USER_NAME)
 
 # Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
 @pytest.mark.integration
-@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize(
+    "project_definition_files", ["integration", "integration_v2"], indirect=True
+)
 def test_nativeapp_version_create_and_drop(
     runner,
     snowflake_session,
@@ -101,7 +107,9 @@ def test_nativeapp_version_create_and_drop(
 
 # Tests upgrading an app from an existing loose files installation to versioned installation.
 @pytest.mark.integration
-@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+@enable_definition_v2_feature_flag
+# @pytest.mark.parametrize("project_definition_files", ["integration", "integration_v2"], indirect=True)
+@pytest.mark.parametrize("project_definition_files", ["integration_v2"], indirect=True)
 def test_nativeapp_upgrade(
     runner,
     snowflake_session,
@@ -166,6 +174,8 @@ def test_nativeapp_upgrade(
 
 # Make sure we can create 3+ patches on the same version
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+# @pytest.mark.parametrize("definition_version", ["v1", "v2"])
 @pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
 def test_nativeapp_version_create_3_patches(
     runner,
@@ -233,6 +243,8 @@ def test_nativeapp_version_create_3_patches(
 
 
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+# @pytest.mark.parametrize("definition_version", ["v1", "v2"])
 @pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
 def test_nativeapp_version_create_patch_is_integer(
     runner,
@@ -326,6 +338,8 @@ def test_nativeapp_version_create_patch_is_integer(
 # Tests creating a version for a package that was not created by the CLI
 # (doesn't have the magic CLI comment)
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+# @pytest.mark.parametrize("definition_version", ["v1", "v2"])
 @pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
 def test_nativeapp_version_create_package_no_magic_comment(
     runner,

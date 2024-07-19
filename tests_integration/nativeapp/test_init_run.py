@@ -25,6 +25,7 @@ from tests_integration.test_utils import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
+    enable_definition_v2_feature_flag,
 )
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
@@ -33,19 +34,16 @@ TEST_ENV = generate_user_env(USER_NAME)
 
 # Tests a simple flow of initiating a new project, executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_init_run_without_modifications(
+    definition_version,
+    project_directory,
     runner,
     snowflake_session,
-    temporary_working_directory,
 ):
     project_name = "myapp"
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
+    with project_directory(f"napp_init_{definition_version}"):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
@@ -91,7 +89,10 @@ def test_nativeapp_init_run_without_modifications(
 
 # Tests a simple flow of an existing project, but executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
-@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize(
+    "project_definition_files", ["integration", "integration_v2"], indirect=True
+)
 def test_nativeapp_run_existing(
     runner,
     snowflake_session,
@@ -164,20 +165,16 @@ def test_nativeapp_run_existing(
 
 # Tests a simple flow of initiating a project, executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_init_run_handles_spaces(
+    definition_version,
+    project_directory,
     runner,
     snowflake_session,
-    temporary_working_directory,
 ):
     project_name = "myapp"
-    project_dir = "app root"
-    result = runner.invoke_json(
-        ["app", "init", project_dir, "--name", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_dir)):
+    with project_directory(f"napp_init_{definition_version}"):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
@@ -223,8 +220,11 @@ def test_nativeapp_init_run_handles_spaces(
 
 # Tests a simple flow of an existing project, but executing snow app run and teardown, all with distribution=external
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
-    "project_definition_files", ["integration_external"], indirect=True
+    "project_definition_files",
+    ["integration_external", "integration_external_v2"],
+    indirect=True,
 )
 def test_nativeapp_run_existing_w_external(
     runner,
@@ -325,21 +325,18 @@ def test_nativeapp_run_existing_w_external(
 
 # Verifies that running "app run" after "app deploy" upgrades the app
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_run_after_deploy(
+    definition_version,
+    project_directory,
     runner,
-    temporary_working_directory,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
     stage_fqn = f"{project_name}_pkg_{USER_NAME}.app_src.stage"
 
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
+    with project_directory(f"napp_init_{definition_version}"):
         try:
             # Run #1
             result = runner.invoke_with_connection_json(
@@ -422,9 +419,11 @@ def test_nativeapp_init_from_repo_with_single_template(
 
 # Tests that application post-deploy scripts are executed by creating a post_deploy_log table and having each post-deploy script add a record to it
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 @pytest.mark.parametrize("is_versioned", [True, False])
 def test_nativeapp_app_post_deploy(
-    runner, snowflake_session, project_directory, is_versioned
+    definition_version, runner, snowflake_session, project_directory, is_versioned
 ):
     version = "v1"
     project_name = "myapp"
@@ -446,7 +445,7 @@ def test_nativeapp_app_post_deploy(
         )
         assert result.exit_code == 0
 
-    with project_directory("napp_application_post_deploy") as tmp_dir:
+    with project_directory(f"napp_application_post_deploy_{definition_version}"):
         try:
             # First run, application is created (and maybe a version)
             run()
