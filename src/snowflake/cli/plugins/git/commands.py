@@ -23,9 +23,9 @@ from typing import List, Optional
 import typer
 from click import ClickException
 from snowflake.cli.api.commands.flags import (
+    ExecuteVariablesOption,
     OnErrorOption,
     PatternOption,
-    VariablesOption,
     identifier_argument,
     like_option,
 )
@@ -276,7 +276,7 @@ def copy(
 def execute(
     repository_path: str = RepoPathArgument,
     on_error: OnErrorType = OnErrorOption,
-    variables: Optional[List[str]] = VariablesOption,
+    variables: Optional[List[str]] = ExecuteVariablesOption,
     **options,
 ):
     """

@@ -449,15 +449,22 @@ OnErrorOption = typer.Option(
 
 NoInteractiveOption = typer.Option(False, "--no-interactive", help="Disable prompting.")
 
-VariablesOption = typer.Option(
-    None,
-    "--variable",
-    "-D",
-    help='Variables for the execution context. For example: `-D "<key>=<value>"`. '
+
+def variables_option(description: str):
+    return typer.Option(
+        None,
+        "--variable",
+        "-D",
+        help=description,
+        show_default=False,
+    )
+
+
+ExecuteVariablesOption = variables_option(
+    'Variables for the execution context. For example: `-D "<key>=<value>"`. '
     "For SQL files variables are use to expand the template and any unknown variable will cause an error. "
     "For Python files variables are used to update os.environ dictionary. Provided keys are capitalized to adhere to best practices."
     "In case of SQL files string values must be quoted in `''` (consider embedding quoting in the file).",
-    show_default=False,
 )
 
 
