@@ -24,6 +24,7 @@
   supported by setting `token_file_path` in connection definition.
 * Support for Python remote execution via `snow stage execute` and `snow git execute` similar to existing EXECUTE IMMEDIATE support.
 * Added support for autocomplete in `--connection` flag.
+* Added `snow init` command, which supports initializing projects with external templates.
 
 ## Fixes and improvements
 * The `snow app run` command now allows upgrading to unversioned mode from a versioned or release mode application installation
