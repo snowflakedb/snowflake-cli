@@ -114,8 +114,8 @@ class NoEventTableForAccount(ClickException):
         https://docs.snowflake.com/en/developer-guide/logging-tracing/event-table-setting-up.
 
         If your account is configured to send events to an organization event account, create a new
-        connection to this account using `snow connection add`. More information on event accounts is available at
-        https://docs.snowflake.com/en/developer-guide/native-apps/setting-up-logging-and-events#configure-an-account-to-store-shared-events."""
+        connection to this account using `snow connection add` and re-run this command using the new connection.
+        More information on event accounts is available at https://docs.snowflake.com/en/developer-guide/native-apps/setting-up-logging-and-events#configure-an-account-to-store-shared-events."""
     )
 
     def __init__(self):
