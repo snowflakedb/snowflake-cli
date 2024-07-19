@@ -148,7 +148,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         If database_name is passed in, it will be used first.
         """
         try:
-            if database_name:
+            if database_name is not None:
                 self._execute_query(f"use database {database_name}")
 
             self._execute_queries(script_content)

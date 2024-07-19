@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional, TypedDict
+from typing import Any, List, Optional, TypedDict
 
 import jinja2
 from click import ClickException
@@ -562,14 +562,23 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
     def _expand_script_templates(
-        self, env: jinja2.Environment, jinja_context, scripts: List[str]
-    ):
-        queued_queries = []
+        self, env: jinja2.Environment, jinja_context: dict[str, Any], scripts: List[str]
+    ) -> List[str]:
+        """
+        Input:
+        - env: Jinja2 environment
+        - jinja_context: a dictionary with the jinja context
+        - scripts: list of scripts that need to be expanded with Jinja
+        Returns:
+        - List of expanded scripts content.
+        Size of the return list is the same as the size of the input scripts list.
+        """
+        scripts_contents = []
         for relpath in scripts:
             try:
                 template = env.get_template(relpath)
                 result = template.render(**jinja_context)
-                queued_queries.append(result)
+                scripts_contents.append(result)
 
             except jinja2.TemplateNotFound as e:
                 raise MissingScriptError(e.name) from e
@@ -580,7 +589,7 @@ class NativeAppManager(SqlExecutionMixin):
             except jinja2.UndefinedError as e:
                 raise InvalidScriptError(relpath, e) from e
 
-        return queued_queries
+        return scripts_contents
 
     def _apply_package_scripts(self) -> None:
         """
