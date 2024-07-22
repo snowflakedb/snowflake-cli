@@ -26,6 +26,9 @@ from tests_integration.test_utils import (
     not_contains_row_with,
     row_from_snowflake_session,
 )
+from tests_integration.testing_utils.working_directory_utils import (
+    WorkingDirectoryChanger,
+)
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
@@ -423,30 +426,37 @@ def test_nativeapp_init_from_repo_with_single_template(
 # Tests that application post-deploy scripts are executed by creating a post_deploy_log table and having each post-deploy script add a record to it
 @pytest.mark.integration
 @pytest.mark.parametrize("is_versioned", [True, False])
+@pytest.mark.parametrize("with_project_flag", [True, False])
 def test_nativeapp_app_post_deploy(
-    runner, snowflake_session, project_directory, is_versioned
+    runner, snowflake_session, project_directory, is_versioned, with_project_flag
 ):
     version = "v1"
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
 
-    def run():
-        """(maybe) create a version, then snow app run"""
-        if is_versioned:
+    with project_directory("napp_application_post_deploy") as tmp_dir:
+        version_run_args = ["--version", version] if is_versioned else []
+        project_args = ["--project", f"{tmp_dir}"] if with_project_flag else []
+
+        def run():
+            """(maybe) create a version, then snow app run"""
+            if is_versioned:
+                result = runner.invoke_with_connection_json(
+                    ["app", "version", "create", version] + project_args,
+                    env=TEST_ENV,
+                )
+                assert result.exit_code == 0
+
             result = runner.invoke_with_connection_json(
-                ["app", "version", "create", version],
+                ["app", "run"] + version_run_args + project_args,
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
 
-        run_args = ["--version", version] if is_versioned else []
-        result = runner.invoke_with_connection_json(
-            ["app", "run"] + run_args,
-            env=TEST_ENV,
-        )
-        assert result.exit_code == 0
+        if with_project_flag:
+            working_directory_changer = WorkingDirectoryChanger()
+            working_directory_changer.change_working_directory_to("app")
 
-    with project_directory("napp_application_post_deploy") as tmp_dir:
         try:
             # First run, application is created (and maybe a version)
             run()
@@ -480,13 +490,13 @@ def test_nativeapp_app_post_deploy(
             # need to drop the version before we can teardown
             if is_versioned:
                 result = runner.invoke_with_connection_json(
-                    ["app", "version", "drop", version, "--force"],
+                    ["app", "version", "drop", version, "--force"] + project_args,
                     env=TEST_ENV,
                 )
                 assert result.exit_code == 0
 
             result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
+                ["app", "teardown", "--force"] + project_args,
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
