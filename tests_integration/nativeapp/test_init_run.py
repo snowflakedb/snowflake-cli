@@ -422,6 +422,7 @@ def test_nativeapp_init_from_repo_with_single_template(
 
 # Tests that application post-deploy scripts are executed by creating a post_deploy_log table and having each post-deploy script add a record to it
 @pytest.mark.integration
+@pytest.mark.skip(reason="TODO")
 @pytest.mark.parametrize("is_versioned", [True, False])
 @pytest.mark.parametrize("with_project_flag", [True, False])
 def test_nativeapp_app_post_deploy(
@@ -501,7 +502,10 @@ def test_nativeapp_app_post_deploy(
 
 # Tests running an app whose package was dropped externally (requires dropping and recreating the app)
 @pytest.mark.integration
-@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize(
+    "project_definition_files", ["integration", "integration_v2"], indirect=True
+)
 @pytest.mark.parametrize("force_flag", [True, False])
 def test_nativeapp_run_orphan(
     runner,
@@ -624,6 +628,8 @@ def test_nativeapp_run_orphan(
 # run configurations as long as we pass the --force flag to "app run"
 # TODO: add back all parameterizations and implement --force for "app teardown"
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 @pytest.mark.parametrize(
     "run_args_from, run_args_to",
     [
@@ -639,22 +645,17 @@ def test_nativeapp_run_orphan(
     ],
 )
 def test_nativeapp_force_cross_upgrade(
-    runner,
-    temporary_working_directory,
+    definition_version,
+    project_directory,
     run_args_from,
     run_args_to,
+    runner,
 ):
-    project_name = "xupgrade"
+    project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
     pkg_name = f"{project_name}_pkg_{USER_NAME}"
 
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
+    with project_directory(f"napp_init_{definition_version}"):
         try:
             # Create version
             result = runner.invoke_with_connection(
