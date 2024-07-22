@@ -383,8 +383,14 @@ def app_validate(**options):
 @with_project_definition()
 @nativeapp_definition_v2_to_v1
 def app_events(
-    since: str = typer.Option(default=""),
-    until: str = typer.Option(default=""),
+    since: str = typer.Option(
+        default="",
+        help="Fetch events that are newer than this time ago, in Snowflake interval syntax.",
+    ),
+    until: str = typer.Option(
+        default="",
+        help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
+    ),
     **options,
 ):
     """Fetches events for this app from the event table configured in Snowflake."""
