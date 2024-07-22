@@ -22,8 +22,8 @@ import yaml
 from click import ClickException
 from snowflake.cli.api.commands.flags import (
     NoInteractiveOption,
-    VariablesOption,
     parse_key_value_variables,
+    variables_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
@@ -69,6 +69,9 @@ TemplateOption = typer.Option(
 SourceOption = typer.Option(
     default=DEFAULT_SOURCE,
     help=f"local path to template directory or URL to git repository with templates.",
+)
+VariablesOption = variables_option(
+    "String in `key=value` format. Provided variables will not be prompted for."
 )
 
 TEMPLATE_METADATA_FILE_NAME = "template.yml"
