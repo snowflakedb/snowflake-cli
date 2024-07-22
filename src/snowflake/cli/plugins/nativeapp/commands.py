@@ -382,7 +382,11 @@ def app_validate(**options):
 @app.command("events", hidden=True, requires_connection=True)
 @with_project_definition()
 @nativeapp_definition_v2_to_v1
-def app_events(**options):
+def app_events(
+    since: str = typer.Option(default=""),
+    until: str = typer.Option(default=""),
+    **options,
+):
     """Fetches events for this app from the event table configured in Snowflake."""
     assert_project_type("native_app")
 
@@ -390,7 +394,7 @@ def app_events(**options):
         project_definition=get_cli_context().project_definition.native_app,
         project_root=get_cli_context().project_root,
     )
-    events = manager.get_events()
+    events = manager.get_events(since, until)
     if not events:
         return MessageResult("No events found.")
 
