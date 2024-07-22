@@ -18,8 +18,10 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
+import jinja2
 import typer
 from click import UsageError
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
@@ -35,7 +37,9 @@ from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
     unquote_identifier,
 )
-from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
+from snowflake.cli.api.rendering.sql_templates import (
+    get_sql_cli_jinja_env,
+)
 from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.plugins.nativeapp.constants import (
@@ -135,20 +139,19 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__(project_definition, project_root)
 
-    def _execute_sql_script(self, sql_script_path):
+    def _execute_sql_script(
+        self, script_content: str, database_name: Optional[str] = None
+    ):
         """
-        Executing the SQL script in the provided file path after expanding template variables.
+        Executing the provided SQL script content.
         This assumes that a relevant warehouse is already active.
-        Consequently, "use database" will be executed first if it is set in definition file or in the current connection.
+        If database_name is passed in, it will be used first.
         """
-        with open(sql_script_path) as f:
-            sql_script = f.read()
-
         try:
-            if self._conn.database:
-                self._execute_query(f"use database {self._conn.database}")
-            sql_script = snowflake_sql_jinja_render(content=sql_script)
-            self._execute_queries(sql_script)
+            if database_name is not None:
+                self._execute_query(f"use database {database_name}")
+
+            self._execute_queries(script_content)
         except ProgrammingError as err:
             generic_sql_error_handler(err)
 
@@ -156,14 +159,27 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         post_deploy_script_hooks = self.app_post_deploy_hooks
         if post_deploy_script_hooks:
             with cc.phase("Executing application post-deploy actions"):
+                sql_scripts_paths = []
                 for hook in post_deploy_script_hooks:
                     if hook.sql_script:
-                        cc.step(f"Executing SQL script: {hook.sql_script}")
-                        self._execute_sql_script(hook.sql_script)
+                        sql_scripts_paths.append(hook.sql_script)
                     else:
                         raise ValueError(
                             f"Unsupported application post-deploy hook type: {hook}"
                         )
+
+                env = get_sql_cli_jinja_env(
+                    loader=jinja2.loaders.FileSystemLoader(self.project_root)
+                )
+                scripts_content_list = self._expand_script_templates(
+                    env, cli_context.template_context, sql_scripts_paths
+                )
+
+                for index, sql_script_path in enumerate(sql_scripts_paths):
+                    cc.step(f"Executing SQL script: {sql_script_path}")
+                    self._execute_sql_script(
+                        scripts_content_list[index], self._conn.database
+                    )
 
     def get_all_existing_versions(self) -> SnowflakeCursor:
         """

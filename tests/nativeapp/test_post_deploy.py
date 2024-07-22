@@ -22,6 +22,7 @@ from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.application import (
     ApplicationPostDeployHook,
 )
+from snowflake.cli.plugins.nativeapp.exceptions import MissingScriptError
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
 
 from tests.nativeapp.patch_utils import mock_connection
@@ -139,7 +140,7 @@ def test_missing_sql_script(
     with project_directory("napp_post_deploy_missing_file") as project_dir:
         processor = _get_run_processor(str(project_dir))
 
-        with pytest.raises(FileNotFoundError) as err:
+        with pytest.raises(MissingScriptError) as err:
             processor._execute_post_deploy_hooks()  # noqa SLF001
 
 
