@@ -88,33 +88,55 @@ from tests.testing_utils.mock_config import mock_config_key
                         "artifacts": [{"src": "app/*", "dest": "./"}],
                         "manifest": "",
                         "stage": "app.stage",
-                        "bundle_root": "bundle_root",
-                        "generated_root": "generated_root",
-                        "deploy_root": "deploy_root",
+                        "bundle_root": "bundle_root_path",
+                        "generated_root": "generated_root_path",
+                        "deploy_root": "deploy_root_path",
+                        "distribution": "external",
+                        "meta": {
+                            "post_deploy": [
+                                {"sql_script": "scripts/script1.sql"},
+                                {"sql_script": "scripts/script2.sql"},
+                            ]
+                        },
                     },
                     "app": {
                         "type": "application",
                         "name": "app_name",
                         "from": {"target": "pkg"},
-                        "meta": {"role": "app_role"},
+                        "meta": {
+                            "role": "app_role",
+                            "post_deploy": [
+                                {"sql_script": "scripts/script3.sql"},
+                                {"sql_script": "scripts/script4.sql"},
+                            ],
+                        },
                     },
                 },
             },
             {
                 "definition_version": "1.1",
                 "native_app": {
-                    "name": "Auto converted NativeApp project from V2",
+                    "name": "app_name",
                     "artifacts": [{"src": "app/*", "dest": "./"}],
                     "source_stage": "app.stage",
-                    "bundle_root": "bundle_root",
-                    "generated_root": "generated_root",
-                    "deploy_root": "deploy_root",
+                    "bundle_root": "bundle_root_path",
+                    "generated_root": "generated_root_path",
+                    "deploy_root": "deploy_root_path",
                     "package": {
                         "name": "pkg_name",
+                        "distribution": "external",
+                        "scripts": [
+                            "scripts/script1.sql",
+                            "scripts/script2.sql",
+                        ],
                     },
                     "application": {
                         "name": "app_name",
                         "role": "app_role",
+                        "post_deploy": [
+                            {"sql_script": "scripts/script3.sql"},
+                            {"sql_script": "scripts/script4.sql"},
+                        ],
                     },
                 },
             },
@@ -139,6 +161,80 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
 def test_decorator_error_when_no_project_exists():
     with pytest.raises(ValueError, match="Project definition could not be found"):
         nativeapp_definition_v2_to_v1(lambda *args: None)()
+
+
+@pytest.mark.parametrize(
+    "pdfv2_input, expected_project_name",
+    [
+        [
+            # Using application name as project name
+            {
+                "definition_version": "2",
+                "entities": {
+                    "pkg": {
+                        "type": "application package",
+                        "name": "package_name",
+                        "artifacts": [{"src": "app/*", "dest": "./"}],
+                        "manifest": "",
+                        "stage": "app.stage",
+                    },
+                    "app": {
+                        "type": "application",
+                        "name": "application_name",
+                        "from": {"target": "pkg"},
+                        "meta": {
+                            "role": "app_role",
+                            "post_deploy": [
+                                {"sql_script": "scripts/script3.sql"},
+                                {"sql_script": "scripts/script4.sql"},
+                            ],
+                        },
+                    },
+                },
+            },
+            "application_name",
+        ],
+        [
+            # Using package name as project name
+            {
+                "definition_version": "2",
+                "entities": {
+                    "pkg": {
+                        "type": "application package",
+                        "name": "package_name",
+                        "artifacts": [{"src": "app/*", "dest": "./"}],
+                        "manifest": "",
+                        "stage": "app.stage",
+                    },
+                },
+            },
+            "package_name",
+        ],
+        [
+            # Using package name as project name, stripping _pkg_.*
+            {
+                "definition_version": "2",
+                "entities": {
+                    "pkg": {
+                        "type": "application package",
+                        "name": "appname_pkg_username",
+                        "artifacts": [{"src": "app/*", "dest": "./"}],
+                        "manifest": "",
+                        "stage": "app.stage",
+                    },
+                },
+            },
+            "appname",
+        ],
+    ],
+)
+def test_project_name(pdfv2_input, expected_project_name):
+    with mock_config_key("enable_project_definition_v2", True):
+        pdfv2 = DefinitionV20(**pdfv2_input)
+        pdfv1 = _pdf_v2_to_v1(pdfv2)
+
+        # Assert that the expected dict is a subset of the actual dict
+        assert pdfv1.native_app.name == expected_project_name
 
 
 @mock.patch(
