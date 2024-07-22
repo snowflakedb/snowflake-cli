@@ -718,11 +718,13 @@ class NativeAppManager(SqlExecutionMixin):
         if self.account_event_table is None:
             raise NoEventTableForAccount()
 
+        # resource_attributes:"snow.database.name" uses the unquoted/uppercase app name
+        app_name = unquote_identifier(self.app_name)
         query = dedent(
             f"""\
             select timestamp, value::varchar value
             from {self.account_event_table}
-            where resource_attributes:"snow.database.name" ilike '{self.app_name}'
+            where resource_attributes:"snow.database.name" = '{app_name}'
             order by timestamp asc;"""
         )
         try:

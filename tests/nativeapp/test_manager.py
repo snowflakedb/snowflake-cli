@@ -66,6 +66,7 @@ from tests.nativeapp.utils import (
     NATIVEAPP_MODULE,
     mock_execute_helper,
     mock_snowflake_yml_file,
+    quoted_override_yml_file,
     touch,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
@@ -1374,7 +1375,53 @@ def test_get_events(mock_execute, mock_account_event_table, temp_dir, mock_curso
                         f"""\
                         select timestamp, value::varchar value
                         from db.schema.event_table
-                        where resource_attributes:"snow.database.name" ilike 'myapp'
+                        where resource_attributes:"snow.database.name" = 'MYAPP'
+                        order by timestamp asc;"""
+                    ),
+                    cursor_class=DictCursor,
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    assert native_app_manager.get_events() == [
+        dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")
+    ]
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(
+    NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE,
+    return_value="db.schema.event_table",
+    new_callable=mock.PropertyMock,
+)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_get_events_quoted_app_name(
+    mock_execute, mock_account_event_table, temp_dir, mock_cursor
+):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+    create_named_file(
+        file_name="snowflake.local.yml",
+        dir_name=temp_dir,
+        contents=[quoted_override_yml_file],
+    )
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        select timestamp, value::varchar value
+                        from db.schema.event_table
+                        where resource_attributes:"snow.database.name" = 'My Application'
                         order by timestamp asc;"""
                     ),
                     cursor_class=DictCursor,
