@@ -103,3 +103,20 @@ class SetupScriptFailedValidation(ClickException):
 
     def __init__(self):
         super().__init__(self.__doc__)
+
+
+class NoEventTableForAccount(ClickException):
+    """No event table was found for this Snowflake account."""
+
+    INSTRUCTIONS = dedent(
+        """\
+        Ask your Snowflake administrator to set up an event table for your account by following the docs at
+        https://docs.snowflake.com/en/developer-guide/logging-tracing/event-table-setting-up.
+
+        If your account is configured to send events to an organization event account, create a new
+        connection to this account using `snow connection add` and re-run this command using the new connection.
+        More information on event accounts is available at https://docs.snowflake.com/en/developer-guide/native-apps/setting-up-logging-and-events#configure-an-account-to-store-shared-events."""
+    )
+
+    def __init__(self):
+        super().__init__(f"{self.__doc__}\n\n{self.INSTRUCTIONS}")
