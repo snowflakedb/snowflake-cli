@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, List, Optional, TypedDict
+from typing import Any, List, NoReturn, Optional, TypedDict
 
 import jinja2
 from click import ClickException
@@ -89,7 +89,7 @@ ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type
 
 def generic_sql_error_handler(
     err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
-):
+) -> NoReturn:
     # Potential refactor: If moving away from Python 3.8 and 3.9 to >= 3.10, use match ... case
     if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
         raise ProgrammingError(
@@ -717,7 +717,18 @@ class NativeAppManager(SqlExecutionMixin):
     def get_events(self) -> list[dict]:
         if self.account_event_table is None:
             raise NoEventTableForAccount()
-        return []
+
+        query = dedent(
+            f"""\
+            select timestamp, value::varchar value
+            from {self.account_event_table}
+            where resource_attributes:"snow.database.name" ilike '{self.app_name}'
+            order by timestamp asc;"""
+        )
+        try:
+            return self._execute_query(query, cursor_class=DictCursor).fetchall()
+        except ProgrammingError as err:
+            generic_sql_error_handler(err)
 
 
 def _validation_item_to_str(item: dict[str, str | int]):

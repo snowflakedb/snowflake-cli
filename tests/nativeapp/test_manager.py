@@ -1357,15 +1357,38 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     return_value="db.schema.event_table",
     new_callable=mock.PropertyMock,
 )
-def test_get_events(mock_account_event_table, temp_dir, mock_cursor):
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_get_events(mock_execute, mock_account_event_table, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
         contents=[mock_snowflake_yml_file],
     )
 
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        select timestamp, value::varchar value
+                        from db.schema.event_table
+                        where resource_attributes:"snow.database.name" ilike 'myapp'
+                        order by timestamp asc;"""
+                    ),
+                    cursor_class=DictCursor,
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
     native_app_manager = _get_na_manager()
-    assert native_app_manager.get_events() == []
+    assert native_app_manager.get_events() == [
+        dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")
+    ]
+    assert mock_execute.mock_calls == expected
 
 
 @mock.patch(
