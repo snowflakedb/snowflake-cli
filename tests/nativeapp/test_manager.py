@@ -1350,7 +1350,7 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     mock_execute.side_effect = side_effects
 
     native_app_manager = _get_na_manager()
-    assert native_app_manager.account_event_table is None
+    assert native_app_manager.account_event_table == ""
 
 
 @mock.patch(
