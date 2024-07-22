@@ -108,8 +108,9 @@ def test_nativeapp_version_create_and_drop(
 # Tests upgrading an app from an existing loose files installation to versioned installation.
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-# @pytest.mark.parametrize("project_definition_files", ["integration", "integration_v2"], indirect=True)
-@pytest.mark.parametrize("project_definition_files", ["integration_v2"], indirect=True)
+@pytest.mark.parametrize(
+    "project_definition_files", ["integration", "integration_v2"], indirect=True
+)
 def test_nativeapp_upgrade(
     runner,
     snowflake_session,
@@ -244,8 +245,9 @@ def test_nativeapp_version_create_3_patches(
 
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-# @pytest.mark.parametrize("definition_version", ["v1", "v2"])
-@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+@pytest.mark.parametrize(
+    "project_definition_files", ["integration", "integration_v2"], indirect=True
+)
 def test_nativeapp_version_create_patch_is_integer(
     runner,
     snowflake_session,
@@ -339,8 +341,9 @@ def test_nativeapp_version_create_patch_is_integer(
 # (doesn't have the magic CLI comment)
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-# @pytest.mark.parametrize("definition_version", ["v1", "v2"])
-@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+@pytest.mark.parametrize(
+    "project_definition_files", ["integration", "integration_v2"], indirect=True
+)
 def test_nativeapp_version_create_package_no_magic_comment(
     runner,
     snowflake_session,
