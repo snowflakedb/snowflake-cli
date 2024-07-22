@@ -83,7 +83,6 @@ def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
 
     # NativeApp
     if app_definition and app_definition.name:
-        # TODO verify
         pdfv1["native_app"]["name"] = app_definition.name
     else:
         pdfv1["native_app"]["name"] = app_package_definition.name.split("_pkg_")[0]
@@ -91,11 +90,9 @@ def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
         _convert_v2_artifact_to_v1_dict(a) for a in app_package_definition.artifacts
     ]
     pdfv1["native_app"]["source_stage"] = app_package_definition.stage
-    pdfv1["native_app"]["bundle_root"] = str(app_package_definition.bundle_root) + "/"
-    pdfv1["native_app"]["generated_root"] = (
-        str(app_package_definition.generated_root) + "/"
-    )
-    pdfv1["native_app"]["deploy_root"] = str(app_package_definition.deploy_root) + "/"
+    pdfv1["native_app"]["bundle_root"] = str(app_package_definition.bundle_root)
+    pdfv1["native_app"]["generated_root"] = str(app_package_definition.generated_root)
+    pdfv1["native_app"]["deploy_root"] = str(app_package_definition.deploy_root)
 
     # Package
     pdfv1["native_app"]["package"] = {}
