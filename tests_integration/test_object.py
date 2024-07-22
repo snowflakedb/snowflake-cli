@@ -163,6 +163,15 @@ def test_show_drop_image_repository(runner, test_database, snowflake_session):
                 ],
             },
         ),
+        (
+            "task",
+            {
+                "name": "test_task",
+                "definition": "select 42",
+                "warehouse": "xsmall",
+                "schedule": {"schedule_type": "MINUTES_TYPE", "minutes": 32},
+            },
+        ),
     ],
 )
 @pytest.mark.integration
