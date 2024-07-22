@@ -439,7 +439,7 @@ def test_nativeapp_app_post_deploy(
     app_name = f"{project_name}_{USER_NAME}"
 
     with project_directory(
-        "napp_application_post_deploy_{definition_version}"
+        f"napp_application_post_deploy_{definition_version}"
     ) as tmp_dir:
         version_run_args = ["--version", version] if is_versioned else []
         project_args = ["--project", f"{tmp_dir}"] if with_project_flag else []
