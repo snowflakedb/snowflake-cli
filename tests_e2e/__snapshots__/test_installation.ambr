@@ -35,6 +35,7 @@
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
+  | init         Creates project directory from template.                        |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
   | snowpark     Manages procedures and functions.                               |
