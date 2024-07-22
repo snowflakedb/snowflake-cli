@@ -21,6 +21,7 @@ import typer
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     parse_key_value_variables,
+    variables_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
@@ -55,11 +56,8 @@ def execute_sql(
         "-i",
         help="Read the query from standard input. Use it when piping input to this command.",
     ),
-    data_override: List[str] = typer.Option(
-        None,
-        "--variable",
-        "-D",
-        help="String in format of key=value. If provided the SQL content will "
+    data_override: List[str] = variables_option(
+        "String in format of key=value. If provided the SQL content will "
         "be treated as template and rendered using provided data.",
     ),
     **options,
