@@ -91,30 +91,79 @@ from tests.testing_utils.mock_config import mock_config_key
                         "bundle_root": "bundle_root",
                         "generated_root": "generated_root",
                         "deploy_root": "deploy_root",
+                        "distribution": "external",
+                        "meta": {
+                            "post_deploy": [
+                                {"sql_script": "scripts/script1.sql"},
+                                {"sql_script": "scripts/script2.sql"},
+                            ]
+                        },
                     },
                     "app": {
                         "type": "application",
                         "name": "app_name",
                         "from": {"target": "pkg"},
-                        "meta": {"role": "app_role"},
+                        "meta": {
+                            "role": "app_role",
+                            "post_deploy": [
+                                {"sql_script": "scripts/script3.sql"},
+                                {"sql_script": "scripts/script4.sql"},
+                            ],
+                        },
                     },
                 },
             },
             {
                 "definition_version": "1.1",
                 "native_app": {
-                    "name": "Auto converted NativeApp project from V2",
+                    "name": "app_name",
                     "artifacts": [{"src": "app/*", "dest": "./"}],
                     "source_stage": "app.stage",
-                    "bundle_root": "bundle_root",
-                    "generated_root": "generated_root",
-                    "deploy_root": "deploy_root",
+                    "bundle_root": "bundle_root/",
+                    "generated_root": "generated_root/",
+                    "deploy_root": "deploy_root/",
                     "package": {
                         "name": "pkg_name",
+                        "distribution": "external",
+                        "scripts": [
+                            "scripts/script1.sql",
+                            "scripts/script2.sql",
+                        ],
                     },
                     "application": {
                         "name": "app_name",
                         "role": "app_role",
+                        "post_deploy": [
+                            {"sql_script": "scripts/script3.sql"},
+                            {"sql_script": "scripts/script4.sql"},
+                        ],
+                    },
+                },
+            },
+            None,
+        ],
+        [
+            # Using package name as project name, stripping _pkg_.*
+            {
+                "definition_version": "2",
+                "entities": {
+                    "pkg": {
+                        "type": "application package",
+                        "name": "appname_pkg_username",
+                        "artifacts": [{"src": "app/*", "dest": "./"}],
+                        "manifest": "",
+                        "stage": "app.stage",
+                    },
+                },
+            },
+            {
+                "definition_version": "1.1",
+                "native_app": {
+                    "name": "appname",
+                    "artifacts": [{"src": "app/*", "dest": "./"}],
+                    "source_stage": "app.stage",
+                    "package": {
+                        "name": "appname_pkg_username",
                     },
                 },
             },

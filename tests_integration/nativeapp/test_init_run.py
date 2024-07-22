@@ -422,17 +422,25 @@ def test_nativeapp_init_from_repo_with_single_template(
 
 # Tests that application post-deploy scripts are executed by creating a post_deploy_log table and having each post-deploy script add a record to it
 @pytest.mark.integration
-@pytest.mark.skip(reason="TODO")
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 @pytest.mark.parametrize("is_versioned", [True, False])
 @pytest.mark.parametrize("with_project_flag", [True, False])
 def test_nativeapp_app_post_deploy(
-    runner, snowflake_session, project_directory, is_versioned, with_project_flag
+    runner,
+    snowflake_session,
+    project_directory,
+    definition_version,
+    is_versioned,
+    with_project_flag,
 ):
     version = "v1"
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
 
-    with project_directory("napp_application_post_deploy_v1") as tmp_dir:
+    with project_directory(
+        "napp_application_post_deploy_{definition_version}"
+    ) as tmp_dir:
         version_run_args = ["--version", version] if is_versioned else []
         project_args = ["--project", f"{tmp_dir}"] if with_project_flag else []
 
