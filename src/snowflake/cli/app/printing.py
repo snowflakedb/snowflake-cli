@@ -34,6 +34,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     MultipleResults,
     ObjectResult,
+    StreamResult,
 )
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 
@@ -100,6 +101,12 @@ def print_structured(result: CommandResult):
     """Handles outputs like json, yml and other structured and parsable formats."""
     if isinstance(result, MultipleResults):
         _stream_json(result)
+    elif isinstance(result, StreamResult):
+        # A StreamResult prints each value onto its own line
+        # instead of joining all the values into a JSON array
+        for r in result.result:
+            json.dump(r, sys.stdout, cls=CustomJSONEncoder)
+            print()
     else:
         json.dump(result, sys.stdout, cls=CustomJSONEncoder, indent=4)
     # Adds empty line at the end
@@ -159,7 +166,7 @@ def print_result(cmd_result: CommandResult, output_format: OutputFormat | None =
     output_format = output_format or _get_format_type()
     if is_structured_format(output_format):
         print_structured(cmd_result)
-    elif isinstance(cmd_result, MultipleResults):
+    elif isinstance(cmd_result, (MultipleResults, StreamResult)):
         for res in cmd_result.result:
             print_result(res)
     elif (
