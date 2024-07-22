@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import uuid
 
 import pytest
 
@@ -181,6 +180,8 @@ def test_create(object_type, object_definition, runner, test_database):
     if object_type == "database":
         object_definition["name"] = test_database + "_test_create_db"
     if "<UUID>" in object_definition["name"]:
+        import uuid
+
         object_definition["name"] = object_definition["name"].replace(
             "<UUID>", str(uuid.uuid4().hex)
         )
