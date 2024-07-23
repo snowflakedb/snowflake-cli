@@ -34,6 +34,7 @@
 * Added support for user stages in stage and git copy commands
 * Improved support for quoted identifiers in snowpark commands.
 * Updated post_deploy SQL script default database to be the application database
+* Regionless host URLs are now supported when generating Snowsight URLs
 
 # v2.6.1
 ## Backward incompatibility
