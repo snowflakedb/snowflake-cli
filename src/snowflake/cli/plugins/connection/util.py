@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+import json
 import logging
 
 from click.exceptions import ClickException
@@ -29,11 +32,14 @@ REGIONLESS_QUERY = """
     )) where value['name'] = 'UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT';
 """
 
+ALLOWLIST_QUERY = "SELECT SYSTEM$ALLOWLIST()"
+SNOWFLAKE_DEPLOYMENT = "SNOWFLAKE_DEPLOYMENT"
+
 
 class MissingConnectionHostError(ClickException):
-    def __init__(self, conn: SnowflakeConnection):
+    def __init__(self, host: str | None):
         super().__init__(
-            f"The connection host ({conn.host}) was missing or not in "
+            f"The connection host ({host}) was missing or not in "
             "the expected format "
             "(<account>.<deployment>.snowflakecomputing.com)"
         )
@@ -50,9 +56,42 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
         *_, cursor = conn.execute_string(REGIONLESS_QUERY, cursor_class=DictCursor)
         return cursor.fetchone()["REGIONLESS"].lower() == "true"
     except:
-        # by default, assume that
         log.warning("Cannot determine regionless redirect; assuming True.")
         return True
+
+
+def guess_regioned_host_from_allowlist(conn: SnowflakeConnection) -> str | None:
+    """
+    Use SYSTEM$ALLOWLIST to find a regioned host (<account>.x.y.z.snowflakecomputing.com)
+    that corresponds to the given Snowflake connection object.
+    """
+    *_, cursor = conn.execute_string(ALLOWLIST_QUERY, cursor_class=DictCursor)
+    allowlist_tuples = json.loads(cursor.fetchone()["SYSTEM$ALLOWLIST()"])
+    for t in allowlist_tuples:
+        if t["type"] == SNOWFLAKE_DEPLOYMENT:
+            host_parts = t["host"].split(".")
+            if len(host_parts) == 6:
+                return t["host"]
+    return None
+
+
+def get_region(conn: SnowflakeConnection) -> str:
+    """
+    Given a connection, determine the region of the account in the
+    form "x.y.z", or raise an error if we could not find an appropriate host.
+    """
+    if conn.host:
+        host_parts = conn.host.split(".")
+        if len(host_parts) == 6:
+            return ".".join(host_parts[1:4])
+
+    host = guess_regioned_host_from_allowlist(conn)
+    if host:
+        host_parts = host.split(".")
+        if len(host_parts) == 6:
+            return ".".join(host_parts[1:4])
+
+    raise MissingConnectionHostError(host)
 
 
 def get_context(conn: SnowflakeConnection) -> str:
@@ -67,14 +106,7 @@ def get_context(conn: SnowflakeConnection) -> str:
         )
         return cursor.fetchone()["SYSTEM$RETURN_CURRENT_ORG_NAME()"]
 
-    host_parts = conn.host.split(".")
-    if host_parts[-1] == "local":
-        return LOCAL_DEPLOYMENT
-
-    if len(host_parts) == 6:
-        return ".".join(host_parts[1:4])
-
-    raise MissingConnectionHostError(conn)
+    return get_region(conn)
 
 
 def get_account(conn: SnowflakeConnection) -> str:
@@ -91,6 +123,7 @@ def get_account(conn: SnowflakeConnection) -> str:
         if conn.account:
             return conn.account
 
+        # FIXME: could use guessed host here, though not sure if current_account_name() ever fails in practice
         if not conn.host:
             raise MissingConnectionHostError(conn)
 
