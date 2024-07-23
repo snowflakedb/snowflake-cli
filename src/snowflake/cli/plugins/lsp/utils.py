@@ -93,3 +93,4 @@ def load_lsp_plugins():
         if getattr(plugin_func, "lsp_spec", None) is not None:
             plugin_func.lsp_spec(server)
     server.start_io()
+    return server
