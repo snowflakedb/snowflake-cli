@@ -10,25 +10,18 @@ on:
     branches:
       - main
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  define-matrix:
-    uses: ./.github/workflows/matrix.yaml
   build:
-    needs: define-matrix
     strategy:
       fail-fast: true
       matrix:
-        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
+        os: ["windows-latest", "ubuntu-latest", "macos-latest"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
