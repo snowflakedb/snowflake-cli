@@ -26,6 +26,7 @@ from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
 from snowflake.cli.plugins.connection.util import (
+    LOCAL_DEPLOYMENT,
     get_context,
     guess_regioned_host_from_allowlist,
     make_snowsight_url,
@@ -275,3 +276,15 @@ def test_get_context_non_regionless_uses_region(
     )
     is_regionless_redirect.return_value = False
     assert get_context(mock_conn) == "x.y.z"
+
+
+@patch("snowflake.cli.plugins.connection.util.is_regionless_redirect")
+@patch("snowflake.cli.plugins.connection.util.guess_regioned_host_from_allowlist")
+def test_get_context_local_non_regionless_gets_local_region(
+    guess_regioned_host_from_allowlist, is_regionless_redirect
+):
+    mock_conn = mock.MagicMock(spec=SnowflakeConnection)
+    mock_conn.host = "some.dns.local"
+    is_regionless_redirect.return_value = False
+    assert get_context(mock_conn) == LOCAL_DEPLOYMENT
+    guess_regioned_host_from_allowlist.assert_not_called()
