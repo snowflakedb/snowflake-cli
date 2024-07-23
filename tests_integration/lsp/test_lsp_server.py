@@ -64,13 +64,13 @@ def lsp_connection_params(snowflake_session: SnowflakeConnection) -> ConnectionP
         session_token=connection.rest._token,
         master_token=connection.rest._master_token,
         account=connection.account,
-        connection_name="",  # FIXME: what is this?
+        connection_name="",
         params={},
     )
 
 
 @pytest.mark.asyncio
-@pytest.mark.integration_experimental
+@pytest.mark.integration
 async def test_lsp_client_and_server(
     lsp_client: BaseLanguageClient,
     lsp_connection_params,
@@ -87,6 +87,6 @@ async def test_lsp_client_and_server(
     }
 
     response = await lsp_client.workspace_execute_command_async(
-        types.ExecuteCommandParams("bundleApplication", [params])
+        types.ExecuteCommandParams("openApplication", [params])
     )
     assert response["_message"] == "https://..."  # TODO: valid URL
