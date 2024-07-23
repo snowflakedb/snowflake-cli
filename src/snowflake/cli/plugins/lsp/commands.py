@@ -32,7 +32,7 @@ def lsp_start(
     **options,
 ) -> CommandResult:
     """
-    Initializes the LSP language server.
+    Starts the LSP language server in the foreground.
     """
     load_lsp_plugins()
-    return MessageResult(f"LSP started.")
+    return MessageResult(f"LSP server process ended.")
