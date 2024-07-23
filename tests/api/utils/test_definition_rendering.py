@@ -41,9 +41,7 @@ def test_resolve_variables_in_project_no_cross_variable_dependencies():
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -67,9 +65,7 @@ def test_resolve_variables_in_project_cross_variable_dependencies():
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -148,9 +144,7 @@ def test_no_warning_in_version_1_1(warning_mock, current_sanitized_username):
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "native_app": {
@@ -200,9 +194,7 @@ def test_resolve_variables_in_project_cross_project_dependencies():
     }
     result = render_definition_template(definition, {}).project_context
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "streamlit": {
@@ -241,9 +233,7 @@ def test_resolve_variables_in_project_environment_variables_precedence():
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -277,9 +267,7 @@ def test_env_variables_do_not_get_resolved(current_sanitized_username):
     }
     result = render_definition_template(definition, {}).project_context
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "native_app": {
@@ -406,9 +394,7 @@ def test_resolve_variables_blank_is_ok(current_sanitized_username):
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "native_app": {
@@ -515,9 +501,7 @@ def test_injected_yml_in_env_should_not_be_expanded():
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -593,9 +577,7 @@ def test_env_priority_from_cli_and_os_env_and_project_env():
     ).project_context
 
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -624,9 +606,7 @@ def test_values_env_from_only_overrides():
     ).project_context
 
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -649,9 +629,7 @@ def test_cli_env_var_blank():
     ).project_context
 
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -674,9 +652,7 @@ def test_cli_env_var_does_not_expand_with_templating():
     ).project_context
 
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -726,9 +702,7 @@ def test_non_str_scalar_with_templates(current_sanitized_username):
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "native_app": {
@@ -784,9 +758,7 @@ def test_field_with_custom_validation_with_templates(current_sanitized_username)
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "to_id": definition_rendering.TemplatingFunctions.to_id,
-        "to_str": definition_rendering.TemplatingFunctions.to_str,
-        "id_concat": definition_rendering.TemplatingFunctions.id_concat,
+        "fn": definition_rendering.templating_functions,
         "ctx": {
             "definition_version": "1.1",
             "native_app": {

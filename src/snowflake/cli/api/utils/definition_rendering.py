@@ -276,29 +276,16 @@ def _template_version_warning():
     )
 
 
-# def TemplatingFunctions:
-
-
-class TemplatingFunctions:
-    """
-    This class contains all functions available for templating
-    """
-
-    @staticmethod
-    def id_concat(a, b):
-        return concat_identifiers(a, b)
-
-    @staticmethod
-    def to_id(a):
-        return to_identifier(a)
-
-    @staticmethod
-    def to_str(a):
-        return identifier_to_str(a)
+templating_functions = {
+    # This dict contains all functions available for templating
+    "id_concat": concat_identifiers,
+    "str_to_id": to_identifier,
+    "id_to_str": identifier_to_str,
+}
 
 
 def _add_defaults_to_definition(definition: Definition):
-    with context({"includes_templates": True}):
+    with context({"skip_validation_on_templates": True}):
         # pass a flag to Pydantic to skip validation for templated scalars
         # populate the defaults
         project_definition = build_project_definition(**definition)
@@ -362,9 +349,7 @@ def render_definition_template(
     _validate_env_section(definition.get("env", {}))
 
     # add available templating functions
-    project_context["id_concat"] = TemplatingFunctions.id_concat
-    project_context["to_id"] = TemplatingFunctions.to_id
-    project_context["to_str"] = TemplatingFunctions.to_str
+    project_context["fn"] = templating_functions
 
     referenced_vars = _get_referenced_vars_in_definition(template_env, definition)
 

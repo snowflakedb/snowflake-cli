@@ -34,7 +34,7 @@ PROJECT_TEMPLATE_START = "<%"
 def _is_templated(info: ValidationInfo, value: Any) -> bool:
     return (
         info.context
-        and info.context.get("includes_templates", False)
+        and info.context.get("skip_validation_on_templates", False)
         and isinstance(value, str)
         and PROJECT_TEMPLATE_START in value
     )
@@ -46,8 +46,8 @@ def field_validator_allowing_templates(*validator_args, **validator_kwargs):
     The difference is that this validator will skip validation
     whenever a value is a String and the value is templated.
 
-    It also checks the context to ensure includes_templates is set to True.
-    Otherwise, if includes_templates context is not set, it behaves the same
+    It also checks the context to ensure skip_validation_on_templates is set to True.
+    Otherwise, if skip_validation_on_templates context is not set, it behaves the same
     way as field_validator, and does not check templates anymore.
     """
     mode = validator_kwargs.get("mode", "after")
@@ -101,37 +101,49 @@ class UpdatableModel(BaseModel):
         )
 
     @classmethod
+    def _is_entity_type_field(cls, field: Any) -> bool:
+        if not isinstance(field, FieldInfo) or not field.json_schema_extra:
+            return False
+
+        return (
+            "is_type_field" in field.json_schema_extra
+            and field.json_schema_extra["is_type_field"]
+        )
+
+    @classmethod
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
 
         # Collect all the Pydantic fields
         # from all the classes in the inheritance chain
-        all_fields = {}
-        for class_ in cls.__mro__:
-            if hasattr(class_, "__annotations__"):
-                all_fields.update(class_.__annotations__)
+        field_annotations = {}
+        field_values = {}
+        for class_ in reversed(cls.__mro__):
+            class_dict = class_.__dict__
+            field_annotations.update(class_dict.get("__annotations__", {}))
 
-        class_dict = cls.__dict__
-        for field in all_fields:
-            if field in class_dict and isinstance(class_dict[field], FieldInfo):
-                # exclude EntityTypeField fields (which are instantiated with is_type_field = true)
-                schema_extra = class_dict[field].json_schema_extra
-                if (
-                    not schema_extra
-                    or "is_type_field" not in schema_extra
-                    or not schema_extra["is_type_field"]
-                ):
-                    cls._add_validator(field)
+            if "model_fields" in class_dict:
+                # This means the class dict has already been processed by Pydantic
+                # All fields should properly be populated in model_fields
+                field_values.update(class_dict["model_fields"])
+            else:
+                field_values.update(class_dict)
+
+        for field_name in field_annotations:
+            if not cls._is_entity_type_field(field_values[field_name]):
+                cls._add_validator(field_name)
 
     @classmethod
     def _add_validator(cls, field_name: str):
-        def _validator(cls, value, handler):
+        def no_op_validator(cls, value, handler):
             return handler(value)
 
         setattr(
             cls,
-            f"_template_validate_{field_name}",
-            field_validator_allowing_templates(field_name, mode="wrap")(_validator),
+            f"template_validate_random_name_{field_name}",
+            field_validator_allowing_templates(field_name, mode="wrap")(
+                no_op_validator
+            ),
         )
 
     def update_from_dict(self, update_values: Dict[str, Any]):

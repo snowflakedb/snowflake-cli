@@ -17,8 +17,7 @@ from __future__ import annotations
 from abc import ABC
 from typing import Generic, List, Optional, TypeVar
 
-from pydantic import AliasChoices, Field, GetCoreSchemaHandler, ValidationInfo
-from pydantic_core import core_schema
+from pydantic import AliasChoices, Field
 from snowflake.cli.api.project.schemas.native_app.application import (
     ApplicationPostDeployHook,
 )
@@ -66,22 +65,7 @@ class EntityBase(ABC, UpdatableModel):
 TargetType = TypeVar("TargetType")
 
 
-class TargetField(Generic[TargetType]):
-    def __init__(self, entity_target_key: str):
-        self.value = entity_target_key
-
-    def __repr__(self):
-        return self.value
-
-    @classmethod
-    def validate(cls, value: str, info: ValidationInfo) -> str:
-        # return cls(value)
-        return value  # TODO understand the need for this transformation, and provide alternative
-
-    @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type, handler: GetCoreSchemaHandler
-    ) -> core_schema.CoreSchema:
-        return core_schema.with_info_after_validator_function(
-            cls.validate, handler(str), field_name=handler.field_name
-        )
+class TargetField(Generic[TargetType], UpdatableModel):
+    target: str = Field(
+        title="Reference to a target entity",
+    )
