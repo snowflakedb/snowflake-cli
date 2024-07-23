@@ -437,7 +437,7 @@ def mock_procedure_description(mock_cursor):
             ("language", "PYTHON"),
             ("null handling", "CALLED ON NULL INPUT"),
             ("volatility", "VOLATILE"),
-            ("execute as", "OWNER"),
+            ("execute as", "CALLER"),
             ("body", None),
             ("imports", "[@FOO.BAR.BAZ/my_snowpark_project/app.zip]"),
             ("handler", "app.hello_procedure"),

@@ -90,7 +90,7 @@ def test_sql_to_python_return_type_mapper(argument: Tuple[str, str]):
             True,
         ),
         ({"runtime_ver": "3.9"}, True),
-        ({"execute_as_caller": True}, True),
+        ({"execute_as_caller": False}, True),
     ],
 )
 def test_check_if_replace_is_required(mock_procedure_description, arguments, expected):
@@ -102,7 +102,7 @@ def test_check_if_replace_is_required(mock_procedure_description, arguments, exp
         "imports": [],
         "stage_artifact_file": "@FOO.BAR.BAZ/my_snowpark_project/app.zip",
         "runtime_ver": "3.8",
-        "execute_as_caller": False,
+        "execute_as_caller": True,
     }
     replace_arguments.update(arguments)
 
