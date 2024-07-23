@@ -5,7 +5,7 @@ a = Analysis(
     ['src/snowflake/cli/app/__main__.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('src/snowflake', 'snowflake')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
