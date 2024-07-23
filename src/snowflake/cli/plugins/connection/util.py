@@ -82,6 +82,8 @@ def get_region(conn: SnowflakeConnection) -> str:
     """
     if conn.host:
         host_parts = conn.host.split(".")
+        if host_parts[-1] == "local":
+            return LOCAL_DEPLOYMENT
         if len(host_parts) == 6:
             return ".".join(host_parts[1:4])
 
