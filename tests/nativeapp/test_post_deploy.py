@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from textwrap import dedent
 from unittest import mock
 
@@ -51,6 +52,7 @@ def _get_run_processor(working_dir):
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
+@mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
 def test_sql_scripts(
     mock_conn,
@@ -69,8 +71,8 @@ def test_sql_scripts(
         processor._execute_post_deploy_hooks()  # noqa SLF001
 
         assert mock_execute_query.mock_calls == [
-            mock.call("use database MockDatabase"),
-            mock.call("use database MockDatabase"),
+            mock.call("use database myapp_test_user"),
+            mock.call("use database myapp_test_user"),
         ]
         assert mock_execute_queries.mock_calls == [
             # Verify template variables were expanded correctly
@@ -94,6 +96,7 @@ def test_sql_scripts(
 @mock_connection()
 @mock.patch(MOCK_CONNECTION_DB, new_callable=mock.PropertyMock)
 @mock.patch(MOCK_CONNECTION_WH, new_callable=mock.PropertyMock)
+@mock.patch.dict(os.environ, {"USER": "test_user"})
 def test_sql_scripts_with_no_warehouse_no_database(
     mock_conn_wh,
     mock_conn_db,
@@ -114,8 +117,12 @@ def test_sql_scripts_with_no_warehouse_no_database(
 
         processor._execute_post_deploy_hooks()  # noqa SLF001
 
-        # Verify no "use warehouse" and no "use database" were called
-        assert mock_execute_query.mock_calls == []
+        # Verify no "use warehouse"
+        # Verify "use database" applies to current application
+        assert mock_execute_query.mock_calls == [
+            mock.call("use database myapp_test_user"),
+            mock.call("use database myapp_test_user"),
+        ]
         assert mock_execute_queries.mock_calls == [
             mock.call(
                 dedent(
