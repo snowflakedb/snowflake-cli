@@ -37,7 +37,11 @@ jobs:
           python -m pip install -U pip hatch uv
           hatch env create packaging
       - name: Build linux binary package
-        run: |
-          hatch run packaging:build
-          cd ./dist/snow/
-          zip -g ../../snow-${{ github.sha }}-${{ matrix.os }}.zip -r
+        run: hatch run packaging:build
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: snow-${{ matrix.os }}
+          path: |
+            dist/
+            build/
