@@ -56,7 +56,9 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
         *_, cursor = conn.execute_string(REGIONLESS_QUERY, cursor_class=DictCursor)
         return cursor.fetchone()["REGIONLESS"].lower() == "true"
     except:
-        log.warning("Cannot determine regionless redirect; assuming True.")
+        log.warning(
+            "Cannot determine regionless redirect; assuming True.", exc_info=True
+        )
         return True
 
 
@@ -65,13 +67,18 @@ def guess_regioned_host_from_allowlist(conn: SnowflakeConnection) -> str | None:
     Use SYSTEM$ALLOWLIST to find a regioned host (<account>.x.y.z.snowflakecomputing.com)
     that corresponds to the given Snowflake connection object.
     """
-    *_, cursor = conn.execute_string(ALLOWLIST_QUERY, cursor_class=DictCursor)
-    allowlist_tuples = json.loads(cursor.fetchone()["SYSTEM$ALLOWLIST()"])
-    for t in allowlist_tuples:
-        if t["type"] == SNOWFLAKE_DEPLOYMENT:
-            host_parts = t["host"].split(".")
-            if len(host_parts) == 6:
-                return t["host"]
+    try:
+        *_, cursor = conn.execute_string(ALLOWLIST_QUERY, cursor_class=DictCursor)
+        allowlist_tuples = json.loads(cursor.fetchone()["SYSTEM$ALLOWLIST()"])
+        for t in allowlist_tuples:
+            if t["type"] == SNOWFLAKE_DEPLOYMENT:
+                host_parts = t["host"].split(".")
+                if len(host_parts) == 6:
+                    return t["host"]
+    except:
+        log.warning(
+            "Could not call SYSTEM$ALLOWLIST; returning an empty guess.", exc_info=True
+        )
     return None
 
 
