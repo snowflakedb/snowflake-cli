@@ -40,4 +40,4 @@ jobs:
         run: |
           hatch run packaging:build
           cd ./dist/snow/
-          zip -g ../../snow-${{ github.sha }}-${{ matrox.os }}.zip -r
+          zip -g ../../snow-${{ github.sha }}-${{ matrix.os }}.zip -r
