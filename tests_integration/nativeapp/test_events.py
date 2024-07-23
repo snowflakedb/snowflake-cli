@@ -12,14 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import uuid
-from pathlib import Path
 
 import pytest
 
 from snowflake.cli.api.project.util import generate_user_env
-from tests_integration.test_utils import pushd
+from tests_integration.test_utils import enable_definition_v2_feature_flag
 
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
@@ -27,15 +25,14 @@ TEST_ENV = generate_user_env(USER_NAME)
 
 
 @pytest.mark.integration
-def test_app_events(runner, temporary_working_directory):
-    project_name = "myapp"
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0, result.output
-
-    with pushd(Path(os.getcwd(), project_name)):
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
+def test_app_events(
+    runner,
+    definition_version,
+    project_directory,
+):
+    with project_directory(f"napp_init_{definition_version}"):
         # validate the account's event table
         result = runner.invoke_with_connection(
             ["app", "events"],
