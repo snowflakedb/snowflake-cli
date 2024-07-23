@@ -1,0 +1,43 @@
+name: Build binary packages
+
+on:
+  pull_request:
+    branches:
+      - "*"
+  push:
+    tags:
+      - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  define-matrix:
+    uses: ./.github/workflows/matrix.yaml
+  build:
+    needs: define-matrix
+    strategy:
+      fail-fast: true
+      matrix:
+        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies for building
+        run: |
+          python -m pip install -U pip hatch uv
+          hatch env create packaging
+      - name: Build linux binary package
+        run: |
+          hatch run packaging:build
+          cd ./dist/snow/
+          zip -g ../../snow-${{ github.sha }}-${{ matrox.os }}.zip -r
