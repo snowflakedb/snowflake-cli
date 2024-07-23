@@ -84,17 +84,22 @@ def check_if_replace_is_required(
         return True
 
     if _compare_imports(resource_json, imports, stage_artifact_file):
+        log.info("Imports do not match. Replacing the %s", object_type)
         return True
 
     if runtime_ver is not None and runtime_ver != resource_json.get(
         "runtime_version", "RUNTIME_NOT_SET"
     ):
+        log.info("Runtime versions do not match. Replacing the %s", object_type)
         return True
 
     if execute_as_caller is not None and (
-        resource_json.get("execute as", "NOT_SET")
+        resource_json.get("execute as", "OWNER")
         != ("CALLER" if execute_as_caller else "OWNER")
     ):
+        log.info(
+            "Execute as caller settings do not match. Replacing the %s", object_type
+        )
         return True
 
     return False
