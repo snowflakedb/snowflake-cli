@@ -64,14 +64,15 @@ if __name__ == "__main__":
 
     known_objects: t.Dict[t.Tuple[str, str], t.List[str]] = {
         ("database", "databases"): [
-            "cleanup_db",
-            "docs_testing",
-            "external_access_db",
-            "snowcli_db",
+            "CLEANUP_DB",
+            "DOCS_TESTING",
+            "EXTERNAL_ACCESS_DB",
+            "SNOWCLI_DB",
         ],
         ("compute pool", "compute pools"): [],
         ("service", "services"): [],
         ("application", "applications"): [],
+        ("warehouse", "warehouses"): ["XSMALL"],
     }
 
     for (single, plural), known in known_objects.items():

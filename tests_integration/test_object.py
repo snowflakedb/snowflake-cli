@@ -143,16 +143,13 @@ def test_show_drop_image_repository(runner, test_database, snowflake_session):
         ("database", {}),
         (
             "schema",
-            {
-                "name": "test_schema",
-                "comment": "test_schema = schema for testing stuff",
-            },
+            {"name": "test_create_schema"},
         ),
-        ("image-repository", {"name": "test_image_repo"}),
+        ("image-repository", {"name": "test_create_image_repo"}),
         (
             "table",
             {
-                "name": "test_table",
+                "name": "test_create_table",
                 "columns": [{"name": "col1", "datatype": "number", "nullable": False}],
                 "constraints": [
                     {
@@ -163,13 +160,34 @@ def test_show_drop_image_repository(runner, test_database, snowflake_session):
                 ],
             },
         ),
+        (
+            "task",
+            {
+                "name": "test_create_task",
+                "definition": "select 42",
+                "warehouse": "xsmall",
+                "schedule": {"schedule_type": "MINUTES_TYPE", "minutes": 32},
+            },
+        ),
+        (
+            "warehouse",
+            {"name": "test_create_warehouse_<UUID>", "warehouse_size": "xsmall"},
+        ),
     ],
 )
 @pytest.mark.integration
 def test_create(object_type, object_definition, runner, test_database):
     if object_type == "database":
-        object_definition["name"] = test_database + "_test_create"
+        object_definition["name"] = test_database + "_test_create_db"
+    if "<UUID>" in object_definition["name"]:
+        import uuid
+
+        object_definition["name"] = object_definition["name"].replace(
+            "<UUID>", str(uuid.uuid4().hex)
+        )
+
     object_name = object_definition["name"]
+    object_definition["comment"] = "created by Snowflake CLI automatic testing"
 
     @contextmanager
     def _cleanup_object():
