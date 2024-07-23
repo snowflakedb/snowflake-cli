@@ -90,7 +90,7 @@ def _print_multiple_table_results(obj: CollectionResult):
         for item in items:
             table.add_row(*[str(i) for i in item.values()])
     # Add separator between tables
-    rich_print()
+    rich_print(flush=True)
 
 
 def is_structured_format(output_format):
@@ -99,6 +99,7 @@ def is_structured_format(output_format):
 
 def print_structured(result: CommandResult):
     """Handles outputs like json, yml and other structured and parsable formats."""
+    printed_end_line = False
     if isinstance(result, MultipleResults):
         _stream_json(result)
     elif isinstance(result, StreamResult):
@@ -106,11 +107,13 @@ def print_structured(result: CommandResult):
         # instead of joining all the values into a JSON array
         for r in result.result:
             json.dump(r, sys.stdout, cls=CustomJSONEncoder)
-            print()
+            print(flush=True)
+            printed_end_line = True
     else:
         json.dump(result, sys.stdout, cls=CustomJSONEncoder, indent=4)
     # Adds empty line at the end
-    print()
+    if not printed_end_line:
+        print(flush=True)
 
 
 def _stream_json(result):
@@ -137,11 +140,11 @@ def _stream_json(result):
 def print_unstructured(obj: CommandResult | None):
     """Handles outputs like table, plain text and other unstructured types."""
     if not obj:
-        rich_print("Done")
+        rich_print("Done", flush=True)
     elif not obj.result:
-        rich_print("No data")
+        rich_print("No data", flush=True)
     elif isinstance(obj, MessageResult):
-        rich_print(sanitize_for_terminal(obj.message))
+        rich_print(sanitize_for_terminal(obj.message), flush=True)
     else:
         if isinstance(obj, ObjectResult):
             _print_single_table(obj)
@@ -159,7 +162,7 @@ def _print_single_table(obj):
         table.add_row(
             sanitize_for_terminal(str(key)), sanitize_for_terminal(str(value))
         )
-    rich_print(table)
+    rich_print(table, flush=True)
 
 
 def print_result(cmd_result: CommandResult, output_format: OutputFormat | None = None):
