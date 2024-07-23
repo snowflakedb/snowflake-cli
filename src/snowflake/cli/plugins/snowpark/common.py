@@ -43,6 +43,8 @@ def check_if_replace_is_required(
     external_access_integrations: List[str],
     imports: List[str],
     stage_artifact_file: str,
+    runtime_ver: Optional[str] = None,
+    execute_as_caller: Optional[bool] = None,
 ) -> bool:
     import logging
 
@@ -82,6 +84,14 @@ def check_if_replace_is_required(
         return True
 
     if _compare_imports(resource_json, imports, stage_artifact_file):
+        return True
+
+    if runtime_ver != resource_json.get("runtime_version", "RUNTIME_NOT_SET"):
+        return True
+
+    if execute_as_caller is not None and execute_as_caller == (
+        resource_json.get("execute_as", "OWNER") == "OWNER"
+    ):
         return True
 
     return False

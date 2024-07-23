@@ -17,10 +17,12 @@ from __future__ import annotations
 from typing import Tuple
 
 import pytest
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.plugins.snowpark.common import (
     _convert_resource_details_to_dict,
     _snowflake_dependencies_differ,
     _sql_to_python_return_type_mapper,
+    check_if_replace_is_required,
 )
 
 
@@ -71,3 +73,42 @@ def test_convert_resource_details_to_dict():
 )
 def test_sql_to_python_return_type_mapper(argument: Tuple[str, str]):
     assert _sql_to_python_return_type_mapper(argument[0]) == argument[1]
+
+
+@pytest.mark.parametrize(
+    "arguments, expected",
+    [
+        ({}, False),
+        ({"handler": "app.another_procedure"}, True),
+        ({"return_type": "variant"}, True),
+        ({"snowflake_dependencies": ["snowflake-snowpark-python", "pandas"]}, True),
+        ({"external_access_integrations": ["My_Integration"]}, True),
+        ({"imports": ["@FOO.BAR.BAZ/some_project/some_package.zip"]}, True),
+        ({"imports": ["@FOO.BAR.BAZ/my_snowpark_project/app.zip"]}, False),
+        (
+            {"stage_artifact_file": "@FOO.BAR.BAZ/my_snowpark_project/another_app.zip"},
+            True,
+        ),
+        ({"runtime_ver": "3.9"}, True),
+        ({"execute_as_caller": True}, True),
+    ],
+)
+def test_check_if_replace_is_required(mock_procedure_description, arguments, expected):
+    replace_arguments = {
+        "handler": "app.hello_procedure",
+        "return_type": "string",
+        "snowflake_dependencies": ["snowflake-snowpark-python", "pytest<9.0.0,>=7.0.0"],
+        "external_access_integrations": [],
+        "imports": [],
+        "stage_artifact_file": "@FOO.BAR.BAZ/my_snowpark_project/app.zip",
+        "runtime_ver": "3.8",
+        "execute_as_caller": False,
+    }
+    replace_arguments.update(arguments)
+
+    assert (
+        check_if_replace_is_required(
+            ObjectType.PROCEDURE, mock_procedure_description, **replace_arguments
+        )
+        == expected
+    )
