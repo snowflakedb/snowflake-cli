@@ -62,6 +62,15 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
         return True
 
 
+def host_to_region(host: str) -> str | None:
+    host_parts = host.split(".")
+    if host_parts[-1] == "local":
+        return LOCAL_DEPLOYMENT
+    if len(host_parts) == 6:
+        return ".".join(host_parts[1:4])
+    return None
+
+
 def guess_regioned_host_from_allowlist(conn: SnowflakeConnection) -> str | None:
     """
     Use SYSTEM$ALLOWLIST to find a regioned host (<account>.x.y.z.snowflakecomputing.com)
@@ -72,8 +81,7 @@ def guess_regioned_host_from_allowlist(conn: SnowflakeConnection) -> str | None:
         allowlist_tuples = json.loads(cursor.fetchone()["SYSTEM$ALLOWLIST()"])
         for t in allowlist_tuples:
             if t["type"] == SNOWFLAKE_DEPLOYMENT:
-                host_parts = t["host"].split(".")
-                if len(host_parts) == 6:
+                if host_to_region(t["host"]) is not None:
                     return t["host"]
     except:
         log.warning(
@@ -88,17 +96,12 @@ def get_region(conn: SnowflakeConnection) -> str:
     form "x.y.z", or raise an error if we could not find an appropriate host.
     """
     if conn.host:
-        host_parts = conn.host.split(".")
-        if host_parts[-1] == "local":
-            return LOCAL_DEPLOYMENT
-        if len(host_parts) == 6:
-            return ".".join(host_parts[1:4])
+        if region := host_to_region(conn.host):
+            return region
 
-    host = guess_regioned_host_from_allowlist(conn)
-    if host:
-        host_parts = host.split(".")
-        if len(host_parts) == 6:
-            return ".".join(host_parts[1:4])
+    if host := guess_regioned_host_from_allowlist(conn):
+        if region := host_to_region(host):
+            return region
 
     raise MissingConnectionHostError(host)
 
