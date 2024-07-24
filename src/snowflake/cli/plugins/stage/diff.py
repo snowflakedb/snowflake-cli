@@ -133,7 +133,7 @@ def strip_stage_name(path: str) -> StagePath:
     return StagePath(*path.split("/")[1:])
 
 
-def build_md5_map(list_stage_cursor: DictCursor) -> Dict[StagePath, str]:
+def build_md5_map(list_stage_cursor: DictCursor) -> Dict[StagePath, Optional[str]]:
     """
     Returns a mapping of relative stage paths to their md5sums.
     """
