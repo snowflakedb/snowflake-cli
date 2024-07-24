@@ -40,37 +40,6 @@ def _is_templated(info: ValidationInfo, value: Any) -> bool:
     )
 
 
-def field_validator_allowing_templates(*validator_args, **validator_kwargs):
-    """
-    This validator replaces field_validator from Pydantic.
-    The difference is that this validator will skip validation
-    whenever a value is a String and the value is templated.
-
-    It also checks the context to ensure skip_validation_on_templates is set to True.
-    Otherwise, if skip_validation_on_templates context is not set, it behaves the same
-    way as field_validator, and does not check templates anymore.
-    """
-    mode = validator_kwargs.get("mode", "after")
-
-    def decorator(func):
-        def wrapper_mode_wrap(cls, value, handler, info: ValidationInfo, **kwargs):
-            if _is_templated(info, value):
-                return value
-            return func(cls, value, handler, **kwargs)
-
-        def wrapper_default(cls, value, info: ValidationInfo, **kwargs):
-            if _is_templated(info, value):
-                return value
-            return func(cls, value, **kwargs)
-
-        wrapper = wrapper_mode_wrap if mode == "wrap" else wrapper_default
-        return field_validator(*validator_args, **validator_kwargs)(
-            classmethod(wrapper)
-        )
-
-    return decorator
-
-
 _initial_context: ContextVar[Optional[Dict[str, Any]]] = ContextVar(
     "_init_context_var", default=None
 )
@@ -135,15 +104,15 @@ class UpdatableModel(BaseModel):
 
     @classmethod
     def _add_validator(cls, field_name: str):
-        def no_op_validator(cls, value, handler):
+        def validator_skipping_templated_str(cls, value, handler, info: ValidationInfo):
+            if _is_templated(info, value):
+                return value
             return handler(value)
 
         setattr(
             cls,
             f"template_validate_random_name_{field_name}",
-            field_validator_allowing_templates(field_name, mode="wrap")(
-                no_op_validator
-            ),
+            field_validator(field_name, mode="wrap")(validator_skipping_templated_str),
         )
 
     def update_from_dict(self, update_values: Dict[str, Any]):

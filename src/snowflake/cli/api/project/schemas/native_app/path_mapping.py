@@ -16,11 +16,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import Field
-from snowflake.cli.api.project.schemas.updatable_model import (
-    UpdatableModel,
-    field_validator_allowing_templates,
-)
+from pydantic import Field, field_validator
+from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
 
 class ProcessorMapping(UpdatableModel):
@@ -49,10 +46,10 @@ class PathMapping(UpdatableModel):
         default=[],
     )
 
-    @field_validator_allowing_templates("processors")
+    @field_validator("processors")
+    @classmethod
     def transform_processors(
-        cls,  # noqa: N805, classmethod included
-        input_values: Optional[List[Union[str, Dict, ProcessorMapping]]],
+        cls, input_values: Optional[List[Union[str, Dict, ProcessorMapping]]]
     ) -> List[ProcessorMapping]:
         if input_values is None:
             return []

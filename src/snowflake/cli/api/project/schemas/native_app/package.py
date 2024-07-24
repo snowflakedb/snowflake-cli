@@ -16,11 +16,10 @@ from __future__ import annotations
 
 from typing import List, Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
-    field_validator_allowing_templates,
 )
 from snowflake.cli.api.project.util import get_sanitized_username
 
@@ -47,8 +46,9 @@ class Package(UpdatableModel):
         default="internal",
     )
 
-    @field_validator_allowing_templates("scripts")
-    def validate_scripts(cls, input_list):  # noqa: N805, classmethod included
+    @field_validator("scripts")
+    @classmethod
+    def validate_scripts(cls, input_list):
         if len(input_list) != len(set(input_list)):
             raise ValueError(
                 "package.scripts field should contain unique values. Check the list for duplicates and try again"
