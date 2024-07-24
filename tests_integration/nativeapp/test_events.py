@@ -33,10 +33,11 @@ def test_app_events(
     project_directory,
 ):
     with project_directory(f"napp_init_{definition_version}"):
-        # validate the account's event table
+        # The integration test account doesn't have an event table set up
+        # but this test is still useful to validate the negative case
         result = runner.invoke_with_connection(
             ["app", "events"],
             env=TEST_ENV,
         )
-        assert result.exit_code == 0, result.output
-        assert "No events found." in result.output
+        assert result.exit_code == 1, result.output
+        assert "No event table was found for this Snowflake account." in result.output
