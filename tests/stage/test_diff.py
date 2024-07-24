@@ -187,6 +187,8 @@ def test_unmodified_file_no_remote_md5sum(mock_list, mock_cursor):
         if row["name"] == "stage/README.md":
             row["md5"] = None
 
+    assert any([row["md5"] is None for row in rows])
+
     mock_list.return_value = mock_cursor(
         rows=rows,
         columns=STAGE_LS_COLUMNS,
