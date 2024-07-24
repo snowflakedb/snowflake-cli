@@ -290,3 +290,17 @@ def test_get_context_local_non_regionless_gets_local_region(
     assert get_host_region(mock_conn.host) == LOCAL_DEPLOYMENT_REGION
     assert get_context(mock_conn) == LOCAL_DEPLOYMENT_REGION
     guess_regioned_host_from_allowlist.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "host, expected",
+    [
+        ("some.dns.local", LOCAL_DEPLOYMENT_REGION),
+        ("org-acct.mydns.snowflakecomputing.com", None),
+        ("account.x.us-west-2.aws.snowflakecomputing.com", "x.us-west-2.aws"),
+        ("naf_test_pc.us-west-2.snowflakecomputing.com", None),
+        ("test_account.az.int.snowflakecomputing.com", None),
+    ],
+)
+def test_get_host_region(host, expected):
+    assert get_host_region(host) == expected
