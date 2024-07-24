@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, List, NoReturn, Optional, TypedDict
+from typing import Any, List, Optional, TypedDict
 
 import jinja2
 from click import ClickException
@@ -89,7 +89,7 @@ ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type
 
 def generic_sql_error_handler(
     err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
-) -> NoReturn:
+):
     # Potential refactor: If moving away from Python 3.8 and 3.9 to >= 3.10, use match ... case
     if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
         raise ProgrammingError(
@@ -315,10 +315,10 @@ class NativeAppManager(SqlExecutionMixin):
         )
 
     @cached_property
-    def account_event_table(self) -> str:
+    def account_event_table(self) -> str | None:
         query = "show parameters like 'event_table' in account"
         results = self._execute_query(query, cursor_class=DictCursor)
-        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
+        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), None)
 
     def verify_project_distribution(
         self, expected_distribution: Optional[str] = None
@@ -715,22 +715,9 @@ class NativeAppManager(SqlExecutionMixin):
                     )
 
     def get_events(self) -> list[dict]:
-        if not self.account_event_table:
+        if self.account_event_table is None:
             raise NoEventTableForAccount()
-
-        # resource_attributes:"snow.database.name" uses the unquoted/uppercase app name
-        app_name = unquote_identifier(self.app_name)
-        query = dedent(
-            f"""\
-            select timestamp, value::varchar value
-            from {self.account_event_table}
-            where resource_attributes:"snow.database.name" = '{app_name}'
-            order by timestamp asc;"""
-        )
-        try:
-            return self._execute_query(query, cursor_class=DictCursor).fetchall()
-        except ProgrammingError as err:
-            generic_sql_error_handler(err)
+        return []
 
 
 def _validation_item_to_str(item: dict[str, str | int]):
