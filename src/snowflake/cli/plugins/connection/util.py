@@ -71,8 +71,9 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
 
 def get_host_region(host: str) -> str | None:
     """
-    Looks for hosts of the form
-    <account>[.<x>].<y>.<z>.snowlakecomputing.com
+    Looks for hosts of form
+    <account>.[(<x>.)<y>.<z>].snowlakecomputing.com
+    Returns the two- or three-part [region identifier].
     """
     host_parts = host.split(".")
     if host_parts[-1] == "local":
