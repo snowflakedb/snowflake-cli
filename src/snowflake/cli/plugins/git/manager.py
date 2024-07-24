@@ -18,7 +18,12 @@ from pathlib import Path
 from textwrap import dedent
 from typing import List
 
-from snowflake.cli.plugins.stage.manager import StageManager, StagePathParts
+from snowflake.cli.plugins.stage.manager import (
+    USER_STAGE_PREFIX,
+    StageManager,
+    StagePathParts,
+    UserStagePathParts,
+)
 from snowflake.connector.cursor import SnowflakeCursor
 
 
@@ -31,13 +36,14 @@ class GitStagePathParts(StagePathParts):
             git_repo_name = git_repo_name[1:]
         self.stage_name = "/".join([git_repo_name, *stage_path_parts[1:3], ""])
         self.directory = "/".join(stage_path_parts[3:])
+        self.is_directory = True if stage_path.endswith("/") else False
 
     @property
     def path(self) -> str:
         return (
-            f"{self.stage_name}{self.directory}".lower()
+            f"{self.stage_name}{self.directory}"
             if self.stage_name.endswith("/")
-            else f"{self.stage_name}/{self.directory}".lower()
+            else f"{self.stage_name}/{self.directory}"
         )
 
     def add_stage_prefix(self, file_path: str) -> str:
@@ -85,4 +91,6 @@ class GitManager(StageManager):
     @staticmethod
     def _stage_path_part_factory(stage_path: str) -> StagePathParts:
         stage_path = StageManager.get_standard_stage_prefix(stage_path)
+        if stage_path.startswith(USER_STAGE_PREFIX):
+            return UserStagePathParts(stage_path)
         return GitStagePathParts(stage_path)

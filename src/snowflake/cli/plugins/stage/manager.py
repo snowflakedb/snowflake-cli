@@ -63,6 +63,7 @@ class StagePathParts:
     directory: str
     stage: str
     stage_name: str
+    is_directory: bool
 
     @staticmethod
     def get_directory(stage_path: str) -> str:
@@ -81,6 +82,16 @@ class StagePathParts:
     def get_full_stage_path(self, path: str):
         if prefix := FQN.from_stage(self.stage).prefix:
             return prefix + "." + path
+        return path
+
+    def get_standard_stage_path(self) -> str:
+        path = self.path
+        return f"@{path}{'/'if self.is_directory and not path.endswith('/') else ''}"
+
+    def get_standard_stage_directory_path(self) -> str:
+        path = self.get_standard_stage_path()
+        if not path.endswith("/"):
+            return path + "/"
         return path
 
 
@@ -104,13 +115,14 @@ class DefaultStagePathParts(StagePathParts):
         if stage_name.startswith("@"):
             stage_name = stage_name[1:]
         self.stage_name = stage_name
+        self.is_directory = True if stage_path.endswith("/") else False
 
     @property
     def path(self) -> str:
         return (
-            f"{self.stage_name}{self.directory}".lower()
+            f"{self.stage_name}{self.directory}"
             if self.stage_name.endswith("/")
-            else f"{self.stage_name}/{self.directory}".lower()
+            else f"{self.stage_name}/{self.directory}"
         )
 
     def add_stage_prefix(self, file_path: str) -> str:
@@ -136,10 +148,11 @@ class UserStagePathParts(StagePathParts):
         self.directory = self.get_directory(stage_path)
         self.stage = "@~"
         self.stage_name = "@~"
+        self.is_directory = True if stage_path.endswith("/") else False
 
     @property
     def path(self) -> str:
-        return f"{self.directory}".lower()
+        return f"{self.directory}"
 
     def add_stage_prefix(self, file_path: str) -> str:
         return f"{self.stage}/{file_path}"
@@ -161,12 +174,6 @@ class StageManager(SqlExecutionMixin):
             return name
 
         return f"@{name}"
-
-    @staticmethod
-    def get_standard_stage_directory_path(path):
-        if not path.endswith("/"):
-            path += "/"
-        return StageManager.get_standard_stage_prefix(path)
 
     @staticmethod
     def get_stage_from_path(path: str):
@@ -264,8 +271,16 @@ class StageManager(SqlExecutionMixin):
         return cursor
 
     def copy_files(self, source_path: str, destination_path: str) -> SnowflakeCursor:
-        source = self.get_standard_stage_prefix(source_path)
-        destination = self.get_standard_stage_directory_path(destination_path)
+        source_path_parts = self._stage_path_part_factory(source_path)
+        destination_path_parts = self._stage_path_part_factory(destination_path)
+
+        if isinstance(destination_path_parts, UserStagePathParts):
+            raise ClickException(
+                "Destination path cannot be a user stage. Please provide a named stage."
+            )
+
+        source = source_path_parts.get_standard_stage_path()
+        destination = destination_path_parts.get_standard_stage_directory_path()
         log.info("Copying files from %s to %s", source, destination)
         query = f"copy files into {destination} from {source}"
         return self._execute_query(query)
@@ -361,7 +376,7 @@ class StageManager(SqlExecutionMixin):
         if not stage_path_parts.directory:
             return self._filter_supported_files(files_on_stage)
 
-        stage_path = stage_path_parts.path
+        stage_path = stage_path_parts.path.lower()
 
         # Exact file path was provided if stage_path in file list
         if stage_path in files_on_stage:
