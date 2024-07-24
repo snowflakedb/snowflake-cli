@@ -26,7 +26,8 @@ from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import (
-    MissingConnectionHostError,
+    MissingConnectionAccountError,
+    MissingConnectionRegionError,
     make_snowsight_url,
 )
 from snowflake.cli.plugins.stage.manager import StageManager
@@ -205,5 +206,5 @@ class StreamlitManager(SqlExecutionMixin):
                 self._conn,
                 f"/#/streamlit-apps/{fqn.url_identifier}",
             )
-        except MissingConnectionHostError as e:
+        except (MissingConnectionRegionError, MissingConnectionAccountError) as e:
             return "https://app.snowflake.com"
