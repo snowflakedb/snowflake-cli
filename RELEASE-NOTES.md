@@ -34,6 +34,7 @@
 * Added support for user stages in stage and git copy commands
 * Improved support for quoted identifiers in snowpark commands.
 * Updated post_deploy SQL script default database to be the application database
+* Handle `NULL` md5 values correctly when returned by stage storage backends
 
 # v2.6.1
 ## Backward incompatibility
