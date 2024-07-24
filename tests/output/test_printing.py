@@ -26,6 +26,7 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
     QueryResult,
     SingleQueryResult,
+    StreamResult,
 )
 from snowflake.cli.app.printing import print_result
 
@@ -338,6 +339,38 @@ def test_print_with_no_response_json(capsys):
     json_str = get_output(capsys)
     json.loads(json_str)
     assert json_str == "null\n"
+
+
+def test_print_stream_result(capsys):
+    def g():
+        yield MessageResult("1")
+        yield ObjectResult({"2": "3"})
+
+    print_result(StreamResult(g()))
+    assert get_output(capsys) == dedent(
+        """\
+        1
+        +-------------+
+        | key | value |
+        |-----+-------|
+        | 2   | 3     |
+        +-------------+
+        """
+    )
+
+
+def test_print_stream_result_json(capsys):
+    def g():
+        yield MessageResult("1")
+        yield ObjectResult({"2": "3"})
+
+    print_result(StreamResult(g()), output_format=OutputFormat.JSON)
+    output = get_output(capsys)
+    lines = output.splitlines()
+    assert [json.loads(line) for line in lines if line] == [
+        {"message": "1"},
+        {"2": "3"},
+    ]
 
 
 @pytest.fixture
