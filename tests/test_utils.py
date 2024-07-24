@@ -300,6 +300,7 @@ def test_get_context_local_non_regionless_gets_local_region(
         ("account.x.us-west-2.aws.snowflakecomputing.com", "x.us-west-2.aws"),
         ("naf_test_pc.us-west-2.snowflakecomputing.com", None),
         ("test_account.az.int.snowflakecomputing.com", None),
+        ("frozenweb.prod3.external-zone.snowflakecomputing.com", None),
     ],
 )
 def test_get_host_region(host, expected):
