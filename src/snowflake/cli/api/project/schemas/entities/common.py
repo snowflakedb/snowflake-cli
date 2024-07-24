@@ -65,7 +65,10 @@ class EntityBase(ABC, UpdatableModel):
 TargetType = TypeVar("TargetType")
 
 
-class TargetField(Generic[TargetType], UpdatableModel):
+class TargetField(UpdatableModel, Generic[TargetType]):
     target: str = Field(
         title="Reference to a target entity",
     )
+
+    def get_type(self):
+        return self.__pydantic_generic_metadata__["args"][0]

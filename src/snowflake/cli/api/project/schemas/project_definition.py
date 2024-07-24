@@ -147,10 +147,10 @@ class DefinitionV20(_ProjectDefinitionBase):
         for key, entity in entities.items():
             # TODO Automatically detect TargetFields to validate
             if entity.type == ApplicationEntity.get_type():
-                if isinstance(entity.from_.target, TargetField):
-                    target_key = str(entity.from_.target)
-                    target_class = entity.from_.__class__.model_fields["target"]
-                    target_type = target_class.annotation.__args__[0]
+                if isinstance(entity.from_, TargetField):
+                    target_key = entity.from_.target
+                    target_object = entity.from_
+                    target_type = target_object.get_type()
                     cls._validate_target_field(target_key, target_type, entities)
         return entities
 
@@ -160,13 +160,13 @@ class DefinitionV20(_ProjectDefinitionBase):
     ):
         if target_key not in entities:
             raise ValueError(f"No such target: {target_key}")
-        else:
-            # Validate the target type
-            actual_target_type = entities[target_key].__class__
-            if target_type and target_type is not actual_target_type:
-                raise ValueError(
-                    f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
-                )
+
+        # Validate the target type
+        actual_target_type = entities[target_key].__class__
+        if target_type and target_type is not actual_target_type:
+            raise ValueError(
+                f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
+            )
 
     defaults: Optional[DefaultsField] = Field(
         title="Default key/value entity values that are merged recursively for each entity.",
