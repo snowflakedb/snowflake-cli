@@ -21,8 +21,6 @@ from click.exceptions import ClickException
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 
-LOCAL_DEPLOYMENT: str = "us-west-2"
-
 log = logging.getLogger(__name__)
 
 REGIONLESS_QUERY = """
@@ -34,6 +32,7 @@ REGIONLESS_QUERY = """
 
 ALLOWLIST_QUERY = "SELECT SYSTEM$ALLOWLIST()"
 SNOWFLAKE_DEPLOYMENT = "SNOWFLAKE_DEPLOYMENT"
+LOCAL_DEPLOYMENT_REGION: str = "us-west-2"
 
 
 class MissingConnectionHostError(ClickException):
@@ -65,7 +64,7 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
 def host_to_region(host: str) -> str | None:
     host_parts = host.split(".")
     if host_parts[-1] == "local":
-        return LOCAL_DEPLOYMENT
+        return LOCAL_DEPLOYMENT_REGION
     if len(host_parts) == 6:
         return ".".join(host_parts[1:4])
     return None
@@ -103,7 +102,7 @@ def get_region(conn: SnowflakeConnection) -> str:
         if region := host_to_region(host):
             return region
 
-    raise MissingConnectionHostError(host)
+    raise MissingConnectionHostError(host or conn.host)
 
 
 def get_context(conn: SnowflakeConnection) -> str:
