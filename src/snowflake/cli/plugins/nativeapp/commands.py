@@ -387,8 +387,8 @@ def app_events(**options):
     assert_project_type("native_app")
 
     manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
-        project_root=cli_context.project_root,
+        project_definition=get_cli_context().project_definition.native_app,
+        project_root=get_cli_context().project_root,
     )
     events = manager.get_events()
     if not events:
