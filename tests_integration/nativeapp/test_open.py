@@ -28,17 +28,17 @@ TEST_ENV = generate_user_env(USER_NAME)
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @mock.patch("typer.launch")
-@pytest.mark.parametrize("definition_version", ["v1", "v2"])
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_open(
     mock_typer_launch,
     runner,
-    definition_version,
+    test_project,
     project_directory,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
 
-    with project_directory(f"napp_init_{definition_version}"):
+    with project_directory(test_project):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,

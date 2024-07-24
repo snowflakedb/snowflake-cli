@@ -45,12 +45,12 @@ TEST_ENV = generate_user_env(USER_NAME)
     ],
 )
 @pytest.mark.parametrize("orphan_app", [True, False])
-@pytest.mark.parametrize("definition_version", ["v1", "v2"])
+@pytest.mark.parametrize("test_project", ["napp_create_db_v1", "napp_create_db_v2"])
 def test_nativeapp_teardown_cascade(
     command,
     expected_error,
     orphan_app,
-    definition_version,
+    test_project,
     project_directory,
     runner,
     snowflake_session,
@@ -59,7 +59,7 @@ def test_nativeapp_teardown_cascade(
     app_name = f"{project_name}_{USER_NAME}".upper()
     db_name = f"{project_name}_db_{USER_NAME}".upper()
 
-    with project_directory(f"napp_create_db_{definition_version}"):
+    with project_directory(test_project):
         # Replacing the static DB name with a unique one to avoid collisions between tests
         with open("app/setup_script.sql", "r") as file:
             setup_script_content = file.read()
@@ -153,17 +153,17 @@ def test_nativeapp_teardown_cascade(
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize("force", [True, False])
-@pytest.mark.parametrize("definition_version", ["v1", "v2"])
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_teardown_unowned_app(
     runner,
     force,
-    definition_version,
+    test_project,
     project_directory,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
 
-    with project_directory(f"napp_init_{definition_version}"):
+    with project_directory(test_project):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
@@ -200,17 +200,17 @@ def test_nativeapp_teardown_unowned_app(
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize("default_release_directive", [True, False])
-@pytest.mark.parametrize("definition_version", ["v1", "v2"])
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_teardown_pkg_versions(
     runner,
     default_release_directive,
-    definition_version,
+    test_project,
     project_directory,
 ):
     project_name = "myapp"
     pkg_name = f"{project_name}_pkg_{USER_NAME}"
 
-    with project_directory(f"napp_init_{definition_version}"):
+    with project_directory(test_project):
         result = runner.invoke_with_connection(
             ["app", "version", "create", "v1"],
             env=TEST_ENV,
