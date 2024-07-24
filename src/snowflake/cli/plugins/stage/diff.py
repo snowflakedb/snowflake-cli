@@ -72,10 +72,12 @@ class DiffResult:
         }
 
 
-def is_valid_md5sum(checksum: str) -> bool:
+def is_valid_md5sum(checksum: Optional[str]) -> bool:
     """
     Could the provided hexadecimal checksum represent a valid md5sum?
     """
+    if checksum is None:
+        return False
     return re.match(MD5SUM_REGEX, checksum) is not None
 
 
