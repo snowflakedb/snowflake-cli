@@ -275,6 +275,7 @@ def test_deploy_procedure_replace_nothing_to_update(
     mock_cursor,
     mock_ctx,
     project_directory,
+    caplog,
 ):
     mock_om_describe.side_effect = [
         mock_cursor(
@@ -292,6 +293,7 @@ def test_deploy_procedure_replace_nothing_to_update(
                 ("handler", "test"),
                 ("returns", "string"),
                 ("imports", "dev_deployment/my_snowpark_project/app.zip"),
+                ("runtime_version", "3.10"),
             ],
             columns=["key", "value"],
         ),
