@@ -162,6 +162,7 @@ def test_deploy_function_no_changes(
         ("handler", "app.func1_handler"),
         ("returns", "string"),
         ("imports", "dev_deployment/my_snowpark_project/app.zip"),
+        ("runtime_version", "3.10"),
     ]
 
     queries, result, project_dir = _deploy_function(

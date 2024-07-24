@@ -178,6 +178,32 @@ def test_modified_file(mock_list, mock_cursor):
         assert len(diff_result.only_local) == 0
 
 
+@mock.patch(f"{STAGE_MANAGER}.list_files")
+def test_unmodified_file_no_remote_md5sum(mock_list, mock_cursor):
+
+    # the stage is identical to the local, except we don't have an md5 for README.md
+    rows = stage_contents(FILE_CONTENTS)
+    for row in rows:
+        if row["name"] == "stage/README.md":
+            row["md5"] = None
+
+    assert any([row["md5"] is None for row in rows])
+
+    mock_list.return_value = mock_cursor(
+        rows=rows,
+        columns=STAGE_LS_COLUMNS,
+    )
+
+    with temp_local_dir(FILE_CONTENTS) as local_path:
+        diff_result = compute_stage_diff(local_path, "a.b.c")
+        assert len(diff_result.only_on_stage) == 0
+        assert sorted(diff_result.different) == as_stage_paths(["README.md"])
+        assert sorted(diff_result.identical) == as_stage_paths(
+            ["my.jar", "ui/streamlit.py"]
+        )
+        assert len(diff_result.only_local) == 0
+
+
 def test_get_stage_path_from_file():
     expected = [
         "",

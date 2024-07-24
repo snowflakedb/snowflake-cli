@@ -30,10 +30,11 @@
 * The `snow app run` command now allows upgrading to unversioned mode from a versioned or release mode application installation
 * The `snow app teardown` command now allows dropping a package with versions when the `--force` flag is provided
 * The `snow app version create` command now allows operating on application packages created outside the CLI
-* Added support for user stages in stage execute command
-* Added support for user stages in stage and git copy commands
+* Added support for user stages in stage execute and copy commands
 * Improved support for quoted identifiers in snowpark commands.
 * Updated post_deploy SQL script default database to be the application database
+* Handle `NULL` md5 values correctly when returned by stage storage backends
+* Regionless host URLs are now supported when generating Snowsight URLs
 
 # v2.6.1
 ## Backward incompatibility
