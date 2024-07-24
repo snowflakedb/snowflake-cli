@@ -35,7 +35,15 @@ SNOWFLAKE_DEPLOYMENT = "SNOWFLAKE_DEPLOYMENT"
 LOCAL_DEPLOYMENT_REGION: str = "us-west-2"
 
 
-class MissingConnectionHostError(ClickException):
+class MissingConnectionAccountError(ClickException):
+    def __init__(self, conn: SnowflakeConnection):
+        super().__init__(
+            "Could not determine account by system call, configured account name, or configured host. Connection: "
+            + repr(conn)
+        )
+
+
+class MissingConnectionRegionError(ClickException):
     def __init__(self, host: str | None):
         super().__init__(
             f"The connection host ({host}) was missing or not in "
@@ -62,10 +70,16 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
 
 
 def get_host_region(host: str) -> str | None:
+    """
+    Looks for hosts of the form
+    <account>[.<x>].<y>.<z>.snowlakecomputing.com
+    """
     host_parts = host.split(".")
     if host_parts[-1] == "local":
         return LOCAL_DEPLOYMENT_REGION
-    if len(host_parts) == 6:
+    elif len(host_parts) == 5:
+        return ".".join(host_parts[1:3])
+    elif len(host_parts) == 6:
         return ".".join(host_parts[1:4])
     return None
 
@@ -91,8 +105,7 @@ def guess_regioned_host_from_allowlist(conn: SnowflakeConnection) -> str | None:
 
 def get_region(conn: SnowflakeConnection) -> str:
     """
-    Given a connection, determine the region of the account in the
-    form "x.y.z", or raise an error if we could not find an appropriate host.
+    Get the region of the given connection, or raise MissingConnectionRegionError.
     """
     if conn.host:
         if region := get_host_region(conn.host):
@@ -102,7 +115,7 @@ def get_region(conn: SnowflakeConnection) -> str:
         if region := get_host_region(host):
             return region
 
-    raise MissingConnectionHostError(host or conn.host)
+    raise MissingConnectionRegionError(host or conn.host)
 
 
 def get_context(conn: SnowflakeConnection) -> str:
@@ -134,12 +147,11 @@ def get_account(conn: SnowflakeConnection) -> str:
         if conn.account:
             return conn.account
 
-        # FIXME: could use guessed host here, though not sure if current_account_name() ever fails in practice
-        if not conn.host:
-            raise MissingConnectionHostError(conn)
+        if conn.host:
+            host_parts = conn.host.split(".")
+            return host_parts[0]
 
-        host_parts = conn.host.split(".")
-        return host_parts[0]
+        raise MissingConnectionAccountError(conn)
 
 
 def get_snowsight_host(conn: SnowflakeConnection) -> str:
