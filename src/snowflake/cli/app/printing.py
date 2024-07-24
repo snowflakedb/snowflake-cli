@@ -34,6 +34,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     MultipleResults,
     ObjectResult,
+    StreamResult,
 )
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 
@@ -89,7 +90,7 @@ def _print_multiple_table_results(obj: CollectionResult):
         for item in items:
             table.add_row(*[str(i) for i in item.values()])
     # Add separator between tables
-    rich_print()
+    rich_print(flush=True)
 
 
 def is_structured_format(output_format):
@@ -98,12 +99,21 @@ def is_structured_format(output_format):
 
 def print_structured(result: CommandResult):
     """Handles outputs like json, yml and other structured and parsable formats."""
+    printed_end_line = False
     if isinstance(result, MultipleResults):
         _stream_json(result)
+    elif isinstance(result, StreamResult):
+        # A StreamResult prints each value onto its own line
+        # instead of joining all the values into a JSON array
+        for r in result.result:
+            json.dump(r, sys.stdout, cls=CustomJSONEncoder)
+            print(flush=True)
+            printed_end_line = True
     else:
         json.dump(result, sys.stdout, cls=CustomJSONEncoder, indent=4)
     # Adds empty line at the end
-    print()
+    if not printed_end_line:
+        print(flush=True)
 
 
 def _stream_json(result):
@@ -130,11 +140,11 @@ def _stream_json(result):
 def print_unstructured(obj: CommandResult | None):
     """Handles outputs like table, plain text and other unstructured types."""
     if not obj:
-        rich_print("Done")
+        rich_print("Done", flush=True)
     elif not obj.result:
-        rich_print("No data")
+        rich_print("No data", flush=True)
     elif isinstance(obj, MessageResult):
-        rich_print(sanitize_for_terminal(obj.message))
+        rich_print(sanitize_for_terminal(obj.message), flush=True)
     else:
         if isinstance(obj, ObjectResult):
             _print_single_table(obj)
@@ -152,14 +162,14 @@ def _print_single_table(obj):
         table.add_row(
             sanitize_for_terminal(str(key)), sanitize_for_terminal(str(value))
         )
-    rich_print(table)
+    rich_print(table, flush=True)
 
 
 def print_result(cmd_result: CommandResult, output_format: OutputFormat | None = None):
     output_format = output_format or _get_format_type()
     if is_structured_format(output_format):
         print_structured(cmd_result)
-    elif isinstance(cmd_result, MultipleResults):
+    elif isinstance(cmd_result, (MultipleResults, StreamResult)):
         for res in cmd_result.result:
             print_result(res)
     elif (
