@@ -350,8 +350,15 @@ EnableDiagOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+
+def _diag_log_path_callback(path: str):
+    if path is not None:
+        return path
+    return tempfile.gettempdir()
+
+
 DiagLogPathOption: Path = typer.Option(
-    tempfile.gettempdir(),
+    None,
     "--diag-log-path",
     help="Diagnostic report path",
     callback=_callback(
