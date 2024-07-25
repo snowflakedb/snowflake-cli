@@ -20,6 +20,19 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v2.7.0
+
+# Unreleased version
+## Backward incompatibility
+
+## Deprecations
+* `snow snowpark init` and `snow streamlit init` are marked as deprecated. The commands are still functional,
+but should be replaced with `snow init`
+## New additions
 * Added connection option `--token-file-path` allowing passing OAuth token using a file. The function is also
   supported by setting `token_file_path` in connection definition.
 * Support for Python remote execution via `snow stage execute` and `snow git execute` similar to existing EXECUTE IMMEDIATE support.
