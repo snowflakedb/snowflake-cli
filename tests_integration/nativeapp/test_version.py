@@ -176,7 +176,6 @@ def test_nativeapp_upgrade(
 # Make sure we can create 3+ patches on the same version
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-# @pytest.mark.parametrize("definition_version", ["v1", "v2"])
 @pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
 def test_nativeapp_version_create_3_patches(
     runner,

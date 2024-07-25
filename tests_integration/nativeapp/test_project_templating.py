@@ -21,6 +21,7 @@ from tests_integration.test_utils import (
     pushd,
     contains_row_with,
     row_from_snowflake_session,
+    enable_definition_v2_feature_flag,
 )
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
@@ -28,8 +29,11 @@ DEFAULT_TEST_ENV = generate_user_env(USER_NAME)
 
 # Tests a simple flow of native app with template reading env variables from OS
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
-    "project_definition_files", ["integration_templated"], indirect=True
+    "project_definition_files",
+    ["integration_templated", "integration_templated_v2"],
+    indirect=True,
 )
 def test_nativeapp_project_templating_use_env_from_os(
     runner,
@@ -109,8 +113,11 @@ def test_nativeapp_project_templating_use_env_from_os(
 
 # Tests a simple flow of native app with template reading env variables from OS through an intermediate var
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
-    "project_definition_files", ["integration_templated"], indirect=True
+    "project_definition_files",
+    ["integration_templated", "integration_templated_v2"],
+    indirect=True,
 )
 def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
     runner,
@@ -190,8 +197,11 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
 
 # Tests a simple flow of native app with template reading default env values from project definition file
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
-    "project_definition_files", ["integration_templated"], indirect=True
+    "project_definition_files",
+    ["integration_templated", "integration_templated_v2"],
+    indirect=True,
 )
 def test_nativeapp_project_templating_use_default_env_from_project(
     runner,
@@ -270,8 +280,11 @@ def test_nativeapp_project_templating_use_default_env_from_project(
 
 # Tests a native app with --env parameter through command line overwriting values from os env and project definition filetemplate reading env var
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
-    "project_definition_files", ["integration_templated"], indirect=True
+    "project_definition_files",
+    ["integration_templated", "integration_templated_v2"],
+    indirect=True,
 )
 def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
     runner,
@@ -351,8 +364,11 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
 
 # Tests that other native app commands still succeed with templating
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
-    "project_definition_files", ["integration_templated"], indirect=True
+    "project_definition_files",
+    ["integration_templated", "integration_templated_v2"],
+    indirect=True,
 )
 def test_nativeapp_project_templating_bundle_deploy_successful(
     runner,

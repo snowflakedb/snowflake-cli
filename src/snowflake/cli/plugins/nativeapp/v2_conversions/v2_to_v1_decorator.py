@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 from functools import wraps
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from click import ClickException
@@ -38,7 +37,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
 
 
 def _convert_v2_artifact_to_v1_dict(
-    v2_artifact: Union[PathMapping, Path]
+    v2_artifact: Union[PathMapping, str]
 ) -> Union[Dict, str]:
     if isinstance(v2_artifact, PathMapping):
         return {
@@ -46,7 +45,7 @@ def _convert_v2_artifact_to_v1_dict(
             "dest": v2_artifact.dest,
             "processors": v2_artifact.processors,
         }
-    return str(v2_artifact)
+    return v2_artifact
 
 
 def _convert_v2_post_deploy_hook_to_v1_scripts(
@@ -60,7 +59,7 @@ def _convert_v2_post_deploy_hook_to_v1_scripts(
 def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
     pdfv1: Dict[str, Any] = {"definition_version": "1.1", "native_app": {}}
 
-    app_package_definition: ApplicationPackageEntity = None
+    app_package_definition: Optional[ApplicationPackageEntity] = None
     app_definition: Optional[ApplicationEntity] = None
 
     for key, entity in v2_definition.entities.items():
@@ -90,9 +89,10 @@ def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
         _convert_v2_artifact_to_v1_dict(a) for a in app_package_definition.artifacts
     ]
     pdfv1["native_app"]["source_stage"] = app_package_definition.stage
-    pdfv1["native_app"]["bundle_root"] = str(app_package_definition.bundle_root)
-    pdfv1["native_app"]["generated_root"] = str(app_package_definition.generated_root)
-    pdfv1["native_app"]["deploy_root"] = str(app_package_definition.deploy_root)
+    pdfv1["native_app"]["bundle_root"] = app_package_definition.bundle_root
+    pdfv1["native_app"]["generated_root"] = app_package_definition.generated_root
+    pdfv1["native_app"]["deploy_root"] = app_package_definition.deploy_root
+    pdfv1["native_app"]["scratch_stage"] = app_package_definition.scratch_stage
 
     # Package
     pdfv1["native_app"]["package"] = {}
@@ -106,17 +106,31 @@ def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
             _convert_v2_post_deploy_hook_to_v1_scripts(s)
             for s in app_package_definition.meta.post_deploy
         ]
+    if app_package_definition.meta:
+        if app_package_definition.meta.role:
+            pdfv1["native_app"]["package"]["role"] = app_package_definition.meta.role
+        if app_package_definition.meta.warehouse:
+            pdfv1["native_app"]["package"][
+                "warehouse"
+            ] = app_package_definition.meta.warehouse
 
     # Application
     if app_definition:
         pdfv1["native_app"]["application"] = {}
         pdfv1["native_app"]["application"]["name"] = app_definition.name
-        if app_definition.meta and app_definition.meta.role:
-            pdfv1["native_app"]["application"]["role"] = app_definition.meta.role
-        if app_definition.meta and app_definition.meta.post_deploy:
-            pdfv1["native_app"]["application"][
-                "post_deploy"
-            ] = app_definition.meta.post_deploy
+        if app_definition.debug:
+            pdfv1["native_app"]["application"]["debug"] = app_definition.debug
+        if app_definition.meta:
+            if app_definition.meta.role:
+                pdfv1["native_app"]["application"]["role"] = app_definition.meta.role
+            if app_definition.meta.warehouse:
+                pdfv1["native_app"]["application"][
+                    "warehouse"
+                ] = app_definition.meta.warehouse
+            if app_definition.meta.post_deploy:
+                pdfv1["native_app"]["application"][
+                    "post_deploy"
+                ] = app_definition.meta.post_deploy
 
     # Override the definition object in global context
     return DefinitionV11(**pdfv1)
