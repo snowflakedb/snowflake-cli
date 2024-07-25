@@ -189,6 +189,9 @@ class DefinitionV20(_ProjectDefinitionBase):
             return env
         return ProjectEnvironment(default_env=(env or {}), override_env={})
 
+    def get_entities_by_type(self, entity_type: str):
+        return {i: e for i, e in self.entities.items() if e.get_type() == entity_type}
+
 
 def build_project_definition(**data):
     """

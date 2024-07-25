@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Dict
 
 import click
 import typer
@@ -29,14 +30,18 @@ from snowflake.cli.api.commands.flags import ReplaceOption, like_option
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
     SingleQueryResult,
 )
-from snowflake.cli.api.project.project_verification import assert_project_type
-from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
+from snowflake.cli.api.project.schemas.entities.streamlit_entity import StreamlitEntity
+from snowflake.cli.api.project.schemas.project_definition import (
+    ProjectDefinition,
+    ProjectDefinitionV2,
+)
 from snowflake.cli.plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
@@ -134,35 +139,57 @@ def streamlit_deploy(
     stage is used. If the specified stage does not exist, the command creates it.
     """
 
-    assert_project_type("streamlit")
+    pd = cli_context.project_definition
+    if not pd.meets_version_requirement("2"):
+        # It's 1.X version
+        if not pd.streamlit:
+            raise NoProjectDefinitionError(
+                project_type="streamlit", project_file=cli_context.project_root
+            )
 
-    streamlit: Streamlit = cli_context.project_definition.streamlit
-    if not streamlit:
-        return MessageResult("No streamlit were specified in project definition.")
+        pd = _migrate_v1_streamlit_to_v2(pd)
 
-    environment_file = streamlit.env_file
-    if environment_file and not Path(environment_file).exists():
-        raise ClickException(f"Provided file {environment_file} does not exist")
-    elif environment_file is None:
-        environment_file = "environment.yml"
+    streamlits: Dict[str, StreamlitEntity] = pd.get_entities_by_type(
+        entity_type="streamlit"
+    )
 
-    pages_dir = streamlit.pages_dir
-    if pages_dir and not Path(pages_dir).exists():
-        raise ClickException(f"Provided file {pages_dir} does not exist")
-    elif pages_dir is None:
-        pages_dir = "pages"
+    if not streamlits:
+        raise NoProjectDefinitionError(
+            project_type="streamlit", project_file=cli_context.project_root
+        )
+
+    # TODO: fix in follow-up
+    if len(list(streamlits)) > 1:
+        raise ClickException(
+            "Currently only single streamlit entity per project is supported."
+        )
+
+    # Get first streamlit
+    streamlit: StreamlitEntity = streamlits[list(streamlits)[0]]
+
+    # Validate artefacts
+    for artefact in streamlit.artifacts:
+        if not artefact.exists():
+            raise ClickException(
+                f"Specified artefact {artefact} does not exist locally."
+            )
+
+    # Validate that main file is in artefacts
+    if Path(streamlit.main_file) not in streamlit.artifacts:
+        raise ClickException(
+            f"Specified main file {streamlit.main_file} is not included in artifacts."
+        )
 
     streamlit_id = FQN.from_identifier_model(streamlit).using_context()
 
     url = StreamlitManager().deploy(
         streamlit_id=streamlit_id,
-        environment_file=Path(environment_file),
-        pages_dir=Path(pages_dir),
+        artifacts=streamlit.artifacts,
+        pages_dir=streamlit.pages_dir,
         stage_name=streamlit.stage,
-        main_file=Path(streamlit.main_file),
+        main_file=streamlit.main_file,
         replace=replace,
         query_warehouse=streamlit.query_warehouse,
-        additional_source_files=streamlit.additional_source_files,
         title=streamlit.title,
         **options,
     )
@@ -171,6 +198,46 @@ def streamlit_deploy(
         typer.launch(url)
 
     return MessageResult(f"Streamlit successfully deployed and available under {url}")
+
+
+def _migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
+    # Process env file
+    environment_file = pd.streamlit.env_file
+    if environment_file and not Path(environment_file).exists():
+        raise ClickException(f"Provided file {environment_file} does not exist")
+    elif environment_file is None:
+        environment_file = "environment.yml"
+    pages_dir = pd.streamlit.pages_dir
+    if pages_dir and not Path(pages_dir).exists():
+        raise ClickException(f"Provided file {pages_dir} does not exist")
+    elif pages_dir is None:
+        pages_dir = "pages"
+    artefacts = [
+        pd.streamlit.main_file,
+        pages_dir,
+        environment_file,
+        *pd.streamlit.additional_source_files,
+    ]
+    artefacts = [a for a in artefacts if a is not None]
+    data = {
+        "definition_version": "2",
+        "entities": {
+            "streamlit_app": {
+                "type": "streamlit",
+                "name": pd.streamlit.name,
+                "schema": pd.streamlit.schema_name,
+                "database": pd.streamlit.database,
+                "title": pd.streamlit.title,
+                "query_warehouse": pd.streamlit.query_warehouse,
+                "main_file": str(pd.streamlit.main_file),
+                "pages_dir": str(pd.streamlit.pages_dir),
+                "stage": pd.streamlit.stage,
+                "artifacts": artefacts,
+            }
+        },
+    }
+    pd = ProjectDefinitionV2(**data)
+    return pd
 
 
 @app.command("get-url", requires_connection=True)

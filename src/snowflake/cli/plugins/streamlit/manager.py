@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -45,33 +44,21 @@ class StreamlitManager(SqlExecutionMixin):
     def _put_streamlit_files(
         self,
         root_location: str,
-        main_file: Path,
-        environment_file: Optional[Path],
-        pages_dir: Optional[Path],
-        additional_source_files: Optional[List[Path]],
+        artifacts: Optional[List[Path]] = None,
     ):
+        if not artifacts:
+            return
         stage_manager = StageManager()
-
-        stage_manager.put(main_file, root_location, 4, True)
-
-        if environment_file and environment_file.exists():
-            stage_manager.put(environment_file, root_location, 4, True)
-
-        if pages_dir and pages_dir.exists():
-            stage_manager.put(pages_dir / "*.py", f"{root_location}/pages", 4, True)
-
-        if additional_source_files:
-            for file in additional_source_files:
-                if os.sep in str(file):
-                    destination = f"{root_location}/{str(file.parent)}"
-                else:
-                    destination = root_location
-                stage_manager.put(file, destination, 4, True)
+        for file in artifacts:
+            if file.is_dir():
+                stage_manager.put(f"{file}/*", f"{root_location}/{file}", 4, True)
+            else:
+                stage_manager.put(file, root_location, 4, True)
 
     def _create_streamlit(
         self,
         streamlit_id: FQN,
-        main_file: Path,
+        main_file: str,
         replace: Optional[bool] = None,
         experimental: Optional[bool] = None,
         query_warehouse: Optional[str] = None,
@@ -95,7 +82,7 @@ class StreamlitManager(SqlExecutionMixin):
         if from_stage_name:
             query.append(f"ROOT_LOCATION = '{from_stage_name}'")
 
-        query.append(f"MAIN_FILE = '{main_file.name}'")
+        query.append(f"MAIN_FILE = '{main_file}'")
 
         if query_warehouse:
             query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
@@ -107,13 +94,12 @@ class StreamlitManager(SqlExecutionMixin):
     def deploy(
         self,
         streamlit_id: FQN,
-        main_file: Path,
-        environment_file: Optional[Path] = None,
-        pages_dir: Optional[Path] = None,
+        main_file: str,
+        artifacts: Optional[List[Path]] = None,
+        pages_dir: Optional[str] = None,
         stage_name: Optional[str] = None,
         query_warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
-        additional_source_files: Optional[List[Path]] = None,
         title: Optional[str] = None,
         **options,
     ):
@@ -156,10 +142,7 @@ class StreamlitManager(SqlExecutionMixin):
 
             self._put_streamlit_files(
                 root_location,
-                main_file,
-                environment_file,
-                pages_dir,
-                additional_source_files,
+                artifacts,
             )
         else:
             """
@@ -178,13 +161,7 @@ class StreamlitManager(SqlExecutionMixin):
                 f"{stage_name}/{streamlit_name_for_root_location}"
             )
 
-            self._put_streamlit_files(
-                root_location,
-                main_file,
-                environment_file,
-                pages_dir,
-                additional_source_files,
-            )
+            self._put_streamlit_files(root_location, artifacts)
 
             self._create_streamlit(
                 streamlit_id,
