@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import re
+import warnings
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -22,6 +23,7 @@ from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.connector import SnowflakeConnection
+from snowflake.connector.compat import IS_WINDOWS
 
 schema_pattern = re.compile(r".+\..+")
 
@@ -214,6 +216,15 @@ class _ConnectionContext:
 
     def _build_connection(self):
         from snowflake.cli.app.snow_connector import connect_to_snowflake
+
+        # Ignore warnings about bad owner or permissions on Windows
+        # Telemetry omit our warning filter from config.py
+        if IS_WINDOWS:
+            warnings.filterwarnings(
+                action="ignore",
+                message="Bad owner or permissions.*",
+                module="snowflake.connector.config_manager",
+            )
 
         return connect_to_snowflake(
             temporary_connection=self.temporary_connection,
