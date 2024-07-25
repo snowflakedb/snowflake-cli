@@ -3625,7 +3625,7 @@
                                                                                   
    (deprecated)                                                                   
    Initializes this directory with a sample set of files for creating a Snowpark  
-   project.This command is deprecated and will be removed soon.Please use 'snow   
+   project. This command is deprecated and will be removed soon. Please use 'snow 
    init' instead                                                                  
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -4012,9 +4012,9 @@
   | execute    Executes a procedure or function in a specified                   |
   |            environment.                                                      |
   | init       Initializes this directory with a sample set of     (deprecated)  |
-  |            files for creating a Snowpark project.This command                |
-  |            is deprecated and will be removed soon.Please use                 |
-  |            'snow init' instead                                               |
+  |            files for creating a Snowpark project. This                       |
+  |            command is deprecated and will be removed soon.                   |
+  |            Please use 'snow init' instead                                    |
   | list       Lists all available procedures or functions.                      |
   | package    Manages custom Python packages for Snowpark                       |
   +------------------------------------------------------------------------------+
@@ -7917,7 +7917,7 @@
                                                                                   
    (deprecated)                                                                   
    Initializes this directory with a sample set of files for creating a Streamlit 
-   app project.This command is deprecated and will be removed soon.Please use     
+   app project. This command is deprecated and will be removed soon. Please use   
    'snow init' instead                                                            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -8115,9 +8115,9 @@
   | drop       Drops streamlit with given name.                                  |
   | get-url    Returns a URL to the specified Streamlit app                      |
   | init       Initializes this directory with a sample set of     (deprecated)  |
-  |            files for creating a Streamlit app project.This                   |
-  |            command is deprecated and will be removed                         |
-  |            soon.Please use 'snow init' instead                               |
+  |            files for creating a Streamlit app project. This                  |
+  |            command is deprecated and will be removed soon.                   |
+  |            Please use 'snow init' instead                                    |
   | list       Lists all available streamlits.                                   |
   | share      Shares a Streamlit app with another role.                         |
   +------------------------------------------------------------------------------+
@@ -8385,9 +8385,9 @@
   | execute    Executes a procedure or function in a specified                   |
   |            environment.                                                      |
   | init       Initializes this directory with a sample set of     (deprecated)  |
-  |            files for creating a Snowpark project.This command                |
-  |            is deprecated and will be removed soon.Please use                 |
-  |            'snow init' instead                                               |
+  |            files for creating a Snowpark project. This                       |
+  |            command is deprecated and will be removed soon.                   |
+  |            Please use 'snow init' instead                                    |
   | list       Lists all available procedures or functions.                      |
   | package    Manages custom Python packages for Snowpark                       |
   +------------------------------------------------------------------------------+
@@ -8588,9 +8588,9 @@
   | drop       Drops streamlit with given name.                                  |
   | get-url    Returns a URL to the specified Streamlit app                      |
   | init       Initializes this directory with a sample set of     (deprecated)  |
-  |            files for creating a Streamlit app project.This                   |
-  |            command is deprecated and will be removed                         |
-  |            soon.Please use 'snow init' instead                               |
+  |            files for creating a Streamlit app project. This                  |
+  |            command is deprecated and will be removed soon.                   |
+  |            Please use 'snow init' instead                                    |
   | list       Lists all available streamlits.                                   |
   | share      Shares a Streamlit app with another role.                         |
   +------------------------------------------------------------------------------+
