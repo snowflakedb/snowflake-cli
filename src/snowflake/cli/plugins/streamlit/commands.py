@@ -20,7 +20,7 @@ from pathlib import Path
 import click
 import typer
 from click import ClickException
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_experimental_behaviour,
     with_project_definition,
@@ -136,7 +136,7 @@ def streamlit_deploy(
 
     assert_project_type("streamlit")
 
-    streamlit: Streamlit = cli_context.project_definition.streamlit
+    streamlit: Streamlit = get_cli_context().project_definition.streamlit
     if not streamlit:
         return MessageResult("No streamlit were specified in project definition.")
 

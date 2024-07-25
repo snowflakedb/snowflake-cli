@@ -21,7 +21,7 @@ from typing import Any, Dict, Union
 
 import click
 from snowflake.cli.__about__ import VERSION
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.execution_metadata import ExecutionMetadata
 from snowflake.cli.api.config import get_feature_flags_section
 from snowflake.cli.api.output.formats import OutputFormat
@@ -88,8 +88,7 @@ def _find_command_info() -> TelemetryDict:
 
 
 def _get_definition_version() -> str | None:
-    from snowflake.cli.api.cli_global_context import cli_context
-
+    cli_context = get_cli_context()
     if cli_context.project_definition:
         return cli_context.project_definition.definition_version
     return None
@@ -144,7 +143,7 @@ class CLITelemetryClient:
         self._telemetry.send_batch()
 
 
-_telemetry = CLITelemetryClient(ctx=cli_context)
+_telemetry = CLITelemetryClient(ctx=get_cli_context())
 
 
 @ignore_exceptions()

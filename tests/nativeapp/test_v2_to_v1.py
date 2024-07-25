@@ -16,7 +16,10 @@ from unittest import mock
 
 import pytest
 from click import ClickException
-from snowflake.cli.api.cli_global_context import cli_context, cli_context_manager
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV11,
     DefinitionV20,
@@ -260,9 +263,9 @@ def test_decorator_skips_when_project_is_not_v2(mock_pdf_v2_to_v1):
             },
         },
     )
-    cli_context_manager.set_project_definition(pdfv1)
+    get_cli_context_manager().set_project_definition(pdfv1)
 
     nativeapp_definition_v2_to_v1(lambda *args: None)()
 
     mock_pdf_v2_to_v1.launch.assert_not_called()
-    assert cli_context.project_definition == pdfv1
+    assert get_cli_context().project_definition == pdfv1

@@ -15,7 +15,7 @@
 from pathlib import Path
 from textwrap import dedent
 
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import make_snowsight_url
@@ -58,7 +58,7 @@ class NotebookManager(SqlExecutionMixin):
             f"""
             CREATE OR REPLACE NOTEBOOK {notebook_fqn.identifier}
             FROM '{stage_path.parent}'
-            QUERY_WAREHOUSE = '{cli_context.connection.warehouse}'
+            QUERY_WAREHOUSE = '{get_cli_context().connection.warehouse}'
             MAIN_FILE = '{stage_path.name}';
 
             ALTER NOTEBOOK {notebook_fqn.identifier} ADD LIVE VERSION FROM LAST;
