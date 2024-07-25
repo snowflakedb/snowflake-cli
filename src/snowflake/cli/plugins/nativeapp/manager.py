@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional, TypedDict
+from typing import Any, List, NoReturn, Optional, TypedDict
 
 import jinja2
 from click import ClickException
@@ -62,8 +62,9 @@ from snowflake.cli.plugins.nativeapp.constants import (
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
-    InvalidPackageScriptError,
-    MissingPackageScriptError,
+    InvalidScriptError,
+    MissingScriptError,
+    NoEventTableForAccount,
     SetupScriptFailedValidation,
     UnexpectedOwnerError,
 )
@@ -81,14 +82,14 @@ from snowflake.cli.plugins.stage.diff import (
     to_stage_path,
 )
 from snowflake.cli.plugins.stage.manager import StageManager
-from snowflake.connector import ProgrammingError
+from snowflake.connector import DictCursor, ProgrammingError
 
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
 
 def generic_sql_error_handler(
     err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
-):
+) -> NoReturn:
     # Potential refactor: If moving away from Python 3.8 and 3.9 to >= 3.10, use match ... case
     if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
         raise ProgrammingError(
@@ -312,6 +313,12 @@ class NativeAppManager(SqlExecutionMixin):
                 """
             )
         )
+
+    @cached_property
+    def account_event_table(self) -> str:
+        query = "show parameters like 'event_table' in account"
+        results = self._execute_query(query, cursor_class=DictCursor)
+        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
 
     def verify_project_distribution(
         self, expected_distribution: Optional[str] = None
@@ -561,6 +568,36 @@ class NativeAppManager(SqlExecutionMixin):
                 )
             )
 
+    def _expand_script_templates(
+        self, env: jinja2.Environment, jinja_context: dict[str, Any], scripts: List[str]
+    ) -> List[str]:
+        """
+        Input:
+        - env: Jinja2 environment
+        - jinja_context: a dictionary with the jinja context
+        - scripts: list of scripts that need to be expanded with Jinja
+        Returns:
+        - List of expanded scripts content.
+        Size of the return list is the same as the size of the input scripts list.
+        """
+        scripts_contents = []
+        for relpath in scripts:
+            try:
+                template = env.get_template(relpath)
+                result = template.render(**jinja_context)
+                scripts_contents.append(result)
+
+            except jinja2.TemplateNotFound as e:
+                raise MissingScriptError(e.name) from e
+
+            except jinja2.TemplateSyntaxError as e:
+                raise InvalidScriptError(e.name, e, e.lineno) from e
+
+            except jinja2.UndefinedError as e:
+                raise InvalidScriptError(relpath, e) from e
+
+        return scripts_contents
+
     def _apply_package_scripts(self) -> None:
         """
         Assuming the application package exists and we are using the correct role,
@@ -572,21 +609,9 @@ class NativeAppManager(SqlExecutionMixin):
             undefined=jinja2.StrictUndefined,
         )
 
-        queued_queries = []
-        for relpath in self.package_scripts:
-            try:
-                template = env.get_template(relpath)
-                result = template.render(dict(package_name=self.package_name))
-                queued_queries.append(result)
-
-            except jinja2.TemplateNotFound as e:
-                raise MissingPackageScriptError(e.name)
-
-            except jinja2.TemplateSyntaxError as e:
-                raise InvalidPackageScriptError(e.name, e)
-
-            except jinja2.UndefinedError as e:
-                raise InvalidPackageScriptError(relpath, e)
+        queued_queries = self._expand_script_templates(
+            env, dict(package_name=self.package_name), self.package_scripts
+        )
 
         # once we're sure all the templates expanded correctly, execute all of them
         with self.use_package_warehouse():
@@ -688,6 +713,24 @@ class NativeAppManager(SqlExecutionMixin):
                     self._execute_query(
                         f"drop stage if exists {self.scratch_stage_fqn}"
                     )
+
+    def get_events(self) -> list[dict]:
+        if not self.account_event_table:
+            raise NoEventTableForAccount()
+
+        # resource_attributes:"snow.database.name" uses the unquoted/uppercase app name
+        app_name = unquote_identifier(self.app_name)
+        query = dedent(
+            f"""\
+            select timestamp, value::varchar value
+            from {self.account_event_table}
+            where resource_attributes:"snow.database.name" = '{app_name}'
+            order by timestamp asc;"""
+        )
+        try:
+            return self._execute_query(query, cursor_class=DictCursor).fetchall()
+        except ProgrammingError as err:
+            generic_sql_error_handler(err)
 
 
 def _validation_item_to_str(item: dict[str, str | int]):

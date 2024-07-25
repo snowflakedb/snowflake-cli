@@ -25,6 +25,7 @@
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
+  | init         Creates project directory from template.                        |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
   | snowpark     Manages procedures and functions.                               |
@@ -113,6 +114,78 @@
   |                                          Overrides variables from env        |
   |                                          section used for templating.        |
   | --help       -h                          Show this message and exit.         |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment  -c      TEXT  Name of the connection, as defined |
+  |                                           in your `config.toml`. Default:    |
+  |                                           `default`.                         |
+  | --account,--accountname             TEXT  Name assigned to your Snowflake    |
+  |                                           account. Overrides the value       |
+  |                                           specified for the connection.      |
+  | --user,--username                   TEXT  Username to connect to Snowflake.  |
+  |                                           Overrides the value specified for  |
+  |                                           the connection.                    |
+  | --password                          TEXT  Snowflake password. Overrides the  |
+  |                                           value specified for the            |
+  |                                           connection.                        |
+  | --authenticator                     TEXT  Snowflake authenticator. Overrides |
+  |                                           the value specified for the        |
+  |                                           connection.                        |
+  | --private-key-path                  TEXT  Snowflake private key path.        |
+  |                                           Overrides the value specified for  |
+  |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
+  | --database,--dbname                 TEXT  Database to use. Overrides the     |
+  |                                           value specified for the            |
+  |                                           connection.                        |
+  | --schema,--schemaname               TEXT  Database schema to use. Overrides  |
+  |                                           the value specified for the        |
+  |                                           connection.                        |
+  | --role,--rolename                   TEXT  Role to use. Overrides the value   |
+  |                                           specified for the connection.      |
+  | --warehouse                         TEXT  Warehouse to use. Overrides the    |
+  |                                           value specified for the            |
+  |                                           connection.                        |
+  | --temporary-connection      -x            Uses connection defined with       |
+  |                                           command line parameters, instead   |
+  |                                           of one defined in config           |
+  | --mfa-passcode                      TEXT  Token to use for multi-factor      |
+  |                                           authentication (MFA)               |
+  | --enable-diag                             Run python connector diagnostic    |
+  |                                           test                               |
+  | --diag-log-path                     TEXT  Diagnostic report path             |
+  | --diag-allowlist-path               TEXT  Diagnostic report path to optional |
+  |                                           allowlist                          |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels `info`  |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels `debug` |
+  |                                  and higher; debug logs contains additional  |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[app.events]
+  '''
+                                                                                  
+   Usage: default app events [OPTIONS]                                            
+                                                                                  
+   Fetches events for this app from the event table configured in Snowflake.      
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
+  |                          current working directory.                          |
+  | --env              TEXT  String in format of key=value. Overrides variables  |
+  |                          from env section used for templating.               |
+  | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment  -c      TEXT  Name of the connection, as defined |
@@ -2032,16 +2105,8 @@
   |                                  git repository with templates.              |
   |                                  [default:                                   |
   |                                  https://github.com/snowflakedb/snowflake-c… |
-  | --variable         -D      TEXT  Variables for the execution context. For    |
-  |                                  example: `-D "<key>=<value>"`. For SQL      |
-  |                                  files variables are use to expand the       |
-  |                                  template and any unknown variable will      |
-  |                                  cause an error. For Python files variables  |
-  |                                  are used to update os.environ dictionary.   |
-  |                                  Provided keys are capitalized to adhere to  |
-  |                                  best practices.In case of SQL files string  |
-  |                                  values must be quoted in `''` (consider     |
-  |                                  embedding quoting in the file).             |
+  | --variable         -D      TEXT  String in `key=value` format. Provided      |
+  |                                  variables will not be prompted for.         |
   | --no-interactive                 Disable prompting.                          |
   | --help             -h            Show this message and exit.                 |
   +------------------------------------------------------------------------------+
@@ -3558,8 +3623,10 @@
                                                                                   
    Usage: default snowpark init [OPTIONS] [PROJECT_NAME]                          
                                                                                   
+   (deprecated)                                                                   
    Initializes this directory with a sample set of files for creating a Snowpark  
-   project.                                                                       
+   project. This command is deprecated and will be removed soon. Please use 'snow 
+   init' instead                                                                  
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   project_name      [PROJECT_NAME]  Name of the Snowpark project you want to |
@@ -3930,19 +3997,24 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build      Builds the Snowpark project as a `.zip` archive that can be used  |
-  |            by `deploy` command. The archive is built using only the `src`    |
-  |            directory specified in the project file.                          |
-  | deploy     Deploys procedures and functions defined in project. Deploying    |
-  |            the project alters all objects defined in it. By default, if any  |
-  |            of the objects exist already the commands will fail unless        |
-  |            `--replace` flag is provided. All deployed objects use the same   |
-  |            artifact which is deployed only once.                             |
+  | build      Builds the Snowpark project as a `.zip` archive                   |
+  |            that can be used by `deploy` command. The archive                 |
+  |            is built using only the `src` directory specified                 |
+  |            in the project file.                                              |
+  | deploy     Deploys procedures and functions defined in                       |
+  |            project. Deploying the project alters all objects                 |
+  |            defined in it. By default, if any of the objects                  |
+  |            exist already the commands will fail unless                       |
+  |            `--replace` flag is provided. All deployed objects                |
+  |            use the same artifact which is deployed only once.                |
   | describe   Provides description of a procedure or function.                  |
   | drop       Drop procedure or function.                                       |
-  | execute    Executes a procedure or function in a specified environment.      |
-  | init       Initializes this directory with a sample set of files for         |
-  |            creating a Snowpark project.                                      |
+  | execute    Executes a procedure or function in a specified                   |
+  |            environment.                                                      |
+  | init       Initializes this directory with a sample set of     (deprecated)  |
+  |            files for creating a Snowpark project. This                       |
+  |            command is deprecated and will be removed soon.                   |
+  |            Please use 'snow init' instead                                    |
   | list       Lists all available procedures or functions.                      |
   | package    Manages custom Python packages for Snowpark                       |
   +------------------------------------------------------------------------------+
@@ -6756,7 +6828,6 @@
   | --variable  -D      TEXT  String in format of key=value. If provided the SQL |
   |                           content will be treated as template and rendered   |
   |                           using provided data.                               |
-  |                           [default: None]                                    |
   | --project   -p      TEXT  Path where Snowflake project resides. Defaults to  |
   |                           current working directory.                         |
   | --env               TEXT  String in format of key=value. Overrides variables |
@@ -7844,8 +7915,10 @@
                                                                                   
    Usage: default streamlit init [OPTIONS] [PROJECT_NAME]                         
                                                                                   
+   (deprecated)                                                                   
    Initializes this directory with a sample set of files for creating a Streamlit 
-   app project.                                                                   
+   app project. This command is deprecated and will be removed soon. Please use   
+   'snow init' instead                                                            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   project_name      [PROJECT_NAME]  Name of the Streamlit app project        |
@@ -8031,16 +8104,20 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | deploy     Deploys a Streamlit app defined in the project definition file    |
-  |            (snowflake.yml). By default, the command uploads environment.yml  |
-  |            and any other pages or folders, if present. If you don’t specify  |
-  |            a stage name, the `streamlit` stage is used. If the specified     |
-  |            stage does not exist, the command creates it.                     |
+  | deploy     Deploys a Streamlit app defined in the project                    |
+  |            definition file (snowflake.yml). By default, the                  |
+  |            command uploads environment.yml and any other                     |
+  |            pages or folders, if present. If you don’t specify                |
+  |            a stage name, the `streamlit` stage is used. If                   |
+  |            the specified stage does not exist, the command                   |
+  |            creates it.                                                       |
   | describe   Provides description of streamlit.                                |
   | drop       Drops streamlit with given name.                                  |
   | get-url    Returns a URL to the specified Streamlit app                      |
-  | init       Initializes this directory with a sample set of files for         |
-  |            creating a Streamlit app project.                                 |
+  | init       Initializes this directory with a sample set of     (deprecated)  |
+  |            files for creating a Streamlit app project. This                  |
+  |            command is deprecated and will be removed soon.                   |
+  |            Please use 'snow init' instead                                    |
   | list       Lists all available streamlits.                                   |
   | share      Shares a Streamlit app with another role.                         |
   +------------------------------------------------------------------------------+
@@ -8074,6 +8151,7 @@
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
+  | init         Creates project directory from template.                        |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
   | snowpark     Manages procedures and functions.                               |
@@ -8292,19 +8370,24 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build      Builds the Snowpark project as a `.zip` archive that can be used  |
-  |            by `deploy` command. The archive is built using only the `src`    |
-  |            directory specified in the project file.                          |
-  | deploy     Deploys procedures and functions defined in project. Deploying    |
-  |            the project alters all objects defined in it. By default, if any  |
-  |            of the objects exist already the commands will fail unless        |
-  |            `--replace` flag is provided. All deployed objects use the same   |
-  |            artifact which is deployed only once.                             |
+  | build      Builds the Snowpark project as a `.zip` archive                   |
+  |            that can be used by `deploy` command. The archive                 |
+  |            is built using only the `src` directory specified                 |
+  |            in the project file.                                              |
+  | deploy     Deploys procedures and functions defined in                       |
+  |            project. Deploying the project alters all objects                 |
+  |            defined in it. By default, if any of the objects                  |
+  |            exist already the commands will fail unless                       |
+  |            `--replace` flag is provided. All deployed objects                |
+  |            use the same artifact which is deployed only once.                |
   | describe   Provides description of a procedure or function.                  |
   | drop       Drop procedure or function.                                       |
-  | execute    Executes a procedure or function in a specified environment.      |
-  | init       Initializes this directory with a sample set of files for         |
-  |            creating a Snowpark project.                                      |
+  | execute    Executes a procedure or function in a specified                   |
+  |            environment.                                                      |
+  | init       Initializes this directory with a sample set of     (deprecated)  |
+  |            files for creating a Snowpark project. This                       |
+  |            command is deprecated and will be removed soon.                   |
+  |            Please use 'snow init' instead                                    |
   | list       Lists all available procedures or functions.                      |
   | package    Manages custom Python packages for Snowpark                       |
   +------------------------------------------------------------------------------+
@@ -8494,16 +8577,20 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | deploy     Deploys a Streamlit app defined in the project definition file    |
-  |            (snowflake.yml). By default, the command uploads environment.yml  |
-  |            and any other pages or folders, if present. If you don’t specify  |
-  |            a stage name, the `streamlit` stage is used. If the specified     |
-  |            stage does not exist, the command creates it.                     |
+  | deploy     Deploys a Streamlit app defined in the project                    |
+  |            definition file (snowflake.yml). By default, the                  |
+  |            command uploads environment.yml and any other                     |
+  |            pages or folders, if present. If you don’t specify                |
+  |            a stage name, the `streamlit` stage is used. If                   |
+  |            the specified stage does not exist, the command                   |
+  |            creates it.                                                       |
   | describe   Provides description of streamlit.                                |
   | drop       Drops streamlit with given name.                                  |
   | get-url    Returns a URL to the specified Streamlit app                      |
-  | init       Initializes this directory with a sample set of files for         |
-  |            creating a Streamlit app project.                                 |
+  | init       Initializes this directory with a sample set of     (deprecated)  |
+  |            files for creating a Streamlit app project. This                  |
+  |            command is deprecated and will be removed soon.                   |
+  |            Please use 'snow init' instead                                    |
   | list       Lists all available streamlits.                                   |
   | share      Shares a Streamlit app with another role.                         |
   +------------------------------------------------------------------------------+

@@ -33,6 +33,9 @@ from snowflake.cli.plugins.nativeapp.policy import (
     DenyAlwaysPolicy,
 )
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
+from snowflake.cli.plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+    nativeapp_definition_v2_to_v1,
+)
 from snowflake.cli.plugins.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
     NativeAppVersionDropProcessor,
@@ -48,6 +51,7 @@ log = logging.getLogger(__name__)
 
 @app.command(requires_connection=True)
 @with_project_definition()
+@nativeapp_definition_v2_to_v1
 def create(
     version: Optional[str] = typer.Argument(
         None,
@@ -112,6 +116,7 @@ def create(
 
 @app.command("list", requires_connection=True)
 @with_project_definition()
+@nativeapp_definition_v2_to_v1
 def version_list(
     **options,
 ) -> CommandResult:
@@ -131,6 +136,7 @@ def version_list(
 
 @app.command(requires_connection=True)
 @with_project_definition()
+@nativeapp_definition_v2_to_v1
 def drop(
     version: Optional[str] = typer.Argument(
         None,

@@ -23,9 +23,9 @@ import click
 import typer
 from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.commands.flags import (
+    ExecuteVariablesOption,
     OnErrorOption,
     PatternOption,
-    VariablesOption,
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -201,7 +201,7 @@ def execute(
         show_default=False,
     ),
     on_error: OnErrorType = OnErrorOption,
-    variables: Optional[List[str]] = VariablesOption,
+    variables: Optional[List[str]] = ExecuteVariablesOption,
     **options,
 ):
     """

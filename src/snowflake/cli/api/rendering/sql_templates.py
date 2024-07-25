@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Optional
 
 from click import ClickException
 from jinja2 import StrictUndefined, loaders
@@ -29,11 +29,11 @@ _SQL_TEMPLATE_START = "&{"
 _SQL_TEMPLATE_END = "}"
 
 
-def get_sql_cli_jinja_env():
+def get_sql_cli_jinja_env(*, loader: Optional[loaders.BaseLoader] = None):
     _random_block = "___very___unique___block___to___disable___logic___blocks___"
     return env_bootstrap(
         IgnoreAttrEnvironment(
-            loader=loaders.BaseLoader(),
+            loader=loader or loaders.BaseLoader(),
             keep_trailing_newline=True,
             variable_start_string=_SQL_TEMPLATE_START,
             variable_end_string=_SQL_TEMPLATE_END,

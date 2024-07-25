@@ -72,10 +72,12 @@ class DiffResult:
         }
 
 
-def is_valid_md5sum(checksum: str) -> bool:
+def is_valid_md5sum(checksum: Optional[str]) -> bool:
     """
     Could the provided hexadecimal checksum represent a valid md5sum?
     """
+    if checksum is None:
+        return False
     return re.match(MD5SUM_REGEX, checksum) is not None
 
 
@@ -131,7 +133,7 @@ def strip_stage_name(path: str) -> StagePath:
     return StagePath(*path.split("/")[1:])
 
 
-def build_md5_map(list_stage_cursor: DictCursor) -> Dict[StagePath, str]:
+def build_md5_map(list_stage_cursor: DictCursor) -> Dict[StagePath, Optional[str]]:
     """
     Returns a mapping of relative stage paths to their md5sums.
     """

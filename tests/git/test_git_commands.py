@@ -172,6 +172,15 @@ def test_copy_not_a_stage_error(runner):
     _assert_invalid_repo_path_error_message(result.output)
 
 
+def test_copy_to_user_stage_error(runner):
+    result = runner.invoke(["git", "copy", "@repo_name/branches/main/", "@~/dir"])
+    assert result.exit_code == 1
+    assert (
+        "Destination path cannot be a user stage. Please provide a named stage."
+        in result.output
+    )
+
+
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
 def test_setup_already_exists_error(mock_om_describe, mock_connector, runner, mock_ctx):

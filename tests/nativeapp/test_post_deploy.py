@@ -22,6 +22,7 @@ from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.application import (
     ApplicationPostDeployHook,
 )
+from snowflake.cli.plugins.nativeapp.exceptions import MissingScriptError
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
 
 from tests.nativeapp.patch_utils import mock_connection
@@ -57,6 +58,7 @@ def test_sql_scripts(
     mock_execute_queries,
     mock_execute_query,
     project_directory,
+    current_sanitized_username,
 ):
     mock_conn.return_value = MockConnectionCtx()
     mock_cli_ctx.return_value = {
@@ -68,8 +70,8 @@ def test_sql_scripts(
         processor._execute_post_deploy_hooks()  # noqa SLF001
 
         assert mock_execute_query.mock_calls == [
-            mock.call("use database MockDatabase"),
-            mock.call("use database MockDatabase"),
+            mock.call(f"use database myapp_{current_sanitized_username}"),
+            mock.call(f"use database myapp_{current_sanitized_username}"),
         ]
         assert mock_execute_queries.mock_calls == [
             # Verify template variables were expanded correctly
@@ -101,6 +103,7 @@ def test_sql_scripts_with_no_warehouse_no_database(
     mock_execute_queries,
     mock_execute_query,
     project_directory,
+    current_sanitized_username,
 ):
     mock_conn_wh.return_value = None
     mock_conn_db.return_value = None
@@ -113,8 +116,12 @@ def test_sql_scripts_with_no_warehouse_no_database(
 
         processor._execute_post_deploy_hooks()  # noqa SLF001
 
-        # Verify no "use warehouse" and no "use database" were called
-        assert mock_execute_query.mock_calls == []
+        # Verify no "use warehouse"
+        # Verify "use database" applies to current application
+        assert mock_execute_query.mock_calls == [
+            mock.call(f"use database myapp_{current_sanitized_username}"),
+            mock.call(f"use database myapp_{current_sanitized_username}"),
+        ]
         assert mock_execute_queries.mock_calls == [
             mock.call(
                 dedent(
@@ -139,7 +146,7 @@ def test_missing_sql_script(
     with project_directory("napp_post_deploy_missing_file") as project_dir:
         processor = _get_run_processor(str(project_dir))
 
-        with pytest.raises(FileNotFoundError) as err:
+        with pytest.raises(MissingScriptError) as err:
             processor._execute_post_deploy_hooks()  # noqa SLF001
 
 

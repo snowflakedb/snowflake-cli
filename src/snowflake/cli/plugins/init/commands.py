@@ -22,8 +22,8 @@ import yaml
 from click import ClickException
 from snowflake.cli.api.commands.flags import (
     NoInteractiveOption,
-    VariablesOption,
     parse_key_value_variables,
+    variables_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
@@ -70,6 +70,9 @@ SourceOption = typer.Option(
     default=DEFAULT_SOURCE,
     help=f"local path to template directory or URL to git repository with templates.",
 )
+VariablesOption = variables_option(
+    "String in `key=value` format. Provided variables will not be prompted for."
+)
 
 TEMPLATE_METADATA_FILE_NAME = "template.yml"
 
@@ -98,13 +101,22 @@ def _fetch_remote_template(
     """Downloads remote repository template to [dest],
     and returns path to the template root.
     Ends with an error of the template does not exist."""
+    from git import GitCommandError
     from git import rmtree as git_rmtree
 
     # TODO: during nativeapp refactor get rid of this dependency
     from snowflake.cli.plugins.nativeapp.utils import shallow_git_clone
 
     log.info("Downloading remote template from %s", url)
-    shallow_git_clone(url, to_path=destination.path)
+    try:
+        shallow_git_clone(url, to_path=destination.path)
+    except GitCommandError as err:
+        import re
+
+        if re.search("fatal: repository '.*' not found", err.stderr):
+            raise ClickException(f"Repository '{url}' does not exist")
+        raise
+
     if path:
         # template is a subdirectoruy of the repository
         template_root = destination / path
@@ -173,7 +185,7 @@ def _validate_cli_version(required_version: str) -> None:
         )
 
 
-@app.command(no_args_is_help=True, hidden=True)
+@app.command(no_args_is_help=True)
 def init(
     path: str = PathArgument,
     template: Optional[str] = TemplateOption,

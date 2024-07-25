@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import uuid
 
 from snowflake.cli.api.project.util import generate_user_env
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
-    pushd,
+    enable_definition_v2_feature_flag,
 )
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
@@ -26,15 +25,10 @@ TEST_ENV = generate_user_env(USER_NAME)
 
 
 @pytest.mark.integration
-def test_nativeapp_validate(runner, temporary_working_directory):
-    project_name = "myapp"
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0, result.output
-
-    with pushd(Path(os.getcwd(), project_name)):
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
+def test_nativeapp_validate(definition_version, project_directory, runner):
+    with project_directory(f"napp_init_{definition_version}"):
         try:
             # validate the app's setup script
             result = runner.invoke_with_connection(
@@ -52,15 +46,10 @@ def test_nativeapp_validate(runner, temporary_working_directory):
 
 
 @pytest.mark.integration
-def test_nativeapp_validate_failing(runner, temporary_working_directory):
-    project_name = "myapp"
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0, result.output
-
-    with pushd(Path(os.getcwd(), project_name)):
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
+def test_nativeapp_validate_failing(definition_version, project_directory, runner):
+    with project_directory(f"napp_init_{definition_version}"):
         # Create invalid SQL file
         Path("app/setup_script.sql").write_text("Lorem ipsum dolor sit amet")
 

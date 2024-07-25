@@ -12,18 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import uuid
-from textwrap import dedent
 
 from snowflake.cli.api.project.util import generate_user_env
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
-    pushd,
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
+    enable_definition_v2_feature_flag,
 )
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
@@ -31,6 +29,7 @@ TEST_ENV = generate_user_env(USER_NAME)
 
 
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "command,expected_error",
     [
@@ -46,52 +45,30 @@ TEST_ENV = generate_user_env(USER_NAME)
     ],
 )
 @pytest.mark.parametrize("orphan_app", [True, False])
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_teardown_cascade(
     command,
     expected_error,
     orphan_app,
+    definition_version,
+    project_directory,
     runner,
     snowflake_session,
-    temporary_working_directory,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}".upper()
     db_name = f"{project_name}_db_{USER_NAME}".upper()
 
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
-        # Add a procedure to the setup script that creates an app-owned database
-        with open("app/setup_script.sql", "a") as file:
-            file.write(
-                dedent(
-                    f"""
-                    create or replace procedure core.create_db()
-                        returns boolean
-                        language sql
-                        as $$
-                            begin
-                                create or replace database {db_name};
-                                return true;
-                            end;
-                        $$;
-                    """
-                )
-            )
-        with open("app/manifest.yml", "a") as file:
-            file.write(
-                dedent(
-                    f"""
-                    privileges:
-                    - CREATE DATABASE:
-                        description: "Permission to create databases"
-                    """
-                )
-            )
+    # TODO Use the main project_directory block once "snow app run" supports definition v2
+    with project_directory(f"napp_create_db_v1"):
+        # Replacing the static DB name with a unique one to avoid collisions between tests
+        with open("app/setup_script.sql", "r") as file:
+            setup_script_content = file.read()
+        setup_script_content = setup_script_content.replace(
+            "DB_NAME_PLACEHOLDER", db_name
+        )
+        with open("app/setup_script.sql", "w") as file:
+            file.write(setup_script_content)
 
         result = runner.invoke_with_connection_json(
             ["app", "run"],
@@ -99,6 +76,7 @@ def test_nativeapp_teardown_cascade(
         )
         assert result.exit_code == 0
 
+    with project_directory(f"napp_create_db_{definition_version}"):
         try:
             # Grant permission to create databases
             snowflake_session.execute_string(
@@ -176,29 +154,27 @@ def test_nativeapp_teardown_cascade(
 
 
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("force", [True, False])
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_teardown_unowned_app(
     runner,
-    snowflake_session,
-    temporary_working_directory,
     force,
+    definition_version,
+    project_directory,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
 
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
+    # TODO Use the main project_directory block once "snow app run" supports definition v2
+    with project_directory("napp_init_v1"):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
 
+    with project_directory(f"napp_init_{definition_version}"):
         try:
             result = runner.invoke_with_connection_json(
                 ["sql", "-q", f"alter application {app_name} set comment = 'foo'"],
@@ -228,28 +204,26 @@ def test_nativeapp_teardown_unowned_app(
 
 
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("default_release_directive", [True, False])
+@pytest.mark.parametrize("definition_version", ["v1", "v2"])
 def test_nativeapp_teardown_pkg_versions(
     runner,
-    snowflake_session,
-    temporary_working_directory,
     default_release_directive,
+    definition_version,
+    project_directory,
 ):
     project_name = "myapp"
     pkg_name = f"{project_name}_pkg_{USER_NAME}"
 
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
-        result = runner.invoke_with_connection(
-            ["app", "version", "create", "v1"],
-            env=TEST_ENV,
-        )
-        assert result.exit_code == 0
+    with project_directory(f"napp_init_{definition_version}"):
+        # TODO Use the main project_directory block once "snow app version" supports definition v2
+        with project_directory("napp_init_v1"):
+            result = runner.invoke_with_connection(
+                ["app", "version", "create", "v1"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
 
         try:
             # when setting a release directive, we will not have the ability to drop the version later
@@ -274,12 +248,14 @@ def test_nativeapp_teardown_pkg_versions(
 
             teardown_args = []
             if not default_release_directive:
-                # if we didn't set a release directive, we can drop the version and try again
-                result = runner.invoke_with_connection(
-                    ["app", "version", "drop", "v1", "--force"],
-                    env=TEST_ENV,
-                )
-                assert result.exit_code == 0
+                # TODO Use the main project_directory block once "snow app version" supports definition v2
+                with project_directory("napp_init_v1"):
+                    # if we didn't set a release directive, we can drop the version and try again
+                    result = runner.invoke_with_connection(
+                        ["app", "version", "drop", "v1", "--force"],
+                        env=TEST_ENV,
+                    )
+                    assert result.exit_code == 0
             else:
                 # if we did set a release directive, we need --force for teardown to work
                 teardown_args = ["--force"]

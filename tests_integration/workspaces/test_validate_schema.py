@@ -13,20 +13,13 @@
 # limitations under the License.
 
 import pytest
-import os
-from unittest import mock
+from tests_integration.test_utils import enable_definition_v2_feature_flag
 
 
 @pytest.mark.integration
-@mock.patch.dict(
-    os.environ,
-    {
-        "SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2": "true",
-    },
-    clear=True,
-)
-def test_validate_project_definition_v2(runner, snowflake_session, project_directory):
-    with project_directory("project_definition_v2") as tmp_dir:
+@enable_definition_v2_feature_flag
+def test_validate_project_definition_v2(runner, project_directory):
+    with project_directory("project_definition_v2"):
         result = runner.invoke_with_connection_json(["ws", "validate"])
 
         assert result.exit_code == 0

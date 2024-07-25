@@ -183,6 +183,40 @@ def test_snowpark_flow(
             ],
         )
 
+        # Apply another changes to project objects
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.procedures.0.execute_as_caller",
+            value="true",
+        )
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.0.runtime",
+            value="3.11",
+        )
+
+        # Another deploy with replace flag, it should update existing objects
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            additional_arguments=["--replace"],
+            expected_result=[
+                {
+                    "object": f"{database}.PUBLIC.hello_procedure(name string)",
+                    "status": "definition updated",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{database}.PUBLIC.test()",
+                    "status": "packages updated",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{database}.PUBLIC.hello_function(name string)",
+                    "status": "definition updated",
+                    "type": "function",
+                },
+            ],
+        )
+
         # Check if objects were updated
         _test_steps.assert_those_procedures_are_in_snowflake(
             "hello_procedure(VARCHAR) RETURN VARIANT"
@@ -846,10 +880,10 @@ def test_incorrect_requirements(project_directory, runner, alter_requirements_tx
         )
         with pytest.raises(InvalidRequirement) as err:
             runner.invoke_with_connection(["snowpark", "build"])
-        assert (
-            "Expected end or semicolon (after name and no valid version specifier)"
-            in str(err)
-        )
+            assert (
+                "Expected end or semicolon (after name and no valid version specifier)"
+                in str(err)
+            )
 
 
 @pytest.fixture

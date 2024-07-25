@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -24,11 +25,18 @@ import snowflake.cli.plugins.snowpark.package.utils
 from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
-from snowflake.cli.plugins.connection.util import make_snowsight_url
+from snowflake.cli.plugins.connection.util import (
+    LOCAL_DEPLOYMENT_REGION,
+    get_context,
+    get_host_region,
+    guess_regioned_host_from_allowlist,
+    make_snowsight_url,
+)
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
 )
+from snowflake.connector import SnowflakeConnection
 
 from tests.test_data import test_data
 
@@ -221,3 +229,79 @@ def test_make_snowsight_url(
     get_account.return_value = account
     actual = make_snowsight_url(None, path)  # all uses of conn are mocked
     assert actual == expected
+
+
+@pytest.mark.parametrize(
+    "allowlist, expected",
+    [
+        (
+            [
+                {
+                    "host": "myacct.x.y.z.snowflakecomputing.com",
+                    "type": "SNOWFLAKE_DEPLOYMENT",
+                },
+                {
+                    "host": "myacct.nonregioned.snowflakecomputing.com",
+                    "type": "SNOWFLAKE_DEPLOYMENT",
+                },
+                {"type": "unrelated"},
+            ],
+            "myacct.x.y.z.snowflakecomputing.com",
+        ),
+        (
+            [
+                {"type": "unrelated"},
+            ],
+            None,
+        ),
+    ],
+)
+def test_guess_regioned_host_from_allowlist(allowlist, expected, mock_cursor):
+    mock_conn = mock.MagicMock(spec=SnowflakeConnection)
+    mock_conn.execute_string.return_value = (
+        None,
+        mock_cursor([{"SYSTEM$ALLOWLIST()": json.dumps(allowlist)}], []),
+    )
+    assert guess_regioned_host_from_allowlist(mock_conn) == expected
+
+
+@patch("snowflake.cli.plugins.connection.util.is_regionless_redirect")
+@patch("snowflake.cli.plugins.connection.util.guess_regioned_host_from_allowlist")
+def test_get_context_non_regionless_uses_region(
+    guess_regioned_host_from_allowlist, is_regionless_redirect
+):
+    mock_conn = mock.MagicMock(spec=SnowflakeConnection)
+    mock_conn.host = "myacct.regionless.snowflakecomputing.com"
+    guess_regioned_host_from_allowlist.return_value = (
+        "myacct.x.y.z.snowflakecomputing.com"
+    )
+    is_regionless_redirect.return_value = False
+    assert get_context(mock_conn) == "x.y.z"
+
+
+@patch("snowflake.cli.plugins.connection.util.is_regionless_redirect")
+@patch("snowflake.cli.plugins.connection.util.guess_regioned_host_from_allowlist")
+def test_get_context_local_non_regionless_gets_local_region(
+    guess_regioned_host_from_allowlist, is_regionless_redirect
+):
+    mock_conn = mock.MagicMock(spec=SnowflakeConnection)
+    mock_conn.host = "some.dns.local"
+    is_regionless_redirect.return_value = False
+    assert get_host_region(mock_conn.host) == LOCAL_DEPLOYMENT_REGION
+    assert get_context(mock_conn) == LOCAL_DEPLOYMENT_REGION
+    guess_regioned_host_from_allowlist.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "host, expected",
+    [
+        ("some.dns.local", LOCAL_DEPLOYMENT_REGION),
+        ("org-acct.mydns.snowflakecomputing.com", None),
+        ("account.x.us-west-2.aws.snowflakecomputing.com", "x.us-west-2.aws"),
+        ("naf_test_pc.us-west-2.snowflakecomputing.com", None),
+        ("test_account.az.int.snowflakecomputing.com", None),
+        ("frozenweb.prod3.external-zone.snowflakecomputing.com", None),
+    ],
+)
+def test_get_host_region(host, expected):
+    assert get_host_region(host) == expected

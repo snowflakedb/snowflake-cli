@@ -20,19 +20,35 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v2.7.0
+
+# Unreleased version
+## Backward incompatibility
+
+## Deprecations
+* `snow snowpark init` and `snow streamlit init` are marked as deprecated. The commands are still functional,
+but should be replaced with `snow init`
+## New additions
 * Added connection option `--token-file-path` allowing passing OAuth token using a file. The function is also
   supported by setting `token_file_path` in connection definition.
 * Support for Python remote execution via `snow stage execute` and `snow git execute` similar to existing EXECUTE IMMEDIATE support.
 * Added support for project definition file defaults in templates
 * Added support for autocomplete in `--connection` flag.
+* Added `snow init` command, which supports initializing projects with external templates.
 
 ## Fixes and improvements
 * The `snow app run` command now allows upgrading to unversioned mode from a versioned or release mode application installation
 * The `snow app teardown` command now allows dropping a package with versions when the `--force` flag is provided
 * The `snow app version create` command now allows operating on application packages created outside the CLI
-* Added support for user stages in stage execute command
-* Added support for user stages in stage and git copy commands
+* Added support for user stages in stage execute and copy commands
 * Improved support for quoted identifiers in snowpark commands.
+* Updated post_deploy SQL script default database to be the application database
+* Handle `NULL` md5 values correctly when returned by stage storage backends
+* Regionless host URLs are now supported when generating Snowsight URLs
 
 # v2.6.1
 ## Backward incompatibility

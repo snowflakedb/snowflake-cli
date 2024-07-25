@@ -432,3 +432,37 @@ def native_app_extension_function(
 @pytest.fixture
 def current_sanitized_username():
     return get_sanitized_username()
+
+
+@pytest.fixture
+def mock_procedure_description(mock_cursor):
+    yield mock_cursor(
+        rows=[
+            ("signature", "(NAME VARCHAR)"),
+            ("returns", "VARCHAR(16777216)"),
+            ("language", "PYTHON"),
+            ("null handling", "CALLED ON NULL INPUT"),
+            ("volatility", "VOLATILE"),
+            ("execute as", "CALLER"),
+            ("body", None),
+            ("imports", "[@FOO.BAR.BAZ/my_snowpark_project/app.zip]"),
+            ("handler", "app.hello_procedure"),
+            ("runtime_version", "3.8"),
+            ("packages", "['snowflake-snowpark-python','pytest<9.0.0,>=7.0.0']"),
+            ("installed_packages", "['_libgcc_mutex==0.1']"),
+        ],
+        columns=[
+            "signature",
+            "returns",
+            "language",
+            "null handling",
+            "volatility",
+            "execute as",
+            "body",
+            "imports",
+            "handler",
+            "runtime_version",
+            "packages",
+            "installed_packages",
+        ],
+    )

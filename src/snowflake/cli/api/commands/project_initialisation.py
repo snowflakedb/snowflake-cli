@@ -35,7 +35,7 @@ def add_init_command(
     template: str,
     help_message: Optional[str] = None,
 ):
-    @app.command()
+    @app.command(deprecated=True)
     def init(
         project_name: str = Argument(
             f"example_{project_type.lower()}",
@@ -47,6 +47,7 @@ def add_init_command(
         ),
         **options,
     ) -> CommandResult:
+
         _create_project_template(template, project_directory=project_name)
         return MessageResult(f"Initialized the new project in {project_name}/")
 
@@ -56,7 +57,9 @@ def add_init_command(
 
     init.__doc__ = (
         f"Initializes this directory with a sample set "
-        f"of files for creating a {project_type_doc} project."
+        f"of files for creating a {project_type_doc} project. "
+        f"This command is deprecated and will be removed soon. "
+        f"Please use 'snow init' instead"
     )
 
     return init

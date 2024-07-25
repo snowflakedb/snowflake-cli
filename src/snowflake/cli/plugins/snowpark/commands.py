@@ -312,6 +312,10 @@ def _deploy_single_object(
     returns = object_definition.returns
     imports = object_definition.imports
     external_access_integrations = object_definition.external_access_integrations
+    runtime_ver = object_definition.runtime
+    execute_as_caller = None
+    if object_type == ObjectType.PROCEDURE:
+        execute_as_caller = object_definition.execute_as_caller
     replace_object = False
 
     object_exists = identifiers.identifier_with_arg_types in existing_objects
@@ -325,6 +329,8 @@ def _deploy_single_object(
             external_access_integrations=external_access_integrations,
             imports=imports,
             stage_artifact_file=stage_artifact_path,
+            runtime_ver=runtime_ver,
+            execute_as_caller=execute_as_caller,
         )
 
     if object_exists and not replace_object:

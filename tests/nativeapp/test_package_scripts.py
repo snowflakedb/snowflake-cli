@@ -24,8 +24,8 @@ from snowflake.cli.api.errno import (
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.exceptions import (
-    InvalidPackageScriptError,
-    MissingPackageScriptError,
+    InvalidScriptError,
+    MissingScriptError,
 )
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.connector import ProgrammingError
@@ -198,7 +198,7 @@ def test_package_scripts_without_conn_info_succeeds(
 def test_missing_package_script(mock_execute, project_definition_files):
     working_dir: Path = project_definition_files[0].parent
     native_app_manager = _get_na_manager(str(working_dir))
-    with pytest.raises(MissingPackageScriptError):
+    with pytest.raises(MissingScriptError):
         (working_dir / "002-shared.sql").unlink()
         native_app_manager._apply_package_scripts()  # noqa: SLF001
 
@@ -211,7 +211,7 @@ def test_missing_package_script(mock_execute, project_definition_files):
 def test_invalid_package_script(mock_execute, project_definition_files):
     working_dir: Path = project_definition_files[0].parent
     native_app_manager = _get_na_manager(str(working_dir))
-    with pytest.raises(InvalidPackageScriptError):
+    with pytest.raises(InvalidScriptError):
         second_file = working_dir / "002-shared.sql"
         second_file.unlink()
         second_file.write_text("select * from {{ package_name")
@@ -226,7 +226,7 @@ def test_invalid_package_script(mock_execute, project_definition_files):
 def test_undefined_var_package_script(mock_execute, project_definition_files):
     working_dir: Path = project_definition_files[0].parent
     native_app_manager = _get_na_manager(str(working_dir))
-    with pytest.raises(InvalidPackageScriptError):
+    with pytest.raises(InvalidScriptError):
         second_file = working_dir / "001-shared.sql"
         second_file.unlink()
         second_file.write_text("select * from {{ abc }}")
