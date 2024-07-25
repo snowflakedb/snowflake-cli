@@ -57,8 +57,8 @@ def add_init_command(
 
     init.__doc__ = (
         f"Initializes this directory with a sample set "
-        f"of files for creating a {project_type_doc} project."
-        f"This command is deprecated and will be removed soon."
+        f"of files for creating a {project_type_doc} project. "
+        f"This command is deprecated and will be removed soon. "
         f"Please use 'snow init' instead"
     )
 
