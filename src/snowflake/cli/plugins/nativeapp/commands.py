@@ -391,6 +391,9 @@ def app_events(
         default="",
         help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
     ),
+    limit: int = typer.Option(
+        default=0, help="Maximum number of latest events to fetch."
+    ),
     **options,
 ):
     """Fetches events for this app from the event table configured in Snowflake."""
@@ -400,7 +403,7 @@ def app_events(
         project_definition=get_cli_context().project_definition.native_app,
         project_root=get_cli_context().project_root,
     )
-    events = manager.get_events(since, until)
+    events = manager.get_events(since, until, limit)
     if not events:
         return MessageResult("No events found.")
 

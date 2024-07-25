@@ -715,7 +715,10 @@ class NativeAppManager(SqlExecutionMixin):
                     )
 
     def get_events(
-        self, since_interval: str = "", until_interval: str = ""
+        self,
+        since_interval: str = "",
+        until_interval: str = "",
+        limit: int = 0,
     ) -> list[dict]:
         if not self.account_event_table:
             raise NoEventTableForAccount()
@@ -732,14 +735,19 @@ class NativeAppManager(SqlExecutionMixin):
             if until_interval
             else ""
         )
+        limit_clause = f"limit {limit}" if limit else ""
         query = dedent(
             f"""\
-            select timestamp, value::varchar value
-            from {self.account_event_table}
-            where resource_attributes:"snow.database.name" = '{app_name}'
-            {since_clause}
-            {until_clause}
-            order by timestamp asc;"""
+            select * from (
+                select timestamp, value::varchar value
+                from {self.account_event_table}
+                where resource_attributes:"snow.database.name" = '{app_name}'
+                {since_clause}
+                {until_clause}
+                order by timestamp desc
+                {limit_clause}
+            ) order by timestamp asc
+            """
         )
         try:
             return self._execute_query(query, cursor_class=DictCursor).fetchall()
