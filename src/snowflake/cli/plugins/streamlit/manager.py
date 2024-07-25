@@ -52,6 +52,8 @@ class StreamlitManager(SqlExecutionMixin):
         for file in artifacts:
             if file.is_dir():
                 stage_manager.put(f"{file}/*", f"{root_location}/{file}", 4, True)
+            elif len(file.parts) > 1:
+                stage_manager.put(file, f"{root_location}/{file.parent}", 4, True)
             else:
                 stage_manager.put(file, root_location, 4, True)
 
@@ -96,12 +98,10 @@ class StreamlitManager(SqlExecutionMixin):
         streamlit_id: FQN,
         main_file: str,
         artifacts: Optional[List[Path]] = None,
-        pages_dir: Optional[str] = None,
         stage_name: Optional[str] = None,
         query_warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
         title: Optional[str] = None,
-        **options,
     ):
         # for backwards compatibility - quoted stage path might be case-sensitive
         # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers

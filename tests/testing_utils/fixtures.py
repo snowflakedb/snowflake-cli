@@ -319,7 +319,6 @@ def project_directory(temp_dir, test_projects_path):
 def global_setup(monkeypatch):
     width = 81 if IS_WINDOWS else 80
     monkeypatch.setenv("COLUMNS", str(width))
-    monkeypatch.setenv("SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2", "true")
 
 
 @pytest.fixture

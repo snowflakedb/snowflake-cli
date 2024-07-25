@@ -32,7 +32,7 @@ class StreamlitEntity(EntityBase, ObjectIdentifierModel(object_name="Streamlit")
     main_file: Optional[str] = Field(
         title="Entrypoint file of the Streamlit app", default="streamlit_app.py"
     )
-    pages_dir: Optional[str] = Field(title="Streamlit pages", default="pages")
+    pages_dir: Optional[str] = Field(title="Streamlit pages", default=None)
     stage: Optional[str] = Field(
         title="Stage in which the app’s artifacts will be stored", default="streamlit"
     )

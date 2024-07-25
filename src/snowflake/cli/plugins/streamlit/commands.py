@@ -185,13 +185,11 @@ def streamlit_deploy(
     url = StreamlitManager().deploy(
         streamlit_id=streamlit_id,
         artifacts=streamlit.artifacts,
-        pages_dir=streamlit.pages_dir,
         stage_name=streamlit.stage,
         main_file=streamlit.main_file,
         replace=replace,
         query_warehouse=streamlit.query_warehouse,
         title=streamlit.title,
-        **options,
     )
 
     if open_:
@@ -201,24 +199,32 @@ def streamlit_deploy(
 
 
 def _migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
+    default_env_file = "environment.yml"
+    default_pages_dir = "pages"
+
     # Process env file
     environment_file = pd.streamlit.env_file
     if environment_file and not Path(environment_file).exists():
         raise ClickException(f"Provided file {environment_file} does not exist")
-    elif environment_file is None:
-        environment_file = "environment.yml"
+    elif environment_file is None and Path(default_env_file).exists():
+        environment_file = default_env_file
+    # Process pages dir
     pages_dir = pd.streamlit.pages_dir
     if pages_dir and not Path(pages_dir).exists():
         raise ClickException(f"Provided file {pages_dir} does not exist")
-    elif pages_dir is None:
-        pages_dir = "pages"
+    elif pages_dir is None and Path(default_pages_dir).exists():
+        pages_dir = default_pages_dir
+
+    # Build V2 definition
     artefacts = [
         pd.streamlit.main_file,
-        pages_dir,
         environment_file,
-        *pd.streamlit.additional_source_files,
+        pages_dir,
     ]
     artefacts = [a for a in artefacts if a is not None]
+    if pd.streamlit.additional_source_files:
+        artefacts.extend(pd.streamlit.additional_source_files)
+
     data = {
         "definition_version": "2",
         "entities": {

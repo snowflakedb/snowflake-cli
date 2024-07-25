@@ -299,7 +299,7 @@ def test_deploy_streamlit_and_pages_files(
     assert ctx.get_queries() == [
         "create stage if not exists MockDatabase.MockSchema.streamlit",
         _put_query("streamlit_app.py", root_path),
-        _put_query("pages/*.py", f"{root_path}/pages"),
+        _put_query("pages/*", f"{root_path}/pages"),
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
@@ -340,7 +340,7 @@ def test_deploy_all_streamlit_files(
         "create stage if not exists MockDatabase.MockSchema.streamlit",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", root_path),
-        _put_query("pages/*.py", f"{root_path}/pages"),
+        _put_query("pages/*", f"{root_path}/pages"),
         _put_query("utils/utils.py", f"{root_path}/utils"),
         _put_query("extra_file.py", root_path),
         dedent(
@@ -385,7 +385,7 @@ def test_deploy_put_files_on_stage(
         "create stage if not exists MockDatabase.MockSchema.streamlit_stage",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", root_path),
-        _put_query("pages/*.py", f"{root_path}/pages"),
+        _put_query("pages/*", f"{root_path}/pages"),
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
@@ -426,7 +426,7 @@ def test_deploy_all_streamlit_files_not_defaults(
         "create stage if not exists MockDatabase.MockSchema.streamlit_stage",
         _put_query("main.py", root_path),
         _put_query("streamlit_environment.yml", root_path),
-        _put_query("streamlit_pages/*.py", f"{root_path}/pages"),
+        _put_query("streamlit_pages/*", f"{root_path}/streamlit_pages"),
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
@@ -476,7 +476,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
         f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
-        _put_query("pages/*.py", f"{root_path}/pages"),
+        _put_query("pages/*", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
         REGIONLESS_QUERY,
         f"select current_account_name()",
@@ -541,7 +541,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
         ).strip(),
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
-        _put_query("pages/*.py", f"{root_path}/pages"),
+        _put_query("pages/*", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
         REGIONLESS_QUERY,
         f"select current_account_name()",
@@ -582,7 +582,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
         f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
-        _put_query("pages/*.py", f"{root_path}/pages"),
+        _put_query("pages/*", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
         REGIONLESS_QUERY,
         f"select current_account_name()",
@@ -624,7 +624,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
         f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
-        _put_query("pages/*.py", f"{root_path}/pages"),
+        _put_query("pages/*", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
         REGIONLESS_QUERY,
         f"select current_account_name()",
