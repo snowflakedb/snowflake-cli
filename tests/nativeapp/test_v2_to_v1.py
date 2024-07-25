@@ -91,20 +91,25 @@ from tests.testing_utils.mock_config import mock_config_key
                         "bundle_root": "bundle_root_path",
                         "generated_root": "generated_root_path",
                         "deploy_root": "deploy_root_path",
-                        "distribution": "external",
+                        "scratch_stage": "scratch_stage_path",
                         "meta": {
+                            "role": "pkg_role",
+                            "warehouse": "pkg_wh",
                             "post_deploy": [
                                 {"sql_script": "scripts/script1.sql"},
                                 {"sql_script": "scripts/script2.sql"},
-                            ]
+                            ],
                         },
+                        "distribution": "external",
                     },
                     "app": {
                         "type": "application",
                         "name": "app_name",
                         "from": {"target": "pkg"},
+                        "debug": True,
                         "meta": {
                             "role": "app_role",
+                            "warehouse": "app_wh",
                             "post_deploy": [
                                 {"sql_script": "scripts/script3.sql"},
                                 {"sql_script": "scripts/script4.sql"},
@@ -122,9 +127,12 @@ from tests.testing_utils.mock_config import mock_config_key
                     "bundle_root": "bundle_root_path",
                     "generated_root": "generated_root_path",
                     "deploy_root": "deploy_root_path",
+                    "scratch_stage": "scratch_stage_path",
                     "package": {
                         "name": "pkg_name",
                         "distribution": "external",
+                        "role": "pkg_role",
+                        "warehouse": "pkg_wh",
                         "scripts": [
                             "scripts/script1.sql",
                             "scripts/script2.sql",
@@ -133,6 +141,8 @@ from tests.testing_utils.mock_config import mock_config_key
                     "application": {
                         "name": "app_name",
                         "role": "app_role",
+                        "debug": True,
+                        "warehouse": "app_wh",
                         "post_deploy": [
                             {"sql_script": "scripts/script3.sql"},
                             {"sql_script": "scripts/script4.sql"},
