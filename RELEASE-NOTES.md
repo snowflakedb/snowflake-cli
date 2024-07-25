@@ -18,6 +18,18 @@
 ## Backward incompatibility
 
 ## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v2.7.0
+
+# Unreleased version
+## Backward incompatibility
+
+## Deprecations
 * `snow snowpark init` and `snow streamlit init` are marked as deprecated. The commands are still functional,
 but should be replaced with `snow init`
 ## New additions
