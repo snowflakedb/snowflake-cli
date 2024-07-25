@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 
 from click import ClickException
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.exceptions import FQNInconsistencyError, FQNNameError
 from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierBaseModel
 from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, identifier_for_url
@@ -151,4 +151,4 @@ class FQN:
 
     def using_context(self) -> "FQN":
         """Update the instance with database and schema from connection in current cli context."""
-        return self.using_connection(cli_context.connection)
+        return self.using_connection(get_cli_context().connection)

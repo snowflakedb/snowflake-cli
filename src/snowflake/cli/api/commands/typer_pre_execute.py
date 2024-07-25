@@ -14,13 +14,13 @@
 
 from typing import Callable
 
-from snowflake.cli.api.cli_global_context import cli_context_manager
+from snowflake.cli.api.cli_global_context import get_cli_context_manager
 
 
 def register_pre_execute_command(command: Callable[[], None]) -> None:
-    cli_context_manager.add_typer_pre_execute_commands(command)
+    get_cli_context_manager().add_typer_pre_execute_commands(command)
 
 
 def run_pre_execute_commands() -> None:
-    for command in cli_context_manager.typer_pre_execute_commands:
+    for command in get_cli_context_manager().typer_pre_execute_commands:
         command()

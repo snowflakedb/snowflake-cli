@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import pytest
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 
 
 @pytest.mark.parametrize(
@@ -32,7 +32,7 @@ def test_silent_in_global_context(
 ):
     runner.invoke(command)
 
-    assert cli_context.silent is expected_value
+    assert get_cli_context().silent is expected_value
 
 
 def test_silent_output_help(runner):

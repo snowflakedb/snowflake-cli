@@ -21,7 +21,7 @@ from typing import Optional
 import jinja2
 import typer
 from click import UsageError
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
@@ -172,7 +172,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     loader=jinja2.loaders.FileSystemLoader(self.project_root)
                 )
                 scripts_content_list = self._expand_script_templates(
-                    env, cli_context.template_context, sql_scripts_paths
+                    env, get_cli_context().template_context, sql_scripts_paths
                 )
 
                 for index, sql_script_path in enumerate(sql_scripts_paths):

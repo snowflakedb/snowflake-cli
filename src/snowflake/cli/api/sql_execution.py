@@ -21,7 +21,7 @@ from io import StringIO
 from textwrap import dedent
 from typing import Iterable, Optional, Tuple
 
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
@@ -45,7 +45,7 @@ class SqlExecutionMixin:
 
     @property
     def _conn(self):
-        return cli_context.connection
+        return get_cli_context().connection
 
     @property
     def snowpark_session(self):

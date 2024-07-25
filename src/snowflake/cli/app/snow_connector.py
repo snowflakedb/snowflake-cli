@@ -21,7 +21,7 @@ from typing import Dict, Optional
 
 import snowflake.connector
 from click.exceptions import ClickException
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.config import (
     get_connection_dict,
     get_default_connection_dict,
@@ -75,7 +75,7 @@ def connect_to_snowflake(
         connection_parameters = {}  # we will apply overrides in next step
     else:
         connection_parameters = get_default_connection_dict()
-        cli_context.connection_context.set_connection_name(
+        get_cli_context().connection_context.set_connection_name(
             get_default_connection_name()
         )
 
