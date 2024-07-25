@@ -32,6 +32,7 @@ from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
     ObjectResult,
+    StreamResult,
 )
 from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.api.secure_path import SecurePath
@@ -377,7 +378,6 @@ def app_validate(**options):
 @nativeapp_definition_v2_to_v1
 def app_events(**options):
     """Fetches events for this app from the event table configured in Snowflake."""
-    # WIP: only validates event table setup for now while the command is hidden
     assert_project_type("native_app")
 
     manager = NativeAppManager(
@@ -387,3 +387,22 @@ def app_events(**options):
     events = manager.get_events()
     if not events:
         return MessageResult("No events found.")
+
+    def g():
+        for event in events:
+            yield EventResult(event)
+
+    return StreamResult(g())
+
+
+class EventResult(ObjectResult, MessageResult):
+    """ObjectResult that renders as a custom string when not printed as JSON."""
+
+    @property
+    def message(self):
+        e = self._element
+        return f"{e['TIMESTAMP']} {e['VALUE']}"
+
+    @property
+    def result(self):
+        return self._element
