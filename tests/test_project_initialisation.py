@@ -41,6 +41,9 @@ def test_adds_init_command(mock_copy):
             add_init_command(app, "my_project_type", template="my_template")
             result = runner.invoke(app.create_instance(), ["my_dir"])
         assert result.exit_code == 0
-        assert result.output == "Initialized the new project in my_dir/\n"
+        assert (
+            result.output
+            == "DeprecationWarning: The command 'init' is deprecated.\nInitialized the new project in my_dir/\n"
+        )
 
     mock_copy.assert_called_once_with("my_dir", dirs_exist_ok=True)
