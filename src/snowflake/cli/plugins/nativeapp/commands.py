@@ -64,6 +64,11 @@ from snowflake.cli.plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
     nativeapp_definition_v2_to_v1,
 )
 from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
+from snowflake.cli.plugins.stage.diff import (
+    DiffResult,
+    compute_stage_diff,
+    print_diff_to_console,
+)
 from typing_extensions import Annotated
 
 app = SnowTyperFactory(
@@ -173,7 +178,7 @@ def app_bundle(
     return MessageResult(f"Bundle generated at {manager.deploy_root}")
 
 
-@app.command("hash", requires_connection=True, hidden=True)
+@app.command("hash", hidden=True)
 @with_project_definition()
 @nativeapp_definition_v2_to_v1
 def app_hash(
@@ -206,6 +211,33 @@ def app_hash(
         results.append(dict(path=path, hash=file_hash, is_correct=is_correct))
 
     return CollectionResult(results)
+
+
+@app.command("diff", requires_connection=True, hidden=True)
+@with_project_definition()
+@nativeapp_definition_v2_to_v1
+def app_diff(
+    **options,
+) -> CommandResult:
+    """
+    Diffs the app's source stage with a local folder.
+    """
+    assert_project_type("native_app")
+
+    cli_context = get_cli_context()
+    manager = NativeAppManager(
+        project_definition=cli_context.project_definition.native_app,
+        project_root=cli_context.project_root,
+    )
+    bundle_map = manager.build_bundle()
+    diff: DiffResult = compute_stage_diff(
+        local_root=Path(manager.deploy_root), stage_fqn=manager.stage_fqn
+    )
+    if get_cli_context().output_format == OutputFormat.JSON:
+        return ObjectResult(diff.to_dict())
+    else:
+        print_diff_to_console(diff, bundle_map)
+        return None  # don't print any output
 
 
 @app.command("run", requires_connection=True)

@@ -18,6 +18,11 @@ from snowflake.cli.plugins.stage.md5 import compute_md5sum
 from tests.testing_utils.files_and_dirs import temp_local_dir
 
 
+def test_empty_md5sum():
+    with temp_local_dir({"empty.txt": ""}) as root:
+        assert compute_md5sum(root / "empty.txt") == "d41d8cd98f00b204e9800998ecf8427e"
+
+
 def test_simple_md5sum():
     with temp_local_dir({"README.md": "12345678"}) as root:
         assert compute_md5sum(root / "README.md") == "25d55ad283aa400af464c76d713c07ad"

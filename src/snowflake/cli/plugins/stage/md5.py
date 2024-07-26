@@ -71,6 +71,10 @@ def compute_md5sum(file: Path, chunk_size: int | None = None) -> str:
     # not have access to the encrypted file under checksum.
 
     file_size = os.path.getsize(file)
+    if file_size == 0:
+        # simple md5 with no content
+        return hashlib.md5().hexdigest()
+
     with SecurePath(file).open("rb", read_file_limit_mb=UNLIMITED) as f:
         md5s: List[hashlib._Hash] = []  # noqa: SLF001
         hasher = hashlib.md5()
