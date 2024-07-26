@@ -27,7 +27,7 @@ from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.connector.cursor import DictCursor
 
 from .manager import StageManager
-from .md5 import file_matches_md5sum
+from .md5 import UnknownMD5FormatError, file_matches_md5sum
 
 log = logging.getLogger(__name__)
 
@@ -137,13 +137,21 @@ def compute_stage_diff(
             result.only_local.append(stage_path)
         else:
             # N.B. file size on stage is not always accurate, so cannot fail fast
-            if file_matches_md5sum(local_file, remote_md5[stage_path]):
-                # We are assuming that we will not get accidental collisions here due to the
-                # large space of the md5sum (32 * 4 = 128 bits means 1-in-9-trillion chance)
-                # combined with the fact that the file name + path must also match elsewhere.
-                result.identical.append(stage_path)
-            else:
-                # either the file has changed, or we can't tell if it has
+            try:
+                if file_matches_md5sum(local_file, remote_md5[stage_path]):
+                    # We are assuming that we will not get accidental collisions here due to the
+                    # large space of the md5sum (32 * 4 = 128 bits means 1-in-9-trillion chance)
+                    # combined with the fact that the file name + path must also match elsewhere.
+                    result.identical.append(stage_path)
+                else:
+                    # either the file has changed, or we can't tell if it has
+                    result.different.append(stage_path)
+            except UnknownMD5FormatError:
+                log.warning(
+                    "Could not compare md5 for %s, assuming file has changed",
+                    local_file,
+                    exc_info=True,
+                )
                 result.different.append(stage_path)
 
             # mark this file as seen
