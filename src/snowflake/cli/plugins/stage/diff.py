@@ -14,9 +14,7 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
-import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Collection, Dict, List, Optional, Tuple
@@ -25,14 +23,11 @@ from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
-from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
 from snowflake.connector.cursor import DictCursor
 
 from .manager import StageManager
-
-MD5SUM_REGEX = r"^[A-Fa-f0-9]{32}$"
-CHUNK_SIZE_BYTES = 8192
+from .md5 import file_matches_md5sum
 
 log = logging.getLogger(__name__)
 
@@ -70,45 +65,6 @@ class DiffResult:
             "added": [str(p) for p in sorted(self.only_local)],
             "deleted": [str(p) for p in sorted(self.only_on_stage)],
         }
-
-
-def is_valid_md5sum(checksum: Optional[str]) -> bool:
-    """
-    Could the provided hexadecimal checksum represent a valid md5sum?
-    """
-    if checksum is None:
-        return False
-    return re.match(MD5SUM_REGEX, checksum) is not None
-
-
-def compute_md5sum(file: Path) -> str:
-    """
-    Returns a hexadecimal checksum for the file located at the given path.
-    """
-    if not file.is_file():
-        raise ValueError(
-            "The provided file does not exist or not a (symlink to a) regular file"
-        )
-
-    # FIXME: there are two cases in which this will fail to provide a matching
-    # md5sum, even when the underlying file is the same:
-    #  1. when the stage uses SNOWFLAKE_FULL encryption
-    #  2. when the file was uploaded in multiple parts
-
-    # We can re-create the second if we know what chunk size was used by the
-    # upload process to the backing object store (e.g. S3, azure blob, etc.)
-    # but we cannot re-create the first as the encrpytion key is hidden.
-
-    # We are assuming that we will not get accidental collisions here due to the
-    # large space of the md5sum (32 * 4 = 128 bits means 1-in-9-trillion chance)
-    # combined with the fact that the file name + path must also match elsewhere.
-
-    with SecurePath(file).open("rb", read_file_limit_mb=UNLIMITED) as f:
-        file_hash = hashlib.md5()
-        while chunk := f.read(CHUNK_SIZE_BYTES):
-            file_hash.update(chunk)
-
-    return file_hash.hexdigest()
 
 
 def enumerate_files(path: Path) -> List[Path]:
@@ -175,30 +131,27 @@ def compute_stage_diff(
 
     for local_file in local_files:
         relpath = local_file.relative_to(local_root)
-        stage_filename = to_stage_path(relpath)
-        if stage_filename not in remote_md5:
+        stage_path = to_stage_path(relpath)
+        if stage_path not in remote_md5:
             # doesn't exist on the stage
-            result.only_local.append(stage_filename)
+            result.only_local.append(stage_path)
         else:
-            # N.B. we could compare local size vs remote size to skip the relatively-
-            # expensive md5sum operation, but after seeing a comment that says the value
-            # may not always be correctly populated, we'll ignore that column.
-            stage_md5sum = remote_md5[stage_filename]
-            if is_valid_md5sum(stage_md5sum) and stage_md5sum == compute_md5sum(
-                local_file
-            ):
-                # the file definitely hasn't changed
-                result.identical.append(stage_filename)
+            # N.B. file size on stage is not always accurate, so cannot fail fast
+            if file_matches_md5sum(local_file, remote_md5[stage_path]):
+                # We are assuming that we will not get accidental collisions here due to the
+                # large space of the md5sum (32 * 4 = 128 bits means 1-in-9-trillion chance)
+                # combined with the fact that the file name + path must also match elsewhere.
+                result.identical.append(stage_path)
             else:
                 # either the file has changed, or we can't tell if it has
-                result.different.append(stage_filename)
+                result.different.append(stage_path)
 
             # mark this file as seen
-            del remote_md5[stage_filename]
+            del remote_md5[stage_path]
 
     # every entry here is a file we never saw locally
-    for stage_filename in remote_md5.keys():
-        result.only_on_stage.append(stage_filename)
+    for stage_path in remote_md5.keys():
+        result.only_on_stage.append(stage_path)
 
     return result
 
@@ -232,8 +185,8 @@ def delete_only_on_stage_files(
     """
     Deletes all files from a Snowflake stage according to the input list of filenames, using a custom role.
     """
-    for _stage_filename in only_on_stage:
-        stage_manager.remove(stage_name=stage_fqn, path=str(_stage_filename), role=role)
+    for _stage_path in only_on_stage:
+        stage_manager.remove(stage_name=stage_fqn, path=str(_stage_path), role=role)
 
 
 def put_files_on_stage(
