@@ -55,7 +55,6 @@ def test_large_upload_skips_reupload(
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
 
-        # allows DefinitionManager to resolve the username
         from os import getenv as original_getenv
 
         def mock_getenv(key: str, default: str | None = None) -> str | None:
@@ -64,14 +63,15 @@ def test_large_upload_skips_reupload(
             return original_getenv(key, default)
 
         # figure out what the source stage is resolved to
-        with mock.patch("os.getenv", side_effect=mock_getenv):
-            dm = DefinitionManager(project_dir)
-            native_app = (
-                dm.project_definition.native_app
-                if hasattr(dm.project_definition, "native_app")
-                else _pdf_v2_to_v1(dm.project_definition).native_app
-            )
-            stage_fqn = NativeAppManager(native_app, project_dir).stage_fqn
+        with mock.patch.dict(os.environ, {"USER": USER_NAME}):  # for DefinitionManager
+            with mock.patch("os.getenv", side_effect=mock_getenv):  # for ctx.env
+                dm = DefinitionManager(project_dir)
+                native_app = (
+                    dm.project_definition.native_app
+                    if hasattr(dm.project_definition, "native_app")
+                    else _pdf_v2_to_v1(dm.project_definition).native_app
+                )
+                stage_fqn = NativeAppManager(native_app, project_dir).stage_fqn
 
         # deploy the application package
         result = runner.invoke_with_connection_json(
