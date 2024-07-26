@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import itertools
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
@@ -96,6 +97,16 @@ class NotInDeployRootError(ClickException):
         self.dest_path = dest_path
         self.deploy_root = deploy_root
         self.src_path = src_path
+
+
+@dataclass
+class BundleContext:
+    package_name: str
+    artifacts: List[PathMapping]
+    project_root: Path
+    bundle_root: Path
+    deploy_root: Path
+    generated_root: Path
 
 
 ArtifactPredicate = Callable[[Path, Path], bool]

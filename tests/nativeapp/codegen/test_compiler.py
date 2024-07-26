@@ -17,6 +17,7 @@ import pytest
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
+from snowflake.cli.plugins.nativeapp.artifacts import BundleContext
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     UnsupportedArtifactProcessorError,
 )
@@ -60,12 +61,14 @@ def test_proj_def():
 def test_compiler(test_proj_def):
     na_project = create_native_app_project_model(test_proj_def.native_app)
     return NativeAppCompiler(
-        na_project.package_name,
-        na_project.artifacts,
-        na_project.project_root,
-        na_project.bundle_root,
-        na_project.deploy_root,
-        na_project.generated_root,
+        BundleContext(
+            package_name=na_project.package_name,
+            artifacts=na_project.artifacts,
+            project_root=na_project.project_root,
+            bundle_root=na_project.bundle_root,
+            deploy_root=na_project.deploy_root,
+            generated_root=na_project.generated_root,
+        )
     )
 
 
@@ -99,12 +102,14 @@ def test_find_and_execute_processors_exception(test_proj_def, test_compiler):
         project_definition=test_proj_def.native_app
     )
     test_compiler = NativeAppCompiler(
-        app_pkg.package_name,
-        app_pkg.artifacts,
-        app_pkg.project_root,
-        app_pkg.bundle_root,
-        app_pkg.deploy_root,
-        app_pkg.generated_root,
+        BundleContext(
+            package_name=app_pkg.package_name,
+            artifacts=app_pkg.artifacts,
+            project_root=app_pkg.project_root,
+            bundle_root=app_pkg.bundle_root,
+            deploy_root=app_pkg.deploy_root,
+            generated_root=app_pkg.generated_root,
+        )
     )
 
     with pytest.raises(UnsupportedArtifactProcessorError):

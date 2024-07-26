@@ -22,6 +22,7 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.project.schemas.native_app.path_mapping import ProcessorMapping
+from snowflake.cli.plugins.nativeapp.artifacts import BundleContext
 from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     ExecutionEnvironmentType,
     SandboxExecutionError,
@@ -354,11 +355,14 @@ def test_process_no_collected_functions(
                 project_root=local_path,
             )
             processor = SnowparkAnnotationProcessor(
-                project.package_name,
-                project.project_root,
-                project.deploy_root,
-                project.bundle_root,
-                project.generated_root,
+                BundleContext(
+                    package_name=project.package_name,
+                    artifacts=project.artifacts,
+                    project_root=project.project_root,
+                    deploy_root=project.deploy_root,
+                    bundle_root=project.bundle_root,
+                    generated_root=project.generated_root,
+                )
             )
             processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
@@ -412,11 +416,14 @@ def test_process_with_collected_functions(
                 project_root=local_path,
             )
             processor = SnowparkAnnotationProcessor(
-                project.package_name,
-                project.project_root,
-                project.deploy_root,
-                project.bundle_root,
-                project.generated_root,
+                BundleContext(
+                    package_name=project.package_name,
+                    artifacts=project.artifacts,
+                    project_root=project.project_root,
+                    deploy_root=project.deploy_root,
+                    bundle_root=project.bundle_root,
+                    generated_root=project.generated_root,
+                )
             )
             processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
@@ -478,11 +485,14 @@ def test_package_normalization(
                 project_root=local_path,
             )
             processor = SnowparkAnnotationProcessor(
-                project.package_name,
-                project.project_root,
-                project.deploy_root,
-                project.bundle_root,
-                project.generated_root,
+                BundleContext(
+                    package_name=project.package_name,
+                    artifacts=project.artifacts,
+                    project_root=project.project_root,
+                    deploy_root=project.deploy_root,
+                    bundle_root=project.bundle_root,
+                    generated_root=project.generated_root,
+                )
             )
             processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
