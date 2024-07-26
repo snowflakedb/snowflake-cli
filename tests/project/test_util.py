@@ -240,10 +240,10 @@ def test_escape_like_pattern(raw_string, escaped):
     [
         # both unquoted, no special char -> result unquoted
         ("Id_1", "_Id_2", "Id_1_Id_2"),
-        # both unquoted, one with special char -> result unquoted
-        ('Id_1."', "_Id_2", 'Id_1."_Id_2'),
-        # both unquoted, one with special char -> result unquoted
-        ("Id_1", '_Id_2."', 'Id_1_Id_2."'),
+        # both unquoted, one with special char -> result quoted
+        ('Id_1."', "_Id_2", '"Id_1.""_Id_2"'),
+        # both unquoted, one with special char -> result quoted
+        ("Id_1", '_Id_2."', '"Id_1_Id_2."""'),
         # one quoted, no special chars -> result quoted
         ('"Id_1"', "_Id_2", '"Id_1_Id_2"'),
         # one quoted, no special chars -> result quoted
@@ -253,8 +253,8 @@ def test_escape_like_pattern(raw_string, escaped):
         # quoted with valid 2 double quotes within -> result quoted
         ('"Id_""_1"', '"_""_Id_2"', '"Id_""_1_""_Id_2"'),
         # quoted with invalid single double quotes within
-        # -> result unquoted, and original quotes not removed
-        ('"Id_"_1"', '"_"_Id_2"', '"Id_"_1""_"_Id_2"'),
+        # -> result quoted, and original quotes escaped
+        ('"Id_"_1"', '"_"_Id_2"', '"""Id_""_1""""_""_Id_2"""'),
         # one quoted with invalid single double quotes within and other properly quoted
         # -> result quoted, double quotes escaped
         ('"Id_"_1"', '"_Id_2"', '"""Id_""_1""_Id_2"'),
@@ -265,7 +265,7 @@ def test_escape_like_pattern(raw_string, escaped):
     ],
 )
 def test_concat_identifiers(id1, id2, concatenated_value):
-    assert concat_identifiers(id1, id2) == concatenated_value
+    assert concat_identifiers([id1, id2]) == concatenated_value
 
 
 @pytest.mark.parametrize(

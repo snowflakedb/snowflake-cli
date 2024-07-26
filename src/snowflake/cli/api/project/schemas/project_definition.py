@@ -104,10 +104,9 @@ class DefinitionV11(DefinitionV10):
     native_app: Optional[NativeAppV11] = Field(
         title="Native app definitions for the project", default=None
     )
-    env: Union[Dict[str, Union[str, int, bool]], None] = Field(
-        title="Environment specification for this project.",
+    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
+        title="Default environment specification for this project.",
         default=None,
-        validation_alias="env",
     )
 
 
@@ -168,10 +167,9 @@ class DefinitionV20(_ProjectDefinitionBase):
         default=None,
     )
 
-    env: Union[Dict[str, Union[str, int, bool]], None] = Field(
-        title="Environment specification for this project.",
+    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
+        title="Default environment specification for this project.",
         default=None,
-        validation_alias="env",
     )
 
 

@@ -35,10 +35,12 @@ class ProjectEnvironment:
     default_env: Dict[str, Any]
 
     def __init__(
-        self, default_env: Dict[str, Any], override_env: Optional[Dict[str, Any]] = None
+        self,
+        default_env: Optional[Dict[str, Any]] = None,
+        override_env: Optional[Dict[str, Any]] = None,
     ):
         self.override_env = override_env or {}
-        self.default_env = default_env
+        self.default_env = default_env or {}
 
     def __getitem__(self, item):
         if item in self.override_env:

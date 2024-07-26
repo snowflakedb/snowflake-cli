@@ -17,12 +17,12 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-import snowflake.cli.api.utils.definition_rendering as definition_rendering
 from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
 from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 from snowflake.cli.api.utils.models import ProjectEnvironment
+from snowflake.cli.api.utils.templating_functions import get_templating_functions
 
 from tests.nativeapp.utils import NATIVEAPP_MODULE
 
@@ -41,7 +41,7 @@ def test_resolve_variables_in_project_no_cross_variable_dependencies():
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -65,7 +65,7 @@ def test_resolve_variables_in_project_cross_variable_dependencies():
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -144,7 +144,7 @@ def test_no_warning_in_version_1_1(warning_mock, current_sanitized_username):
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "native_app": {
@@ -194,7 +194,7 @@ def test_resolve_variables_in_project_cross_project_dependencies():
     }
     result = render_definition_template(definition, {}).project_context
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "streamlit": {
@@ -233,7 +233,7 @@ def test_resolve_variables_in_project_environment_variables_precedence():
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -267,7 +267,7 @@ def test_env_variables_do_not_get_resolved(current_sanitized_username):
     }
     result = render_definition_template(definition, {}).project_context
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "native_app": {
@@ -279,11 +279,11 @@ def test_env_variables_do_not_get_resolved(current_sanitized_username):
                 "scratch_stage": "app_src.stage_snowflake_cli_scratch",
                 "source_stage": "app_src.stage",
                 "package": {
-                    "name": f"test_source_<% ctx.definition_version %>_pkg_{current_sanitized_username}",
+                    "name": f'"test_source_<% ctx.definition_version %>_pkg_{current_sanitized_username}"',
                     "distribution": "internal",
                 },
                 "application": {
-                    "name": f"test_source_<% ctx.definition_version %>_{current_sanitized_username}"
+                    "name": f'"test_source_<% ctx.definition_version %>_{current_sanitized_username}"'
                 },
             },
             "env": ProjectEnvironment(
@@ -394,7 +394,7 @@ def test_resolve_variables_blank_is_ok(current_sanitized_username):
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "native_app": {
@@ -501,7 +501,7 @@ def test_injected_yml_in_env_should_not_be_expanded():
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -577,7 +577,7 @@ def test_env_priority_from_cli_and_os_env_and_project_env():
     ).project_context
 
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -606,7 +606,7 @@ def test_values_env_from_only_overrides():
     ).project_context
 
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -629,7 +629,7 @@ def test_cli_env_var_blank():
     ).project_context
 
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -652,7 +652,7 @@ def test_cli_env_var_does_not_expand_with_templating():
     ).project_context
 
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
@@ -702,7 +702,7 @@ def test_non_str_scalar_with_templates(current_sanitized_username):
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "native_app": {
@@ -758,7 +758,7 @@ def test_field_with_custom_validation_with_templates(current_sanitized_username)
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
-        "fn": definition_rendering.templating_functions,
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "native_app": {
@@ -811,7 +811,7 @@ def test_field_with_custom_validation_with_templates_and_invalid_value():
         # valid quoted id with double quotes char
         ('"name_""_"', '"name_""__{user}"', '"name_""__pkg_{user}"'),
         # unquoted ID with unsafe char
-        ("unsafe.name", "unsafe.name_{user}", "unsafe.name_pkg_{user}"),
+        ("unsafe.name", '"unsafe.name_{user}"', '"unsafe.name_pkg_{user}"'),
     ],
 )
 @mock.patch.dict(os.environ, {}, clear=True)
@@ -839,3 +839,214 @@ def test_defaults_native_app_pkg_name(
     env = project_context.get("ctx", {}).get("env", {})
     assert env.get("app_reference") == expected_app_name
     assert env.get("pkg_reference") == expected_pkg_name
+
+
+def test_template_unknown_function():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value": "<% fn.unknown_func('hello') %>",
+        },
+    }
+
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition, {})
+
+    assert "Could not find template variable fn.unknown_func" in err.value.message
+
+
+@pytest.mark.parametrize(
+    "input_list, expected_output",
+    [
+        # test concatenate a constant with a variable -> quoted
+        (["'first_'", "ctx.definition_version"], '"first_1.1"'),
+        # test concatenate valid unquoted values  -> non-quoted
+        (["'first_'", "'second'"], "first_second"),
+        # test concatenate unquoted ids with unsafe chars -> quoted
+        (["'first.'", "'second'"], '"first.second"'),
+        # all safe chars, one with quoted id -> quoted
+        (["'first_'", "'second_'", "'\"third\"'"], '"first_second_third"'),
+        # one word, unsafe chars -> quoted
+        (["'first.'"], '"first."'),
+        # one word, safe chars -> non-quoted
+        (["'first'"], "first"),
+    ],
+)
+def test_id_concat_with_valid_values(input_list, expected_output):
+    input_list_str = ", ".join(input_list)
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value": f"<% fn.id_concat({input_list_str}) %>",
+        },
+    }
+
+    result = render_definition_template(definition, {}).project_context
+    env = result.get("ctx", {}).get("env", {})
+    assert env.get("value") == expected_output
+
+
+def test_id_concat_with_no_args():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value": f"<% fn.id_concat() %>",
+        },
+    }
+
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition, {})
+
+    assert "id_concat requires at least 1 argument(s)" in err.value.message
+
+
+def test_id_concat_with_non_string_arg():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value": "<% fn.id_concat(123) %>",
+        },
+    }
+
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition, {})
+
+    assert "id_concat only accepts String values" in err.value.message
+
+
+@pytest.mark.parametrize(
+    "input_val, expected_output",
+    [
+        # unquoted safe -> unchanged
+        ("first", "first"),
+        # unquoted unsafe -> unchanged
+        ("first.second", "first.second"),
+        # looks like quoted but invalid -> unchanged
+        ('"first"second"', '"first"second"'),
+        # valid quoted -> unquoted
+        ('"first""second"', 'first"second'),
+    ],
+)
+def test_id_to_str_valid_values(input_val, expected_output):
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value_input": input_val,
+            "value_output": "<% fn.id_to_str(ctx.env.value_input) %>",
+        },
+    }
+
+    result = render_definition_template(definition, {}).project_context
+    env = result.get("ctx", {}).get("env", {})
+    assert env.get("value_output") == expected_output
+
+
+def test_id_to_str_with_no_args():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value": "<% fn.id_to_str() %>",
+        },
+    }
+
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition, {})
+
+    assert "id_to_str requires at least 1 argument(s)" in err.value.message
+
+
+def test_id_to_str_with_two_args():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value": "<% fn.id_to_str('a', 'b') %>",
+        },
+    }
+
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition, {})
+
+    assert "id_to_str supports at most 1 argument(s)" in err.value.message
+
+
+def test_id_to_str_with_non_string_arg():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value": "<% fn.id_to_str(123) %>",
+        },
+    }
+
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition, {})
+
+    assert "id_to_str only accepts String values" in err.value.message
+
+
+@pytest.mark.parametrize(
+    "input_val, expected_output",
+    [
+        # unquoted safe -> unchanged
+        ("first", "first"),
+        # unquoted unsafe -> quoted
+        ("first.second", '"first.second"'),
+        # looks like quoted but invalid -> quote it and escape
+        ('"first"second"', '"""first""second"""'),
+        # valid quoted -> unchanged
+        ('"first""second"', '"first""second"'),
+    ],
+)
+def test_str_to_id_valid_values(input_val, expected_output):
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value_input": input_val,
+            "value_output": "<% fn.str_to_id(ctx.env.value_input) %>",
+        },
+    }
+
+    result = render_definition_template(definition, {}).project_context
+    env = result.get("ctx", {}).get("env", {})
+    assert env.get("value_output") == expected_output
+
+
+def test_str_to_id_with_no_args():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value": "<% fn.str_to_id() %>",
+        },
+    }
+
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition, {})
+
+    assert "str_to_id requires at least 1 argument(s)" in err.value.message
+
+
+def test_str_to_id_with_two_args():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value": "<% fn.str_to_id('a', 'b') %>",
+        },
+    }
+
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition, {})
+
+    assert "str_to_id supports at most 1 argument(s)" in err.value.message
+
+
+def test_str_to_id_with_non_string_arg():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value": "<% fn.str_to_id(123) %>",
+        },
+    }
+
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition, {})
+
+    assert "str_to_id only accepts String values" in err.value.message

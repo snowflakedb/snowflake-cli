@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import AliasChoices, Field
+from pydantic import Field
 from snowflake.cli.api.project.schemas.entities.application_package_entity import (
     ApplicationPackageEntity,
 )
@@ -36,7 +36,6 @@ class ApplicationEntity(EntityBase):
     )
     from_: TargetField[ApplicationPackageEntity] = Field(
         alias="from",
-        validation_alias=AliasChoices("from"),
         title="An application package this entity should be created from",
     )
     debug: Optional[bool] = Field(

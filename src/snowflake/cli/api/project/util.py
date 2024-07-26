@@ -17,7 +17,7 @@ from __future__ import annotations
 import codecs
 import os
 import re
-from typing import Optional
+from typing import List, Optional
 from urllib.parse import quote
 
 IDENTIFIER = r'((?:"[^"]*(?:""[^"]*)*")|(?:[A-Za-z_][\w$]{0,254}))'
@@ -202,25 +202,25 @@ def get_sanitized_username():
     return clean_identifier(get_env_username() or DEFAULT_USERNAME)
 
 
-def concat_identifiers(identifier1: str, identifier2: str) -> str:
+def concat_identifiers(identifiers: list[str]) -> str:
     """
-    Concatenate 2 identifiers.
-    If any of them is quoted identifier, quote the result.
-    If none of them is quoted, the resulting identifier will be unquoted (even if invalid)
+    Concatenate multiple identifiers.
+    If any of them is quoted identifier or contains unsafe characters, quote the result.
+    Otherwise, the resulting identifier will be unquoted.
     """
-    quoted_found = False
-    if is_valid_quoted_identifier(identifier1):
-        identifier1 = identifier_to_str(identifier1)
-        quoted_found = True
+    quotes_found = False
+    stringified_identifiers: List[str] = []
 
-    if is_valid_quoted_identifier(identifier2):
-        identifier2 = identifier_to_str(identifier2)
-        quoted_found = True
+    for identifier in identifiers:
+        if is_valid_quoted_identifier(identifier):
+            quotes_found = True
+        stringified_identifiers.append(identifier_to_str(identifier))
 
-    if quoted_found:
-        return quote_identifier(f"{identifier1}{identifier2}")
+    concatenated_ids_str = "".join(stringified_identifiers)
+    if quotes_found:
+        return quote_identifier(concatenated_ids_str)
 
-    return f"{identifier1}{identifier2}"
+    return to_identifier(concatenated_ids_str)
 
 
 SUPPORTED_VERSIONS = [1]
