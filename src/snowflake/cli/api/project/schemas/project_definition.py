@@ -173,7 +173,11 @@ class DefinitionV20(_ProjectDefinitionBase):
     )
 
 
-def build_project_definition(**data) -> ProjectDefinition:
+    def get_entities_by_type(self, entity_type: str):
+        return {i: e for i, e in self.entities.items() if e.get_type() == entity_type}
+
+
+def build_project_definition(**data)-> ProjectDefinition:
     """
     Returns a ProjectDefinition instance with a version matching the provided definition_version value
     """

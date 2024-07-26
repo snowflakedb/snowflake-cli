@@ -26,16 +26,18 @@ from tests_integration.testing_utils import assert_that_result_is_successful
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize("pdf_version", ["1", "2"])
 def test_streamlit_deploy(
     runner,
     snowflake_session,
     test_database,
     _new_streamlit_role,
     project_directory,
+    pdf_version,
 ):
     streamlit_name = "test_streamlit_deploy_snowcli"
 
-    with project_directory("streamlit"):
+    with project_directory(f"streamlit_v{pdf_version}"):
         result = runner.invoke_with_connection_json(["streamlit", "deploy"])
         assert result.exit_code == 0
 
@@ -93,16 +95,18 @@ def test_streamlit_deploy(
 @pytest.mark.skip(
     reason="only works in accounts with experimental checkout behavior enabled"
 )
+@pytest.mark.parametrize("pdf_version", ["1", "2"])
 def test_streamlit_deploy_experimental_twice(
     runner,
     snowflake_session,
     test_database,
     _new_streamlit_role,
     project_directory,
+    pdf_version,
 ):
     streamlit_name = "test_streamlit_deploy_snowcli"
 
-    with project_directory("streamlit"):
+    with project_directory(f"streamlit_v{pdf_version}"):
         result = runner.invoke_with_connection_json(
             ["streamlit", "deploy", "--experimental"]
         )
@@ -163,8 +167,16 @@ def test_streamlit_deploy_experimental_twice(
 
 
 @pytest.mark.integration
-def test_fully_qualified_name(
-    alter_snowflake_yml, test_database, project_directory, runner, snapshot
+@pytest.mark.parametrize(
+    "pdf_version, param_path", [("1", "streamlit"), ("2", "entities.my_streamlit")]
+)
+def test_fully_qualified_name_v1(
+    alter_snowflake_yml,
+    test_database,
+    project_directory,
+    runner,
+    pdf_version,
+    param_path,
 ):
     default_schema = "PUBLIC"
     different_schema = "TOTALLY_DIFFERENT_SCHEMA"
@@ -177,14 +189,14 @@ def test_fully_qualified_name(
     )
 
     # test fully qualified name as name
-    with project_directory("streamlit") as tmp_dir:
+    with project_directory(f"streamlit_v{pdf_version}") as tmp_dir:
         streamlit_name = "streamlit_fqn"
         snowflake_yml = tmp_dir / "snowflake.yml"
 
         # FQN with "default" values
         alter_snowflake_yml(
             snowflake_yml,
-            parameter_path="streamlit.name",
+            parameter_path=f"{param_path}.name",
             value=f"{database}.{default_schema}.{streamlit_name}",
         )
         result = runner.invoke_with_connection_json(["streamlit", "deploy"])
@@ -197,7 +209,7 @@ def test_fully_qualified_name(
         # FQN with different schema - should not conflict
         alter_snowflake_yml(
             snowflake_yml,
-            parameter_path="streamlit.name",
+            parameter_path=f"{param_path}.name",
             value=f"{database}.{different_schema}.{streamlit_name}",
         )
         result = runner.invoke_with_connection_json(["streamlit", "deploy"])
@@ -210,7 +222,7 @@ def test_fully_qualified_name(
         # FQN with just schema provided - should require update
         alter_snowflake_yml(
             snowflake_yml,
-            parameter_path="streamlit.name",
+            parameter_path=f"{param_path}.name",
             value=f"{different_schema}.{streamlit_name}",
         )
         result = runner.invoke_with_connection(
@@ -220,12 +232,12 @@ def test_fully_qualified_name(
         # Same if name is not fqn but schema is specified
         alter_snowflake_yml(
             snowflake_yml,
-            parameter_path="streamlit.name",
+            parameter_path=f"{param_path}.name",
             value=streamlit_name,
         )
         alter_snowflake_yml(
             snowflake_yml,
-            parameter_path="streamlit.schema",
+            parameter_path=f"{param_path}.schema",
             value=different_schema,
         )
         result = runner.invoke_with_connection(
