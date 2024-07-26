@@ -21,7 +21,7 @@ from unittest import mock
 
 import pytest
 from rich import box
-from snowflake.cli.api.cli_global_context import cli_context_manager
+from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.commands.decorators import global_options, with_output
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.console import cli_console
@@ -72,6 +72,7 @@ def os_agnostic_snapshot(snapshot):
 def reset_global_context_and_setup_config_and_logging_levels(
     request, test_snowcli_config
 ):
+    cli_context_manager = get_cli_context_manager()
     cli_context_manager.reset()
     cli_context_manager.set_verbose(False)
     cli_context_manager.set_enable_tracebacks(False)

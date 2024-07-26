@@ -18,7 +18,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import List, Optional
 
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.project.definition import (
     default_app_package,
     default_application,
@@ -35,7 +35,7 @@ from snowflake.connector import DictCursor
 
 
 def current_role() -> str:
-    conn = cli_context.connection
+    conn = get_cli_context().connection
     *_, cursor = conn.execute_string("select current_role()", cursor_class=DictCursor)
     role_result = cursor.fetchone()
     return role_result["CURRENT_ROLE()"]
@@ -107,6 +107,7 @@ class NativeAppProjectModel:
         if self.definition.package and self.definition.package.warehouse:
             return to_identifier(self.definition.package.warehouse)
         else:
+            cli_context = get_cli_context()
             if cli_context.connection.warehouse:
                 return to_identifier(cli_context.connection.warehouse)
             return None
@@ -116,6 +117,7 @@ class NativeAppProjectModel:
         if self.definition.application and self.definition.application.warehouse:
             return to_identifier(self.definition.application.warehouse)
         else:
+            cli_context = get_cli_context()
             if cli_context.connection.warehouse:
                 return to_identifier(cli_context.connection.warehouse)
             return None
