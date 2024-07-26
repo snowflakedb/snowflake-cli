@@ -272,7 +272,7 @@ def _template_version_warning():
     )
 
 
-def _add_defaults_to_definition(definition: Definition):
+def _add_defaults_to_definition(definition: Definition) -> Definition:
     with context({"skip_validation_on_templates": True}):
         # pass a flag to Pydantic to skip validation for templated scalars
         # populate the defaults
