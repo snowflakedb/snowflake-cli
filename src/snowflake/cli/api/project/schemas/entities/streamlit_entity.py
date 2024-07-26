@@ -38,7 +38,8 @@ class StreamlitEntity(EntityBase, ObjectIdentifierModel(object_name="Streamlit")
     )
     # Possibly can be PathMapping
     artifacts: Optional[List[Path]] = Field(
-        title="List of additional files which should be included into deployment artifacts",
+        title="List of files which should be deployed. Each file needs exist locally. "
+        "Main file needs be included in artifacts.",
         default=None,
     )
 
