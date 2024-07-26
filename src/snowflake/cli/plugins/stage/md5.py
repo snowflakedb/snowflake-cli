@@ -45,7 +45,7 @@ def is_md5sum(checksum: str) -> bool:
     return re.match(MD5SUM_REGEX, checksum) is not None
 
 
-def get_multipart_md5sum(checksum: str) -> Tuple[str, int] | None:
+def parse_multipart_md5sum(checksum: str) -> Tuple[str, int] | None:
     """
     Does this represent a multi-part md5sum (i.e. "<md5>-<n>")?
     If so, returns the tuple (md5, n), otherwise None.
@@ -121,7 +121,7 @@ def file_matches_md5sum(local_file: Path, remote_md5: str | None) -> bool:
         # regular hash
         return compute_md5sum(local_file) == remote_md5
 
-    if md5_and_chunks := get_multipart_md5sum(remote_md5):
+    if md5_and_chunks := parse_multipart_md5sum(remote_md5):
         # multi-part hash (e.g. aws)
         (_, num_chunks) = md5_and_chunks
         file_size = os.path.getsize(local_file)
