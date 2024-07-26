@@ -178,41 +178,6 @@ def app_bundle(
     return MessageResult(f"Bundle generated at {manager.deploy_root}")
 
 
-@app.command("hash", hidden=True)
-@with_project_definition()
-@nativeapp_definition_v2_to_v1
-def app_hash(
-    **options,
-) -> CommandResult:
-    """
-    Test command to see what local hashes look like.
-    """
-    import os.path
-
-    from snowflake.cli.plugins.stage.md5 import compute_md5sum, file_matches_md5sum
-
-    chunk_size = 8 * 1024 * 1024
-    threshold = 200 * 1024 * 1024
-
-    assert_project_type("native_app")
-
-    cli_context = get_cli_context()
-    manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
-        project_root=cli_context.project_root,
-    )
-    bundle = manager.build_bundle()
-
-    results = []
-    for path in bundle.all_sources():
-        file_size = os.path.getsize(path)
-        file_hash = compute_md5sum(path, chunk_size if file_size >= threshold else None)
-        is_correct = file_matches_md5sum(path, file_hash)
-        results.append(dict(path=path, hash=file_hash, is_correct=is_correct))
-
-    return CollectionResult(results)
-
-
 @app.command("diff", requires_connection=True, hidden=True)
 @with_project_definition()
 @nativeapp_definition_v2_to_v1
@@ -220,7 +185,7 @@ def app_diff(
     **options,
 ) -> CommandResult:
     """
-    Diffs the app's source stage with a local folder.
+    Performs a diff between the app's source stage and the local deploy root.
     """
     assert_project_type("native_app")
 
