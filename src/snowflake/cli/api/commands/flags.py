@@ -372,6 +372,7 @@ def _diag_log_path_callback(path: str):
 
 
 DiagLogPathOption: Path = typer.Option(
+    # set default via callback to avoid including tempdir path in generated docs (snow --docs)
     None,
     "--diag-log-path",
     help="Diagnostic report path",
