@@ -24,12 +24,12 @@ from snowflake.cli.api.utils.models import ProjectEnvironment
 @pytest.fixture
 def cli_context():
     with mock.patch(
-        "snowflake.cli.api.rendering.sql_templates.cli_context"
+        "snowflake.cli.api.rendering.sql_templates.get_cli_context"
     ) as cli_context:
-        cli_context.template_context = {
+        cli_context().template_context = {
             "ctx": {"env": ProjectEnvironment(default_env={}, override_env={})}
         }
-        yield cli_context
+        yield cli_context()
 
 
 def test_rendering_with_data(cli_context):

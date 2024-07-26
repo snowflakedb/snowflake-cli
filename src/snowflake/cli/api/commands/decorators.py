@@ -19,7 +19,7 @@ from functools import wraps
 from inspect import Signature
 from typing import Callable, Dict, List, Optional, get_type_hints
 
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     AccountOption,
     AuthenticatorOption,
@@ -127,6 +127,7 @@ def with_experimental_behaviour(
 def _execute_before_command_using_global_options(**options):
     from snowflake.cli.app.loggers import create_loggers
 
+    cli_context = get_cli_context()
     create_loggers(cli_context.verbose, cli_context.enable_tracebacks)
 
 

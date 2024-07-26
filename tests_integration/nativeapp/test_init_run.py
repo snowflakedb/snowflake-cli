@@ -38,15 +38,15 @@ TEST_ENV = generate_user_env(USER_NAME)
 # Tests a simple flow of initiating a new project, executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("definition_version", ["v1", "v2"])
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_init_run_without_modifications(
-    definition_version,
+    test_project,
     project_directory,
     runner,
     snowflake_session,
 ):
     project_name = "myapp"
-    with project_directory(f"napp_init_{definition_version}"):
+    with project_directory(test_project):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
@@ -169,15 +169,15 @@ def test_nativeapp_run_existing(
 # Tests a simple flow of initiating a project, executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("definition_version", ["v1", "v2"])
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_init_run_handles_spaces(
-    definition_version,
+    test_project,
     project_directory,
     runner,
     snowflake_session,
 ):
     project_name = "myapp"
-    with project_directory(f"napp_init_{definition_version}"):
+    with project_directory(test_project):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
@@ -329,9 +329,9 @@ def test_nativeapp_run_existing_w_external(
 # Verifies that running "app run" after "app deploy" upgrades the app
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("definition_version", ["v1", "v2"])
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_run_after_deploy(
-    definition_version,
+    test_project,
     project_directory,
     runner,
 ):
@@ -339,7 +339,7 @@ def test_nativeapp_run_after_deploy(
     app_name = f"{project_name}_{USER_NAME}"
     stage_fqn = f"{project_name}_pkg_{USER_NAME}.app_src.stage"
 
-    with project_directory(f"napp_init_{definition_version}"):
+    with project_directory(test_project):
         try:
             # Run #1
             result = runner.invoke_with_connection_json(
@@ -423,14 +423,17 @@ def test_nativeapp_init_from_repo_with_single_template(
 # Tests that application post-deploy scripts are executed by creating a post_deploy_log table and having each post-deploy script add a record to it
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("definition_version", ["v1", "v2"])
+@pytest.mark.parametrize(
+    "test_project",
+    ["napp_application_post_deploy_v1", "napp_application_post_deploy_v2"],
+)
 @pytest.mark.parametrize("is_versioned", [True, False])
 @pytest.mark.parametrize("with_project_flag", [True, False])
 def test_nativeapp_app_post_deploy(
     runner,
     snowflake_session,
     project_directory,
-    definition_version,
+    test_project,
     is_versioned,
     with_project_flag,
 ):
@@ -438,9 +441,7 @@ def test_nativeapp_app_post_deploy(
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
 
-    with project_directory(
-        f"napp_application_post_deploy_{definition_version}"
-    ) as tmp_dir:
+    with project_directory(test_project) as tmp_dir:
         version_run_args = ["--version", version] if is_versioned else []
         project_args = ["--project", f"{tmp_dir}"] if with_project_flag else []
 
@@ -637,7 +638,7 @@ def test_nativeapp_run_orphan(
 # TODO: add back all parameterizations and implement --force for "app teardown"
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("definition_version", ["v1", "v2"])
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 @pytest.mark.parametrize(
     "run_args_from, run_args_to",
     [
@@ -653,7 +654,7 @@ def test_nativeapp_run_orphan(
     ],
 )
 def test_nativeapp_force_cross_upgrade(
-    definition_version,
+    test_project,
     project_directory,
     run_args_from,
     run_args_to,
@@ -663,7 +664,7 @@ def test_nativeapp_force_cross_upgrade(
     app_name = f"{project_name}_{USER_NAME}"
     pkg_name = f"{project_name}_pkg_{USER_NAME}"
 
-    with project_directory(f"napp_init_{definition_version}"):
+    with project_directory(test_project):
         try:
             # Create version
             result = runner.invoke_with_connection(
