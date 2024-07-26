@@ -179,3 +179,8 @@ def reset_global_context_after_each_test(request):
 @pytest.fixture(autouse=True)
 def isolate_snowflake_home(snowflake_home):
     yield snowflake_home
+
+
+@pytest.fixture(autouse=True)
+def env_setup(monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2", "true")
