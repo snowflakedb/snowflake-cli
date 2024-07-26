@@ -49,7 +49,8 @@ def test_large_upload_skips_reupload(
     project_definition_files: List[Path],
 ):
     """
-    Ensure that files uploaded using a multi-part .
+    Ensure that files uploaded in multiple parts are not re-uploaded unnecessarily.
+    This test will currently fail when run on a non-AWS deployment.
     """
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
