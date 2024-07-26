@@ -58,8 +58,14 @@ def test_proj_def():
 
 @pytest.fixture()
 def test_compiler(test_proj_def):
+    na_project = create_native_app_project_model(test_proj_def.native_app)
     return NativeAppCompiler(
-        na_project=create_native_app_project_model(test_proj_def.native_app)
+        na_project.package_name,
+        na_project.artifacts,
+        na_project.project_root,
+        na_project.bundle_root,
+        na_project.deploy_root,
+        na_project.generated_root,
     )
 
 
@@ -92,7 +98,14 @@ def test_find_and_execute_processors_exception(test_proj_def, test_compiler):
     app_pkg = create_native_app_project_model(
         project_definition=test_proj_def.native_app
     )
-    test_compiler = NativeAppCompiler(na_project=app_pkg)
+    test_compiler = NativeAppCompiler(
+        app_pkg.package_name,
+        app_pkg.artifacts,
+        app_pkg.project_root,
+        app_pkg.bundle_root,
+        app_pkg.deploy_root,
+        app_pkg.generated_root,
+    )
 
     with pytest.raises(UnsupportedArtifactProcessorError):
         test_compiler.compile_artifacts()

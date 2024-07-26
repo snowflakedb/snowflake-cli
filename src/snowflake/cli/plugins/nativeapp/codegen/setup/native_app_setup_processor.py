@@ -35,7 +35,6 @@ from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     SandboxEnvBuilder,
     execute_script_in_sandbox,
 )
-from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 from snowflake.cli.plugins.stage.diff import to_stage_path
 
 DEFAULT_TIMEOUT = 30
@@ -43,11 +42,8 @@ DRIVER_PATH = Path(__file__).parent / "setup_driver.py.source"
 
 
 class NativeAppSetupProcessor(ArtifactProcessor):
-    def __init__(
-        self,
-        na_project: NativeAppProjectModel,
-    ):
-        super().__init__(na_project=na_project)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def process(
         self,
@@ -59,8 +55,8 @@ class NativeAppSetupProcessor(ArtifactProcessor):
         Processes a Python setup script and generates the corresponding SQL commands.
         """
         bundle_map = BundleMap(
-            project_root=self._na_project.project_root,
-            deploy_root=self._na_project.deploy_root,
+            project_root=self._project_root,
+            deploy_root=self._deploy_root,
         )
         bundle_map.add(artifact_to_process)
 
@@ -73,7 +69,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
             absolute=True, expand_directories=True, predicate=is_python_file_artifact
         ):
             cc.message(
-                f"Found Python setup file: {src_file.relative_to(self._na_project.project_root)}"
+                f"Found Python setup file: {src_file.relative_to(self._project_root)}"
             )
             files_to_process.append(src_file)
 
@@ -85,9 +81,9 @@ class NativeAppSetupProcessor(ArtifactProcessor):
         cc.step(f"Processing {file_count} setup file{'s' if file_count > 1 else ''}")
 
         env_vars = {
-            "_SNOWFLAKE_CLI_PROJECT_PATH": str(self._na_project.project_root),
+            "_SNOWFLAKE_CLI_PROJECT_PATH": str(self._project_root),
             "_SNOWFLAKE_CLI_SETUP_FILES": os.pathsep.join(map(str, py_files)),
-            "_SNOWFLAKE_CLI_APP_NAME": str(self._na_project.package_name),
+            "_SNOWFLAKE_CLI_APP_NAME": str(self._package_name),
             "_SNOWFLAKE_CLI_SQL_DEST_DIR": str(self.generated_root),
         }
 
@@ -95,7 +91,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
             result = execute_script_in_sandbox(
                 script_source=DRIVER_PATH.read_text(),
                 env_type=ExecutionEnvironmentType.VENV,
-                cwd=self._na_project.bundle_root,
+                cwd=self._bundle_root,
                 timeout=DEFAULT_TIMEOUT,
                 path=self.sandbox_root,
                 env_vars=env_vars,
@@ -122,9 +118,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
         generated_root.mkdir(exist_ok=True, parents=True)
 
         cc.step("Patching setup script")
-        setup_file_path = find_setup_script_file(
-            deploy_root=self._na_project.deploy_root
-        )
+        setup_file_path = find_setup_script_file(deploy_root=self._deploy_root)
         with self.edit_file(setup_file_path) as f:
             new_contents = [f.contents]
 
@@ -132,30 +126,30 @@ class NativeAppSetupProcessor(ArtifactProcessor):
                 schemas_file = generated_root / sql_file_mappings["schemas"]
                 new_contents.insert(
                     0,
-                    f"EXECUTE IMMEDIATE FROM '/{to_stage_path(schemas_file.relative_to(self._na_project.deploy_root))}';",
+                    f"EXECUTE IMMEDIATE FROM '/{to_stage_path(schemas_file.relative_to(self._deploy_root))}';",
                 )
 
             if sql_file_mappings["compute_pools"]:
                 compute_pools_file = generated_root / sql_file_mappings["compute_pools"]
                 new_contents.append(
-                    f"EXECUTE IMMEDIATE FROM '/{to_stage_path(compute_pools_file.relative_to(self._na_project.deploy_root))}';"
+                    f"EXECUTE IMMEDIATE FROM '/{to_stage_path(compute_pools_file.relative_to(self._deploy_root))}';"
                 )
 
             if sql_file_mappings["services"]:
                 services_file = generated_root / sql_file_mappings["services"]
                 new_contents.append(
-                    f"EXECUTE IMMEDIATE FROM '/{to_stage_path(services_file.relative_to(self._na_project.deploy_root))}';"
+                    f"EXECUTE IMMEDIATE FROM '/{to_stage_path(services_file.relative_to(self._deploy_root))}';"
                 )
 
             f.edited_contents = "\n".join(new_contents)
 
     @property
     def sandbox_root(self):
-        return self._na_project.bundle_root / "setup_py_venv"
+        return self._bundle_root / "setup_py_venv"
 
     @property
     def generated_root(self):
-        return self._na_project.generated_root / "setup_py"
+        return self._generated_root / "setup_py"
 
     def _create_or_update_sandbox(self):
         sandbox_root = self.sandbox_root
@@ -164,7 +158,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
             cc.step("Virtual environment found")
         else:
             cc.step(
-                f"Creating virtual environment in {sandbox_root.relative_to(self._na_project.project_root)}"
+                f"Creating virtual environment in {sandbox_root.relative_to(self._project_root)}"
             )
         env_builder.ensure_created()
 

@@ -351,7 +351,12 @@ class NativeAppManager(SqlExecutionMixin):
         """
         bundle_map = build_bundle(self.project_root, self.deploy_root, self.artifacts)
         compiler = NativeAppCompiler(
-            na_project=self.na_project,
+            package_name=self.package_name,
+            artifacts=self.artifacts,
+            project_root=self.project_root,
+            bundle_root=self.bundle_root,
+            deploy_root=self.deploy_root,
+            generated_root=self.generated_root,
         )
         compiler.compile_artifacts()
         return bundle_map

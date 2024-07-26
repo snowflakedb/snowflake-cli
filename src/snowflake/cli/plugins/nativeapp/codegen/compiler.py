@@ -14,10 +14,12 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from pathlib import Path
+from typing import Dict, List, Optional
 
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
+    PathMapping,
     ProcessorMapping,
 )
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
@@ -31,7 +33,6 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
 )
 from snowflake.cli.plugins.nativeapp.feature_flags import FeatureFlag
-from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 
 SNOWPARK_PROCESSOR = "snowpark"
 NA_SETUP_PROCESSOR = "native-app-setup"
@@ -53,9 +54,19 @@ class NativeAppCompiler:
 
     def __init__(
         self,
-        na_project: NativeAppProjectModel,
+        package_name: str,
+        artifacts: List[PathMapping],
+        project_root: Path,
+        bundle_root: Path,
+        deploy_root: Path,
+        generated_root: Path,
     ):
-        self._na_project = na_project
+        self._package_name = package_name
+        self._artifacts = artifacts
+        self._project_root = project_root
+        self._bundle_root = bundle_root
+        self._deploy_root = deploy_root
+        self._generated_root = generated_root
         # dictionary of all processors created and shared between different artifact objects.
         self.cached_processors: Dict[str, ArtifactProcessor] = {}
 
@@ -69,12 +80,12 @@ class NativeAppCompiler:
             return
 
         with cc.phase("Invoking artifact processors"):
-            if self._na_project.generated_root.exists():
+            if self._generated_root.exists():
                 raise ClickException(
-                    f"Path {self._na_project.generated_root} already exists. Please choose a different name for your generated directory in the project definition file."
+                    f"Path {self._generated_root} already exists. Please choose a different name for your generated directory in the project definition file."
                 )
 
-            for artifact in self._na_project.artifacts:
+            for artifact in self._artifacts:
                 for processor in artifact.processors:
                     if self._is_enabled(processor):
                         artifact_processor = self._try_create_processor(
@@ -111,14 +122,18 @@ class NativeAppCompiler:
             return None
 
         current_processor = processor_factory(
-            na_project=self._na_project,
+            package_name=self._package_name,
+            project_root=self._project_root,
+            deploy_root=self._deploy_root,
+            bundle_root=self._bundle_root,
+            generated_root=self._generated_root,
         )
         self.cached_processors[processor_name] = current_processor
 
         return current_processor
 
     def _should_invoke_processors(self):
-        for artifact in self._na_project.artifacts:
+        for artifact in self._artifacts:
             for processor in artifact.processors:
                 if self._is_enabled(processor):
                     return True
