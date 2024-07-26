@@ -1354,40 +1354,24 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
 
 
 @pytest.mark.parametrize(
+    ["since", "expected_since_clause"],
     [
-        "since",
-        "expected_since_clause",
-        "until",
-        "expected_until_clause",
-        "limit",
-        "expected_limit_clause",
+        ("", ""),
+        ("1 hour", "and timestamp >= sysdate() - interval '1 hour'"),
     ],
+)
+@pytest.mark.parametrize(
+    ["until", "expected_until_clause"],
     [
-        (
-            "",
-            "",
-            "",
-            "",
-            0,
-            "",
-        ),
-        (
-            "1 hour",
-            "and timestamp >= sysdate() - interval '1 hour'",
-            "20 minutes",
-            "and timestamp <= sysdate() - interval '20 minutes'",
-            0,
-            "",
-        ),
-        ("", "", "", "", 10, "limit 10"),
-        (
-            "1 hour",
-            "and timestamp >= sysdate() - interval '1 hour'",
-            "20 minutes",
-            "and timestamp <= sysdate() - interval '20 minutes'",
-            10,
-            "limit 10",
-        ),
+        ("", ""),
+        ("20 minutes", "and timestamp <= sysdate() - interval '20 minutes'"),
+    ],
+)
+@pytest.mark.parametrize(
+    ["limit", "expected_limit_clause"],
+    [
+        (0, ""),
+        (10, "limit 10"),
     ],
 )
 @mock.patch(
