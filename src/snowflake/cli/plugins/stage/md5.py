@@ -26,7 +26,7 @@ from click.exceptions import ClickException
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.constants import S3_CHUNK_SIZE, S3_MAX_PARTS, S3_MIN_PART_SIZE
 
-READ_BUFFER_BYTES = 8192
+READ_BUFFER_BYTES = 64 * 1024  # 64KiB
 MD5SUM_REGEX = r"^[A-Fa-f0-9]{32}$"
 MULTIPART_MD5SUM_REGEX = r"^([A-Fa-f0-9]{32})-(\d+)$"
 
@@ -72,7 +72,7 @@ def compute_md5sum(file: Path, chunk_size: int | None = None) -> str:
 
     file_size = os.path.getsize(file)
     with SecurePath(file).open("rb", read_file_limit_mb=UNLIMITED) as f:
-        md5s: List[bytes] = []
+        md5s: List[hashlib._Hash] = []  # noqa: SLF001
         hasher = hashlib.md5()
 
         remains = file_size
@@ -84,20 +84,19 @@ def compute_md5sum(file: Path, chunk_size: int | None = None) -> str:
             remains_in_chunk -= sz
             remains -= sz
             if remains_in_chunk == 0:
-                # push the md5 of this chunk + reset
-                md5s.append(hasher.hexdigest().encode())
-                hasher = hashlib.md5()
-
-        if not chunk_size:
-            # simple md5; only one chunk processed
-            return md5s[0].decode()
+                if not chunk_size:
+                    # simple md5; only one chunk processed
+                    return hasher.hexdigest()
+                else:
+                    # push the hash of this chunk + reset
+                    md5s.append(hasher)
+                    hasher = hashlib.md5()
+                    remains_in_chunk = min(chunk_size, remains)
 
         # multi-part hash (e.g. aws)
-        n = len(md5s)
-        for md5 in md5s:
-            hasher.update(md5)
-
-        return f"{hasher.hexdigest()}-{n}"
+        digests = b"".join(m.digest() for m in md5s)
+        digests_md5 = hashlib.md5(digests)
+        return f"{digests_md5.hexdigest()}-{len(md5s)}"
 
 
 def file_matches_md5sum(local_file: Path, remote_md5: str | None) -> bool:
@@ -136,7 +135,8 @@ def file_matches_md5sum(local_file: Path, remote_md5: str | None) -> bool:
         for granularity in [S3_CHUNK_SIZE, 1024**2]:
             granules = 1 + ((file_size - 1) // (num_chunks * granularity))
             chunk_size = granules * granularity
-            if compute_md5sum(local_file, chunk_size) == multipart_md5:
+            md5 = compute_md5sum(local_file, chunk_size)
+            if md5 == remote_md5:
                 return True
 
         # we were unable to figure out the chunk size, or the files are different
