@@ -141,12 +141,6 @@ def streamlit_deploy(
 
     pd = cli_context.project_definition
     if not pd.meets_version_requirement("2"):
-        # It's 1.X version
-        if not pd.streamlit:
-            raise NoProjectDefinitionError(
-                project_type="streamlit", project_file=cli_context.project_root
-            )
-
         pd = _migrate_v1_streamlit_to_v2(pd)
 
     streamlits: Dict[str, StreamlitEntity] = pd.get_entities_by_type(
@@ -199,6 +193,11 @@ def streamlit_deploy(
 
 
 def _migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
+    if not pd.streamlit:
+        raise NoProjectDefinitionError(
+            project_type="streamlit", project_file=cli_context.project_root
+        )
+
     default_env_file = "environment.yml"
     default_pages_dir = "pages"
 
