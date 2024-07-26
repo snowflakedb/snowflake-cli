@@ -160,20 +160,6 @@ def streamlit_deploy(
 
     # Get first streamlit
     streamlit: StreamlitEntity = streamlits[list(streamlits)[0]]
-
-    # Validate artefacts
-    for artefact in streamlit.artifacts:
-        if not artefact.exists():
-            raise ClickException(
-                f"Specified artefact {artefact} does not exist locally."
-            )
-
-    # Validate that main file is in artefacts
-    if Path(streamlit.main_file) not in streamlit.artifacts:
-        raise ClickException(
-            f"Specified main file {streamlit.main_file} is not included in artifacts."
-        )
-
     streamlit_id = FQN.from_identifier_model(streamlit).using_context()
 
     url = StreamlitManager().deploy(
@@ -241,8 +227,7 @@ def _migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
             }
         },
     }
-    pd = ProjectDefinitionV2(**data)
-    return pd
+    return ProjectDefinitionV2(**data)
 
 
 @app.command("get-url", requires_connection=True)

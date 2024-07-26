@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from snowflake.cli.api.project.schemas.entities.common import EntityBase
 from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierModel
 
@@ -41,3 +41,27 @@ class StreamlitEntity(EntityBase, ObjectIdentifierModel(object_name="Streamlit")
         title="List of additional files which should be included into deployment artifacts",
         default=None,
     )
+
+    @model_validator(mode="after")
+    def main_file_must_be_in_artifacts(self):
+        if not self.artifacts:
+            return self
+
+        if Path(self.main_file) not in self.artifacts:
+            raise ValueError(
+                f"Specified main file {self.main_file} is not included in artifacts."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def artifacts_must_exists(self):
+        if not self.artifacts:
+            return self
+
+        for artefact in self.artifacts:
+            if not artefact.exists():
+                raise ValueError(
+                    f"Specified artefact {artefact} does not exist locally."
+                )
+
+        return self
