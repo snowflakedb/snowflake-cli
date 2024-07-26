@@ -364,16 +364,19 @@ EnableDiagOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+# Set default via callback to avoid including tempdir path in generated docs (snow --docs).
+# Use constant instead of None, as None is removed from telemetry data.
+_DIAG_LOG_DEFAULT_VALUE = "<temporary_directory>"
+
 
 def _diag_log_path_callback(path: str):
-    if path is not None:
+    if path != _DIAG_LOG_DEFAULT_VALUE:
         return path
     return tempfile.gettempdir()
 
 
 DiagLogPathOption: Path = typer.Option(
-    # set default via callback to avoid including tempdir path in generated docs (snow --docs)
-    None,
+    _DIAG_LOG_DEFAULT_VALUE,
     "--diag-log-path",
     help="Diagnostic report path",
     callback=_callback(

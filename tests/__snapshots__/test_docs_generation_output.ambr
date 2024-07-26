@@ -93,7 +93,7 @@
     Run python connector diagnostic test. Default: False.
   
   :samp:`--diag-log-path {TEXT}`
-    Diagnostic report path.
+    Diagnostic report path. Default: <temporary_directory>.
   
   :samp:`--diag-allowlist-path {TEXT}`
     Diagnostic report path to optional allowlist.
