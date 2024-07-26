@@ -121,9 +121,9 @@ def file_matches_md5sum(local_file: Path, remote_md5: str | None) -> bool:
         # regular hash
         return compute_md5sum(local_file) == remote_md5
 
-    if multipart_md5 := get_multipart_md5sum(remote_md5):
+    if md5_and_chunks := get_multipart_md5sum(remote_md5):
         # multi-part hash (e.g. aws)
-        (_, num_chunks) = multipart_md5
+        (_, num_chunks) = md5_and_chunks
         file_size = os.path.getsize(local_file)
 
         # chunk size may not be a clean multiple of EST_CHUNK_GRANULARITY_BYTES
@@ -131,7 +131,7 @@ def file_matches_md5sum(local_file: Path, remote_md5: str | None) -> bool:
         # at time of writing this would trigger around 80GiB for python connector
         if num_chunks == S3_MAX_PARTS:
             chunk_size = max(math.ceil(file_size / S3_MAX_PARTS), S3_MIN_PART_SIZE)
-            if compute_md5sum(local_file, chunk_size) == multipart_md5:
+            if compute_md5sum(local_file, chunk_size) == remote_md5:
                 return True
 
         # try some common chunk size granularities
