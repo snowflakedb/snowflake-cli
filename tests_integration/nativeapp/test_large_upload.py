@@ -66,13 +66,12 @@ def test_large_upload_skips_reupload(
         # figure out what the source stage is resolved to
         with mock.patch("os.getenv", side_effect=mock_getenv):
             dm = DefinitionManager(project_dir)
-            is_v1 = hasattr(dm.project_definition, "native_app")
             native_app = (
                 dm.project_definition.native_app
-                if is_v1
-                else _pdf_v2_to_v1(dm.project_definition)
+                if hasattr(dm.project_definition, "native_app")
+                else _pdf_v2_to_v1(dm.project_definition).native_app
             )
-            manager = NativeAppManager(native_app, project_dir)
+            stage_fqn = NativeAppManager(native_app, project_dir).stage_fqn
 
         # deploy the application package
         result = runner.invoke_with_connection_json(
@@ -87,13 +86,13 @@ def test_large_upload_skips_reupload(
             with SecurePath(temp_file).open("wb") as f:
                 f.write(os.urandom(TEMP_FILE_SIZE_BYTES))
             snowflake_session.execute_string(
-                f"put file://{temp_file} @{manager.stage_fqn}/app/ threshold={THRESHOLD_BYTES}"
+                f"put file://{temp_file} @{stage_fqn}/app/ threshold={THRESHOLD_BYTES}"
             )
 
             # ensure that there is, in fact, a file with a multi-part md5sum
             # FIXME: this will FAIL on both Azure and GCP; find a way to only test this on AWS?
             result = runner.invoke_with_connection_json(
-                ["stage", "list-files", manager.stage_fqn]
+                ["stage", "list-files", stage_fqn]
             )
             assert result.exit_code == 0
             assert isinstance(result.json, list)
