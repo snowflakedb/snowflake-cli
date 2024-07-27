@@ -20,7 +20,7 @@ from typing import Any, List, Optional, Tuple
 
 import typer
 from click import ClickException
-from snowflake.cli.api.exceptions import IncompatibleOptionsError
+from snowflake.cli.api.exceptions import IncompatibleParametersError
 
 
 class _OverrideableParameter(ABC):
@@ -110,7 +110,7 @@ class _OverrideableParameter(ABC):
                         other_opt = [x for x in ctx.command.params if x.name == name][
                             0
                         ].opts[0]
-                        raise IncompatibleOptionsError([curr_opt, other_opt])
+                        raise IncompatibleParametersError([curr_opt, other_opt])
 
             # pass args to existing callback based on its signature (this is how Typer infers callback args)
             passed_params = {}
@@ -134,6 +134,8 @@ class OverrideableArgument(_OverrideableParameter):
         return typer.Argument(default, *param_decls, **kwargs)
 
 
+# OverrideableOption doesn't work with flags with type List[Any] and default None, because typer executes the callback
+# function which converts the default value iterating over it, but None is not iterable.
 class OverrideableOption(_OverrideableParameter):
     def get_parameter(
         self, default: Any = ..., *param_decls: str, **kwargs

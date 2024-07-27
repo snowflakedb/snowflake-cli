@@ -442,10 +442,8 @@ def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
                 ["app", "deploy", "app/README.md", "--prune"],
                 env=TEST_ENV,
             )
-            assert result.exit_code == 1
-            assert (
-                "--prune cannot be used when paths are also specified" in result.output
-            )
+            assert result.exit_code == 2
+            assert "Parameters 'paths' and '--prune' are incompatible." in result.output
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects

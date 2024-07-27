@@ -53,9 +53,10 @@ def test_app_events_mutually_exclusive_options(
             ["app", "events", *command],
             env=TEST_ENV,
         )
-        assert result.exit_code == 1, result.output
+
+        assert result.exit_code == 2, result.output
         assert (
-            f"{flag_names[0]} and {flag_names[1]} cannot be used together."
+            f"Parameters '{flag_names[0]}' and '{flag_names[1]}' are incompatible."
             in result.output
         )
 
