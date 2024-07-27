@@ -24,8 +24,9 @@ import click
 import typer
 from click import ClickException
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
-from snowflake.cli.api.commands.overridable_parameter import OverrideableOption
+from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.typer_pre_execute import register_pre_execute_command
+from snowflake.cli.api.config import get_all_connections
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.identifiers import FQN

@@ -59,7 +59,9 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
+
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -371,7 +373,7 @@ def app_deploy(
             recursive = False
 
     if has_paths and prune:
-        raise ClickException("--prune cannot be used when paths are also specified")
+        raise IncompatibleParametersError(["paths", "--prune"])
 
     cli_context = get_cli_context()
     manager = NativeAppManager(
@@ -495,18 +497,18 @@ def app_events(
     https://docs.snowflake.com/en/developer-guide/native-apps/setting-up-logging-and-events
     """
     if first >= 0 and last >= 0:
-        raise UsageError("--first and --last cannot be used together.")
+        raise IncompatibleParametersError(["--first", "--last"])
 
     if (consumer_org and not consumer_account) or (
         consumer_account and not consumer_org
     ):
-        raise UsageError("--consumer-org and --consumer-account must be used together.")
+        raise IncompatibleParametersError(["--consumer-org", "--consumer-account"])
 
     if follow:
         if until:
-            raise UsageError("--follow and --until cannot be used together.")
+            raise IncompatibleParametersError(["--follow", "--until"])
         if first >= 0:
-            raise UsageError("--follow and --first cannot be used together.")
+            raise IncompatibleParametersError(["--follow", "--first"])
 
     assert_project_type("native_app")
 

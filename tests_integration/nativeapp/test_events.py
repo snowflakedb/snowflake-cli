@@ -55,7 +55,7 @@ def test_app_events_mutually_exclusive_options(
         )
         assert result.exit_code == 2, result.output
         assert (
-            f"{flag_names[0]} and {flag_names[1]} cannot be used together."
+            f"Parameters '{flag_names[0]}' and '{flag_names[1]}' are incompatible."
             in result.output
         )
 
@@ -89,7 +89,7 @@ def test_app_events_paired_options(
         )
         assert result.exit_code == 2, result.output
         assert (
-            f"{flag_names[0]} and {flag_names[1]} must be used together."
+            f"Parameters '{flag_names[0]}' and '{flag_names[1]}' are incompatible."
             in result.output
         )
 

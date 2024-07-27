@@ -171,10 +171,10 @@ class FQNInconsistencyError(ClickException):
         )
 
 
-class IncompatibleOptionsError(UsageError):
+class IncompatibleParametersError(UsageError):
     def __init__(self, options: list[str]):
         options_with_quotes = [f"'{option}'" for option in options]
         comma_separated_options = ", ".join(options_with_quotes[:-1])
         super().__init__(
-            f"Options {comma_separated_options} and {options_with_quotes[-1]} are incompatible."
+            f"Parameters {comma_separated_options} and {options_with_quotes[-1]} are incompatible."
         )
