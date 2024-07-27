@@ -40,13 +40,7 @@ class SqlManager(SqlExecutionMixin):
         std_in: bool,
         data: Dict | None = None,
     ) -> Tuple[IsSingleStatement, Iterable[SnowflakeCursor]]:
-        inputs = [query, files, std_in]
         # Check if any two inputs were provided simultaneously
-        if len([i for i in inputs if i]) > 1:
-            raise UsageError(
-                "Multiple input sources specified. Please specify only one."
-            )
-
         if std_in:
             query = sys.stdin.read()
         if query:

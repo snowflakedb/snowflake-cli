@@ -91,19 +91,27 @@ def test_sql_help_if_no_query_file_or_stdin(runner, os_agnostic_snapshot):
     assert result.output == os_agnostic_snapshot
 
 
-@pytest.mark.parametrize("inputs", [("-i", "-q", "foo"), ("-i",), ("-q", "foo")])
+def test_sql_fails_if_query_and_stdin_and_file_provided(runner):
+    with NamedTemporaryFile("r") as tmp_file:
+        result = runner.invoke(["sql", "-i", "-q", "foo", "-f", tmp_file.name])
+        assert_that_result_is_usage_error(
+            result, f"Options '--filename', '--query' and '--stdin' are incompatible."
+        )
+
+
+@pytest.mark.parametrize("inputs", [(("-i",), "stdin"), (("-q", "foo"), "query")])
 def test_sql_fails_if_other_inputs_and_file_provided(runner, inputs):
     with NamedTemporaryFile("r") as tmp_file:
-        result = runner.invoke(["sql", *inputs, "-f", tmp_file.name])
+        result = runner.invoke(["sql", *(inputs[0]), "-f", tmp_file.name])
         assert_that_result_is_usage_error(
-            result, "Multiple input sources specified. Please specify only one. "
+            result, f"Options '--filename' and '--{inputs[1]}' are incompatible."
         )
 
 
 def test_sql_fails_if_query_and_stdin_provided(runner):
     result = runner.invoke(["sql", "-q", "fooo", "-i"])
     assert_that_result_is_usage_error(
-        result, "Multiple input sources specified. Please specify only one. "
+        result, "Options '--query' and '--stdin' are incompatible. "
     )
 
 
