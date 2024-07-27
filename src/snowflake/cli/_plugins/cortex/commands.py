@@ -31,7 +31,10 @@ from snowflake.cli._plugins.cortex.types import (
     Text,
 )
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.commands.flags import readable_file_option
+from snowflake.cli.api.commands.overridable_parameter import (
+    OverrideableArgument,
+    OverrideableOption,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import PYTHON_3_12
 from snowflake.cli.api.output.types import (
@@ -47,6 +50,23 @@ app = SnowTyperFactory(
 )
 
 SEARCH_COMMAND_ENABLED = sys.version_info < PYTHON_3_12
+
+SOURCE_EXCLUSIVE_OPTION_NAMES = ["text", "file", "source_document_text"]
+
+ReadableFileOption = OverrideableOption(
+    None,
+    "--file",
+    mutually_exclusive=SOURCE_EXCLUSIVE_OPTION_NAMES,
+    exists=True,
+    file_okay=True,
+    dir_okay=False,
+    readable=True,
+    show_default=False,
+)
+
+TextSourceArgument = OverrideableArgument(
+    mutually_exclusive=SOURCE_EXCLUSIVE_OPTION_NAMES,
+)
 
 
 @app.command(
@@ -100,8 +120,8 @@ def search(
     requires_connection=True,
 )
 def complete(
-    text: Optional[str] = typer.Argument(
-        None,
+    text: Optional[str] = TextSourceArgument(
+        default=None,
         help="Prompt to be used to generate a completion. Cannot be combined with --file option.",
         show_default=False,
     ),
@@ -110,9 +130,8 @@ def complete(
         "--model",
         help="String specifying the model to be used.",
     ),
-    file: Optional[Path] = readable_file_option(
-        param_name="--file",
-        help_str="JSON file containing conversation history to be used to generate a completion. Cannot be combined with TEXT argument.",
+    file: Optional[Path] = ReadableFileOption(
+        help="JSON file containing conversation history to be used to generate a completion. Cannot be combined with TEXT argument.",
     ),
     **options,
 ) -> CommandResult:
@@ -124,8 +143,6 @@ def complete(
 
     manager = CortexManager()
 
-    if text and file:
-        raise UsageError("--file option cannot be used together with TEXT argument.")
     if text:
         result_text = manager.complete_for_prompt(
             text=Text(text),
@@ -152,14 +169,13 @@ def extract_answer(
         help="String containing the question to be answered.",
         show_default=False,
     ),
-    source_document_text: Optional[str] = typer.Argument(
-        None,
+    source_document_text: Optional[str] = TextSourceArgument(
+        default=None,
         help="String containing the plain-text or JSON document that contains the answer to the question. Cannot be combined with --file option.",
         show_default=False,
     ),
-    file: Optional[Path] = readable_file_option(
-        param_name="--file",
-        help_str="File containing the plain-text or JSON document that contains the answer to the question. Cannot be combined with SOURCE_DOCUMENT_TEXT argument.",
+    file: Optional[Path] = ReadableFileOption(
+        help="File containing the plain-text or JSON document that contains the answer to the question. Cannot be combined with SOURCE_DOCUMENT_TEXT argument.",
     ),
     **options,
 ) -> CommandResult:
@@ -170,10 +186,6 @@ def extract_answer(
 
     manager = CortexManager()
 
-    if source_document_text and file:
-        raise UsageError(
-            "--file option cannot be used together with SOURCE_DOCUMENT_TEXT argument."
-        )
     if source_document_text:
         result_text = manager.extract_answer_from_source_document(
             source_document=SourceDocument(source_document_text),
@@ -197,14 +209,13 @@ def extract_answer(
     requires_connection=True,
 )
 def sentiment(
-    text: Optional[str] = typer.Argument(
-        None,
+    text: Optional[str] = TextSourceArgument(
+        default=None,
         help="String containing the text for which a sentiment score should be calculated. Cannot be combined with --file option.",
         show_default=False,
     ),
-    file: Optional[Path] = readable_file_option(
-        param_name="--file",
-        help_str="File containing the text for which a sentiment score should be calculated. Cannot be combined with TEXT argument.",
+    file: Optional[Path] = ReadableFileOption(
+        help="File containing the text for which a sentiment score should be calculated. Cannot be combined with TEXT argument.",
     ),
     **options,
 ) -> CommandResult:
@@ -216,8 +227,6 @@ def sentiment(
 
     manager = CortexManager()
 
-    if text and file:
-        raise UsageError("--file option cannot be used together with TEXT argument.")
     if text:
         result_text = manager.calculate_sentiment_for_text(
             text=Text(text),
@@ -237,14 +246,13 @@ def sentiment(
     requires_connection=True,
 )
 def summarize(
-    text: Optional[str] = typer.Argument(
-        None,
+    text: Optional[str] = TextSourceArgument(
+        default=None,
         help="String containing the English text from which a summary should be generated. Cannot be combined with --file option.",
         show_default=False,
     ),
-    file: Optional[Path] = readable_file_option(
-        param_name="--file",
-        help_str="File containing the English text from which a summary should be generated. Cannot be combined with TEXT argument.",
+    file: Optional[Path] = ReadableFileOption(
+        help="File containing the English text from which a summary should be generated. Cannot be combined with TEXT argument.",
     ),
     **options,
 ) -> CommandResult:
@@ -254,8 +262,6 @@ def summarize(
 
     manager = CortexManager()
 
-    if text and file:
-        raise UsageError("--file option cannot be used together with TEXT argument.")
     if text:
         result_text = manager.summarize_text(
             text=Text(text),
@@ -275,8 +281,8 @@ def summarize(
     requires_connection=True,
 )
 def translate(
-    text: Optional[str] = typer.Argument(
-        None,
+    text: Optional[str] = TextSourceArgument(
+        default=None,
         help="String containing the text to be translated. Cannot be combined with --file option.",
         show_default=False,
     ),
@@ -292,9 +298,8 @@ def translate(
         help="String specifying the language code into which the text should be translated. See Snowflake Cortex documentation for a list of supported language codes.",
         show_default=False,
     ),
-    file: Optional[Path] = readable_file_option(
-        param_name="--file",
-        help_str="File containing the text to be translated. Cannot be combined with TEXT argument.",
+    file: Optional[Path] = ReadableFileOption(
+        help="File containing the text to be translated. Cannot be combined with TEXT argument.",
     ),
     **options,
 ) -> CommandResult:
@@ -307,8 +312,6 @@ def translate(
     source_language = None if from_language is None else Language(from_language)
     target_language = Language(to_language)
 
-    if text and file:
-        raise UsageError("--file option cannot be used together with TEXT argument.")
     if text:
         result_text = manager.translate_text(
             text=Text(text),

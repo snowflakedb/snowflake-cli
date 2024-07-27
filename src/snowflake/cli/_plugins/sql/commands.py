@@ -25,6 +25,7 @@ from snowflake.cli.api.commands.flags import (
     variables_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.exceptions import IncompatibleOptionsError
 from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
 
 # simple Typer with defaults because it won't become a command group as it contains only one command
@@ -73,6 +74,11 @@ def execute_sql(
     The command supports variable substitution that happens on client-side. Both &VARIABLE or &{ VARIABLE }
     syntax are supported.
     """
+    exclusive_inputs = {"--filename": files, "--query": query, "--stdin": std_in}
+    incompatible_options = [key for key, value in exclusive_inputs.items() if value]
+    if len(incompatible_options) > 1:
+        raise IncompatibleOptionsError(incompatible_options)
+
     data = {}
     if data_override:
         data = {v.key: v.value for v in parse_key_value_variables(data_override)}

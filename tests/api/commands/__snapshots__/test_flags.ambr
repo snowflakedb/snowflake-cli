@@ -12,6 +12,8 @@
 # ---
 # name: test_mutually_exclusive_options_error
   '''
+  Usage: - [OPTIONS]
+  Try '- --help' for help.
   +- Error ----------------------------------------------------------------------+
   | Options '--option2' and '--option1' are incompatible.                        |
   +------------------------------------------------------------------------------+
@@ -20,6 +22,8 @@
 # ---
 # name: test_overrideable_option_callback_with_mutually_exclusive
   '''
+  Usage: - [OPTIONS]
+  Try '- --help' for help.
   +- Error ----------------------------------------------------------------------+
   | Options '--option2' and '--option1' are incompatible.                        |
   +------------------------------------------------------------------------------+

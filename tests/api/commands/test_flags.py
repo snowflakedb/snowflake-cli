@@ -111,7 +111,7 @@ def test_mutually_exclusive_options_error(os_agnostic_snapshot):
     command = ["--option1", "--option2"]
     runner = CliRunner()
     result = runner.invoke(app, command)
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert result.output == os_agnostic_snapshot
 
 
@@ -212,5 +212,5 @@ def test_overrideable_option_callback_with_mutually_exclusive(os_agnostic_snapsh
 
     # test that we can't provide both options as non-falsey values without throwing error
     result = runner.invoke(app, ["--option1", "1", "--option2", "2"])
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert result.output == os_agnostic_snapshot

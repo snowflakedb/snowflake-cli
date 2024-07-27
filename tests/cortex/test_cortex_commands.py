@@ -16,13 +16,17 @@ from __future__ import annotations
 
 import re
 from contextlib import contextmanager
+from tempfile import NamedTemporaryFile
 from typing import Any, Optional
 from unittest import mock
 
 import pytest
 
 from tests.testing_utils.fixtures import TEST_DIR
-from tests.testing_utils.result_assertions import assert_successful_result_message
+from tests.testing_utils.result_assertions import (
+    assert_successful_result_message,
+    assert_that_result_is_usage_error,
+)
 
 
 @pytest.fixture
@@ -57,6 +61,42 @@ def test_cortex_complete_for_prompt_with_default_model(_mock_cortex_result, runn
             ]
         )
         assert_successful_result_message(result, expected_msg="Yes")
+
+
+@pytest.mark.parametrize("command", ["complete", "summarize", "sentiment", "translate"])
+def test_cortex_commands_with_text_and_file(runner, command):
+    with NamedTemporaryFile("r") as tmp_file:
+        result = runner.invoke(
+            [
+                "cortex",
+                f"{command}",
+                "Is 5 more than 4? Please answer using one word without a period.",
+                "--file",
+                tmp_file.name,
+            ]
+        )
+
+        assert_that_result_is_usage_error(
+            result, "Options 'text' and '--file' are incompatible."
+        )
+
+
+def test_cortex_extract_answer_with_text_and_file(runner):
+    with NamedTemporaryFile("r") as tmp_file:
+        result = runner.invoke(
+            [
+                "cortex",
+                "extract-answer",
+                "What's the color of John's car?",
+                "Is 5 more than 4? Please answer using one word without a period.",
+                "--file",
+                tmp_file.name,
+            ]
+        )
+
+        assert_that_result_is_usage_error(
+            result, "Options 'source_document_text' and '--file' are incompatible."
+        )
 
 
 def test_cortex_complete_for_prompt_with_chosen_model(_mock_cortex_result, runner):
