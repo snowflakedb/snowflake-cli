@@ -409,7 +409,7 @@ def app_events(
     scopes: Annotated[list[str], typer.Option()] = typer.Option(
         [],
         "--scope",
-        help="Restrict results to specific scope. Can be specified multiple times.",
+        help="Restrict results to a specific scope name. Can be specified multiple times.",
     ),
     first: int = typer.Option(
         default=0, help="Fetch only the first N events. Cannot be used with --last."

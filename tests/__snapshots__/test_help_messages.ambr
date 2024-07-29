@@ -190,9 +190,9 @@
   | --type             [log|span|span_event]  Restrict results to specific       |
   |                                           record type. Can be specified      |
   |                                           multiple times.                    |
-  | --scope            TEXT                   Restrict results to specific       |
-  |                                           scope. Can be specified multiple   |
-  |                                           times.                             |
+  | --scope            TEXT                   Restrict results to a specific     |
+  |                                           scope name. Can be specified       |
+  |                                           multiple times.                    |
   | --first            INTEGER                Fetch only the first N events.     |
   |                                           Cannot be used with --last.        |
   |                                           [default: 0]                       |

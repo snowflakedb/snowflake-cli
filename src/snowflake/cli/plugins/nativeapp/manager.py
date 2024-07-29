@@ -749,7 +749,9 @@ class NativeAppManager(SqlExecutionMixin):
             f"and record_type in ({type_in_values})" if type_in_values else ""
         )
         scope_in_values = ",".join(f"'{v}'" for v in scopes)
-        scopes_clause = f"and scope in ({scope_in_values})" if scope_in_values else ""
+        scopes_clause = (
+            f"and scope:name in ({scope_in_values})" if scope_in_values else ""
+        )
         first_clause = f"limit {first}" if first else ""
         last_clause = f"limit {last}" if last else ""
         query = dedent(
