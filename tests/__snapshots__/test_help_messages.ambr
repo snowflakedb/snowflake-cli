@@ -3339,8 +3339,7 @@
    imported for a Snowpark Python app.                                            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the package to create. [default: None]          |
-  |                      [required]                                              |
+  | *    name      TEXT  Name of the package to create. [required]               |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --ignore-anaconda                       Does not lookup packages on          |
@@ -3497,11 +3496,9 @@
    in the imports of a procedure or function.                                     
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | *  --file       -f      PATH  Path to the file to upload. [default: None]    |
-  |                               [required]                                     |
+  | *  --file       -f      PATH  Path to the file to upload. [required]         |
   | *  --stage      -s      TEXT  Name of the stage in which to upload the file, |
   |                               not including the @ symbol.                    |
-  |                               [default: None]                                |
   |                               [required]                                     |
   |    --overwrite  -o            Overwrites the file if it already exists.      |
   |    --help       -h            Show this message and exit.                    |
