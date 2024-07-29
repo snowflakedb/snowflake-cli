@@ -816,6 +816,9 @@ def _new_events_only(previous_events: list[dict], new_events: list[dict]) -> lis
     last_overlap_found_at = 0
     while overlap_amount <= min(len(new_events), len(previous_events)):
         # Check if end of previous_events overlaps with start of new_events
+        # This is O(n) but from the SQL filters and ordering used to generate
+        # both lists of events, we know that the only overlap would be for events
+        # that happened in the exact same microsecond (usually only 1 or 2, rarely more)
         if previous_events[-overlap_amount:] == new_events[:overlap_amount]:
             last_overlap_found_at = overlap_amount
         elif last_overlap_found_at:
