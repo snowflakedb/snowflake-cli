@@ -103,6 +103,8 @@ def setup(
     """
     Sets up a git repository object.
 
+    ## Usage notes
+
     You will be prompted for:
 
     * url - address of repository to be used for git clone operation

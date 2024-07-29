@@ -46,6 +46,7 @@ class SnowTyper(typer.Typer):
             pretty_exceptions_show_locals=False,
             no_args_is_help=True,
             add_completion=True,
+            rich_markup_mode="markdown",
         )
 
     @staticmethod
