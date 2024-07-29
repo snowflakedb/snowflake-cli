@@ -163,7 +163,7 @@ ConnectionOption = typer.Option(
     ),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
-    autocompletion=lambda: list(get_all_connections()),
+    shell_complete=lambda: list(get_all_connections()),
 )
 
 TemporaryConnectionOption = typer.Option(

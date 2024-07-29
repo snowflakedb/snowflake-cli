@@ -274,7 +274,7 @@ def test_snowcli_config():
     test_config = TEST_DIR / "test.toml"
     with _named_temporary_file(suffix=".toml") as p:
         p.write_text(test_config.read_text())
-        p.chmod(0o777)
+        p.chmod(0o600)
         yield p
 
 
