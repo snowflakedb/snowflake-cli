@@ -43,3 +43,23 @@ def test_app_events_cant_specify_first_and_last(runner, temporary_working_direct
         )
         assert result.exit_code == 1, result.output
         assert "--first and --last cannot be used together." in result.output
+
+
+@pytest.mark.integration
+def test_app_events_reject_invalid_type(runner, temporary_working_directory):
+    project_name = "myapp"
+    result = runner.invoke_json(
+        ["app", "init", project_name],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0, result.output
+
+    with pushd(Path(os.getcwd(), project_name)):
+        # The integration test account doesn't have an event table set up
+        # but this test is still useful to validate the negative case
+        result = runner.invoke_with_connection(
+            ["app", "events", "--type", "foo"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 2, result.output
+        assert "Invalid value for '--type'" in result.output
