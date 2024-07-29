@@ -16,7 +16,10 @@ from unittest import mock
 
 import pytest
 from click import ClickException
-from snowflake.cli.api.cli_global_context import cli_context, cli_context_manager
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV11,
     DefinitionV20,
@@ -91,20 +94,25 @@ from tests.testing_utils.mock_config import mock_config_key
                         "bundle_root": "bundle_root_path",
                         "generated_root": "generated_root_path",
                         "deploy_root": "deploy_root_path",
-                        "distribution": "external",
+                        "scratch_stage": "scratch_stage_path",
                         "meta": {
+                            "role": "pkg_role",
+                            "warehouse": "pkg_wh",
                             "post_deploy": [
                                 {"sql_script": "scripts/script1.sql"},
                                 {"sql_script": "scripts/script2.sql"},
-                            ]
+                            ],
                         },
+                        "distribution": "external",
                     },
                     "app": {
                         "type": "application",
                         "name": "app_name",
                         "from": {"target": "pkg"},
+                        "debug": True,
                         "meta": {
                             "role": "app_role",
+                            "warehouse": "app_wh",
                             "post_deploy": [
                                 {"sql_script": "scripts/script3.sql"},
                                 {"sql_script": "scripts/script4.sql"},
@@ -122,9 +130,12 @@ from tests.testing_utils.mock_config import mock_config_key
                     "bundle_root": "bundle_root_path",
                     "generated_root": "generated_root_path",
                     "deploy_root": "deploy_root_path",
+                    "scratch_stage": "scratch_stage_path",
                     "package": {
                         "name": "pkg_name",
                         "distribution": "external",
+                        "role": "pkg_role",
+                        "warehouse": "pkg_wh",
                         "scripts": [
                             "scripts/script1.sql",
                             "scripts/script2.sql",
@@ -133,6 +144,8 @@ from tests.testing_utils.mock_config import mock_config_key
                     "application": {
                         "name": "app_name",
                         "role": "app_role",
+                        "debug": True,
+                        "warehouse": "app_wh",
                         "post_deploy": [
                             {"sql_script": "scripts/script3.sql"},
                             {"sql_script": "scripts/script4.sql"},
@@ -250,9 +263,9 @@ def test_decorator_skips_when_project_is_not_v2(mock_pdf_v2_to_v1):
             },
         },
     )
-    cli_context_manager.set_project_definition(pdfv1)
+    get_cli_context_manager().set_project_definition(pdfv1)
 
     nativeapp_definition_v2_to_v1(lambda *args: None)()
 
     mock_pdf_v2_to_v1.launch.assert_not_called()
-    assert cli_context.project_definition == pdfv1
+    assert get_cli_context().project_definition == pdfv1

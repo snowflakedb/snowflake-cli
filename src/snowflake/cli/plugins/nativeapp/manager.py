@@ -714,17 +714,31 @@ class NativeAppManager(SqlExecutionMixin):
                         f"drop stage if exists {self.scratch_stage_fqn}"
                     )
 
-    def get_events(self) -> list[dict]:
+    def get_events(
+        self, since_interval: str = "", until_interval: str = ""
+    ) -> list[dict]:
         if not self.account_event_table:
             raise NoEventTableForAccount()
 
         # resource_attributes:"snow.database.name" uses the unquoted/uppercase app name
         app_name = unquote_identifier(self.app_name)
+        since_clause = (
+            f"and timestamp >= sysdate() - interval '{since_interval}'"
+            if since_interval
+            else ""
+        )
+        until_clause = (
+            f"and timestamp <= sysdate() - interval '{until_interval}'"
+            if until_interval
+            else ""
+        )
         query = dedent(
             f"""\
             select timestamp, value::varchar value
             from {self.account_event_table}
             where resource_attributes:"snow.database.name" = '{app_name}'
+            {since_clause}
+            {until_clause}
             order by timestamp asc;"""
         )
         try:

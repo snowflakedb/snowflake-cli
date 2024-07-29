@@ -334,6 +334,7 @@ def snowflake_home(monkeypatch):
         for module in [
             sys.modules["snowflake.connector.constants"],
             sys.modules["snowflake.connector.config_manager"],
+            sys.modules["snowflake.connector.log_configuration"],
             sys.modules["snowflake.cli.api.config"],
         ]:
             importlib.reload(module)

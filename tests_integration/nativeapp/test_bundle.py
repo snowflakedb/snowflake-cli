@@ -29,11 +29,11 @@ USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
 
 
-@pytest.fixture(scope="function", params=["v1", "v2"])
+@pytest.fixture(scope="function", params=["napp_init_v1", "napp_init_v2"])
 def template_setup(runner, project_directory, request):
-    definition_version = request.param
+    test_project = request.param
     with enable_definition_v2_feature_flag:
-        with project_directory(f"napp_init_{definition_version}") as project_root:
+        with project_directory(test_project) as project_root:
             # Vanilla bundle on the unmodified template
             result = runner.invoke_json(
                 ["app", "bundle"],
@@ -48,7 +48,7 @@ def template_setup(runner, project_directory, request):
             assert Path(deploy_root, "setup_script.sql").is_file()
             assert Path(deploy_root, "README.md").is_file()
 
-            yield project_root, runner, definition_version
+            yield project_root, runner, test_project
 
 
 def override_snowflake_yml_artifacts(

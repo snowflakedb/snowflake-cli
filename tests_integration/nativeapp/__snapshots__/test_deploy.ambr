@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_nativeapp_deploy[v1]
+# name: test_nativeapp_deploy[napp_init_v1]
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
@@ -14,7 +14,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy[v2]
+# name: test_nativeapp_deploy[napp_init_v2]
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
@@ -29,7 +29,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_dot[v1]
+# name: test_nativeapp_deploy_dot[napp_init_v1]
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
@@ -44,7 +44,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_dot[v2]
+# name: test_nativeapp_deploy_dot[napp_init_v2]
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
@@ -59,7 +59,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_files[v1]
+# name: test_nativeapp_deploy_files[napp_init_v1]
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
@@ -72,7 +72,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_files[v2]
+# name: test_nativeapp_deploy_files[napp_init_v2]
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
@@ -85,22 +85,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_looks_for_prefix_matches[v1]
-  '''
-  Creating new application package myapp_pkg_@@USER@@ in account.
-  Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
-  Local changes to be deployed:
-    added:    app/README.md -> README.md
-    added:    app/manifest.yml -> manifest.yml
-    added:    app/setup_script.sql -> setup_script.sql
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
-  Validating Snowflake Native App setup script.
-  Deployed successfully. Application package and stage are up-to-date.
-  
-  '''
-# ---
-# name: test_nativeapp_deploy_looks_for_prefix_matches[v2]
+# name: test_nativeapp_deploy_looks_for_prefix_matches[napp_deploy_prefix_matches_v1]
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
@@ -115,7 +100,22 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_nested_directories[v1]
+# name: test_nativeapp_deploy_looks_for_prefix_matches[napp_deploy_prefix_matches_v2]
+  '''
+  Creating new application package myapp_pkg_@@USER@@ in account.
+  Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
+  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Local changes to be deployed:
+    added:    app/README.md -> README.md
+    added:    app/manifest.yml -> manifest.yml
+    added:    app/setup_script.sql -> setup_script.sql
+  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Validating Snowflake Native App setup script.
+  Deployed successfully. Application package and stage are up-to-date.
+  
+  '''
+# ---
+# name: test_nativeapp_deploy_nested_directories[napp_init_v1]
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
@@ -127,7 +127,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_nested_directories[v2]
+# name: test_nativeapp_deploy_nested_directories[napp_init_v2]
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
@@ -139,7 +139,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_prune[v1-app deploy --no-prune-contains2-not_contains2]
+# name: test_nativeapp_deploy_prune[napp_init_v1-app deploy --no-prune-contains2-not_contains2]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
   Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
@@ -153,7 +153,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_prune[v1-app deploy --no-validate-contains1-not_contains1]
+# name: test_nativeapp_deploy_prune[napp_init_v1-app deploy --no-validate-contains1-not_contains1]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
   Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
@@ -164,7 +164,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_prune[v1-app deploy --prune --no-validate-contains0-not_contains0]
+# name: test_nativeapp_deploy_prune[napp_init_v1-app deploy --prune --no-validate-contains0-not_contains0]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
   Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
@@ -175,7 +175,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_prune[v2-app deploy --no-prune-contains2-not_contains2]
+# name: test_nativeapp_deploy_prune[napp_init_v2-app deploy --no-prune-contains2-not_contains2]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
   Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
@@ -189,7 +189,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_prune[v2-app deploy --no-validate-contains1-not_contains1]
+# name: test_nativeapp_deploy_prune[napp_init_v2-app deploy --no-validate-contains1-not_contains1]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
   Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
@@ -200,7 +200,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_prune[v2-app deploy --prune --no-validate-contains0-not_contains0]
+# name: test_nativeapp_deploy_prune[napp_init_v2-app deploy --prune --no-validate-contains0-not_contains0]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
   Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.

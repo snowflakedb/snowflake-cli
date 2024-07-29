@@ -21,7 +21,7 @@ from typing import List, Optional
 
 import typer
 from click import ClickException
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
@@ -161,6 +161,7 @@ def app_bundle(
 
     assert_project_type("native_app")
 
+    cli_context = get_cli_context()
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -212,6 +213,7 @@ def app_run(
     else:
         policy = DenyAlwaysPolicy()
 
+    cli_context = get_cli_context()
     processor = NativeAppRunProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -245,6 +247,7 @@ def app_open(
 
     assert_project_type("native_app")
 
+    cli_context = get_cli_context()
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -277,6 +280,7 @@ def app_teardown(
 
     assert_project_type("native_app")
 
+    cli_context = get_cli_context()
     processor = NativeAppTeardownProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -333,6 +337,7 @@ def app_deploy(
     if has_paths and prune:
         raise ClickException("--prune cannot be used when paths are also specified")
 
+    cli_context = get_cli_context()
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -362,6 +367,7 @@ def app_validate(**options):
 
     assert_project_type("native_app")
 
+    cli_context = get_cli_context()
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -376,15 +382,25 @@ def app_validate(**options):
 @app.command("events", hidden=True, requires_connection=True)
 @with_project_definition()
 @nativeapp_definition_v2_to_v1
-def app_events(**options):
+def app_events(
+    since: str = typer.Option(
+        default="",
+        help="Fetch events that are newer than this time ago, in Snowflake interval syntax.",
+    ),
+    until: str = typer.Option(
+        default="",
+        help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
+    ),
+    **options,
+):
     """Fetches events for this app from the event table configured in Snowflake."""
     assert_project_type("native_app")
 
     manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
-        project_root=cli_context.project_root,
+        project_definition=get_cli_context().project_definition.native_app,
+        project_root=get_cli_context().project_root,
     )
-    events = manager.get_events()
+    events = manager.get_events(since, until)
     if not events:
         return MessageResult("No events found.")
 

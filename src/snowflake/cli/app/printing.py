@@ -26,7 +26,7 @@ from rich import box, get_console
 from rich import print as rich_print
 from rich.live import Live
 from rich.table import Table
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -65,7 +65,7 @@ class CustomJSONEncoder(JSONEncoder):
 
 
 def _get_format_type() -> OutputFormat:
-    output_format = cli_context.output_format
+    output_format = get_cli_context().output_format
     if output_format:
         return output_format
     return OutputFormat.TABLE

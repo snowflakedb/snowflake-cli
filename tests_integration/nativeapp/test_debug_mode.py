@@ -21,7 +21,7 @@ from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.errors import ProgrammingError
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import pushd
+from tests_integration.test_utils import pushd, enable_definition_v2_feature_flag
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
@@ -57,16 +57,28 @@ def set_yml_application_debug(snowflake_yml: Path, debug: Optional[bool]):
     """
     pdf = yaml.load(snowflake_yml.read_text(), yaml.BaseLoader)
 
-    if "native_app" not in pdf:
-        pdf["native_app"] = dict()
+    if pdf["definition_version"] == "2":
+        if "app" not in pdf["entities"]:
+            pdf["entities"]["app"] = {
+                "type": "application",
+                "name": "integration_<% ctx.env.USER %>",
+                "from": {"target": "pkg"},
+            }
+        if debug is None and "debug" in pdf["entities"]["app"]:
+            del pdf["entities"]["app"]["debug"]
+        elif debug is not None:
+            pdf["entities"]["app"]["debug"] = debug
+    else:
+        if "native_app" not in pdf:
+            pdf["native_app"] = dict()
 
-    if "application" not in pdf["native_app"]:
-        pdf["native_app"]["application"] = dict()
+        if "application" not in pdf["native_app"]:
+            pdf["native_app"]["application"] = dict()
 
-    if debug is None and "debug" in pdf["native_app"]["application"]:
-        del pdf["native_app"]["application"]["debug"]
-    elif debug is not None:
-        pdf["native_app"]["application"]["debug"] = debug
+        if debug is None and "debug" in pdf["native_app"]["application"]:
+            del pdf["native_app"]["application"]["debug"]
+        elif debug is not None:
+            pdf["native_app"]["application"]["debug"] = debug
 
     snowflake_yml.write_text(yaml.dump(pdf))
 
@@ -74,7 +86,10 @@ def set_yml_application_debug(snowflake_yml: Path, debug: Optional[bool]):
 # Tests that debug mode is enabled by default on create, but not changed
 # on upgrade without an explicit setting in snowflake.yml
 @pytest.mark.integration
-@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize(
+    "project_definition_files", ["integration", "integration_v2"], indirect=True
+)
 def test_nativeapp_controlled_debug_mode(
     runner,
     snowflake_session,

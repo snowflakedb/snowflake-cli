@@ -26,68 +26,24 @@ TEST_ENV = generate_user_env(USER_NAME)
 
 
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @mock.patch("typer.launch")
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_open(
     mock_typer_launch,
     runner,
-    snowflake_session,
+    test_project,
     project_directory,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
 
-    with project_directory("napp_init_v1"):
-        try:
-            result = runner.invoke_with_connection_json(
-                ["app", "run"],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
-
-            result = runner.invoke_with_connection_json(
-                ["app", "open"],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
-            assert "Snowflake Native App opened in browser." in result.output
-
-            mock_call = mock_typer_launch.call_args_list[0].args[0]
-            assert re.match(
-                rf"https://app.snowflake.com/.*#/apps/application/{app_name}",
-                mock_call,
-                re.IGNORECASE,
-            )
-
-        finally:
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force", "--cascade"],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
-
-
-@pytest.mark.integration
-@enable_definition_v2_feature_flag
-@mock.patch("typer.launch")
-@pytest.mark.parametrize("definition_version", ["v1", "v2"])
-def test_nativeapp_open_v2(
-    mock_typer_launch,
-    runner,
-    definition_version,
-    project_directory,
-):
-    project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}"
-
-    # TODO Use the main project_directory block once "snow app run" supports definition v2
-    with project_directory("napp_init_v1"):
+    with project_directory(test_project):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
-
-    with project_directory(f"napp_init_{definition_version}"):
         try:
             result = runner.invoke_with_connection_json(
                 ["app", "open"],

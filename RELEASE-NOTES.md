@@ -16,6 +16,7 @@
 
 # Unreleased version
 ## Backward incompatibility
+* Dropped support for Python below 3.10 version.
 
 ## Deprecations
 

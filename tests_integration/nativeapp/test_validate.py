@@ -26,9 +26,9 @@ TEST_ENV = generate_user_env(USER_NAME)
 
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("definition_version", ["v1", "v2"])
-def test_nativeapp_validate(definition_version, project_directory, runner):
-    with project_directory(f"napp_init_{definition_version}"):
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+def test_nativeapp_validate(test_project, project_directory, runner):
+    with project_directory(test_project):
         try:
             # validate the app's setup script
             result = runner.invoke_with_connection(
@@ -47,9 +47,9 @@ def test_nativeapp_validate(definition_version, project_directory, runner):
 
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("definition_version", ["v1", "v2"])
-def test_nativeapp_validate_failing(definition_version, project_directory, runner):
-    with project_directory(f"napp_init_{definition_version}"):
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+def test_nativeapp_validate_failing(test_project, project_directory, runner):
+    with project_directory(test_project):
         # Create invalid SQL file
         Path("app/setup_script.sql").write_text("Lorem ipsum dolor sit amet")
 

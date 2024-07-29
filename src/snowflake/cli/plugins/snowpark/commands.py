@@ -20,7 +20,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import typer
 from click import ClickException
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
@@ -131,6 +131,7 @@ def deploy(
 
     assert_project_type("snowpark")
 
+    cli_context = get_cli_context()
     snowpark = cli_context.project_definition.snowpark
     paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
@@ -406,6 +407,7 @@ def build(
 
     if not deprecated_check_anaconda_for_pypi_deps:
         ignore_anaconda = True
+    cli_context = get_cli_context()
     snowpark_paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
         snowpark_project_definition=cli_context.project_definition.snowpark,
