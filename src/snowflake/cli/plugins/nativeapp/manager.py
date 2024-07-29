@@ -716,9 +716,8 @@ class NativeAppManager(SqlExecutionMixin):
 
     def get_events(
         self,
-        since_interval: str = "",
-        until_interval: str = "",
-        since: datetime | None = None,
+        since: str | datetime | None = "",
+        until: str | datetime | None = "",
         record_types: list[str] | None = None,
         scopes: list[str] | None = None,
         first: int = 0,
@@ -730,25 +729,23 @@ class NativeAppManager(SqlExecutionMixin):
         if first and last:
             raise ValueError("first and last cannot be used together")
 
-        if since and since_interval:
-            raise ValueError("since and since_interval cannot be used together")
-
         if not self.account_event_table:
             raise NoEventTableForAccount()
 
         # resource_attributes:"snow.database.name" uses the unquoted/uppercase app name
         app_name = unquote_identifier(self.app_name)
-        if since_interval:
-            since_clause = f"and timestamp >= sysdate() - interval '{since_interval}'"
-        elif since:
+        if isinstance(since, datetime):
             since_clause = f"and timestamp >= '{since}'"
+        elif isinstance(since, str) and since:
+            since_clause = f"and timestamp >= sysdate() - interval '{since}'"
         else:
             since_clause = ""
-        until_clause = (
-            f"and timestamp <= sysdate() - interval '{until_interval}'"
-            if until_interval
-            else ""
-        )
+        if isinstance(until, datetime):
+            until_clause = f"and timestamp <= '{until}'"
+        elif isinstance(until, str) and until:
+            until_clause = f"and timestamp <= sysdate() - interval '{until}'"
+        else:
+            until_clause = ""
         type_in_values = ",".join(f"'{v}'" for v in record_types)
         types_clause = (
             f"and record_type in ({type_in_values})" if type_in_values else ""

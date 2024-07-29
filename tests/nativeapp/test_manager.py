@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional
@@ -1358,6 +1359,7 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     [
         ("", ""),
         ("1 hour", "and timestamp >= sysdate() - interval '1 hour'"),
+        (datetime(2024, 1, 1), "and timestamp >= '2024-01-01 00:00:00'"),
     ],
 )
 @pytest.mark.parametrize(
@@ -1365,6 +1367,7 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     [
         ("", ""),
         ("20 minutes", "and timestamp <= sysdate() - interval '20 minutes'"),
+        (datetime(2024, 1, 1), "and timestamp <= '2024-01-01 00:00:00'"),
     ],
 )
 @pytest.mark.parametrize(
@@ -1459,8 +1462,8 @@ def test_get_events(
     def get_events():
         native_app_manager = _get_na_manager()
         return native_app_manager.get_events(
-            since_interval=since,
-            until_interval=until,
+            since=since,
+            until=until,
             record_types=types,
             scopes=scopes,
             first=first,

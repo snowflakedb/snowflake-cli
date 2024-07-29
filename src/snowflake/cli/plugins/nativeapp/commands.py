@@ -496,8 +496,8 @@ def app_events(
         stream = (
             EventResult(event)
             for event in manager.get_events(
-                since_interval=since,
-                until_interval=until,
+                since=since,
+                until=until,
                 record_types=record_type_names,
                 scopes=scopes,
                 first=first,
