@@ -32,10 +32,13 @@ from tests_integration.test_utils import pushd, enable_definition_v2_feature_fla
 USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
 
-THRESHOLD_BYTES = 100  # arbitrarily small to force chunking
-TEMP_FILE_SIZE_BYTES = int(
-    S3_CHUNK_SIZE * 1.6
-)  # ensure our file will be uploaded multi-part
+# THRESHOLD_BYTES = 100  # arbitrarily small to force chunking
+# TEMP_FILE_SIZE_BYTES = int(
+#     S3_CHUNK_SIZE * 1.6
+# )  # ensure our file will be uploaded multi-part
+
+THRESHOLD_BYTES = None
+TEMP_FILE_SIZE_BYTES = 200 * 1024 * 1024
 
 
 @pytest.mark.integration
@@ -85,9 +88,12 @@ def test_large_upload_skips_reupload(
             # generate a binary file w/random bytes and upload it in multi-part
             with SecurePath(temp_file).open("wb") as f:
                 f.write(os.urandom(TEMP_FILE_SIZE_BYTES))
-            snowflake_session.execute_string(
-                f"put file://{temp_file} @{stage_fqn}/app/ threshold={THRESHOLD_BYTES}"
-            )
+
+            put_command = f"put file://{temp_file} @{stage_fqn}/app/"
+            if THRESHOLD_BYTES is not None:
+                put_command += f" threshold={THRESHOLD_BYTES}"
+
+            snowflake_session.execute_string(put_command)
 
             # ensure that there is, in fact, a file with a multi-part md5sum
             # FIXME: this will FAIL on both Azure and GCP; find a way to only test this on AWS?
