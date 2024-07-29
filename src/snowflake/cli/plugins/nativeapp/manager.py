@@ -351,16 +351,7 @@ class NativeAppManager(SqlExecutionMixin):
         Populates the local deploy root from artifact sources.
         """
         bundle_map = build_bundle(self.project_root, self.deploy_root, self.artifacts)
-        compiler = NativeAppCompiler(
-            BundleContext(
-                self.package_name,
-                self.artifacts,
-                self.project_root,
-                self.bundle_root,
-                self.deploy_root,
-                self.generated_root,
-            )
-        )
+        compiler = NativeAppCompiler(BundleContext.from_na_project(self.na_project))
         compiler.compile_artifacts()
         return bundle_map
 

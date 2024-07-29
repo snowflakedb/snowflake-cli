@@ -355,14 +355,7 @@ def test_process_no_collected_functions(
                 project_root=local_path,
             )
             processor = SnowparkAnnotationProcessor(
-                BundleContext(
-                    package_name=project.package_name,
-                    artifacts=project.artifacts,
-                    project_root=project.project_root,
-                    deploy_root=project.deploy_root,
-                    bundle_root=project.bundle_root,
-                    generated_root=project.generated_root,
-                )
+                BundleContext.from_na_project(project)
             )
             processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
@@ -416,14 +409,7 @@ def test_process_with_collected_functions(
                 project_root=local_path,
             )
             processor = SnowparkAnnotationProcessor(
-                BundleContext(
-                    package_name=project.package_name,
-                    artifacts=project.artifacts,
-                    project_root=project.project_root,
-                    deploy_root=project.deploy_root,
-                    bundle_root=project.bundle_root,
-                    generated_root=project.generated_root,
-                )
+                BundleContext.from_na_project(project)
             )
             processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
@@ -485,14 +471,7 @@ def test_package_normalization(
                 project_root=local_path,
             )
             processor = SnowparkAnnotationProcessor(
-                BundleContext(
-                    package_name=project.package_name,
-                    artifacts=project.artifacts,
-                    project_root=project.project_root,
-                    deploy_root=project.deploy_root,
-                    bundle_root=project.bundle_root,
-                    generated_root=project.generated_root,
-                )
+                BundleContext.from_na_project(project)
             )
             processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],

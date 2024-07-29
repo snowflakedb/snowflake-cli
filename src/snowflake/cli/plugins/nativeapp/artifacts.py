@@ -19,13 +19,27 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 from click.exceptions import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 from yaml import safe_load
+
+if TYPE_CHECKING:
+    from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 
 
 class DeployRootError(ClickException):
@@ -107,6 +121,17 @@ class BundleContext:
     bundle_root: Path
     deploy_root: Path
     generated_root: Path
+
+    @staticmethod
+    def from_na_project(na: NativeAppProjectModel) -> BundleContext:
+        return BundleContext(
+            na.package_name,
+            na.artifacts,
+            na.project_root,
+            na.bundle_root,
+            na.deploy_root,
+            na.generated_root,
+        )
 
 
 ArtifactPredicate = Callable[[Path, Path], bool]
