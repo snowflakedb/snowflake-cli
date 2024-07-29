@@ -38,12 +38,12 @@ Cheatsheet: https://github.com/Snowflake-Labs/sf-cheatsheets/blob/main/snowflake
 
 ## Install Snowflake CLI
 
-### Install with pip (PyPi)
+### Install with pipx (PyPi)
 
-Requires Python >= 3.8
+We recommend installing Snowflake CLI in isolated environment using [pipx](https://pipx.pypa.io/stable/). Requires Python >= 3.10
 
 ```bash
-pip install snowflake-cli-labs
+pipx install snowflake-cli-labs
 snow --help
 ```
 
@@ -59,7 +59,7 @@ snow --help
 
 ### Install from source
 
-Requires Python >= 3.8 and git
+Requires Python >= 3.10 and git
 
 ```bash
 git clone https://github.com/snowflakedb/snowflake-cli
