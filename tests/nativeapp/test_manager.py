@@ -1430,7 +1430,7 @@ def test_get_events(
         contents=[mock_snowflake_yml_file],
     )
 
-    events = [dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")] * 100
+    events = [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")] * 100
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1499,7 +1499,7 @@ def test_get_events_quoted_app_name(
         contents=[quoted_override_yml_file],
     )
 
-    events = [dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")] * 100
+    events = [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")] * 100
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1564,8 +1564,8 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
     )
 
     events = [
-        [dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")] * 10,
-        [dict(TIMESTAMP="2020-01-01T01:00:00Z", VALUE="test")] * 10,
+        [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")] * 10,
+        [dict(TIMESTAMP=datetime(2024, 1, 2), VALUE="test")] * 10,
     ]
     side_effects, expected = mock_execute_helper(
         [
@@ -1583,7 +1583,7 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
                             
                             
                             order by timestamp desc
-                            
+                            limit {len(events[0])}
                         ) order by timestamp asc
                         
                         """
@@ -1595,12 +1595,12 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
                 mock_cursor(events[1], []),
                 mock.call(
                     dedent(
-                        f"""\
+                        """\
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
                             where resource_attributes:"snow.database.name" = 'MYAPP'
-                            and timestamp >= '2020-01-01T00:00:00Z'
+                            and timestamp >= '2024-01-01 00:00:00'
                             
                             
                             
@@ -1622,10 +1622,13 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
     for i in range(len(events[0])):
         # Exhaust the initial set of events
         assert next(stream) == events[0][i]
+    assert mock_execute.call_count == 1
 
     for i in range(len(events[1])):
         # Then it'll make another query which returns the second set of events
         assert next(stream) == events[1][i]
+    assert mock_execute.call_count == 2
+    assert mock_execute.mock_calls == expected
 
     try:
         stream.throw(KeyboardInterrupt)
