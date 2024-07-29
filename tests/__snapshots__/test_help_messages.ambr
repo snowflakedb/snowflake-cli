@@ -271,6 +271,9 @@
   | --last             INTEGER                Fetch only the last N events.      |
   |                                           Cannot be used with --first.       |
   |                                           [default: 0]                       |
+  | --follow   -f                             Continue polling for events.       |
+  |                                           Implies --last 20 unless           |
+  |                                           overridden.                        |
   | --project  -p      TEXT                   Path where Snowflake project       |
   |                                           resides. Defaults to current       |
   |                                           working directory.                 |
