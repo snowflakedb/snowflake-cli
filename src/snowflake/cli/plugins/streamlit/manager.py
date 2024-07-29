@@ -144,7 +144,7 @@ class StreamlitManager(SqlExecutionMixin):
             try:
                 if use_versioned_stage:
                     self._execute_query(
-                        f"ALTER streamlit {streamlit_id.identifier} ADD LIVE VERSION FROM LAST"
+                        f"ALTER STREAMLIT {streamlit_id.identifier} ADD LIVE VERSION FROM LAST"
                     )
                 else:
                     self._execute_query(

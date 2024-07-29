@@ -442,8 +442,14 @@ def test_deploy_all_streamlit_files_not_defaults(
 
 
 @mock.patch("snowflake.connector.connect")
+@pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
 def test_deploy_streamlit_main_and_pages_files_experimental(
-    mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_connector,
+    mock_cursor,
+    runner,
+    mock_ctx,
+    project_directory,
+    enable_streamlit_versioned_stage,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -457,12 +463,24 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit"):
-        result = runner.invoke(["streamlit", "deploy", "--experimental"])
+    with mock.patch(
+        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
+        return_value=enable_streamlit_versioned_stage,
+    ):
+        with project_directory("example_streamlit"):
+            result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-    root_path = (
-        f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
-    )
+    if enable_streamlit_versioned_stage:
+        root_path = (
+            f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/versions/live"
+        )
+        post_create_command = f"ALTER STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME} ADD LIVE VERSION FROM LAST"
+    else:
+        root_path = f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+        post_create_command = (
+            f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT"
+        )
+
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         dedent(
@@ -473,23 +491,25 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
             TITLE = 'My Fancy Streamlit'
             """
         ).strip(),
-        f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT",
+        post_create_command,
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
-        f"select system$get_snowsight_host()",
+        "select system$get_snowsight_host()",
         REGIONLESS_QUERY,
-        f"select current_account_name()",
+        "select current_account_name()",
     ]
 
 
 @mock.patch("snowflake.connector.connect")
+@pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
 def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
     mock_connector,
     mock_cursor,
     runner,
     mock_ctx,
     project_directory,
+    enable_streamlit_versioned_stage,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -503,8 +523,12 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit"):
-        result1 = runner.invoke(["streamlit", "deploy", "--experimental"])
+    with mock.patch(
+        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
+        return_value=enable_streamlit_versioned_stage,
+    ):
+        with project_directory("example_streamlit"):
+            result1 = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     assert result1.exit_code == 0, result1.output
 
@@ -520,16 +544,23 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
     )
     ctx.queries = []
 
-    with project_directory("example_streamlit"):
-        result2 = runner.invoke(["streamlit", "deploy", "--experimental"])
+    with mock.patch(
+        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
+        return_value=enable_streamlit_versioned_stage,
+    ):
+        with project_directory("example_streamlit"):
+            result2 = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     assert result2.exit_code == 0, result2.output
 
-    root_path = (
-        f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
-    )
+    if enable_streamlit_versioned_stage:
+        root_path = (
+            f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/versions/live"
+        )
+    else:
+        root_path = f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
 
-    # Same as normal, except no CHECKOUT query
+    # Same as normal, except no ALTER query
     assert ctx.get_queries() == [
         dedent(
             f"""
@@ -542,15 +573,21 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
-        f"select system$get_snowsight_host()",
+        "select system$get_snowsight_host()",
         REGIONLESS_QUERY,
-        f"select current_account_name()",
+        "select current_account_name()",
     ]
 
 
 @mock.patch("snowflake.connector.connect")
+@pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
 def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
-    mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_connector,
+    mock_cursor,
+    runner,
+    mock_ctx,
+    project_directory,
+    enable_streamlit_versioned_stage,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -564,12 +601,24 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit_no_stage"):
-        result = runner.invoke(["streamlit", "deploy", "--experimental"])
+    with mock.patch(
+        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
+        return_value=enable_streamlit_versioned_stage,
+    ):
+        with project_directory("example_streamlit_no_stage"):
+            result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-    root_path = (
-        f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
-    )
+    if enable_streamlit_versioned_stage:
+        root_path = (
+            f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/versions/live"
+        )
+        post_create_command = f"ALTER STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME} ADD LIVE VERSION FROM LAST"
+    else:
+        root_path = f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+        post_create_command = (
+            f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT"
+        )
+
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         dedent(
@@ -579,7 +628,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
             QUERY_WAREHOUSE = test_warehouse
             """
         ).strip(),
-        f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT",
+        post_create_command,
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*.py", f"{root_path}/pages"),
