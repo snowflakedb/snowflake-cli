@@ -1371,8 +1371,8 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     ["scopes", "expected_scopes_clause"],
     [
         ([], ""),
-        (["scope_1"], "and scope in ('scope_1')"),
-        (["scope_1", "scope_2"], "and scope in ('scope_1','scope_2')"),
+        (["scope_1"], "and scope:name in ('scope_1')"),
+        (["scope_1", "scope_2"], "and scope:name in ('scope_1','scope_2')"),
     ],
 )
 @pytest.mark.parametrize(
@@ -1508,6 +1508,8 @@ def test_get_events_quoted_app_name(
                             select timestamp, value::varchar value
                             from db.schema.event_table
                             where resource_attributes:"snow.database.name" = 'My Application'
+                        
+                        
                         
                         
                             order by timestamp desc
