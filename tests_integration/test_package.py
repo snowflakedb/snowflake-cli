@@ -210,7 +210,7 @@ class TestPackage:
 
     @pytest.mark.integration
     def test_incorrect_input(self, runner):
-        from pkg_resources.extern.packaging.requirements import InvalidRequirement
+        from pkg_resources._vendor.packaging.requirements import InvalidRequirement
 
         with pytest.raises(InvalidRequirement) as err:
             runner.invoke_with_connection(
