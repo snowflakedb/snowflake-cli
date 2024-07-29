@@ -463,6 +463,12 @@ def app_events(
     if first and last:
         raise ClickException("--first and --last cannot be used together.")
 
+    if follow:
+        if until:
+            raise ClickException("--follow and --until cannot be used together.")
+        if first:
+            raise ClickException("--follow and --first cannot be used together.")
+
     assert_project_type("native_app")
 
     record_type_names = [r.name for r in record_types]
