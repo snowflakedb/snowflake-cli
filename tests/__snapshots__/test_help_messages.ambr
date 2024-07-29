@@ -181,21 +181,31 @@
    Fetches events for this app from the event table configured in Snowflake.      
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --since            TEXT     Fetch events that are newer than this time ago,  |
-  |                             in Snowflake interval syntax.                    |
-  | --until            TEXT     Fetch events that are older than this time ago,  |
-  |                             in Snowflake interval syntax.                    |
-  | --first            INTEGER  Fetch only the first N events. Cannot be used    |
-  |                             with --last.                                     |
-  |                             [default: 0]                                     |
-  | --last             INTEGER  Fetch only the last N events. Cannot be used     |
-  |                             with --first.                                    |
-  |                             [default: 0]                                     |
-  | --project  -p      TEXT     Path where Snowflake project resides. Defaults   |
-  |                             to current working directory.                    |
-  | --env              TEXT     String in format of key=value. Overrides         |
-  |                             variables from env section used for templating.  |
-  | --help     -h               Show this message and exit.                      |
+  | --since            TEXT                   Fetch events that are newer than   |
+  |                                           this time ago, in Snowflake        |
+  |                                           interval syntax.                   |
+  | --until            TEXT                   Fetch events that are older than   |
+  |                                           this time ago, in Snowflake        |
+  |                                           interval syntax.                   |
+  | --type             [log|span|span_event]  Restrict results to specific       |
+  |                                           record type. Can be specified      |
+  |                                           multiple times.                    |
+  | --scope            TEXT                   Restrict results to a specific     |
+  |                                           scope name. Can be specified       |
+  |                                           multiple times.                    |
+  | --first            INTEGER                Fetch only the first N events.     |
+  |                                           Cannot be used with --last.        |
+  |                                           [default: 0]                       |
+  | --last             INTEGER                Fetch only the last N events.      |
+  |                                           Cannot be used with --first.       |
+  |                                           [default: 0]                       |
+  | --project  -p      TEXT                   Path where Snowflake project       |
+  |                                           resides. Defaults to current       |
+  |                                           working directory.                 |
+  | --env              TEXT                   String in format of key=value.     |
+  |                                           Overrides variables from env       |
+  |                                           section used for templating.       |
+  | --help     -h                             Show this message and exit.        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment  -c      TEXT  Name of the connection, as defined |
