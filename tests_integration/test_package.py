@@ -19,7 +19,6 @@ from typing import List
 from zipfile import ZipFile
 
 import pytest
-from pkg_resources._vendor.packaging.requirements import InvalidRequirement
 
 
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
@@ -125,7 +124,6 @@ class TestPackage:
         "flags",
         [
             ["--allow-shared-libraries"],
-            ["--allow-native-libraries", "yes"],
             ["--allow-shared-libraries", "--ignore-anaconda"],
         ],
     )
@@ -212,6 +210,8 @@ class TestPackage:
 
     @pytest.mark.integration
     def test_incorrect_input(self, runner):
+        from pkg_resources.extern.packaging.requirements import InvalidRequirement
+
         with pytest.raises(InvalidRequirement) as err:
             runner.invoke_with_connection(
                 ["snowpark", "package", "create", "this is incorrect"]
