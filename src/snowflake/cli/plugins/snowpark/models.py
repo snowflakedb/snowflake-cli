@@ -17,17 +17,10 @@ from __future__ import annotations
 import re
 import zipfile
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from typing import List
 
 from requirements import requirement
-
-
-class YesNoAsk(Enum):
-    YES = "yes"
-    NO = "no"
-    ASK = "ask"
 
 
 class Requirement(requirement.Requirement):
