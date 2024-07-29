@@ -21,7 +21,7 @@ name = "snowflake-cli-labs"
 authors = [{ name = "Snowflake Inc." }]
 license = { file = "LICENSE" }
 dynamic = ["version"]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 description = "Snowflake CLI"
 readme = "README.md"
 dependencies = [
@@ -122,7 +122,7 @@ features = ["development"]
 test = ["pytest -m integration -n4 --dist=loadfile"]
 
 [[tool.hatch.envs.local.matrix]]
-python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
+python = ["3.10", "3.11", "3.12"]
 
 [tool.coverage.run]
 source = ["snowflake.cli"]
