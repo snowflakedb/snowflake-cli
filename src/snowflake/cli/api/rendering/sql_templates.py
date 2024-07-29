@@ -21,12 +21,14 @@ from jinja2 import StrictUndefined, loaders
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.rendering.jinja import (
     CONTEXT_KEY,
+    FUNCTION_KEY,
     IgnoreAttrEnvironment,
     env_bootstrap,
 )
 
 _SQL_TEMPLATE_START = "&{"
 _SQL_TEMPLATE_END = "}"
+RESERVED_KEYS = [CONTEXT_KEY, FUNCTION_KEY]
 
 
 def get_sql_cli_jinja_env(*, loader: Optional[loaders.BaseLoader] = None):
@@ -46,10 +48,12 @@ def get_sql_cli_jinja_env(*, loader: Optional[loaders.BaseLoader] = None):
 
 def snowflake_sql_jinja_render(content: str, data: Dict | None = None) -> str:
     data = data or {}
-    if CONTEXT_KEY in data:
-        raise ClickException(
-            f"{CONTEXT_KEY} in user defined data. The `{CONTEXT_KEY}` variable is reserved for CLI usage."
-        )
+
+    for reserved_key in RESERVED_KEYS:
+        if reserved_key in data:
+            raise ClickException(
+                f"{reserved_key} in user defined data. The `{reserved_key}` variable is reserved for CLI usage."
+            )
 
     context_data = get_cli_context().template_context
     context_data.update(data)

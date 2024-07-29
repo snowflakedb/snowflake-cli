@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import List
 from unittest import mock
@@ -46,9 +47,8 @@ def test_napp_project_1(project_definition_files):
 
 
 @pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
-def test_na_minimal_project(
-    project_definition_files: List[Path], current_sanitized_username
-):
+@mock.patch.dict(os.environ, {"USER": "jsmith"})
+def test_na_minimal_project(project_definition_files: List[Path]):
     project = load_project(project_definition_files).project_definition
     assert project.native_app.name == "minimal"
     assert project.native_app.artifacts == [
@@ -67,15 +67,11 @@ def test_na_minimal_project(
         # a definition structure for these values but directly return defaults
         # in "getter" functions (higher-level data structures).
         local = generate_local_override_yml(project)
-        assert (
-            local.native_app.application.name == f"minimal_{current_sanitized_username}"
-        )
+        assert local.native_app.application.name == "minimal_jsmith"
         assert local.native_app.application.role == "resolved_role"
         assert local.native_app.application.warehouse == "resolved_warehouse"
         assert local.native_app.application.debug == True
-        assert (
-            local.native_app.package.name == f"minimal_pkg_{current_sanitized_username}"
-        )
+        assert local.native_app.package.name == "minimal_pkg_jsmith"
         assert local.native_app.package.role == "resolved_role"
 
 

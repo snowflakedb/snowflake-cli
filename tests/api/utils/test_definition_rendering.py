@@ -134,9 +134,9 @@ def test_partial_invalid_template_in_version_1(warning_mock):
     )
 
 
-@mock.patch.dict(os.environ, {"A": "value"}, clear=True)
+@mock.patch.dict(os.environ, {"A": "value", "USER": "username"}, clear=True)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
-def test_no_warning_in_version_1_1(warning_mock, current_sanitized_username):
+def test_no_warning_in_version_1_1(warning_mock):
     definition = {
         "definition_version": "1.1",
         "native_app": {"name": "test_source_<% ctx.env.A %>", "artifacts": []},
@@ -156,12 +156,10 @@ def test_no_warning_in_version_1_1(warning_mock, current_sanitized_username):
                 "scratch_stage": "app_src.stage_snowflake_cli_scratch",
                 "source_stage": "app_src.stage",
                 "package": {
-                    "name": f"test_source_value_pkg_{current_sanitized_username}",
+                    "name": "test_source_value_pkg_username",
                     "distribution": "internal",
                 },
-                "application": {
-                    "name": f"test_source_value_{current_sanitized_username}"
-                },
+                "application": {"name": "test_source_value_username"},
             },
             "env": ProjectEnvironment(default_env={}, override_env={}),
         },
@@ -257,7 +255,7 @@ def test_resolve_variables_in_project_environment_variables_precedence():
     {"env_var": "<% ctx.definition_version %>", "USER": "username"},
     clear=True,
 )
-def test_env_variables_do_not_get_resolved(current_sanitized_username):
+def test_env_variables_do_not_get_resolved():
     definition = {
         "definition_version": "1.1",
         "native_app": {"name": "test_source_<% ctx.env.env_var %>", "artifacts": []},
@@ -279,11 +277,11 @@ def test_env_variables_do_not_get_resolved(current_sanitized_username):
                 "scratch_stage": "app_src.stage_snowflake_cli_scratch",
                 "source_stage": "app_src.stage",
                 "package": {
-                    "name": f'"test_source_<% ctx.definition_version %>_pkg_{current_sanitized_username}"',
+                    "name": '"test_source_<% ctx.definition_version %>_pkg_username"',
                     "distribution": "internal",
                 },
                 "application": {
-                    "name": f'"test_source_<% ctx.definition_version %>_{current_sanitized_username}"'
+                    "name": '"test_source_<% ctx.definition_version %>_username"'
                 },
             },
             "env": ProjectEnvironment(
@@ -378,8 +376,8 @@ def test_resolve_variables_reference_non_scalar(definition, error_var):
     )
 
 
-@mock.patch.dict(os.environ, {"blank_env": ""}, clear=True)
-def test_resolve_variables_blank_is_ok(current_sanitized_username):
+@mock.patch.dict(os.environ, {"blank_env": "", "USER": "username"}, clear=True)
+def test_resolve_variables_blank_is_ok():
     definition = {
         "definition_version": "1.1",
         "native_app": {
@@ -406,10 +404,10 @@ def test_resolve_variables_blank_is_ok(current_sanitized_username):
                 "scratch_stage": "app_src.stage_snowflake_cli_scratch",
                 "source_stage": "app_src.stage",
                 "package": {
-                    "name": f"_pkg_{current_sanitized_username}",
+                    "name": "_pkg_username",
                     "distribution": "internal",
                 },
-                "application": {"name": f"_{current_sanitized_username}"},
+                "application": {"name": "_username"},
             },
             "env": ProjectEnvironment(
                 default_env={
@@ -688,8 +686,8 @@ def test_os_env_and_override_envs_in_version_1():
     assert result["ctx"]["env"]["os_env_var"] == "os_env_var_value"
 
 
-@mock.patch.dict(os.environ, {"debug": "true"}, clear=True)
-def test_non_str_scalar_with_templates(current_sanitized_username):
+@mock.patch.dict(os.environ, {"debug": "true", "USER": "username"}, clear=True)
+def test_non_str_scalar_with_templates():
     definition = {
         "definition_version": "1.1",
         "native_app": {
@@ -714,11 +712,11 @@ def test_non_str_scalar_with_templates(current_sanitized_username):
                 "scratch_stage": "app_src.stage_snowflake_cli_scratch",
                 "source_stage": "app_src.stage",
                 "package": {
-                    "name": f"test_app_pkg_{current_sanitized_username}",
+                    "name": "test_app_pkg_username",
                     "distribution": "internal",
                 },
                 "application": {
-                    "name": f"test_app_{current_sanitized_username}",
+                    "name": "test_app_username",
                     "debug": "true",
                 },
             },
@@ -744,8 +742,8 @@ def test_non_str_scalar_with_templates_with_invalid_value():
     assert "Input should be a valid boolean" in err.value.message
 
 
-@mock.patch.dict(os.environ, {"stage": "app_src.stage"}, clear=True)
-def test_field_with_custom_validation_with_templates(current_sanitized_username):
+@mock.patch.dict(os.environ, {"stage": "app_src.stage", "USER": "username"}, clear=True)
+def test_field_with_custom_validation_with_templates():
     definition = {
         "definition_version": "1.1",
         "native_app": {
@@ -770,11 +768,11 @@ def test_field_with_custom_validation_with_templates(current_sanitized_username)
                 "scratch_stage": "app_src.stage_snowflake_cli_scratch",
                 "source_stage": "app_src.stage",
                 "package": {
-                    "name": f"test_app_pkg_{current_sanitized_username}",
+                    "name": "test_app_pkg_username",
                     "distribution": "internal",
                 },
                 "application": {
-                    "name": f"test_app_{current_sanitized_username}",
+                    "name": "test_app_username",
                 },
             },
             "env": ProjectEnvironment(default_env={}, override_env={}),
@@ -800,26 +798,24 @@ def test_field_with_custom_validation_with_templates_and_invalid_value():
 
 
 @pytest.mark.parametrize(
-    "na_name, app_name, pkg_name",
+    "na_name, expected_app_name, expected_pkg_name",
     [
         # valid unquoted ID
-        ("safe_name", "safe_name_{user}", "safe_name_pkg_{user}"),
+        ("safe_name", "safe_name_username", "safe_name_pkg_username"),
         # valid quoted ID with unsafe char
-        ('"unsafe.name"', '"unsafe.name_{user}"', '"unsafe.name_pkg_{user}"'),
+        ('"unsafe.name"', '"unsafe.name_username"', '"unsafe.name_pkg_username"'),
         # valid quoted ID with safe char
-        ('"safe_name"', '"safe_name_{user}"', '"safe_name_pkg_{user}"'),
+        ('"safe_name"', '"safe_name_username"', '"safe_name_pkg_username"'),
         # valid quoted id with double quotes char
-        ('"name_""_"', '"name_""__{user}"', '"name_""__pkg_{user}"'),
+        ('"name_""_"', '"name_""__username"', '"name_""__pkg_username"'),
         # unquoted ID with unsafe char
-        ("unsafe.name", '"unsafe.name_{user}"', '"unsafe.name_pkg_{user}"'),
+        ("unsafe.name", '"unsafe.name_username"', '"unsafe.name_pkg_username"'),
     ],
 )
-@mock.patch.dict(os.environ, {}, clear=True)
+@mock.patch.dict(os.environ, {"USER": "username"}, clear=True)
 def test_defaults_native_app_pkg_name(
-    na_name, app_name: str, pkg_name: str, current_sanitized_username
+    na_name, expected_app_name: str, expected_pkg_name: str
 ):
-    expected_app_name = app_name.format(user=current_sanitized_username)
-    expected_pkg_name = pkg_name.format(user=current_sanitized_username)
 
     definition = {
         "definition_version": "1.1",
@@ -931,14 +927,14 @@ def test_id_to_str_valid_values(input_val, expected_output):
     definition = {
         "definition_version": "1.1",
         "env": {
-            "value_input": input_val,
-            "value_output": "<% fn.id_to_str(ctx.env.value_input) %>",
+            "input_value": input_val,
+            "output_value": "<% fn.id_to_str(ctx.env.input_value) %>",
         },
     }
 
     result = render_definition_template(definition, {}).project_context
     env = result.get("ctx", {}).get("env", {})
-    assert env.get("value_output") == expected_output
+    assert env.get("output_value") == expected_output
 
 
 def test_id_to_str_with_no_args():
@@ -1000,14 +996,14 @@ def test_str_to_id_valid_values(input_val, expected_output):
     definition = {
         "definition_version": "1.1",
         "env": {
-            "value_input": input_val,
-            "value_output": "<% fn.str_to_id(ctx.env.value_input) %>",
+            "input_value": input_val,
+            "output_value": "<% fn.str_to_id(ctx.env.input_value) %>",
         },
     }
 
     result = render_definition_template(definition, {}).project_context
     env = result.get("ctx", {}).get("env", {})
-    assert env.get("value_output") == expected_output
+    assert env.get("output_value") == expected_output
 
 
 def test_str_to_id_with_no_args():
@@ -1050,3 +1046,92 @@ def test_str_to_id_with_non_string_arg():
         render_definition_template(definition, {})
 
     assert "str_to_id only accepts String values" in err.value.message
+
+
+@pytest.mark.parametrize(
+    "os_environ, expected_output",
+    [
+        ({"USER": "test_user"}, "test_user"),
+        ({"USERNAME": "test_user"}, "test_user"),
+        ({}, "unknown_user"),
+    ],
+)
+def test_get_username_valid_values(os_environ, expected_output):
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "output_value": "<% fn.get_username() %>",
+        },
+    }
+
+    with mock.patch.dict(os.environ, os_environ, clear=True):
+        result = render_definition_template(definition, {}).project_context
+
+    env = result.get("ctx", {}).get("env", {})
+    assert env.get("output_value") == expected_output
+
+
+def test_get_username_with_args_should_fail():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value": "<% fn.get_username('a') %>",
+        },
+    }
+
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition, {})
+
+    assert "get_username supports at most 0 argument(s)" in err.value.message
+
+
+@pytest.mark.parametrize(
+    "input_value, expected_output",
+    [
+        ("test_value", "test_value"),
+        (" T'EST_Va l.u-e" "", "test_value"),
+        ("", ""),
+        ('"some_id"', "some_id"),
+    ],
+)
+def test_clean_id_valid_values(input_value, expected_output):
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "input_value": input_value,
+            "output_value": "<% fn.clean_id(ctx.env.input_value) %>",
+        },
+    }
+
+    result = render_definition_template(definition, {}).project_context
+
+    env = result.get("ctx", {}).get("env", {})
+    assert env.get("output_value") == expected_output
+
+
+def test_clean_id_with_no_args():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value": "<% fn.clean_id() %>",
+        },
+    }
+
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition, {})
+
+    assert "clean_id requires at least 1 argument(s)" in err.value.message
+
+
+def test_clean_id_with_two_args():
+    definition = {
+        "definition_version": "1.1",
+        "env": {
+            "value": "<% fn.clean_id('a', 'b') %>",
+        },
+    }
+
+    with pytest.raises(InvalidTemplate) as err:
+        render_definition_template(definition, {})
+
+    assert "clean_id supports at most 1 argument(s)" in err.value.message

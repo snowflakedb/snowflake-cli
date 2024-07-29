@@ -33,7 +33,6 @@ from snowflake.cli.api.project.schemas.project_definition import (
 )
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
-from snowflake.cli.api.project.util import get_sanitized_username
 from snowflake.cli.app.cli_app import app_factory
 from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
     NativeAppExtensionFunction,
@@ -428,11 +427,6 @@ def native_app_extension_function(
     native_app_extension_function_raw_data,
 ) -> NativeAppExtensionFunction:
     return NativeAppExtensionFunction(**native_app_extension_function_raw_data)
-
-
-@pytest.fixture
-def current_sanitized_username():
-    return get_sanitized_username()
 
 
 @pytest.fixture

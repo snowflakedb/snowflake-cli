@@ -21,7 +21,6 @@ from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
 )
-from snowflake.cli.api.project.util import get_sanitized_username
 
 DistributionOptions = Literal["internal", "external", "INTERNAL", "EXTERNAL"]
 
@@ -60,5 +59,5 @@ class PackageV11(Package):
     # Templated defaults only supported in v1.1+
     name: Optional[str] = IdentifierField(
         title="Name of the application package created when you run the snow app run command",
-        default=f"<% fn.id_concat(ctx.native_app.name, '_pkg_{get_sanitized_username()}') %>",
+        default="<% fn.id_concat(ctx.native_app.name, '_pkg_', fn.clean_id(fn.get_username())) %>",
     )

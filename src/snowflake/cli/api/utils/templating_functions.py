@@ -18,7 +18,10 @@ from typing import Any, List, Optional
 
 from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.project.util import (
+    DEFAULT_USERNAME,
+    clean_identifier,
     concat_identifiers,
+    get_env_username,
     identifier_to_str,
     to_identifier,
 )
@@ -70,6 +73,21 @@ class TemplatingFunctions:
             "id_to_str", args, min_count=1, max_count=1
         )
         return identifier_to_str(args[0])
+
+    @staticmethod
+    def get_username(*args):
+        TemplatingFunctions._verify_str_arguments(
+            "get_username", args, min_count=0, max_count=0
+        )
+        return get_env_username() or DEFAULT_USERNAME
+
+    @staticmethod
+    def clean_id(*args):
+        TemplatingFunctions._verify_str_arguments(
+            "clean_id", args, min_count=1, max_count=1
+        )
+
+        return clean_identifier(args[0])
 
 
 def get_templating_functions():
