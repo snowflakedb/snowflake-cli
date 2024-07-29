@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, List, NoReturn, Optional, TypedDict
+from typing import Any, Generator, List, NoReturn, Optional, TypedDict
 
 import jinja2
 from click import ClickException
@@ -716,6 +718,7 @@ class NativeAppManager(SqlExecutionMixin):
         self,
         since_interval: str = "",
         until_interval: str = "",
+        since: datetime | None = None,
         record_types: list[str] | None = None,
         scopes: list[str] | None = None,
         first: int = 0,
@@ -727,16 +730,20 @@ class NativeAppManager(SqlExecutionMixin):
         if first and last:
             raise ValueError("first and last cannot be used together")
 
+        if since and since_interval:
+            raise ValueError("since and since_interval cannot be used together")
+
         if not self.account_event_table:
             raise NoEventTableForAccount()
 
         # resource_attributes:"snow.database.name" uses the unquoted/uppercase app name
         app_name = unquote_identifier(self.app_name)
-        since_clause = (
-            f"and timestamp >= sysdate() - interval '{since_interval}'"
-            if since_interval
-            else ""
-        )
+        if since_interval:
+            since_clause = f"and timestamp >= sysdate() - interval '{since_interval}'"
+        elif since:
+            since_clause = f"and timestamp >= '{since}'"
+        else:
+            since_clause = ""
         until_clause = (
             f"and timestamp <= sysdate() - interval '{until_interval}'"
             if until_interval
@@ -772,6 +779,49 @@ class NativeAppManager(SqlExecutionMixin):
             return self._execute_query(query, cursor_class=DictCursor).fetchall()
         except ProgrammingError as err:
             generic_sql_error_handler(err)
+
+    def stream_events(
+        self,
+        last: int,
+        delay_seconds: int,
+        record_types: list[str] | None = None,
+        scopes: list[str] | None = None,
+    ) -> Generator[dict, None, None]:
+        try:
+            events = self.get_events(
+                record_types=record_types, scopes=scopes, last=last
+            )
+            yield from events  # Yield the initial batch of events
+            last_event_time = events[-1]["TIMESTAMP"]
+
+            while True:  # Then infinite poll for new events
+                time.sleep(delay_seconds)
+                previous_events = events
+                events = self.get_events(
+                    since=last_event_time, record_types=record_types, scopes=scopes
+                )
+                if not events:
+                    continue
+
+                yield from _new_events_only(previous_events, events)
+                last_event_time = events[-1]["TIMESTAMP"]
+        except KeyboardInterrupt:
+            return
+
+
+def _new_events_only(previous_events: list[dict], new_events: list[dict]) -> list[dict]:
+    # Returns the events in new_events that were emitted after the ones in previous_events
+    # Handles duplicates by checking for an overlap until one can't be found anymore
+    overlap_amount = 1
+    last_overlap_found_at = 0
+    while overlap_amount <= min(len(new_events), len(previous_events)):
+        # Check if end of previous_events overlaps with start of new_events
+        if previous_events[-overlap_amount:] == new_events[:overlap_amount]:
+            last_overlap_found_at = overlap_amount
+        elif last_overlap_found_at:
+            break
+        overlap_amount += 1
+    return new_events[last_overlap_found_at:]
 
 
 def _validation_item_to_str(item: dict[str, str | int]):

@@ -14,11 +14,12 @@
 
 from __future__ import annotations
 
+import itertools
 import logging
 from enum import Enum
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional
+from typing import Generator, Iterable, List, Optional, cast
 
 import typer
 from click import ClickException
@@ -450,6 +451,12 @@ def app_events(
     last: int = typer.Option(
         default=0, help="Fetch only the last N events. Cannot be used with --first."
     ),
+    follow: bool = typer.Option(
+        False,
+        "--follow",
+        "-f",
+        help="Continue polling for events. Implies --last 20 unless overridden.",
+    ),
     **options,
 ):
     """Fetches events for this app from the event table configured in Snowflake."""
@@ -458,26 +465,42 @@ def app_events(
 
     assert_project_type("native_app")
 
+    record_type_names = [r.name for r in record_types]
     manager = NativeAppManager(
         project_definition=get_cli_context().project_definition.native_app,
         project_root=get_cli_context().project_root,
     )
-    events = manager.get_events(
-        since_interval=since,
-        until_interval=until,
-        record_types=[r.name for r in record_types],
-        scopes=scopes,
-        first=first,
-        last=last,
-    )
-    if not events:
-        return MessageResult("No events found.")
+    if follow:
+        if not last:
+            # If we don't have a value for --last, assume 20 so we
+            # at least print something before starting the tail
+            last = 20
+        stream: Iterable[CommandResult] = (
+            EventResult(event)
+            for event in manager.stream_events(
+                last=last,
+                delay_seconds=10,  # configurable?
+                record_types=record_type_names,
+                scopes=scopes,
+            )
+        )
+        # Append a newline at the end to make the CLI output clean when we hit Ctrl-C
+        stream = itertools.chain(stream, [MessageResult("")])
+    else:
+        stream = (
+            EventResult(event)
+            for event in manager.get_events(
+                since_interval=since,
+                until_interval=until,
+                record_types=record_type_names,
+                scopes=scopes,
+                first=first,
+                last=last,
+            )
+        )
 
-    def g():
-        for event in events:
-            yield EventResult(event)
-
-    return StreamResult(g())
+    # Cast the stream to a Generator since that's what StreamResult wants
+    return StreamResult(cast(Generator[CommandResult, None, None], stream))
 
 
 class EventResult(ObjectResult, MessageResult):
