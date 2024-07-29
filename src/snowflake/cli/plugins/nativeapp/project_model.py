@@ -189,10 +189,10 @@ class NativeAppProjectModel:
 
     def get_bundle_context(self) -> BundleContext:
         return BundleContext(
-            self.package_name,
-            self.artifacts,
-            self.project_root,
-            self.bundle_root,
-            self.deploy_root,
-            self.generated_root,
+            package_name=self.package_name,
+            artifacts=self.artifacts,
+            project_root=self.project_root,
+            bundle_root=self.bundle_root,
+            deploy_root=self.deploy_root,
+            generated_root=self.generated_root,
         )

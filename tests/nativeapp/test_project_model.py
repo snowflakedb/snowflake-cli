@@ -188,15 +188,15 @@ def test_bundle_context_from_project_model(project_definition_files: List[Path])
     actual_bundle_ctx = project.get_bundle_context()
 
     expected_bundle_ctx = BundleContext(
-        default_app_package("minimal"),
-        [
+        package_name=default_app_package("minimal"),
+        artifacts=[
             PathMapping(src="setup.sql", dest=None),
             PathMapping(src="README.md", dest=None),
         ],
-        project_dir,
-        Path(project_dir / "output" / "bundle"),
-        Path(project_dir / "output" / "deploy"),
-        Path(project_dir / "output" / "deploy" / "__generated"),
+        project_root=project_dir,
+        bundle_root=Path(project_dir / "output" / "bundle"),
+        deploy_root=Path(project_dir / "output" / "deploy"),
+        generated_root=Path(project_dir / "output" / "deploy" / "__generated"),
     )
 
     assert actual_bundle_ctx == expected_bundle_ctx
