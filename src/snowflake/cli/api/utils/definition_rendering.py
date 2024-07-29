@@ -374,5 +374,4 @@ def render_definition_template(
     project_context[CONTEXT_KEY]["env"] = ProjectEnvironment(
         default_env=project_context[CONTEXT_KEY].get("env"), override_env=override_env
     )
-
     return ProjectProperties(project_definition, project_context)
