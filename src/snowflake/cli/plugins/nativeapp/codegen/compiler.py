@@ -20,7 +20,7 @@ from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     ProcessorMapping,
 )
-from snowflake.cli.plugins.nativeapp.artifacts import BundleContext
+from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     ArtifactProcessor,
     UnsupportedArtifactProcessorError,

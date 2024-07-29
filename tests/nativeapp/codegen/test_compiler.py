@@ -17,7 +17,7 @@ import pytest
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
-from snowflake.cli.plugins.nativeapp.artifacts import BundleContext
+from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     UnsupportedArtifactProcessorError,
 )

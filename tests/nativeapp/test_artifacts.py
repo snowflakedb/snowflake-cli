@@ -25,7 +25,6 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMappin
 from snowflake.cli.plugins.nativeapp.artifacts import (
     ArtifactError,
     ArtifactPredicate,
-    BundleContext,
     BundleMap,
     DeployRootError,
     NotInDeployRootError,
@@ -35,6 +34,7 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     resolve_without_follow,
     symlink_or_copy,
 )
+from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 
 from tests.nativeapp.utils import (
     assert_dir_snapshot,

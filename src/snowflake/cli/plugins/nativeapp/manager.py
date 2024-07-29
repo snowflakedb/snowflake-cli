@@ -48,8 +48,8 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     build_bundle,
     resolve_without_follow,
 )
+from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli.plugins.nativeapp.codegen.compiler import (
-    BundleContext,
     NativeAppCompiler,
 )
 from snowflake.cli.plugins.nativeapp.constants import (

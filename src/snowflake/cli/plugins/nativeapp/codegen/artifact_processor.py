@@ -23,7 +23,7 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
     ProcessorMapping,
 )
-from snowflake.cli.plugins.nativeapp.artifacts import BundleContext
+from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 
 
 class UnsupportedArtifactProcessorError(ClickException):
