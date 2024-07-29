@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from click import Command
 from snowflake.cli._app.dev.docs.template_utils import get_template_environment
@@ -86,15 +86,33 @@ def _render_command_usage(
     # Included files, which these are, need to use the .txt extension.
     file_path = root / f"usage-{command_name}.txt"
     log.info("Creating %s", file_path)
+    command_help_params = _split_docstring(command.help)
+    template_params = {
+        "name": command_name,
+        "options": options,
+        "arguments": arguments,
+        "path": path,
+    }
     with file_path.open("w+") as fh:
-        fh.write(
-            template.render(
-                {
-                    "help": command.help,
-                    "name": command_name,
-                    "options": options,
-                    "arguments": arguments,
-                    "path": path,
-                }
-            )
+        fh.write(template.render(command_help_params | template_params))
+
+
+def _split_docstring(command_help: Optional[str]) -> dict[str, Any]:
+    if command_help is None:
+        return {}
+
+    split_command_help = command_help.split("## ")
+
+    if len(split_command_help) == 1:
+        return {"help": split_command_help[0]}
+
+    additional_sections = []
+    for section in split_command_help[1:]:
+        lines = section.split("\n")
+        additional_sections.append(
+            {"title": lines[0], "content": "\n".join(lines[1:]).strip()}
         )
+    return {
+        "help": split_command_help[0],
+        "additional_sections": additional_sections,
+    }
