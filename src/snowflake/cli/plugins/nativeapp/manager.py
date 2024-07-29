@@ -715,8 +715,15 @@ class NativeAppManager(SqlExecutionMixin):
                     )
 
     def get_events(
-        self, since_interval: str = "", until_interval: str = ""
+        self,
+        since_interval: str = "",
+        until_interval: str = "",
+        first: int = 0,
+        last: int = 0,
     ) -> list[dict]:
+        if first and last:
+            raise ValueError("first and last cannot be used together")
+
         if not self.account_event_table:
             raise NoEventTableForAccount()
 
@@ -732,14 +739,21 @@ class NativeAppManager(SqlExecutionMixin):
             if until_interval
             else ""
         )
+        first_clause = f"limit {first}" if first else ""
+        last_clause = f"limit {last}" if last else ""
         query = dedent(
             f"""\
-            select timestamp, value::varchar value
-            from {self.account_event_table}
-            where resource_attributes:"snow.database.name" = '{app_name}'
-            {since_clause}
-            {until_clause}
-            order by timestamp asc;"""
+            select * from (
+                select timestamp, value::varchar value
+                from {self.account_event_table}
+                where resource_attributes:"snow.database.name" = '{app_name}'
+                {since_clause}
+                {until_clause}
+                order by timestamp desc
+                {last_clause}
+            ) order by timestamp asc
+            {first_clause}
+            """
         )
         try:
             return self._execute_query(query, cursor_class=DictCursor).fetchall()
