@@ -1368,10 +1368,17 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     ],
 )
 @pytest.mark.parametrize(
-    ["limit", "expected_limit_clause"],
+    ["first", "expected_first_clause"],
     [
         (0, ""),
         (10, "limit 10"),
+    ],
+)
+@pytest.mark.parametrize(
+    ["last", "expected_last_clause"],
+    [
+        (0, ""),
+        (20, "limit 20"),
     ],
 )
 @mock.patch(
@@ -1389,8 +1396,10 @@ def test_get_events(
     expected_since_clause,
     until,
     expected_until_clause,
-    limit,
-    expected_limit_clause,
+    first,
+    expected_first_clause,
+    last,
+    expected_last_clause,
 ):
     create_named_file(
         file_name="snowflake.yml",
@@ -1413,8 +1422,9 @@ def test_get_events(
                             {expected_since_clause}
                             {expected_until_clause}
                             order by timestamp desc
-                            {expected_limit_clause}
+                            {expected_last_clause}
                         ) order by timestamp asc
+                        {expected_first_clause}
                         """
                     ),
                     cursor_class=DictCursor,
@@ -1424,9 +1434,22 @@ def test_get_events(
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
-    assert native_app_manager.get_events(since, until, limit) == events
-    assert mock_execute.mock_calls == expected
+    def get_events():
+        native_app_manager = _get_na_manager()
+        return native_app_manager.get_events(
+            since_interval=since,
+            until_interval=until,
+            first=first,
+            last=last,
+        )
+
+    if first and last:
+        # Filtering on first and last events at the same time doesn't make sense
+        with pytest.raises(ValueError):
+            get_events()
+    else:
+        assert get_events() == events
+        assert mock_execute.mock_calls == expected
 
 
 @mock.patch(
@@ -1466,6 +1489,7 @@ def test_get_events_quoted_app_name(
                             order by timestamp desc
                         
                         ) order by timestamp asc
+                        
                         """
                     ),
                     cursor_class=DictCursor,

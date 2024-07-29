@@ -185,7 +185,11 @@
   |                             in Snowflake interval syntax.                    |
   | --until            TEXT     Fetch events that are older than this time ago,  |
   |                             in Snowflake interval syntax.                    |
-  | --limit            INTEGER  Maximum number of latest events to fetch.        |
+  | --first            INTEGER  Fetch only the first N events. Cannot be used    |
+  |                             with --last.                                     |
+  |                             [default: 0]                                     |
+  | --last             INTEGER  Fetch only the last N events. Cannot be used     |
+  |                             with --first.                                    |
   |                             [default: 0]                                     |
   | --project  -p      TEXT     Path where Snowflake project resides. Defaults   |
   |                             to current working directory.                    |

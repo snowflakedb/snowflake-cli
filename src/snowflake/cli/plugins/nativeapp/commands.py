@@ -391,19 +391,30 @@ def app_events(
         default="",
         help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
     ),
-    limit: int = typer.Option(
-        default=0, help="Maximum number of latest events to fetch."
+    first: int = typer.Option(
+        default=0, help="Fetch only the first N events. Cannot be used with --last."
+    ),
+    last: int = typer.Option(
+        default=0, help="Fetch only the last N events. Cannot be used with --first."
     ),
     **options,
 ):
     """Fetches events for this app from the event table configured in Snowflake."""
+    if first and last:
+        raise ClickException("--first and --last cannot be used together.")
+
     assert_project_type("native_app")
 
     manager = NativeAppManager(
         project_definition=get_cli_context().project_definition.native_app,
         project_root=get_cli_context().project_root,
     )
-    events = manager.get_events(since, until, limit)
+    events = manager.get_events(
+        since_interval=since,
+        until_interval=until,
+        first=first,
+        last=last,
+    )
     if not events:
         return MessageResult("No events found.")
 

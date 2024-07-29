@@ -718,8 +718,12 @@ class NativeAppManager(SqlExecutionMixin):
         self,
         since_interval: str = "",
         until_interval: str = "",
-        limit: int = 0,
+        first: int = 0,
+        last: int = 0,
     ) -> list[dict]:
+        if first and last:
+            raise ValueError("first and last cannot be used together")
+
         if not self.account_event_table:
             raise NoEventTableForAccount()
 
@@ -735,7 +739,8 @@ class NativeAppManager(SqlExecutionMixin):
             if until_interval
             else ""
         )
-        limit_clause = f"limit {limit}" if limit else ""
+        first_clause = f"limit {first}" if first else ""
+        last_clause = f"limit {last}" if last else ""
         query = dedent(
             f"""\
             select * from (
@@ -745,8 +750,9 @@ class NativeAppManager(SqlExecutionMixin):
                 {since_clause}
                 {until_clause}
                 order by timestamp desc
-                {limit_clause}
+                {last_clause}
             ) order by timestamp asc
+            {first_clause}
             """
         )
         try:
