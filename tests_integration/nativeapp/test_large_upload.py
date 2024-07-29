@@ -108,7 +108,7 @@ def test_large_upload_skips_reupload(
 
             # ensure that diff shows there is nothing to re-upload
             result = runner.invoke_with_connection_json(
-                ["app", "deploy"],
+                ["app", "diff"],
                 env=TEST_ENV,
             )
             assert result.exit_code == 0
