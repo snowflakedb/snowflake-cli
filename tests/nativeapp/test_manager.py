@@ -1548,3 +1548,88 @@ def test_get_events_no_event_table(mock_account_event_table, temp_dir, mock_curs
     native_app_manager = _get_na_manager()
     with pytest.raises(NoEventTableForAccount):
         native_app_manager.get_events()
+
+
+@mock.patch(
+    NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE,
+    return_value="db.schema.event_table",
+    new_callable=mock.PropertyMock,
+)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cursor):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    events = [
+        [dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")] * 10,
+        [dict(TIMESTAMP="2020-01-01T01:00:00Z", VALUE="test")] * 10,
+    ]
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(events[0], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        select * from (
+                            select timestamp, value::varchar value
+                            from db.schema.event_table
+                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            
+                            
+                            
+                            
+                            order by timestamp desc
+                            
+                        ) order by timestamp asc
+                        
+                        """
+                    ),
+                    cursor_class=DictCursor,
+                ),
+            ),
+            (
+                mock_cursor(events[1], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        select * from (
+                            select timestamp, value::varchar value
+                            from db.schema.event_table
+                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            and timestamp >= '2020-01-01T00:00:00Z'
+                            
+                            
+                            
+                            order by timestamp desc
+                            
+                        ) order by timestamp asc
+                        
+                        """
+                    ),
+                    cursor_class=DictCursor,
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    stream = native_app_manager.stream_events(last=len(events[0]), delay_seconds=0)
+    for i in range(len(events[0])):
+        # Exhaust the initial set of events
+        assert next(stream) == events[0][i]
+
+    for i in range(len(events[1])):
+        # Then it'll make another query which returns the second set of events
+        assert next(stream) == events[1][i]
+
+    try:
+        stream.throw(KeyboardInterrupt)
+    except StopIteration:
+        pass
+    else:
+        pytest.fail("stream_events didn't end when receiving a KeyboardInterrupt")
