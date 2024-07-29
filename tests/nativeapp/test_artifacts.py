@@ -19,8 +19,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Union
 
 import pytest
-from snowflake.cli.api.project.definition import default_app_package, load_project
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
+from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.plugins.nativeapp.artifacts import (
     ArtifactError,
@@ -34,11 +33,9 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     resolve_without_follow,
     symlink_or_copy,
 )
-from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 
 from tests.nativeapp.utils import (
     assert_dir_snapshot,
-    create_native_app_project_model,
     touch,
 )
 from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
@@ -1352,31 +1349,3 @@ def test_symlink_or_copy_with_symlinks_in_project_root(os_agnostic_snapshot):
             )
 
             assert_dir_snapshot(Path("./output/deploy"), os_agnostic_snapshot)
-
-
-def test_bundle_context_from_na_project():
-    na = NativeApp(
-        name="test_project",
-        artifacts=["a/b", {"src": "c", "dest": "d"}],
-        bundle_root="bundle_root",
-        deploy_root="deploy_root",
-        generated_root="generated_root",
-    )
-    project_root = resolve_without_follow(Path("/project/root"))
-    na_project = create_native_app_project_model(na, project_root)
-
-    actual_bundle_ctx = BundleContext.from_na_project(na_project)
-
-    expected_bundle_ctx = BundleContext(
-        default_app_package("test_project"),
-        [
-            PathMapping(src="a/b", dest=None),
-            PathMapping(src="c", dest="d"),
-        ],
-        project_root,
-        Path(project_root, "bundle_root"),
-        Path(project_root, "deploy_root"),
-        Path(project_root, "deploy_root", "generated_root"),
-    )
-
-    assert actual_bundle_ctx == expected_bundle_ctx

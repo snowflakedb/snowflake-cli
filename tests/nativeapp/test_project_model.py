@@ -22,12 +22,13 @@ from unittest import mock
 
 import pytest
 import yaml
-from snowflake.cli.api.project.definition import load_project
+from snowflake.cli.api.project.definition import default_app_package, load_project
 from snowflake.cli.api.project.schemas.native_app.application import SqlScriptHookType
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
+from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 
 CURRENT_ROLE = "current_role"
@@ -173,3 +174,29 @@ def test_project_model_falls_back_to_current_role(
 
     assert project.app_role == CURRENT_ROLE
     assert project.package_role == CURRENT_ROLE
+
+
+@pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
+def test_bundle_context_from_project_model(project_definition_files: List[Path]):
+    project_defn = load_project(project_definition_files).project_definition
+    project_dir = Path().resolve()
+    project = NativeAppProjectModel(
+        project_definition=project_defn.native_app,
+        project_root=project_dir,
+    )
+
+    actual_bundle_ctx = project.get_bundle_context()
+
+    expected_bundle_ctx = BundleContext(
+        default_app_package("minimal"),
+        [
+            PathMapping(src="setup.sql", dest=None),
+            PathMapping(src="README.md", dest=None),
+        ],
+        project_dir,
+        Path(project_dir / "output" / "bundle"),
+        Path(project_dir / "output" / "deploy"),
+        Path(project_dir / "output" / "deploy" / "__generated"),
+    )
+
+    assert actual_bundle_ctx == expected_bundle_ctx

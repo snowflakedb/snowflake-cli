@@ -17,7 +17,6 @@ import pytest
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
-from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     UnsupportedArtifactProcessorError,
 )
@@ -60,7 +59,7 @@ def test_proj_def():
 @pytest.fixture()
 def test_compiler(test_proj_def):
     na_project = create_native_app_project_model(test_proj_def.native_app)
-    return NativeAppCompiler(BundleContext.from_na_project(na_project))
+    return NativeAppCompiler(na_project.get_bundle_context())
 
 
 def test_try_create_processor_returns_none(test_proj_def, test_compiler):
@@ -92,7 +91,7 @@ def test_find_and_execute_processors_exception(test_proj_def, test_compiler):
     app_pkg = create_native_app_project_model(
         project_definition=test_proj_def.native_app
     )
-    test_compiler = NativeAppCompiler(BundleContext.from_na_project(app_pkg))
+    test_compiler = NativeAppCompiler(app_pkg.get_bundle_context())
 
     with pytest.raises(UnsupportedArtifactProcessorError):
         test_compiler.compile_artifacts()

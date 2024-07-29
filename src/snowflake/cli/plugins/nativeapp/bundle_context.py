@@ -19,7 +19,6 @@ from typing import (
 )
 
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
-from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 
 
 @dataclass
@@ -30,14 +29,3 @@ class BundleContext:
     bundle_root: Path
     deploy_root: Path
     generated_root: Path
-
-    @staticmethod
-    def from_na_project(na: NativeAppProjectModel):
-        return BundleContext(
-            na.package_name,
-            na.artifacts,
-            na.project_root,
-            na.bundle_root,
-            na.deploy_root,
-            na.generated_root,
-        )

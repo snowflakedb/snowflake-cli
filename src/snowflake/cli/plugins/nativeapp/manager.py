@@ -48,7 +48,6 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     build_bundle,
     resolve_without_follow,
 )
-from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli.plugins.nativeapp.codegen.compiler import (
     NativeAppCompiler,
 )
@@ -351,7 +350,7 @@ class NativeAppManager(SqlExecutionMixin):
         Populates the local deploy root from artifact sources.
         """
         bundle_map = build_bundle(self.project_root, self.deploy_root, self.artifacts)
-        compiler = NativeAppCompiler(BundleContext.from_na_project(self.na_project))
+        compiler = NativeAppCompiler(self.na_project.get_bundle_context())
         compiler.compile_artifacts()
         return bundle_map
 

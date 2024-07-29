@@ -22,7 +22,6 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.project.schemas.native_app.path_mapping import ProcessorMapping
-from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     ExecutionEnvironmentType,
     SandboxExecutionError,
@@ -354,9 +353,7 @@ def test_process_no_collected_functions(
                 project_definition=native_app_project_instance.native_app,
                 project_root=local_path,
             )
-            processor = SnowparkAnnotationProcessor(
-                BundleContext.from_na_project(project)
-            )
+            processor = SnowparkAnnotationProcessor(project.get_bundle_context())
             processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
                 processor_mapping=ProcessorMapping(name="SNOWPARK"),
@@ -408,9 +405,7 @@ def test_process_with_collected_functions(
                 project_definition=native_app_project_instance.native_app,
                 project_root=local_path,
             )
-            processor = SnowparkAnnotationProcessor(
-                BundleContext.from_na_project(project)
-            )
+            processor = SnowparkAnnotationProcessor(project.get_bundle_context())
             processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
                 processor_mapping=processor_mapping,
@@ -470,9 +465,7 @@ def test_package_normalization(
                 project_definition=native_app_project_instance.native_app,
                 project_root=local_path,
             )
-            processor = SnowparkAnnotationProcessor(
-                BundleContext.from_na_project(project)
-            )
+            processor = SnowparkAnnotationProcessor(project.get_bundle_context())
             processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
                 processor_mapping=processor_mapping,

@@ -31,6 +31,7 @@ from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import extract_schema, to_identifier
 from snowflake.cli.plugins.nativeapp.artifacts import resolve_without_follow
+from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 from snowflake.connector import DictCursor
 
 
@@ -185,3 +186,13 @@ class NativeAppProjectModel:
         if self.definition.application:
             return self.definition.application.debug
         return None
+
+    def get_bundle_context(self) -> BundleContext:
+        return BundleContext(
+            self.package_name,
+            self.artifacts,
+            self.project_root,
+            self.bundle_root,
+            self.deploy_root,
+            self.generated_root,
+        )
