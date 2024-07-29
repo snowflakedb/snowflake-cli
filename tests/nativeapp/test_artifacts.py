@@ -1362,7 +1362,7 @@ def test_bundle_context_from_na_project():
         deploy_root="deploy_root",
         generated_root="generated_root",
     )
-    project_root = Path("/project/root")
+    project_root = resolve_without_follow(Path("/project/root"))
     na_project = create_native_app_project_model(na, project_root)
 
     actual_bundle_ctx = BundleContext.from_na_project(na_project)
