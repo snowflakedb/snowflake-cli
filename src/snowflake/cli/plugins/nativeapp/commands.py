@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+from enum import Enum
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Optional
@@ -63,6 +64,7 @@ from snowflake.cli.plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
     nativeapp_definition_v2_to_v1,
 )
 from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
+from typing_extensions import Annotated
 
 app = SnowTyperFactory(
     name="app",
@@ -379,6 +381,12 @@ def app_validate(**options):
     return MessageResult("Snowflake Native App validation succeeded.")
 
 
+class RecordType(Enum):
+    LOG = "log"
+    SPAN = "span"
+    SPAN_EVENT = "span_event"
+
+
 @app.command("events", hidden=True, requires_connection=True)
 @with_project_definition()
 @nativeapp_definition_v2_to_v1
@@ -390,6 +398,18 @@ def app_events(
     until: str = typer.Option(
         default="",
         help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
+    ),
+    record_types: Annotated[
+        list[RecordType], typer.Option(case_sensitive=False)
+    ] = typer.Option(
+        [],
+        "--type",
+        help="Restrict results to specific record type. Can be specified multiple times.",
+    ),
+    scopes: Annotated[list[str], typer.Option()] = typer.Option(
+        [],
+        "--scope",
+        help="Restrict results to specific scope. Can be specified multiple times.",
     ),
     first: int = typer.Option(
         default=0, help="Fetch only the first N events. Cannot be used with --last."
@@ -412,6 +432,8 @@ def app_events(
     events = manager.get_events(
         since_interval=since,
         until_interval=until,
+        record_types=[r.name for r in record_types],
+        scopes=scopes,
         first=first,
         last=last,
     )

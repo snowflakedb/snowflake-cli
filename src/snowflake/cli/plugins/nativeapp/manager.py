@@ -718,9 +718,14 @@ class NativeAppManager(SqlExecutionMixin):
         self,
         since_interval: str = "",
         until_interval: str = "",
+        record_types: list[str] | None = None,
+        scopes: list[str] | None = None,
         first: int = 0,
         last: int = 0,
     ) -> list[dict]:
+        record_types = record_types or []
+        scopes = scopes or []
+
         if first and last:
             raise ValueError("first and last cannot be used together")
 
@@ -739,6 +744,12 @@ class NativeAppManager(SqlExecutionMixin):
             if until_interval
             else ""
         )
+        type_in_values = ",".join(f"'{v}'" for v in record_types)
+        types_clause = (
+            f"and record_type in ({type_in_values})" if type_in_values else ""
+        )
+        scope_in_values = ",".join(f"'{v}'" for v in scopes)
+        scopes_clause = f"and scope in ({scope_in_values})" if scope_in_values else ""
         first_clause = f"limit {first}" if first else ""
         last_clause = f"limit {last}" if last else ""
         query = dedent(
@@ -749,6 +760,8 @@ class NativeAppManager(SqlExecutionMixin):
                 where resource_attributes:"snow.database.name" = '{app_name}'
                 {since_clause}
                 {until_clause}
+                {types_clause}
+                {scopes_clause}
                 order by timestamp desc
                 {last_clause}
             ) order by timestamp asc

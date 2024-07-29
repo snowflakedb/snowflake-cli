@@ -1368,6 +1368,22 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     ],
 )
 @pytest.mark.parametrize(
+    ["scopes", "expected_scopes_clause"],
+    [
+        ([], ""),
+        (["scope_1"], "and scope in ('scope_1')"),
+        (["scope_1", "scope_2"], "and scope in ('scope_1','scope_2')"),
+    ],
+)
+@pytest.mark.parametrize(
+    ["types", "expected_types_clause"],
+    [
+        ([], ""),
+        (["log"], "and record_type in ('log')"),
+        (["log", "span"], "and record_type in ('log','span')"),
+    ],
+)
+@pytest.mark.parametrize(
     ["first", "expected_first_clause"],
     [
         (0, ""),
@@ -1396,6 +1412,10 @@ def test_get_events(
     expected_since_clause,
     until,
     expected_until_clause,
+    types,
+    expected_types_clause,
+    scopes,
+    expected_scopes_clause,
     first,
     expected_first_clause,
     last,
@@ -1421,6 +1441,8 @@ def test_get_events(
                             where resource_attributes:"snow.database.name" = 'MYAPP'
                             {expected_since_clause}
                             {expected_until_clause}
+                            {expected_types_clause}
+                            {expected_scopes_clause}
                             order by timestamp desc
                             {expected_last_clause}
                         ) order by timestamp asc
@@ -1439,6 +1461,8 @@ def test_get_events(
         return native_app_manager.get_events(
             since_interval=since,
             until_interval=until,
+            record_types=types,
+            scopes=scopes,
             first=first,
             last=last,
         )
