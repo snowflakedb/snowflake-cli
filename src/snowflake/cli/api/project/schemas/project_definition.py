@@ -21,16 +21,16 @@ from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.errors import SchemaValidationError
-from snowflake.cli.api.project.schemas.entities.application_entity import (
-    ApplicationEntity,
+from snowflake.cli.api.project.schemas.entities.application_entity_model import (
+    ApplicationEntityModel,
 )
 from snowflake.cli.api.project.schemas.entities.common import (
     DefaultsField,
     TargetField,
 )
 from snowflake.cli.api.project.schemas.entities.entities import (
-    Entity,
-    v2_entity_types_map,
+    EntityModel,
+    v2_entity_model_types_map,
 )
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
@@ -117,7 +117,7 @@ class DefinitionV11(DefinitionV10):
 
 
 class DefinitionV20(_ProjectDefinitionBase):
-    entities: Dict[str, Annotated[Entity, Field(discriminator="type")]] = Field(
+    entities: Dict[str, Annotated[EntityModel, Field(discriminator="type")]] = Field(
         title="Entity definitions."
     )
 
@@ -130,9 +130,9 @@ class DefinitionV20(_ProjectDefinitionBase):
         if "defaults" in data and "entities" in data:
             for key, entity in data["entities"].items():
                 entity_type = entity["type"]
-                if entity_type not in v2_entity_types_map:
+                if entity_type not in v2_entity_model_types_map:
                     continue
-                entity_model = v2_entity_types_map[entity_type]
+                entity_model = v2_entity_model_types_map[entity_type]
                 for default_key, default_value in data["defaults"].items():
                     if (
                         default_key in entity_model.model_fields
@@ -143,10 +143,12 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     @field_validator("entities", mode="after")
     @classmethod
-    def validate_entities(cls, entities: Dict[str, Entity]) -> Dict[str, Entity]:
+    def validate_entities(
+        cls, entities: Dict[str, EntityModel]
+    ) -> Dict[str, EntityModel]:
         for key, entity in entities.items():
             # TODO Automatically detect TargetFields to validate
-            if entity.type == ApplicationEntity.get_type():
+            if entity.type == ApplicationEntityModel.get_type():
                 if isinstance(entity.from_.target, TargetField):
                     target_key = str(entity.from_.target)
                     target_class = entity.from_.__class__.model_fields["target"]
@@ -156,7 +158,7 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     @classmethod
     def _validate_target_field(
-        cls, target_key: str, target_type: Entity, entities: Dict[str, Entity]
+        cls, target_key: str, target_type: EntityModel, entities: Dict[str, EntityModel]
     ):
         if target_key not in entities:
             raise ValueError(f"No such target: {target_key}")

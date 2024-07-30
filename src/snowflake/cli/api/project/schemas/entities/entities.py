@@ -14,17 +14,28 @@
 
 from __future__ import annotations
 
-from typing import Union, get_args
+from typing import Dict, Union, get_args
 
-from snowflake.cli.api.project.schemas.entities.application_entity import (
-    ApplicationEntity,
-)
-from snowflake.cli.api.project.schemas.entities.application_package_entity import (
+from snowflake.cli.api.entities.application_entity import ApplicationEntity
+from snowflake.cli.api.entities.application_package_entity import (
     ApplicationPackageEntity,
+)
+from snowflake.cli.api.project.schemas.entities.application_entity_model import (
+    ApplicationEntityModel,
+)
+from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
+    ApplicationPackageEntityModel,
 )
 
 Entity = Union[ApplicationEntity, ApplicationPackageEntity]
+EntityModel = Union[ApplicationEntityModel, ApplicationPackageEntityModel]
 
 ALL_ENTITIES = [*get_args(Entity)]
+ALL_ENTITY_MODELS = [*get_args(EntityModel)]
 
-v2_entity_types_map = {e.get_type(): e for e in ALL_ENTITIES}
+v2_entity_model_types_map = {e.get_type(): e for e in ALL_ENTITY_MODELS}
+
+v2_entity_model_to_entity_map: Dict[EntityModel, Entity] = {
+    ApplicationEntityModel: ApplicationEntity,
+    ApplicationPackageEntityModel: ApplicationPackageEntity,
+}

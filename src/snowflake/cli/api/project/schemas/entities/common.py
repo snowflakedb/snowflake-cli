@@ -54,7 +54,7 @@ class DefaultsField(UpdatableModel):
     )
 
 
-class EntityBase(ABC, UpdatableModel):
+class EntityModelBase(ABC, UpdatableModel):
     @classmethod
     def get_type(cls) -> str:
         return cls.model_fields["type"].annotation.__args__[0]

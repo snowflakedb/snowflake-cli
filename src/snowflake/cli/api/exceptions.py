@@ -107,6 +107,13 @@ class NoProjectDefinitionError(ClickException):
         )
 
 
+class InvalidProjectDefinitionVersion20Error(ClickException):
+    def __init__(self, actual_version: str):
+        super().__init__(
+            f"This command only supports definition version 2, got {actual_version}."
+        )
+
+
 class InvalidSchemaError(ClickException):
     def __init__(self, schema: str):
         super().__init__(f"Invalid schema {schema}")

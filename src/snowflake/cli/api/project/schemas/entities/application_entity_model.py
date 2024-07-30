@@ -17,11 +17,11 @@ from __future__ import annotations
 from typing import Literal, Optional
 
 from pydantic import AliasChoices, Field
-from snowflake.cli.api.project.schemas.entities.application_package_entity import (
-    ApplicationPackageEntity,
+from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
+    ApplicationPackageEntityModel,
 )
 from snowflake.cli.api.project.schemas.entities.common import (
-    EntityBase,
+    EntityModelBase,
     TargetField,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
@@ -29,7 +29,7 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 )
 
 
-class ApplicationEntity(EntityBase):
+class ApplicationEntityModel(EntityModelBase):
     type: Literal["application"]  # noqa: A003
     name: str = Field(
         title="Name of the application created when this entity is deployed"
@@ -45,6 +45,6 @@ class ApplicationEntity(EntityBase):
 
 
 class ApplicationFromField(UpdatableModel):
-    target: TargetField[ApplicationPackageEntity] = Field(
+    target: TargetField[ApplicationPackageEntityModel] = Field(
         title="Reference to an application package entity",
     )
