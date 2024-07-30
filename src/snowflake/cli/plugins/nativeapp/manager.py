@@ -82,7 +82,7 @@ from snowflake.cli.plugins.stage.diff import (
     to_stage_path,
 )
 from snowflake.cli.plugins.stage.manager import StageManager
-from snowflake.connector import DictCursor, ProgrammingError
+from snowflake.connector import DictCursor, ProgrammingError, SnowflakeConnection
 
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
@@ -165,8 +165,13 @@ class NativeAppManager(SqlExecutionMixin):
     Base class with frequently used functionality already implemented and ready to be used by related subclasses.
     """
 
-    def __init__(self, project_definition: NativeApp, project_root: Path):
-        super().__init__()
+    def __init__(
+        self,
+        project_definition: NativeApp,
+        project_root: Path,
+        connection: SnowflakeConnection | None = None,
+    ):
+        super().__init__(connection)
         self._na_project = NativeAppProjectModel(
             project_definition=project_definition,
             project_root=project_root,
