@@ -476,16 +476,6 @@ def test_execute_procedure(mock_connector, runner, mock_ctx):
     assert ctx.get_query() == "call procedureName(42, 'string')"
 
 
-@mock.patch(
-    "snowflake.cli.api.commands.project_initialisation._create_project_template"
-)
-def test_init_procedure(mock_create_project_template, runner, temp_dir):
-    runner.invoke(["snowpark", "init", "my_project2"])
-    mock_create_project_template.assert_called_once_with(
-        "default_snowpark", project_directory="my_project2"
-    )
-
-
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize(
     "command, parameters",

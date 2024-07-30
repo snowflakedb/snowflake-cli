@@ -30,7 +30,6 @@ from snowflake.cli.api.commands.flags import (
     identifier_argument,
     like_option,
 )
-from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
@@ -107,7 +106,6 @@ IdentifierArgument = identifier_argument(
 LikeOption = like_option(
     help_example='`list function --like "my%"` lists all functions that begin with “my”',
 )
-add_init_command(app, project_type="Snowpark", template="default_snowpark")
 
 
 @app.command("deploy", requires_connection=True)
