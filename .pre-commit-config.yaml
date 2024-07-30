@@ -108,7 +108,6 @@ repos:
           (?x)
           ^\.github/|
           tests/test_data/projects/.*|
-          tests/test_data/templates/.*|
           tests_integration/test_data/projects/.*|
         files: \.py$|\.pyi$
         args:
