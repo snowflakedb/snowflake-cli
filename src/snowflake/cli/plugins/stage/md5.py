@@ -26,7 +26,8 @@ from click.exceptions import ClickException
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.constants import S3_CHUNK_SIZE, S3_MAX_PARTS, S3_MIN_PART_SIZE
 
-READ_BUFFER_BYTES = 64 * 1024  # 64KiB
+ONE_MEGABYTE = 1024**2
+READ_BUFFER_BYTES = 64 * 1024
 MD5SUM_REGEX = r"^[A-Fa-f0-9]{32}$"
 MULTIPART_MD5SUM_REGEX = r"^([A-Fa-f0-9]{32})-(\d+)$"
 
@@ -126,21 +127,29 @@ def file_matches_md5sum(local_file: Path, remote_md5: str | None) -> bool:
         (_, num_chunks) = md5_and_chunks
         file_size = os.path.getsize(local_file)
 
-        # chunk size may not be a clean multiple of EST_CHUNK_GRANULARITY_BYTES
-        # try this first then fall back to the usual detection method
-        # at time of writing this would trigger around 80GiB for python connector
+        # If this file uses the maximum number of parts supported by the cloud backend,
+        # the chunk size is likely not a clean multiple of a megabyte. Try reverse engineering
+        # from the file size first, then fall back to the usual detection method.
+        # At time of writing this logic would trigger for files >= 80GiB (python connector)
         if num_chunks == S3_MAX_PARTS:
             chunk_size = max(math.ceil(file_size / S3_MAX_PARTS), S3_MIN_PART_SIZE)
             if compute_md5sum(local_file, chunk_size) == remote_md5:
                 return True
 
-        # try some common chunk size granularities
-        # smaller values create more even chunks; e.g. 13MB => [8MB, 6MB]
-        for granularity in [S3_CHUNK_SIZE, 1024**2]:
-            granules = 1 + ((file_size - 1) // (num_chunks * granularity))
-            chunk_size = granules * granularity
-            md5 = compute_md5sum(local_file, chunk_size)
-            if md5 == remote_md5:
+        # Estimates the chunk size the multi-part file must have been uploaded with
+        # by trying chunk sizes that give the most evenly-sized chunks.
+        #
+        # First we'll try the chunk size that's a multiple of S3_CHUNK_SIZE (8mb) from
+        # the python connector that results in num_chunks, then we'll do the same with
+        # a smaller granularity (1mb) that is used by default in some AWS multi-part
+        # upload implementations.
+        #
+        # We're working backwards from num_chunks here becuase it's the only value we know.
+        for chunk_size_alignment in [S3_CHUNK_SIZE, ONE_MEGABYTE]:
+            # +1/-1 ensures we don't add an additional chunk if exactly chunk-aligned size
+            multiplier = 1 + ((file_size - 1) // (num_chunks * chunk_size_alignment))
+            chunk_size = multiplier * chunk_size_alignment
+            if compute_md5sum(local_file, chunk_size) == remote_md5:
                 return True
 
         # we were unable to figure out the chunk size, or the files are different

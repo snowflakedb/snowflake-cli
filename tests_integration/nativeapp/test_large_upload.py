@@ -55,7 +55,7 @@ def mocked_testenv():
             yield
 
 
-@pytest.mark.skip  # FIXME: requires AWS + python connector to support threshold=<number>
+# @pytest.mark.skip  # FIXME: requires AWS + python connector to support threshold=<number>
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
