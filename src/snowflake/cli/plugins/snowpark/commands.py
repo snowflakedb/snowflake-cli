@@ -38,7 +38,7 @@ from snowflake.cli.api.constants import (
     DEPLOYMENT_STAGE,
     ObjectType,
 )
-from snowflake.cli.api.exceptions import SecretsWithoutExternalAccessIntegrationError
+from snowflake.cli.api.exceptions import SecretsWithoutExternalAccessIntegrationError, NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -47,6 +47,7 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
 )
 from snowflake.cli.api.project.project_verification import assert_project_type
+from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition, ProjectDefinitionV2
 from snowflake.cli.api.project.schemas.snowpark.callable import (
     FunctionSchema,
     ProcedureSchema,
@@ -129,7 +130,9 @@ def deploy(
     All deployed objects use the same artifact which is deployed only once.
     """
 
-    assert_project_type("snowpark")
+    pd= cli_context.project_definition
+    if not pd.meets_version_requirement("2"):
+        pd = 0
 
     snowpark = cli_context.project_definition.snowpark
     paths = SnowparkPackagePaths.for_snowpark_project(
@@ -543,3 +546,23 @@ def describe(
 ):
     """Provides description of a procedure or function."""
     object_describe(object_type=object_type.value, object_name=identifier, **options)
+
+def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
+    if not pd.snowpark:
+        raise NoProjectDefinitionError(
+            project_type="snowpark",
+            project_file=cli_context.project_root
+        )
+
+    data = {
+        "definition_version" : "2",
+        "entities": {
+            "snowpark_project": pd.snowpark.dict()
+        }
+    }
+    data["entities"]["snowpark_project"]["type"] = "snowpark"
+
+    return ProjectDefinitionV2(**data)
+
+
+

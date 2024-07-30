@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, List
 
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
@@ -39,6 +39,10 @@ from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.utils.models import ProjectEnvironment
 from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
+
+AnnotatedEntity = Annotated[Entity, Field(discriminator="type")]
+EntityOrList = Union[AnnotatedEntity, List[AnnotatedEntity]]
+
 
 
 @dataclass
@@ -117,8 +121,20 @@ class DefinitionV11(DefinitionV10):
 
 
 class DefinitionV20(_ProjectDefinitionBase):
-    entities: Dict[str, Annotated[Entity, Field(discriminator="type")]] = Field(
+    entities: Dict[str, AnnotatedEntity] = Field(
         title="Entity definitions."
+    )
+
+    defaults: Optional[DefaultsField] = Field(
+        title="Default key/value entity values that are merged recursively for each entity.",
+        default=None,
+    )
+
+    env: Union[Dict[str, str], ProjectEnvironment, None] = Field(
+        title="Environment specification for this project.",
+        default=None,
+        validation_alias="env",
+        union_mode="smart",
     )
 
     @model_validator(mode="before")
@@ -143,16 +159,25 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     @field_validator("entities", mode="after")
     @classmethod
-    def validate_entities(cls, entities: Dict[str, Entity]) -> Dict[str, Entity]:
+    def validate_entities(cls, entities: Dict[str, EntityOrList]) -> Dict[str, EntityOrList]:
         for key, entity in entities.items():
             # TODO Automatically detect TargetFields to validate
-            if entity.type == ApplicationEntity.get_type():
-                if isinstance(entity.from_.target, TargetField):
-                    target_key = str(entity.from_.target)
-                    target_class = entity.from_.__class__.model_fields["target"]
-                    target_type = target_class.annotation.__args__[0]
-                    cls._validate_target_field(target_key, target_type, entities)
+            if isinstance(entity, list):
+                for e in entity:
+                    cls._validate_single_entity(e, entities)
+            else:
+                cls._validate_single_entity(entity, entities)
         return entities
+
+    @classmethod
+    def _validate_single_entity(cls, entity: Entity, entities: Dict[str, EntityOrList]):
+        if entity.type == ApplicationEntity.get_type():
+            if isinstance(entity.from_.target, TargetField):
+                target_key = str(entity.from_.target)
+                target_class = entity.from_.__class__.model_fields["target"]
+                target_type = target_class.annotation.__args__[0]
+                cls._validate_target_field(target_key, target_type, entities)
+
 
     @classmethod
     def _validate_target_field(
@@ -167,18 +192,6 @@ class DefinitionV20(_ProjectDefinitionBase):
                 raise ValueError(
                     f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
                 )
-
-    defaults: Optional[DefaultsField] = Field(
-        title="Default key/value entity values that are merged recursively for each entity.",
-        default=None,
-    )
-
-    env: Union[Dict[str, str], ProjectEnvironment, None] = Field(
-        title="Environment specification for this project.",
-        default=None,
-        validation_alias="env",
-        union_mode="smart",
-    )
 
     @field_validator("env")
     @classmethod
