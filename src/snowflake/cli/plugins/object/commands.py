@@ -31,7 +31,7 @@ app = SnowTyperFactory(
 )
 
 
-NameArgument = typer.Argument(help="Name of the object")
+NameArgument = typer.Argument(help="Name of the object.", show_default=False)
 ObjectArgument = typer.Argument(
     help="Type of object. For example table, database, compute-pool.",
     case_sensitive=False,

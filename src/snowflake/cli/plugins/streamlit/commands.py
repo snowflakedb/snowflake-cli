@@ -92,7 +92,9 @@ add_object_command_aliases(
 def streamlit_share(
     name: FQN = StreamlitNameArgument,
     to_role: str = typer.Argument(
-        ..., help="Role with which to share the Streamlit app."
+        ...,
+        help="Role with which to share the Streamlit app.",
+        show_default=False,
     ),
     **options,
 ) -> CommandResult:
