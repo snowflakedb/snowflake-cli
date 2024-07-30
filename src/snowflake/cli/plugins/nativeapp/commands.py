@@ -80,6 +80,7 @@ def app_init(
     path: str = typer.Argument(
         ...,
         help=f"""Directory to be initialized with the Snowflake Native App project. This directory must not already exist.""",
+        show_default=False,
     ),
     name: str = typer.Option(
         None,
