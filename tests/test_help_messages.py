@@ -85,6 +85,26 @@ def test_help_messages_no_help_flag(runner, snapshot, command):
     assert result.output == snapshot
 
 
+@pytest.mark.parametrize(
+    "command",
+    iter_through_all_commands(),
+    ids=(".".join(cmd) for cmd in iter_through_all_commands()),
+)
+def test_required_arguments_dont_show_default(runner, snapshot, command):
+    result = runner.invoke(command + ["--help"])
+    assert result.exit_code == 0
+
+    required_msg = "[required]"
+    default_msg = "[default: None]"
+    prev_none = False
+    for line in result.output.splitlines():
+        if required_msg in line:
+            assert not (
+                prev_none or default_msg in line
+            ), "Add show_default=False to required arguments"
+        prev_none = default_msg in line
+
+
 @pytest.mark.skipif(
     sys.version_info < PYTHON_3_12,
     reason="It tests if cortex search command is hidden when run using Python 3.12",

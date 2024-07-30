@@ -21,15 +21,11 @@ from typing import Optional
 
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.flags import (
-    deprecated_flag_callback,
-)
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.snowpark.models import (
     Requirement,
-    YesNoAsk,
 )
 from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
@@ -46,8 +42,6 @@ from snowflake.cli.plugins.snowpark.snowpark_shared import (
     IgnoreAnacondaOption,
     IndexUrlOption,
     SkipVersionCheckOption,
-    deprecated_allow_native_libraries_option,
-    resolve_allow_shared_libraries_yes_no_ask,
 )
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 
@@ -58,36 +52,11 @@ app = SnowTyperFactory(
 log = logging.getLogger(__name__)
 
 
-lookup_install_option = typer.Option(
-    False,
-    "--pypi-download",
-    hidden=True,
-    callback=deprecated_flag_callback(
-        "Using --pypi-download is deprecated. Lookup command no longer checks for package in PyPi."
-    ),
-    help="Installs packages that are not available on the Snowflake Anaconda channel.",
-)
-
-lookup_deprecated_install_option = typer.Option(
-    False,
-    "--yes",
-    "-y",
-    hidden=True,
-    callback=deprecated_flag_callback(
-        "Using --yes is deprecated. Lookup command no longer checks for package in PyPi."
-    ),
-    help="Installs packages that are not available on the Snowflake Anaconda channel.",
-)
-
-
 @app.command("lookup", requires_connection=True)
 def package_lookup(
     package_name: str = typer.Argument(
         ..., help="Name of the package.", show_default=False
     ),
-    # todo: remove with 3.0
-    _: bool = lookup_install_option,
-    __: bool = lookup_deprecated_install_option,
     **options,
 ) -> CommandResult:
     """
@@ -125,12 +94,14 @@ def package_upload(
         "-f",
         help="Path to the file to upload.",
         exists=False,
+        show_default=False,
     ),
     stage: str = typer.Option(
         ...,
         "--stage",
         "-s",
         help="Name of the stage in which to upload the file, not including the @ symbol.",
+        show_default=False,
     ),
     overwrite: bool = typer.Option(
         False,
@@ -146,43 +117,17 @@ def package_upload(
     return MessageResult(upload(file=file, stage=stage, overwrite=overwrite))
 
 
-deprecated_pypi_download_option = typer.Option(
-    False,
-    "--pypi-download",
-    hidden=True,
-    callback=deprecated_flag_callback(
-        "Using --pypi-download is deprecated. Create command always checks for package in PyPi."
-    ),
-    help="Installs packages that are not available on the Snowflake Anaconda channel.",
-)
-
-deprecated_install_option = typer.Option(
-    False,
-    "--yes",
-    "-y",
-    hidden=True,
-    help="Installs packages that are not available on the Snowflake Anaconda channel.",
-    callback=deprecated_flag_callback(
-        "Using --yes is deprecated. Create command always checks for package in PyPi."
-    ),
-)
-
-
 @app.command("create", requires_connection=True)
 def package_create(
     name: str = typer.Argument(
         ...,
         help="Name of the package to create.",
+        show_default=False,
     ),
     ignore_anaconda: bool = IgnoreAnacondaOption,
     index_url: Optional[str] = IndexUrlOption,
     skip_version_check: bool = SkipVersionCheckOption,
     allow_shared_libraries: bool = AllowSharedLibrariesOption,
-    deprecated_allow_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option(
-        "--allow-native-libraries"
-    ),
-    _deprecated_install_option: bool = deprecated_install_option,
-    _deprecated_install_packages: bool = deprecated_pypi_download_option,
     **options,
 ) -> CommandResult:
     """
@@ -217,13 +162,7 @@ def package_create(
         # The package is not in anaconda, so we have to pack it
         log.info("Checking to see if packages have shared (.so/.dll) libraries...")
         if detect_and_log_shared_libraries(download_result.downloaded_packages_details):
-            # TODO: yes/no/ask logic should be removed in 3.0
-            if not (
-                allow_shared_libraries
-                or resolve_allow_shared_libraries_yes_no_ask(
-                    deprecated_allow_native_libraries
-                )
-            ):
+            if not allow_shared_libraries:
                 raise ClickException(
                     "Some packages contain shared (.so/.dll) libraries. "
                     "Try again with --allow-shared-libraries."
