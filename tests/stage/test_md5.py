@@ -12,8 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
 
-from snowflake.cli.plugins.stage.md5 import compute_md5sum
+from pathlib import Path
+from typing import List, Tuple
+from unittest import mock
+
+import pytest
+from snowflake.cli.plugins.stage.md5 import (
+    UnknownMD5FormatError,
+    compute_md5sum,
+    file_matches_md5sum,
+)
 
 from tests.testing_utils.files_and_dirs import temp_local_dir
 
@@ -36,4 +46,64 @@ def test_multipart_md5sum():
         assert (
             compute_md5sum(root / "README.md", 8)
             == "47754cc91d4369081c0153ef0cb86675-6"
+        )
+
+
+@pytest.mark.parametrize(
+    "remote_md5, file_size, chunk_size_and_md5, expected",
+    [
+        (None, None, None, False),
+        (
+            "d41d8cd98f00b204e9800998ecf8427e",
+            None,
+            [(None, "d41d8cd98f00b204e9800998ecf8427e")],
+            True,
+        ),
+    ],
+)
+@mock.patch("os.path.getsize")
+@mock.patch("snowflake.cli.plugins.stage.md5.compute_md5sum")
+def test_file_matches_md5sum(
+    compute_md5sum: mock.NonCallableMock,
+    getsize: mock.NonCallableMock,
+    remote_md5: str | None,
+    file_size: int | None,
+    chunk_size_and_md5: List[Tuple[int | None, str]] | None,
+    expected: UnknownMD5FormatError | bool,
+):
+    local_file = mock.Mock(spec=Path)
+    getsize.return_value = file_size
+
+    def get_md5_for_chunk(_, requested_chunk_size: int | None = None):
+        if chunk_size_and_md5:
+            for (chunk_size, md5) in chunk_size_and_md5:
+                if chunk_size == requested_chunk_size:
+                    return md5
+        # passed in a chunk size we didn't expect
+        assert False
+
+    compute_md5sum.side_effect = get_md5_for_chunk
+
+    # actual test
+    if isinstance(expected, bool):
+        assert file_matches_md5sum(local_file, remote_md5) == expected
+    else:
+        with pytest.raises(expected):
+            file_matches_md5sum(local_file, remote_md5)
+
+    if file_size is None:
+        getsize.assert_not_called()
+    else:
+        getsize.assert_called_with(file_size)
+
+    if chunk_size_and_md5 is None:
+        compute_md5sum.assert_not_called()
+    else:
+        compute_md5sum.assert_has_calls(
+            [
+                mock.call(local_file, chunk_size)
+                if chunk_size is not None
+                else mock.call(local_file)
+                for (chunk_size, _) in chunk_size_and_md5
+            ]
         )
