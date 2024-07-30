@@ -89,7 +89,7 @@ def test_large_upload_skips_reupload(
             with SecurePath(temp_file).open("wb") as f:
                 f.write(os.urandom(TEMP_FILE_SIZE_BYTES))
 
-            put_command = f"put file://{temp_file.resolve()} @{stage_fqn}/app/ auto_compress=false parallel=4 overwrite=True"
+            put_command = f"put file://{temp_file.resolve()} @{stage_fqn}/ auto_compress=false parallel=4 overwrite=True"
             if THRESHOLD_BYTES is not None:
                 put_command += f" threshold={THRESHOLD_BYTES}"
 
