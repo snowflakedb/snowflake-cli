@@ -58,5 +58,5 @@ class ApplicationV11(Application):
     # Templated defaults only supported in v1.1+
     name: Optional[str] = Field(
         title="Name of the application object created when you run the snow app run command",
-        default="<% fn.id_concat(ctx.native_app.name, '_', fn.clean_id(fn.get_username())) %>",
+        default="<% fn.id_concat(ctx.native_app.name, '_', fn.clean_id(fn.get_username('unknown_user'))) %>",
     )

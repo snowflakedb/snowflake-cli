@@ -18,7 +18,6 @@ from typing import Any, List, Optional
 
 from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.project.util import (
-    DEFAULT_USERNAME,
     clean_identifier,
     concat_identifiers,
     get_env_username,
@@ -57,11 +56,29 @@ class TemplatingFunctions:
 
     @staticmethod
     def id_concat(*args):
+        """
+        input: one or more string arguments (SQL ID or plain String).
+        output: a valid SQL ID (quoted or unquoted)
+
+        Takes on multiple String arguments and concatenate them into one String.
+        If any of the Strings is a valid quoted ID, it will be unescaped for the concatenation process.
+        The resulting String is then escaped and quoted if:
+        - It contains non SQL safe characters
+        - Any of the input was a valid quoted identifier.
+        """
         TemplatingFunctions._verify_str_arguments("id_concat", args, min_count=1)
         return concat_identifiers(args)
 
     @staticmethod
     def str_to_id(*args):
+        """
+        input: one string argument. (SQL ID or plain String)
+        output: a valid SQL ID (quoted or unquoted)
+
+        If the input is a valid quoted or valid unquoted identifier, return it as is.
+        Otherwise, if the input contains unsafe characters and is not properly quoted,
+        then escape it and quote it.
+        """
         TemplatingFunctions._verify_str_arguments(
             "str_to_id", args, min_count=1, max_count=1
         )
@@ -69,6 +86,13 @@ class TemplatingFunctions:
 
     @staticmethod
     def id_to_str(*args):
+        """
+        input: one string argument (SQL ID or plain String).
+        output: a plain string
+
+        If the input is a valid SQL ID, then unescape it and return the plain String version.
+        Otherwise, return the input as is.
+        """
         TemplatingFunctions._verify_str_arguments(
             "id_to_str", args, min_count=1, max_count=1
         )
@@ -76,13 +100,28 @@ class TemplatingFunctions:
 
     @staticmethod
     def get_username(*args):
+        """
+        input: one optional string containing the fallback value
+        output: current username detected from the Operating System
+
+        If the current username is not found or is blank, return blank
+        or use the fallback value if provided.
+        """
         TemplatingFunctions._verify_str_arguments(
-            "get_username", args, min_count=0, max_count=0
+            "get_username", args, min_count=0, max_count=1
         )
-        return get_env_username() or DEFAULT_USERNAME
+        fallback_username = args[0] if len(args) > 0 else ""
+        return get_env_username() or fallback_username
 
     @staticmethod
     def clean_id(*args):
+        """
+        input: one string argument
+        output: a valid non-quoted SQL ID
+
+        Removes any unsafe SQL characters from the input, lowercase it,
+        and return it as a valid unquoted SQL ID.
+        """
         TemplatingFunctions._verify_str_arguments(
             "clean_id", args, min_count=1, max_count=1
         )

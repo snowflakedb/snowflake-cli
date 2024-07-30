@@ -26,6 +26,7 @@ from snowflake.cli.api.project.util import (
     is_valid_string_literal,
     is_valid_unquoted_identifier,
     to_identifier,
+    to_quoted_identifier,
     to_string_literal,
 )
 
@@ -236,6 +237,27 @@ def test_escape_like_pattern(raw_string, escaped):
 
 
 @pytest.mark.parametrize(
+    "input_value, expected_value",
+    [
+        # valid unquoted id -> return quoted
+        ("Id_1", '"Id_1"'),
+        # valid quoted id without special chars -> return the same
+        ('"Id_1"', '"Id_1"'),
+        # valid quoted id with special chars -> return the same
+        ('"Id_""_._end"', '"Id_""_._end"'),
+        # unquoted with unsafe chars -> return quoted
+        ('Id_""_._end', '"Id_""""_._end"'),
+        # looks like quoted identifier but not properly escaped -> requote
+        ('"Id"end"', '"""Id""end"""'),
+        # blank -> quoted
+        ("", '""'),
+    ],
+)
+def test_to_quoted_identifier(input_value, expected_value):
+    assert to_quoted_identifier(input_value) == expected_value
+
+
+@pytest.mark.parametrize(
     "id1, id2, concatenated_value",
     [
         # both unquoted, no special char -> result unquoted
@@ -262,6 +284,8 @@ def test_escape_like_pattern(raw_string, escaped):
         # another non quoted with double quotes within
         # -> result is quoted, and proper escaping of non quoted
         ('"Id_""_1"', '_Id_"_2', '"Id_""_1_Id_""_2"'),
+        # 2 blanks -> result should be quoted to be a valid identifier
+        ("", "", '""'),
     ],
 )
 def test_concat_identifiers(id1, id2, concatenated_value):
@@ -279,6 +303,8 @@ def test_concat_identifiers(id1, id2, concatenated_value):
         ('"Id_""_._end"', 'Id_"_._end'),
         # unquoted with unsafe chars -> return the same without unescaping
         ('Id_""_._end', 'Id_""_._end'),
+        # blank identifier -> turns into blank string
+        ('""', ""),
     ],
 )
 def test_identifier_to_str(identifier, expected_value):

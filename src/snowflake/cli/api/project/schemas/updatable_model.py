@@ -85,14 +85,14 @@ class UpdatableModel(BaseModel):
     @classmethod
     def _is_entity_type_field(cls, field: Any) -> bool:
         """
-        Checks if a field is of type `EntityTypeField`
+        Checks if a field is of type `DiscriminatorField`
         """
         if not isinstance(field, FieldInfo) or not field.json_schema_extra:
             return False
 
         return (
-            "is_type_field" in field.json_schema_extra
-            and field.json_schema_extra["is_type_field"]
+            "is_discriminator_field" in field.json_schema_extra
+            and field.json_schema_extra["is_discriminator_field"]
         )
 
     @classmethod
@@ -105,7 +105,7 @@ class UpdatableModel(BaseModel):
         in order to skip validation when templates are found.
 
         It will apply this to all Pydantic fields, except for fields
-        marked as `EntityTypeField`. These will be skipped because
+        marked as `DiscriminatorField`. These will be skipped because
         Pydantic does not support validators for discriminator field types.
         """
 
@@ -113,8 +113,10 @@ class UpdatableModel(BaseModel):
 
         field_annotations = {}
         field_values = {}
-        # Go through the inheritance classes in reverse order
-        # and collect all the annotations, and all the values of the class attributes.
+        # Go through the inheritance classes and collect all the annotations and
+        # all the values of the class attributes. We go in reverse order so that
+        # values in subclasses overrides values from parent classes in case of field overrides.
+
         for class_ in reversed(cls.__mro__):
             class_dict = class_.__dict__
             field_annotations.update(class_dict.get("__annotations__", {}))
@@ -127,7 +129,7 @@ class UpdatableModel(BaseModel):
                 # If Pydantic did not process this class yet, get the values from class_dict directly
                 field_values.update(class_dict)
 
-        # Add Pydantic validation wrapper around all fields except `EntityTypeField`s
+        # Add Pydantic validation wrapper around all fields except `DiscriminatorField`s
         for field_name in field_annotations:
             if not cls._is_entity_type_field(field_values.get(field_name)):
                 cls._add_validator(field_name)
@@ -152,7 +154,7 @@ class UpdatableModel(BaseModel):
 
         setattr(
             cls,
-            f"_field_validator_with_random_name_to_avoid_name_conflict_{field_name}",
+            f"_field_validator_with_verbose_name_to_avoid_name_conflict_{field_name}",
             field_validator(field_name, mode="wrap")(validator_skipping_templated_str),
         )
 
@@ -177,15 +179,15 @@ class UpdatableModel(BaseModel):
         return self
 
 
-def EntityTypeField(*args, **kwargs):  # noqa N802
+def DiscriminatorField(*args, **kwargs):  # noqa N802
     """
     Use this type for discriminator fields used for differentiating
     between different entity types.
 
-    When this `EntityTypeField` is used on a pydantic attribute,
+    When this `DiscriminatorField` is used on a pydantic attribute,
     we will not allow templating on it.
     """
-    return Field(is_type_field=True, *args, **kwargs)
+    return Field(is_discriminator_field=True, *args, **kwargs)
 
 
 def IdentifierField(*args, **kwargs):  # noqa N802

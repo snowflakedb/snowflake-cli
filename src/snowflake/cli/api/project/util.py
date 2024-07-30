@@ -88,9 +88,16 @@ def is_valid_object_name(name: str, max_depth=2, allow_quoted=True) -> bool:
     return re.fullmatch(pattern, name) is not None
 
 
-def quote_identifier(identifier: str) -> str:
-    # double quote the identifier
-    return '"' + identifier.replace('"', '""') + '"'
+def to_quoted_identifier(input_value: str) -> str:
+    """
+    Turn the input into a valid quoted identifier.
+    If it is already a valid quoted identifier,
+    return it as is.
+    """
+    if is_valid_quoted_identifier(input_value):
+        return input_value
+
+    return '"' + input_value.replace('"', '""') + '"'
 
 
 def to_identifier(name: str) -> str:
@@ -101,7 +108,7 @@ def to_identifier(name: str) -> str:
     if is_valid_identifier(name):
         return name
 
-    return quote_identifier(name)
+    return to_quoted_identifier(name)
 
 
 def identifier_to_str(identifier: str) -> str:
@@ -195,13 +202,6 @@ def get_env_username() -> Optional[str]:
     return first_set_env("USER", "USERNAME", "LOGNAME")
 
 
-DEFAULT_USERNAME = "unknown_user"
-
-
-def get_sanitized_username():
-    return clean_identifier(get_env_username() or DEFAULT_USERNAME)
-
-
 def concat_identifiers(identifiers: list[str]) -> str:
     """
     Concatenate multiple identifiers.
@@ -218,7 +218,7 @@ def concat_identifiers(identifiers: list[str]) -> str:
 
     concatenated_ids_str = "".join(stringified_identifiers)
     if quotes_found:
-        return quote_identifier(concatenated_ids_str)
+        return to_quoted_identifier(concatenated_ids_str)
 
     return to_identifier(concatenated_ids_str)
 

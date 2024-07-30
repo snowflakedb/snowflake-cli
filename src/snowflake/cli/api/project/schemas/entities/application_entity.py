@@ -25,12 +25,12 @@ from snowflake.cli.api.project.schemas.entities.common import (
     TargetField,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
-    EntityTypeField,
+    DiscriminatorField,
 )
 
 
 class ApplicationEntity(EntityBase):
-    type: Literal["application"] = EntityTypeField()  # noqa A003
+    type: Literal["application"] = DiscriminatorField()  # noqa A003
     name: str = Field(
         title="Name of the application created when this entity is deployed"
     )
