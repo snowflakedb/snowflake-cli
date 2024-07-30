@@ -808,21 +808,23 @@ class NativeAppManager(SqlExecutionMixin):
 
 
 def _new_events_only(previous_events: list[dict], new_events: list[dict]) -> list[dict]:
-    # Returns the events in new_events that were emitted after the ones in previous_events
-    # Handles duplicates by checking for an overlap until one can't be found anymore
-    overlap_amount = 1
-    last_overlap_found_at = 0
-    while overlap_amount <= min(len(new_events), len(previous_events)):
-        # Check if end of previous_events overlaps with start of new_events
-        # This is O(n) but from the SQL filters and ordering used to generate
-        # both lists of events, we know that the only overlap would be for events
-        # that happened in the exact same microsecond (usually only 1 or 2, rarely more)
-        if previous_events[-overlap_amount:] == new_events[:overlap_amount]:
-            last_overlap_found_at = overlap_amount
-        elif last_overlap_found_at:
-            break
-        overlap_amount += 1
-    return new_events[last_overlap_found_at:]
+    # The timestamp that overlaps between both sets of events
+    overlap_time = new_events[0]["TIMESTAMP"]
+
+    # Remove all the events from the new result set
+    # if they were already printed. We iterate and remove
+    # instead of filtering in order to handle duplicates
+    # (i.e. if an event is present 3 times in new_events
+    # but only once in previous_events, it should still
+    # appear twice in new_events at the end
+    new_events = new_events.copy()
+    for event in previous_events:
+        if event["TIMESTAMP"] == overlap_time:
+            # No need to handle ValueError here since we know
+            # that events that pass the above if check will
+            # either be in both lists or in new_events only
+            new_events.remove(event)
+    return new_events
 
 
 def _validation_item_to_str(item: dict[str, str | int]):
