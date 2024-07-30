@@ -18,6 +18,7 @@
 ## Backward incompatibility
 * Dropped support for Python below 3.10 version.
 * `snow object stage` commands are removed in favour of `snow stage`.
+* Removed deprecated flags from `snow snowpark` commands.
 
 ## Deprecations
 
