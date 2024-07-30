@@ -181,15 +181,31 @@
    Fetches events for this app from the event table configured in Snowflake.      
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --since            TEXT  Fetch events that are newer than this time ago, in  |
-  |                          Snowflake interval syntax.                          |
-  | --until            TEXT  Fetch events that are older than this time ago, in  |
-  |                          Snowflake interval syntax.                          |
-  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
-  |                          current working directory.                          |
-  | --env              TEXT  String in format of key=value. Overrides variables  |
-  |                          from env section used for templating.               |
-  | --help     -h            Show this message and exit.                         |
+  | --since            TEXT                   Fetch events that are newer than   |
+  |                                           this time ago, in Snowflake        |
+  |                                           interval syntax.                   |
+  | --until            TEXT                   Fetch events that are older than   |
+  |                                           this time ago, in Snowflake        |
+  |                                           interval syntax.                   |
+  | --type             [log|span|span_event]  Restrict results to specific       |
+  |                                           record type. Can be specified      |
+  |                                           multiple times.                    |
+  | --scope            TEXT                   Restrict results to a specific     |
+  |                                           scope name. Can be specified       |
+  |                                           multiple times.                    |
+  | --first            INTEGER                Fetch only the first N events.     |
+  |                                           Cannot be used with --last.        |
+  |                                           [default: 0]                       |
+  | --last             INTEGER                Fetch only the last N events.      |
+  |                                           Cannot be used with --first.       |
+  |                                           [default: 0]                       |
+  | --project  -p      TEXT                   Path where Snowflake project       |
+  |                                           resides. Defaults to current       |
+  |                                           working directory.                 |
+  | --env              TEXT                   String in format of key=value.     |
+  |                                           Overrides variables from env       |
+  |                                           section used for templating.       |
+  | --help     -h                             Show this message and exit.        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment  -c      TEXT  Name of the connection, as defined |
@@ -259,7 +275,6 @@
   +- Arguments ------------------------------------------------------------------+
   | *    path      TEXT  Directory to be initialized with the Snowflake Native   |
   |                      App project. This directory must not already exist.     |
-  |                      [default: None]                                         |
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -1162,7 +1177,6 @@
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Name of the connection, as defined in your              |
   |                      `config.toml`                                           |
-  |                      [default: None]                                         |
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -1285,12 +1299,10 @@
   |                                  provided. Path to the repository root must  |
   |                                  end with '/'. For example:                  |
   |                                  @my_repo/branches/main/                     |
-  |                                  [default: None]                             |
   |                                  [required]                                  |
   | *    destination_path      TEXT  Target path for copy operation. Should be a |
   |                                  path to a directory on remote stage or      |
   |                                  local file system.                          |
-  |                                  [default: None]                             |
   |                                  [required]                                  |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -1516,7 +1528,6 @@
   |                                 provided. Path to the repository root must   |
   |                                 end with '/'. For example:                   |
   |                                 @my_repo/branches/main/                      |
-  |                                 [default: None]                              |
   |                                 [required]                                   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -1757,7 +1768,6 @@
   |                                 provided. Path to the repository root must   |
   |                                 end with '/'. For example:                   |
   |                                 @my_repo/branches/main/                      |
-  |                                 [default: None]                              |
   |                                 [required]                                   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -2143,7 +2153,6 @@
   +- Options --------------------------------------------------------------------+
   | *  --notebook-file  -f      TEXT  Stage path with notebook file. For example |
   |                                   `@stage/path/to/notebook.ipynb`            |
-  |                                   [default: None]                            |
   |                                   [required]                                 |
   |    --help           -h            Show this message and exit.                |
   +------------------------------------------------------------------------------+
@@ -2548,7 +2557,7 @@
   | *    object_type      TEXT  Type of object. For example table, database,     |
   |                             compute-pool.                                    |
   |                             [required]                                       |
-  | *    object_name      TEXT  Name of the object [default: None] [required]    |
+  | *    object_name      TEXT  Name of the object. [required]                   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -2626,7 +2635,7 @@
   | *    object_type      TEXT  Type of object. For example table, database,     |
   |                             compute-pool.                                    |
   |                             [required]                                       |
-  | *    object_name      TEXT  Name of the object [default: None] [required]    |
+  | *    object_name      TEXT  Name of the object. [required]                   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -2777,424 +2786,6 @@
   
   '''
 # ---
-# name: test_help_messages[object.stage.copy]
-  '''
-  DeprecationWarning: The command 'stage' is deprecated.
-  `snow object stage` command group is deprecated. Please use `snow stage` instead.
-                                                                                  
-   Usage: default object stage copy [OPTIONS] SOURCE_PATH DESTINATION_PATH        
-                                                                                  
-   (deprecated)                                                                   
-   Copies all files from target path to target directory. This works for both     
-   uploading to and downloading files from the stage.                             
-                                                                                  
-  +- Arguments ------------------------------------------------------------------+
-  | *    source_path           TEXT  Source path for copy operation. Can be      |
-  |                                  either stage path or local.                 |
-  |                                  [default: None]                             |
-  |                                  [required]                                  |
-  | *    destination_path      TEXT  Target directory path for copy operation.   |
-  |                                  Should be stage if source is local or local |
-  |                                  if source is stage.                         |
-  |                                  [default: None]                             |
-  |                                  [required]                                  |
-  +------------------------------------------------------------------------------+
-  +- Options --------------------------------------------------------------------+
-  | --overwrite      --no-overwrite             Overwrites existing files in the |
-  |                                             target path.                     |
-  |                                             [default: no-overwrite]          |
-  | --parallel                         INTEGER  Number of parallel threads to    |
-  |                                             use when uploading files.        |
-  |                                             [default: 4]                     |
-  | --recursive      --no-recursive             Copy files recursively with      |
-  |                                             directory structure.             |
-  |                                             [default: no-recursive]          |
-  | --help       -h                             Show this message and exit.      |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --connection,--environment  -c      TEXT  Name of the connection, as defined |
-  |                                           in your `config.toml`. Default:    |
-  |                                           `default`.                         |
-  | --account,--accountname             TEXT  Name assigned to your Snowflake    |
-  |                                           account. Overrides the value       |
-  |                                           specified for the connection.      |
-  | --user,--username                   TEXT  Username to connect to Snowflake.  |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --password                          TEXT  Snowflake password. Overrides the  |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --authenticator                     TEXT  Snowflake authenticator. Overrides |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --private-key-path                  TEXT  Snowflake private key path.        |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --token-file-path                   TEXT  Path to file with an OAuth token   |
-  |                                           that should be used when           |
-  |                                           connecting to Snowflake            |
-  | --database,--dbname                 TEXT  Database to use. Overrides the     |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --schema,--schemaname               TEXT  Database schema to use. Overrides  |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --role,--rolename                   TEXT  Role to use. Overrides the value   |
-  |                                           specified for the connection.      |
-  | --warehouse                         TEXT  Warehouse to use. Overrides the    |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --temporary-connection      -x            Uses connection defined with       |
-  |                                           command line parameters, instead   |
-  |                                           of one defined in config           |
-  | --mfa-passcode                      TEXT  Token to use for multi-factor      |
-  |                                           authentication (MFA)               |
-  | --enable-diag                             Run python connector diagnostic    |
-  |                                           test                               |
-  | --diag-log-path                     TEXT  Diagnostic report path             |
-  | --diag-allowlist-path               TEXT  Diagnostic report path to optional |
-  |                                           allowlist                          |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels `info`  |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels `debug` |
-  |                                  and higher; debug logs contains additional  |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[object.stage.create]
-  '''
-  DeprecationWarning: The command 'stage' is deprecated.
-  `snow object stage` command group is deprecated. Please use `snow stage` instead.
-                                                                                  
-   Usage: default object stage create [OPTIONS] STAGE_NAME                        
-                                                                                  
-   (deprecated)                                                                   
-   Creates a named stage if it does not already exist.                            
-                                                                                  
-  +- Arguments ------------------------------------------------------------------+
-  | *    stage_name      TEXT  Name of the stage. [required]                     |
-  +------------------------------------------------------------------------------+
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --connection,--environment  -c      TEXT  Name of the connection, as defined |
-  |                                           in your `config.toml`. Default:    |
-  |                                           `default`.                         |
-  | --account,--accountname             TEXT  Name assigned to your Snowflake    |
-  |                                           account. Overrides the value       |
-  |                                           specified for the connection.      |
-  | --user,--username                   TEXT  Username to connect to Snowflake.  |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --password                          TEXT  Snowflake password. Overrides the  |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --authenticator                     TEXT  Snowflake authenticator. Overrides |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --private-key-path                  TEXT  Snowflake private key path.        |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --token-file-path                   TEXT  Path to file with an OAuth token   |
-  |                                           that should be used when           |
-  |                                           connecting to Snowflake            |
-  | --database,--dbname                 TEXT  Database to use. Overrides the     |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --schema,--schemaname               TEXT  Database schema to use. Overrides  |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --role,--rolename                   TEXT  Role to use. Overrides the value   |
-  |                                           specified for the connection.      |
-  | --warehouse                         TEXT  Warehouse to use. Overrides the    |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --temporary-connection      -x            Uses connection defined with       |
-  |                                           command line parameters, instead   |
-  |                                           of one defined in config           |
-  | --mfa-passcode                      TEXT  Token to use for multi-factor      |
-  |                                           authentication (MFA)               |
-  | --enable-diag                             Run python connector diagnostic    |
-  |                                           test                               |
-  | --diag-log-path                     TEXT  Diagnostic report path             |
-  | --diag-allowlist-path               TEXT  Diagnostic report path to optional |
-  |                                           allowlist                          |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels `info`  |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels `debug` |
-  |                                  and higher; debug logs contains additional  |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[object.stage.diff]
-  '''
-  DeprecationWarning: The command 'stage' is deprecated.
-  `snow object stage` command group is deprecated. Please use `snow stage` instead.
-                                                                                  
-   Usage: default object stage diff [OPTIONS] [STAGE_NAME] [FOLDER_NAME]          
-                                                                                  
-   (deprecated)                                                                   
-   Diffs a stage with a local folder.                                             
-                                                                                  
-  +- Arguments ------------------------------------------------------------------+
-  |   stage_name       [STAGE_NAME]   Fully qualified name of a stage            |
-  |                                   [default: None]                            |
-  |   folder_name      [FOLDER_NAME]  Path to local folder [default: None]       |
-  +------------------------------------------------------------------------------+
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --connection,--environment  -c      TEXT  Name of the connection, as defined |
-  |                                           in your `config.toml`. Default:    |
-  |                                           `default`.                         |
-  | --account,--accountname             TEXT  Name assigned to your Snowflake    |
-  |                                           account. Overrides the value       |
-  |                                           specified for the connection.      |
-  | --user,--username                   TEXT  Username to connect to Snowflake.  |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --password                          TEXT  Snowflake password. Overrides the  |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --authenticator                     TEXT  Snowflake authenticator. Overrides |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --private-key-path                  TEXT  Snowflake private key path.        |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --token-file-path                   TEXT  Path to file with an OAuth token   |
-  |                                           that should be used when           |
-  |                                           connecting to Snowflake            |
-  | --database,--dbname                 TEXT  Database to use. Overrides the     |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --schema,--schemaname               TEXT  Database schema to use. Overrides  |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --role,--rolename                   TEXT  Role to use. Overrides the value   |
-  |                                           specified for the connection.      |
-  | --warehouse                         TEXT  Warehouse to use. Overrides the    |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --temporary-connection      -x            Uses connection defined with       |
-  |                                           command line parameters, instead   |
-  |                                           of one defined in config           |
-  | --mfa-passcode                      TEXT  Token to use for multi-factor      |
-  |                                           authentication (MFA)               |
-  | --enable-diag                             Run python connector diagnostic    |
-  |                                           test                               |
-  | --diag-log-path                     TEXT  Diagnostic report path             |
-  | --diag-allowlist-path               TEXT  Diagnostic report path to optional |
-  |                                           allowlist                          |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels `info`  |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels `debug` |
-  |                                  and higher; debug logs contains additional  |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[object.stage.list]
-  '''
-  DeprecationWarning: The command 'stage' is deprecated.
-  `snow object stage` command group is deprecated. Please use `snow stage` instead.
-                                                                                  
-   Usage: default object stage list [OPTIONS] STAGE_NAME                          
-                                                                                  
-   (deprecated)                                                                   
-   Lists the stage contents.                                                      
-                                                                                  
-  +- Arguments ------------------------------------------------------------------+
-  | *    stage_name      TEXT  Name of the stage. [required]                     |
-  +------------------------------------------------------------------------------+
-  +- Options --------------------------------------------------------------------+
-  | --pattern          TEXT  Regex pattern for filtering files by name. For      |
-  |                          example --pattern ".*\.txt" will filter only files  |
-  |                          with .txt extension.                                |
-  | --help     -h            Show this message and exit.                         |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --connection,--environment  -c      TEXT  Name of the connection, as defined |
-  |                                           in your `config.toml`. Default:    |
-  |                                           `default`.                         |
-  | --account,--accountname             TEXT  Name assigned to your Snowflake    |
-  |                                           account. Overrides the value       |
-  |                                           specified for the connection.      |
-  | --user,--username                   TEXT  Username to connect to Snowflake.  |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --password                          TEXT  Snowflake password. Overrides the  |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --authenticator                     TEXT  Snowflake authenticator. Overrides |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --private-key-path                  TEXT  Snowflake private key path.        |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --token-file-path                   TEXT  Path to file with an OAuth token   |
-  |                                           that should be used when           |
-  |                                           connecting to Snowflake            |
-  | --database,--dbname                 TEXT  Database to use. Overrides the     |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --schema,--schemaname               TEXT  Database schema to use. Overrides  |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --role,--rolename                   TEXT  Role to use. Overrides the value   |
-  |                                           specified for the connection.      |
-  | --warehouse                         TEXT  Warehouse to use. Overrides the    |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --temporary-connection      -x            Uses connection defined with       |
-  |                                           command line parameters, instead   |
-  |                                           of one defined in config           |
-  | --mfa-passcode                      TEXT  Token to use for multi-factor      |
-  |                                           authentication (MFA)               |
-  | --enable-diag                             Run python connector diagnostic    |
-  |                                           test                               |
-  | --diag-log-path                     TEXT  Diagnostic report path             |
-  | --diag-allowlist-path               TEXT  Diagnostic report path to optional |
-  |                                           allowlist                          |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels `info`  |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels `debug` |
-  |                                  and higher; debug logs contains additional  |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[object.stage.remove]
-  '''
-  DeprecationWarning: The command 'stage' is deprecated.
-  `snow object stage` command group is deprecated. Please use `snow stage` instead.
-                                                                                  
-   Usage: default object stage remove [OPTIONS] STAGE_NAME FILE_NAME              
-                                                                                  
-   (deprecated)                                                                   
-   Removes a file from a stage.                                                   
-                                                                                  
-  +- Arguments ------------------------------------------------------------------+
-  | *    stage_name      TEXT  Name of the stage. [required]                     |
-  | *    file_name       TEXT  Name of the file to remove. [default: None]       |
-  |                            [required]                                        |
-  +------------------------------------------------------------------------------+
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --connection,--environment  -c      TEXT  Name of the connection, as defined |
-  |                                           in your `config.toml`. Default:    |
-  |                                           `default`.                         |
-  | --account,--accountname             TEXT  Name assigned to your Snowflake    |
-  |                                           account. Overrides the value       |
-  |                                           specified for the connection.      |
-  | --user,--username                   TEXT  Username to connect to Snowflake.  |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --password                          TEXT  Snowflake password. Overrides the  |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --authenticator                     TEXT  Snowflake authenticator. Overrides |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --private-key-path                  TEXT  Snowflake private key path.        |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --token-file-path                   TEXT  Path to file with an OAuth token   |
-  |                                           that should be used when           |
-  |                                           connecting to Snowflake            |
-  | --database,--dbname                 TEXT  Database to use. Overrides the     |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --schema,--schemaname               TEXT  Database schema to use. Overrides  |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --role,--rolename                   TEXT  Role to use. Overrides the value   |
-  |                                           specified for the connection.      |
-  | --warehouse                         TEXT  Warehouse to use. Overrides the    |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --temporary-connection      -x            Uses connection defined with       |
-  |                                           command line parameters, instead   |
-  |                                           of one defined in config           |
-  | --mfa-passcode                      TEXT  Token to use for multi-factor      |
-  |                                           authentication (MFA)               |
-  | --enable-diag                             Run python connector diagnostic    |
-  |                                           test                               |
-  | --diag-log-path                     TEXT  Diagnostic report path             |
-  | --diag-allowlist-path               TEXT  Diagnostic report path to optional |
-  |                                           allowlist                          |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels `info`  |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels `debug` |
-  |                                  and higher; debug logs contains additional  |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[object.stage]
-  '''
-                                                                                  
-   Usage: default object stage [OPTIONS] COMMAND [ARGS]...                        
-                                                                                  
-   (deprecated)                                                                   
-   Manages stages.                                                                
-                                                                                  
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Commands -------------------------------------------------------------------+
-  | copy     Copies all files from target path to target           (deprecated)  |
-  |          directory. This works for both uploading to and                     |
-  |          downloading files from the stage.                                   |
-  | create   Creates a named stage if it does not already exist.   (deprecated)  |
-  | list     Lists the stage contents.                             (deprecated)  |
-  | remove   Removes a file from a stage.                          (deprecated)  |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
 # name: test_help_messages[object]
   '''
                                                                                   
@@ -3206,14 +2797,11 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create     Create an object of a given type. Check                           |
-  |            documentation for the list of supported objects                   |
-  |            and parameters.                                                   |
+  | create     Create an object of a given type. Check documentation for the     |
+  |            list of supported objects and parameters.                         |
   | describe   Provides description of an object of given type.                  |
   | drop       Drops Snowflake object of given name and type.                    |
-  | list       Lists all available Snowflake objects of given                    |
-  |            type.                                                             |
-  | stage      Manages stages.                                     (deprecated)  |
+  | list       Lists all available Snowflake objects of given type.              |
   +------------------------------------------------------------------------------+
   
   
@@ -3622,38 +3210,6 @@
   
   '''
 # ---
-# name: test_help_messages[snowpark.init]
-  '''
-                                                                                  
-   Usage: default snowpark init [OPTIONS] [PROJECT_NAME]                          
-                                                                                  
-   (deprecated)                                                                   
-   Initializes this directory with a sample set of files for creating a Snowpark  
-   project. This command is deprecated and will be removed soon. Please use 'snow 
-   init' instead                                                                  
-                                                                                  
-  +- Arguments ------------------------------------------------------------------+
-  |   project_name      [PROJECT_NAME]  Name of the Snowpark project you want to |
-  |                                     create.                                  |
-  |                                     [default: example_snowpark]              |
-  +------------------------------------------------------------------------------+
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels `info`  |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels `debug` |
-  |                                  and higher; debug logs contains additional  |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
 # name: test_help_messages[snowpark.list]
   '''
                                                                                   
@@ -3744,8 +3300,7 @@
    imported for a Snowpark Python app.                                            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the package to create. [default: None]          |
-  |                      [required]                                              |
+  | *    name      TEXT  Name of the package to create. [required]               |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --ignore-anaconda                       Does not lookup packages on          |
@@ -3902,11 +3457,9 @@
    in the imports of a procedure or function.                                     
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | *  --file       -f      PATH  Path to the file to upload. [default: None]    |
-  |                               [required]                                     |
+  | *  --file       -f      PATH  Path to the file to upload. [required]         |
   | *  --stage      -s      TEXT  Name of the stage in which to upload the file, |
   |                               not including the @ symbol.                    |
-  |                               [default: None]                                |
   |                               [required]                                     |
   |    --overwrite  -o            Overwrites the file if it already exists.      |
   |    --help       -h            Show this message and exit.                    |
@@ -4001,24 +3554,17 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build      Builds the Snowpark project as a `.zip` archive                   |
-  |            that can be used by `deploy` command. The archive                 |
-  |            is built using only the `src` directory specified                 |
-  |            in the project file.                                              |
-  | deploy     Deploys procedures and functions defined in                       |
-  |            project. Deploying the project alters all objects                 |
-  |            defined in it. By default, if any of the objects                  |
-  |            exist already the commands will fail unless                       |
-  |            `--replace` flag is provided. All deployed objects                |
-  |            use the same artifact which is deployed only once.                |
+  | build      Builds the Snowpark project as a `.zip` archive that can be used  |
+  |            by `deploy` command. The archive is built using only the `src`    |
+  |            directory specified in the project file.                          |
+  | deploy     Deploys procedures and functions defined in project. Deploying    |
+  |            the project alters all objects defined in it. By default, if any  |
+  |            of the objects exist already the commands will fail unless        |
+  |            `--replace` flag is provided. All deployed objects use the same   |
+  |            artifact which is deployed only once.                             |
   | describe   Provides description of a procedure or function.                  |
   | drop       Drop procedure or function.                                       |
-  | execute    Executes a procedure or function in a specified                   |
-  |            environment.                                                      |
-  | init       Initializes this directory with a sample set of     (deprecated)  |
-  |            files for creating a Snowpark project. This                       |
-  |            command is deprecated and will be removed soon.                   |
-  |            Please use 'snow init' instead                                    |
+  | execute    Executes a procedure or function in a specified environment.      |
   | list       Lists all available procedures or functions.                      |
   | package    Manages custom Python packages for Snowpark                       |
   +------------------------------------------------------------------------------+
@@ -5563,11 +5109,9 @@
                                                                                   
   +- Options --------------------------------------------------------------------+
   | *  --compute-pool          TEXT  Name of the pool in which to run the job.   |
-  |                                  [default: None]                             |
   |                                  [required]                                  |
   | *  --spec-path             FILE  Path to the `spec.yaml` file containing the |
   |                                  job details.                                |
-  |                                  [default: None]                             |
   |                                  [required]                                  |
   |    --help          -h            Show this message and exit.                 |
   +------------------------------------------------------------------------------+
@@ -5637,11 +5181,10 @@
    Retrieves local logs from a job container.                                     
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Job id [default: None] [required]                 |
+  | *    identifier      TEXT  Job id [required]                                 |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --container-name          TEXT  Name of the container. [default: None]    |
-  |                                    [required]                                |
+  | *  --container-name          TEXT  Name of the container. [required]         |
   |    --help            -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -5710,7 +5253,7 @@
    Returns the status of a named Snowpark Container Services job.                 
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  ID of the job. [default: None] [required]         |
+  | *    identifier      TEXT  ID of the job. [required]                         |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -7914,39 +7457,6 @@
   
   '''
 # ---
-# name: test_help_messages[streamlit.init]
-  '''
-                                                                                  
-   Usage: default streamlit init [OPTIONS] [PROJECT_NAME]                         
-                                                                                  
-   (deprecated)                                                                   
-   Initializes this directory with a sample set of files for creating a Streamlit 
-   app project. This command is deprecated and will be removed soon. Please use   
-   'snow init' instead                                                            
-                                                                                  
-  +- Arguments ------------------------------------------------------------------+
-  |   project_name      [PROJECT_NAME]  Name of the Streamlit app project        |
-  |                                     directory you want to create. Defaults   |
-  |                                     to `example_streamlit`.                  |
-  |                                     [default: example_streamlit]             |
-  +------------------------------------------------------------------------------+
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels `info`  |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels `debug` |
-  |                                  and higher; debug logs contains additional  |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
 # name: test_help_messages[streamlit.list]
   '''
                                                                                   
@@ -8033,7 +7543,6 @@
   +- Arguments ------------------------------------------------------------------+
   | *    name         TEXT  Name of the Streamlit app. [required]                |
   | *    to_role      TEXT  Role with which to share the Streamlit app.          |
-  |                         [default: None]                                      |
   |                         [required]                                           |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -8108,20 +7617,14 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | deploy     Deploys a Streamlit app defined in the project                    |
-  |            definition file (snowflake.yml). By default, the                  |
-  |            command uploads environment.yml and any other                     |
-  |            pages or folders, if present. If you don’t specify                |
-  |            a stage name, the `streamlit` stage is used. If                   |
-  |            the specified stage does not exist, the command                   |
-  |            creates it.                                                       |
+  | deploy     Deploys a Streamlit app defined in the project definition file    |
+  |            (snowflake.yml). By default, the command uploads environment.yml  |
+  |            and any other pages or folders, if present. If you don’t specify  |
+  |            a stage name, the `streamlit` stage is used. If the specified     |
+  |            stage does not exist, the command creates it.                     |
   | describe   Provides description of streamlit.                                |
   | drop       Drops streamlit with given name.                                  |
   | get-url    Returns a URL to the specified Streamlit app                      |
-  | init       Initializes this directory with a sample set of     (deprecated)  |
-  |            files for creating a Streamlit app project. This                  |
-  |            command is deprecated and will be removed soon.                   |
-  |            Please use 'snow init' instead                                    |
   | list       Lists all available streamlits.                                   |
   | share      Shares a Streamlit app with another role.                         |
   +------------------------------------------------------------------------------+
@@ -8295,29 +7798,6 @@
   
   '''
 # ---
-# name: test_help_messages_no_help_flag[object.stage]
-  '''
-                                                                                  
-   Usage: default object stage [OPTIONS] COMMAND [ARGS]...                        
-                                                                                  
-   (deprecated)                                                                   
-   Manages stages.                                                                
-                                                                                  
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Commands -------------------------------------------------------------------+
-  | copy     Copies all files from target path to target           (deprecated)  |
-  |          directory. This works for both uploading to and                     |
-  |          downloading files from the stage.                                   |
-  | create   Creates a named stage if it does not already exist.   (deprecated)  |
-  | list     Lists the stage contents.                             (deprecated)  |
-  | remove   Removes a file from a stage.                          (deprecated)  |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
 # name: test_help_messages_no_help_flag[object]
   '''
                                                                                   
@@ -8329,14 +7809,11 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create     Create an object of a given type. Check                           |
-  |            documentation for the list of supported objects                   |
-  |            and parameters.                                                   |
+  | create     Create an object of a given type. Check documentation for the     |
+  |            list of supported objects and parameters.                         |
   | describe   Provides description of an object of given type.                  |
   | drop       Drops Snowflake object of given name and type.                    |
-  | list       Lists all available Snowflake objects of given                    |
-  |            type.                                                             |
-  | stage      Manages stages.                                     (deprecated)  |
+  | list       Lists all available Snowflake objects of given type.              |
   +------------------------------------------------------------------------------+
   
   
@@ -8374,24 +7851,17 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build      Builds the Snowpark project as a `.zip` archive                   |
-  |            that can be used by `deploy` command. The archive                 |
-  |            is built using only the `src` directory specified                 |
-  |            in the project file.                                              |
-  | deploy     Deploys procedures and functions defined in                       |
-  |            project. Deploying the project alters all objects                 |
-  |            defined in it. By default, if any of the objects                  |
-  |            exist already the commands will fail unless                       |
-  |            `--replace` flag is provided. All deployed objects                |
-  |            use the same artifact which is deployed only once.                |
+  | build      Builds the Snowpark project as a `.zip` archive that can be used  |
+  |            by `deploy` command. The archive is built using only the `src`    |
+  |            directory specified in the project file.                          |
+  | deploy     Deploys procedures and functions defined in project. Deploying    |
+  |            the project alters all objects defined in it. By default, if any  |
+  |            of the objects exist already the commands will fail unless        |
+  |            `--replace` flag is provided. All deployed objects use the same   |
+  |            artifact which is deployed only once.                             |
   | describe   Provides description of a procedure or function.                  |
   | drop       Drop procedure or function.                                       |
-  | execute    Executes a procedure or function in a specified                   |
-  |            environment.                                                      |
-  | init       Initializes this directory with a sample set of     (deprecated)  |
-  |            files for creating a Snowpark project. This                       |
-  |            command is deprecated and will be removed soon.                   |
-  |            Please use 'snow init' instead                                    |
+  | execute    Executes a procedure or function in a specified environment.      |
   | list       Lists all available procedures or functions.                      |
   | package    Manages custom Python packages for Snowpark                       |
   +------------------------------------------------------------------------------+
@@ -8581,20 +8051,14 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | deploy     Deploys a Streamlit app defined in the project                    |
-  |            definition file (snowflake.yml). By default, the                  |
-  |            command uploads environment.yml and any other                     |
-  |            pages or folders, if present. If you don’t specify                |
-  |            a stage name, the `streamlit` stage is used. If                   |
-  |            the specified stage does not exist, the command                   |
-  |            creates it.                                                       |
+  | deploy     Deploys a Streamlit app defined in the project definition file    |
+  |            (snowflake.yml). By default, the command uploads environment.yml  |
+  |            and any other pages or folders, if present. If you don’t specify  |
+  |            a stage name, the `streamlit` stage is used. If the specified     |
+  |            stage does not exist, the command creates it.                     |
   | describe   Provides description of streamlit.                                |
   | drop       Drops streamlit with given name.                                  |
   | get-url    Returns a URL to the specified Streamlit app                      |
-  | init       Initializes this directory with a sample set of     (deprecated)  |
-  |            files for creating a Streamlit app project. This                  |
-  |            command is deprecated and will be removed soon.                   |
-  |            Please use 'snow init' instead                                    |
   | list       Lists all available streamlits.                                   |
   | share      Shares a Streamlit app with another role.                         |
   +------------------------------------------------------------------------------+

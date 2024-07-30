@@ -12,21 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO 3.0: remove this file
-
-from snowflake.cli.api.plugins.command import (
-    CommandPath,
-    CommandSpec,
-    CommandType,
-    plugin_hook_impl,
+from dataclasses import dataclass
+from pathlib import Path
+from typing import (
+    List,
 )
-from snowflake.cli.plugins.object_stage_deprecated import commands
+
+from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 
 
-@plugin_hook_impl
-def command_spec():
-    return CommandSpec(
-        parent_command_path=CommandPath(["object"]),
-        command_type=CommandType.COMMAND_GROUP,
-        typer_instance=commands.app.create_instance(),
-    )
+@dataclass
+class BundleContext:
+    package_name: str
+    artifacts: List[PathMapping]
+    project_root: Path
+    bundle_root: Path
+    deploy_root: Path
+    generated_root: Path

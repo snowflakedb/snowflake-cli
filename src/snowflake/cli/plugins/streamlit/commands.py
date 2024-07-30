@@ -26,7 +26,6 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.flags import ReplaceOption, like_option
-from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
@@ -70,12 +69,6 @@ OpenOption = typer.Option(
     is_flag=True,
 )
 
-add_init_command(
-    app,
-    project_type="Streamlit",
-    template="default_streamlit",
-    help_message="Name of the Streamlit app project directory you want to create. Defaults to `example_streamlit`.",
-)
 
 add_object_command_aliases(
     app=app,
@@ -92,7 +85,9 @@ add_object_command_aliases(
 def streamlit_share(
     name: FQN = StreamlitNameArgument,
     to_role: str = typer.Argument(
-        ..., help="Role with which to share the Streamlit app."
+        ...,
+        help="Role with which to share the Streamlit app.",
+        show_default=False,
     ),
     **options,
 ) -> CommandResult:

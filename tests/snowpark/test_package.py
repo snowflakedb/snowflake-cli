@@ -143,27 +143,6 @@ class TestPackage:
         assert create.args[0] == "create stage if not exists db.schema.stage"
         assert "db.schema.stage/path/to/file" in put.args[0]
 
-    @pytest.mark.parametrize(
-        "flags",
-        [
-            ["--pypi-download"],
-            ["-y"],
-            ["--yes"],
-            ["--pypi-download", "-y"],
-        ],
-    )
-    @patch(
-        "snowflake.cli.plugins.snowpark.package.commands.AnacondaPackagesManager.find_packages_available_in_snowflake_anaconda"
-    )
-    def test_lookup_install_flag_are_deprecated(
-        self, _, flags, runner, mock_available_packages_sql_result
-    ):
-        result = runner.invoke(["snowpark", "package", "lookup", "foo", *flags])
-        assert (
-            "is deprecated. Lookup command no longer checks for package in PyPi"
-            in result.output
-        )
-
     @patch(
         "snowflake.cli.plugins.snowpark.package.commands.AnacondaPackagesManager.find_packages_available_in_snowflake_anaconda"
     )
@@ -175,64 +154,6 @@ class TestPackage:
             "is deprecated. Lookup command no longer checks for package in PyPi"
             not in result.output
         )
-
-    @pytest.mark.parametrize(
-        "flags",
-        [
-            ["--pypi-download"],
-            ["-y"],
-            ["--yes"],
-            ["--pypi-download", "-y"],
-        ],
-    )
-    @mock.patch(
-        "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"
-    )
-    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.zip_dir")
-    @mock.patch(
-        "snowflake.cli.plugins.snowpark.package.commands.get_package_name_from_pip_wheel"
-    )
-    def test_create_install_flag_are_deprecated(
-        self,
-        _mock_pip_wheel,
-        _mock_zip,
-        _mock_download,
-        flags,
-        runner,
-        mock_available_packages_sql_result,
-    ):
-        result = runner.invoke(["snowpark", "package", "create", "foo", *flags])
-        assert (
-            "is deprecated. Create command always checks for package in PyPi."
-            in result.output
-        )
-
-    @pytest.mark.parametrize(
-        "flags",
-        [
-            ["--allow-native-libraries", "yes"],
-            ["--allow-native-libraries", "no"],
-            ["--allow-native-libraries", "ask"],
-        ],
-    )
-    @mock.patch(
-        "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"
-    )
-    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.zip_dir")
-    @mock.patch(
-        "snowflake.cli.plugins.snowpark.package.commands.get_package_name_from_pip_wheel"
-    )
-    def test_create_deprecated_flags_throw_warning(
-        self,
-        _mock_pip_wheel,
-        _mock_zip,
-        _mock_download,
-        flags,
-        runner,
-        mock_available_packages_sql_result,
-    ):
-        result = runner.invoke(["snowpark", "package", "create", "foo", *flags])
-        assert "is deprecated." in result.output
 
     @mock.patch(
         "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"

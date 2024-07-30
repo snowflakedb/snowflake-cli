@@ -34,7 +34,10 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     symlink_or_copy,
 )
 
-from tests.nativeapp.utils import assert_dir_snapshot, touch
+from tests.nativeapp.utils import (
+    assert_dir_snapshot,
+    touch,
+)
 from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
 from tests_common import IS_WINDOWS
 
