@@ -144,9 +144,10 @@ def file_matches_md5sum(local_file: Path, remote_md5: str | None) -> bool:
         # a smaller granularity (1mb) that is used by default in some AWS multi-part
         # upload implementations.
         #
-        # We're working backwards from num_chunks here becuase it's the only value we know.
+        # We're working backwards from num_chunks here because it's the only value we know.
         for chunk_size_alignment in [S3_CHUNK_SIZE, ONE_MEGABYTE]:
-            # +1/-1 ensures we don't add an additional chunk if exactly chunk-aligned size
+            # +1 because we need at least one chunk when file_size < num_chunks * chunk_size_alignment
+            # -1 because we don't want to add an extra chunk when file_size is an exact multiple of num_chunks * chunk_size_alignment
             multiplier = 1 + ((file_size - 1) // (num_chunks * chunk_size_alignment))
             chunk_size = multiplier * chunk_size_alignment
             if compute_md5sum(local_file, chunk_size) == remote_md5:

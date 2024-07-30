@@ -198,7 +198,7 @@ def app_diff(
     diff: DiffResult = compute_stage_diff(
         local_root=Path(manager.deploy_root), stage_fqn=manager.stage_fqn
     )
-    if get_cli_context().output_format == OutputFormat.JSON:
+    if cli_context.output_format == OutputFormat.JSON:
         return ObjectResult(diff.to_dict())
     else:
         print_diff_to_console(diff, bundle_map)
