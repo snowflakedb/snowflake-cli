@@ -1389,14 +1389,16 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
 @pytest.mark.parametrize(
     ["first", "expected_first_clause"],
     [
-        (0, ""),
+        (-1, ""),
+        (0, "limit 0"),
         (10, "limit 10"),
     ],
 )
 @pytest.mark.parametrize(
     ["last", "expected_last_clause"],
     [
-        (0, ""),
+        (-1, ""),
+        (0, "limit 0"),
         (20, "limit 20"),
     ],
 )
@@ -1470,7 +1472,7 @@ def test_get_events(
             last=last,
         )
 
-    if first and last:
+    if first != -1 and last != -1:
         # Filtering on first and last events at the same time doesn't make sense
         with pytest.raises(ValueError):
             get_events()
@@ -1618,7 +1620,7 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
     mock_execute.side_effect = side_effects
 
     native_app_manager = _get_na_manager()
-    stream = native_app_manager.stream_events(last=len(events[0]), interval_seconds=0)
+    stream = native_app_manager.stream_events(interval_seconds=0, last=len(events[0]))
     for i in range(len(events[0])):
         # Exhaust the initial set of events
         assert next(stream) == events[0][i]

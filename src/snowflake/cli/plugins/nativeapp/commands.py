@@ -451,10 +451,10 @@ def app_events(
         help="Restrict results to a specific scope name. Can be specified multiple times.",
     ),
     first: int = typer.Option(
-        default=0, help="Fetch only the first N events. Cannot be used with --last."
+        default=-1, help="Fetch only the first N events. Cannot be used with --last."
     ),
     last: int = typer.Option(
-        default=0, help="Fetch only the last N events. Cannot be used with --first."
+        default=-1, help="Fetch only the last N events. Cannot be used with --first."
     ),
     follow: bool = typer.Option(
         False,
@@ -469,13 +469,13 @@ def app_events(
     **options,
 ):
     """Fetches events for this app from the event table configured in Snowflake."""
-    if first and last:
+    if first != -1 and last != -1:
         raise ClickException("--first and --last cannot be used together.")
 
     if follow:
         if until:
             raise ClickException("--follow and --until cannot be used together.")
-        if first:
+        if first != -1:
             raise ClickException("--follow and --first cannot be used together.")
 
     assert_project_type("native_app")
@@ -486,13 +486,14 @@ def app_events(
         project_root=get_cli_context().project_root,
     )
     if follow:
-        if not last:
-            # If we don't have a value for --last, assume 20 so we
-            # at least print something before starting the tail
+        if last == -1 and not since:
+            # If we don't have a value for --last or --since, assume a value
+            # for --last so we at least print something before starting the stream
             last = DEFAULT_EVENT_FOLLOW_LAST
         stream: Iterable[CommandResult] = (
             EventResult(event)
             for event in manager.stream_events(
+                since=since,
                 last=last,
                 interval_seconds=follow_interval,
                 record_types=record_type_names,

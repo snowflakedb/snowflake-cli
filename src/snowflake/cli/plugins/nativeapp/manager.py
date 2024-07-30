@@ -716,17 +716,17 @@ class NativeAppManager(SqlExecutionMixin):
 
     def get_events(
         self,
-        since: str | datetime | None = "",
-        until: str | datetime | None = "",
+        since: str | datetime | None = None,
+        until: str | datetime | None = None,
         record_types: list[str] | None = None,
         scopes: list[str] | None = None,
-        first: int = 0,
-        last: int = 0,
+        first: int = -1,
+        last: int = -1,
     ) -> list[dict]:
         record_types = record_types or []
         scopes = scopes or []
 
-        if first and last:
+        if first != -1 and last != -1:
             raise ValueError("first and last cannot be used together")
 
         if not self.account_event_table:
@@ -754,8 +754,8 @@ class NativeAppManager(SqlExecutionMixin):
         scopes_clause = (
             f"and scope:name in ({scope_in_values})" if scope_in_values else ""
         )
-        first_clause = f"limit {first}" if first else ""
-        last_clause = f"limit {last}" if last else ""
+        first_clause = f"limit {first}" if first != -1 else ""
+        last_clause = f"limit {last}" if last != -1 else ""
         query = dedent(
             f"""\
             select * from (
@@ -779,14 +779,15 @@ class NativeAppManager(SqlExecutionMixin):
 
     def stream_events(
         self,
-        last: int,
         interval_seconds: int,
+        since: str | datetime | None = None,
         record_types: list[str] | None = None,
         scopes: list[str] | None = None,
+        last: int = -1,
     ) -> Generator[dict, None, None]:
         try:
             events = self.get_events(
-                record_types=record_types, scopes=scopes, last=last
+                since=since, record_types=record_types, scopes=scopes, last=last
             )
             yield from events  # Yield the initial batch of events
             last_event_time = events[-1]["TIMESTAMP"]
