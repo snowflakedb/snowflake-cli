@@ -32,12 +32,7 @@ from tests_integration.test_utils import pushd, enable_definition_v2_feature_fla
 USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
 
-# THRESHOLD_BYTES = 100  # arbitrarily small to force chunking
-# TEMP_FILE_SIZE_BYTES = int(
-#     S3_CHUNK_SIZE * 1.6
-# )  # ensure our file will be uploaded multi-part
-
-THRESHOLD_BYTES = None
+THRESHOLD_BYTES: int | None = None  # if set, passes this option with PUT
 TEMP_FILE_SIZE_BYTES = 200 * 1024 * 1024
 
 from contextlib import contextmanager
@@ -60,6 +55,7 @@ def mocked_testenv():
             yield
 
 
+@pytest.mark.skip  # FIXME: requires AWS + python connector to support threshold=<number>
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
@@ -106,7 +102,6 @@ def test_large_upload_skips_reupload(
                 snowflake_session.execute_string(put_command)
 
                 # ensure that there is, in fact, a file with a multi-part md5sum
-                # FIXME: this will FAIL on both Azure and GCP; find a way to only test this on AWS?
                 result = runner.invoke_with_connection_json(
                     ["stage", "list-files", stage_fqn]
                 )
