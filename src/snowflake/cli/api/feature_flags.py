@@ -48,4 +48,5 @@ class FeatureFlag(FeatureFlagMixin):
     ENABLE_STREAMLIT_EMBEDDED_STAGE = BooleanFlag(
         "ENABLE_STREAMLIT_EMBEDDED_STAGE", False
     )
-    ENABLE_PROJECT_DEFINITION_V2 = BooleanFlag("ENABLE_PROJECT_DEFINITION_V2", False)
+    # TODO: remove in 3.0
+    ENABLE_PROJECT_DEFINITION_V2 = BooleanFlag("ENABLE_PROJECT_DEFINITION_V2", True)
