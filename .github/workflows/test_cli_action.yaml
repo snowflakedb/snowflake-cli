@@ -18,10 +18,18 @@ jobs:
         with:
           cli-version: "latest"
           default-config-file-path: "tests_integration/config/connection_configs.toml"
-      - name: Test connection
+      - name: Set workspace parent directory (Ubuntu / MacOS)
+        run: echo "PARENT_DIR=$(dirname "${{ github.workspace }}")" >> $GITHUB_ENV
+      - name: Run integration tests (Ubuntu / MacOS)
         env:
           TERM: unknown
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR: SNOWFLAKE_JWT
           SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-        run: snow connection test -c integration | grep Status
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH: ${{ env.PARENT_DIR }}/.ssh/key.p8
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+        run: |
+          mkdir ${{ env.PARENT_DIR }}/.ssh
+          echo "${SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY}" > ${{ env.PARENT_DIR }}/.ssh/key.p8
+          sudo chmod 600 ${{ env.PARENT_DIR }}/.ssh/key.p8
+          python -m hatch run ${{ inputs.hatch-run }}

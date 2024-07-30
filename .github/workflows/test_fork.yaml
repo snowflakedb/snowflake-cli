@@ -1,0 +1,108 @@
+name: Test trusted
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        required: true
+        type: string
+      python-version:
+        required: true
+        type: string
+      python-env:
+        required: true
+        type: string
+      hatch-run:
+        required: true
+        type: string
+
+jobs:
+  test-fork:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip hatch
+          python -m hatch env create ${{ inputs.python-env }}
+
+      # Ubuntu and MacOS specific steps
+      - name: Set workspace parent directory (Ubuntu / MacOS)
+        if: inputs.runs-on == 'ubuntu-latest' || inputs.runs-on == 'macos-latest'
+        run: echo "PARENT_DIR=$(dirname "${{ github.workspace }}")" >> $GITHUB_ENV
+      - name: Run integration tests (Ubuntu / MacOS)
+        if: inputs.runs-on == 'ubuntu-latest' || inputs.runs-on == 'macos-latest'
+        env:
+          TERM: unknown
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR: SNOWFLAKE_JWT
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH: ${{ env.PARENT_DIR }}/.ssh/key.p8
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+        run: |
+          mkdir ${{ env.PARENT_DIR }}/.ssh
+          echo "${SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY}" > ${{ env.PARENT_DIR }}/.ssh/key.p8
+          sudo chmod 600 ${{ env.PARENT_DIR }}/.ssh/key.p8
+          python -m hatch run ${{ inputs.hatch-run }}
+
+      # Windows specific steps
+      - name: Set workspace parent directory (Windows)
+        if: inputs.runs-on == 'windows-latest'
+        run: |
+          $parentDir = Split-Path -Parent "${{ github.workspace }}"
+          echo "PARENT_DIR=$parentDir" >> $env:GITHUB_ENV
+        shell: pwsh
+      - name: Run integration tests (Windows)
+        if: inputs.runs-on == 'windows-latest'
+        env:
+          TERM: unknown
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR: SNOWFLAKE_JWT
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH: ${{ env.PARENT_DIR }}\\ssh\\key.p8
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+        run: |
+          mkdir ${{ env.PARENT_DIR }}\\ssh
+          Set-Content -Path "${{ env.PARENT_DIR }}\\ssh\\key.p8" -Value $env:SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY
+          python -m hatch run ${{ inputs.hatch-run }}
+        shell: pwsh
+
+      # Update check run called "integration-fork"
+      - uses: actions/github-script@v7
+        id: update-check-run
+        if: ${{ always() }}
+        env:
+          number: ${{ github.event.client_payload.pull_request.number }}
+          job: ${{ github.job }}
+          # Conveniently, job.status maps to https://developer.github.com/v3/checks/runs/#update-a-check-run
+          conclusion: ${{ job.status }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: pull } = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: process.env.number
+            });
+            const ref = pull.head.sha;
+
+            const { data: checks } = await github.rest.checks.listForRef({
+              ...context.repo,
+              ref
+            });
+
+            const check = checks.check_runs.filter(c => c.name === process.env.job);
+
+            const { data: result } = await github.rest.checks.update({
+              ...context.repo,
+              check_run_id: check[0].id,
+              status: 'completed',
+              conclusion: process.env.conclusion
+            });
+
+            return result;
