@@ -1618,7 +1618,7 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
     mock_execute.side_effect = side_effects
 
     native_app_manager = _get_na_manager()
-    stream = native_app_manager.stream_events(last=len(events[0]), delay_seconds=0)
+    stream = native_app_manager.stream_events(last=len(events[0]), interval_seconds=0)
     for i in range(len(events[0])):
         # Exhaust the initial set of events
         assert next(stream) == events[0][i]

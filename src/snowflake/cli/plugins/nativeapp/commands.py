@@ -421,6 +421,11 @@ class RecordType(Enum):
     SPAN_EVENT = "span_event"
 
 
+# The default number of lines to print before streaming when running
+# snow app events --follow
+DEFAULT_EVENT_FOLLOW_LAST = 20
+
+
 @app.command("events", hidden=True, requires_connection=True)
 @with_project_definition()
 @nativeapp_definition_v2_to_v1
@@ -455,7 +460,11 @@ def app_events(
         False,
         "--follow",
         "-f",
-        help="Continue polling for events. Implies --last 20 unless overridden.",
+        help=f"Continue polling for events. Implies --last {DEFAULT_EVENT_FOLLOW_LAST} unless overridden.",
+    ),
+    follow_interval: int = typer.Option(
+        10,
+        help=f"Polling interval in seconds when using the --follow flag.",
     ),
     **options,
 ):
@@ -480,12 +489,12 @@ def app_events(
         if not last:
             # If we don't have a value for --last, assume 20 so we
             # at least print something before starting the tail
-            last = 20
+            last = DEFAULT_EVENT_FOLLOW_LAST
         stream: Iterable[CommandResult] = (
             EventResult(event)
             for event in manager.stream_events(
                 last=last,
-                delay_seconds=10,  # configurable?
+                interval_seconds=follow_interval,
                 record_types=record_type_names,
                 scopes=scopes,
             )

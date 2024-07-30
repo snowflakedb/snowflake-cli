@@ -780,7 +780,7 @@ class NativeAppManager(SqlExecutionMixin):
     def stream_events(
         self,
         last: int,
-        delay_seconds: int,
+        interval_seconds: int,
         record_types: list[str] | None = None,
         scopes: list[str] | None = None,
     ) -> Generator[dict, None, None]:
@@ -792,7 +792,7 @@ class NativeAppManager(SqlExecutionMixin):
             last_event_time = events[-1]["TIMESTAMP"]
 
             while True:  # Then infinite poll for new events
-                time.sleep(delay_seconds)
+                time.sleep(interval_seconds)
                 previous_events = events
                 events = self.get_events(
                     since=last_event_time, record_types=record_types, scopes=scopes
