@@ -359,7 +359,8 @@ def test_filter_from_diff():
 
 
 def test_print_diff_to_console_no_bundlemap(
-    capsys, os_agnostic_snapshot, print_paths_as_posix
+    capsys,
+    os_agnostic_snapshot,
 ):
     diff = DiffResult()
     # Empty diff
@@ -430,9 +431,7 @@ def test_print_diff_to_console_no_bundlemap(
     assert captured.out == os_agnostic_snapshot
 
 
-def test_print_diff_to_console_with_bundlemap(
-    capsys, os_agnostic_snapshot, print_paths_as_posix
-):
+def test_print_diff_to_console_with_bundlemap(capsys, os_agnostic_snapshot):
     bundle_map = mock.MagicMock(spec=BundleMap, autospec=True)
     dest_to_project = {}
     bundle_map.to_project_path.side_effect = lambda dest_path: dest_to_project.get(
