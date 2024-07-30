@@ -353,7 +353,8 @@ def test_process_no_collected_functions(
                 project_definition=native_app_project_instance.native_app,
                 project_root=local_path,
             )
-            SnowparkAnnotationProcessor(na_project=project).process(
+            processor = SnowparkAnnotationProcessor(project.get_bundle_context())
+            processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
                 processor_mapping=ProcessorMapping(name="SNOWPARK"),
                 write_to_sql=False,  # For testing
@@ -404,7 +405,8 @@ def test_process_with_collected_functions(
                 project_definition=native_app_project_instance.native_app,
                 project_root=local_path,
             )
-            SnowparkAnnotationProcessor(na_project=project).process(
+            processor = SnowparkAnnotationProcessor(project.get_bundle_context())
+            processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
                 processor_mapping=processor_mapping,
             )
@@ -463,7 +465,8 @@ def test_package_normalization(
                 project_definition=native_app_project_instance.native_app,
                 project_root=local_path,
             )
-            SnowparkAnnotationProcessor(na_project=project).process(
+            processor = SnowparkAnnotationProcessor(project.get_bundle_context())
+            processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
                 processor_mapping=processor_mapping,
             )

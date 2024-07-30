@@ -23,7 +23,7 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
     ProcessorMapping,
 )
-from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
+from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 
 
 class UnsupportedArtifactProcessorError(ClickException):
@@ -74,9 +74,9 @@ class ProjectFileContextManager:
 class ArtifactProcessor(ABC):
     def __init__(
         self,
-        na_project: NativeAppProjectModel,
+        bundle_ctx: BundleContext,
     ) -> None:
-        self._na_project = na_project
+        self._bundle_ctx = bundle_ctx
 
     @abstractmethod
     def process(
