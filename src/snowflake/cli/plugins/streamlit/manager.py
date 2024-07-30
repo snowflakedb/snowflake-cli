@@ -146,7 +146,7 @@ class StreamlitManager(SqlExecutionMixin):
                     self._execute_query(
                         f"ALTER STREAMLIT {streamlit_id.identifier} ADD LIVE VERSION FROM LAST"
                     )
-                else:
+                elif not FeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled():
                     self._execute_query(
                         f"ALTER streamlit {streamlit_id.identifier} CHECKOUT"
                     )
