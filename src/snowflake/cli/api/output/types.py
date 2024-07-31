@@ -57,6 +57,15 @@ class MultipleResults(CommandResult):
         return (element for element in self._elements)
 
 
+class StreamResult(CommandResult):
+    def __init__(self, generator: t.Generator[CommandResult, None, None]):
+        self._generator = generator
+
+    @property
+    def result(self):
+        return self._generator
+
+
 class QueryResult(CollectionResult):
     def __init__(self, cursor: SnowflakeCursor | DictCursor):
         self.column_names = [col.name for col in cursor.description]

@@ -20,11 +20,9 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List
 
 import typer
-from snowflake.cli.api.config import (
-    get_logs_config,
-)
 from snowflake.cli.api.exceptions import InvalidLogsConfiguration
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.connector.errors import ConfigSourceError
 
 _DEFAULT_LOG_FILENAME = "snowflake-cli.log"
 
@@ -82,6 +80,16 @@ class DefaultLoggingConfig:
     )
 
 
+@dataclass
+class InitialLoggingConfig(DefaultLoggingConfig):
+    loggers: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "snowflake.cli": LoggerConfig(level=logging.INFO, handlers=["file"]),
+            "snowflake": LoggerConfig(),
+        }
+    )
+
+
 def _remove_underscore_prefixes_from_keys(d: Dict[str, Any]) -> None:
     for k, v in list(d.items()):
         if k.startswith("_"):
@@ -92,6 +100,10 @@ def _remove_underscore_prefixes_from_keys(d: Dict[str, Any]) -> None:
 
 class FileLogsConfig:
     def __init__(self, debug: bool) -> None:
+        from snowflake.cli.api.config import (
+            get_logs_config,
+        )
+
         config = get_logs_config()
 
         self.path: SecurePath = SecurePath(config["path"])
@@ -127,6 +139,17 @@ class FileLogsConfig:
         return self.path.path / _DEFAULT_LOG_FILENAME
 
 
+def create_initial_loggers():
+    config = InitialLoggingConfig()
+    try:
+        file_logs_config = FileLogsConfig(debug=False)
+        if file_logs_config.save_logs:
+            config.handlers["file"]["filename"] = file_logs_config.filename
+            _configurate_logging(config)
+    except ConfigSourceError:
+        pass
+
+
 def create_loggers(verbose: bool, debug: bool):
     """Creates a logger depending on the SnowCLI parameters and config file.
     verbose == True - print info and higher logs in default format
@@ -160,11 +183,17 @@ def create_loggers(verbose: bool, debug: bool):
     else:
         # We need to remove handler definition - otherwise it creates file even if `save_logs` is False
         del config.handlers["file"]
-        config.loggers["snowflake.cli"].handlers.remove("file")
+        for logger in config.loggers.values():
+            if "file" in logger.handlers:
+                logger.handlers.remove("file")
 
     config.loggers["snowflake.cli"].level = global_log_level
     config.loggers["snowflake"].level = global_log_level
 
+    _configurate_logging(config)
+
+
+def _configurate_logging(config: DefaultLoggingConfig | InitialLoggingConfig) -> None:
     dict_config = asdict(config)
     _remove_underscore_prefixes_from_keys(dict_config)
     logging.config.dictConfig(dict_config)

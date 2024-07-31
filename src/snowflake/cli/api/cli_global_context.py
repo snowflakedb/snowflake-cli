@@ -15,13 +15,15 @@
 from __future__ import annotations
 
 import re
+import warnings
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Callable, Optional
 
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.connector import SnowflakeConnection
+from snowflake.connector.compat import IS_WINDOWS
 
 schema_pattern = re.compile(r".+\..+")
 
@@ -47,6 +49,7 @@ class _ConnectionContext:
         self._temporary_connection: bool = False
         self._session_token: Optional[str] = None
         self._master_token: Optional[str] = None
+        self._token_file_path: Optional[Path] = None
 
     def __setattr__(self, key, value):
         """
@@ -183,6 +186,13 @@ class _ConnectionContext:
         self._master_token = value
 
     @property
+    def token_file_path(self) -> Optional[Path]:
+        return self._token_file_path
+
+    def set_token_file_path(self, value: Optional[Path]):
+        self._token_file_path = value
+
+    @property
     def connection(self) -> SnowflakeConnection:
         if not self._cached_connection:
             self._cached_connection = self._build_connection()
@@ -201,10 +211,20 @@ class _ConnectionContext:
             "warehouse": self.warehouse,
             "session_token": self.session_token,
             "master_token": self.master_token,
+            "token_file_path": self.token_file_path,
         }
 
     def _build_connection(self):
         from snowflake.cli.app.snow_connector import connect_to_snowflake
+
+        # Ignore warnings about bad owner or permissions on Windows
+        # Telemetry omit our warning filter from config.py
+        if IS_WINDOWS:
+            warnings.filterwarnings(
+                action="ignore",
+                message="Bad owner or permissions.*",
+                module="snowflake.connector.config_manager",
+            )
 
         return connect_to_snowflake(
             temporary_connection=self.temporary_connection,
@@ -226,6 +246,9 @@ class _CliGlobalContextManager:
         self._experimental = False
         self._project_definition = None
         self._project_root = None
+        self._project_path_arg = None
+        self._project_env_overrides_args = {}
+        self._typer_pre_execute_commands = []
         self._template_context = None
         self._silent: bool = False
 
@@ -261,7 +284,7 @@ class _CliGlobalContextManager:
         self._experimental = value
 
     @property
-    def project_definition(self) -> Optional[Dict]:
+    def project_definition(self) -> Optional[ProjectDefinition]:
         return self._project_definition
 
     def set_project_definition(self, value: ProjectDefinition):
@@ -275,11 +298,36 @@ class _CliGlobalContextManager:
         self._project_root = project_root
 
     @property
+    def project_path_arg(self) -> Optional[str]:
+        return self._project_path_arg
+
+    def set_project_path_arg(self, project_path_arg: str):
+        self._project_path_arg = project_path_arg
+
+    @property
+    def project_env_overrides_args(self) -> dict[str, str]:
+        return self._project_env_overrides_args
+
+    def set_project_env_overrides_args(
+        self, project_env_overrides_args: dict[str, str]
+    ):
+        self._project_env_overrides_args = project_env_overrides_args
+
+    @property
     def template_context(self) -> dict:
         return self._template_context
 
     def set_template_context(self, template_context: dict):
         self._template_context = template_context
+
+    @property
+    def typer_pre_execute_commands(self) -> list[Callable[[], None]]:
+        return self._typer_pre_execute_commands
+
+    def add_typer_pre_execute_commands(
+        self, typer_pre_execute_command: Callable[[], None]
+    ):
+        self._typer_pre_execute_commands.append(typer_pre_execute_command)
 
     @property
     def connection_context(self) -> _ConnectionContext:
@@ -349,5 +397,19 @@ class _CliGlobalContextAccess:
         return self._manager.output_format == OutputFormat.JSON
 
 
-cli_context_manager: _CliGlobalContextManager = _CliGlobalContextManager()
-cli_context: _CliGlobalContextAccess = _CliGlobalContextAccess(cli_context_manager)
+_CLI_CONTEXT_MANAGER: _CliGlobalContextManager | None = None
+_CLI_CONTEXT: _CliGlobalContextAccess | None = None
+
+
+def get_cli_context_manager() -> _CliGlobalContextManager:
+    global _CLI_CONTEXT_MANAGER
+    if _CLI_CONTEXT_MANAGER is None:
+        _CLI_CONTEXT_MANAGER = _CliGlobalContextManager()
+    return _CLI_CONTEXT_MANAGER
+
+
+def get_cli_context() -> _CliGlobalContextAccess:
+    global _CLI_CONTEXT
+    if _CLI_CONTEXT is None:
+        _CLI_CONTEXT = _CliGlobalContextAccess(get_cli_context_manager())
+    return _CLI_CONTEXT

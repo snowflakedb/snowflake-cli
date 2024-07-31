@@ -18,49 +18,155 @@ import fnmatch
 import glob
 import logging
 import re
+import sys
 from contextlib import nullcontext
 from dataclasses import dataclass
 from os import path
 from pathlib import Path
+from textwrap import dedent
 from typing import Dict, List, Optional, Union
 
 from click import ClickException
-from snowflake.cli.api.commands.flags import OnErrorType, parse_key_value_variables
+from snowflake.cli.api.commands.flags import (
+    OnErrorType,
+    Variable,
+    parse_key_value_variables,
+)
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.constants import PYTHON_3_12
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import path_resolver
+from snowflake.cli.plugins.snowpark.package_utils import parse_requirements
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
+
+if sys.version_info < PYTHON_3_12:
+    # Because Snowpark works only below 3.12 and to use @sproc Session must be imported here.
+    from snowflake.snowpark import Session
 
 log = logging.getLogger(__name__)
 
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
-EXECUTE_SUPPORTED_FILES_FORMATS = {".sql"}
+USER_STAGE_PREFIX = "@~"
+EXECUTE_SUPPORTED_FILES_FORMATS = (
+    ".sql",
+    ".py",
+)  # tuple to preserve order but it's a set
 
 
 @dataclass
 class StagePathParts:
-    # For path like @db.schema.stage/dir the values will be:
-    # stage = @db.schema.stage
-    stage: str
-    # stage_name = stage/dir
-    stage_name: str
-    # directory = dir
     directory: str
+    stage: str
+    stage_name: str
+    is_directory: bool
+
+    @staticmethod
+    def get_directory(stage_path: str) -> str:
+        return "/".join(Path(stage_path).parts[1:])
+
+    @property
+    def path(self) -> str:
+        raise NotImplementedError
+
+    def add_stage_prefix(self, file_path: str) -> str:
+        raise NotImplementedError
+
+    def get_directory_from_file_path(self, file_path: str) -> List[str]:
+        raise NotImplementedError
+
+    def get_full_stage_path(self, path: str):
+        if prefix := FQN.from_stage(self.stage).prefix:
+            return prefix + "." + path
+        return path
+
+    def get_standard_stage_path(self) -> str:
+        path = self.path
+        return f"@{path}{'/'if self.is_directory and not path.endswith('/') else ''}"
+
+    def get_standard_stage_directory_path(self) -> str:
+        path = self.get_standard_stage_path()
+        if not path.endswith("/"):
+            return path + "/"
+        return path
+
+
+@dataclass
+class DefaultStagePathParts(StagePathParts):
+    """
+    For path like @db.schema.stage/dir the values will be:
+        directory = dir
+        stage = @db.schema.stage
+        stage_name = stage
+    For `@stage/dir` to
+        stage -> @stage
+        stage_name -> stage
+        directory -> dir
+    """
+
+    def __init__(self, stage_path: str):
+        self.directory = self.get_directory(stage_path)
+        self.stage = StageManager.get_stage_from_path(stage_path)
+        stage_name = self.stage.split(".")[-1]
+        if stage_name.startswith("@"):
+            stage_name = stage_name[1:]
+        self.stage_name = stage_name
+        self.is_directory = True if stage_path.endswith("/") else False
 
     @property
     def path(self) -> str:
         return (
-            f"{self.stage_name}{self.directory}".lower()
+            f"{self.stage_name}{self.directory}"
             if self.stage_name.endswith("/")
-            else f"{self.stage_name}/{self.directory}".lower()
+            else f"{self.stage_name}/{self.directory}"
         )
+
+    def add_stage_prefix(self, file_path: str) -> str:
+        stage = Path(self.stage).parts[0]
+        file_path_without_prefix = Path(file_path).parts[1:]
+        return f"{stage}/{'/'.join(file_path_without_prefix)}"
+
+    def get_directory_from_file_path(self, file_path: str) -> List[str]:
+        stage_path_length = len(Path(self.directory).parts)
+        return list(Path(file_path).parts[1 + stage_path_length : -1])
+
+
+@dataclass
+class UserStagePathParts(StagePathParts):
+    """
+    For path like @db.schema.stage/dir the values will be:
+        directory = dir
+        stage = @~
+        stage_name = @~
+    """
+
+    def __init__(self, stage_path: str):
+        self.directory = self.get_directory(stage_path)
+        self.stage = "@~"
+        self.stage_name = "@~"
+        self.is_directory = True if stage_path.endswith("/") else False
+
+    @property
+    def path(self) -> str:
+        return f"{self.directory}"
+
+    def add_stage_prefix(self, file_path: str) -> str:
+        return f"{self.stage}/{file_path}"
+
+    def get_directory_from_file_path(self, file_path: str) -> List[str]:
+        stage_path_length = len(Path(self.directory).parts)
+        return list(Path(file_path).parts[stage_path_length:-1])
 
 
 class StageManager(SqlExecutionMixin):
+    def __init__(self):
+        super().__init__()
+        self._python_exe_procedure = None
+
     @staticmethod
     def get_standard_stage_prefix(name: str) -> str:
         # Handle embedded stages
@@ -68,12 +174,6 @@ class StageManager(SqlExecutionMixin):
             return name
 
         return f"@{name}"
-
-    @staticmethod
-    def get_standard_stage_directory_path(path):
-        if not path.endswith("/"):
-            path += "/"
-        return StageManager.get_standard_stage_prefix(path)
 
     @staticmethod
     def get_stage_from_path(path: str):
@@ -95,12 +195,6 @@ class StageManager(SqlExecutionMixin):
             return to_string_literal(standard_name)
 
         return standard_name
-
-    @staticmethod
-    def remove_stage_prefix(stage_path: str) -> str:
-        if stage_path.startswith("@"):
-            return stage_path[1:]
-        return stage_path
 
     def _to_uri(self, local_path: str):
         uri = f"file://{local_path}"
@@ -135,20 +229,17 @@ class StageManager(SqlExecutionMixin):
     def get_recursive(
         self, stage_path: str, dest_path: Path, parallel: int = 4
     ) -> List[SnowflakeCursor]:
-        stage_path = self.get_standard_stage_prefix(stage_path)
-        stage_parts_length = len(Path(stage_path).parts)
+        stage_path_parts = self._stage_path_part_factory(stage_path)
 
         results = []
-        for file in self.iter_stage(stage_path):
-            dest_directory = dest_path / "/".join(
-                Path(file).parts[stage_parts_length:-1]
-            )
-            self._assure_is_existing_directory(Path(dest_directory))
-
-            stage_path_with_prefix = self.get_standard_stage_prefix(file)
+        for file_path in self.iter_stage(stage_path):
+            dest_directory = dest_path
+            for path_part in stage_path_parts.get_directory_from_file_path(file_path):
+                dest_directory = dest_directory / path_part
+            self._assure_is_existing_directory(dest_directory)
 
             result = self._execute_query(
-                f"get {self.quote_stage_name(stage_path_with_prefix)} {self._to_uri(f'{dest_directory}/')} parallel={parallel}"
+                f"get {self.quote_stage_name(stage_path_parts.add_stage_prefix(file_path))} {self._to_uri(f'{dest_directory}/')} parallel={parallel}"
             )
             results.append(result)
 
@@ -180,8 +271,16 @@ class StageManager(SqlExecutionMixin):
         return cursor
 
     def copy_files(self, source_path: str, destination_path: str) -> SnowflakeCursor:
-        source = self.get_standard_stage_prefix(source_path)
-        destination = self.get_standard_stage_directory_path(destination_path)
+        source_path_parts = self._stage_path_part_factory(source_path)
+        destination_path_parts = self._stage_path_part_factory(destination_path)
+
+        if isinstance(destination_path_parts, UserStagePathParts):
+            raise ClickException(
+                "Destination path cannot be a user stage. Please provide a named stage."
+            )
+
+        source = source_path_parts.get_standard_stage_path()
+        destination = destination_path_parts.get_standard_stage_directory_path()
         log.info("Copying files from %s to %s", source, destination)
         query = f"copy files into {destination} from {source}"
         return self._execute_query(query)
@@ -217,8 +316,7 @@ class StageManager(SqlExecutionMixin):
         on_error: OnErrorType,
         variables: Optional[List[str]] = None,
     ):
-        stage_path_with_prefix = self.get_standard_stage_prefix(stage_path)
-        stage_path_parts = self._split_stage_path(stage_path_with_prefix)
+        stage_path_parts = self._stage_path_part_factory(stage_path)
         all_files_list = self._get_files_list_from_stage(stage_path_parts)
 
         # filter files from stage if match stage_path pattern
@@ -228,44 +326,44 @@ class StageManager(SqlExecutionMixin):
             raise ClickException(f"No files matched pattern '{stage_path}'")
 
         # sort filtered files in alphabetical order with directories at the end
-        sorted_file_list = sorted(
+        sorted_file_path_list = sorted(
             filtered_file_list, key=lambda f: (path.dirname(f), path.basename(f))
         )
 
-        sql_variables = self._parse_execute_variables(variables)
+        parsed_variables = parse_key_value_variables(variables)
+        sql_variables = self._parse_execute_variables(parsed_variables)
+        python_variables = {str(v.key): v.value for v in parsed_variables}
         results = []
-        for file in sorted_file_list:
-            results.append(
-                self._call_execute_immediate(
-                    stage_path_parts=stage_path_parts,
-                    file=file,
+
+        if any(file.endswith(".py") for file in sorted_file_path_list):
+            self._python_exe_procedure = self._bootstrap_snowpark_execution_environment(
+                stage_path_parts
+            )
+
+        for file_path in sorted_file_path_list:
+            file_stage_path = stage_path_parts.add_stage_prefix(file_path)
+            if file_path.endswith(".py"):
+                result = self._execute_python(
+                    file_stage_path=file_stage_path,
+                    on_error=on_error,
+                    variables=python_variables,
+                )
+            else:
+                result = self._call_execute_immediate(
+                    file_stage_path=file_stage_path,
                     variables=sql_variables,
                     on_error=on_error,
                 )
-            )
+            results.append(result)
 
         return results
 
-    def _split_stage_path(self, stage_path: str) -> StagePathParts:
-        """
-        Splits stage path `@stage/dir` to
-            stage -> @stage
-            stage_name -> stage
-            directory -> dir
-        For stage path with fully qualified name `@db.schema.stage/dir`
-            stage -> @db.schema.stage
-            stage_name -> stage
-            directory -> dir
-        """
-        stage = self.get_stage_from_path(stage_path)
-        stage_name = stage.split(".")[-1]
-        if stage_name.startswith("@"):
-            stage_name = stage_name[1:]
-        directory = "/".join(Path(stage_path).parts[1:])
-        return StagePathParts(stage, stage_name, directory)
-
-    def _get_files_list_from_stage(self, stage_path_parts: StagePathParts) -> List[str]:
-        files_list_result = self.list_files(stage_path_parts.stage).fetchall()
+    def _get_files_list_from_stage(
+        self, stage_path_parts: StagePathParts, pattern: str | None = None
+    ) -> List[str]:
+        files_list_result = self.list_files(
+            stage_path_parts.stage, pattern=pattern
+        ).fetchall()
 
         if not files_list_result:
             raise ClickException(f"No files found on stage '{stage_path_parts.stage}'")
@@ -278,7 +376,7 @@ class StageManager(SqlExecutionMixin):
         if not stage_path_parts.directory:
             return self._filter_supported_files(files_on_stage)
 
-        stage_path = stage_path_parts.path
+        stage_path = stage_path_parts.path.lower()
 
         # Exact file path was provided if stage_path in file list
         if stage_path in files_on_stage:
@@ -287,9 +385,8 @@ class StageManager(SqlExecutionMixin):
                 return filtered_files
             else:
                 raise ClickException(
-                    "Invalid file extension, only `.sql` files are allowed."
+                    f"Invalid file extension, only {', '.join(EXECUTE_SUPPORTED_FILES_FORMATS)} files are allowed."
                 )
-
         # Filter with fnmatch if contains `*` or `?`
         if glob.has_magic(stage_path):
             filtered_files = fnmatch.filter(files_on_stage, stage_path)
@@ -303,38 +400,145 @@ class StageManager(SqlExecutionMixin):
         return [f for f in files if Path(f).suffix in EXECUTE_SUPPORTED_FILES_FORMATS]
 
     @staticmethod
-    def _parse_execute_variables(variables: Optional[List[str]]) -> Optional[str]:
+    def _parse_execute_variables(variables: List[Variable]) -> Optional[str]:
         if not variables:
             return None
-
-        parsed_variables = parse_key_value_variables(variables)
-        query_parameters = [f"{v.key}=>{v.value}" for v in parsed_variables]
+        query_parameters = [f"{v.key}=>{v.value}" for v in variables]
         return f" using ({', '.join(query_parameters)})"
+
+    @staticmethod
+    def _success_result(file: str):
+        cli_console.warning(f"SUCCESS - {file}")
+        return {"File": file, "Status": "SUCCESS", "Error": None}
+
+    @staticmethod
+    def _error_result(file: str, msg: str):
+        cli_console.warning(f"FAILURE - {file}")
+        return {"File": file, "Status": "FAILURE", "Error": msg}
+
+    @staticmethod
+    def _handle_execution_exception(on_error: OnErrorType, exception: Exception):
+        if on_error == OnErrorType.BREAK:
+            raise exception
 
     def _call_execute_immediate(
         self,
-        stage_path_parts: StagePathParts,
-        file: str,
+        file_stage_path: str,
         variables: Optional[str],
         on_error: OnErrorType,
     ) -> Dict:
-        file_stage_path = self._build_file_stage_path(stage_path_parts, file)
         try:
             query = f"execute immediate from {file_stage_path}"
             if variables:
                 query += variables
             self._execute_query(query)
-            cli_console.step(f"SUCCESS - {file_stage_path}")
-            return {"File": file_stage_path, "Status": "SUCCESS", "Error": None}
+            return StageManager._success_result(file=file_stage_path)
         except ProgrammingError as e:
-            cli_console.warning(f"FAILURE - {file_stage_path}")
-            if on_error == OnErrorType.BREAK:
-                raise e
-            return {"File": file_stage_path, "Status": "FAILURE", "Error": e.msg}
+            StageManager._handle_execution_exception(on_error=on_error, exception=e)
+            return StageManager._error_result(file=file_stage_path, msg=e.msg)
 
-    def _build_file_stage_path(
-        self, stage_path_parts: StagePathParts, file: str
-    ) -> str:
-        stage = Path(stage_path_parts.stage).parts[0]
-        file_path = Path(file).parts[1:]
-        return f"{stage}/{'/'.join(file_path)}"
+    @staticmethod
+    def _stage_path_part_factory(stage_path: str) -> StagePathParts:
+        stage_path = StageManager.get_standard_stage_prefix(stage_path)
+        if stage_path.startswith(USER_STAGE_PREFIX):
+            return UserStagePathParts(stage_path)
+        return DefaultStagePathParts(stage_path)
+
+    def _check_for_requirements_file(
+        self, stage_path_parts: StagePathParts
+    ) -> List[str]:
+        """Looks for requirements.txt file on stage."""
+        req_files_on_stage = self._get_files_list_from_stage(
+            stage_path_parts, pattern=r".*requirements\.txt$"
+        )
+        if not req_files_on_stage:
+            return []
+
+        # Construct all possible path for requirements file for this context
+        # We don't use os.path or pathlib to preserve compatibility on Windows
+        req_file_name = "requirements.txt"
+        path_parts = stage_path_parts.path.split("/")
+        possible_req_files = []
+
+        while path_parts:
+            current_file = "/".join([*path_parts, req_file_name])
+            possible_req_files.append(str(current_file))
+            path_parts = path_parts[:-1]
+
+        # Now for every possible path check if the file exists on stage,
+        # if yes break, we use the first possible file
+        requirements_file = None
+        for req_file in possible_req_files:
+            if req_file in req_files_on_stage:
+                requirements_file = req_file
+                break
+
+        # If we haven't found any matching requirements
+        if requirements_file is None:
+            return []
+
+        # req_file at this moment is the first found requirements file
+        with SecurePath.temporary_directory() as tmp_dir:
+            self.get(
+                stage_path_parts.get_full_stage_path(requirements_file), tmp_dir.path
+            )
+            requirements = parse_requirements(
+                requirements_file=tmp_dir / "requirements.txt"
+            )
+
+        return [req.package_name for req in requirements]
+
+    def _bootstrap_snowpark_execution_environment(
+        self, stage_path_parts: StagePathParts
+    ):
+        """Prepares Snowpark session for executing Python code remotely."""
+        if sys.version_info >= PYTHON_3_12:
+            raise ClickException(
+                f"Executing python files is not supported in Python >= 3.12. Current version: {sys.version}"
+            )
+
+        from snowflake.snowpark.functions import sproc
+
+        self.snowpark_session.add_packages("snowflake-snowpark-python")
+        self.snowpark_session.add_packages("snowflake.core")
+        requirements = self._check_for_requirements_file(stage_path_parts)
+        self.snowpark_session.add_packages(*requirements)
+
+        @sproc(is_permanent=False)
+        def _python_execution_procedure(
+            _: Session, file_path: str, variables: Dict | None = None
+        ) -> None:
+            """Snowpark session-scoped stored procedure to execute content of provided python file."""
+            import json
+
+            from snowflake.snowpark.files import SnowflakeFile
+
+            with SnowflakeFile.open(file_path, require_scoped_url=False) as f:
+                file_content: str = f.read()  # type: ignore
+
+            wrapper = dedent(
+                f"""\
+                import os
+                os.environ.update({json.dumps(variables)})
+                """
+            )
+
+            exec(wrapper + file_content)
+
+        return _python_execution_procedure
+
+    def _execute_python(
+        self, file_stage_path: str, on_error: OnErrorType, variables: Dict
+    ):
+        """
+        Executes Python file from stage using a Snowpark temporary procedure.
+        Currently, there's no option to pass input to the execution.
+        """
+        from snowflake.snowpark.exceptions import SnowparkSQLException
+
+        try:
+            self._python_exe_procedure(self.get_standard_stage_prefix(file_stage_path), variables)  # type: ignore
+            return StageManager._success_result(file=file_stage_path)
+        except SnowparkSQLException as e:
+            StageManager._handle_execution_exception(on_error=on_error, exception=e)
+            return StageManager._error_result(file=file_stage_path, msg=e.message)

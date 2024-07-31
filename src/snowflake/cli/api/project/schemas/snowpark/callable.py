@@ -19,9 +19,7 @@ from typing import Dict, List, Optional, Union
 from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierModel
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
-from snowflake.cli.api.project.schemas.updatable_model import (
-    UpdatableModel,
-)
+from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
 
 class _CallableBase(UpdatableModel):

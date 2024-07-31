@@ -20,19 +20,21 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Any, Dict, List, Optional, Set
 
-from click import ClickException
+from pydantic import ValidationError
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
     ProcessorMapping,
 )
-from snowflake.cli.api.utils.rendering import jinja_render_from_file
+from snowflake.cli.api.rendering.jinja import jinja_render_from_file
 from snowflake.cli.plugins.nativeapp.artifacts import (
     BundleMap,
     find_setup_script_file,
 )
-from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import ArtifactProcessor
+from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
+    ArtifactProcessor,
+    is_python_file_artifact,
+)
 from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
     ExecutionEnvironmentType,
     SandboxExecutionError,
@@ -51,7 +53,6 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
     ExtensionFunctionTypeEnum,
     NativeAppExtensionFunction,
 )
-from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 from snowflake.cli.plugins.stage.diff import to_stage_path
 
 DEFAULT_TIMEOUT = 30
@@ -161,21 +162,8 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
     and generate SQL code for creation of extension functions based on those discovered objects.
     """
 
-    def __init__(
-        self,
-        na_project: NativeAppProjectModel,
-    ):
-        super().__init__(na_project=na_project)
-
-        assert self._na_project.bundle_root.is_absolute()
-        assert self._na_project.deploy_root.is_absolute()
-        assert self._na_project.generated_root.is_absolute()
-        assert self._na_project.project_root.is_absolute()
-
-        if self._na_project.generated_root.exists():
-            raise ClickException(
-                f"Path {self._na_project.generated_root} already exists. Please choose a different name for your generated directory in the project definition file."
-            )
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def process(
         self,
@@ -189,8 +177,8 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         """
 
         bundle_map = BundleMap(
-            project_root=self._na_project.project_root,
-            deploy_root=self._na_project.deploy_root,
+            project_root=self._bundle_ctx.project_root,
+            deploy_root=self._bundle_ctx.deploy_root,
         )
         bundle_map.add(artifact_to_process)
 
@@ -200,7 +188,9 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
 
         collected_output = []
         collected_sql_files: List[Path] = []
-        for py_file, extension_fns in collected_extension_functions_by_path.items():
+        for py_file, extension_fns in sorted(
+            collected_extension_functions_by_path.items()
+        ):
             sql_file = self.generate_new_sql_file_name(
                 py_file=py_file,
             )
@@ -236,8 +226,12 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             edit_setup_script_with_exec_imm_sql(
                 collected_sql_files=collected_sql_files,
                 deploy_root=bundle_map.deploy_root(),
-                generated_root=self._na_project.generated_root,
+                generated_root=self._generated_root,
             )
+
+    @property
+    def _generated_root(self):
+        return self._bundle_ctx.generated_root / "snowpark"
 
     def _normalize_imports(
         self,
@@ -317,7 +311,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         self, bundle_map: BundleMap, processor_mapping: Optional[ProcessorMapping]
     ) -> Dict[Path, List[NativeAppExtensionFunction]]:
         kwargs = (
-            _determine_virtual_env(self._na_project.project_root, processor_mapping)
+            _determine_virtual_env(self._bundle_ctx.project_root, processor_mapping)
             if processor_mapping is not None
             else {}
         )
@@ -326,8 +320,12 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             Path, List[NativeAppExtensionFunction]
         ] = {}
 
-        for src_file, dest_file in bundle_map.all_mappings(
-            absolute=True, expand_directories=True, predicate=_is_python_file_artifact
+        for src_file, dest_file in sorted(
+            bundle_map.all_mappings(
+                absolute=True,
+                expand_directories=True,
+                predicate=is_python_file_artifact,
+            )
         ):
             cc.step(
                 "Processing Snowpark annotations from {}".format(
@@ -336,7 +334,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             )
             collected_extension_function_json = _execute_in_sandbox(
                 py_file=str(dest_file.resolve()),
-                deploy_root=self._na_project.deploy_root,
+                deploy_root=self._bundle_ctx.deploy_root,
                 kwargs=kwargs,
             )
 
@@ -353,7 +351,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                         deploy_root=bundle_map.deploy_root(),
                     )
                     collected_extension_functions.append(extension_fn)
-                except SchemaValidationError:
+                except ValidationError:
                     cc.warning("Invalid extension function definition")
 
             if collected_extension_functions:
@@ -367,10 +365,8 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         """
         Generates a SQL filename for the generated root from the python file, and creates its parent directories.
         """
-        relative_py_file = py_file.relative_to(self._na_project.deploy_root)
-        sql_file = Path(
-            self._na_project.generated_root, relative_py_file.with_suffix(".sql")
-        )
+        relative_py_file = py_file.relative_to(self._bundle_ctx.deploy_root)
+        sql_file = Path(self._generated_root, relative_py_file.with_suffix(".sql"))
         if sql_file.exists():
             cc.warning(
                 f"""\
@@ -488,7 +484,7 @@ def edit_setup_script_with_exec_imm_sql(
     Adds an 'execute immediate' to setup script for every SQL file in the map
     """
     # Create a __generated.sql in the __generated folder
-    generated_file_path = Path(generated_root, f"{generated_root.stem}.sql")
+    generated_file_path = Path(generated_root, f"__generated.sql")
     generated_file_path.parent.mkdir(exist_ok=True, parents=True)
 
     if generated_file_path.exists():

@@ -11,9 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 
 
 def experimental_behaviour_enabled() -> bool:
-    return cli_context.experimental
+    return get_cli_context().experimental

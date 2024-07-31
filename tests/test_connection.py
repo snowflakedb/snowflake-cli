@@ -23,8 +23,15 @@ import pytest
 import tomlkit
 from snowflake.cli.api.constants import ObjectType
 
+from tests_common import IS_WINDOWS
 
-def test_new_connection_can_be_added(runner, snapshot):
+if IS_WINDOWS:
+    pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
+
+
+def test_new_connection_can_be_added(
+    runner, os_agnostic_snapshot, named_temporary_file
+):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
             tmp_file.name,
@@ -45,10 +52,10 @@ def test_new_connection_can_be_added(runner, snapshot):
         )
         content = tmp_file.read()
     assert result.exit_code == 0, result.output
-    assert content == snapshot
+    assert content == os_agnostic_snapshot
 
 
-def test_new_connection_can_be_added_as_default(runner, snapshot):
+def test_new_connection_can_be_added_as_default(runner, os_agnostic_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
             tmp_file.name,
@@ -68,10 +75,10 @@ def test_new_connection_can_be_added_as_default(runner, snapshot):
         )
         content = tmp_file.read()
     assert result.exit_code == 0, result.output
-    assert content == snapshot
+    assert content == os_agnostic_snapshot
 
 
-def test_new_connection_with_jwt_auth(runner, snapshot):
+def test_new_connection_with_jwt_auth(runner, os_agnostic_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
             tmp_file.name,
@@ -92,7 +99,7 @@ def test_new_connection_with_jwt_auth(runner, snapshot):
         )
         content = tmp_file.read()
     assert result.exit_code == 0, result.output
-    assert content == snapshot
+    assert content == os_agnostic_snapshot
 
 
 def test_port_has_cannot_be_string(runner):
@@ -137,7 +144,7 @@ def test_port_has_cannot_be_float(runner):
     assert "Value of port must be integer" in result.output
 
 
-def test_new_connection_add_prompt_handles_default_values(runner, snapshot):
+def test_new_connection_add_prompt_handles_default_values(runner, os_agnostic_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
             tmp_file.name,
@@ -149,10 +156,12 @@ def test_new_connection_add_prompt_handles_default_values(runner, snapshot):
         )
         content = tmp_file.read()
     assert result.exit_code == 0, result.output
-    assert content == snapshot
+    assert content == os_agnostic_snapshot
 
 
-def test_new_connection_add_prompt_handles_prompt_override(runner, snapshot):
+def test_new_connection_add_prompt_handles_prompt_override(
+    runner, os_agnostic_snapshot
+):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
             tmp_file.name,
@@ -164,7 +173,7 @@ def test_new_connection_add_prompt_handles_prompt_override(runner, snapshot):
         )
         content = tmp_file.read()
     assert result.exit_code == 0, result.output
-    assert content == snapshot
+    assert content == os_agnostic_snapshot
 
 
 def test_fails_if_existing_connection(runner):
@@ -292,7 +301,7 @@ def test_connection_list_does_not_print_too_many_env_variables(
     ]
 
 
-def test_second_connection_not_update_default_connection(runner, snapshot):
+def test_second_connection_not_update_default_connection(runner, os_agnostic_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         tmp_file.write(
             dedent(
@@ -326,7 +335,7 @@ def test_second_connection_not_update_default_connection(runner, snapshot):
         content = tmp_file.read()
 
         assert result.exit_code == 0, result.output
-        assert content == snapshot
+        assert content == os_agnostic_snapshot
 
 
 @mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
@@ -352,6 +361,7 @@ def test_connection_test(mock_connect, mock_om, runner):
         password=None,
         authenticator=None,
         private_key_path=None,
+        token_file_path=None,
         session_token=None,
         master_token=None,
         database=None,
@@ -532,6 +542,33 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
         schema="PUBLIC",
         warehouse="xsmall",
         server_session_keep_alive=True,
+        application_name="snowcli",
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temp_dir):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    token_file = Path(temp_dir) / "token.file"
+    token_file.touch()
+
+    result = runner.invoke(
+        [
+            "object",
+            "list",
+            "warehouse",
+            "--temporary-connection",
+            "--token-file-path",
+            token_file,
+        ]
+    )
+
+    assert result.exit_code == 0
+    mock_connector.assert_called_once_with(
+        application="SNOWCLI.OBJECT.LIST",
+        token_file_path=str(token_file),
         application_name="snowcli",
     )
 
@@ -867,6 +904,7 @@ def test_connection_test_diag_report(mock_connect, mock_om, runner):
         password=None,
         authenticator=None,
         private_key_path=None,
+        token_file_path=None,
         session_token=None,
         master_token=None,
         database=None,

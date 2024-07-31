@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from functools import partial
 from unittest import mock
 from unittest.mock import MagicMock
@@ -31,14 +30,14 @@ def class_factory(
 ):
     class _CustomTyper(SnowTyper):
         @staticmethod
-        def pre_execute():
+        def pre_execute(execution):
             if pre_execute:
-                pre_execute()
+                pre_execute(execution)
 
         @staticmethod
-        def post_execute():
+        def post_execute(execution):
             if post_execute:
-                post_execute()
+                post_execute(execution)
 
         @staticmethod
         def process_result(result):
@@ -46,9 +45,9 @@ def class_factory(
                 result_handler(result)
 
         @staticmethod
-        def exception_handler(err):
+        def exception_handler(err, execution):
             if exception_handler:
-                exception_handler(err)
+                exception_handler(err, execution)
 
         def create_instance(self):
             return self
@@ -156,44 +155,45 @@ def test_pre_callback_error_path(cli):
     assert len(exception_callback.call_args_list) == 1
 
 
-def test_command_without_any_options(cli, snapshot):
+def test_command_without_any_options(cli, os_agnostic_snapshot):
     result = cli(app_factory(SnowTyperFactory))(["simple_cmd", "--help"])
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
-def test_command_with_global_options(cli, snapshot):
+def test_command_with_global_options(cli, os_agnostic_snapshot):
     result = cli(app_factory(SnowTyperFactory))(["cmd_with_global_options", "--help"])
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
-def test_command_with_connection_options(cli, snapshot):
+def test_command_with_connection_options(cli, os_agnostic_snapshot):
     result = cli(app_factory(SnowTyperFactory))(
         ["cmd_with_connection_options", "--help"]
     )
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
-def test_enabled_command_is_visible(cli, snapshot):
+def test_enabled_command_is_visible(cli, os_agnostic_snapshot):
     global _ENABLED_FLAG
     _ENABLED_FLAG = True
     result = cli(app_factory(SnowTyperFactory))(["switchable_cmd", "--help"])
     assert result.exit_code == 0
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
-def test_enabled_command_is_not_visible(cli, snapshot):
+def test_enabled_command_is_not_visible(cli, os_agnostic_snapshot):
     global _ENABLED_FLAG
     _ENABLED_FLAG = False
     result = cli(app_factory(SnowTyperFactory))(["switchable_cmd", "--help"])
     assert result.exit_code == 2
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch("snowflake.cli.app.telemetry.log_command_usage")
 def test_snow_typer_pre_execute_sends_telemetry(mock_log_command_usage, cli):
     result = cli(app_factory(SnowTyperFactory))(["simple_cmd", "Norma"])
+
     assert result.exit_code == 0
-    mock_log_command_usage.assert_called_once_with()
+    mock_log_command_usage.assert_called_once_with(mock.ANY)
 
 
 @mock.patch("snowflake.cli.app.telemetry.flush_telemetry")

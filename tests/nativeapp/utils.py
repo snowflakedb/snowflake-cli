@@ -40,6 +40,7 @@ NATIVEAPP_MANAGER_EXECUTE_QUERIES = f"{NATIVEAPP_MANAGER}._execute_queries"
 NATIVEAPP_MANAGER_APP_PKG_DISTRIBUTION_IN_SF = (
     f"{NATIVEAPP_MANAGER}.get_app_pkg_distribution_in_snowflake"
 )
+NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE = f"{NATIVEAPP_MANAGER}.account_event_table"
 NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME = (
     f"{NATIVEAPP_MANAGER}.verify_project_distribution"
 )
@@ -146,18 +147,20 @@ def _all_paths_under_dir(root: Path) -> List[Path]:
 
 
 # TODO: move to shared utils between integration tests and unit tests once available
-def assert_dir_snapshot(root: Path, snapshot) -> None:
+def assert_dir_snapshot(root: Path, os_agnostic_snapshot) -> None:
     all_paths = _all_paths_under_dir(root)
 
     # Verify the contents of the directory matches expectations
-    assert "\n".join([_stringify_path(p) for p in all_paths]) == snapshot
+    assert "\n".join([_stringify_path(p) for p in all_paths]) == os_agnostic_snapshot
 
     # Verify that each file under the directory matches expectations
     for path in all_paths:
         if path.is_file():
-            snapshot_contents = f"===== Contents of: {path} =====\n"
+            snapshot_contents = f"===== Contents of: {path.as_posix()} =====\n"
             snapshot_contents += path.read_text(encoding="utf-8")
-            assert snapshot_contents == snapshot
+            assert (
+                snapshot_contents == os_agnostic_snapshot
+            ), f"\nExpected:\n{os_agnostic_snapshot}\nGot:\n{snapshot_contents}"
 
 
 def create_native_app_project_model(

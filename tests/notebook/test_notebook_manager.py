@@ -42,9 +42,9 @@ def test_get_url(mock_url):
 
 @mock.patch("snowflake.cli.plugins.notebook.manager.make_snowsight_url")
 @mock.patch.object(NotebookManager, "_execute_queries")
-@mock.patch("snowflake.cli.plugins.notebook.manager.cli_context")
+@mock.patch("snowflake.cli.plugins.notebook.manager.get_cli_context")
 def test_create(mock_ctx, mock_execute, mock_url):
-    type(mock_ctx.connection).warehouse = PropertyMock(return_value="MY_WH")
+    type(mock_ctx().connection).warehouse = PropertyMock(return_value="MY_WH")
     mock_url.return_value = "nb_url"
     cn_mock = MagicMock(database="nb_db", schema="nb_schema")
 

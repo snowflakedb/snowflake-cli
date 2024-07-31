@@ -18,7 +18,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import List, Optional
 
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.project.definition import (
     default_app_package,
     default_application,
@@ -31,11 +31,12 @@ from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import extract_schema, to_identifier
 from snowflake.cli.plugins.nativeapp.artifacts import resolve_without_follow
+from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 from snowflake.connector import DictCursor
 
 
 def current_role() -> str:
-    conn = cli_context.connection
+    conn = get_cli_context().connection
     *_, cursor = conn.execute_string("select current_role()", cursor_class=DictCursor)
     role_result = cursor.fetchone()
     return role_result["CURRENT_ROLE()"]
@@ -105,16 +106,22 @@ class NativeAppProjectModel:
     @cached_property
     def package_warehouse(self) -> Optional[str]:
         if self.definition.package and self.definition.package.warehouse:
-            return self.definition.package.warehouse
+            return to_identifier(self.definition.package.warehouse)
         else:
-            return cli_context.connection.warehouse
+            cli_context = get_cli_context()
+            if cli_context.connection.warehouse:
+                return to_identifier(cli_context.connection.warehouse)
+            return None
 
     @cached_property
     def application_warehouse(self) -> Optional[str]:
         if self.definition.application and self.definition.application.warehouse:
-            return self.definition.application.warehouse
+            return to_identifier(self.definition.application.warehouse)
         else:
-            return cli_context.connection.warehouse
+            cli_context = get_cli_context()
+            if cli_context.connection.warehouse:
+                return to_identifier(cli_context.connection.warehouse)
+            return None
 
     @cached_property
     def project_identifier(self) -> str:
@@ -175,8 +182,17 @@ class NativeAppProjectModel:
         return role
 
     @cached_property
-    def debug_mode(self) -> bool:
+    def debug_mode(self) -> Optional[bool]:
         if self.definition.application:
             return self.definition.application.debug
-        else:
-            return True
+        return None
+
+    def get_bundle_context(self) -> BundleContext:
+        return BundleContext(
+            package_name=self.package_name,
+            artifacts=self.artifacts,
+            project_root=self.project_root,
+            bundle_root=self.bundle_root,
+            deploy_root=self.deploy_root,
+            generated_root=self.generated_root,
+        )

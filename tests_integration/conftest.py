@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional
 import pytest
 import yaml
 
-from snowflake.cli.api.cli_global_context import cli_context_manager
+from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.app.cli_app import app_factory
 from typer import Typer
 from typer.testing import CliRunner
@@ -170,7 +170,7 @@ def project_directory(temporary_working_directory, test_root_path):
 
 @pytest.fixture(autouse=True)
 def reset_global_context_after_each_test(request):
-    cli_context_manager.reset()
+    get_cli_context_manager().reset()
     yield
 
 

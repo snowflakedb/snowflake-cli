@@ -20,7 +20,10 @@ from typing import Callable, Iterator, Optional
 
 from rich import print as rich_print
 from rich.text import Text
-from snowflake.cli.api.cli_global_context import _CliGlobalContextAccess, cli_context
+from snowflake.cli.api.cli_global_context import (
+    _CliGlobalContextAccess,
+    get_cli_context,
+)
 
 
 class AbstractConsole(ABC):
@@ -39,7 +42,7 @@ class AbstractConsole(ABC):
 
     def __init__(self):
         super().__init__()
-        self._cli_context = cli_context
+        self._cli_context = get_cli_context()
         self._in_phase = False
 
     @property

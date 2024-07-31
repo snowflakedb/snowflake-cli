@@ -1,0 +1,10 @@
+# This is the v2 version of the napp_create_db_v1 project
+
+manifest_version: 1
+
+artifacts:
+  setup_script: setup_script.sql
+  readme: README.md
+privileges:
+  - CREATE DATABASE:
+      description: "Permission to create databases"

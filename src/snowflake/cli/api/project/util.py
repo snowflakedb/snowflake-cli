@@ -17,7 +17,7 @@ from __future__ import annotations
 import codecs
 import os
 import re
-from typing import Optional
+from typing import List, Optional
 from urllib.parse import quote
 
 IDENTIFIER = r'((?:"[^"]*(?:""[^"]*)*")|(?:[A-Za-z_][\w$]{0,254}))'
@@ -88,6 +88,18 @@ def is_valid_object_name(name: str, max_depth=2, allow_quoted=True) -> bool:
     return re.fullmatch(pattern, name) is not None
 
 
+def to_quoted_identifier(input_value: str) -> str:
+    """
+    Turn the input into a valid quoted identifier.
+    If it is already a valid quoted identifier,
+    return it as is.
+    """
+    if is_valid_quoted_identifier(input_value):
+        return input_value
+
+    return '"' + input_value.replace('"', '""') + '"'
+
+
 def to_identifier(name: str) -> str:
     """
     Converts a name to a valid Snowflake identifier. If the name is already a valid
@@ -96,8 +108,15 @@ def to_identifier(name: str) -> str:
     if is_valid_identifier(name):
         return name
 
-    # double quote the identifier
-    return '"' + name.replace('"', '""') + '"'
+    return to_quoted_identifier(name)
+
+
+def identifier_to_str(identifier: str) -> str:
+    if is_valid_quoted_identifier(identifier):
+        unquoted_id = identifier[1:-1]
+        return unquoted_id.replace('""', '"')
+
+    return identifier
 
 
 def append_to_identifier(identifier: str, suffix: str) -> str:
@@ -181,6 +200,27 @@ def first_set_env(*keys: str):
 
 def get_env_username() -> Optional[str]:
     return first_set_env("USER", "USERNAME", "LOGNAME")
+
+
+def concat_identifiers(identifiers: list[str]) -> str:
+    """
+    Concatenate multiple identifiers.
+    If any of them is quoted identifier or contains unsafe characters, quote the result.
+    Otherwise, the resulting identifier will be unquoted.
+    """
+    quotes_found = False
+    stringified_identifiers: List[str] = []
+
+    for identifier in identifiers:
+        if is_valid_quoted_identifier(identifier):
+            quotes_found = True
+        stringified_identifiers.append(identifier_to_str(identifier))
+
+    concatenated_ids_str = "".join(stringified_identifiers)
+    if quotes_found:
+        return to_quoted_identifier(concatenated_ids_str)
+
+    return to_identifier(concatenated_ids_str)
 
 
 SUPPORTED_VERSIONS = [1]

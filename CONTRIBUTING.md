@@ -37,13 +37,13 @@ hatch shell
 This will spawn new shell with virtual environment enables. To leave just press ^D.
 
 
-Currently, the required Python version for development is Python 3.8+. For local development we recommend to use
+Currently, the required Python version for development is Python 3.10+. For local development we recommend to use
 a wrapper for virtual environments like [pyenv](https://github.com/pyenv/pyenv).
 
-If you wish to setup environment with specific version ie. 3.8 you can use following command:
+If you wish to setup environment with specific version ie. 3.10 you can use following command:
 
 ```bash
-hatch env create local.py3.8```
+hatch env create local.py3.10```
 
 You can see all locally supported environments with
 

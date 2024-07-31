@@ -18,7 +18,7 @@ from typing import Any, Dict, List
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.rest_api import RestApi
+from snowflake.cli.api.rest_api import CannotDetermineCreateURLException, RestApi
 from snowflake.connector.errors import InterfaceError
 
 _DUMMY_SERVER_URL = "https://DUMMY_SERVER_URL"
@@ -106,15 +106,20 @@ def test_determine_create_url(mock_rest_connection, number_of_fails):
 
     a_type = "a_type"
     urls = [
-        f"/api/v2/{a_type}/",
-        f"/api/v2/databases/DB/{a_type}/",
-        f"/api/v2/databases/DB/schemas/SCHEMA/{a_type}/",
-        None,
+        f"/api/v2/{a_type}s/",
+        f"/api/v2/databases/DB/{a_type}s/",
+        f"/api/v2/databases/DB/schemas/SCHEMA/{a_type}s/",
     ]
 
     rest = RestApi(mock_rest_connection.connection)
-    result = rest.determine_url_for_create_query(plural_object_type=a_type)
-    assert result == urls[number_of_fails]
+    # mock additional check
+    rest._fetch_endpoint_exists = lambda _: True  # noqa: SLF001
+
+    try:
+        result = rest.determine_url_for_create_query(a_type)
+        assert result == urls[number_of_fails]
+    except CannotDetermineCreateURLException:
+        assert number_of_fails == 3
 
     mock_rest_connection.assert_rest_fetch_calls_matches(
         [

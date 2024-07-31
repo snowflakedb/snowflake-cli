@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 
 from click import ClickException
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.exceptions import FQNInconsistencyError, FQNNameError
 from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierBaseModel
 from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, identifier_for_url
@@ -53,16 +53,26 @@ class FQN:
         return self._name
 
     @property
-    def identifier(self) -> str:
+    def prefix(self) -> str:
         if self.database:
-            return f"{self.database}.{self.schema if self.schema else 'PUBLIC'}.{self.name}"
+            return f"{self.database}.{self.schema if self.schema else 'PUBLIC'}"
         if self.schema:
-            return f"{self.schema}.{self.name}"
+            return f"{self.schema}"
+        return ""
+
+    @property
+    def identifier(self) -> str:
+        if self.prefix:
+            return f"{self.prefix}.{self.name}"
         return self.name
 
     @property
     def url_identifier(self) -> str:
         return ".".join(identifier_for_url(part) for part in self.identifier.split("."))
+
+    @property
+    def sql_identifier(self) -> str:
+        return f"IDENTIFIER('{self.identifier}')"
 
     def __str__(self):
         return self.identifier
@@ -91,6 +101,13 @@ class FQN:
         if signature := result.group("signature"):
             unqualified_name = unqualified_name + signature
         return cls(name=unqualified_name, schema=schema, database=database)
+
+    @classmethod
+    def from_stage(cls, stage: str) -> "FQN":
+        name = stage
+        if stage.startswith("@"):
+            name = stage[1:]
+        return cls.from_string(name)
 
     @classmethod
     def from_identifier_model(cls, model: ObjectIdentifierBaseModel) -> "FQN":
@@ -134,4 +151,4 @@ class FQN:
 
     def using_context(self) -> "FQN":
         """Update the instance with database and schema from connection in current cli context."""
-        return self.using_connection(cli_context.connection)
+        return self.using_connection(get_cli_context().connection)

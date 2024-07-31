@@ -33,6 +33,7 @@ NotebookFile: NotebookStagePath = typer.Option(
     "--notebook-file",
     "-f",
     help="Stage path with notebook file. For example `@stage/path/to/notebook.ipynb`",
+    show_default=False,
 )
 
 

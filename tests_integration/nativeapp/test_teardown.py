@@ -12,18 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import uuid
-from textwrap import dedent
 
 from snowflake.cli.api.project.util import generate_user_env
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
-    pushd,
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
+    enable_definition_v2_feature_flag,
 )
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
@@ -31,6 +29,7 @@ TEST_ENV = generate_user_env(USER_NAME)
 
 
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "command,expected_error",
     [
@@ -45,58 +44,36 @@ TEST_ENV = generate_user_env(USER_NAME)
         ["app teardown", "Aborted"],
     ],
 )
+@pytest.mark.parametrize("orphan_app", [True, False])
+@pytest.mark.parametrize("test_project", ["napp_create_db_v1", "napp_create_db_v2"])
 def test_nativeapp_teardown_cascade(
     command,
     expected_error,
+    orphan_app,
+    test_project,
+    project_directory,
     runner,
     snowflake_session,
-    temporary_working_directory,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}".upper()
     db_name = f"{project_name}_db_{USER_NAME}".upper()
 
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
-        # Add a procedure to the setup script that creates an app-owned database
-        with open("app/setup_script.sql", "a") as file:
-            file.write(
-                dedent(
-                    f"""
-                    create or replace procedure core.create_db()
-                        returns boolean
-                        language sql
-                        as $$
-                            begin
-                                create or replace database {db_name};
-                                return true;
-                            end;
-                        $$;
-                    """
-                )
-            )
-        with open("app/manifest.yml", "a") as file:
-            file.write(
-                dedent(
-                    f"""
-                    privileges:
-                    - CREATE DATABASE:
-                        description: "Permission to create databases"
-                    """
-                )
-            )
+    with project_directory(test_project):
+        # Replacing the static DB name with a unique one to avoid collisions between tests
+        with open("app/setup_script.sql", "r") as file:
+            setup_script_content = file.read()
+        setup_script_content = setup_script_content.replace(
+            "DB_NAME_PLACEHOLDER", db_name
+        )
+        with open("app/setup_script.sql", "w") as file:
+            file.write(setup_script_content)
 
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
-
         try:
             # Grant permission to create databases
             snowflake_session.execute_string(
@@ -116,6 +93,23 @@ def test_nativeapp_teardown_cascade(
                 ),
                 dict(name=db_name, owner=app_name),
             )
+
+            if orphan_app:
+                # orphan the app by dropping the application package,
+                # this causes future `show objects owned by application` queries to fail
+                # and `snow app teardown` needs to be resilient against this
+                package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+                snowflake_session.execute_string(
+                    f"drop application package {package_name}"
+                )
+                assert not_contains_row_with(
+                    row_from_snowflake_session(
+                        snowflake_session.execute_string(
+                            f"show application packages like '{package_name}'",
+                        )
+                    ),
+                    dict(name=package_name),
+                )
 
             # Run the teardown command
             result = runner.invoke_with_connection_json(
@@ -157,29 +151,24 @@ def test_nativeapp_teardown_cascade(
 
 
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("force", [True, False])
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_teardown_unowned_app(
     runner,
-    snowflake_session,
-    temporary_working_directory,
     force,
+    test_project,
+    project_directory,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{USER_NAME}"
 
-    result = runner.invoke_json(
-        ["app", "init", project_name],
-        env=TEST_ENV,
-    )
-    assert result.exit_code == 0
-
-    with pushd(Path(os.getcwd(), project_name)):
+    with project_directory(test_project):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=TEST_ENV,
         )
         assert result.exit_code == 0
-
         try:
             result = runner.invoke_with_connection_json(
                 ["sql", "-q", f"alter application {app_name} set comment = 'foo'"],
@@ -199,6 +188,74 @@ def test_nativeapp_teardown_unowned_app(
                     env=TEST_ENV,
                 )
                 assert result.exit_code == 1
+
+        finally:
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+@pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("default_release_directive", [True, False])
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+def test_nativeapp_teardown_pkg_versions(
+    runner,
+    default_release_directive,
+    test_project,
+    project_directory,
+):
+    project_name = "myapp"
+    pkg_name = f"{project_name}_pkg_{USER_NAME}"
+
+    with project_directory(test_project):
+        result = runner.invoke_with_connection(
+            ["app", "version", "create", "v1"],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # when setting a release directive, we will not have the ability to drop the version later
+            if default_release_directive:
+                result = runner.invoke_with_connection(
+                    [
+                        "sql",
+                        "-q",
+                        f"alter application package {pkg_name} set default release directive version = v1 patch = 0",
+                    ],
+                    env=TEST_ENV,
+                )
+                assert result.exit_code == 0
+
+            # try to teardown; fail because we have a version
+            result = runner.invoke_with_connection(
+                ["app", "teardown"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 1
+            assert f"Drop versions first, or use --force to override." in result.output
+
+            teardown_args = []
+            if not default_release_directive:
+                # if we didn't set a release directive, we can drop the version and try again
+                result = runner.invoke_with_connection(
+                    ["app", "version", "drop", "v1", "--force"],
+                    env=TEST_ENV,
+                )
+                assert result.exit_code == 0
+            else:
+                # if we did set a release directive, we need --force for teardown to work
+                teardown_args = ["--force"]
+
+            # either way, we can now tear down the application package
+            result = runner.invoke_with_connection(
+                ["app", "teardown"] + teardown_args,
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
 
         finally:
             result = runner.invoke_with_connection_json(

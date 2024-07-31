@@ -19,12 +19,13 @@ from typing import Optional
 
 import typer
 from click import MissingParameter
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
+from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli.plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
@@ -32,6 +33,9 @@ from snowflake.cli.plugins.nativeapp.policy import (
     DenyAlwaysPolicy,
 )
 from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
+from snowflake.cli.plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+    nativeapp_definition_v2_to_v1,
+)
 from snowflake.cli.plugins.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
     NativeAppVersionDropProcessor,
@@ -46,7 +50,8 @@ log = logging.getLogger(__name__)
 
 
 @app.command(requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
+@nativeapp_definition_v2_to_v1
 def create(
     version: Optional[str] = typer.Argument(
         None,
@@ -71,6 +76,9 @@ def create(
     """
     Adds a new patch to the provided version defined in your application package. If the version does not exist, creates a version with patch 0.
     """
+
+    assert_project_type("native_app")
+
     if version is None and patch is not None:
         raise MissingParameter("Cannot provide a patch without version!")
 
@@ -88,6 +96,7 @@ def create(
     else:
         git_policy = AllowAlwaysPolicy()
 
+    cli_context = get_cli_context()
     processor = NativeAppVersionCreateProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -107,13 +116,18 @@ def create(
 
 
 @app.command("list", requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
+@nativeapp_definition_v2_to_v1
 def version_list(
     **options,
 ) -> CommandResult:
     """
     Lists all versions defined in an application package.
     """
+
+    assert_project_type("native_app")
+
+    cli_context = get_cli_context()
     processor = NativeAppRunProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -123,7 +137,8 @@ def version_list(
 
 
 @app.command(requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
+@nativeapp_definition_v2_to_v1
 def drop(
     version: Optional[str] = typer.Argument(
         None,
@@ -137,6 +152,9 @@ def drop(
     Drops a version defined in your application package. Versions can either be passed in as an argument to the command or read from the `manifest.yml` file.
     Dropping patches is not allowed.
     """
+
+    assert_project_type("native_app")
+
     is_interactive = False
     if force:
         policy = AllowAlwaysPolicy()
@@ -146,6 +164,7 @@ def drop(
     else:
         policy = DenyAlwaysPolicy()
 
+    cli_context = get_cli_context()
     processor = NativeAppVersionDropProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,

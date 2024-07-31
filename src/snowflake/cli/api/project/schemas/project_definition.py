@@ -14,18 +14,60 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Union
+from dataclasses import dataclass
+from typing import Dict, Optional, Union
 
 from packaging.version import Version
-from pydantic import Field, field_validator
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
+from pydantic import Field, ValidationError, field_validator, model_validator
+from snowflake.cli.api.feature_flags import FeatureFlag
+from snowflake.cli.api.project.errors import SchemaValidationError
+from snowflake.cli.api.project.schemas.entities.application_entity import (
+    ApplicationEntity,
+)
+from snowflake.cli.api.project.schemas.entities.common import (
+    DefaultsField,
+    TargetField,
+)
+from snowflake.cli.api.project.schemas.entities.entities import (
+    Entity,
+    v2_entity_types_map,
+)
+from snowflake.cli.api.project.schemas.native_app.native_app import (
+    NativeApp,
+    NativeAppV11,
+)
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
-from snowflake.cli.api.utils.models import EnvironWithDefinedDictFallback
+from snowflake.cli.api.utils.types import Context
+from typing_extensions import Annotated
 
 
-class _BaseDefinition(UpdatableModel):
+@dataclass
+class ProjectProperties:
+    """
+    This class stores 2 objects representing the snowflake project:
+
+    The project_context object:
+    - Used as the context for templating when users reference variables in the project definition file.
+
+    The project_definition object:
+    - This is a transformed object type through Pydantic, which has been normalized.
+    - This object could have slightly different structure than what the users see in their yaml project definition files.
+    - This should be used for the business logic of snow CLI modules.
+    """
+
+    project_definition: ProjectDefinition
+    project_context: Context
+
+
+class _ProjectDefinitionBase(UpdatableModel):
+    def __init__(self, *args, **kwargs):
+        try:
+            super().__init__(**kwargs)
+        except ValidationError as e:
+            raise SchemaValidationError(e) from e
+
     definition_version: Union[str, int] = Field(
         title="Version of the project definition schema, which is currently 1",
     )
@@ -34,9 +76,10 @@ class _BaseDefinition(UpdatableModel):
     @classmethod
     def _is_supported_version(cls, version: str) -> str:
         version = str(version)
-        if version not in _version_map:
+        version_map = get_version_map()
+        if version not in version_map:
             raise ValueError(
-                f'Version {version} is not supported. Supported versions: {", ".join(_version_map)}'
+                f'Version {version} is not supported. Supported versions: {", ".join(version_map)}'
             )
         return version
 
@@ -44,7 +87,7 @@ class _BaseDefinition(UpdatableModel):
         return Version(self.definition_version) >= Version(required_version)
 
 
-class _DefinitionV10(_BaseDefinition):
+class DefinitionV10(_ProjectDefinitionBase):
     native_app: Optional[NativeApp] = Field(
         title="Native app definitions for the project", default=None
     )
@@ -57,37 +100,100 @@ class _DefinitionV10(_BaseDefinition):
     )
 
 
-class _DefinitionV11(_DefinitionV10):
-    env: Optional[Dict] = Field(
-        title="Environment specification for this project.",
+class DefinitionV11(DefinitionV10):
+    native_app: Optional[NativeAppV11] = Field(
+        title="Native app definitions for the project", default=None
+    )
+    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
+        title="Default environment specification for this project.",
         default=None,
-        validation_alias="env",
     )
 
-    @field_validator("env")
+
+class DefinitionV20(_ProjectDefinitionBase):
+    entities: Dict[str, Annotated[Entity, Field(discriminator="type")]] = Field(
+        title="Entity definitions."
+    )
+
+    @model_validator(mode="before")
     @classmethod
-    def _convert_env(cls, env: Optional[Dict]) -> EnvironWithDefinedDictFallback:
-        variables = EnvironWithDefinedDictFallback(env if env else {})
-        return variables
+    def apply_defaults(cls, data: Dict) -> Dict:
+        """
+        Applies default values that exist on the model but not specified in yml
+        """
+        if "defaults" in data and "entities" in data:
+            for key, entity in data["entities"].items():
+                entity_type = entity["type"]
+                if entity_type not in v2_entity_types_map:
+                    continue
+                entity_model = v2_entity_types_map[entity_type]
+                for default_key, default_value in data["defaults"].items():
+                    if (
+                        default_key in entity_model.model_fields
+                        and default_key not in entity
+                    ):
+                        entity[default_key] = default_value
+        return data
+
+    @field_validator("entities", mode="after")
+    @classmethod
+    def validate_entities(cls, entities: Dict[str, Entity]) -> Dict[str, Entity]:
+        for key, entity in entities.items():
+            # TODO Automatically detect TargetFields to validate
+            if entity.type == ApplicationEntity.get_type():
+                if isinstance(entity.from_, TargetField):
+                    target_key = entity.from_.target
+                    target_object = entity.from_
+                    target_type = target_object.get_type()
+                    cls._validate_target_field(target_key, target_type, entities)
+        return entities
+
+    @classmethod
+    def _validate_target_field(
+        cls, target_key: str, target_type: Entity, entities: Dict[str, Entity]
+    ):
+        if target_key not in entities:
+            raise ValueError(f"No such target: {target_key}")
+
+        # Validate the target type
+        actual_target_type = entities[target_key].__class__
+        if target_type and target_type is not actual_target_type:
+            raise ValueError(
+                f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
+            )
+
+    defaults: Optional[DefaultsField] = Field(
+        title="Default key/value entity values that are merged recursively for each entity.",
+        default=None,
+    )
+
+    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
+        title="Default environment specification for this project.",
+        default=None,
+    )
 
 
-class ProjectDefinition(_DefinitionV11):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._validate(kwargs)
-
-    @staticmethod
-    def _validate(data: Any):
-        if not isinstance(data, dict):
-            return
-        if version := str(data.get("definition_version")):
-            version_model = _version_map.get(version)
-            if not version_model:
-                raise ValueError(
-                    f"Unknown schema version: {version}. Supported version: {_supported_version}"
-                )
-            version_model(**data)
+def build_project_definition(**data) -> ProjectDefinition:
+    """
+    Returns a ProjectDefinition instance with a version matching the provided definition_version value
+    """
+    if not isinstance(data, dict):
+        return
+    version = data.get("definition_version")
+    version_model = get_version_map().get(str(version))
+    if not version or not version_model:
+        # Raises a SchemaValidationError
+        _ProjectDefinitionBase(**data)
+    return version_model(**data)
 
 
-_version_map = {"1": _DefinitionV10, "1.1": _DefinitionV11}
-_supported_version = tuple(_version_map.keys())
+ProjectDefinitionV1 = Union[DefinitionV10, DefinitionV11]
+ProjectDefinitionV2 = DefinitionV20
+ProjectDefinition = Union[ProjectDefinitionV1, ProjectDefinitionV2]
+
+
+def get_version_map():
+    version_map = {"1": DefinitionV10, "1.1": DefinitionV11}
+    if FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled():
+        version_map["2"] = DefinitionV20
+    return version_map

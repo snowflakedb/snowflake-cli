@@ -15,8 +15,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  define-matrix:
+    uses: ./.github/workflows/matrix.yaml
   build:
     needs: define-matrix
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: true
       matrix:

@@ -19,7 +19,7 @@ from functools import wraps
 from inspect import Signature
 from typing import Callable, Dict, List, Optional, get_type_hints
 
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     AccountOption,
     AuthenticatorOption,
@@ -39,11 +39,13 @@ from snowflake.cli.api.commands.flags import (
     SessionTokenOption,
     SilentOption,
     TemporaryConnectionOption,
+    TokenFilePathOption,
     UserOption,
     VerboseOption,
     WarehouseOption,
     experimental_option,
-    project_type_option,
+    project_definition_option,
+    project_env_overrides_option,
 )
 from snowflake.cli.api.exceptions import CommandReturnTypeError
 from snowflake.cli.api.output.formats import OutputFormat
@@ -72,8 +74,9 @@ def global_options_with_connection(func: Callable):
     )
 
 
-def with_project_definition(project_name: str):
+def with_project_definition(is_optional: bool = False):
     def _decorator(func: Callable):
+
         return _options_decorator_factory(
             func,
             additional_options=[
@@ -81,8 +84,14 @@ def with_project_definition(project_name: str):
                     "project_definition",
                     inspect.Parameter.KEYWORD_ONLY,
                     annotation=Optional[str],
-                    default=project_type_option(project_name),
-                )
+                    default=project_definition_option(is_optional),
+                ),
+                inspect.Parameter(
+                    "env_overrides",
+                    inspect.Parameter.KEYWORD_ONLY,
+                    annotation=List[str],
+                    default=project_env_overrides_option(),
+                ),
             ],
         )
 
@@ -115,9 +124,10 @@ def with_experimental_behaviour(
     return decorator
 
 
-def _execute_before_command_using_global_options():
+def _execute_before_command_using_global_options(**options):
     from snowflake.cli.app.loggers import create_loggers
 
+    cli_context = get_cli_context()
     create_loggers(cli_context.verbose, cli_context.enable_tracebacks)
 
 
@@ -136,10 +146,15 @@ def _options_decorator_factory(
     additional_options: List[inspect.Parameter],
     execute_before_command_using_new_options: Optional[Callable] = None,
 ):
+    """
+    execute_before_command_using_new_options executes before command telemetry has been emitted,
+    but after command line options have been populated.
+    """
+
     @wraps(func)
     def wrapper(**options):
         if execute_before_command_using_new_options:
-            execute_before_command_using_new_options()
+            execute_before_command_using_new_options(**options)
         return func(**options)
 
     wrapper.__signature__ = _extend_signature_with_additional_options(func, additional_options)  # type: ignore
@@ -236,6 +251,12 @@ GLOBAL_CONNECTION_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
         default=MasterTokenOption,
+    ),
+    inspect.Parameter(
+        "token_file_path",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=TokenFilePathOption,
     ),
     inspect.Parameter(
         "database",

@@ -1,0 +1,21 @@
+# This is the v2 version of the "napp_application_post_deploy_v1" project definition
+definition_version: 2
+entities:
+  pkg:
+    type: application package
+    name: myapp_pkg_<% ctx.env.USER %>
+    artifacts:
+      - src: app/*
+        dest: ./
+    manifest: app/manifest.yml
+  app:
+    type: application
+    name: myapp_<% ctx.env.USER %>
+    from:
+      target: pkg
+    meta:
+      post_deploy:
+        - sql_script: scripts/post_deploy1.sql
+        - sql_script: scripts/post_deploy2.sql
+env:
+  schema: public

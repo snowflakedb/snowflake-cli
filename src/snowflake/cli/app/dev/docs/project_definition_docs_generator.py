@@ -18,7 +18,7 @@ import logging
 from typing import Any, Dict
 
 from pydantic.json_schema import model_json_schema
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.app.dev.docs.project_definition_generate_json_schema import (
     ProjectDefinitionGenerateJsonSchema,
@@ -39,7 +39,7 @@ def generate_project_definition_docs(root: SecurePath):
 
     root.mkdir(exist_ok=True)
     list_of_sections = model_json_schema(
-        ProjectDefinition, schema_generator=ProjectDefinitionGenerateJsonSchema
+        DefinitionV11, schema_generator=ProjectDefinitionGenerateJsonSchema
     )["result"]
     for section in list_of_sections:
         _render_definition_description(root, section)

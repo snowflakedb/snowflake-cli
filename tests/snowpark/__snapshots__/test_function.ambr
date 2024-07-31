@@ -1,18 +1,18 @@
 # serializer version: 1
 # name: test_deploy_function_secrets_without_external_access
   '''
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ func1 defined with secrets but without external integration.                 │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
+  +- Error ----------------------------------------------------------------------+
+  | func1 defined with secrets but without external integration.                 |
+  +------------------------------------------------------------------------------+
   
   '''
 # ---
 # name: test_deploy_procedure_fully_qualified_name[database error]
   '''
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ database of function custom_database.custom_schema.fqn_function_error is     │
-  │ redefined in its name                                                        │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
+  +- Error ----------------------------------------------------------------------+
+  | database of function custom_database.custom_schema.fqn_function_error is     |
+  | redefined in its name                                                        |
+  +------------------------------------------------------------------------------+
   
   '''
 # ---
@@ -35,9 +35,9 @@
 # ---
 # name: test_deploy_procedure_fully_qualified_name[schema error]
   '''
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ schema of function custom_schema.fqn_function_error is redefined in its name │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
+  +- Error ----------------------------------------------------------------------+
+  | schema of function custom_schema.fqn_function_error is redefined in its name |
+  +------------------------------------------------------------------------------+
   
   '''
 # ---

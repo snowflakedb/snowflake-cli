@@ -18,7 +18,10 @@ import logging
 from typing import Dict, List, Optional
 
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.plugins.snowpark.common import SnowparkObjectManager
+from snowflake.cli.plugins.snowpark.common import (
+    SnowparkObjectManager,
+    UdfSprocIdentifier,
+)
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
@@ -35,7 +38,7 @@ class FunctionManager(SnowparkObjectManager):
 
     def create_or_replace(
         self,
-        identifier: str,
+        identifier: UdfSprocIdentifier,
         return_type: str,
         handler: str,
         artifact_file: str,
@@ -45,7 +48,11 @@ class FunctionManager(SnowparkObjectManager):
         secrets: Optional[Dict[str, str]] = None,
         runtime: Optional[str] = None,
     ) -> SnowflakeCursor:
-        log.debug("Creating function %s using @%s", identifier, artifact_file)
+        log.debug(
+            "Creating function %s using @%s",
+            identifier.identifier_with_arg_names_types_defaults,
+            artifact_file,
+        )
         query = self.create_query(
             identifier,
             return_type,
@@ -71,7 +78,7 @@ class ProcedureManager(SnowparkObjectManager):
 
     def create_or_replace(
         self,
-        identifier: str,
+        identifier: UdfSprocIdentifier,
         return_type: str,
         handler: str,
         artifact_file: str,
@@ -82,7 +89,11 @@ class ProcedureManager(SnowparkObjectManager):
         runtime: Optional[str] = None,
         execute_as_caller: bool = False,
     ) -> SnowflakeCursor:
-        log.debug("Creating procedure %s using @%s", identifier, artifact_file)
+        log.debug(
+            "Creating procedure %s using @%s",
+            identifier.identifier_with_arg_names_types_defaults,
+            artifact_file,
+        )
         query = self.create_query(
             identifier,
             return_type,

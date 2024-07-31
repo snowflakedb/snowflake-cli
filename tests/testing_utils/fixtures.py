@@ -28,7 +28,9 @@ from unittest import mock
 
 import pytest
 import yaml
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+from snowflake.cli.api.project.schemas.project_definition import (
+    build_project_definition,
+)
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
 from snowflake.cli.app.cli_app import app_factory
@@ -46,6 +48,7 @@ from tests.testing_utils.files_and_dirs import (
     create_temp_file,
     merge_left,
 )
+from tests_common import IS_WINDOWS
 
 REQUIREMENTS_SNOWFLAKE = "requirements.snowflake.txt"
 REQUIREMENTS_TXT = "requirements.txt"
@@ -106,12 +109,20 @@ def mock_ctx(mock_cursor):
 
 
 class MockConnectionCtx(mock.MagicMock):
-    def __init__(self, cursor=None, role: Optional[str] = "MockRole", *args, **kwargs):
+    def __init__(
+        self,
+        cursor=None,
+        role: Optional[str] = "MockRole",
+        warehouse: Optional[str] = "MockWarehouse",
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.queries: List[str] = []
         self.cs = cursor
         self._checkout_count = 0
         self._role = role
+        self._warehouse = warehouse
 
     def get_query(self):
         return "\n".join(self.queries)
@@ -121,7 +132,7 @@ class MockConnectionCtx(mock.MagicMock):
 
     @property
     def warehouse(self):
-        return "MockWarehouse"
+        return self._warehouse
 
     @property
     def database(self):
@@ -237,6 +248,21 @@ def temp_dir():
     tmp.cleanup()
 
 
+@contextmanager
+def _named_temporary_file(suffix=None, prefix=None):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        suffix = suffix or ""
+        prefix = prefix or ""
+        f = Path(tmp_dir) / f"{prefix}tmp_file{suffix}"
+        f.touch()
+        yield f
+
+
+@pytest.fixture()
+def named_temporary_file():
+    return _named_temporary_file
+
+
 @pytest.fixture
 def temp_directory_for_app_zip(temp_dir) -> Generator:
     temp_dir = tempfile.TemporaryDirectory(dir=temp_dir)
@@ -246,15 +272,20 @@ def temp_directory_for_app_zip(temp_dir) -> Generator:
 @pytest.fixture(scope="session")
 def test_snowcli_config():
     test_config = TEST_DIR / "test.toml"
-    with tempfile.NamedTemporaryFile(suffix=".toml", mode="w+") as fh:
-        fh.write(test_config.read_text())
-        fh.flush()
-        yield Path(fh.name)
+    with _named_temporary_file(suffix=".toml") as p:
+        p.write_text(test_config.read_text())
+        p.chmod(0o777)
+        yield p
 
 
 @pytest.fixture(scope="session")
 def test_root_path():
     return TEST_DIR
+
+
+@pytest.fixture(scope="session")
+def test_projects_path(test_root_path):
+    return test_root_path / "test_data" / "projects"
 
 
 @pytest.fixture
@@ -264,12 +295,12 @@ def txt_file_in_a_subdir(temp_dir: str) -> Generator:
 
 
 @pytest.fixture
-def project_directory(temp_dir, test_root_path):
+def project_directory(temp_dir, test_projects_path):
     @contextmanager
     def _temporary_project_directory(
         project_name, merge_project_definition: Optional[dict] = None
     ):
-        test_data_file = test_root_path / "test_data" / "projects" / project_name
+        test_data_file = test_projects_path / project_name
         shutil.copytree(test_data_file, temp_dir, dirs_exist_ok=True)
         if merge_project_definition:
             project_definition = yaml.load(
@@ -284,6 +315,12 @@ def project_directory(temp_dir, test_root_path):
     return _temporary_project_directory
 
 
+@pytest.fixture(autouse=True)
+def global_setup(monkeypatch):
+    width = 81 if IS_WINDOWS else 80
+    monkeypatch.setenv("COLUMNS", str(width))
+
+
 @pytest.fixture
 def snowflake_home(monkeypatch):
     """
@@ -296,6 +333,7 @@ def snowflake_home(monkeypatch):
         for module in [
             sys.modules["snowflake.connector.constants"],
             sys.modules["snowflake.connector.config_manager"],
+            sys.modules["snowflake.connector.log_configuration"],
             sys.modules["snowflake.cli.api.config"],
         ]:
             importlib.reload(module)
@@ -348,7 +386,7 @@ def function_instance():
 
 @pytest.fixture()
 def native_app_project_instance():
-    return ProjectDefinition(
+    return build_project_definition(
         **{
             "definition_version": "1",
             "native_app": {
@@ -389,3 +427,37 @@ def native_app_extension_function(
     native_app_extension_function_raw_data,
 ) -> NativeAppExtensionFunction:
     return NativeAppExtensionFunction(**native_app_extension_function_raw_data)
+
+
+@pytest.fixture
+def mock_procedure_description(mock_cursor):
+    yield mock_cursor(
+        rows=[
+            ("signature", "(NAME VARCHAR)"),
+            ("returns", "VARCHAR(16777216)"),
+            ("language", "PYTHON"),
+            ("null handling", "CALLED ON NULL INPUT"),
+            ("volatility", "VOLATILE"),
+            ("execute as", "CALLER"),
+            ("body", None),
+            ("imports", "[@FOO.BAR.BAZ/my_snowpark_project/app.zip]"),
+            ("handler", "app.hello_procedure"),
+            ("runtime_version", "3.8"),
+            ("packages", "['snowflake-snowpark-python','pytest<9.0.0,>=7.0.0']"),
+            ("installed_packages", "['_libgcc_mutex==0.1']"),
+        ],
+        columns=[
+            "signature",
+            "returns",
+            "language",
+            "null handling",
+            "volatility",
+            "execute as",
+            "body",
+            "imports",
+            "handler",
+            "runtime_version",
+            "packages",
+            "installed_packages",
+        ],
+    )

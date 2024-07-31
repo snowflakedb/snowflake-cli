@@ -28,6 +28,10 @@ from snowflake.cli.api.config import (
 from snowflake.cli.api.exceptions import MissingConfiguration
 
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
+from tests_common import IS_WINDOWS
+
+if IS_WINDOWS:
+    pytest.skip("Does not work on Windows", allow_module_level=True)
 
 
 def test_empty_config_file_is_created_if_not_present():
@@ -137,9 +141,12 @@ def test_get_all_connections(test_snowcli_config):
 
 
 @mock.patch("snowflake.cli.api.config.CONFIG_MANAGER")
+@mock.patch("snowflake.cli.api.config.get_config_section")
 def test_create_default_config_if_not_exists_with_proper_permissions(
+    mock_get_config_section,
     mock_config_manager,
 ):
+    mock_get_config_section.return_value = {}
     with TemporaryDirectory() as tmp_dir:
         config_path = Path(f"{tmp_dir}/snowflake/config.toml")
         mock_config_manager.file_path = config_path
@@ -317,7 +324,7 @@ def test_no_error_when_init_from_non_default_config(
     "content", ["[corrupted", "[connections.foo]\n[connections.foo]"]
 )
 def test_corrupted_config_raises_human_friendly_error(
-    snowflake_home, runner, content, snapshot
+    snowflake_home, runner, content, os_agnostic_snapshot
 ):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         tmp_file.write(content)
@@ -331,4 +338,4 @@ def test_corrupted_config_raises_human_friendly_error(
     runner.invoke("--help")
 
     assert result.exit_code == 1, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot

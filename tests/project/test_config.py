@@ -14,19 +14,25 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 from unittest import mock
 from unittest.mock import PropertyMock
 
 import pytest
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.definition import (
     generate_local_override_yml,
     load_project,
 )
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+from snowflake.cli.api.project.schemas.project_definition import (
+    build_project_definition,
+)
+
+from tests.testing_utils.mock_config import mock_config_key
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
@@ -41,6 +47,7 @@ def test_napp_project_1(project_definition_files):
 
 
 @pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
+@mock.patch.dict(os.environ, {"USER": "jsmith"})
 def test_na_minimal_project(project_definition_files: List[Path]):
     project = load_project(project_definition_files).project_definition
     assert project.native_app.name == "minimal"
@@ -49,30 +56,23 @@ def test_na_minimal_project(project_definition_files: List[Path]):
         PathMapping(src="README.md"),
     ]
 
-    from os import getenv as original_getenv
-
-    def mock_getenv(key: str, default: Optional[str] = None) -> Optional[str]:
-        if key.lower() == "user":
-            return "jsmith"
-        return original_getenv(key, default)
-
     with mock.patch(
         "snowflake.cli.api.cli_global_context._CliGlobalContextAccess.connection",
         new_callable=PropertyMock,
     ) as connection:
         connection.return_value.role = "resolved_role"
         connection.return_value.warehouse = "resolved_warehouse"
-        with mock.patch("os.getenv", side_effect=mock_getenv):
-            # TODO: probably a better way of going about this is to not generate
-            # a definition structure for these values but directly return defaults
-            # in "getter" functions (higher-level data structures).
-            local = generate_local_override_yml(project)
-            assert local.native_app.application.name == "minimal_jsmith"
-            assert local.native_app.application.role == "resolved_role"
-            assert local.native_app.application.warehouse == "resolved_warehouse"
-            assert local.native_app.application.debug == True
-            assert local.native_app.package.name == "minimal_pkg_jsmith"
-            assert local.native_app.package.role == "resolved_role"
+
+        # TODO: probably a better way of going about this is to not generate
+        # a definition structure for these values but directly return defaults
+        # in "getter" functions (higher-level data structures).
+        local = generate_local_override_yml(project)
+        assert local.native_app.application.name == "minimal_jsmith"
+        assert local.native_app.application.role == "resolved_role"
+        assert local.native_app.application.warehouse == "resolved_warehouse"
+        assert local.native_app.application.debug == True
+        assert local.native_app.package.name == "minimal_pkg_jsmith"
+        assert local.native_app.package.role == "resolved_role"
 
 
 @pytest.mark.parametrize("project_definition_files", ["underspecified"], indirect=True)
@@ -80,9 +80,9 @@ def test_underspecified_project(project_definition_files):
     with pytest.raises(SchemaValidationError) as exc_info:
         load_project(project_definition_files).project_definition
 
-    assert "NativeApp" in str(exc_info)
-    assert "Your project definition is missing following fields: ('artifacts',)" in str(
-        exc_info.value
+    assert (
+        "Your project definition is missing the following field: 'native_app.artifacts'"
+        in str(exc_info.value)
     )
 
 
@@ -93,9 +93,8 @@ def test_fails_without_definition_version(project_definition_files):
     with pytest.raises(SchemaValidationError) as exc_info:
         load_project(project_definition_files).project_definition
 
-    assert "ProjectDefinition" in str(exc_info)
     assert (
-        "Your project definition is missing following fields: ('definition_version',)"
+        "Your project definition is missing the following field: 'definition_version'"
         in str(exc_info.value)
     )
 
@@ -105,9 +104,8 @@ def test_does_not_accept_unknown_fields(project_definition_files):
     with pytest.raises(SchemaValidationError) as exc_info:
         load_project(project_definition_files).project_definition
 
-    assert "NativeApp" in str(exc_info)
     assert (
-        "You provided field '('unknown_fields_accepted',)' with value 'true' that is not supported in given version."
+        "You provided field 'native_app.unknown_fields_accepted' with value 'true' that is not supported in given version."
         in str(exc_info)
     )
 
@@ -133,9 +131,11 @@ def test_does_not_accept_unknown_fields(project_definition_files):
     ],
     indirect=True,
 )
-def test_fields_are_parsed_correctly(project_definition_files, snapshot):
-    result = load_project(project_definition_files).project_definition.model_dump()
-    assert result == snapshot
+def test_fields_are_parsed_correctly(project_definition_files, os_agnostic_snapshot):
+    result = load_project(project_definition_files).project_definition.model_dump(
+        mode="json"
+    )
+    assert result == os_agnostic_snapshot
 
 
 @pytest.mark.parametrize(
@@ -147,6 +147,20 @@ def test_fields_are_parsed_correctly(project_definition_files, snapshot):
 )
 def test_schema_is_validated_for_version(data):
     with pytest.raises(SchemaValidationError) as err:
-        ProjectDefinition(**data)
+        build_project_definition(**data)
 
     assert "is not supported in given version" in str(err.value)
+
+
+def test_project_definition_v2_is_disabled():
+    assert FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled() == False
+    with pytest.raises(SchemaValidationError) as err:
+        build_project_definition(**{"definition_version": "2", "entities": {}})
+    assert "Version 2 is not supported" in str(err.value)
+
+
+def test_project_definition_v2_is_enabled_with_feature_flag():
+    with mock_config_key("enable_project_definition_v2", True):
+        assert FeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled() == False
+        assert FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled() == True
+        build_project_definition(**{"definition_version": "2", "entities": {}})

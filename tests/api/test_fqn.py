@@ -150,8 +150,8 @@ def test_using_connection():
     assert fqn.identifier == "database_test.test_schema.name"
 
 
-@mock.patch("snowflake.cli.api.identifiers.cli_context")
+@mock.patch("snowflake.cli.api.identifiers.get_cli_context")
 def test_using_context(mock_ctx):
-    mock_ctx.connection = MagicMock(database="database_test", schema="test_schema")
+    mock_ctx().connection = MagicMock(database="database_test", schema="test_schema")
     fqn = FQN.from_string("name").using_context()
     assert fqn.identifier == "database_test.test_schema.name"

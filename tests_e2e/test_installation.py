@@ -43,13 +43,34 @@ def test_snow_sql(snowcli, test_root_path, snapshot):
 
 
 @pytest.mark.e2e
-def test_snow_streamlit_init(temp_dir, snowcli, snapshot):
-    output = subprocess_check_output([snowcli, "streamlit", "init", "streamlit_test"])
-    snapshot.assert_match(output)
-    expected_generated_file = f"{temp_dir}/streamlit_test/pages/my_page.py"
-    assert Path(
-        expected_generated_file
-    ).exists(), f"[{expected_generated_file}] does not exist. It should be generated from templates directory."
+@pytest.mark.parametrize(
+    "template,files_to_check",
+    [
+        (
+            "example_streamlit",
+            ["pages/my_page.py", "common/hello.py", "environment.yml"],
+        ),
+        ("example_snowpark", ["requirements.txt", "app/functions.py", "snowflake.yml"]),
+    ],
+)
+def test_snow_init(temp_dir, snowcli, template, files_to_check):
+    project_path = Path(temp_dir) / "streamlit_template"
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "init",
+            str(project_path),
+            "--template",
+            template,
+            "--no-interactive",
+        ]
+    )
+    assert "Initialized the new project in" in output
+    for file in files_to_check:
+        expected_generated_file = project_path / file
+        assert (
+            expected_generated_file.exists()
+        ), f"[{expected_generated_file}] does not exist. It should be generated from templates directory."
 
 
 @pytest.mark.e2e

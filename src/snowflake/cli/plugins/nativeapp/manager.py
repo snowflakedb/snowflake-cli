@@ -17,14 +17,20 @@ from __future__ import annotations
 import json
 import os
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional, TypedDict
+from typing import Any, List, NoReturn, Optional, TypedDict
 
 import jinja2
 from click import ClickException
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.errno import (
+    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
+    NO_WAREHOUSE_SELECTED_IN_SESSION,
+)
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.native_app.application import (
     ApplicationPostDeployHook,
@@ -48,9 +54,6 @@ from snowflake.cli.plugins.nativeapp.codegen.compiler import (
 from snowflake.cli.plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
-    ERROR_MESSAGE_606,
-    ERROR_MESSAGE_2003,
-    ERROR_MESSAGE_2043,
     INTERNAL_DISTRIBUTION,
     NAME_COL,
     OWNER_COL,
@@ -59,8 +62,9 @@ from snowflake.cli.plugins.nativeapp.constants import (
 from snowflake.cli.plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
-    InvalidPackageScriptError,
-    MissingPackageScriptError,
+    InvalidScriptError,
+    MissingScriptError,
+    NoEventTableForAccount,
     SetupScriptFailedValidation,
     UnexpectedOwnerError,
 )
@@ -78,16 +82,16 @@ from snowflake.cli.plugins.stage.diff import (
     to_stage_path,
 )
 from snowflake.cli.plugins.stage.manager import StageManager
-from snowflake.connector import ProgrammingError
+from snowflake.connector import DictCursor, ProgrammingError
 
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
 
 def generic_sql_error_handler(
     err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
-):
+) -> NoReturn:
     # Potential refactor: If moving away from Python 3.8 and 3.9 to >= 3.10, use match ... case
-    if err.errno == 2043 or err.msg.__contains__(ERROR_MESSAGE_2043):
+    if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
         raise ProgrammingError(
             msg=dedent(
                 f"""\
@@ -98,7 +102,7 @@ def generic_sql_error_handler(
             ),
             errno=err.errno,
         )
-    elif err.errno == 606 or err.msg.__contains__(ERROR_MESSAGE_606):
+    elif err.errno == NO_WAREHOUSE_SELECTED_IN_SESSION:
         raise ProgrammingError(
             msg=dedent(
                 f"""\
@@ -108,7 +112,7 @@ def generic_sql_error_handler(
             ),
             errno=err.errno,
         )
-    elif err.msg.__contains__("does not exist or not authorized"):
+    elif "does not exist or not authorized" in err.msg:
         raise ProgrammingError(
             msg=dedent(
                 f"""\
@@ -216,9 +220,39 @@ class NativeAppManager(SqlExecutionMixin):
     def package_warehouse(self) -> Optional[str]:
         return self.na_project.package_warehouse
 
+    @contextmanager
+    def use_package_warehouse(self):
+        if self.package_warehouse:
+            with self.use_warehouse(self.package_warehouse):
+                yield
+        else:
+            raise ClickException(
+                dedent(
+                    f"""\
+                Application package warehouse cannot be empty.
+                Please provide a value for it in your connection information or your project definition file.
+                """
+                )
+            )
+
     @property
     def application_warehouse(self) -> Optional[str]:
         return self.na_project.application_warehouse
+
+    @contextmanager
+    def use_application_warehouse(self):
+        if self.application_warehouse:
+            with self.use_warehouse(self.application_warehouse):
+                yield
+        else:
+            raise ClickException(
+                dedent(
+                    f"""\
+                Application warehouse cannot be empty.
+                Please provide a value for it in your connection information or your project definition file.
+                """
+                )
+            )
 
     @property
     def project_identifier(self) -> str:
@@ -280,6 +314,12 @@ class NativeAppManager(SqlExecutionMixin):
             )
         )
 
+    @cached_property
+    def account_event_table(self) -> str:
+        query = "show parameters like 'event_table' in account"
+        results = self._execute_query(query, cursor_class=DictCursor)
+        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
+
     def verify_project_distribution(
         self, expected_distribution: Optional[str] = None
     ) -> bool:
@@ -310,9 +350,7 @@ class NativeAppManager(SqlExecutionMixin):
         Populates the local deploy root from artifact sources.
         """
         bundle_map = build_bundle(self.project_root, self.deploy_root, self.artifacts)
-        compiler = NativeAppCompiler(
-            na_project=self.na_project,
-        )
+        compiler = NativeAppCompiler(self.na_project.get_bundle_context())
         compiler.compile_artifacts()
         return bundle_map
 
@@ -324,6 +362,7 @@ class NativeAppManager(SqlExecutionMixin):
         recursive: bool,
         stage_fqn: str,
         local_paths_to_sync: List[Path] | None = None,
+        print_diff: bool = True,
     ) -> DiffResult:
         """
         Ensures that the files on our remote stage match the artifacts we have in
@@ -337,6 +376,7 @@ class NativeAppManager(SqlExecutionMixin):
             stage_fqn (str): The name of the stage to diff against and upload to.
             local_paths_to_sync (List[Path], optional): List of local paths to sync. Defaults to None to sync all
              local paths. Note that providing an empty list here is equivalent to None.
+            print_diff (bool): Whether to print the diff between the local files and the remote stage. Defaults to True
 
         Returns:
             A `DiffResult` instance describing the changes that were performed.
@@ -359,10 +399,11 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
         # Perform a diff operation and display results to the user for informational purposes
-        cc.step(
-            "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
-            % self.deploy_root.resolve()
-        )
+        if print_diff:
+            cc.step(
+                "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
+                % self.deploy_root.resolve()
+            )
         diff: DiffResult = compute_stage_diff(self.deploy_root, stage_fqn)
 
         if local_paths_to_sync:
@@ -411,7 +452,8 @@ class NativeAppManager(SqlExecutionMixin):
                     f"The following files exist only on the stage:\n{files_not_removed_str}\n\nUse the --prune flag to delete them from the stage."
                 )
 
-        print_diff_to_console(diff, bundle_map)
+        if print_diff:
+            print_diff_to_console(diff, bundle_map)
 
         # Upload diff-ed files to application package stage
         if diff.has_changes():
@@ -469,13 +511,17 @@ class NativeAppManager(SqlExecutionMixin):
         ...
         """
         return "\n".join(
-            [f"({obj['type']}) {obj['name']}" for obj in application_objects]
+            [self._application_object_to_str(obj) for obj in application_objects]
         )
+
+    def _application_object_to_str(self, obj: ApplicationOwnedObject) -> str:
+        return f"({obj['type']}) {obj['name']}"
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
         name = identifier_for_url(self.app_name)
-        return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
+        with self.use_application_warehouse():
+            return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
 
     def create_app_package(self) -> None:
         """
@@ -520,6 +566,36 @@ class NativeAppManager(SqlExecutionMixin):
                 )
             )
 
+    def _expand_script_templates(
+        self, env: jinja2.Environment, jinja_context: dict[str, Any], scripts: List[str]
+    ) -> List[str]:
+        """
+        Input:
+        - env: Jinja2 environment
+        - jinja_context: a dictionary with the jinja context
+        - scripts: list of scripts that need to be expanded with Jinja
+        Returns:
+        - List of expanded scripts content.
+        Size of the return list is the same as the size of the input scripts list.
+        """
+        scripts_contents = []
+        for relpath in scripts:
+            try:
+                template = env.get_template(relpath)
+                result = template.render(**jinja_context)
+                scripts_contents.append(result)
+
+            except jinja2.TemplateNotFound as e:
+                raise MissingScriptError(e.name) from e
+
+            except jinja2.TemplateSyntaxError as e:
+                raise InvalidScriptError(e.name, e, e.lineno) from e
+
+            except jinja2.UndefinedError as e:
+                raise InvalidScriptError(relpath, e) from e
+
+        return scripts_contents
+
     def _apply_package_scripts(self) -> None:
         """
         Assuming the application package exists and we are using the correct role,
@@ -531,34 +607,20 @@ class NativeAppManager(SqlExecutionMixin):
             undefined=jinja2.StrictUndefined,
         )
 
-        queued_queries = []
-        for relpath in self.package_scripts:
-            try:
-                template = env.get_template(relpath)
-                result = template.render(dict(package_name=self.package_name))
-                queued_queries.append(result)
-
-            except jinja2.TemplateNotFound as e:
-                raise MissingPackageScriptError(e.name)
-
-            except jinja2.TemplateSyntaxError as e:
-                raise InvalidPackageScriptError(e.name, e)
-
-            except jinja2.UndefinedError as e:
-                raise InvalidPackageScriptError(relpath, e)
+        queued_queries = self._expand_script_templates(
+            env, dict(package_name=self.package_name), self.package_scripts
+        )
 
         # once we're sure all the templates expanded correctly, execute all of them
-        try:
-            if self.package_warehouse:
-                self._execute_query(f"use warehouse {self.package_warehouse}")
-
-            for i, queries in enumerate(queued_queries):
-                cc.step(f"Applying package script: {self.package_scripts[i]}")
-                self._execute_queries(queries)
-        except ProgrammingError as err:
-            generic_sql_error_handler(
-                err, role=self.package_role, warehouse=self.package_warehouse
-            )
+        with self.use_package_warehouse():
+            try:
+                for i, queries in enumerate(queued_queries):
+                    cc.step(f"Applying package script: {self.package_scripts[i]}")
+                    self._execute_queries(queries)
+            except ProgrammingError as err:
+                generic_sql_error_handler(
+                    err, role=self.package_role, warehouse=self.package_warehouse
+                )
 
     def deploy(
         self,
@@ -568,6 +630,7 @@ class NativeAppManager(SqlExecutionMixin):
         stage_fqn: Optional[str] = None,
         local_paths_to_sync: List[Path] | None = None,
         validate: bool = True,
+        print_diff: bool = True,
     ) -> DiffResult:
         """app deploy process"""
 
@@ -587,6 +650,7 @@ class NativeAppManager(SqlExecutionMixin):
                 recursive=recursive,
                 stage_fqn=stage_fqn,
                 local_paths_to_sync=local_paths_to_sync,
+                print_diff=print_diff,
             )
 
         if validate:
@@ -625,6 +689,7 @@ class NativeAppManager(SqlExecutionMixin):
                 recursive=True,
                 stage_fqn=stage_fqn,
                 validate=False,
+                print_diff=False,
             )
         prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
         try:
@@ -632,7 +697,7 @@ class NativeAppManager(SqlExecutionMixin):
                 f"call system$validate_native_app_setup('{prefixed_stage_fqn}')"
             )
         except ProgrammingError as err:
-            if err.errno == 2003 and ERROR_MESSAGE_2003 in err.msg:
+            if err.errno == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
                 raise ApplicationPackageDoesNotExistError(self.package_name)
             generic_sql_error_handler(err)
         else:
@@ -646,6 +711,67 @@ class NativeAppManager(SqlExecutionMixin):
                     self._execute_query(
                         f"drop stage if exists {self.scratch_stage_fqn}"
                     )
+
+    def get_events(
+        self,
+        since_interval: str = "",
+        until_interval: str = "",
+        record_types: list[str] | None = None,
+        scopes: list[str] | None = None,
+        first: int = 0,
+        last: int = 0,
+    ) -> list[dict]:
+        record_types = record_types or []
+        scopes = scopes or []
+
+        if first and last:
+            raise ValueError("first and last cannot be used together")
+
+        if not self.account_event_table:
+            raise NoEventTableForAccount()
+
+        # resource_attributes:"snow.database.name" uses the unquoted/uppercase app name
+        app_name = unquote_identifier(self.app_name)
+        since_clause = (
+            f"and timestamp >= sysdate() - interval '{since_interval}'"
+            if since_interval
+            else ""
+        )
+        until_clause = (
+            f"and timestamp <= sysdate() - interval '{until_interval}'"
+            if until_interval
+            else ""
+        )
+        type_in_values = ",".join(f"'{v}'" for v in record_types)
+        types_clause = (
+            f"and record_type in ({type_in_values})" if type_in_values else ""
+        )
+        scope_in_values = ",".join(f"'{v}'" for v in scopes)
+        scopes_clause = (
+            f"and scope:name in ({scope_in_values})" if scope_in_values else ""
+        )
+        first_clause = f"limit {first}" if first else ""
+        last_clause = f"limit {last}" if last else ""
+        query = dedent(
+            f"""\
+            select * from (
+                select timestamp, value::varchar value
+                from {self.account_event_table}
+                where resource_attributes:"snow.database.name" = '{app_name}'
+                {since_clause}
+                {until_clause}
+                {types_clause}
+                {scopes_clause}
+                order by timestamp desc
+                {last_clause}
+            ) order by timestamp asc
+            {first_clause}
+            """
+        )
+        try:
+            return self._execute_query(query, cursor_class=DictCursor).fetchall()
+        except ProgrammingError as err:
+            generic_sql_error_handler(err)
 
 
 def _validation_item_to_str(item: dict[str, str | int]):

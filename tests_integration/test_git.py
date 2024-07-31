@@ -202,7 +202,7 @@ def test_copy_to_stage(runner, sf_git_repository):
 
 
 @pytest.mark.integration
-def test_copy_to_local_file_system(runner, sf_git_repository):
+def test_copy_directory_to_local_file_system(runner, sf_git_repository):
     # TODO: change subdir to dedicated one after merging this to main
     REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v2.1.0-rc0"
     SUBDIR = "tests_integration/config"
@@ -220,6 +220,17 @@ def test_copy_to_local_file_system(runner, sf_git_repository):
         assert LOCAL_DIR.exists()  # create directory if not exists
         assert (LOCAL_DIR / FILE_IN_SUBDIR).exists()  # contents are copied
 
+
+@pytest.mark.skip(
+    reason="Temporarily disabled until server side issue (SNOW-1541830) is resolved"
+)
+@pytest.mark.integration
+def test_copy_single_file_to_local_file_system(runner, sf_git_repository):
+    REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v2.1.0-rc0"
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        LOCAL_DIR = Path(tmp_dir) / "a_dir"
+        assert not LOCAL_DIR.exists()
+
         # copy single file
         repository_path = f"{REPO_PATH_PREFIX}/{FILE_IN_REPO}"
         result = runner.invoke_with_connection_json(
@@ -228,6 +239,11 @@ def test_copy_to_local_file_system(runner, sf_git_repository):
         assert result.exit_code == 0
         assert (LOCAL_DIR / FILE_IN_REPO).exists()
 
+
+@pytest.mark.integration
+def test_copy_error(runner, sf_git_repository):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        LOCAL_DIR = Path(tmp_dir) / "a_dir"
         # error messages are passed to the user
         try:
             repository_path = f"@{sf_git_repository}/tags/no-such-tag/"

@@ -14,33 +14,7 @@
 
 from __future__ import annotations
 
-import click
 import typer
-from snowflake.cli.api.commands.flags import (
-    deprecated_flag_callback,
-    deprecated_flag_callback_enum,
-)
-from snowflake.cli.plugins.snowpark.models import YesNoAsk
-
-
-def deprecated_allow_native_libraries_option(old_flag_name: str):
-    return typer.Option(
-        YesNoAsk.NO.value,
-        old_flag_name,
-        help="Allows native libraries, when using packages installed through PIP",
-        hidden=True,
-        callback=deprecated_flag_callback_enum(
-            f"{old_flag_name} flag is deprecated. Use --allow-shared-libraries flag instead."
-        ),
-    )
-
-
-def resolve_allow_shared_libraries_yes_no_ask(allow_shared_libraries: YesNoAsk) -> bool:
-    if allow_shared_libraries == YesNoAsk.ASK:
-        return click.confirm("Continue with package installation?", default=False)
-    else:
-        return allow_shared_libraries == YesNoAsk.YES
-
 
 AllowSharedLibrariesOption: bool = typer.Option(
     False,
@@ -48,16 +22,6 @@ AllowSharedLibrariesOption: bool = typer.Option(
     help="Allows shared (.so) libraries, when using packages installed through PIP.",
 )
 
-DeprecatedCheckAnacondaForPyPiDependencies: bool = typer.Option(
-    True,
-    "--check-anaconda-for-pypi-deps/--no-check-anaconda-for-pypi-deps",
-    "-a",
-    help="""Checks if any of missing Anaconda packages dependencies can be imported directly from Anaconda. Valid values include: `true`, `false`, Default: `true`.""",
-    hidden=True,
-    callback=deprecated_flag_callback(
-        "--check-anaconda-for-pypi-deps flag is deprecated. Use --ignore-anaconda flag instead."
-    ),
-)
 
 IgnoreAnacondaOption: bool = typer.Option(
     False,

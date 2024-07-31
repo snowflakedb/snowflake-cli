@@ -34,6 +34,7 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
 )
 from snowflake.cli.plugins.nativeapp.constants import VERSION_COL
 from snowflake.cli.plugins.nativeapp.exceptions import (
+    ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
 )
 from snowflake.cli.plugins.nativeapp.manager import (
@@ -64,12 +65,14 @@ def check_index_changes_in_git_repo(
         # Check if the repo has any changes, including untracked files
         if repo.is_dirty(untracked_files=True):
             cc.warning(
-                "Changes detected in the git repository. (Rerun your command with --skip-git-check flag to ignore this check)"
+                "Changes detected in the git repository. "
+                "(Rerun your command with --skip-git-check flag to ignore this check)"
             )
             repo.git.execute(["git", "status"])
 
             user_prompt = (
-                "You have local changes in this repository that are not part of a previous commit. Do you still want to continue?",
+                "You have local changes in this repository that are not part of a previous commit. "
+                "Do you still want to continue?"
             )
             if not policy.should_proceed(user_prompt):
                 if is_interactive:
@@ -212,7 +215,12 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 is_interactive=is_interactive,
             )
 
-        self.create_app_package()
+        try:
+            self.create_app_package()
+        except ApplicationPackageAlreadyExistsError as e:
+            cc.warning(e.message)
+            if not policy.should_proceed("Proceed with using this package?"):
+                raise typer.Abort() from e
 
         with self.use_role(self.package_role):
             # Now that the application package exists, create shared data

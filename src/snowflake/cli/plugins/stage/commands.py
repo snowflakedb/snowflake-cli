@@ -21,11 +21,11 @@ from typing import List, Optional
 
 import click
 import typer
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
+    ExecuteVariablesOption,
     OnErrorOption,
     PatternOption,
-    VariablesOption,
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -186,7 +186,7 @@ def stage_diff(
     diff: DiffResult = compute_stage_diff(
         local_root=Path(folder_name), stage_fqn=stage_name
     )
-    if cli_context.output_format == OutputFormat.JSON:
+    if get_cli_context().output_format == OutputFormat.JSON:
         return ObjectResult(diff.to_dict())
     else:
         print_diff_to_console(diff)
@@ -201,7 +201,7 @@ def execute(
         show_default=False,
     ),
     on_error: OnErrorType = OnErrorOption,
-    variables: Optional[List[str]] = VariablesOption,
+    variables: Optional[List[str]] = ExecuteVariablesOption,
     **options,
 ):
     """

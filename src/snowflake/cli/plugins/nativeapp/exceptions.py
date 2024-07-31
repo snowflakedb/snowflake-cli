@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from textwrap import dedent
+from typing import Optional
 
 import jinja2
 from click.exceptions import ClickException
@@ -36,12 +39,12 @@ class ApplicationPackageDoesNotExistError(ClickException):
         )
 
 
-class ApplicationAlreadyExistsError(ClickException):
+class ApplicationCreatedExternallyError(ClickException):
     """An application object not created by Snowflake CLI exists with the same name."""
 
     def __init__(self, name: str):
         super().__init__(
-            f'A application object "{name}" not created in development mode using files on a named stage already exists in the account.'
+            f'An application object "{name}" not created by Snowflake CLI already exists in the account.'
         )
 
 
@@ -54,18 +57,23 @@ class UnexpectedOwnerError(ClickException):
         )
 
 
-class MissingPackageScriptError(ClickException):
-    """A referenced package script was not found."""
+class MissingScriptError(ClickException):
+    """A referenced script was not found."""
 
     def __init__(self, relpath: str):
-        super().__init__(f'Package script "{relpath}" does not exist')
+        super().__init__(f'Script "{relpath}" does not exist')
 
 
-class InvalidPackageScriptError(ClickException):
-    """A referenced package script had syntax error(s)."""
+class InvalidScriptError(ClickException):
+    """A referenced script had syntax error(s)."""
 
-    def __init__(self, relpath: str, err: jinja2.TemplateError):
-        super().__init__(f'Package script "{relpath}" is not a valid jinja2 template')
+    def __init__(
+        self, relpath: str, err: jinja2.TemplateError, lineno: Optional[int] = None
+    ):
+        lineno_str = f":{lineno}" if lineno is not None else ""
+        super().__init__(
+            f'Script "{relpath}{lineno_str}" does not contain a valid template: {err.message}'
+        )
         self.err = err
 
 
@@ -79,14 +87,14 @@ class MissingSchemaError(ClickException):
 class CouldNotDropApplicationPackageWithVersions(ClickException):
     """Application package could not be dropped as it has versions associated with it."""
 
-    def __init__(self):
+    def __init__(self, additional_msg: str = ""):
         super().__init__(
             dedent(
                 f"""
             {self.__doc__}
-            Versions must be dropped first using “snow app version drop”.
+            {additional_msg}
             """
-            )
+            ).strip()
         )
 
 
@@ -95,3 +103,20 @@ class SetupScriptFailedValidation(ClickException):
 
     def __init__(self):
         super().__init__(self.__doc__)
+
+
+class NoEventTableForAccount(ClickException):
+    """No event table was found for this Snowflake account."""
+
+    INSTRUCTIONS = dedent(
+        """\
+        Ask your Snowflake administrator to set up an event table for your account by following the docs at
+        https://docs.snowflake.com/en/developer-guide/logging-tracing/event-table-setting-up.
+
+        If your account is configured to send events to an organization event account, create a new
+        connection to this account using `snow connection add` and re-run this command using the new connection.
+        More information on event accounts is available at https://docs.snowflake.com/en/developer-guide/native-apps/setting-up-logging-and-events#configure-an-account-to-store-shared-events."""
+    )
+
+    def __init__(self):
+        super().__init__(f"{self.__doc__}\n\n{self.INSTRUCTIONS}")

@@ -15,13 +15,14 @@
 from __future__ import annotations
 
 import logging
+from enum import Enum
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Optional
 
 import typer
 from click import ClickException
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
@@ -32,7 +33,9 @@ from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
     ObjectResult,
+    StreamResult,
 )
+from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.plugins.nativeapp.common_flags import (
     ForceOption,
@@ -57,7 +60,11 @@ from snowflake.cli.plugins.nativeapp.utils import (
     get_first_paragraph_from_markdown_file,
     shallow_git_clone,
 )
+from snowflake.cli.plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+    nativeapp_definition_v2_to_v1,
+)
 from snowflake.cli.plugins.nativeapp.version.commands import app as versions_app
+from typing_extensions import Annotated
 
 app = SnowTyperFactory(
     name="app",
@@ -73,6 +80,7 @@ def app_init(
     path: str = typer.Argument(
         ...,
         help=f"""Directory to be initialized with the Snowflake Native App project. This directory must not already exist.""",
+        show_default=False,
     ),
     name: str = typer.Option(
         None,
@@ -145,13 +153,18 @@ def app_list_templates(**options) -> CommandResult:
 
 
 @app.command("bundle")
-@with_project_definition("native_app")
+@with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_bundle(
     **options,
 ) -> CommandResult:
     """
     Prepares a local folder with configured app artifacts.
     """
+
+    assert_project_type("native_app")
+
+    cli_context = get_cli_context()
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -161,7 +174,8 @@ def app_bundle(
 
 
 @app.command("run", requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_run(
     version: Optional[str] = typer.Option(
         None,
@@ -191,6 +205,8 @@ def app_run(
     then creates or upgrades an application object from the application package.
     """
 
+    assert_project_type("native_app")
+
     is_interactive = False
     if force:
         policy = AllowAlwaysPolicy()
@@ -200,6 +216,7 @@ def app_run(
     else:
         policy = DenyAlwaysPolicy()
 
+    cli_context = get_cli_context()
     processor = NativeAppRunProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -221,7 +238,8 @@ def app_run(
 
 
 @app.command("open", requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_open(
     **options,
 ) -> CommandResult:
@@ -229,6 +247,10 @@ def app_open(
     Opens the Snowflake Native App inside of your browser,
     once it has been installed in your account.
     """
+
+    assert_project_type("native_app")
+
+    cli_context = get_cli_context()
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -243,7 +265,8 @@ def app_open(
 
 
 @app.command("teardown", requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_teardown(
     force: Optional[bool] = ForceOption,
     cascade: Optional[bool] = typer.Option(
@@ -257,6 +280,10 @@ def app_teardown(
     """
     Attempts to drop both the application object and application package as defined in the project definition file.
     """
+
+    assert_project_type("native_app")
+
+    cli_context = get_cli_context()
     processor = NativeAppTeardownProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -266,7 +293,8 @@ def app_teardown(
 
 
 @app.command("deploy", requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
@@ -296,6 +324,9 @@ def app_deploy(
     Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
     Running this command with no arguments at all, as in `snow app deploy`, is a shorthand for `snow app deploy --prune --recursive`.
     """
+
+    assert_project_type("native_app")
+
     has_paths = paths is not None and len(paths) > 0
     if prune is None and recursive is None and not has_paths:
         prune = True
@@ -309,6 +340,7 @@ def app_deploy(
     if has_paths and prune:
         raise ClickException("--prune cannot be used when paths are also specified")
 
+    cli_context = get_cli_context()
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -329,11 +361,16 @@ def app_deploy(
 
 
 @app.command("validate", requires_connection=True)
-@with_project_definition("native_app")
+@with_project_definition()
+@nativeapp_definition_v2_to_v1
 def app_validate(**options):
     """
     Validates a deployed Snowflake Native App's setup script.
     """
+
+    assert_project_type("native_app")
+
+    cli_context = get_cli_context()
     manager = NativeAppManager(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -343,3 +380,82 @@ def app_validate(**options):
 
     manager.validate(use_scratch_stage=True)
     return MessageResult("Snowflake Native App validation succeeded.")
+
+
+class RecordType(Enum):
+    LOG = "log"
+    SPAN = "span"
+    SPAN_EVENT = "span_event"
+
+
+@app.command("events", hidden=True, requires_connection=True)
+@with_project_definition()
+@nativeapp_definition_v2_to_v1
+def app_events(
+    since: str = typer.Option(
+        default="",
+        help="Fetch events that are newer than this time ago, in Snowflake interval syntax.",
+    ),
+    until: str = typer.Option(
+        default="",
+        help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
+    ),
+    record_types: Annotated[
+        list[RecordType], typer.Option(case_sensitive=False)
+    ] = typer.Option(
+        [],
+        "--type",
+        help="Restrict results to specific record type. Can be specified multiple times.",
+    ),
+    scopes: Annotated[list[str], typer.Option()] = typer.Option(
+        [],
+        "--scope",
+        help="Restrict results to a specific scope name. Can be specified multiple times.",
+    ),
+    first: int = typer.Option(
+        default=0, help="Fetch only the first N events. Cannot be used with --last."
+    ),
+    last: int = typer.Option(
+        default=0, help="Fetch only the last N events. Cannot be used with --first."
+    ),
+    **options,
+):
+    """Fetches events for this app from the event table configured in Snowflake."""
+    if first and last:
+        raise ClickException("--first and --last cannot be used together.")
+
+    assert_project_type("native_app")
+
+    manager = NativeAppManager(
+        project_definition=get_cli_context().project_definition.native_app,
+        project_root=get_cli_context().project_root,
+    )
+    events = manager.get_events(
+        since_interval=since,
+        until_interval=until,
+        record_types=[r.name for r in record_types],
+        scopes=scopes,
+        first=first,
+        last=last,
+    )
+    if not events:
+        return MessageResult("No events found.")
+
+    def g():
+        for event in events:
+            yield EventResult(event)
+
+    return StreamResult(g())
+
+
+class EventResult(ObjectResult, MessageResult):
+    """ObjectResult that renders as a custom string when not printed as JSON."""
+
+    @property
+    def message(self):
+        e = self._element
+        return f"{e['TIMESTAMP']} {e['VALUE']}"
+
+    @property
+    def result(self):
+        return self._element

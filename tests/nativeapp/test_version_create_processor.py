@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from contextlib import nullcontext
 from textwrap import dedent
 from unittest import mock
 
@@ -22,6 +23,7 @@ from click import BadOptionUsage, ClickException
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.nativeapp.constants import SPECIAL_COMMENT
 from snowflake.cli.plugins.nativeapp.exceptions import (
+    ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
 )
 from snowflake.cli.plugins.nativeapp.policy import (
@@ -682,3 +684,94 @@ def test_process_existing_release_directives_w_existing_version_two(
     mock_sync.assert_called_once()
     assert mock_existing_version_info.call_count == 2
     mock_add_patch.assert_called_once()
+
+
+# Test version create when the app package doesn't have the magic CLI comment
+@mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
+@mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
+@mock.patch(
+    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.create_app_package",
+    side_effect=ApplicationPackageAlreadyExistsError(""),
+)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(
+    f"{VERSION_MODULE}.{CREATE_PROCESSOR}._apply_package_scripts", return_value=None
+)
+@mock.patch(
+    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.sync_deploy_root_with_stage",
+    return_value=None,
+)
+@mock.patch(
+    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_release_directive_info_for_version",
+    return_value=None,
+)
+@mock.patch(
+    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_version_info", return_value=None
+)
+@mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_version", return_value=None)
+@mock.patch(f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}")
+@pytest.mark.parametrize(
+    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+)
+@pytest.mark.parametrize("confirm_response", [True, False])
+def test_process_package_no_magic_comment(
+    mock_typer_confirm,
+    mock_add_new_version,
+    mock_existing_version_info,
+    mock_rd,
+    mock_sync,
+    mock_apply_package_scripts,
+    mock_execute,
+    mock_create_app_pkg,
+    mock_check_git,
+    mock_find_version,
+    policy_param,
+    confirm_response,
+    temp_dir,
+    mock_cursor,
+    mock_bundle_map,
+):
+    version = "V1"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+    mock_typer_confirm.return_value = confirm_response
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    should_abort = policy_param is deny_always_policy or (
+        policy_param is ask_always_policy and not confirm_response
+    )
+    processor = _get_version_create_processor()
+    with pytest.raises(typer.Abort) if should_abort else nullcontext():
+        processor.process(
+            bundle_map=mock_bundle_map,
+            version=version,
+            patch=None,
+            policy=policy_param,
+            git_policy=allow_always_policy,
+            is_interactive=False,
+        )  # last two parameters do not matter here
+    mock_find_version.assert_not_called()
+    if not should_abort:
+        assert mock_execute.mock_calls == expected
+        mock_check_git.assert_called_once()
+        mock_rd.assert_called_once()
+        mock_create_app_pkg.assert_called_once()
+        mock_apply_package_scripts.assert_called_once()
+        mock_sync.assert_called_once()
+        mock_existing_version_info.assert_called_once()
+        mock_add_new_version.assert_called_once()

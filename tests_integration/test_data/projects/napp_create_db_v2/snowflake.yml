@@ -1,0 +1,17 @@
+# This is the v2 version of the napp_create_db_v1 project definition
+
+definition_version: 2
+entities:
+  pkg:
+    type: application package
+    name: myapp_pkg_<% ctx.env.USER %>
+    stage: app_src.stage
+    artifacts:
+      - src: app/*
+        dest: ./
+    manifest: app/manifest.yml
+  app:
+    type: application
+    name: myapp_<% ctx.env.USER %>
+    from:
+      target: pkg

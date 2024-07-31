@@ -92,7 +92,7 @@ def test_create_replace_and_if_not_exist():
 @mock.patch(
     "snowflake.cli.plugins.spcs.image_repository.manager.ImageRepositoryManager.create"
 )
-def test_create_cli(mock_create, mock_cursor, runner, snapshot):
+def test_create_cli(mock_create, mock_cursor, runner, os_agnostic_snapshot):
     repo_name = "test_repo"
     cursor = mock_cursor(
         rows=[[f"Image Repository {repo_name.upper()} successfully created."]],
@@ -105,10 +105,10 @@ def test_create_cli(mock_create, mock_cursor, runner, snapshot):
         name=repo_name, replace=False, if_not_exists=False
     )
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
-def test_create_cli_replace_and_if_not_exists_fails(runner, snapshot):
+def test_create_cli_replace_and_if_not_exists_fails(runner, os_agnostic_snapshot):
     command = [
         "spcs",
         "image-repository",
@@ -119,7 +119,7 @@ def test_create_cli_replace_and_if_not_exists_fails(runner, snapshot):
     ]
     result = runner.invoke(command)
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch(

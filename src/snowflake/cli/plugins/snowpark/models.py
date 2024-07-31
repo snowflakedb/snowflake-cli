@@ -17,21 +17,18 @@ from __future__ import annotations
 import re
 import zipfile
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from typing import List
 
 from requirements import requirement
 
 
-class YesNoAsk(Enum):
-    YES = "yes"
-    NO = "no"
-    ASK = "ask"
-
-
 class Requirement(requirement.Requirement):
     extra_pattern = re.compile("'([^']*)'")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.package_name = None
 
     @classmethod
     def parse_line(cls, line: str) -> Requirement:
@@ -43,6 +40,8 @@ class Requirement(requirement.Requirement):
             for element in line_elements[1:]:
                 if "extra" in element and (extras := cls.extra_pattern.search(element)):
                     result.extras.extend(extras.groups())
+
+        result.package_name = result.name
 
         if result.uri and not result.name:
             result.name = get_package_name(result.uri)

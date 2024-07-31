@@ -17,14 +17,19 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from logging import FileHandler
+from unittest import mock
 
 import pytest
-from snowflake.cli.api.cli_global_context import cli_context_manager
+from rich import box
+from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.commands.decorators import global_options, with_output
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.app import loggers
+from syrupy.extensions import AmberSnapshotExtension
+
+from tests_common import IS_WINDOWS
 
 pytest_plugins = [
     "tests_common",
@@ -32,6 +37,30 @@ pytest_plugins = [
     "tests.project.fixtures",
     "tests.nativeapp.fixtures",
 ]
+
+
+class CustomSnapshotExtension(AmberSnapshotExtension):
+    def matches(
+        self,
+        *,
+        serialized_data,
+        snapshot_data,
+    ) -> bool:
+        if isinstance(serialized_data, str) and IS_WINDOWS:
+            # To make Windows path to work with snapshots
+            serialized_data = serialized_data.replace("\\", "/")
+            # To make POSIX path snapshot work with Windows
+            serialized_data = serialized_data.replace("//", "/")
+            # To fix side effects of above replace change
+            serialized_data = serialized_data.replace("https:/", "https://")
+        return super().matches(
+            serialized_data=serialized_data, snapshot_data=snapshot_data
+        )
+
+
+@pytest.fixture()
+def os_agnostic_snapshot(snapshot):
+    return snapshot.use_extension(CustomSnapshotExtension)
 
 
 @pytest.fixture(autouse=True)
@@ -43,6 +72,7 @@ pytest_plugins = [
 def reset_global_context_and_setup_config_and_logging_levels(
     request, test_snowcli_config
 ):
+    cli_context_manager = get_cli_context_manager()
     cli_context_manager.reset()
     cli_context_manager.set_verbose(False)
     cli_context_manager.set_enable_tracebacks(False)
@@ -65,6 +95,20 @@ def clean_logging_handlers_fixture(request, snowflake_home):
 @pytest.fixture(autouse=True)
 def isolate_snowflake_home(snowflake_home):
     yield snowflake_home
+
+
+@pytest.fixture(autouse=True, scope="session")
+def mocked_rich():
+    from rich.panel import Panel
+
+    class CustomPanel(Panel):
+        def __init__(self, *arg, **kwargs):
+            super().__init__(*arg, box=box.ASCII, **kwargs)
+
+    # The box can be configured for typer but unfortunately it's not passed down the line to `Panel`
+    # that's being used for printing help.
+    with mock.patch("typer.rich_utils.Panel", CustomPanel):
+        yield
 
 
 def clean_logging_handlers():

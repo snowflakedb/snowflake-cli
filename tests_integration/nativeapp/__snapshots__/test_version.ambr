@@ -1,0 +1,53 @@
+# serializer version: 1
+# name: test_nativeapp_version_create_package_no_magic_comment[integration]
+  list([
+    dict({
+      'comment': 'Default version used for development. Override for actual deployment.',
+      'dropped_on': None,
+      'label': 'Dev Version',
+      'log_level': 'INFO',
+      'patch': 0,
+      'review_status': 'NOT_REVIEWED',
+      'state': 'READY',
+      'trace_level': 'ALWAYS',
+      'version': 'V1',
+    }),
+    dict({
+      'comment': 'Default version used for development. Override for actual deployment.',
+      'dropped_on': None,
+      'label': 'Dev Version',
+      'log_level': 'INFO',
+      'patch': 1,
+      'review_status': 'NOT_REVIEWED',
+      'state': 'READY',
+      'trace_level': 'ALWAYS',
+      'version': 'V1',
+    }),
+  ])
+# ---
+# name: test_nativeapp_version_create_package_no_magic_comment[integration_v2]
+  list([
+    dict({
+      'comment': 'Default version used for development. Override for actual deployment.',
+      'dropped_on': None,
+      'label': 'Dev Version',
+      'log_level': 'INFO',
+      'patch': 0,
+      'review_status': 'NOT_REVIEWED',
+      'state': 'READY',
+      'trace_level': 'ALWAYS',
+      'version': 'V1',
+    }),
+    dict({
+      'comment': 'Default version used for development. Override for actual deployment.',
+      'dropped_on': None,
+      'label': 'Dev Version',
+      'log_level': 'INFO',
+      'patch': 1,
+      'review_status': 'NOT_REVIEWED',
+      'state': 'READY',
+      'trace_level': 'ALWAYS',
+      'version': 'V1',
+    }),
+  ])
+# ---

@@ -47,7 +47,13 @@ from snowflake.cli.plugins.object.commands import _scope_validate
     ],
 )
 def test_show(
-    mock_connector, object_type, expected, mock_cursor, runner, snapshot, mock_ctx
+    mock_connector,
+    object_type,
+    expected,
+    mock_cursor,
+    runner,
+    os_agnostic_snapshot,
+    mock_ctx,
 ):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -174,7 +180,7 @@ def test_invalid_scope_validate(object_type, input_scope, input_name, expected_m
 @mock.patch("snowflake.connector")
 @pytest.mark.parametrize("object_type, object_name", DESCRIBE_TEST_OBJECTS)
 def test_describe(
-    mock_connector, object_type, object_name, mock_cursor, runner, snapshot
+    mock_connector, object_type, object_name, mock_cursor, runner, os_agnostic_snapshot
 ):
     mock_connector.connect.return_value.execute_stream.return_value = (
         None,
@@ -185,14 +191,14 @@ def test_describe(
     )
     result = runner.invoke(["object", "describe", object_type, object_name])
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch("snowflake.connector")
-def test_describe_fails_image_repository(mock_cursor, runner, snapshot):
+def test_describe_fails_image_repository(mock_cursor, runner, os_agnostic_snapshot):
     result = runner.invoke(["object", "describe", "image-repository", "test_repo"])
     assert result.exit_code == 1, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 DROP_TEST_OBJECTS = [
@@ -206,7 +212,9 @@ DROP_TEST_OBJECTS = [
     "object_type, object_name",
     DROP_TEST_OBJECTS,
 )
-def test_drop(mock_connector, object_type, object_name, mock_cursor, runner, snapshot):
+def test_drop(
+    mock_connector, object_type, object_name, mock_cursor, runner, os_agnostic_snapshot
+):
     mock_connector.connect.return_value.execute_stream.return_value = (
         None,
         mock_cursor(rows=[f"{object_name} successfully dropped."], columns=["status"]),
@@ -214,7 +222,7 @@ def test_drop(mock_connector, object_type, object_name, mock_cursor, runner, sna
 
     result = runner.invoke(["object", "drop", object_type, object_name])
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    assert result.output == os_agnostic_snapshot
 
 
 @pytest.mark.parametrize("command", ["list", "drop", "describe"])

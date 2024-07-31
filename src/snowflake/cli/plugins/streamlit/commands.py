@@ -20,13 +20,12 @@ from pathlib import Path
 import click
 import typer
 from click import ClickException
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_experimental_behaviour,
     with_project_definition,
 )
 from snowflake.cli.api.commands.flags import ReplaceOption, like_option
-from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
@@ -35,6 +34,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.plugins.object.command_aliases import (
     add_object_command_aliases,
@@ -49,8 +49,18 @@ app = SnowTyperFactory(
 log = logging.getLogger(__name__)
 
 
+class IdentifierType(click.ParamType):
+    name = "TEXT"
+
+    def convert(self, value, param, ctx):
+        return FQN.from_string(value)
+
+
 StreamlitNameArgument = typer.Argument(
-    ..., help="Name of the Streamlit app.", show_default=False
+    ...,
+    help="Name of the Streamlit app.",
+    show_default=False,
+    click_type=IdentifierType(),
 )
 OpenOption = typer.Option(
     False,
@@ -59,12 +69,6 @@ OpenOption = typer.Option(
     is_flag=True,
 )
 
-add_init_command(
-    app,
-    project_type="Streamlit",
-    template="default_streamlit",
-    help_message="Name of the Streamlit app project directory you want to create. Defaults to `example_streamlit`.",
-)
 
 add_object_command_aliases(
     app=app,
@@ -79,9 +83,11 @@ add_object_command_aliases(
 
 @app.command("share", requires_connection=True)
 def streamlit_share(
-    name: str = StreamlitNameArgument,
+    name: FQN = StreamlitNameArgument,
     to_role: str = typer.Argument(
-        ..., help="Role with which to share the Streamlit app."
+        ...,
+        help="Role with which to share the Streamlit app.",
+        show_default=False,
     ),
     **options,
 ) -> CommandResult:
@@ -108,7 +114,7 @@ def _default_file_callback(param_name: str):
 
 
 @app.command("deploy", requires_connection=True)
-@with_project_definition("streamlit")
+@with_project_definition()
 @with_experimental_behaviour()
 def streamlit_deploy(
     replace: bool = ReplaceOption(
@@ -122,7 +128,10 @@ def streamlit_deploy(
     environment.yml and any other pages or folders, if present. If you don’t specify a stage name, the `streamlit`
     stage is used. If the specified stage does not exist, the command creates it.
     """
-    streamlit: Streamlit = cli_context.project_definition.streamlit
+
+    assert_project_type("streamlit")
+
+    streamlit: Streamlit = get_cli_context().project_definition.streamlit
     if not streamlit:
         return MessageResult("No streamlit were specified in project definition.")
 
@@ -138,10 +147,10 @@ def streamlit_deploy(
     elif pages_dir is None:
         pages_dir = "pages"
 
-    streamlit_name = FQN.from_identifier_model(streamlit).using_context()
+    streamlit_id = FQN.from_identifier_model(streamlit).using_context()
 
     url = StreamlitManager().deploy(
-        streamlit=streamlit_name,
+        streamlit_id=streamlit_id,
         environment_file=Path(environment_file),
         pages_dir=Path(pages_dir),
         stage_name=streamlit.stage,
@@ -161,7 +170,7 @@ def streamlit_deploy(
 
 @app.command("get-url", requires_connection=True)
 def get_url(
-    name: str = StreamlitNameArgument,
+    name: FQN = StreamlitNameArgument,
     open_: bool = OpenOption,
     **options,
 ):

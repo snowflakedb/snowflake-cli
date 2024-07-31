@@ -15,12 +15,13 @@
 from __future__ import annotations
 
 import logging
+import os.path
 
 import typer
 from click import ClickException, Context, Parameter  # type: ignore
 from click.core import ParameterSource  # type: ignore
 from click.types import StringParamType
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     PLAIN_PASSWORD_MSG,
 )
@@ -266,6 +267,7 @@ def test(
     """
 
     # Test connection
+    cli_context = get_cli_context()
     conn = cli_context.connection
 
     # Test session attributes
@@ -300,9 +302,9 @@ def test(
     }
 
     if conn_ctx.enable_diag:
-        result[
-            "Diag Report Location"
-        ] = f"{conn_ctx.diag_log_path}/SnowflakeConnectionTestReport.txt"
+        result["Diag Report Location"] = os.path.join(
+            conn_ctx.diag_log_path, "SnowflakeConnectionTestReport.txt"
+        )
 
     return ObjectResult(result)
 
@@ -310,7 +312,8 @@ def test(
 @app.command(requires_connection=False)
 def set_default(
     name: str = typer.Argument(
-        help="Name of the connection, as defined in your `config.toml`"
+        help="Name of the connection, as defined in your `config.toml`",
+        show_default=False,
     ),
     **options,
 ):

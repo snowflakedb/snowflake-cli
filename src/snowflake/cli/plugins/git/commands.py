@@ -14,15 +14,18 @@
 
 from __future__ import annotations
 
+import itertools
 import logging
+from os import path
+from pathlib import Path
 from typing import List, Optional
 
 import typer
 from click import ClickException
 from snowflake.cli.api.commands.flags import (
+    ExecuteVariablesOption,
     OnErrorOption,
     PatternOption,
-    VariablesOption,
     identifier_argument,
     like_option,
 )
@@ -37,7 +40,6 @@ from snowflake.cli.plugins.object.command_aliases import (
     scope_option,
 )
 from snowflake.cli.plugins.object.manager import ObjectManager
-from snowflake.cli.plugins.stage.commands import get
 from snowflake.cli.plugins.stage.manager import OnErrorType
 
 app = SnowTyperFactory(
@@ -69,6 +71,7 @@ RepoPathArgument = typer.Argument(
         " For example: @my_repo/branches/main/"
     ),
     callback=_repo_path_argument_callback,
+    show_default=False,
 )
 add_object_command_aliases(
     app=app,
@@ -243,6 +246,7 @@ def copy(
     repository_path: str = RepoPathArgument,
     destination_path: str = typer.Argument(
         help="Target path for copy operation. Should be a path to a directory on remote stage or local file system.",
+        show_default=False,
     ),
     parallel: int = typer.Option(
         4,
@@ -264,7 +268,6 @@ def copy(
             )
         )
     return get(
-        recursive=True,
         source_path=repository_path,
         destination_path=destination_path,
         parallel=parallel,
@@ -275,7 +278,7 @@ def copy(
 def execute(
     repository_path: str = RepoPathArgument,
     on_error: OnErrorType = OnErrorOption,
-    variables: Optional[List[str]] = VariablesOption,
+    variables: Optional[List[str]] = ExecuteVariablesOption,
     **options,
 ):
     """
@@ -287,3 +290,18 @@ def execute(
         stage_path=repository_path, on_error=on_error, variables=variables
     )
     return CollectionResult(results)
+
+
+def get(source_path: str, destination_path: str, parallel: int):
+    target = Path(destination_path).resolve()
+
+    cursors = GitManager().get_recursive(
+        stage_path=source_path, dest_path=target, parallel=parallel
+    )
+    results = [list(QueryResult(c).result) for c in cursors]
+    flattened_results = list(itertools.chain.from_iterable(results))
+    sorted_results = sorted(
+        flattened_results,
+        key=lambda e: (path.dirname(e["file"]), path.basename(e["file"])),
+    )
+    return CollectionResult(sorted_results)

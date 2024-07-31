@@ -20,27 +20,23 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import typer
 from click import ClickException
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.flags import (
     ReplaceOption,
-    deprecated_flag_callback_enum,
     execution_identifier_argument,
     identifier_argument,
     like_option,
 )
-from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
     DEPLOYMENT_STAGE,
     ObjectType,
 )
-from snowflake.cli.api.exceptions import (
-    SecretsWithoutExternalAccessIntegrationError,
-)
+from snowflake.cli.api.exceptions import SecretsWithoutExternalAccessIntegrationError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -48,6 +44,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.api.project.schemas.snowpark.callable import (
     FunctionSchema,
     ProcedureSchema,
@@ -68,11 +65,11 @@ from snowflake.cli.plugins.object.commands import (
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.snowpark import package_utils
 from snowflake.cli.plugins.snowpark.common import (
-    build_udf_sproc_identifier,
+    FunctionOrProcedure,
+    UdfSprocIdentifier,
     check_if_replace_is_required,
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
-from snowflake.cli.plugins.snowpark.models import YesNoAsk
 from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AnacondaPackagesManager,
@@ -81,12 +78,9 @@ from snowflake.cli.plugins.snowpark.package.commands import app as package_app
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
-    DeprecatedCheckAnacondaForPyPiDependencies,
     IgnoreAnacondaOption,
     IndexUrlOption,
     SkipVersionCheckOption,
-    deprecated_allow_native_libraries_option,
-    resolve_allow_shared_libraries_yes_no_ask,
 )
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 from snowflake.cli.plugins.stage.manager import StageManager
@@ -112,11 +106,10 @@ IdentifierArgument = identifier_argument(
 LikeOption = like_option(
     help_example='`list function --like "my%"` lists all functions that begin with “my”',
 )
-add_init_command(app, project_type="Snowpark", template="default_snowpark")
 
 
 @app.command("deploy", requires_connection=True)
-@with_project_definition("snowpark")
+@with_project_definition()
 def deploy(
     replace: bool = ReplaceOption(
         help="Replaces procedure or function, even if no detected changes to metadata"
@@ -128,6 +121,10 @@ def deploy(
     By default, if any of the objects exist already the commands will fail unless `--replace` flag is provided.
     All deployed objects use the same artifact which is deployed only once.
     """
+
+    assert_project_type("snowpark")
+
+    cli_context = get_cli_context()
     snowpark = cli_context.project_definition.snowpark
     paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
@@ -218,7 +215,7 @@ def deploy(
 
 
 def _assert_object_definitions_are_correct(
-    object_type, object_definitions: List[FunctionSchema | ProcedureSchema]
+    object_type, object_definitions: List[FunctionOrProcedure]
 ):
     for definition in object_definitions:
         database = definition.database
@@ -237,14 +234,14 @@ def _assert_object_definitions_are_correct(
 
 def _find_existing_objects(
     object_type: ObjectType,
-    objects: List[Dict],
+    objects: List[FunctionOrProcedure],
     om: ObjectManager,
 ):
     existing_objects = {}
     for object_definition in objects:
-        identifier = build_udf_sproc_identifier(
-            object_definition, om, include_parameter_names=False
-        )
+        identifier = UdfSprocIdentifier.from_definition(
+            object_definition
+        ).identifier_with_arg_types
         try:
             current_state = om.describe(
                 object_type=object_type.value.sf_name,
@@ -293,50 +290,52 @@ def get_app_stage_path(stage_name: Optional[str], project_name: str) -> str:
 def _deploy_single_object(
     manager: FunctionManager | ProcedureManager,
     object_type: ObjectType,
-    object_definition: FunctionSchema | ProcedureSchema,
+    object_definition: FunctionOrProcedure,
     existing_objects: Dict[str, Dict],
     snowflake_dependencies: List[str],
     stage_artifact_path: str,
 ):
-    identifier = build_udf_sproc_identifier(
-        object_definition, manager, include_parameter_names=False
+
+    identifiers = UdfSprocIdentifier.from_definition(object_definition)
+
+    log.info(
+        "Deploying %s: %s", object_type, identifiers.identifier_with_arg_names_types
     )
-    identifier_with_default_values = build_udf_sproc_identifier(
-        object_definition,
-        manager,
-        include_parameter_names=True,
-        include_default_values=True,
-    )
-    log.info("Deploying %s: %s", object_type, identifier_with_default_values)
 
     handler = object_definition.handler
     returns = object_definition.returns
     imports = object_definition.imports
     external_access_integrations = object_definition.external_access_integrations
+    runtime_ver = object_definition.runtime
+    execute_as_caller = None
+    if object_type == ObjectType.PROCEDURE:
+        execute_as_caller = object_definition.execute_as_caller
     replace_object = False
 
-    object_exists = identifier in existing_objects
+    object_exists = identifiers.identifier_with_arg_types in existing_objects
     if object_exists:
         replace_object = check_if_replace_is_required(
             object_type=object_type,
-            current_state=existing_objects[identifier],
+            current_state=existing_objects[identifiers.identifier_with_arg_types],
             handler=handler,
             return_type=returns,
             snowflake_dependencies=snowflake_dependencies,
             external_access_integrations=external_access_integrations,
             imports=imports,
             stage_artifact_file=stage_artifact_path,
+            runtime_ver=runtime_ver,
+            execute_as_caller=execute_as_caller,
         )
 
     if object_exists and not replace_object:
         return {
-            "object": identifier_with_default_values,
+            "object": identifiers.identifier_with_arg_names_types_defaults,
             "type": str(object_type),
             "status": "packages updated",
         }
 
     create_or_replace_kwargs = {
-        "identifier": identifier_with_default_values,
+        "identifier": identifiers,
         "handler": handler,
         "return_type": returns,
         "artifact_file": stage_artifact_path,
@@ -354,22 +353,10 @@ def _deploy_single_object(
 
     status = "created" if not object_exists else "definition updated"
     return {
-        "object": identifier_with_default_values,
+        "object": identifiers.identifier_with_arg_names_types_defaults,
         "type": str(object_type),
         "status": status,
     }
-
-
-deprecated_pypi_download_option = typer.Option(
-    YesNoAsk.NO.value,
-    "--pypi-download",
-    help="Whether to download non-Anaconda packages from PyPi.",
-    hidden=True,
-    callback=deprecated_flag_callback_enum(
-        "--pypi-download flag is deprecated. Snowpark build command"
-        " always tries to download non-Anaconda packages from external index (PyPi by default)."
-    ),
-)
 
 
 def _read_snowflake_requrements_file(file_path: SecurePath):
@@ -379,25 +366,21 @@ def _read_snowflake_requrements_file(file_path: SecurePath):
 
 
 @app.command("build", requires_connection=True)
-@with_project_definition("snowpark")
+@with_project_definition()
 def build(
     ignore_anaconda: bool = IgnoreAnacondaOption,
     allow_shared_libraries: bool = AllowSharedLibrariesOption,
     index_url: Optional[str] = IndexUrlOption,
     skip_version_check: bool = SkipVersionCheckOption,
-    deprecated_package_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option(
-        "--package-native-libraries"
-    ),
-    deprecated_check_anaconda_for_pypi_deps: bool = DeprecatedCheckAnacondaForPyPiDependencies,
-    _deprecated_pypi_download: YesNoAsk = deprecated_pypi_download_option,
     **options,
 ) -> CommandResult:
     """
     Builds the Snowpark project as a `.zip` archive that can be used by `deploy` command.
     The archive is built using only the `src` directory specified in the project file.
     """
-    if not deprecated_check_anaconda_for_pypi_deps:
-        ignore_anaconda = True
+
+    assert_project_type("snowpark")
+    cli_context = get_cli_context()
     snowpark_paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
         snowpark_project_definition=cli_context.project_definition.snowpark,
@@ -431,13 +414,7 @@ def build(
             if package_utils.detect_and_log_shared_libraries(
                 download_result.downloaded_packages_details
             ):
-                # TODO: yes/no/ask logic should be removed in 3.0
-                if not (
-                    allow_shared_libraries
-                    or resolve_allow_shared_libraries_yes_no_ask(
-                        deprecated_package_native_libraries
-                    )
-                ):
+                if not allow_shared_libraries:
                     raise ClickException(
                         "Some packages contain shared (.so/.dll) libraries. "
                         "Try again with --allow-shared-libraries."

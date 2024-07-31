@@ -23,6 +23,9 @@ from tests_integration.test_utils import (
     not_contains_row_with,
     row_from_snowflake_session,
 )
+from tests_integration.test_utils import (
+    enable_definition_v2_feature_flag,
+)
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
@@ -30,7 +33,10 @@ TEST_ENV = generate_user_env(USER_NAME)
 
 # Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
 @pytest.mark.integration
-@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize(
+    "project_definition_files", ["integration", "integration_v2"], indirect=True
+)
 def test_nativeapp_version_create_and_drop(
     runner,
     snowflake_session,
@@ -101,7 +107,10 @@ def test_nativeapp_version_create_and_drop(
 
 # Tests upgrading an app from an existing loose files installation to versioned installation.
 @pytest.mark.integration
-@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize(
+    "project_definition_files", ["integration", "integration_v2"], indirect=True
+)
 def test_nativeapp_upgrade(
     runner,
     snowflake_session,
@@ -166,6 +175,7 @@ def test_nativeapp_upgrade(
 
 # Make sure we can create 3+ patches on the same version
 @pytest.mark.integration
+@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
 def test_nativeapp_version_create_3_patches(
     runner,
@@ -233,7 +243,10 @@ def test_nativeapp_version_create_3_patches(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("project_definition_files", ["integration"], indirect=True)
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize(
+    "project_definition_files", ["integration", "integration_v2"], indirect=True
+)
 def test_nativeapp_version_create_patch_is_integer(
     runner,
     snowflake_session,
@@ -314,6 +327,105 @@ def test_nativeapp_version_create_patch_is_integer(
             assert not_contains_row_with(
                 row_from_snowflake_session(expect), {"name": package_name}
             )
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+# Tests creating a version for a package that was not created by the CLI
+# (doesn't have the magic CLI comment)
+@pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize(
+    "project_definition_files", ["integration", "integration_v2"], indirect=True
+)
+def test_nativeapp_version_create_package_no_magic_comment(
+    runner,
+    snowflake_session,
+    snapshot,
+    project_definition_files: List[Path],
+):
+    project_name = "integration"
+    project_dir = project_definition_files[0].parent
+    with pushd(project_dir):
+        result_create_abort = runner.invoke_with_connection_json(
+            ["app", "deploy"],
+            env=TEST_ENV,
+        )
+        assert result_create_abort.exit_code == 0
+
+        try:
+            # package exist
+            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show application packages like '{package_name}'",
+                    )
+                ),
+                dict(name=package_name),
+            )
+
+            assert contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"alter application package {package_name} set comment = 'not the magic comment'"
+                    )
+                ),
+                dict(status="Statement executed successfully."),
+            )
+
+            # say no
+            result_create_abort = runner.invoke_with_connection(
+                ["app", "version", "create", "v1", "--skip-git-check", "--interactive"],
+                env=TEST_ENV,
+                input="n\n",
+            )
+            assert result_create_abort.exit_code == 1
+            assert (
+                f"An Application Package {package_name} already exists in account "
+                "that may have been created without Snowflake CLI.".upper()
+                in result_create_abort.output.upper()
+            )
+            assert "Aborted." in result_create_abort.output
+
+            # say yes
+            result_create_yes = runner.invoke_with_connection(
+                ["app", "version", "create", "v1", "--skip-git-check", "--interactive"],
+                env=TEST_ENV,
+                input="y\n",
+            )
+            assert result_create_yes.exit_code == 0
+            assert (
+                f"An Application Package {package_name} already exists in account "
+                "that may have been created without Snowflake CLI.".upper()
+                in result_create_yes.output.upper()
+            )
+
+            # force
+            result_create_force = runner.invoke_with_connection(
+                ["app", "version", "create", "v1", "--force", "--skip-git-check"],
+                env=TEST_ENV,
+            )
+            assert result_create_force.exit_code == 0
+            assert (
+                f"An Application Package {package_name} already exists in account "
+                "that may have been created without Snowflake CLI.".upper()
+                in result_create_force.output.upper()
+            )
+
+            # app package contains version v1 with 2 patches
+            actual = runner.invoke_with_connection_json(
+                ["app", "version", "list"], env=TEST_ENV
+            )
+            for row in actual.json:
+                # Remove date field
+                row.pop("created_on", None)
+            assert actual.json == snapshot
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection_json(

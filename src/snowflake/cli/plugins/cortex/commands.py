@@ -21,9 +21,10 @@ from typing import List, Optional
 import click
 import typer
 from click import UsageError
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import readable_file_option
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.constants import PYTHON_3_12
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -45,7 +46,7 @@ app = SnowTyperFactory(
     help="Provides access to Snowflake Cortex.",
 )
 
-SEARCH_COMMAND_ENABLED = sys.version_info < (3, 12)
+SEARCH_COMMAND_ENABLED = sys.version_info < PYTHON_3_12
 
 
 @app.command(
@@ -78,7 +79,7 @@ def search(
     if not columns:
         columns = []
 
-    conn = cli_context.connection
+    conn = get_cli_context().connection
 
     search_service = (
         Root(conn)
