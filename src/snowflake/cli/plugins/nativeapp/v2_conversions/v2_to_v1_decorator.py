@@ -35,6 +35,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV11,
     DefinitionV20,
 )
+from snowflake.cli.api.utils.definition_rendering import render_definition_template
 
 
 def _convert_v2_artifact_to_v1_dict(
@@ -118,8 +119,9 @@ def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
                 "post_deploy"
             ] = app_definition.meta.post_deploy
 
+    result = render_definition_template(pdfv1, {})
     # Override the definition object in global context
-    return DefinitionV11(**pdfv1)
+    return result.project_definition
 
 
 def nativeapp_definition_v2_to_v1(func):
