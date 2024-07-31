@@ -19,7 +19,7 @@ from snowflake.connector.compat import IS_WINDOWS
 @pytest.mark.integration
 def test_config_file_permissions_warning(runner, recwarn):
     result = runner.invoke_with_config(["connection", "list"])
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 1, result.output
 
     is_warning = any(
         "Bad owner or permissions" in str(warning.message) for warning in recwarn

@@ -16,3 +16,4 @@
 [connections.integration]
 schema = "public"
 role = "INTEGRATION_TESTS"
+warehouse = "XLARGE"
