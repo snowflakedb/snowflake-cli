@@ -47,6 +47,7 @@ pytest_plugins = [
 
 TEST_DIR = Path(__file__).parent
 DEFAULT_TEST_CONFIG = "connection_configs.toml"
+WORLD_READABLE_CONFIG = "world_readable.toml"
 
 
 @dataclass
@@ -71,7 +72,8 @@ def test_snowcli_config_provider():
         temp_dst = Path(td) / "config"
         shutil.copytree(TEST_DIR / "config", temp_dst)
         for config_file in temp_dst.glob("**/*.toml"):
-            config_file.chmod(0o600)  # Make config file private
+            if config_file.name != WORLD_READABLE_CONFIG:
+                config_file.chmod(0o600)  # Make config file private
         yield TestConfigProvider(temp_dst)
 
 
