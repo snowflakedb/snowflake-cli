@@ -11,7 +11,7 @@ fpm \
   -t deb \
   --name snow \
   --version ${VERSION} \
-  -p DEB_PGK \
+  -p ${DEB_PGK} \
   -C ./dist/snow \
   --prefix /usr/lib/snowflake/snowflake-cli \
   --after-install $THIS_DIR/ubuntu/after_install.sh \
@@ -23,7 +23,7 @@ fpm \
   -t rpm \
   --name snow \
   --version ${VERSION} \
-  -p RPM_PGK \
+  -p ${RPM_PG} \
   -C ./dist/snow \
   --prefix /usr/lib/snowflake/snowflake-cli \
   --after-install $THIS_DIR/ubuntu/after_install.sh \
