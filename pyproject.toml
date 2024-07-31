@@ -100,7 +100,12 @@ python = "3.11"
 features = ["development", "packaging"]
 
 [tool.hatch.envs.packaging.scripts]
-build = ["pyinstaller --clean -y snow.spec"]
+build-binaries = ["./scripts/packaging/build_binaries.sh"]
+build-packages = ["./scripts/packaging/build_packages.sh"]
+build-all = [
+  "./scripts/packaging/build_binaries.sh",
+  "./scripts/packaging/build_packages.sh",
+]
 
 [tool.hatch.envs.e2e]
 template = "e2e"
