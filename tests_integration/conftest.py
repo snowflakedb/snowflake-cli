@@ -70,6 +70,8 @@ def test_snowcli_config_provider():
     with tempfile.TemporaryDirectory() as td:
         temp_dst = Path(td) / "config"
         shutil.copytree(TEST_DIR / "config", temp_dst)
+        for config_file in temp_dst.glob("**/*.toml"):
+            config_file.chmod(0o600)  # Make config file private
         yield TestConfigProvider(temp_dst)
 
 
