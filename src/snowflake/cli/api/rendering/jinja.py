@@ -24,6 +24,7 @@ from jinja2 import Environment, StrictUndefined, loaders
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 
 CONTEXT_KEY = "ctx"
+FUNCTION_KEY = "fn"
 
 
 def read_file_content(file_name: str):

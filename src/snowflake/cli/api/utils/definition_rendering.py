@@ -25,6 +25,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
     ProjectProperties,
     build_project_definition,
 )
+from snowflake.cli.api.project.schemas.updatable_model import context
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 from snowflake.cli.api.rendering.project_definition_templates import (
     get_project_definition_cli_jinja_env,
@@ -32,6 +33,7 @@ from snowflake.cli.api.rendering.project_definition_templates import (
 from snowflake.cli.api.utils.dict_utils import traverse
 from snowflake.cli.api.utils.graph import Graph, Node
 from snowflake.cli.api.utils.models import ProjectEnvironment
+from snowflake.cli.api.utils.templating_functions import get_templating_functions
 from snowflake.cli.api.utils.types import Context, Definition
 
 
@@ -81,7 +83,16 @@ class TemplatedEnvironment:
             all_referenced_vars.add(TemplateVar(current_attr_chain))
             current_attr_chain = None
         elif (
-            not isinstance(ast_node, (nodes.Template, nodes.TemplateData, nodes.Output))
+            not isinstance(
+                ast_node,
+                (
+                    nodes.Template,
+                    nodes.TemplateData,
+                    nodes.Output,
+                    nodes.Call,
+                    nodes.Const,
+                ),
+            )
             or current_attr_chain is not None
         ):
             raise InvalidTemplate(f"Unexpected templating syntax in {template_value}")
@@ -199,7 +210,6 @@ def _build_dependency_graph(
     dependencies_graph = Graph[TemplateVar]()
     for variable in all_vars:
         dependencies_graph.add(Node[TemplateVar](key=variable.key, data=variable))
-
     for variable in all_vars:
         # If variable is found in os.environ or from cli override, then use the value as is
         # skip rendering by pre-setting the rendered_value attribute
@@ -262,6 +272,17 @@ def _template_version_warning():
     )
 
 
+def _add_defaults_to_definition(definition: Definition) -> Definition:
+    with context({"skip_validation_on_templates": True}):
+        # pass a flag to Pydantic to skip validation for templated scalars
+        # populate the defaults
+        project_definition = build_project_definition(**definition)
+
+    return project_definition.model_dump(
+        exclude_none=True, warnings=False, by_alias=True
+    )
+
+
 def render_definition_template(
     original_definition: Optional[Definition], context_overrides: Context
 ) -> ProjectProperties:
@@ -276,11 +297,14 @@ def render_definition_template(
     Environment variables take precedence during the rendering process.
     """
 
-    # protect input from update
+    # copy input to protect it from update
     definition = copy.deepcopy(original_definition)
 
-    # start with an environment from overrides and environment variables:
+    # collect all the override --env variables passed through CLI input
     override_env = context_overrides.get(CONTEXT_KEY, {}).get("env", {})
+
+    # set up Project Environment with empty default_env because
+    # default env section from project definition file is still templated at this time
     environment_overrides = ProjectEnvironment(
         default_env={}, override_env=override_env
     )
@@ -288,7 +312,6 @@ def render_definition_template(
     if definition is None:
         return ProjectProperties(None, {CONTEXT_KEY: {"env": environment_overrides}})
 
-    project_context = {CONTEXT_KEY: definition}
     template_env = TemplatedEnvironment(get_project_definition_cli_jinja_env())
 
     if "definition_version" not in definition or Version(
@@ -304,12 +327,18 @@ def render_definition_template(
             # also warn on Exception, as it means the user is incorrectly attempting to use templating
             _template_version_warning()
 
-        project_definition = build_project_definition(**original_definition)
+        project_definition = build_project_definition(**definition)
+        project_context = {CONTEXT_KEY: definition}
         project_context[CONTEXT_KEY]["env"] = environment_overrides
         return ProjectProperties(project_definition, project_context)
 
-    default_env = definition.get("env", {})
-    _validate_env_section(default_env)
+    definition = _add_defaults_to_definition(definition)
+    project_context = {CONTEXT_KEY: definition}
+
+    _validate_env_section(definition.get("env", {}))
+
+    # add available templating functions
+    project_context["fn"] = get_templating_functions()
 
     referenced_vars = _get_referenced_vars_in_definition(template_env, definition)
 
@@ -338,7 +367,11 @@ def render_definition_template(
         update_action=lambda val: template_env.render(val, final_context),
     )
 
-    definition["env"] = ProjectEnvironment(default_env, override_env)
-    project_context[CONTEXT_KEY] = definition
     project_definition = build_project_definition(**definition)
+    project_context[CONTEXT_KEY] = definition
+    # Use `ProjectEnvironment` in project context in order to
+    # handle env variables overrides from OS env and from CLI arguments.
+    project_context[CONTEXT_KEY]["env"] = ProjectEnvironment(
+        default_env=project_context[CONTEXT_KEY].get("env"), override_env=override_env
+    )
     return ProjectProperties(project_definition, project_context)
