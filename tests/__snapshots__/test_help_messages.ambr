@@ -272,14 +272,13 @@
   | --first                    INTEGER                Fetch only the first N     |
   |                                                   events. Cannot be used     |
   |                                                   with --last.               |
-  |                                                   [default: 0]               |
   | --last                     INTEGER                Fetch only the last N      |
   |                                                   events. Cannot be used     |
   |                                                   with --first.              |
-  |                                                   [default: 0]               |
   | --follow           -f                             Continue polling for       |
   |                                                   events. Implies --last 20  |
-  |                                                   unless overridden.         |
+  |                                                   unless overridden or the   |
+  |                                                   --since flag is used.      |
   | --follow-interval          INTEGER                Polling interval in        |
   |                                                   seconds when using the     |
   |                                                   --follow flag.             |

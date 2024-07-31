@@ -451,16 +451,23 @@ def app_events(
         help="Restrict results to a specific scope name. Can be specified multiple times.",
     ),
     first: int = typer.Option(
-        default=-1, help="Fetch only the first N events. Cannot be used with --last."
+        default=-1,
+        show_default=False,
+        help="Fetch only the first N events. Cannot be used with --last.",
     ),
     last: int = typer.Option(
-        default=-1, help="Fetch only the last N events. Cannot be used with --first."
+        default=-1,
+        show_default=False,
+        help="Fetch only the last N events. Cannot be used with --first.",
     ),
     follow: bool = typer.Option(
         False,
         "--follow",
         "-f",
-        help=f"Continue polling for events. Implies --last {DEFAULT_EVENT_FOLLOW_LAST} unless overridden.",
+        help=(
+            f"Continue polling for events. Implies --last {DEFAULT_EVENT_FOLLOW_LAST} "
+            f"unless overridden or the --since flag is used."
+        ),
     ),
     follow_interval: int = typer.Option(
         10,
