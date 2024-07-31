@@ -36,6 +36,7 @@ but should be replaced with `snow init`
 * Added connection option `--token-file-path` allowing passing OAuth token using a file. The function is also
   supported by setting `token_file_path` in connection definition.
 * Support for Python remote execution via `snow stage execute` and `snow git execute` similar to existing EXECUTE IMMEDIATE support.
+* Added support for project definition file defaults in templates
 * Added support for autocomplete in `--connection` flag.
 * Added `snow init` command, which supports initializing projects with external templates.
 
