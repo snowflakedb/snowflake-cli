@@ -32,6 +32,7 @@ from syrupy.extensions import AmberSnapshotExtension
 from tests_common import IS_WINDOWS
 
 pytest_plugins = [
+    "tests_common",
     "tests.testing_utils.fixtures",
     "tests.project.fixtures",
     "tests.nativeapp.fixtures",
