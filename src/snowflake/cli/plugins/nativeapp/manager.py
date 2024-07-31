@@ -726,7 +726,7 @@ class NativeAppManager(SqlExecutionMixin):
         record_types = record_types or []
         scopes = scopes or []
 
-        if first != -1 and last != -1:
+        if first >= 0 and last >= 0:
             raise ValueError("first and last cannot be used together")
 
         if not self.account_event_table:
@@ -754,8 +754,8 @@ class NativeAppManager(SqlExecutionMixin):
         scopes_clause = (
             f"and scope:name in ({scope_in_values})" if scope_in_values else ""
         )
-        first_clause = f"limit {first}" if first != -1 else ""
-        last_clause = f"limit {last}" if last != -1 else ""
+        first_clause = f"limit {first}" if first >= 0 else ""
+        last_clause = f"limit {last}" if last >= 0 else ""
         query = dedent(
             f"""\
             select * from (

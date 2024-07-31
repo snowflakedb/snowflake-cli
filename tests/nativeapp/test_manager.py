@@ -1472,7 +1472,7 @@ def test_get_events(
             last=last,
         )
 
-    if first != -1 and last != -1:
+    if first >= 0 and last >= 0:
         # Filtering on first and last events at the same time doesn't make sense
         with pytest.raises(ValueError):
             get_events()

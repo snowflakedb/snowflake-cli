@@ -476,13 +476,13 @@ def app_events(
     **options,
 ):
     """Fetches events for this app from the event table configured in Snowflake."""
-    if first != -1 and last != -1:
+    if first >= 0 and last >= 0:
         raise ClickException("--first and --last cannot be used together.")
 
     if follow:
         if until:
             raise ClickException("--follow and --until cannot be used together.")
-        if first != -1:
+        if first >= 0:
             raise ClickException("--follow and --first cannot be used together.")
 
     assert_project_type("native_app")
