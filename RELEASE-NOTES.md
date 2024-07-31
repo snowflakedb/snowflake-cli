@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for project definition file defaults in templates
 
 ## Fixes and improvements
 
