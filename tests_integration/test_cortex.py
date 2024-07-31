@@ -24,7 +24,6 @@ from tests_integration.testing_utils.assertions.test_result_assertions import (
 
 
 @pytest.mark.integration
-@pytest.mark.skip  # TODO: when we have Cortex activated on test account, unskip this and setup part in sql script
 @pytest.mark.skipif(
     sys.version_info >= (3, 12),
     reason="Snowflake Python API currently does not support Python 3.12 and greater",
