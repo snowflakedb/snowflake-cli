@@ -16,6 +16,7 @@ import os
 from unittest import mock
 
 import pytest
+from click import ClickException
 from jinja2 import UndefinedError
 from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
 from snowflake.cli.api.utils.models import ProjectEnvironment
@@ -94,6 +95,22 @@ def test_that_common_comments_are_respected(cli_context):
 def test_that_undefined_variables_raise_error(text, cli_context):
     with pytest.raises(UndefinedError):
         snowflake_sql_jinja_render(text)
+
+
+@pytest.mark.parametrize(
+    "key_word",
+    [
+        "ctx",
+        "fn",
+    ],
+)
+def test_reserved_keywords_raise_error(key_word, cli_context):
+    with pytest.raises(ClickException) as err:
+        snowflake_sql_jinja_render("select 1;", data={key_word: "some_value"})
+    assert (
+        err.value.message
+        == f"{key_word} in user defined data. The `{key_word}` variable is reserved for CLI usage."
+    )
 
 
 @mock.patch.dict(os.environ, {"TEST_ENV_VAR": "foo"})

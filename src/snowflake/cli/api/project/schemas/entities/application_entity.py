@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import AliasChoices, Field
+from pydantic import Field
 from snowflake.cli.api.project.schemas.entities.application_package_entity import (
     ApplicationPackageEntity,
 )
@@ -25,26 +25,20 @@ from snowflake.cli.api.project.schemas.entities.common import (
     TargetField,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
-    UpdatableModel,
+    DiscriminatorField,
 )
 
 
 class ApplicationEntity(EntityBase):
-    type: Literal["application"]  # noqa: A003
+    type: Literal["application"] = DiscriminatorField()  # noqa A003
     name: str = Field(
         title="Name of the application created when this entity is deployed"
     )
-    from_: ApplicationFromField = Field(
-        validation_alias=AliasChoices("from"),
+    from_: TargetField[ApplicationPackageEntity] = Field(
+        alias="from",
         title="An application package this entity should be created from",
     )
     debug: Optional[bool] = Field(
         title="Whether to enable debug mode when using a named stage to create an application object",
         default=None,
-    )
-
-
-class ApplicationFromField(UpdatableModel):
-    target: TargetField[ApplicationPackageEntity] = Field(
-        title="Reference to an application package entity",
     )

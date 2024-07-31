@@ -18,6 +18,8 @@
 ## Backward incompatibility
 * Dropped support for Python below 3.10 version.
 * `snow object stage` commands are removed in favour of `snow stage`.
+* `snow snowpark init` and `snow streamlit init` commands are removed in favor of `snow init` command.
+* Removed deprecated flags from `snow snowpark` commands.
 
 ## Deprecations
 
@@ -38,6 +40,7 @@ but should be replaced with `snow init`
 * Added connection option `--token-file-path` allowing passing OAuth token using a file. The function is also
   supported by setting `token_file_path` in connection definition.
 * Support for Python remote execution via `snow stage execute` and `snow git execute` similar to existing EXECUTE IMMEDIATE support.
+* Added support for project definition file defaults in templates
 * Added support for autocomplete in `--connection` flag.
 * Added `snow init` command, which supports initializing projects with external templates.
 
