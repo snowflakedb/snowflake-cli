@@ -17,8 +17,7 @@ from __future__ import annotations
 from abc import ABC
 from typing import Generic, List, Optional, TypeVar
 
-from pydantic import AliasChoices, Field, GetCoreSchemaHandler, ValidationInfo
-from pydantic_core import core_schema
+from pydantic import Field
 from snowflake.cli.api.project.schemas.native_app.application import (
     ApplicationPostDeployHook,
 )
@@ -45,7 +44,7 @@ class MetaField(UpdatableModel):
 class DefaultsField(UpdatableModel):
     schema_: Optional[str] = Field(
         title="Schema.",
-        validation_alias=AliasChoices("schema"),
+        alias="schema",
         default=None,
     )
     stage: Optional[str] = Field(
@@ -65,21 +64,15 @@ class EntityModelBase(ABC, UpdatableModel):
 TargetType = TypeVar("TargetType")
 
 
-class TargetField(Generic[TargetType]):
-    def __init__(self, entity_target_key: str):
-        self.value = entity_target_key
+class TargetField(UpdatableModel, Generic[TargetType]):
+    target: str = Field(
+        title="Reference to a target entity",
+    )
 
-    def __repr__(self):
-        return self.value
-
-    @classmethod
-    def validate(cls, value: str, info: ValidationInfo) -> TargetField:
-        return cls(value)
-
-    @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type, handler: GetCoreSchemaHandler
-    ) -> core_schema.CoreSchema:
-        return core_schema.with_info_after_validator_function(
-            cls.validate, handler(str), field_name=handler.field_name
-        )
+    def get_type(self) -> type:
+        """
+        Returns the generic type of this class, indicating the entity type.
+        Pydantic extracts Generic annotations, and populates
+        them in __pydantic_generic_metadata__
+        """
+        return self.__pydantic_generic_metadata__["args"][0]

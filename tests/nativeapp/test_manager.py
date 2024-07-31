@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional
@@ -1358,6 +1359,7 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     [
         ("", ""),
         ("1 hour", "and timestamp >= sysdate() - interval '1 hour'"),
+        (datetime(2024, 1, 1), "and timestamp >= '2024-01-01 00:00:00'"),
     ],
 )
 @pytest.mark.parametrize(
@@ -1365,6 +1367,7 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     [
         ("", ""),
         ("20 minutes", "and timestamp <= sysdate() - interval '20 minutes'"),
+        (datetime(2024, 1, 1), "and timestamp <= '2024-01-01 00:00:00'"),
     ],
 )
 @pytest.mark.parametrize(
@@ -1386,14 +1389,16 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
 @pytest.mark.parametrize(
     ["first", "expected_first_clause"],
     [
-        (0, ""),
+        (-1, ""),
+        (0, "limit 0"),
         (10, "limit 10"),
     ],
 )
 @pytest.mark.parametrize(
     ["last", "expected_last_clause"],
     [
-        (0, ""),
+        (-1, ""),
+        (0, "limit 0"),
         (20, "limit 20"),
     ],
 )
@@ -1427,7 +1432,7 @@ def test_get_events(
         contents=[mock_snowflake_yml_file],
     )
 
-    events = [dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")] * 100
+    events = [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")] * 100
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1459,15 +1464,15 @@ def test_get_events(
     def get_events():
         native_app_manager = _get_na_manager()
         return native_app_manager.get_events(
-            since_interval=since,
-            until_interval=until,
+            since=since,
+            until=until,
             record_types=types,
             scopes=scopes,
             first=first,
             last=last,
         )
 
-    if first and last:
+    if first >= 0 and last >= 0:
         # Filtering on first and last events at the same time doesn't make sense
         with pytest.raises(ValueError):
             get_events()
@@ -1496,7 +1501,7 @@ def test_get_events_quoted_app_name(
         contents=[quoted_override_yml_file],
     )
 
-    events = [dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")] * 100
+    events = [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")] * 100
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1545,3 +1550,91 @@ def test_get_events_no_event_table(mock_account_event_table, temp_dir, mock_curs
     native_app_manager = _get_na_manager()
     with pytest.raises(NoEventTableForAccount):
         native_app_manager.get_events()
+
+
+@mock.patch(
+    NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE,
+    return_value="db.schema.event_table",
+    new_callable=mock.PropertyMock,
+)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cursor):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    events = [
+        [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")] * 10,
+        [dict(TIMESTAMP=datetime(2024, 1, 2), VALUE="test")] * 10,
+    ]
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(events[0], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        select * from (
+                            select timestamp, value::varchar value
+                            from db.schema.event_table
+                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            
+                            
+                            
+                            
+                            order by timestamp desc
+                            limit {len(events[0])}
+                        ) order by timestamp asc
+                        
+                        """
+                    ),
+                    cursor_class=DictCursor,
+                ),
+            ),
+            (
+                mock_cursor(events[1], []),
+                mock.call(
+                    dedent(
+                        """\
+                        select * from (
+                            select timestamp, value::varchar value
+                            from db.schema.event_table
+                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            and timestamp >= '2024-01-01 00:00:00'
+                            
+                            
+                            
+                            order by timestamp desc
+                            
+                        ) order by timestamp asc
+                        
+                        """
+                    ),
+                    cursor_class=DictCursor,
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    stream = native_app_manager.stream_events(interval_seconds=0, last=len(events[0]))
+    for i in range(len(events[0])):
+        # Exhaust the initial set of events
+        assert next(stream) == events[0][i]
+    assert mock_execute.call_count == 1
+
+    for i in range(len(events[1])):
+        # Then it'll make another query which returns the second set of events
+        assert next(stream) == events[1][i]
+    assert mock_execute.call_count == 2
+    assert mock_execute.mock_calls == expected
+
+    try:
+        stream.throw(KeyboardInterrupt)
+    except StopIteration:
+        pass
+    else:
+        pytest.fail("stream_events didn't end when receiving a KeyboardInterrupt")

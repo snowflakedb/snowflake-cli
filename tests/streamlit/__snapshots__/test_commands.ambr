@@ -1,0 +1,31 @@
+# serializer version: 1
+# name: test_artifacts_must_exists
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | During evaluation of DefinitionV20 in project definition following errors    |
+  | were encountered:                                                            |
+  | For field entities.my_streamlit.streamlit you provided '{'artifacts':        |
+  | ['streamlit_app.py', 'foo_bar.py', 'pages/', 'environment.yml'],             |
+  | 'main_file': 'streamlit_app.py', 'name': 'test_streamlit_deploy_snowcli',    |
+  | 'query_warehouse': 'xsmall', 'stage': 'streamlit', 'title': 'My Fancy        |
+  | Streamlit', 'type': 'streamlit'}'. This caused: Value error, Specified       |
+  | artifact foo_bar.py does not exist locally.                                  |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_main_file_must_be_in_artifacts
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | During evaluation of DefinitionV20 in project definition following errors    |
+  | were encountered:                                                            |
+  | For field entities.my_streamlit.streamlit you provided '{'artifacts':        |
+  | ['streamlit_app.py', 'utils/utils.py', 'pages/', 'environment.yml'],         |
+  | 'main_file': 'foo_bar.py', 'name': 'test_streamlit_deploy_snowcli',          |
+  | 'query_warehouse': 'xsmall', 'stage': 'streamlit', 'title': 'My Fancy        |
+  | Streamlit', 'type': 'streamlit'}'. This caused: Value error, Specified main  |
+  | file foo_bar.py is not included in artifacts.                                |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---

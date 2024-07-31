@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, List, NoReturn, Optional, TypedDict
+from typing import Any, Generator, List, NoReturn, Optional, TypedDict
 
 import jinja2
 from click import ClickException
@@ -714,17 +716,17 @@ class NativeAppManager(SqlExecutionMixin):
 
     def get_events(
         self,
-        since_interval: str = "",
-        until_interval: str = "",
+        since: str | datetime | None = None,
+        until: str | datetime | None = None,
         record_types: list[str] | None = None,
         scopes: list[str] | None = None,
-        first: int = 0,
-        last: int = 0,
+        first: int = -1,
+        last: int = -1,
     ) -> list[dict]:
         record_types = record_types or []
         scopes = scopes or []
 
-        if first and last:
+        if first >= 0 and last >= 0:
             raise ValueError("first and last cannot be used together")
 
         if not self.account_event_table:
@@ -732,16 +734,18 @@ class NativeAppManager(SqlExecutionMixin):
 
         # resource_attributes:"snow.database.name" uses the unquoted/uppercase app name
         app_name = unquote_identifier(self.app_name)
-        since_clause = (
-            f"and timestamp >= sysdate() - interval '{since_interval}'"
-            if since_interval
-            else ""
-        )
-        until_clause = (
-            f"and timestamp <= sysdate() - interval '{until_interval}'"
-            if until_interval
-            else ""
-        )
+        if isinstance(since, datetime):
+            since_clause = f"and timestamp >= '{since}'"
+        elif isinstance(since, str) and since:
+            since_clause = f"and timestamp >= sysdate() - interval '{since}'"
+        else:
+            since_clause = ""
+        if isinstance(until, datetime):
+            until_clause = f"and timestamp <= '{until}'"
+        elif isinstance(until, str) and until:
+            until_clause = f"and timestamp <= sysdate() - interval '{until}'"
+        else:
+            until_clause = ""
         type_in_values = ",".join(f"'{v}'" for v in record_types)
         types_clause = (
             f"and record_type in ({type_in_values})" if type_in_values else ""
@@ -750,8 +754,8 @@ class NativeAppManager(SqlExecutionMixin):
         scopes_clause = (
             f"and scope:name in ({scope_in_values})" if scope_in_values else ""
         )
-        first_clause = f"limit {first}" if first else ""
-        last_clause = f"limit {last}" if last else ""
+        first_clause = f"limit {first}" if first >= 0 else ""
+        last_clause = f"limit {last}" if last >= 0 else ""
         query = dedent(
             f"""\
             select * from (
@@ -772,6 +776,56 @@ class NativeAppManager(SqlExecutionMixin):
             return self._execute_query(query, cursor_class=DictCursor).fetchall()
         except ProgrammingError as err:
             generic_sql_error_handler(err)
+
+    def stream_events(
+        self,
+        interval_seconds: int,
+        since: str | datetime | None = None,
+        record_types: list[str] | None = None,
+        scopes: list[str] | None = None,
+        last: int = -1,
+    ) -> Generator[dict, None, None]:
+        try:
+            events = self.get_events(
+                since=since, record_types=record_types, scopes=scopes, last=last
+            )
+            yield from events  # Yield the initial batch of events
+            last_event_time = events[-1]["TIMESTAMP"]
+
+            while True:  # Then infinite poll for new events
+                time.sleep(interval_seconds)
+                previous_events = events
+                events = self.get_events(
+                    since=last_event_time, record_types=record_types, scopes=scopes
+                )
+                if not events:
+                    continue
+
+                yield from _new_events_only(previous_events, events)
+                last_event_time = events[-1]["TIMESTAMP"]
+        except KeyboardInterrupt:
+            return
+
+
+def _new_events_only(previous_events: list[dict], new_events: list[dict]) -> list[dict]:
+    # The timestamp that overlaps between both sets of events
+    overlap_time = new_events[0]["TIMESTAMP"]
+
+    # Remove all the events from the new result set
+    # if they were already printed. We iterate and remove
+    # instead of filtering in order to handle duplicates
+    # (i.e. if an event is present 3 times in new_events
+    # but only once in previous_events, it should still
+    # appear twice in new_events at the end
+    new_events = new_events.copy()
+    for event in reversed(previous_events):
+        if event["TIMESTAMP"] < overlap_time:
+            break
+        # No need to handle ValueError here since we know
+        # that events that pass the above if check will
+        # either be in both lists or in new_events only
+        new_events.remove(event)
+    return new_events
 
 
 def _validation_item_to_str(item: dict[str, str | int]):

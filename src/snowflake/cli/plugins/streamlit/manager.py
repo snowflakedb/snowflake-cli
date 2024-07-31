@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -46,33 +45,25 @@ class StreamlitManager(SqlExecutionMixin):
     def _put_streamlit_files(
         self,
         root_location: str,
-        main_file: Path,
-        environment_file: Optional[Path],
-        pages_dir: Optional[Path],
-        additional_source_files: Optional[List[Path]],
+        artifacts: Optional[List[Path]] = None,
     ):
+        if not artifacts:
+            return
         stage_manager = StageManager()
-
-        stage_manager.put(main_file, root_location, 4, True)
-
-        if environment_file and environment_file.exists():
-            stage_manager.put(environment_file, root_location, 4, True)
-
-        if pages_dir and pages_dir.exists():
-            stage_manager.put(pages_dir / "*.py", f"{root_location}/pages", 4, True)
-
-        if additional_source_files:
-            for file in additional_source_files:
-                if os.sep in str(file):
-                    destination = f"{root_location}/{str(file.parent)}"
-                else:
-                    destination = root_location
-                stage_manager.put(file, destination, 4, True)
+        for file in artifacts:
+            if file.is_dir():
+                stage_manager.put(
+                    f"{file.joinpath('*')}", f"{root_location}/{file}", 4, True
+                )
+            elif len(file.parts) > 1:
+                stage_manager.put(file, f"{root_location}/{file.parent}", 4, True)
+            else:
+                stage_manager.put(file, root_location, 4, True)
 
     def _create_streamlit(
         self,
         streamlit_id: FQN,
-        main_file: Path,
+        main_file: str,
         replace: Optional[bool] = None,
         experimental: Optional[bool] = None,
         query_warehouse: Optional[str] = None,
@@ -96,7 +87,7 @@ class StreamlitManager(SqlExecutionMixin):
         if from_stage_name:
             query.append(f"ROOT_LOCATION = '{from_stage_name}'")
 
-        query.append(f"MAIN_FILE = '{main_file.name}'")
+        query.append(f"MAIN_FILE = '{main_file}'")
 
         if query_warehouse:
             query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
@@ -108,23 +99,21 @@ class StreamlitManager(SqlExecutionMixin):
     def deploy(
         self,
         streamlit_id: FQN,
-        main_file: Path,
-        environment_file: Optional[Path] = None,
-        pages_dir: Optional[Path] = None,
+        main_file: str,
+        artifacts: Optional[List[Path]] = None,
         stage_name: Optional[str] = None,
         query_warehouse: Optional[str] = None,
         replace: Optional[bool] = False,
-        additional_source_files: Optional[List[Path]] = None,
         title: Optional[str] = None,
-        **options,
     ):
         # for backwards compatibility - quoted stage path might be case-sensitive
         # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers
         streamlit_name_for_root_location = streamlit_id.name
-
+        use_versioned_stage = FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()
         if (
             experimental_behaviour_enabled()
             or FeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled()
+            or use_versioned_stage
         ):
             """
             1. Create streamlit object
@@ -141,26 +130,34 @@ class StreamlitManager(SqlExecutionMixin):
                 title=title,
             )
             try:
-                self._execute_query(
-                    f"ALTER streamlit {streamlit_id.identifier} CHECKOUT"
-                )
+                if use_versioned_stage:
+                    self._execute_query(
+                        f"ALTER STREAMLIT {streamlit_id.identifier} ADD LIVE VERSION FROM LAST"
+                    )
+                elif not FeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled():
+                    self._execute_query(
+                        f"ALTER streamlit {streamlit_id.identifier} CHECKOUT"
+                    )
             except ProgrammingError as e:
-                # If an error is raised because a CHECKOUT has already occurred,
-                # simply skip it and continue
-                if "Checkout already exists" in str(e):
+                # If an error is raised because a CHECKOUT has already occurred or a LIVE VERSION already exists, simply skip it and continue
+                if "Checkout already exists" in str(
+                    e
+                ) or "There is already a live version" in str(e):
                     log.info("Checkout already exists, continuing")
                 else:
                     raise
+
             stage_path = streamlit_id.identifier
             embedded_stage_name = f"snow://streamlit/{stage_path}"
-            root_location = f"{embedded_stage_name}/default_checkout"
+            if use_versioned_stage:
+                # "LIVE" is the only supported version for now, but this may change later.
+                root_location = f"{embedded_stage_name}/versions/live"
+            else:
+                root_location = f"{embedded_stage_name}/default_checkout"
 
             self._put_streamlit_files(
                 root_location,
-                main_file,
-                environment_file,
-                pages_dir,
-                additional_source_files,
+                artifacts,
             )
         else:
             """
@@ -179,13 +176,7 @@ class StreamlitManager(SqlExecutionMixin):
                 f"{stage_name}/{streamlit_name_for_root_location}"
             )
 
-            self._put_streamlit_files(
-                root_location,
-                main_file,
-                environment_file,
-                pages_dir,
-                additional_source_files,
-            )
+            self._put_streamlit_files(root_location, artifacts)
 
             self._create_streamlit(
                 streamlit_id,
