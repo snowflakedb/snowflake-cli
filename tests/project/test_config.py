@@ -167,5 +167,7 @@ def test_project_definition_v2_is_disabled():
 def test_project_definition_v2_is_enabled_with_feature_flag():
     with mock_config_key("enable_project_definition_v2", True):
         assert FeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled() == False
+        assert FeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled() == False
+        assert FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled() == False
         assert FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled() == True
         build_project_definition(**{"definition_version": "2", "entities": {}})
