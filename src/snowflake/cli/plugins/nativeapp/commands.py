@@ -14,11 +14,12 @@
 
 from __future__ import annotations
 
+import itertools
 import logging
 from enum import Enum
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional
+from typing import Generator, Iterable, List, Optional, cast
 
 import typer
 from click import ClickException
@@ -420,6 +421,11 @@ class RecordType(Enum):
     SPAN_EVENT = "span_event"
 
 
+# The default number of lines to print before streaming when running
+# snow app events --follow
+DEFAULT_EVENT_FOLLOW_LAST = 20
+
+
 @app.command("events", hidden=True, requires_connection=True)
 @with_project_definition()
 @nativeapp_definition_v2_to_v1
@@ -445,39 +451,79 @@ def app_events(
         help="Restrict results to a specific scope name. Can be specified multiple times.",
     ),
     first: int = typer.Option(
-        default=0, help="Fetch only the first N events. Cannot be used with --last."
+        default=-1,
+        show_default=False,
+        help="Fetch only the first N events. Cannot be used with --last.",
     ),
     last: int = typer.Option(
-        default=0, help="Fetch only the last N events. Cannot be used with --first."
+        default=-1,
+        show_default=False,
+        help="Fetch only the last N events. Cannot be used with --first.",
+    ),
+    follow: bool = typer.Option(
+        False,
+        "--follow",
+        "-f",
+        help=(
+            f"Continue polling for events. Implies --last {DEFAULT_EVENT_FOLLOW_LAST} "
+            f"unless overridden or the --since flag is used."
+        ),
+    ),
+    follow_interval: int = typer.Option(
+        10,
+        help=f"Polling interval in seconds when using the --follow flag.",
     ),
     **options,
 ):
     """Fetches events for this app from the event table configured in Snowflake."""
-    if first and last:
+    if first >= 0 and last >= 0:
         raise ClickException("--first and --last cannot be used together.")
+
+    if follow:
+        if until:
+            raise ClickException("--follow and --until cannot be used together.")
+        if first >= 0:
+            raise ClickException("--follow and --first cannot be used together.")
 
     assert_project_type("native_app")
 
+    record_type_names = [r.name for r in record_types]
     manager = NativeAppManager(
         project_definition=get_cli_context().project_definition.native_app,
         project_root=get_cli_context().project_root,
     )
-    events = manager.get_events(
-        since_interval=since,
-        until_interval=until,
-        record_types=[r.name for r in record_types],
-        scopes=scopes,
-        first=first,
-        last=last,
-    )
-    if not events:
-        return MessageResult("No events found.")
+    if follow:
+        if last == -1 and not since:
+            # If we don't have a value for --last or --since, assume a value
+            # for --last so we at least print something before starting the stream
+            last = DEFAULT_EVENT_FOLLOW_LAST
+        stream: Iterable[CommandResult] = (
+            EventResult(event)
+            for event in manager.stream_events(
+                since=since,
+                last=last,
+                interval_seconds=follow_interval,
+                record_types=record_type_names,
+                scopes=scopes,
+            )
+        )
+        # Append a newline at the end to make the CLI output clean when we hit Ctrl-C
+        stream = itertools.chain(stream, [MessageResult("")])
+    else:
+        stream = (
+            EventResult(event)
+            for event in manager.get_events(
+                since=since,
+                until=until,
+                record_types=record_type_names,
+                scopes=scopes,
+                first=first,
+                last=last,
+            )
+        )
 
-    def g():
-        for event in events:
-            yield EventResult(event)
-
-    return StreamResult(g())
+    # Cast the stream to a Generator since that's what StreamResult wants
+    return StreamResult(cast(Generator[CommandResult, None, None], stream))
 
 
 class EventResult(ObjectResult, MessageResult):
