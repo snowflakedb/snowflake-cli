@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.exceptions import (
-    InvalidProjectDefinitionVersion20Error,
-    NoProjectDefinitionError,
-)
+from snowflake.cli.api.exceptions import NoProjectDefinitionError
 
 
 def assert_project_type(project_type: str):
@@ -23,12 +20,4 @@ def assert_project_type(project_type: str):
     if not getattr(cli_context.project_definition, project_type, None):
         raise NoProjectDefinitionError(
             project_type=project_type, project_file=cli_context.project_root
-        )
-
-
-def assert_project_version_2():
-    cli_context = get_cli_context()
-    if cli_context.project_definition.definition_version != "2":
-        raise InvalidProjectDefinitionVersion20Error(
-            cli_context.project_definition.definition_version
         )
