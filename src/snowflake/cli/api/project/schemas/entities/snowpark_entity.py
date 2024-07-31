@@ -14,15 +14,11 @@
 
 from __future__ import annotations
 
-from typing import List, Literal, Optional, Union, Dict
+from typing import Dict, List, Literal, Optional, Union
 
-from pydantic import Field, model_validator, field_validator
+from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.entities.common import EntityBase
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
-from snowflake.cli.api.project.schemas.snowpark.callable import (
-    FunctionSchema,
-    ProcedureSchema,
-)
 
 
 class SnowparkEntity(EntityBase):
@@ -51,6 +47,8 @@ class SnowparkEntity(EntityBase):
         title="Stage and path to previously uploaded files you want to import",
         default=[],
     )
+    stage_name: str = Field(title="Stage in which artifacts will be stored")
+    src: str = Field(title="Folder where your code should be located")
 
     @field_validator("runtime")
     @classmethod
@@ -58,6 +56,7 @@ class SnowparkEntity(EntityBase):
         if isinstance(runtime_input, float):
             return str(runtime_input)
         return runtime_input
+
 
 class ProcedureEntity(SnowparkEntity):
     type: Literal["procedure"]  # noqa: A003
@@ -67,7 +66,6 @@ class ProcedureEntity(SnowparkEntity):
         default=False,
     )
 
+
 class FunctionEntity(SnowparkEntity):
     type: Literal["function"]  # noqa: A003
-
-

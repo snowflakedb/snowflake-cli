@@ -22,11 +22,18 @@ from snowflake.cli.api.project.schemas.entities.application_entity import (
 from snowflake.cli.api.project.schemas.entities.application_package_entity import (
     ApplicationPackageEntity,
 )
-from snowflake.cli.api.project.schemas.entities.snowpark_entity import SnowparkEntity, FunctionEntity, ProcedureEntity
+from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
+    FunctionEntity,
+    ProcedureEntity,
+)
 from snowflake.cli.api.project.schemas.entities.streamlit_entity import StreamlitEntity
 
 Entity = Union[
-    ApplicationEntity, ApplicationPackageEntity, StreamlitEntity, ProcedureEntity, FunctionEntity
+    ApplicationEntity,
+    ApplicationPackageEntity,
+    StreamlitEntity,
+    ProcedureEntity,
+    FunctionEntity,
 ]
 
 ALL_ENTITIES = [*get_args(Entity)]

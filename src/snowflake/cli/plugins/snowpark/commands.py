@@ -38,7 +38,10 @@ from snowflake.cli.api.constants import (
     DEPLOYMENT_STAGE,
     ObjectType,
 )
-from snowflake.cli.api.exceptions import SecretsWithoutExternalAccessIntegrationError, NoProjectDefinitionError
+from snowflake.cli.api.exceptions import (
+    NoProjectDefinitionError,
+    SecretsWithoutExternalAccessIntegrationError,
+)
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -46,8 +49,10 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
-from snowflake.cli.api.project.project_verification import assert_project_type
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition, ProjectDefinitionV2
+from snowflake.cli.api.project.schemas.project_definition import (
+    ProjectDefinition,
+    ProjectDefinitionV2,
+)
 from snowflake.cli.api.project.schemas.snowpark.callable import (
     FunctionSchema,
     ProcedureSchema,
@@ -130,7 +135,7 @@ def deploy(
     All deployed objects use the same artifact which is deployed only once.
     """
 
-    pd= cli_context.project_definition
+    pd = cli_context.project_definition
     if not pd.meets_version_requirement("2"):
         pd = 0
 
@@ -405,7 +410,9 @@ def build(
     The archive is built using only the `src` directory specified in the project file.
     """
 
-    assert_project_type("snowpark")
+    pd = cli_context.project_definition
+    if not pd.meets_version_requirement("2"):
+        pd = _migrate_v1_snowpark_to_v2(pd)
 
     if not deprecated_check_anaconda_for_pypi_deps:
         ignore_anaconda = True
@@ -547,22 +554,44 @@ def describe(
     """Provides description of a procedure or function."""
     object_describe(object_type=object_type.value, object_name=identifier, **options)
 
+
 def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
     if not pd.snowpark:
         raise NoProjectDefinitionError(
-            project_type="snowpark",
-            project_file=cli_context.project_root
+            project_type="snowpark", project_file=cli_context.project_root
         )
 
-    data = {
-        "definition_version" : "2",
-        "entities": {
-            "snowpark_project": pd.snowpark.dict()
+    data: dict = {"definition_version": "2", "entities": {}}
+    # TODO: think how to join those two loops
+    for function in pd.snowpark.functions:
+        function_dict = {
+            "type": "function",
+            "stage_name": pd.snowpark.stage_name,
+            "src": pd.snowpark.src,
+            "handler": function.handler,
+            "returns": function.returns,
+            "signature": function.signature,
+            "runtime": function.runtime,
+            "external_access_integrations": function.external_access_integrations,
+            "secrets": function.secrets,
+            "imports": function.imports,
         }
-    }
-    data["entities"]["snowpark_project"]["type"] = "snowpark"
+        data["entities"][function.name] = function_dict
+
+    for procedure in pd.snowpark.procedures:
+        procedure_dict = {
+            "type": "procedure",
+            "stage_name": pd.snowpark.stage_name,
+            "src": pd.snowpark.src,
+            "handler": procedure.handler,
+            "returns": procedure.returns,
+            "signature": procedure.signature,
+            "runtime": procedure.runtime,
+            "external_access_integrations": procedure.external_access_integrations,
+            "secrets": procedure.secrets,
+            "imports": procedure.imports,
+            "execute_as_caller": procedure.execute_as_caller,
+        }
+        data["entities"][procedure.name] = procedure_dict
 
     return ProjectDefinitionV2(**data)
-
-
-

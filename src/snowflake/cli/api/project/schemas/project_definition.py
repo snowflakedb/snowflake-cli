@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Union, List
+from typing import Dict, List, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
@@ -41,8 +41,9 @@ from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
 
 AnnotatedEntity = Annotated[Entity, Field(discriminator="type")]
-EntityOrList = Union[AnnotatedEntity, List[AnnotatedEntity]]
-
+EntityOrList = Union[
+    AnnotatedEntity, List[AnnotatedEntity]
+]  # TODO: Probablyu should delete this line
 
 
 @dataclass
@@ -121,9 +122,7 @@ class DefinitionV11(DefinitionV10):
 
 
 class DefinitionV20(_ProjectDefinitionBase):
-    entities: Dict[str, AnnotatedEntity] = Field(
-        title="Entity definitions."
-    )
+    entities: Dict[str, AnnotatedEntity] = Field(title="Entity definitions.")
 
     defaults: Optional[DefaultsField] = Field(
         title="Default key/value entity values that are merged recursively for each entity.",
@@ -159,7 +158,9 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     @field_validator("entities", mode="after")
     @classmethod
-    def validate_entities(cls, entities: Dict[str, EntityOrList]) -> Dict[str, EntityOrList]:
+    def validate_entities(
+        cls, entities: Dict[str, EntityOrList]
+    ) -> Dict[str, EntityOrList]:
         for key, entity in entities.items():
             # TODO Automatically detect TargetFields to validate
             if isinstance(entity, list):
@@ -177,7 +178,6 @@ class DefinitionV20(_ProjectDefinitionBase):
                 target_class = entity.from_.__class__.model_fields["target"]
                 target_type = target_class.annotation.__args__[0]
                 cls._validate_target_field(target_key, target_type, entities)
-
 
     @classmethod
     def _validate_target_field(

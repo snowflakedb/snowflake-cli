@@ -161,6 +161,28 @@ from tests.testing_utils.mock_config import mock_config_key
             },
             None,
         ],
+        # Snowpark fields
+        [
+            {
+                "entities": {
+                    "function1": {
+                        "type": "function",
+                        "handler": "app.hello",
+                        "returns": "string",
+                        "signature": [{"name": "name", "type": "string"}],
+                        "runtime": "3.8",
+                    }
+                }
+            },
+            None,
+        ],
+        [
+            {"entities": {"function1": {"type": "function", "handler": "app.hello"}}},
+            [
+                "Your project definition is missing the following field: 'entities.function1.function.returns'",
+                "Your project definition is missing the following field: 'entities.function1.function.signature'",
+            ],
+        ],
     ],
 )
 def test_project_definition_v2_schema(definition_input, expected_error):
