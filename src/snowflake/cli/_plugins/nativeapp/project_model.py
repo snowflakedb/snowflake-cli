@@ -27,7 +27,7 @@ from snowflake.cli.api.project.definition import (
     default_role,
 )
 from snowflake.cli.api.project.schemas.native_app.application import (
-    ApplicationPostDeployHook,
+    PostDeployHook,
 )
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
@@ -165,12 +165,22 @@ class NativeAppProjectModel:
             return self._default_role
 
     @cached_property
-    def app_post_deploy_hooks(self) -> Optional[List[ApplicationPostDeployHook]]:
+    def app_post_deploy_hooks(self) -> Optional[List[PostDeployHook]]:
         """
-        List of application post deploy hooks.
+        List of application instance post deploy hooks.
         """
         if self.definition.application and self.definition.application.post_deploy:
             return self.definition.application.post_deploy
+        else:
+            return None
+
+    @cached_property
+    def package_post_deploy_hooks(self) -> Optional[List[PostDeployHook]]:
+        """
+        List of application package post deploy hooks.
+        """
+        if self.definition.package and self.definition.package.post_deploy:
+            return self.definition.package.post_deploy
         else:
             return None
 

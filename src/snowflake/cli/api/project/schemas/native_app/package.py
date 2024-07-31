@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import List, Literal, Optional
 
 from pydantic import Field, field_validator
+from snowflake.cli.api.project.schemas.native_app.application import PostDeployHook
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
@@ -43,6 +44,10 @@ class Package(UpdatableModel):
     distribution: Optional[DistributionOptions] = Field(
         title="Distribution of the application package created by the Snowflake CLI",
         default="internal",
+    )
+    post_deploy: Optional[List[PostDeployHook]] = Field(
+        title="Actions that will be executed after the application package object is created/updated",
+        default=None,
     )
 
     @field_validator("scripts")
