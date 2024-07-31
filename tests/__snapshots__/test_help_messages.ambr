@@ -1197,6 +1197,10 @@
   |                                        [default: optional]                   |
   | --private-key            -k      TEXT  Path to file containing private key   |
   |                                        [default: optional]                   |
+  | --token-file-path        -t      TEXT  Path to file with an OAuth token that |
+  |                                        should be used when connecting to     |
+  |                                        Snowflake                             |
+  |                                        [default: optional]                   |
   | --default                              If provided the connection will be    |
   |                                        configured as default connection.     |
   | --help                                 Show this message and exit.           |
