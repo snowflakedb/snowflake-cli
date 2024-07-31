@@ -46,6 +46,10 @@ def bundle(
     ),
     **options,
 ):
+    """
+    Bundles the specified entity.
+    """
+
     cli_context = get_cli_context()
     ws = WorkspaceManager(
         project_definition=cli_context.project_definition,
