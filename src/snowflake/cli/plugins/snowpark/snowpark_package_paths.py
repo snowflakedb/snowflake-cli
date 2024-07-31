@@ -14,6 +14,7 @@
 
 from dataclasses import dataclass
 
+from snowflake.cli.api.project.schemas.project_definition import DefinitionV20
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -30,7 +31,7 @@ class SnowparkPackagePaths:
 
     @classmethod
     def for_snowpark_project(
-        cls, project_root: SecurePath, snowpark_project_definition: Snowpark
+        cls, project_root: SecurePath, snowpark_project_definition: DefinitionV20
     ) -> "SnowparkPackagePaths":
         defined_source_path = SecurePath(snowpark_project_definition.src)
         return cls(

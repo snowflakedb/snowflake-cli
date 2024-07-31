@@ -127,13 +127,11 @@ def deploy(
     By default, if any of the objects exist already the commands will fail unless `--replace` flag is provided.
     All deployed objects use the same artifact which is deployed only once.
     """
-
+    cli_context = get_cli_context()
     pd = cli_context.project_definition
     if not pd.meets_version_requirement("2"):
-        pd = 0
+        pd = _migrate_v1_snowpark_to_v2(pd)
 
-    cli_context = get_cli_context()
-    snowpark = cli_context.project_definition.snowpark
     paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
         snowpark_project_definition=snowpark,
@@ -386,14 +384,14 @@ def build(
     Builds the Snowpark project as a `.zip` archive that can be used by `deploy` command.
     The archive is built using only the `src` directory specified in the project file.
     """
-
+    cli_context = get_cli_context()
     pd = cli_context.project_definition
     if not pd.meets_version_requirement("2"):
         pd = _migrate_v1_snowpark_to_v2(pd)
-    cli_context = get_cli_context()
+
     snowpark_paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
-        snowpark_project_definition=cli_context.project_definition.snowpark,
+        snowpark_project_definition=pd,
     )
     log.info("Building package using sources from: %s", snowpark_paths.source.path)
 
