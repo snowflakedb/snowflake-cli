@@ -71,6 +71,7 @@ RepoPathArgument = typer.Argument(
         " For example: @my_repo/branches/main/"
     ),
     callback=_repo_path_argument_callback,
+    show_default=False,
 )
 add_object_command_aliases(
     app=app,
@@ -245,6 +246,7 @@ def copy(
     repository_path: str = RepoPathArgument,
     destination_path: str = typer.Argument(
         help="Target path for copy operation. Should be a path to a directory on remote stage or local file system.",
+        show_default=False,
     ),
     parallel: int = typer.Option(
         4,

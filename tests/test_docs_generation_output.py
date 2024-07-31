@@ -162,3 +162,16 @@ def test_all_commands_have_generated_files(runner, temp_dir):
     _check(ctx.command, commands_path)
 
     assert len(errors) == 0, "\n".join(errors)
+
+
+def test_flags_have_default_values(runner, temp_dir, snapshot):
+    runner.invoke(["--docs"])
+
+    # cortex complete checks:
+    # "Default: False" case
+    # "--diag-log-path" flag, with tempdir path as default value
+    example_generated_file = (
+        Path(temp_dir) / "gen_docs" / "commands" / "cortex" / "usage-complete.txt"
+    )
+    assert example_generated_file.exists()
+    assert example_generated_file.read_text() == snapshot

@@ -19,7 +19,7 @@ from typing import Optional
 
 import typer
 from click import MissingParameter
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
@@ -96,6 +96,7 @@ def create(
     else:
         git_policy = AllowAlwaysPolicy()
 
+    cli_context = get_cli_context()
     processor = NativeAppVersionCreateProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -126,6 +127,7 @@ def version_list(
 
     assert_project_type("native_app")
 
+    cli_context = get_cli_context()
     processor = NativeAppRunProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
@@ -162,6 +164,7 @@ def drop(
     else:
         policy = DenyAlwaysPolicy()
 
+    cli_context = get_cli_context()
     processor = NativeAppVersionDropProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,

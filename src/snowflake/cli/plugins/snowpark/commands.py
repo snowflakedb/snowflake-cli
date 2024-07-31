@@ -20,18 +20,16 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import typer
 from click import ClickException
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.flags import (
     ReplaceOption,
-    deprecated_flag_callback_enum,
     execution_identifier_argument,
     identifier_argument,
     like_option,
 )
-from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
@@ -78,7 +76,6 @@ from snowflake.cli.plugins.snowpark.common import (
     check_if_replace_is_required,
 )
 from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
-from snowflake.cli.plugins.snowpark.models import YesNoAsk
 from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AnacondaPackagesManager,
@@ -87,12 +84,9 @@ from snowflake.cli.plugins.snowpark.package.commands import app as package_app
 from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
 from snowflake.cli.plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
-    DeprecatedCheckAnacondaForPyPiDependencies,
     IgnoreAnacondaOption,
     IndexUrlOption,
     SkipVersionCheckOption,
-    deprecated_allow_native_libraries_option,
-    resolve_allow_shared_libraries_yes_no_ask,
 )
 from snowflake.cli.plugins.snowpark.zipper import zip_dir
 from snowflake.cli.plugins.stage.manager import StageManager
@@ -118,7 +112,6 @@ IdentifierArgument = identifier_argument(
 LikeOption = like_option(
     help_example='`list function --like "my%"` lists all functions that begin with “my”',
 )
-add_init_command(app, project_type="Snowpark", template="default_snowpark")
 
 
 @app.command("deploy", requires_connection=True)
@@ -139,6 +132,7 @@ def deploy(
     if not pd.meets_version_requirement("2"):
         pd = 0
 
+    cli_context = get_cli_context()
     snowpark = cli_context.project_definition.snowpark
     paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
@@ -373,18 +367,6 @@ def _deploy_single_object(
     }
 
 
-deprecated_pypi_download_option = typer.Option(
-    YesNoAsk.NO.value,
-    "--pypi-download",
-    help="Whether to download non-Anaconda packages from PyPi.",
-    hidden=True,
-    callback=deprecated_flag_callback_enum(
-        "--pypi-download flag is deprecated. Snowpark build command"
-        " always tries to download non-Anaconda packages from external index (PyPi by default)."
-    ),
-)
-
-
 def _read_snowflake_requrements_file(file_path: SecurePath):
     if not file_path.exists():
         return []
@@ -398,11 +380,6 @@ def build(
     allow_shared_libraries: bool = AllowSharedLibrariesOption,
     index_url: Optional[str] = IndexUrlOption,
     skip_version_check: bool = SkipVersionCheckOption,
-    deprecated_package_native_libraries: YesNoAsk = deprecated_allow_native_libraries_option(
-        "--package-native-libraries"
-    ),
-    deprecated_check_anaconda_for_pypi_deps: bool = DeprecatedCheckAnacondaForPyPiDependencies,
-    _deprecated_pypi_download: YesNoAsk = deprecated_pypi_download_option,
     **options,
 ) -> CommandResult:
     """
@@ -413,9 +390,7 @@ def build(
     pd = cli_context.project_definition
     if not pd.meets_version_requirement("2"):
         pd = _migrate_v1_snowpark_to_v2(pd)
-
-    if not deprecated_check_anaconda_for_pypi_deps:
-        ignore_anaconda = True
+    cli_context = get_cli_context()
     snowpark_paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
         snowpark_project_definition=cli_context.project_definition.snowpark,
@@ -449,13 +424,7 @@ def build(
             if package_utils.detect_and_log_shared_libraries(
                 download_result.downloaded_packages_details
             ):
-                # TODO: yes/no/ask logic should be removed in 3.0
-                if not (
-                    allow_shared_libraries
-                    or resolve_allow_shared_libraries_yes_no_ask(
-                        deprecated_package_native_libraries
-                    )
-                ):
+                if not allow_shared_libraries:
                     raise ClickException(
                         "Some packages contain shared (.so/.dll) libraries. "
                         "Try again with --allow-shared-libraries."

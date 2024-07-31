@@ -1353,30 +1353,101 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     assert native_app_manager.account_event_table == ""
 
 
+@pytest.mark.parametrize(
+    ["since", "expected_since_clause"],
+    [
+        ("", ""),
+        ("1 hour", "and timestamp >= sysdate() - interval '1 hour'"),
+    ],
+)
+@pytest.mark.parametrize(
+    ["until", "expected_until_clause"],
+    [
+        ("", ""),
+        ("20 minutes", "and timestamp <= sysdate() - interval '20 minutes'"),
+    ],
+)
+@pytest.mark.parametrize(
+    ["scopes", "expected_scopes_clause"],
+    [
+        ([], ""),
+        (["scope_1"], "and scope:name in ('scope_1')"),
+        (["scope_1", "scope_2"], "and scope:name in ('scope_1','scope_2')"),
+    ],
+)
+@pytest.mark.parametrize(
+    ["types", "expected_types_clause"],
+    [
+        ([], ""),
+        (["log"], "and record_type in ('log')"),
+        (["log", "span"], "and record_type in ('log','span')"),
+    ],
+)
+@pytest.mark.parametrize(
+    ["first", "expected_first_clause"],
+    [
+        (0, ""),
+        (10, "limit 10"),
+    ],
+)
+@pytest.mark.parametrize(
+    ["last", "expected_last_clause"],
+    [
+        (0, ""),
+        (20, "limit 20"),
+    ],
+)
 @mock.patch(
     NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE,
     return_value="db.schema.event_table",
     new_callable=mock.PropertyMock,
 )
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_get_events(mock_execute, mock_account_event_table, temp_dir, mock_cursor):
+def test_get_events(
+    mock_execute,
+    mock_account_event_table,
+    temp_dir,
+    mock_cursor,
+    since,
+    expected_since_clause,
+    until,
+    expected_until_clause,
+    types,
+    expected_types_clause,
+    scopes,
+    expected_scopes_clause,
+    first,
+    expected_first_clause,
+    last,
+    expected_last_clause,
+):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
         contents=[mock_snowflake_yml_file],
     )
 
+    events = [dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")] * 100
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")], []),
+                mock_cursor(events, []),
                 mock.call(
                     dedent(
                         f"""\
-                        select timestamp, value::varchar value
-                        from db.schema.event_table
-                        where resource_attributes:"snow.database.name" = 'MYAPP'
-                        order by timestamp asc;"""
+                        select * from (
+                            select timestamp, value::varchar value
+                            from db.schema.event_table
+                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            {expected_since_clause}
+                            {expected_until_clause}
+                            {expected_types_clause}
+                            {expected_scopes_clause}
+                            order by timestamp desc
+                            {expected_last_clause}
+                        ) order by timestamp asc
+                        {expected_first_clause}
+                        """
                     ),
                     cursor_class=DictCursor,
                 ),
@@ -1385,11 +1456,24 @@ def test_get_events(mock_execute, mock_account_event_table, temp_dir, mock_curso
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
-    assert native_app_manager.get_events() == [
-        dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")
-    ]
-    assert mock_execute.mock_calls == expected
+    def get_events():
+        native_app_manager = _get_na_manager()
+        return native_app_manager.get_events(
+            since_interval=since,
+            until_interval=until,
+            record_types=types,
+            scopes=scopes,
+            first=first,
+            last=last,
+        )
+
+    if first and last:
+        # Filtering on first and last events at the same time doesn't make sense
+        with pytest.raises(ValueError):
+            get_events()
+    else:
+        assert get_events() == events
+        assert mock_execute.mock_calls == expected
 
 
 @mock.patch(
@@ -1412,17 +1496,27 @@ def test_get_events_quoted_app_name(
         contents=[quoted_override_yml_file],
     )
 
+    events = [dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")] * 100
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")], []),
+                mock_cursor(events, []),
                 mock.call(
                     dedent(
                         f"""\
-                        select timestamp, value::varchar value
-                        from db.schema.event_table
-                        where resource_attributes:"snow.database.name" = 'My Application'
-                        order by timestamp asc;"""
+                        select * from (
+                            select timestamp, value::varchar value
+                            from db.schema.event_table
+                            where resource_attributes:"snow.database.name" = 'My Application'
+                        
+                        
+                        
+                        
+                            order by timestamp desc
+                        
+                        ) order by timestamp asc
+                        
+                        """
                     ),
                     cursor_class=DictCursor,
                 ),
@@ -1432,9 +1526,7 @@ def test_get_events_quoted_app_name(
     mock_execute.side_effect = side_effects
 
     native_app_manager = _get_na_manager()
-    assert native_app_manager.get_events() == [
-        dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")
-    ]
+    assert native_app_manager.get_events() == events
     assert mock_execute.mock_calls == expected
 
 

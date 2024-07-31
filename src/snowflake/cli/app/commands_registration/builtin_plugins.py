@@ -19,11 +19,6 @@ from snowflake.cli.plugins.init import plugin_spec as init_plugin_spec
 from snowflake.cli.plugins.nativeapp import plugin_spec as nativeapp_plugin_spec
 from snowflake.cli.plugins.notebook import plugin_spec as notebook_plugin_spec
 from snowflake.cli.plugins.object import plugin_spec as object_plugin_spec
-
-# TODO 3.0: remove this import
-from snowflake.cli.plugins.object_stage_deprecated import (
-    plugin_spec as object_stage_deprecated_plugin_spec,
-)
 from snowflake.cli.plugins.snowpark import plugin_spec as snowpark_plugin_spec
 from snowflake.cli.plugins.spcs import plugin_spec as spcs_plugin_spec
 from snowflake.cli.plugins.sql import plugin_spec as sql_plugin_spec
@@ -45,7 +40,6 @@ def get_builtin_plugin_name_to_plugin_spec():
         "streamlit": streamlit_plugin_spec,
         "git": git_plugin_spec,
         "notebook": notebook_plugin_spec,
-        "object-stage-deprecated": object_stage_deprecated_plugin_spec,
         "cortex": cortex_plugin_spec,
         "init": init_plugin_spec,
         "workspace": workspace_plugin_spec,

@@ -21,7 +21,7 @@ from typing import List, Optional
 import click
 import typer
 from click import UsageError
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import readable_file_option
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import PYTHON_3_12
@@ -79,7 +79,7 @@ def search(
     if not columns:
         columns = []
 
-    conn = cli_context.connection
+    conn = get_cli_context().connection
 
     search_service = (
         Root(conn)

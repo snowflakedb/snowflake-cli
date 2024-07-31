@@ -16,12 +16,16 @@ from unittest import mock
 from unittest.mock import call
 
 import pytest
-from snowflake.cli.api.cli_global_context import cli_context, cli_context_manager
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.commands import flags
 from snowflake.cli.api.exceptions import InvalidSchemaError
 
 
 def test_default_setup_of_global_connection():
+    cli_context_manager = get_cli_context_manager()
     assert cli_context_manager.connection_context.connection_name is None
     assert cli_context_manager.connection_context.account is None
     assert cli_context_manager.connection_context.database is None
@@ -39,6 +43,7 @@ def test_connection_details_callback():
     flags.RoleOption.callback("newValue")
     flags.WarehouseOption.callback("newValue2")
 
+    cli_context_manager = get_cli_context_manager()
     assert cli_context_manager.connection_context.connection_name is None
     assert cli_context_manager.connection_context.account is None
     assert cli_context_manager.connection_context.database is None
@@ -54,6 +59,7 @@ def test_connection_details_callback():
 
 @mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
 def test_connection_caching(mock_connect):
+    cli_context = get_cli_context()
     flags.RoleOption.callback("newValue")
     flags.WarehouseOption.callback("newValue2")
     _ = cli_context.connection
@@ -116,11 +122,11 @@ def test_connection_caching(mock_connect):
 
 @pytest.mark.parametrize("schema", ["my_schema", '".my_schema3"', '"my.schema"'])
 def test_schema_validation_ok(schema):
-    cli_context_manager.connection_context.set_schema(schema)
+    get_cli_context_manager().connection_context.set_schema(schema)
 
 
 @pytest.mark.parametrize("schema", ["db.schema"])
 def test_schema_validation_error(schema):
     with pytest.raises(InvalidSchemaError) as e:
-        cli_context_manager.connection_context.set_schema(schema)
+        get_cli_context_manager().connection_context.set_schema(schema)
         assert e.value.message == f"Invalid schema {schema}"

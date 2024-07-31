@@ -18,7 +18,7 @@ from typing import Dict, Optional
 
 from click import ClickException
 from jinja2 import StrictUndefined, loaders
-from snowflake.cli.api.cli_global_context import cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.rendering.jinja import (
     CONTEXT_KEY,
     IgnoreAttrEnvironment,
@@ -51,6 +51,6 @@ def snowflake_sql_jinja_render(content: str, data: Dict | None = None) -> str:
             f"{CONTEXT_KEY} in user defined data. The `{CONTEXT_KEY}` variable is reserved for CLI usage."
         )
 
-    context_data = cli_context.template_context
+    context_data = get_cli_context().template_context
     context_data.update(data)
     return get_sql_cli_jinja_env().from_string(content).render(**context_data)

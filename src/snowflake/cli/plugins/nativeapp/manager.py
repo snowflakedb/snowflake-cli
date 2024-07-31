@@ -350,9 +350,7 @@ class NativeAppManager(SqlExecutionMixin):
         Populates the local deploy root from artifact sources.
         """
         bundle_map = build_bundle(self.project_root, self.deploy_root, self.artifacts)
-        compiler = NativeAppCompiler(
-            na_project=self.na_project,
-        )
+        compiler = NativeAppCompiler(self.na_project.get_bundle_context())
         compiler.compile_artifacts()
         return bundle_map
 
@@ -714,18 +712,61 @@ class NativeAppManager(SqlExecutionMixin):
                         f"drop stage if exists {self.scratch_stage_fqn}"
                     )
 
-    def get_events(self) -> list[dict]:
+    def get_events(
+        self,
+        since_interval: str = "",
+        until_interval: str = "",
+        record_types: list[str] | None = None,
+        scopes: list[str] | None = None,
+        first: int = 0,
+        last: int = 0,
+    ) -> list[dict]:
+        record_types = record_types or []
+        scopes = scopes or []
+
+        if first and last:
+            raise ValueError("first and last cannot be used together")
+
         if not self.account_event_table:
             raise NoEventTableForAccount()
 
         # resource_attributes:"snow.database.name" uses the unquoted/uppercase app name
         app_name = unquote_identifier(self.app_name)
+        since_clause = (
+            f"and timestamp >= sysdate() - interval '{since_interval}'"
+            if since_interval
+            else ""
+        )
+        until_clause = (
+            f"and timestamp <= sysdate() - interval '{until_interval}'"
+            if until_interval
+            else ""
+        )
+        type_in_values = ",".join(f"'{v}'" for v in record_types)
+        types_clause = (
+            f"and record_type in ({type_in_values})" if type_in_values else ""
+        )
+        scope_in_values = ",".join(f"'{v}'" for v in scopes)
+        scopes_clause = (
+            f"and scope:name in ({scope_in_values})" if scope_in_values else ""
+        )
+        first_clause = f"limit {first}" if first else ""
+        last_clause = f"limit {last}" if last else ""
         query = dedent(
             f"""\
-            select timestamp, value::varchar value
-            from {self.account_event_table}
-            where resource_attributes:"snow.database.name" = '{app_name}'
-            order by timestamp asc;"""
+            select * from (
+                select timestamp, value::varchar value
+                from {self.account_event_table}
+                where resource_attributes:"snow.database.name" = '{app_name}'
+                {since_clause}
+                {until_clause}
+                {types_clause}
+                {scopes_clause}
+                order by timestamp desc
+                {last_clause}
+            ) order by timestamp asc
+            {first_clause}
+            """
         )
         try:
             return self._execute_query(query, cursor_class=DictCursor).fetchall()

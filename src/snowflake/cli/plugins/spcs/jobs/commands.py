@@ -31,7 +31,10 @@ app = SnowTyperFactory(
 @app.command(requires_connection=True)
 def create(
     compute_pool: str = typer.Option(
-        ..., "--compute-pool", help="Name of the pool in which to run the job."
+        ...,
+        "--compute-pool",
+        help="Name of the pool in which to run the job.",
+        show_default=False,
     ),
     spec_path: Path = typer.Option(
         ...,
@@ -40,6 +43,7 @@ def create(
         file_okay=True,
         dir_okay=False,
         exists=True,
+        show_default=False,
     ),
     **options,
 ) -> CommandResult:
@@ -52,9 +56,9 @@ def create(
 
 @app.command(requires_connection=True)
 def logs(
-    identifier: str = typer.Argument(..., help="Job id"),
+    identifier: str = typer.Argument(..., help="Job id", show_default=False),
     container_name: str = typer.Option(
-        ..., "--container-name", help="Name of the container."
+        ..., "--container-name", help="Name of the container.", show_default=False
     ),
     **options,
 ):
@@ -69,7 +73,8 @@ def logs(
 
 @app.command(requires_connection=True)
 def status(
-    identifier: str = typer.Argument(..., help="ID of the job."), **options
+    identifier: str = typer.Argument(..., help="ID of the job.", show_default=False),
+    **options,
 ) -> CommandResult:
     """
     Returns the status of a named Snowpark Container Services job.

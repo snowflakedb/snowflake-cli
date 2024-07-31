@@ -20,6 +20,7 @@ from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     ProcessorMapping,
 )
+from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
     ArtifactProcessor,
     UnsupportedArtifactProcessorError,
@@ -31,7 +32,6 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
 )
 from snowflake.cli.plugins.nativeapp.feature_flags import FeatureFlag
-from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 
 SNOWPARK_PROCESSOR = "snowpark"
 NA_SETUP_PROCESSOR = "native-app-setup"
@@ -53,9 +53,9 @@ class NativeAppCompiler:
 
     def __init__(
         self,
-        na_project: NativeAppProjectModel,
+        bundle_ctx: BundleContext,
     ):
-        self._na_project = na_project
+        self._bundle_ctx = bundle_ctx
         # dictionary of all processors created and shared between different artifact objects.
         self.cached_processors: Dict[str, ArtifactProcessor] = {}
 
@@ -69,12 +69,12 @@ class NativeAppCompiler:
             return
 
         with cc.phase("Invoking artifact processors"):
-            if self._na_project.generated_root.exists():
+            if self._bundle_ctx.generated_root.exists():
                 raise ClickException(
-                    f"Path {self._na_project.generated_root} already exists. Please choose a different name for your generated directory in the project definition file."
+                    f"Path {self._bundle_ctx.generated_root} already exists. Please choose a different name for your generated directory in the project definition file."
                 )
 
-            for artifact in self._na_project.artifacts:
+            for artifact in self._bundle_ctx.artifacts:
                 for processor in artifact.processors:
                     if self._is_enabled(processor):
                         artifact_processor = self._try_create_processor(
@@ -110,15 +110,13 @@ class NativeAppCompiler:
             # No registered processor with the specified name
             return None
 
-        current_processor = processor_factory(
-            na_project=self._na_project,
-        )
+        current_processor = processor_factory(self._bundle_ctx)
         self.cached_processors[processor_name] = current_processor
 
         return current_processor
 
     def _should_invoke_processors(self):
-        for artifact in self._na_project.artifacts:
+        for artifact in self._bundle_ctx.artifacts:
             for processor in artifact.processors:
                 if self._is_enabled(processor):
                     return True
