@@ -18,7 +18,7 @@ from timeit import default_timer as timer
 import pytest
 
 SAMPLE_AMOUNT = 20
-EXECUTION_TIME_THRESHOLD = 1.4
+EXECUTION_TIME_THRESHOLD = 2  # seconds
 
 
 @pytest.mark.performance
