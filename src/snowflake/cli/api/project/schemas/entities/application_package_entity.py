@@ -22,11 +22,14 @@ from snowflake.cli.api.project.schemas.entities.common import (
 )
 from snowflake.cli.api.project.schemas.native_app.package import DistributionOptions
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
-from snowflake.cli.api.project.schemas.updatable_model import IdentifierField
+from snowflake.cli.api.project.schemas.updatable_model import (
+    DiscriminatorField,
+    IdentifierField,
+)
 
 
 class ApplicationPackageEntity(EntityBase):
-    type: Literal["application package"]  # noqa: A003
+    type: Literal["application package"] = DiscriminatorField()  # noqa: A003
     name: str = Field(
         title="Name of the application package created when this entity is deployed"
     )

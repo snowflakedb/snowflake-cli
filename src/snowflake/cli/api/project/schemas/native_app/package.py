@@ -53,3 +53,11 @@ class Package(UpdatableModel):
                 "package.scripts field should contain unique values. Check the list for duplicates and try again"
             )
         return input_list
+
+
+class PackageV11(Package):
+    # Templated defaults only supported in v1.1+
+    name: Optional[str] = IdentifierField(
+        title="Name of the application package created when you run the snow app run command",
+        default="<% fn.id_concat(ctx.native_app.name, '_pkg_', fn.clean_id(fn.get_username('unknown_user'))) %>",
+    )

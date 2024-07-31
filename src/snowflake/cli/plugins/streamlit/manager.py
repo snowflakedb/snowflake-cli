@@ -121,10 +121,11 @@ class StreamlitManager(SqlExecutionMixin):
         # for backwards compatibility - quoted stage path might be case-sensitive
         # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers
         streamlit_name_for_root_location = streamlit_id.name
-
+        use_versioned_stage = FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()
         if (
             experimental_behaviour_enabled()
             or FeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled()
+            or use_versioned_stage
         ):
             """
             1. Create streamlit object
@@ -141,19 +142,30 @@ class StreamlitManager(SqlExecutionMixin):
                 title=title,
             )
             try:
-                self._execute_query(
-                    f"ALTER streamlit {streamlit_id.identifier} CHECKOUT"
-                )
+                if use_versioned_stage:
+                    self._execute_query(
+                        f"ALTER STREAMLIT {streamlit_id.identifier} ADD LIVE VERSION FROM LAST"
+                    )
+                elif not FeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled():
+                    self._execute_query(
+                        f"ALTER streamlit {streamlit_id.identifier} CHECKOUT"
+                    )
             except ProgrammingError as e:
-                # If an error is raised because a CHECKOUT has already occurred,
-                # simply skip it and continue
-                if "Checkout already exists" in str(e):
+                # If an error is raised because a CHECKOUT has already occurred or a LIVE VERSION already exists, simply skip it and continue
+                if "Checkout already exists" in str(
+                    e
+                ) or "There is already a live version" in str(e):
                     log.info("Checkout already exists, continuing")
                 else:
                     raise
+
             stage_path = streamlit_id.identifier
             embedded_stage_name = f"snow://streamlit/{stage_path}"
-            root_location = f"{embedded_stage_name}/default_checkout"
+            if use_versioned_stage:
+                # "LIVE" is the only supported version for now, but this may change later.
+                root_location = f"{embedded_stage_name}/versions/live"
+            else:
+                root_location = f"{embedded_stage_name}/default_checkout"
 
             self._put_streamlit_files(
                 root_location,
