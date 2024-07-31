@@ -818,12 +818,13 @@ def _new_events_only(previous_events: list[dict], new_events: list[dict]) -> lis
     # but only once in previous_events, it should still
     # appear twice in new_events at the end
     new_events = new_events.copy()
-    for event in previous_events:
-        if event["TIMESTAMP"] == overlap_time:
-            # No need to handle ValueError here since we know
-            # that events that pass the above if check will
-            # either be in both lists or in new_events only
-            new_events.remove(event)
+    for event in reversed(previous_events):
+        if event["TIMESTAMP"] < overlap_time:
+            break
+        # No need to handle ValueError here since we know
+        # that events that pass the above if check will
+        # either be in both lists or in new_events only
+        new_events.remove(event)
     return new_events
 
 
