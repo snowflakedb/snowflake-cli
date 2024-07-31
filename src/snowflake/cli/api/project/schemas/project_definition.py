@@ -172,6 +172,9 @@ class DefinitionV20(_ProjectDefinitionBase):
         default=None,
     )
 
+    def get_entities_by_type(self, entity_type: str):
+        return {i: e for i, e in self.entities.items() if e.get_type() == entity_type}
+
 
 def build_project_definition(**data) -> ProjectDefinition:
     """

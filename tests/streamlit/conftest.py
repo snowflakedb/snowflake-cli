@@ -12,20 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import annotations
+import pytest
 
-from typing import Union, get_args
 
-from snowflake.cli.api.project.schemas.entities.application_entity import (
-    ApplicationEntity,
-)
-from snowflake.cli.api.project.schemas.entities.application_package_entity import (
-    ApplicationPackageEntity,
-)
-from snowflake.cli.api.project.schemas.entities.streamlit_entity import StreamlitEntity
-
-Entity = Union[ApplicationEntity, ApplicationPackageEntity, StreamlitEntity]
-
-ALL_ENTITIES = [*get_args(Entity)]
-
-v2_entity_types_map = {e.get_type(): e for e in ALL_ENTITIES}
+@pytest.fixture(autouse=True)
+def global_setup(monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2", "true")
