@@ -19,6 +19,7 @@ echo ${DEB_PGK_FILE_NAME}
 echo ${RPM_PGK_FILE_NAME}
 
 echo "-----------------"
+cd ${ROOT_DIR}
 
 echo "Building deb for version ${VERSION} on ${ARCH}..."
 echo ${THIS_DIR}
