@@ -196,14 +196,14 @@ def _migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
         pages_dir = default_pages_dir
 
     # Build V2 definition
-    artefacts = [
+    artifacts = [
         pd.streamlit.main_file,
         environment_file,
         pages_dir,
     ]
-    artefacts = [a for a in artefacts if a is not None]
+    artifacts = [a for a in artifacts if a is not None]
     if pd.streamlit.additional_source_files:
-        artefacts.extend(pd.streamlit.additional_source_files)
+        artifacts.extend(pd.streamlit.additional_source_files)
 
     data = {
         "definition_version": "2",
@@ -218,7 +218,7 @@ def _migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
                 "main_file": str(pd.streamlit.main_file),
                 "pages_dir": str(pd.streamlit.pages_dir),
                 "stage": pd.streamlit.stage,
-                "artifacts": artefacts,
+                "artifacts": artifacts,
             }
         },
     }

@@ -59,10 +59,10 @@ class StreamlitEntity(EntityBase, ObjectIdentifierModel(object_name="Streamlit")
         if not self.artifacts:
             return self
 
-        for artefact in self.artifacts:
-            if not artefact.exists():
+        for artifact in self.artifacts:
+            if not artifact.exists():
                 raise ValueError(
-                    f"Specified artefact {artefact} does not exist locally."
+                    f"Specified artifact {artifact} does not exist locally."
                 )
 
         return self
