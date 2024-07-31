@@ -26,18 +26,38 @@ TEST_ENV = generate_user_env(USER_NAME)
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
-def test_app_events_cant_specify_first_and_last(
-    test_project, runner, project_directory
+@pytest.mark.parametrize(
+    ["flag_names", "command"],
+    [
+        [
+            ["--first", "--last"],
+            ["--first", "10", "--last", "20"],
+        ],
+        [
+            ["--follow", "--first"],
+            ["--first", "10", "--follow"],
+        ],
+        [
+            ["--follow", "--until"],
+            ["--until", "5 minutes", "--follow"],
+        ],
+    ],
+)
+def test_app_events_mutually_exclusive_options(
+    test_project, runner, project_directory, flag_names, command
 ):
     with project_directory(test_project):
         # The integration test account doesn't have an event table set up
         # but this test is still useful to validate the negative case
         result = runner.invoke_with_connection(
-            ["app", "events", "--first", "10", "--last", "20"],
+            ["app", "events", *command],
             env=TEST_ENV,
         )
         assert result.exit_code == 1, result.output
-        assert "--first and --last cannot be used together." in result.output
+        assert (
+            f"{flag_names[0]} and {flag_names[1]} cannot be used together."
+            in result.output
+        )
 
 
 @pytest.mark.integration
