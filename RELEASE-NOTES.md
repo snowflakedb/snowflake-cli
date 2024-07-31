@@ -26,6 +26,7 @@
 ## New additions
 
 ## Fixes and improvements
+* `snow app run` and `snow app deploy` now correctly determine modified status for large files uploaded to AWS S3
 
 
 # v2.7.0
