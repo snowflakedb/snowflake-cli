@@ -119,7 +119,7 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
-test = ["pytest -m integration -n4 --dist=loadfile"]
+test = ["pytest -m integration -n6 --dist=worksteal"]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.10", "3.11", "3.12"]
