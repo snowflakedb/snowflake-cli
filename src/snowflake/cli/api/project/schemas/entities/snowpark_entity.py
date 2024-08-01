@@ -69,4 +69,4 @@ class ProcedureEntity(SnowparkEntity, ObjectIdentifierModel("procedure")):  # ty
 
 
 class FunctionEntity(SnowparkEntity, ObjectIdentifierModel("function")):  # type: ignore
-    type: Literal["function"]  # noqa: A003
+    type: Literal["function"]  = DiscriminatorField()  # noqa: A003
