@@ -22,7 +22,6 @@
 ## New additions
 
 ## Fixes and improvements
-* `snow app run` and `snow app deploy` now correctly determine modified status for large files uploaded to AWS S3
 
 
 # v2.7.0
@@ -49,6 +48,7 @@ but should be replaced with `snow init`
 * Updated post_deploy SQL script default database to be the application database
 * Handle `NULL` md5 values correctly when returned by stage storage backends
 * Regionless host URLs are now supported when generating Snowsight URLs
+* `snow app run` and `snow app deploy` now correctly determine modified status for large files uploaded to AWS S3
 
 # v2.6.1
 ## Backward incompatibility
