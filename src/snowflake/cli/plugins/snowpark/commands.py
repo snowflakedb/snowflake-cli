@@ -174,7 +174,7 @@ def deploy(
         paths.snowflake_requirements_file
     )
     stage_names = {
-        entity.stage_name for entity in [*functions.values(), *procedures.values()]
+        entity.stage for entity in [*functions.values(), *procedures.values()]
     }
     stage_manager = StageManager()
     project_name = (
@@ -545,7 +545,7 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
     for function in pd.snowpark.functions:
         function_dict = {
             "type": "function",
-            "stage_name": pd.snowpark.stage_name,
+            "stage": pd.snowpark.stage_name,
             "src": pd.snowpark.src,
             "handler": function.handler,
             "returns": function.returns,
@@ -555,13 +555,15 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
             "secrets": function.secrets,
             "imports": function.imports,
             "name": function.name,
+            "database": function.database,
+            "schema": function.schema_name,
         }
         data["entities"][function.name] = function_dict
 
     for procedure in pd.snowpark.procedures:
         procedure_dict = {
             "type": "procedure",
-            "stage_name": pd.snowpark.stage_name,
+            "stage": pd.snowpark.stage_name,
             "src": pd.snowpark.src,
             "handler": procedure.handler,
             "returns": procedure.returns,
@@ -572,6 +574,8 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
             "imports": procedure.imports,
             "execute_as_caller": procedure.execute_as_caller,
             "name": procedure.name,
+            "database": procedure.database,
+            "schema": procedure.schema_name,
         }
         data["entities"][procedure.name] = procedure_dict
 

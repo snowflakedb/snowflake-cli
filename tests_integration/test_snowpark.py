@@ -20,6 +20,7 @@ from textwrap import dedent
 
 import pytest
 
+
 from tests_integration.testing_utils import (
     SnowparkTestSteps,
 )
@@ -852,7 +853,7 @@ def test_ignore_anaconda_uses_version_from_zip(
 
 @pytest.mark.integration
 def test_incorrect_requirements(project_directory, runner, alter_requirements_txt):
-    from pkg_resources._vendor.packaging.requirements import InvalidRequirement
+    from pkg_resources.extern.packaging.requirements import InvalidRequirement
 
     with project_directory("snowpark") as tmp_dir:
         alter_requirements_txt(
@@ -860,10 +861,10 @@ def test_incorrect_requirements(project_directory, runner, alter_requirements_tx
         )
         with pytest.raises(InvalidRequirement) as err:
             runner.invoke_with_connection(["snowpark", "build"])
-            assert (
-                "Expected end or semicolon (after name and no valid version specifier)"
-                in str(err)
-            )
+        assert (
+            "Expected end or semicolon (after name and no valid version specifier)"
+            in str(err)
+        )
 
 
 @pytest.fixture

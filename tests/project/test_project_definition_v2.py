@@ -164,15 +164,18 @@ from tests.testing_utils.mock_config import mock_config_key
         # Snowpark fields
         [
             {
+                "defaults": {"stage": "dev"},
                 "entities": {
                     "function1": {
                         "type": "function",
+                        "name": "name",
                         "handler": "app.hello",
                         "returns": "string",
                         "signature": [{"name": "name", "type": "string"}],
                         "runtime": "3.8",
+                        "src": "src",
                     }
-                }
+                },
             },
             None,
         ],

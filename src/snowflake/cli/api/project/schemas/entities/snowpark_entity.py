@@ -49,7 +49,7 @@ class SnowparkEntity(EntityBase):
         title="Stage and path to previously uploaded files you want to import",
         default=[],
     )
-    stage_name: str = Field(title="Stage in which artifacts will be stored")
+    stage: str = Field(title="Stage in which artifacts will be stored")
     src: str = Field(title="Folder where your code should be located")
 
     @field_validator("runtime")

@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
@@ -43,9 +43,6 @@ from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
 
 AnnotatedEntity = Annotated[Entity, Field(discriminator="type")]
-EntityOrList = Union[
-    AnnotatedEntity, List[AnnotatedEntity]
-]  # TODO: Probablyu should delete this line
 
 
 @dataclass
@@ -151,8 +148,8 @@ class DefinitionV20(_ProjectDefinitionBase):
     @field_validator("entities", mode="after")
     @classmethod
     def validate_entities(
-        cls, entities: Dict[str, EntityOrList]
-    ) -> Dict[str, EntityOrList]:
+        cls, entities: Dict[str, AnnotatedEntity]
+    ) -> Dict[str, AnnotatedEntity]:
         for key, entity in entities.items():
             # TODO Automatically detect TargetFields to validate
             if isinstance(entity, list):
@@ -163,7 +160,9 @@ class DefinitionV20(_ProjectDefinitionBase):
         return entities
 
     @classmethod
-    def _validate_single_entity(cls, entity: Entity, entities: Dict[str, EntityOrList]):
+    def _validate_single_entity(
+        cls, entity: Entity, entities: Dict[str, AnnotatedEntity]
+    ):
         if entity.type == ApplicationEntity.get_type():
             if isinstance(entity.from_, TargetField):
                 target_key = entity.from_.target
