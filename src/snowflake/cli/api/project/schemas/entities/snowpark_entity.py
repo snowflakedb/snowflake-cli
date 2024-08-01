@@ -18,6 +18,7 @@ from typing import Dict, List, Literal, Optional, Union
 
 from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.entities.common import EntityBase
+from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierModel
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 
 
@@ -58,7 +59,7 @@ class SnowparkEntity(EntityBase):
         return runtime_input
 
 
-class ProcedureEntity(SnowparkEntity):
+class ProcedureEntity(SnowparkEntity, ObjectIdentifierModel("procedure")):  # type: ignore
     type: Literal["procedure"]  # noqa: A003
     execute_as_caller: Optional[bool] = Field(
         title="Determine whether the procedure is executed with the privileges of "
@@ -67,5 +68,5 @@ class ProcedureEntity(SnowparkEntity):
     )
 
 
-class FunctionEntity(SnowparkEntity):
+class FunctionEntity(SnowparkEntity, ObjectIdentifierModel("function")):  # type: ignore
     type: Literal["function"]  # noqa: A003

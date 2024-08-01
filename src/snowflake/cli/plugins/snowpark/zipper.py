@@ -17,7 +17,7 @@ from __future__ import annotations
 import fnmatch
 import logging
 from pathlib import Path
-from typing import Iterator, Literal, List, Tuple
+from typing import Iterator, List, Literal
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from snowflake.cli.api.secure_path import SecurePath
@@ -61,7 +61,10 @@ def add_file_to_existing_zip(zip_file: str, file: str):
 
 
 def zip_dir(
-    source: Path | List[Path], dest_zip: Path, project_root: SecurePath, mode: Literal["r", "w", "x", "a"] = "w"
+    source: Path | List[Path],
+    dest_zip: Path,
+    project_root: SecurePath,
+    mode: Literal["r", "w", "x", "a"] = "w",
 ) -> None:
 
     if isinstance(source, Path):
@@ -77,7 +80,7 @@ def zip_dir(
             package_zip.write(file, arcname=file.relative_to(project_root.path))
 
 
-def _to_be_zipped(file: Tuple[Path, Path]) -> bool:
+def _to_be_zipped(file: Path) -> bool:
     for pattern in IGNORED_FILES:
         # This has to be a string because of fnmatch
         file_as_str = str(file)

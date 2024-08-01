@@ -47,6 +47,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.project.schemas.entities.snowpark_entity import SnowparkEntity
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
@@ -221,9 +222,9 @@ def deploy(
 
 
 def _assert_object_definitions_are_correct(
-    object_type, object_definitions: List[FunctionOrProcedure]
+    object_type, object_definitions: Dict[str, SnowparkEntity]
 ):
-    for definition in object_definitions:
+    for name, definition in object_definitions.items():
         database = definition.database
         schema = definition.schema_name
         name = definition.name
@@ -545,6 +546,7 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
             "external_access_integrations": function.external_access_integrations,
             "secrets": function.secrets,
             "imports": function.imports,
+            "name": function.name,
         }
         data["entities"][function.name] = function_dict
 
@@ -561,6 +563,7 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
             "secrets": procedure.secrets,
             "imports": procedure.imports,
             "execute_as_caller": procedure.execute_as_caller,
+            "name": procedure.name,
         }
         data["entities"][procedure.name] = procedure_dict
 

@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import List
 
 from snowflake.cli.api.project.schemas.project_definition import DefinitionV20
-from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.secure_path import SecurePath
 
 _DEFINED_REQUIREMENTS = "requirements.txt"
@@ -36,12 +35,19 @@ class SnowparkPackagePaths:
         cls, project_root: SecurePath, snowpark_project_definition: DefinitionV20
     ) -> "SnowparkPackagePaths":
         sources = set()
-        entities = snowpark_project_definition.get_entities_by_type("function") | snowpark_project_definition.get_entities_by_type("procedure")
+        entities = snowpark_project_definition.get_entities_by_type(
+            "function"
+        ) | snowpark_project_definition.get_entities_by_type("procedure")
         for name, entity in entities.items():
             sources.add(entity.src)
 
         return cls(
-            sources=[cls._get_snowpark_project_source_absolute_path(project_root,SecurePath(source)) for source in sources],
+            sources=[
+                cls._get_snowpark_project_source_absolute_path(
+                    project_root, SecurePath(source)
+                )
+                for source in sources
+            ],
             artifact_file=cls._get_snowpark_project_artifact_absolute_path(
                 project_root=project_root,
             ),
