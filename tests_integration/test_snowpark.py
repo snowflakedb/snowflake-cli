@@ -853,7 +853,7 @@ def test_ignore_anaconda_uses_version_from_zip(
 
 @pytest.mark.integration
 def test_incorrect_requirements(project_directory, runner, alter_requirements_txt):
-    from pkg_resources.extern.packaging.requirements import InvalidRequirement
+    from pkg_resources._vendor.packaging.requirements import InvalidRequirement
 
     with project_directory("snowpark") as tmp_dir:
         alter_requirements_txt(
