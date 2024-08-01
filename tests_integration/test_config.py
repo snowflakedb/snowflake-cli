@@ -15,9 +15,13 @@
 import pytest
 from snowflake.connector.compat import IS_WINDOWS
 
+from tests_integration.conftest import WORLD_READABLE_CONFIG
+
 
 @pytest.mark.integration
 def test_config_file_permissions_warning(runner, recwarn):
+    runner.use_config(WORLD_READABLE_CONFIG)
+
     result = runner.invoke_with_config(["connection", "list"])
     assert result.exit_code == 0, result.output
 
