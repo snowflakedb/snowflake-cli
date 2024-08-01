@@ -60,7 +60,7 @@ class SnowparkEntity(EntityBase):
 
 
 class ProcedureEntity(SnowparkEntity, ObjectIdentifierModel("procedure")):  # type: ignore
-    type: Literal["procedure"]  # noqa: A003
+    type: Literal["procedure"] = DiscriminatorField()  # noqa: A003
     execute_as_caller: Optional[bool] = Field(
         title="Determine whether the procedure is executed with the privileges of "
         "the owner (you) or with the privileges of the caller",
