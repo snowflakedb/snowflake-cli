@@ -74,6 +74,11 @@ jobs:
         github.event.client_payload.slash_command.args.named.sha
       )
     steps:
+      - name: Debug values
+        run: |
+          echo ${{ github.event_name }}
+          echo ${{ github.event.pull_request.head.repo.full_name }}
+          echo ${{ github.repository }}
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
