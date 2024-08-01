@@ -19,10 +19,13 @@ from typing import List, Literal, Optional
 from pydantic import Field, model_validator
 from snowflake.cli.api.project.schemas.entities.common import EntityBase
 from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierModel
+from snowflake.cli.api.project.schemas.updatable_model import (
+    DiscriminatorField,
+)
 
 
 class StreamlitEntity(EntityBase, ObjectIdentifierModel(object_name="Streamlit")):  # type: ignore
-    type: Literal["streamlit"]  # noqa: A003
+    type: Literal["streamlit"] = DiscriminatorField()  # noqa: A003
     title: Optional[str] = Field(
         title="Human-readable title for the Streamlit dashboard", default=None
     )
@@ -59,10 +62,10 @@ class StreamlitEntity(EntityBase, ObjectIdentifierModel(object_name="Streamlit")
         if not self.artifacts:
             return self
 
-        for artefact in self.artifacts:
-            if not artefact.exists():
+        for artifact in self.artifacts:
+            if not artifact.exists():
                 raise ValueError(
-                    f"Specified artefact {artefact} does not exist locally."
+                    f"Specified artifact {artifact} does not exist locally."
                 )
 
         return self

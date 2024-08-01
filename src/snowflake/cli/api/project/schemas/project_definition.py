@@ -32,11 +32,13 @@ from snowflake.cli.api.project.schemas.entities.entities import (
     Entity,
     v2_entity_types_map,
 )
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
+from snowflake.cli.api.project.schemas.native_app.native_app import (
+    NativeApp,
+    NativeAppV11,
+)
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
-from snowflake.cli.api.utils.models import ProjectEnvironment
 from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
 
@@ -104,21 +106,13 @@ class DefinitionV10(_ProjectDefinitionBase):
 
 
 class DefinitionV11(DefinitionV10):
-    env: Union[Dict[str, str], ProjectEnvironment, None] = Field(
-        title="Environment specification for this project.",
-        default=None,
-        validation_alias="env",
-        union_mode="smart",
+    native_app: Optional[NativeAppV11] = Field(
+        title="Native app definitions for the project", default=None
     )
-
-    @field_validator("env")
-    @classmethod
-    def _convert_env(
-        cls, env: Union[Dict, ProjectEnvironment, None]
-    ) -> ProjectEnvironment:
-        if isinstance(env, ProjectEnvironment):
-            return env
-        return ProjectEnvironment(default_env=(env or {}), override_env={})
+    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
+        title="Default environment specification for this project.",
+        default=None,
+    )
 
 
 class DefinitionV20(_ProjectDefinitionBase):
@@ -129,7 +123,7 @@ class DefinitionV20(_ProjectDefinitionBase):
         default=None,
     )
 
-    env: Union[Dict[str, str], ProjectEnvironment, None] = Field(
+    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
         title="Environment specification for this project.",
         default=None,
         validation_alias="env",
@@ -173,10 +167,10 @@ class DefinitionV20(_ProjectDefinitionBase):
     @classmethod
     def _validate_single_entity(cls, entity: Entity, entities: Dict[str, EntityOrList]):
         if entity.type == ApplicationEntity.get_type():
-            if isinstance(entity.from_.target, TargetField):
-                target_key = str(entity.from_.target)
-                target_class = entity.from_.__class__.model_fields["target"]
-                target_type = target_class.annotation.__args__[0]
+            if isinstance(entity.from_, TargetField):
+                target_key = entity.from_.target
+                target_object = entity.from_
+                target_type = target_object.get_type()
                 cls._validate_target_field(target_key, target_type, entities)
 
     @classmethod
@@ -185,13 +179,13 @@ class DefinitionV20(_ProjectDefinitionBase):
     ):
         if target_key not in entities:
             raise ValueError(f"No such target: {target_key}")
-        else:
-            # Validate the target type
-            actual_target_type = entities[target_key].__class__
-            if target_type and target_type is not actual_target_type:
-                raise ValueError(
-                    f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
-                )
+
+        # Validate the target type
+        actual_target_type = entities[target_key].__class__
+        if target_type and target_type is not actual_target_type:
+            raise ValueError(
+                f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
+            )
 
     @field_validator("env")
     @classmethod
@@ -206,7 +200,7 @@ class DefinitionV20(_ProjectDefinitionBase):
         return {i: e for i, e in self.entities.items() if e.get_type() == entity_type}
 
 
-def build_project_definition(**data):
+def build_project_definition(**data) -> ProjectDefinition:
     """
     Returns a ProjectDefinition instance with a version matching the provided definition_version value
     """

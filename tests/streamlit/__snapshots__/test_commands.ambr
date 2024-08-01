@@ -9,7 +9,7 @@
   | 'main_file': 'streamlit_app.py', 'name': 'test_streamlit_deploy_snowcli',    |
   | 'query_warehouse': 'xsmall', 'stage': 'streamlit', 'title': 'My Fancy        |
   | Streamlit', 'type': 'streamlit'}'. This caused: Value error, Specified       |
-  | artefact foo_bar.py does not exist locally.                                  |
+  | artifact foo_bar.py does not exist locally.                                  |
   +------------------------------------------------------------------------------+
   
   '''

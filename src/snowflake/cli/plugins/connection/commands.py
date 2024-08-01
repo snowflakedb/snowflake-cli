@@ -219,6 +219,14 @@ def add(
         prompt="Path to private key file",
         help="Path to file containing private key",
     ),
+    token_file_path: str = typer.Option(
+        EmptyInput(),
+        "--token-file-path",
+        "-t",
+        click_type=OptionalPrompt(),
+        prompt="Path to token file",
+        help="Path to file with an OAuth token that should be used when connecting to Snowflake",
+    ),
     set_as_default: bool = typer.Option(
         False,
         "--default",
@@ -246,6 +254,7 @@ def add(
             role=role,
             authenticator=authenticator,
             private_key_path=private_key_path,
+            token_file_path=token_file_path,
         ),
     )
     if set_as_default:

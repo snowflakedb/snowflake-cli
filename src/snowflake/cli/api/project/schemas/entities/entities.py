@@ -27,6 +27,7 @@ from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
     ProcedureEntity,
 )
 from snowflake.cli.api.project.schemas.entities.streamlit_entity import StreamlitEntity
+from snowflake.cli.api.project.schemas.entities.streamlit_entity import StreamlitEntity
 
 Entity = Union[
     ApplicationEntity,

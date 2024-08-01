@@ -40,6 +40,7 @@ but should be replaced with `snow init`
 * Added connection option `--token-file-path` allowing passing OAuth token using a file. The function is also
   supported by setting `token_file_path` in connection definition.
 * Support for Python remote execution via `snow stage execute` and `snow git execute` similar to existing EXECUTE IMMEDIATE support.
+* Added support for project definition file defaults in templates
 * Added support for autocomplete in `--connection` flag.
 * Added `snow init` command, which supports initializing projects with external templates.
 
@@ -52,6 +53,7 @@ but should be replaced with `snow init`
 * Updated post_deploy SQL script default database to be the application database
 * Handle `NULL` md5 values correctly when returned by stage storage backends
 * Regionless host URLs are now supported when generating Snowsight URLs
+* `snow app run` and `snow app deploy` now correctly determine modified status for large files uploaded to AWS S3
 
 # v2.6.1
 ## Backward incompatibility
