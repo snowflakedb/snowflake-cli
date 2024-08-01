@@ -134,11 +134,11 @@ def deploy(
 
     paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
-        snowpark_project_definition=snowpark,
+        snowpark_project_definition=pd,
     )
 
-    procedures = snowpark.procedures
-    functions = snowpark.functions
+    procedures = pd.get_entities_by_type("procedure")
+    functions = pd.get_entities_by_type("function")
 
     if not procedures and not functions:
         raise ClickException(
@@ -393,7 +393,8 @@ def build(
         project_root=SecurePath(cli_context.project_root),
         snowpark_project_definition=pd,
     )
-    log.info("Building package using sources from: %s", snowpark_paths.source.path)
+    log.info("Building package using sources from:")
+    log.info(",".join(str(s) for s in snowpark_paths.sources))
 
     anaconda_packages_manager = AnacondaPackagesManager()
 
@@ -434,14 +435,16 @@ def build(
                 )
 
         zip_dir(
-            source=snowpark_paths.source.path,
+            source=snowpark_paths.sources_paths,
             dest_zip=snowpark_paths.artifact_file.path,
+            project_root=SecurePath(cli_context.project_root),
         )
         if any(packages_dir.iterdir()):
             # if any packages were generated, append them to the .zip
             zip_dir(
                 source=packages_dir.path,
                 dest_zip=snowpark_paths.artifact_file.path,
+                project_root=packages_dir,
                 mode="a",
             )
 

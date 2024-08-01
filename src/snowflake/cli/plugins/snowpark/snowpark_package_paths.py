@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from dataclasses import dataclass
+from pathlib import Path
+from typing import List
 
 from snowflake.cli.api.project.schemas.project_definition import DefinitionV20
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
@@ -24,7 +26,7 @@ _REQUIREMENTS_SNOWFLAKE = "requirements.snowflake.txt"
 
 @dataclass
 class SnowparkPackagePaths:
-    source: SecurePath
+    sources: List[SecurePath]
     artifact_file: SecurePath
     defined_requirements_file: SecurePath = SecurePath(_DEFINED_REQUIREMENTS)
     snowflake_requirements_file: SecurePath = SecurePath(_REQUIREMENTS_SNOWFLAKE)
@@ -33,15 +35,15 @@ class SnowparkPackagePaths:
     def for_snowpark_project(
         cls, project_root: SecurePath, snowpark_project_definition: DefinitionV20
     ) -> "SnowparkPackagePaths":
-        defined_source_path = SecurePath(snowpark_project_definition.src)
+        sources = set()
+        entities = snowpark_project_definition.get_entities_by_type("function") | snowpark_project_definition.get_entities_by_type("procedure")
+        for name, entity in entities.items():
+            sources.add(entity.src)
+
         return cls(
-            source=cls._get_snowpark_project_source_absolute_path(
-                project_root=project_root,
-                defined_source_path=defined_source_path,
-            ),
+            sources=[cls._get_snowpark_project_source_absolute_path(project_root,SecurePath(source)) for source in sources],
             artifact_file=cls._get_snowpark_project_artifact_absolute_path(
                 project_root=project_root,
-                defined_source_path=defined_source_path,
             ),
             defined_requirements_file=project_root / _DEFINED_REQUIREMENTS,
             snowflake_requirements_file=project_root / _REQUIREMENTS_SNOWFLAKE,
@@ -57,10 +59,12 @@ class SnowparkPackagePaths:
 
     @classmethod
     def _get_snowpark_project_artifact_absolute_path(
-        cls, project_root: SecurePath, defined_source_path: SecurePath
+        cls, project_root: SecurePath
     ) -> SecurePath:
-        source_path = cls._get_snowpark_project_source_absolute_path(
-            project_root=project_root, defined_source_path=defined_source_path
-        )
-        artifact_file = project_root / (source_path.path.name + ".zip")
+
+        artifact_file = project_root / "app.zip"
         return artifact_file
+
+    @property
+    def sources_paths(self) -> List[Path]:
+        return [source.path for source in self.sources]

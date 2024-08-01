@@ -17,8 +17,10 @@ from __future__ import annotations
 import fnmatch
 import logging
 from pathlib import Path
-from typing import Iterator, Literal
+from typing import Iterator, Literal, List, Tuple
 from zipfile import ZIP_DEFLATED, ZipFile
+
+from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
 
@@ -59,19 +61,23 @@ def add_file_to_existing_zip(zip_file: str, file: str):
 
 
 def zip_dir(
-    source: Path, dest_zip: Path, mode: Literal["r", "w", "x", "a"] = "w"
+    source: Path | List[Path], dest_zip: Path, project_root: SecurePath, mode: Literal["r", "w", "x", "a"] = "w"
 ) -> None:
+
+    if isinstance(source, Path):
+        source = [source]
+
     files_to_pack: Iterator[Path] = filter(
-        _to_be_zipped, map(lambda f: f.absolute(), source.glob("**/*"))
+        _to_be_zipped, (f.absolute() for src in source for f in src.glob("**/*"))
     )
 
     with ZipFile(dest_zip, mode, ZIP_DEFLATED, allowZip64=True) as package_zip:
         for file in files_to_pack:
             log.debug("Adding %s to %s", file, dest_zip)
-            package_zip.write(file, arcname=file.relative_to(source.absolute()))
+            package_zip.write(file, arcname=file.relative_to(project_root.path))
 
 
-def _to_be_zipped(file: Path) -> bool:
+def _to_be_zipped(file: Tuple[Path, Path]) -> bool:
     for pattern in IGNORED_FILES:
         # This has to be a string because of fnmatch
         file_as_str = str(file)
