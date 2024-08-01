@@ -177,11 +177,14 @@ def deploy(
         entity.stage_name for entity in [*functions.values(), *procedures.values()]
     }
     stage_manager = StageManager()
-    project_name = pd.defaults.project_name if pd.defaults.project_name else "my_snowpark_project"
+    project_name = (
+        pd.defaults.project_name if pd.defaults.project_name else "my_snowpark_project"
+    )
     for stage in stage_names:
         stage = FQN.from_string(stage).using_context()
         stage_manager.create(
-            stage_name=stage, comment="deployments managed by Snowflake CLI")
+            stage_name=stage, comment="deployments managed by Snowflake CLI"
+        )
         artifact_stage_directory = get_app_stage_path(stage, project_name)
     artifact_stage_target = (
         f"{artifact_stage_directory}/{paths.artifact_file.path.name}"
@@ -241,7 +244,7 @@ def _assert_object_definitions_are_correct(
 
 def _find_existing_objects(
     object_type: ObjectType,
-    objects: List[SnowparkEntity],
+    objects: Dict[str, SnowparkEntity],
     om: ObjectManager,
 ):
     existing_objects = {}
@@ -262,8 +265,8 @@ def _find_existing_objects(
 
 def _check_if_all_defined_integrations_exists(
     om: ObjectManager,
-    functions: List[FunctionSchema],
-    procedures: List[ProcedureSchema],
+    functions: Dict[str, FunctionSchema],
+    procedures: Dict[str, ProcedureSchema],
 ):
     existing_integrations = {
         i["name"].lower()
@@ -438,14 +441,12 @@ def build(
         zip_dir(
             source=snowpark_paths.sources_paths,
             dest_zip=snowpark_paths.artifact_file.path,
-            project_root=SecurePath(cli_context.project_root),
         )
         if any(packages_dir.iterdir()):
             # if any packages were generated, append them to the .zip
             zip_dir(
                 source=packages_dir.path,
                 dest_zip=snowpark_paths.artifact_file.path,
-                project_root=packages_dir,
                 mode="a",
             )
 
@@ -532,10 +533,14 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
             project_type="snowpark", project_file=get_cli_context().project_root
         )
 
-    data: dict = {"definition_version": "2", "defaults": {
-        "stage": pd.snowpark.stage_name,
-        "project_name": pd.snowpark.project_name
-    },"entities": {}}
+    data: dict = {
+        "definition_version": "2",
+        "defaults": {
+            "stage": pd.snowpark.stage_name,
+            "project_name": pd.snowpark.project_name,
+        },
+        "entities": {},
+    }
     # TODO: think how to join those two loops
     for function in pd.snowpark.functions:
         function_dict = {
