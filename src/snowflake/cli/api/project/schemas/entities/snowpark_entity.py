@@ -20,6 +20,7 @@ from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.entities.common import EntityBase
 from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierModel
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
+from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 
 
 class SnowparkEntity(EntityBase):
@@ -69,4 +70,4 @@ class ProcedureEntity(SnowparkEntity, ObjectIdentifierModel("procedure")):  # ty
 
 
 class FunctionEntity(SnowparkEntity, ObjectIdentifierModel("function")):  # type: ignore
-    type: Literal["function"]  = DiscriminatorField()  # noqa: A003
+    type: Literal["function"] = DiscriminatorField()  # noqa: A003

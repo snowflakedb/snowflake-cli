@@ -124,10 +124,8 @@ class DefinitionV20(_ProjectDefinitionBase):
     )
 
     env: Optional[Dict[str, Union[str, int, bool]]] = Field(
-        title="Environment specification for this project.",
+        title="Default environment specification for this project.",
         default=None,
-        validation_alias="env",
-        union_mode="smart",
     )
 
     @model_validator(mode="before")
@@ -186,15 +184,6 @@ class DefinitionV20(_ProjectDefinitionBase):
             raise ValueError(
                 f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
             )
-
-    @field_validator("env")
-    @classmethod
-    def _convert_env(
-        cls, env: Union[Dict, ProjectEnvironment, None]
-    ) -> ProjectEnvironment:
-        if isinstance(env, ProjectEnvironment):
-            return env
-        return ProjectEnvironment(default_env=(env or {}), override_env={})
 
     def get_entities_by_type(self, entity_type: str):
         return {i: e for i, e in self.entities.items() if e.get_type() == entity_type}

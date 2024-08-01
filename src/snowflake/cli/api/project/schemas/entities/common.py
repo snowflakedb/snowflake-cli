@@ -52,6 +52,10 @@ class DefaultsField(UpdatableModel):
         default=None,
     )
 
+    project_name: Optional[str] = Field(
+        title="Name of the project.",
+        default=None,)
+
 
 class EntityBase(ABC, UpdatableModel):
     @classmethod

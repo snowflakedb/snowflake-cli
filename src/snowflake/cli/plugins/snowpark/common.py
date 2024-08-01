@@ -15,14 +15,11 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set
 
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.schemas.snowpark.callable import (
-    FunctionSchema,
-    ProcedureSchema,
-)
+from snowflake.cli.api.project.schemas.entities.snowpark_entity import SnowparkEntity
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.snowpark.models import Requirement
 from snowflake.cli.plugins.snowpark.package_utils import (
@@ -30,8 +27,9 @@ from snowflake.cli.plugins.snowpark.package_utils import (
 )
 from snowflake.connector.cursor import SnowflakeCursor
 
-DEFAULT_RUNTIME = "3.8"
-FunctionOrProcedure = Union[FunctionSchema, ProcedureSchema]
+DEFAULT_RUNTIME = (
+    "3.8"  # TODO: Should we change this, as we plan to drop support for 3.8?
+)
 
 
 def check_if_replace_is_required(
@@ -271,7 +269,7 @@ class UdfSprocIdentifier:
         return self._identifier_from_signature(self._full_signature(), for_sql=True)
 
     @classmethod
-    def from_definition(cls, udf_sproc: FunctionOrProcedure):
+    def from_definition(cls, udf_sproc: SnowparkEntity):
         names = []
         types = []
         defaults = []
