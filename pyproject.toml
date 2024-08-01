@@ -31,7 +31,7 @@ dependencies = [
   "packaging",
   "rich==13.7.1",
   "requests==2.32.3",
-  "requirements-parser==0.9.0",
+  "requirements-parser==0.10.2",
   "setuptools==70.3.0",
   'snowflake.core==0.8.0; python_version < "3.12"',
   "snowflake-connector-python[secure-local-storage]==3.12.0",
@@ -119,7 +119,7 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
-test = ["pytest -m integration -n4 --dist=loadfile"]
+test = ["pytest -m integration -n6 --dist=worksteal"]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.10", "3.11", "3.12"]

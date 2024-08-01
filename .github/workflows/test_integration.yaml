@@ -27,7 +27,7 @@ jobs:
   integration-trusted:
     needs: define-matrix
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
         python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
