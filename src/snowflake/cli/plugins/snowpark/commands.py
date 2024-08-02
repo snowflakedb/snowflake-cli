@@ -210,7 +210,7 @@ def deploy(
         deploy_status.append(operation_result)
 
     # Functions
-    for function in [*functions.values()]:
+    for function in functions.values():
         operation_result = _deploy_single_object(
             manager=fm,
             object_type=ObjectType.FUNCTION,
