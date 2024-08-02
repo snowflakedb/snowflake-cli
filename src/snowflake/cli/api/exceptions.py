@@ -107,10 +107,10 @@ class NoProjectDefinitionError(ClickException):
         )
 
 
-class InvalidProjectDefinitionVersion20Error(ClickException):
-    def __init__(self, actual_version: str):
+class InvalidProjectDefinitionVersionError(ClickException):
+    def __init__(self, expected_version: str, actual_version: str):
         super().__init__(
-            f"This command only supports definition version 2, got {actual_version}."
+            f"This command only supports definition version {expected_version}, got {actual_version}."
         )
 
 

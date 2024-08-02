@@ -47,7 +47,7 @@ def bundle(
     **options,
 ):
     """
-    Bundles the specified entity.
+    Prepares a local folder with the configured artifacts of the specified entity.
     """
 
     cli_context = get_cli_context()

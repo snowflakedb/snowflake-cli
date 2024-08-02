@@ -17,19 +17,19 @@ import os
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersion20Error
+from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.workspace.manager import WorkspaceManager
 
 from tests.testing_utils.files_and_dirs import create_named_file
 from tests.workspace.utils import (
     APP_PACKAGE_ENTITY,
-    mock_snowflake_yml_file,
-    mock_snowflake_yml_v1_file,
+    MOCK_SNOWFLAKE_YML_FILE,
+    MOCK_SNOWFLAKE_YML_V1_FILE,
 )
 
 
-def _get_ws_manager(pdf_content=mock_snowflake_yml_file):
+def _get_ws_manager(pdf_content=MOCK_SNOWFLAKE_YML_FILE):
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -44,8 +44,8 @@ def _get_ws_manager(pdf_content=mock_snowflake_yml_file):
 
 
 def test_pdf_not_v2(temp_dir):
-    with pytest.raises(InvalidProjectDefinitionVersion20Error):
-        _get_ws_manager(pdf_content=mock_snowflake_yml_v1_file)
+    with pytest.raises(InvalidProjectDefinitionVersionError):
+        _get_ws_manager(pdf_content=MOCK_SNOWFLAKE_YML_V1_FILE)
 
 
 # Test that the same entity instance is returned for the same key
@@ -54,8 +54,8 @@ def test_get_entity_is_cached(temp_dir):
     pkg1 = ws_manager.get_entity("pkg")
     pkg2 = ws_manager.get_entity("pkg")
     app = ws_manager.get_entity("app")
-    assert id(pkg1) == id(pkg2)
-    assert id(app) != id(pkg1)
+    assert pkg1 is pkg2
+    assert app is not pkg1
 
 
 def test_get_entity_invalid_key(temp_dir):

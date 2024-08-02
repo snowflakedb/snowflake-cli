@@ -20,7 +20,7 @@ APP_PACKAGE_ENTITY = (
     "snowflake.cli.api.entities.application_package_entity.ApplicationPackageEntity"
 )
 
-mock_snowflake_yml_file = dedent(
+MOCK_SNOWFLAKE_YML_FILE = dedent(
     """\
     definition_version: 2
     entities:
@@ -41,7 +41,7 @@ mock_snowflake_yml_file = dedent(
     """
 )
 
-mock_snowflake_yml_v1_file = dedent(
+MOCK_SNOWFLAKE_YML_V1_FILE = dedent(
     """\
         definition_version: 1
         native_app:
