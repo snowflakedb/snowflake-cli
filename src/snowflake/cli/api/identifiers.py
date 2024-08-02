@@ -17,9 +17,11 @@ from __future__ import annotations
 import re
 
 from click import ClickException
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.exceptions import FQNInconsistencyError, FQNNameError
-from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierBaseModel
+from snowflake.cli.api.project.schemas.identifier_model import (
+    Identifier,
+    ObjectIdentifierBaseModel,
+)
 from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, identifier_for_url
 
 
@@ -123,11 +125,11 @@ class FQN:
         return cls.from_string(name)
 
     @classmethod
-    def from_identifier_model(cls, model: ObjectIdentifierBaseModel) -> "FQN":
+    def from_identifier_model_v1(cls, model: ObjectIdentifierBaseModel) -> "FQN":
         """Create an instance from object model."""
         if not isinstance(model, ObjectIdentifierBaseModel):
             raise ClickException(
-                f"Expected {type(ObjectIdentifierBaseModel)}, got {model}."
+                f"Expected {type(ObjectIdentifierBaseModel).__name__}, got {model}."
             )
 
         fqn = cls.from_string(model.name)
@@ -138,6 +140,21 @@ class FQN:
             raise FQNInconsistencyError("schema", model.name)
 
         return fqn.set_database(model.database).set_schema(model.schema_name)
+
+    @classmethod
+    def from_identifier_model_v2(cls, model: Identifier) -> "FQN":
+        """Create an instance from object model."""
+        if not isinstance(model, Identifier):
+            raise ClickException(f"Expected {type(Identifier).__name__}, got {model}.")
+
+        fqn = cls.from_string(model.name)
+
+        if fqn.database and model.database:
+            raise FQNInconsistencyError("database", model.name)
+        if fqn.schema and model.schema_:
+            raise FQNInconsistencyError("schema2", model.name)
+
+        return fqn.set_database(model.database).set_schema(model.schema_)
 
     def set_database(self, database: str | None) -> "FQN":
         if database:
@@ -164,4 +181,6 @@ class FQN:
 
     def using_context(self) -> "FQN":
         """Update the instance with database and schema from connection in current cli context."""
+        from snowflake.cli.api.cli_global_context import get_cli_context
+
         return self.using_connection(get_cli_context().connection)

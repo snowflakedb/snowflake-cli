@@ -137,6 +137,16 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     @field_validator("entities", mode="after")
     @classmethod
+    def validate_entities_identifiers(
+        cls, entities: Dict[str, Entity]
+    ) -> Dict[str, Entity]:
+        for key, entity in entities.items():
+            entity.set_key(key)
+            entity.validate_identifier()
+        return entities
+
+    @field_validator("entities", mode="after")
+    @classmethod
     def validate_entities(
         cls, entities: Dict[str, EntityModel]
     ) -> Dict[str, EntityModel]:

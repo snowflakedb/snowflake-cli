@@ -73,10 +73,12 @@ def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
         )
 
     # NativeApp
-    if app_definition and app_definition.name:
-        pdfv1["native_app"]["name"] = app_definition.name
+    if app_definition and app_definition.fqn.identifier:
+        pdfv1["native_app"]["name"] = app_definition.fqn.identifier
     else:
-        pdfv1["native_app"]["name"] = app_package_definition.name.split("_pkg_")[0]
+        pdfv1["native_app"]["name"] = app_package_definition.fqn.identifier.split(
+            "_pkg_"
+        )[0]
     pdfv1["native_app"]["artifacts"] = [
         _convert_v2_artifact_to_v1_dict(a) for a in app_package_definition.artifacts
     ]
@@ -88,7 +90,7 @@ def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
 
     # Package
     pdfv1["native_app"]["package"] = {}
-    pdfv1["native_app"]["package"]["name"] = app_package_definition.name
+    pdfv1["native_app"]["package"]["name"] = app_package_definition.fqn.identifier
     if app_package_definition.distribution:
         pdfv1["native_app"]["package"][
             "distribution"
@@ -108,7 +110,7 @@ def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
     # Application
     if app_definition:
         pdfv1["native_app"]["application"] = {}
-        pdfv1["native_app"]["application"]["name"] = app_definition.name
+        pdfv1["native_app"]["application"]["name"] = app_definition.fqn.identifier
         if app_definition.debug:
             pdfv1["native_app"]["application"]["debug"] = app_definition.debug
         if app_definition.meta:

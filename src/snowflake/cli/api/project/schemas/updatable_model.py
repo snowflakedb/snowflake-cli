@@ -155,7 +155,9 @@ class UpdatableModel(BaseModel):
         setattr(
             cls,
             f"_field_validator_with_verbose_name_to_avoid_name_conflict_{field_name}",
-            field_validator(field_name, mode="wrap")(validator_skipping_templated_str),
+            field_validator(field_name, mode="wrap", check_fields=False)(
+                validator_skipping_templated_str
+            ),
         )
 
     def update_from_dict(self, update_values: Dict[str, Any]):
