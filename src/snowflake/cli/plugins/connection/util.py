@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Optional
 
 from click.exceptions import ClickException
 from snowflake.connector import SnowflakeConnection
@@ -177,3 +178,7 @@ def make_snowsight_url(conn: SnowflakeConnection, path: str) -> str:
     account = get_account(conn)
     path_with_slash = path if path.startswith("/") else f"/{path}"
     return f"{snowsight_host}/{deployment}/{account}{path_with_slash}"
+
+
+def strip_if_value_present(value: Optional[str]) -> Optional[str]:
+    return value.strip() if value else value
