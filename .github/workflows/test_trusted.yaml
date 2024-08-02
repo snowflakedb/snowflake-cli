@@ -67,6 +67,4 @@ jobs:
           SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH: ${{ env.PRIVATE_KEY_PATH }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE: ${{ github.event.issue.html_url }}
         run: python -m hatch run ${{ inputs.hatch-run }}

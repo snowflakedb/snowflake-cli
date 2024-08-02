@@ -1,4 +1,3 @@
-import os
 import sys
 from subprocess import run
 
@@ -23,14 +22,3 @@ if (ret := run(pytest + ["--last-failed"]).returncode) != 0:
 
 # If they succeed, they are flaky, we should tell the user
 p(f"{test_type} tests passed during retry, these are most likely flaky")
-if issue := os.environ.get("ISSUE"):
-    run(
-        [
-            "gh",
-            "issue",
-            "comment",
-            issue,
-            "--body",
-            f"{test_type} test failure detected",
-        ]
-    )
