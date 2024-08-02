@@ -26,6 +26,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fixed problem with whitespaces in `snow connection add` command
 
 
 # v2.7.0
