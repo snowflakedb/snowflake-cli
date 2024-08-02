@@ -60,8 +60,8 @@ class NotebookManager(SqlExecutionMixin):
             FROM '{stage_path.parent}'
             QUERY_WAREHOUSE = '{get_cli_context().connection.warehouse}'
             MAIN_FILE = '{stage_path.name}';
-
-            ALTER NOTEBOOK {notebook_fqn.sql_identifier} ADD LIVE VERSION FROM LAST;
+            // Cannot use IDENTIFIER(...)
+            ALTER NOTEBOOK {notebook_fqn.identifier} ADD LIVE VERSION FROM LAST;
             """
         )
         self._execute_queries(queries=queries)
