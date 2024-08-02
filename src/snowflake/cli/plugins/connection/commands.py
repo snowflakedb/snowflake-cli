@@ -43,6 +43,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     ObjectResult,
 )
+from snowflake.cli.plugins.connection.util import strip_if_value_present
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.config_manager import CONFIG_MANAGER
@@ -117,6 +118,7 @@ def add(
         prompt="Name for this connection",
         help="Name of the new connection.",
         show_default=False,
+        callback=strip_if_value_present,
     ),
     account: str = typer.Option(
         None,
@@ -126,6 +128,7 @@ def add(
         prompt="Snowflake account name",
         help="Account name to use when authenticating with Snowflake.",
         show_default=False,
+        callback=strip_if_value_present,
     ),
     user: str = typer.Option(
         None,
@@ -135,6 +138,7 @@ def add(
         prompt="Snowflake username",
         show_default=False,
         help="Username to connect to Snowflake.",
+        callback=strip_if_value_present,
     ),
     password: str = typer.Option(
         EmptyInput(),
@@ -153,6 +157,7 @@ def add(
         click_type=OptionalPrompt(),
         prompt="Role for the connection",
         help="Role to use on Snowflake.",
+        callback=strip_if_value_present,
     ),
     warehouse: str = typer.Option(
         EmptyInput(),
@@ -161,6 +166,7 @@ def add(
         click_type=OptionalPrompt(),
         prompt="Warehouse for the connection",
         help="Warehouse to use on Snowflake.",
+        callback=strip_if_value_present,
     ),
     database: str = typer.Option(
         EmptyInput(),
@@ -169,6 +175,7 @@ def add(
         click_type=OptionalPrompt(),
         prompt="Database for the connection",
         help="Database to use on Snowflake.",
+        callback=strip_if_value_present,
     ),
     schema: str = typer.Option(
         EmptyInput(),
@@ -177,6 +184,7 @@ def add(
         click_type=OptionalPrompt(),
         prompt="Schema for the connection",
         help="Schema to use on Snowflake.",
+        callback=strip_if_value_present,
     ),
     host: str = typer.Option(
         EmptyInput(),
@@ -185,6 +193,7 @@ def add(
         click_type=OptionalPrompt(),
         prompt="Connection host",
         help="Host name the connection attempts to connect to Snowflake.",
+        callback=strip_if_value_present,
     ),
     port: int = typer.Option(
         EmptyInput(),
@@ -202,6 +211,7 @@ def add(
         click_type=OptionalPrompt(),
         prompt="Snowflake region",
         help="Region name if not the default Snowflake deployment.",
+        callback=strip_if_value_present,
     ),
     authenticator: str = typer.Option(
         EmptyInput(),
@@ -218,6 +228,7 @@ def add(
         click_type=OptionalPrompt(),
         prompt="Path to private key file",
         help="Path to file containing private key",
+        callback=strip_if_value_present,
     ),
     token_file_path: str = typer.Option(
         EmptyInput(),
@@ -226,6 +237,7 @@ def add(
         click_type=OptionalPrompt(),
         prompt="Path to token file",
         help="Path to file with an OAuth token that should be used when connecting to Snowflake",
+        callback=strip_if_value_present,
     ),
     set_as_default: bool = typer.Option(
         False,

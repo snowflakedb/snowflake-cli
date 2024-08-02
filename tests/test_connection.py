@@ -102,6 +102,34 @@ def test_new_connection_with_jwt_auth(runner, os_agnostic_snapshot):
     assert content == os_agnostic_snapshot
 
 
+def test_if_whitespaces_are_stripped_from_connection_name(runner, os_agnostic_snapshot):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+            ],
+            input="       whitespaceTest     \naccName     \n     userName",
+        )
+        content = tmp_file.read()
+
+        assert result.exit_code == 0, result.output
+        assert content == os_agnostic_snapshot
+
+        connections_list = runner.invoke_with_config_file(
+            tmp_file.name, ["connection", "list", "--format", "json"]
+        )
+        assert connections_list.exit_code == 0
+        assert connections_list.output == os_agnostic_snapshot
+
+        set_as_default = runner.invoke_with_config_file(
+            tmp_file.name, ["connection", "set-default", "whitespaceTest"]
+        )
+        assert set_as_default.exit_code == 0
+        assert "Default connection set to: whitespaceTest" in set_as_default.output
+
+
 def test_port_has_cannot_be_string(runner):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(

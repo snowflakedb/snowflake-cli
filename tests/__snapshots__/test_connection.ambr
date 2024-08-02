@@ -1,4 +1,27 @@
 # serializer version: 1
+# name: test_if_whitespaces_are_stripped_from_connection_name
+  '''
+  [connections.whitespaceTest]
+  account = "accName"
+  user = "userName"
+  
+  '''
+# ---
+# name: test_if_whitespaces_are_stripped_from_connection_name.1
+  '''
+  [
+      {
+          "connection_name": "whitespaceTest",
+          "parameters": {
+              "account": "accName",
+              "user": "userName"
+          },
+          "is_default": false
+      }
+  ]
+  
+  '''
+# ---
 # name: test_new_connection_add_prompt_handles_default_values
   '''
   [connections.connName]
