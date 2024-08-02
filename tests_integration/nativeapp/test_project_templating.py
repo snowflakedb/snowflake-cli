@@ -27,6 +27,7 @@ from tests_integration.test_utils import (
 USER_NAME = f"user_{uuid.uuid4().hex}"
 DEFAULT_TEST_ENV = generate_user_env(USER_NAME)
 
+
 # Tests a simple flow of native app with template reading env variables from OS
 @pytest.mark.integration
 @enable_definition_v2_feature_flag

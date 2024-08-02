@@ -355,9 +355,9 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                     cc.warning("Invalid extension function definition")
 
             if collected_extension_functions:
-                collected_extension_fns_by_path[
-                    dest_file
-                ] = collected_extension_functions
+                collected_extension_fns_by_path[dest_file] = (
+                    collected_extension_functions
+                )
 
         return collected_extension_fns_by_path
 

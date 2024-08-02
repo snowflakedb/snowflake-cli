@@ -163,7 +163,7 @@ class _ArtifactPathMap:
         if src_is_dir:
             # mark all subdirectories of this source as directories so that we can
             # detect accidental clobbering
-            for (root, _, files) in os.walk(absolute_src, followlinks=True):
+            for root, _, files in os.walk(absolute_src, followlinks=True):
                 canonical_subdir = Path(root).relative_to(absolute_src)
                 canonical_dest_subdir = dest / canonical_subdir
                 self._update_dest_is_dir(canonical_dest_subdir, is_dir=True)
@@ -363,7 +363,7 @@ class BundleMap:
         if absolute_src.is_dir() and expand_directories:
             # both src and dest are directories, and expanding directories was requested. Traverse src, and map each
             # file to the dest directory
-            for (root, subdirs, files) in os.walk(absolute_src, followlinks=True):
+            for root, subdirs, files in os.walk(absolute_src, followlinks=True):
                 relative_root = Path(root).relative_to(absolute_src)
                 for name in itertools.chain(subdirs, files):
                     src_file_for_output = src_for_output / relative_root / name
@@ -658,7 +658,7 @@ def build_bundle(
     for artifact in artifacts:
         bundle_map.add(artifact)
 
-    for (absolute_src, absolute_dest) in bundle_map.all_mappings(
+    for absolute_src, absolute_dest in bundle_map.all_mappings(
         absolute=True, expand_directories=False
     ):
         symlink_or_copy(absolute_src, absolute_dest, deploy_root=deploy_root)

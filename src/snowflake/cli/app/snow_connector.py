@@ -112,9 +112,9 @@ def connect_to_snowflake(
         if diag_log_path:
             connection_parameters["connection_diag_log_path"] = diag_log_path
         if diag_allowlist_path:
-            connection_parameters[
-                "connection_diag_allowlist_path"
-            ] = diag_allowlist_path
+            connection_parameters["connection_diag_allowlist_path"] = (
+                diag_allowlist_path
+            )
 
     # Make sure the connection is not closed if it was shared to the SnowCLI, instead of being created in the SnowCLI
     _avoid_closing_the_connection_if_it_was_shared(

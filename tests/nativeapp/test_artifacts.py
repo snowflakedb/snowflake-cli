@@ -96,10 +96,9 @@ def verify_mappings(
     expected_mappings: Dict[
         Union[str, Path], Optional[Union[str, Path, List[str], List[Path]]]
     ],
-    expected_deploy_paths: Dict[
-        Union[str, Path], Optional[Union[str, Path, List[str], List[Path]]]
-    ]
-    | None = None,
+    expected_deploy_paths: (
+        Dict[Union[str, Path], Optional[Union[str, Path, List[str], List[Path]]]] | None
+    ) = None,
     **kwargs,
 ):
     def normalize_expected_dest(

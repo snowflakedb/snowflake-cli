@@ -97,9 +97,9 @@ class CommandPluginsLoader:
             )
             return None
         self._loaded_plugins[plugin_name] = loaded_plugin
-        self._loaded_command_paths[
-            loaded_plugin.command_spec.full_command_path
-        ] = loaded_plugin
+        self._loaded_command_paths[loaded_plugin.command_spec.full_command_path] = (
+            loaded_plugin
+        )
 
         if self._is_external_plugin(loaded_plugin):
             log.info("Loaded external plugin: %s", plugin_name)

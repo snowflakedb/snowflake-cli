@@ -136,9 +136,9 @@ def test_has_url_scheme(url: str, expected: bool):
 @mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.subprocess.check_output")
 def test_docker_registry_login(mock_check_output, mock_get_url, mock_get_token):
     test_output = mock_check_output.return_value = "Login Succeeded\n"
-    test_url = (
-        mock_get_url.return_value
-    ) = "orgname-acctname.registry.snowflakecomputing.com"
+    test_url = mock_get_url.return_value = (
+        "orgname-acctname.registry.snowflakecomputing.com"
+    )
     test_token = mock_get_token.return_value = {
         "token": "ver:1-hint:abc",
         "expires_in": 3600,
@@ -194,9 +194,9 @@ def test_docker_registry_login_cli_no_repositories(
 def test_docker_registry_login_subprocess_error(
     mock_check_output, mock_get_url, mock_get_token, os_agnostic_snapshot
 ):
-    test_url = (
-        mock_get_url.return_value
-    ) = "orgname-acctname.registry.snowflakecomputing.com"
+    test_url = mock_get_url.return_value = (
+        "orgname-acctname.registry.snowflakecomputing.com"
+    )
     mock_get_token.return_value = {
         "token": "ver:1-hint:abc",
         "expires_in": 3600,

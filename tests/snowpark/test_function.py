@@ -360,11 +360,14 @@ def _deploy_function(
 ):
     ctx = mock_ctx(mock_cursor(rows=rows, columns=[]))
     mock_connector.return_value = ctx
-    with mock.patch(
-        "snowflake.cli.plugins.snowpark.commands.ObjectManager.describe"
-    ) as om_describe, mock.patch(
-        "snowflake.cli.plugins.snowpark.commands.ObjectManager.show"
-    ) as om_show:
+    with (
+        mock.patch(
+            "snowflake.cli.plugins.snowpark.commands.ObjectManager.describe"
+        ) as om_describe,
+        mock.patch(
+            "snowflake.cli.plugins.snowpark.commands.ObjectManager.show"
+        ) as om_show,
+    ):
         om_describe.return_value = rows
 
         with project_directory("snowpark_functions") as temp_dir:

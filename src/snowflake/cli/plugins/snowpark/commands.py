@@ -346,9 +346,9 @@ def _deploy_single_object(
         "imports": imports,
     }
     if object_type == ObjectType.PROCEDURE:
-        create_or_replace_kwargs[
-            "execute_as_caller"
-        ] = object_definition.execute_as_caller
+        create_or_replace_kwargs["execute_as_caller"] = (
+            object_definition.execute_as_caller
+        )
     manager.create_or_replace(**create_or_replace_kwargs)
 
     status = "created" if not object_exists else "definition updated"

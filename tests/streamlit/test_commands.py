@@ -498,12 +498,15 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     )
     mock_connector.return_value = ctx
 
-    with mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
-        return_value=enable_streamlit_versioned_stage,
-    ), mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled",
-        return_value=enable_streamlit_no_checkouts,
+    with (
+        mock.patch(
+            "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
+            return_value=enable_streamlit_versioned_stage,
+        ),
+        mock.patch(
+            "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled",
+            return_value=enable_streamlit_no_checkouts,
+        ),
     ):
         with project_directory("example_streamlit"):
             result = runner.invoke(["streamlit", "deploy", "--experimental"])
