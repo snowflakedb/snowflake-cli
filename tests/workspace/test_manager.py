@@ -48,7 +48,7 @@ def test_pdf_not_v2(temp_dir):
         _get_ws_manager(pdf_content=MOCK_SNOWFLAKE_YML_V1_FILE)
 
 
-# Test that the same entity instance is returned for the same key
+# Test that the same entity instance is returned for the same id
 def test_get_entity_is_cached(temp_dir):
     ws_manager = _get_ws_manager()
     pkg1 = ws_manager.get_entity("pkg")
@@ -58,10 +58,10 @@ def test_get_entity_is_cached(temp_dir):
     assert app is not pkg1
 
 
-def test_get_entity_invalid_key(temp_dir):
+def test_get_entity_invalid_id(temp_dir):
     ws_manager = _get_ws_manager()
-    with pytest.raises(ValueError, match="No such entity key"):
-        ws_manager.get_entity("non_existing_key")
+    with pytest.raises(ValueError, match="No such entity ID"):
+        ws_manager.get_entity("non_existing_id")
 
 
 def test_bundle(temp_dir):

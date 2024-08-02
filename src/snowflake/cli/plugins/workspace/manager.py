@@ -25,17 +25,17 @@ class WorkspaceManager:
         self._entities_cache: Dict[str, Entity] = {}
         self._project_definition = project_definition
 
-    def get_entity(self, key: str):
-        if key not in self._entities_cache:
-            if key not in self._project_definition.entities:
-                raise ValueError(f"No such entity key: {key}")
-            entity_model_cls = self._project_definition.entities[key].__class__
+    def get_entity(self, entity_id: str):
+        if entity_id not in self._entities_cache:
+            if entity_id not in self._project_definition.entities:
+                raise ValueError(f"No such entity ID: {entity_id}")
+            entity_model_cls = self._project_definition.entities[entity_id].__class__
             entity_cls = v2_entity_model_to_entity_map[entity_model_cls]
-            self._entities_cache[key] = entity_cls()
-        return self._entities_cache[key]
+            self._entities_cache[entity_id] = entity_cls()
+        return self._entities_cache[entity_id]
 
-    def bundle(self, key: str):
-        entity = self.get_entity(key)
+    def bundle(self, entity_id: str):
+        entity = self.get_entity(entity_id)
         if callable(getattr(entity, "bundle", None)):
             entity.bundle()
         else:

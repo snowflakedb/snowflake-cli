@@ -41,8 +41,8 @@ def validate(
 @ws.command(requires_connection=True)
 @with_project_definition()
 def bundle(
-    key: str = typer.Option(
-        help=f"""The key of the entity you want to bundle.""",
+    entity_id: str = typer.Option(
+        help=f"""The ID of the entity you want to bundle.""",
     ),
     **options,
 ):
@@ -56,4 +56,4 @@ def bundle(
         project_root=cli_context.project_root,
     )
 
-    ws.bundle(key)
+    ws.bundle(entity_id)
