@@ -95,8 +95,8 @@ def require_integer(field_name: str):
     def callback(value: str):
         if value is None:
             return None
-        if value.isdigit():
-            return value
+        if value.strip().isdigit():
+            return value.strip()
         raise ClickException(f"Value of {field_name} must be integer")
 
     return callback

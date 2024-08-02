@@ -4,6 +4,17 @@
   [connections.whitespaceTest]
   account = "accName"
   user = "userName"
+  password = "123"
+  host = "baz"
+  region = "Kaszuby"
+  port = "12345"
+  database = "foo"
+  schema = "bar"
+  warehouse = "some warehouse"
+  role = "some role"
+  authenticator = " foo   "
+  private_key_path = "bar"
+  token_file_path = "baz"
   
   '''
 # ---
@@ -14,7 +25,18 @@
           "connection_name": "whitespaceTest",
           "parameters": {
               "account": "accName",
-              "user": "userName"
+              "user": "userName",
+              "password": "****",
+              "host": "baz",
+              "region": "Kaszuby",
+              "port": "12345",
+              "database": "foo",
+              "schema": "bar",
+              "warehouse": "some warehouse",
+              "role": "some role",
+              "authenticator": " foo   ",
+              "private_key_path": "bar",
+              "token_file_path": "baz"
           },
           "is_default": false
       }
