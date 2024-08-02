@@ -198,7 +198,7 @@ def deploy(
 
     deploy_status = []
     # Procedures
-    for procedure in [*procedures.values()]:
+    for procedure in procedures.values():
         operation_result = _deploy_single_object(
             manager=pm,
             object_type=ObjectType.PROCEDURE,
