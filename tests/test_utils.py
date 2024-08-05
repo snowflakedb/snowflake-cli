@@ -20,22 +20,22 @@ from unittest import mock
 from unittest.mock import patch
 
 import pytest
-import snowflake.cli.plugins.snowpark.models
-import snowflake.cli.plugins.snowpark.package.utils
-from snowflake.cli.api.project.util import identifier_for_url
-from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.api.utils import path_utils
-from snowflake.cli.plugins.connection.util import (
+import snowflake.cli._plugins.snowpark.models
+import snowflake.cli._plugins.snowpark.package.utils
+from snowflake.cli._plugins.connection.util import (
     LOCAL_DEPLOYMENT_REGION,
     get_context,
     get_host_region,
     guess_regioned_host_from_allowlist,
     make_snowsight_url,
 )
-from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
+from snowflake.cli._plugins.snowpark import package_utils
+from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
 )
+from snowflake.cli.api.project.util import identifier_for_url
+from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.utils import path_utils
 from snowflake.connector import SnowflakeConnection
 
 from tests.test_data import test_data
@@ -158,11 +158,11 @@ def test_path_resolver(mock_system, argument, expected):
     assert path_utils.path_resolver(argument) == expected
 
 
-@patch("snowflake.cli.plugins.snowpark.package_utils.pip_wheel")
+@patch("snowflake.cli._plugins.snowpark.package_utils.pip_wheel")
 def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
     mock_installer.return_value = 42
 
-    with caplog.at_level(logging.INFO, "snowflake.cli.plugins.snowpark.package_utils"):
+    with caplog.at_level(logging.INFO, "snowflake.cli._plugins.snowpark.package_utils"):
         requirements = package_utils.parse_requirements(
             SecurePath(correct_requirements_txt)
         )
@@ -189,9 +189,9 @@ def test_identifier_for_url(identifier, expected):
     assert identifier_for_url(identifier) == expected
 
 
-@patch("snowflake.cli.plugins.connection.util.get_account")
-@patch("snowflake.cli.plugins.connection.util.get_context")
-@patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
+@patch("snowflake.cli._plugins.connection.util.get_account")
+@patch("snowflake.cli._plugins.connection.util.get_context")
+@patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
 @pytest.mark.parametrize(
     "context, account, path, expected",
     [
@@ -265,8 +265,8 @@ def test_guess_regioned_host_from_allowlist(allowlist, expected, mock_cursor):
     assert guess_regioned_host_from_allowlist(mock_conn) == expected
 
 
-@patch("snowflake.cli.plugins.connection.util.is_regionless_redirect")
-@patch("snowflake.cli.plugins.connection.util.guess_regioned_host_from_allowlist")
+@patch("snowflake.cli._plugins.connection.util.is_regionless_redirect")
+@patch("snowflake.cli._plugins.connection.util.guess_regioned_host_from_allowlist")
 def test_get_context_non_regionless_uses_region(
     guess_regioned_host_from_allowlist, is_regionless_redirect
 ):
@@ -279,8 +279,8 @@ def test_get_context_non_regionless_uses_region(
     assert get_context(mock_conn) == "x.y.z"
 
 
-@patch("snowflake.cli.plugins.connection.util.is_regionless_redirect")
-@patch("snowflake.cli.plugins.connection.util.guess_regioned_host_from_allowlist")
+@patch("snowflake.cli._plugins.connection.util.is_regionless_redirect")
+@patch("snowflake.cli._plugins.connection.util.guess_regioned_host_from_allowlist")
 def test_get_context_local_non_regionless_gets_local_region(
     guess_regioned_host_from_allowlist, is_regionless_redirect
 ):

@@ -21,12 +21,11 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.project.schemas.native_app.path_mapping import ProcessorMapping
-from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
+from snowflake.cli._plugins.nativeapp.codegen.sandbox import (
     ExecutionEnvironmentType,
     SandboxExecutionError,
 )
-from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
+from snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
     _determine_virtual_env,
     _execute_in_sandbox,
@@ -34,6 +33,7 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     generate_create_sql_ddl_statement,
     generate_grant_sql_ddl_statements,
 )
+from snowflake.cli.api.project.schemas.native_app.path_mapping import ProcessorMapping
 
 from tests.nativeapp.utils import assert_dir_snapshot, create_native_app_project_model
 from tests.testing_utils.files_and_dirs import pushd, temp_local_dir

@@ -16,6 +16,10 @@ from unittest import mock
 
 import pytest
 from click import ClickException
+from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+    _pdf_v2_to_v1,
+    nativeapp_definition_v2_to_v1,
+)
 from snowflake.cli.api.cli_global_context import (
     get_cli_context,
     get_cli_context_manager,
@@ -23,10 +27,6 @@ from snowflake.cli.api.cli_global_context import (
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV11,
     DefinitionV20,
-)
-from snowflake.cli.plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
-    _pdf_v2_to_v1,
-    nativeapp_definition_v2_to_v1,
 )
 
 from tests.testing_utils.mock_config import mock_config_key

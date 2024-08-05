@@ -20,6 +20,25 @@ from unittest.mock import MagicMock
 import pytest
 import typer
 from click import UsageError
+from snowflake.cli._plugins.nativeapp.constants import (
+    LOOSE_FILES_MAGIC_VERSION,
+    SPECIAL_COMMENT,
+)
+from snowflake.cli._plugins.nativeapp.exceptions import (
+    ApplicationCreatedExternallyError,
+    ApplicationPackageDoesNotExistError,
+    UnexpectedOwnerError,
+)
+from snowflake.cli._plugins.nativeapp.policy import (
+    AllowAlwaysPolicy,
+    AskAlwaysPolicy,
+    DenyAlwaysPolicy,
+)
+from snowflake.cli._plugins.nativeapp.run_processor import (
+    NativeAppRunProcessor,
+    SameAccountInstallMethod,
+)
+from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
@@ -28,25 +47,6 @@ from snowflake.cli.api.errno import (
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.constants import (
-    LOOSE_FILES_MAGIC_VERSION,
-    SPECIAL_COMMENT,
-)
-from snowflake.cli.plugins.nativeapp.exceptions import (
-    ApplicationCreatedExternallyError,
-    ApplicationPackageDoesNotExistError,
-    UnexpectedOwnerError,
-)
-from snowflake.cli.plugins.nativeapp.policy import (
-    AllowAlwaysPolicy,
-    AskAlwaysPolicy,
-    DenyAlwaysPolicy,
-)
-from snowflake.cli.plugins.nativeapp.run_processor import (
-    NativeAppRunProcessor,
-    SameAccountInstallMethod,
-)
-from snowflake.cli.plugins.stage.diff import DiffResult
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 

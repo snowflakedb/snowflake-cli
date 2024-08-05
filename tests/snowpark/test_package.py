@@ -18,10 +18,10 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
-from snowflake.cli.plugins.snowpark.models import (
+from snowflake.cli._plugins.snowpark.models import (
     Requirement,
 )
-from snowflake.cli.plugins.snowpark.package_utils import (
+from snowflake.cli._plugins.snowpark.package_utils import (
     DownloadUnavailablePackagesResult,
 )
 
@@ -51,10 +51,10 @@ class TestPackage:
         assert result.output == os_agnostic_snapshot
 
     @patch(
-        "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"
+        "snowflake.cli._plugins.snowpark.package.commands.download_unavailable_packages"
     )
     @patch(
-        "snowflake.cli.plugins.snowpark.package_utils.pip_wheel",
+        "snowflake.cli._plugins.snowpark.package_utils.pip_wheel",
     )
     @pytest.mark.parametrize(
         "extra_flags", [[], ["--skip-version-check"], ["--ignore-anaconda"]]
@@ -77,7 +77,7 @@ class TestPackage:
         )
 
         with caplog.at_level(
-            logging.DEBUG, logger="snowflake.cli.plugins.snowpark.package"
+            logging.DEBUG, logger="snowflake.cli._plugins.snowpark.package"
         ):
             result = runner.invoke(
                 ["snowpark", "package", "create", "totally-awesome-package"]
@@ -144,7 +144,7 @@ class TestPackage:
         assert "db.schema.stage/path/to/file" in put.args[0]
 
     @patch(
-        "snowflake.cli.plugins.snowpark.package.commands.AnacondaPackagesManager.find_packages_available_in_snowflake_anaconda"
+        "snowflake.cli._plugins.snowpark.package.commands.AnacondaPackagesManager.find_packages_available_in_snowflake_anaconda"
     )
     def test_lookup_install_without_flags_does_not_warn(
         self, _, runner, mock_available_packages_sql_result

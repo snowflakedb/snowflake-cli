@@ -18,18 +18,18 @@ from unittest import mock
 import pytest
 import typer
 from click import ClickException
-from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.exceptions import (
+from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
 )
-from snowflake.cli.plugins.nativeapp.policy import (
+from snowflake.cli._plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
-from snowflake.cli.plugins.nativeapp.version.version_processor import (
+from snowflake.cli._plugins.nativeapp.version.version_processor import (
     NativeAppVersionDropProcessor,
 )
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf

@@ -17,7 +17,7 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli.plugins.connection.util import REGIONLESS_QUERY
+from snowflake.cli._plugins.connection.util import REGIONLESS_QUERY
 
 STREAMLIT_NAME = "test_streamlit"
 TEST_WAREHOUSE = "test_warehouse"

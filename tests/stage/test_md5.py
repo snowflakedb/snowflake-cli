@@ -20,7 +20,7 @@ from typing import List, Tuple
 from unittest import mock
 
 import pytest
-from snowflake.cli.plugins.stage.md5 import (
+from snowflake.cli._plugins.stage.md5 import (
     ONE_MEGABYTE,
     UnknownMD5FormatError,
     compute_md5sum,

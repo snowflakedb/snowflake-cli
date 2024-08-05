@@ -17,12 +17,12 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
-from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import DictCursor, ProgrammingError
 
 EXAMPLE_URL = "https://github.com/an-example-repo.git"
-STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
+STAGE_MANAGER = "snowflake.cli._plugins.stage.manager.StageManager"
 
 
 def test_toplevel_help(runner):

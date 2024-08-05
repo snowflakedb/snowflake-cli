@@ -16,11 +16,11 @@ from unittest.mock import Mock
 
 import pytest
 from click import ClickException
-from snowflake.cli.api.exceptions import ObjectAlreadyExistsError, ObjectType
-from snowflake.cli.plugins.spcs.common import (
+from snowflake.cli._plugins.spcs.common import (
     handle_object_already_exists,
     validate_and_set_instances,
 )
+from snowflake.cli.api.exceptions import ObjectAlreadyExistsError, ObjectType
 from snowflake.connector.errors import ProgrammingError
 
 

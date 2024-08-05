@@ -14,15 +14,15 @@
 
 
 import pytest
-from snowflake.cli.api.project.schemas.project_definition import (
-    build_project_definition,
-)
-from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
+from snowflake.cli._plugins.nativeapp.codegen.artifact_processor import (
     UnsupportedArtifactProcessorError,
 )
-from snowflake.cli.plugins.nativeapp.codegen.compiler import NativeAppCompiler
-from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
+from snowflake.cli._plugins.nativeapp.codegen.compiler import NativeAppCompiler
+from snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
+)
+from snowflake.cli.api.project.schemas.project_definition import (
+    build_project_definition,
 )
 
 from tests.nativeapp.utils import create_native_app_project_model

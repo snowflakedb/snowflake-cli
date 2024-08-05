@@ -14,14 +14,14 @@
 
 from unittest import mock
 
+from snowflake.cli._plugins.connection import plugin_spec as connection_plugin_spec
+from snowflake.cli._plugins.streamlit import plugin_spec as streamlit_plugin_spec
 from snowflake.cli.api.plugins.command import (
     SNOWCLI_ROOT_COMMAND_PATH,
     CommandPath,
     CommandSpec,
     CommandType,
 )
-from snowflake.cli.plugins.connection import plugin_spec as connection_plugin_spec
-from snowflake.cli.plugins.streamlit import plugin_spec as streamlit_plugin_spec
 from typer import Typer
 
 

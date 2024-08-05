@@ -24,32 +24,32 @@ from unittest.mock import call
 
 import pytest
 from click import ClickException
-from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
-from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
-from snowflake.cli.plugins.nativeapp.constants import (
+from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
+from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     NAME_COL,
     SPECIAL_COMMENT,
     SPECIAL_COMMENT_OLD,
 )
-from snowflake.cli.plugins.nativeapp.exceptions import (
+from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
     NoEventTableForAccount,
     SetupScriptFailedValidation,
     UnexpectedOwnerError,
 )
-from snowflake.cli.plugins.nativeapp.manager import (
+from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
     _get_stage_paths_to_sync,
     ensure_correct_owner,
 )
-from snowflake.cli.plugins.stage.diff import (
+from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePath,
 )
+from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 

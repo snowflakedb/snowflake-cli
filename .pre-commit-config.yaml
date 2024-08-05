@@ -46,8 +46,8 @@ repos:
           ^src/snowflake/cli/_app/dev/.*$|
           ^src/snowflake/cli/templates/.*$|
           ^src/snowflake/cli/api/utils/rendering.py$|
-          ^src/snowflake/cli/plugins/spcs/common.py$|
-          ^src/snowflake/cli/plugins/snowpark/venv.py$|
+          ^src/snowflake/cli/_plugins/spcs/common.py$|
+          ^src/snowflake/cli/_plugins/snowpark/venv.py$|
           ^src/snowflake/cli/_app/cli_app.py$
       - id: check-app-imports-in-api
         language: pygrep
@@ -69,13 +69,13 @@ repos:
         files: ^pyproject.toml$
       - id: use-local-requirements-model
         language: pygrep
-        name: "Use snowflake.cli.plugins.snowpark.models.Requirement for requirements parsing"
+        name: "Use snowflake.cli._plugins.snowpark.models.Requirement for requirements parsing"
         files: ^src/snowflake/.*\.py$
         entry: >
           ^from requirements.* import|
           ^import requirements.*
         pass_filenames: true
-        exclude: ^src/snowflake/cli/plugins/snowpark/models.py$
+        exclude: ^src/snowflake/cli/_plugins/snowpark/models.py$
   - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.5.5
     hooks:

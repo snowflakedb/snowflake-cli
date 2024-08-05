@@ -18,12 +18,12 @@ from unittest import mock
 from unittest.mock import Mock
 
 import pytest
+from snowflake.cli._plugins.spcs.image_repository.manager import ImageRepositoryManager
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     DatabaseNotProvidedError,
     SchemaNotProvidedError,
 )
-from snowflake.cli.plugins.spcs.image_repository.manager import ImageRepositoryManager
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 

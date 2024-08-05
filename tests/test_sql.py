@@ -17,12 +17,12 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import identifier_to_show_like_pattern
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
-from snowflake.cli.plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 

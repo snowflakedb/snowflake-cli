@@ -20,20 +20,20 @@ from unittest import mock
 import pytest
 import typer
 from click import BadOptionUsage, ClickException
-from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.constants import SPECIAL_COMMENT
-from snowflake.cli.plugins.nativeapp.exceptions import (
+from snowflake.cli._plugins.nativeapp.constants import SPECIAL_COMMENT
+from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
 )
-from snowflake.cli.plugins.nativeapp.policy import (
+from snowflake.cli._plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
-from snowflake.cli.plugins.nativeapp.version.version_processor import (
+from snowflake.cli._plugins.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
 )
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.utils import (

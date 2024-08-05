@@ -18,7 +18,7 @@ from unittest import mock
 
 import pytest
 from click import ClickException
-from snowflake.cli.plugins.spcs.image_registry.manager import (
+from snowflake.cli._plugins.spcs.image_registry.manager import (
     NoImageRepositoriesFoundError,
     RegistryManager,
 )
