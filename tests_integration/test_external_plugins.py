@@ -147,7 +147,7 @@ def test_enabled_value_must_be_boolean(
         config = Path(snowflake_home) / "config.toml"
         config.write_text(
             f"""
-[cli._plugins.multilingual-hello]
+[cli.plugins.multilingual-hello]
 enabled = {value}"""
         )
         runner.use_config(config)
