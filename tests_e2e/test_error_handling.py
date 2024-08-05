@@ -99,12 +99,12 @@ def test_initial_log_with_loaded_external_plugins_in_custom_log_path(
             [connections.default]
             [connections.integration]
 
-            [cli._plugins.snowpark-hello]
+            [cli.plugins.snowpark-hello]
             enabled = true
-            [cli._plugins.snowpark-hello.config]
+            [cli.plugins.snowpark-hello.config]
             greeting = "Hello"
 
-            [cli._plugins.multilingual-hello]
+            [cli.plugins.multilingual-hello]
             enabled = true
             """
             )
@@ -139,12 +139,12 @@ def test_initial_log_with_loaded_external_plugins_in_custom_log_path_with_custom
             [connections.default]
             [connections.integration]
 
-            [cli._plugins.snowpark-hello]
+            [cli.plugins.snowpark-hello]
             enabled = true
-            [cli._plugins.snowpark-hello.config]
+            [cli.plugins.snowpark-hello.config]
             greeting = "Hello"
 
-            [cli._plugins.multilingual-hello]
+            [cli.plugins.multilingual-hello]
             enabled = true
             """
             )
