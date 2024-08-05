@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-[cli._plugins.failing_plugin]
+[cli.plugins.failing_plugin]
 enabled = true
 
 [connections.test]
