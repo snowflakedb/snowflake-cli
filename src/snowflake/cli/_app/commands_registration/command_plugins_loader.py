@@ -18,21 +18,21 @@ import logging
 from typing import Dict, List, Optional
 
 import pluggy
+from snowflake.cli._app.commands_registration import (
+    LoadedBuiltInCommandPlugin,
+    LoadedCommandPlugin,
+    LoadedExternalCommandPlugin,
+)
+from snowflake.cli._app.commands_registration.builtin_plugins import (
+    get_builtin_plugin_name_to_plugin_spec,
+)
+from snowflake.cli._app.commands_registration.exception_logging import exception_logging
 from snowflake.cli.api.plugins.command import (
     SNOWCLI_COMMAND_PLUGIN_NAMESPACE,
     CommandPath,
     CommandSpec,
     plugin_hook_specs,
 )
-from snowflake.cli.app.commands_registration import (
-    LoadedBuiltInCommandPlugin,
-    LoadedCommandPlugin,
-    LoadedExternalCommandPlugin,
-)
-from snowflake.cli.app.commands_registration.builtin_plugins import (
-    get_builtin_plugin_name_to_plugin_spec,
-)
-from snowflake.cli.app.commands_registration.exception_logging import exception_logging
 
 log = logging.getLogger(__name__)
 log_exception = exception_logging(log)

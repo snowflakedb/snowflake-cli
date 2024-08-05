@@ -17,15 +17,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, List
 
-from snowflake.cli.api.plugins.plugin_config import PluginConfigProvider
-from snowflake.cli.app.commands_registration.command_plugins_loader import (
+from snowflake.cli._app.commands_registration.command_plugins_loader import (
     load_builtin_and_external_command_plugins,
     load_only_builtin_command_plugins,
 )
-from snowflake.cli.app.commands_registration.threadsafe import ThreadsafeCounter
-from snowflake.cli.app.commands_registration.typer_registration import (
+from snowflake.cli._app.commands_registration.threadsafe import ThreadsafeCounter
+from snowflake.cli._app.commands_registration.typer_registration import (
     register_commands_from_plugins,
 )
+from snowflake.cli.api.plugins.plugin_config import PluginConfigProvider
 
 
 @dataclass

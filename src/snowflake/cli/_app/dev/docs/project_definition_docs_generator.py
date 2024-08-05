@@ -18,12 +18,12 @@ import logging
 from typing import Any, Dict
 
 from pydantic.json_schema import model_json_schema
-from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
-from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.app.dev.docs.project_definition_generate_json_schema import (
+from snowflake.cli._app.dev.docs.project_definition_generate_json_schema import (
     ProjectDefinitionGenerateJsonSchema,
 )
-from snowflake.cli.app.dev.docs.template_utils import get_template_environment
+from snowflake.cli._app.dev.docs.template_utils import get_template_environment
+from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
+from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
 

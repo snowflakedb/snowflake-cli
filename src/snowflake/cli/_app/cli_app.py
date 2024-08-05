@@ -25,24 +25,24 @@ import click
 import typer
 from click import Context
 from snowflake.cli import __about__
+from snowflake.cli._app.api_impl.plugin.plugin_config_provider_impl import (
+    PluginConfigProviderImpl,
+)
+from snowflake.cli._app.commands_registration.commands_registration_with_callbacks import (
+    CommandsRegistrationWithCallbacks,
+)
+from snowflake.cli._app.dev.commands_structure import generate_commands_structure
+from snowflake.cli._app.dev.docs.generator import generate_docs
+from snowflake.cli._app.dev.pycharm_remote_debug import (
+    setup_pycharm_remote_debugger_if_provided,
+)
+from snowflake.cli._app.main_typer import SnowCliMainTyper
+from snowflake.cli._app.printing import MessageResult, print_result
 from snowflake.cli.api import Api, api_provider
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import CollectionResult
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.app.api_impl.plugin.plugin_config_provider_impl import (
-    PluginConfigProviderImpl,
-)
-from snowflake.cli.app.commands_registration.commands_registration_with_callbacks import (
-    CommandsRegistrationWithCallbacks,
-)
-from snowflake.cli.app.dev.commands_structure import generate_commands_structure
-from snowflake.cli.app.dev.docs.generator import generate_docs
-from snowflake.cli.app.dev.pycharm_remote_debug import (
-    setup_pycharm_remote_debugger_if_provided,
-)
-from snowflake.cli.app.main_typer import SnowCliMainTyper
-from snowflake.cli.app.printing import MessageResult, print_result
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
 log = logging.getLogger(__name__)

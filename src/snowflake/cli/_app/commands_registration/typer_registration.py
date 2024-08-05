@@ -18,9 +18,9 @@ import logging
 from typing import List
 
 import click
+from snowflake.cli._app.commands_registration import LoadedCommandPlugin
+from snowflake.cli._app.commands_registration.exception_logging import exception_logging
 from snowflake.cli.api.plugins.command import CommandSpec, CommandType
-from snowflake.cli.app.commands_registration import LoadedCommandPlugin
-from snowflake.cli.app.commands_registration.exception_logging import exception_logging
 from typer.core import TyperGroup
 
 log = logging.getLogger(__name__)

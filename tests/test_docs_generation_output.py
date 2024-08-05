@@ -18,8 +18,8 @@ from unittest import mock
 
 from click import Command
 from pydantic.json_schema import GenerateJsonSchema, model_json_schema
+from snowflake.cli._app.cli_app import app_context_holder
 from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
-from snowflake.cli.app.cli_app import app_context_holder
 
 
 @mock.patch(

@@ -18,8 +18,8 @@ import logging
 from typing import List, Optional
 
 from click import Command
+from snowflake.cli._app.dev.docs.template_utils import get_template_environment
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.app.dev.docs.template_utils import get_template_environment
 from typer.core import TyperArgument
 
 log = logging.getLogger(__name__)

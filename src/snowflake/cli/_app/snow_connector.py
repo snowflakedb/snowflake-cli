@@ -21,6 +21,10 @@ from typing import Dict, Optional
 
 import snowflake.connector
 from click.exceptions import ClickException
+from snowflake.cli._app.constants import (
+    PARAM_APPLICATION_NAME,
+)
+from snowflake.cli._app.telemetry import command_info
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.config import (
     get_connection_dict,
@@ -33,10 +37,6 @@ from snowflake.cli.api.exceptions import (
     SnowflakeConnectionError,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.app.constants import (
-    PARAM_APPLICATION_NAME,
-)
-from snowflake.cli.app.telemetry import command_info
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.errors import DatabaseError, ForbiddenError
 

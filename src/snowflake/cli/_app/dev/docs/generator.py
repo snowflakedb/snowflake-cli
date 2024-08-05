@@ -17,11 +17,11 @@ from __future__ import annotations
 import logging
 
 from click import Command
-from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.app.dev.docs.commands_docs_generator import generate_command_docs
-from snowflake.cli.app.dev.docs.project_definition_docs_generator import (
+from snowflake.cli._app.dev.docs.commands_docs_generator import generate_command_docs
+from snowflake.cli._app.dev.docs.project_definition_docs_generator import (
     generate_project_definition_docs,
 )
+from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
 

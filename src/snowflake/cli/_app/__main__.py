@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import sys
 
-from snowflake.cli.app.cli_app import app_factory
+from snowflake.cli._app.cli_app import app_factory
 
 
 def main(*args):
