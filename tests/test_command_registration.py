@@ -45,7 +45,7 @@ def test_multiple_use_of_test_runner(runner):
     assert_result_is_correct(runner.invoke(["-h"]))
 
 
-@mock.patch("snowflake.cli.plugins.connection.plugin_spec.command_spec")
+@mock.patch("snowflake.cli._plugins.connection.plugin_spec.command_spec")
 def test_auto_empty_callback_for_new_groups_with_single_command(
     connection_command_spec_mock, runner
 ):
@@ -71,7 +71,7 @@ def test_auto_empty_callback_for_new_groups_with_single_command(
     assert result3.output.count("Test command help") == 1
 
 
-@mock.patch("snowflake.cli.plugins.connection.plugin_spec.command_spec")
+@mock.patch("snowflake.cli._plugins.connection.plugin_spec.command_spec")
 def test_exception_handling_if_single_command_has_callback(
     connection_command_spec_mock, runner
 ):
@@ -92,7 +92,7 @@ def test_exception_handling_if_single_command_has_callback(
     assert result.output.count("Manages a Streamlit app in Snowflake") == 1
 
 
-@mock.patch("snowflake.cli.plugins.connection.plugin_spec.command_spec")
+@mock.patch("snowflake.cli._plugins.connection.plugin_spec.command_spec")
 def test_exception_handling_if_single_command_has_multiple_commands(
     connection_command_spec_mock, runner
 ):
@@ -111,7 +111,7 @@ def test_exception_handling_if_single_command_has_multiple_commands(
 
 
 @mock.patch(
-    "snowflake.cli.app.commands_registration.command_plugins_loader.get_builtin_plugin_name_to_plugin_spec",
+    "snowflake.cli._app.commands_registration.command_plugins_loader.get_builtin_plugin_name_to_plugin_spec",
     lambda: {
         "connection": connection_plugin_spec,
         "connection2": connection_plugin_spec,
@@ -124,7 +124,7 @@ def test_duplicated_plugin_handling(runner):
     assert result.output.count("Manages Streamlit in Snowflake") == 0
 
 
-@mock.patch("snowflake.cli.plugins.connection.plugin_spec.command_spec")
+@mock.patch("snowflake.cli._plugins.connection.plugin_spec.command_spec")
 def test_conflicting_command_plugin_paths_handling(
     connection_command_spec_mock, runner
 ):
@@ -136,7 +136,7 @@ def test_conflicting_command_plugin_paths_handling(
     assert result.output.count("Manages a Streamlit app in Snowflake") == 1
 
 
-@mock.patch("snowflake.cli.plugins.streamlit.plugin_spec.command_spec")
+@mock.patch("snowflake.cli._plugins.streamlit.plugin_spec.command_spec")
 def test_conflicting_commands_handling(streamlit_command_spec_mock, runner):
     streamlit_command_spec_mock.return_value = CommandSpec(
         parent_command_path=CommandPath(["connection"]),
@@ -157,7 +157,7 @@ def test_conflicting_commands_handling(streamlit_command_spec_mock, runner):
     assert result3.output.count("Lists configured connections") == 1
 
 
-@mock.patch("snowflake.cli.plugins.connection.plugin_spec.command_spec")
+@mock.patch("snowflake.cli._plugins.connection.plugin_spec.command_spec")
 def test_not_existing_command_group_handling(
     connection_command_spec_mock, runner, caplog
 ):
@@ -177,7 +177,7 @@ def test_not_existing_command_group_handling(
     assert result.output.count("Manages a Streamlit app in Snowflake") == 1
 
 
-@mock.patch("snowflake.cli.plugins.connection.plugin_spec.command_spec")
+@mock.patch("snowflake.cli._plugins.connection.plugin_spec.command_spec")
 def test_broken_command_spec_handling(connection_command_spec_mock, runner):
     connection_command_spec_mock.side_effect = RuntimeError("Test exception")
 
@@ -188,7 +188,7 @@ def test_broken_command_spec_handling(connection_command_spec_mock, runner):
 
 
 @mock.patch(
-    "snowflake.cli.app.api_impl.plugin.plugin_config_provider_impl.PluginConfigProviderImpl.get_enabled_plugin_names"
+    "snowflake.cli._app.api_impl.plugin.plugin_config_provider_impl.PluginConfigProviderImpl.get_enabled_plugin_names"
 )
 def test_not_existing_external_entrypoint_handling(enabled_plugin_names_mock, runner):
     enabled_plugin_names_mock.return_value = ["xyz123"]
@@ -201,7 +201,7 @@ def test_not_existing_external_entrypoint_handling(enabled_plugin_names_mock, ru
 
 @mock.patch("pluggy.PluginManager.load_setuptools_entrypoints")
 @mock.patch(
-    "snowflake.cli.app.api_impl.plugin.plugin_config_provider_impl.PluginConfigProviderImpl.get_enabled_plugin_names"
+    "snowflake.cli._app.api_impl.plugin.plugin_config_provider_impl.PluginConfigProviderImpl.get_enabled_plugin_names"
 )
 def test_broken_external_entrypoint_handling(
     enabled_plugin_names_mock, load_setuptools_entrypoints_mock, runner

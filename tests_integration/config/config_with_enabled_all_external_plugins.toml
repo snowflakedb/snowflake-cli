@@ -17,10 +17,10 @@
 schema = "public"
 
 
-[cli.plugins.snowpark-hello]
+[cli._plugins.snowpark-hello]
 enabled = true
-[cli.plugins.snowpark-hello.config]
+[cli._plugins.snowpark-hello.config]
 greeting = "Hello"
 
-[cli.plugins.multilingual-hello]
+[cli._plugins.multilingual-hello]
 enabled = true

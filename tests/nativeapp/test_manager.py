@@ -589,9 +589,9 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
 
 # With connection warehouse, with PDF warehouse
 # Without connection warehouse, with PDF warehouse
-@mock.patch("snowflake.cli.plugins.connection.util.get_context")
-@mock.patch("snowflake.cli.plugins.connection.util.get_account")
-@mock.patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
+@mock.patch("snowflake.cli._plugins.connection.util.get_context")
+@mock.patch("snowflake.cli._plugins.connection.util.get_account")
+@mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
@@ -654,9 +654,9 @@ def test_get_snowsight_url_with_pdf_warehouse(
 
 # With connection warehouse, without PDF warehouse
 # Without connection warehouse, without PDF warehouse
-@mock.patch("snowflake.cli.plugins.connection.util.get_context")
-@mock.patch("snowflake.cli.plugins.connection.util.get_account")
-@mock.patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
+@mock.patch("snowflake.cli._plugins.connection.util.get_context")
+@mock.patch("snowflake.cli._plugins.connection.util.get_account")
+@mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(

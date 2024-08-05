@@ -25,9 +25,9 @@ from snowflake.cli._plugins.spcs.image_registry.manager import (
 from snowflake.connector.cursor import DictCursor
 
 
-@mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager._conn")
+@mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._conn")
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager._execute_query"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._execute_query"
 )
 def test_registry_get_token(mock_execute, mock_conn, mock_cursor, runner):
     mock_execute.return_value = mock_cursor(
@@ -56,9 +56,9 @@ MOCK_REPO_COLUMNS = [
 ]
 
 
-@mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager._conn")
+@mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._conn")
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager._execute_query"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._execute_query"
 )
 def test_get_registry_url(mock_execute, mock_conn, mock_cursor):
     mock_row = [
@@ -82,9 +82,9 @@ def test_get_registry_url(mock_execute, mock_conn, mock_cursor):
     assert result == "orgname-alias.registry.snowflakecomputing.com"
 
 
-@mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager._conn")
+@mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._conn")
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager._execute_query"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._execute_query"
 )
 def test_get_registry_url_no_repositories(mock_execute, mock_conn, mock_cursor):
     mock_execute.return_value = mock_cursor(
@@ -99,7 +99,7 @@ def test_get_registry_url_no_repositories(mock_execute, mock_conn, mock_cursor):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
 )
 def test_get_registry_url_no_repositories_cli(
     mock_get_registry_url, runner, os_agnostic_snapshot
@@ -128,12 +128,14 @@ def test_has_url_scheme(url: str, expected: bool):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_token"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.get_token"
 )
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
 )
-@mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.subprocess.check_output")
+@mock.patch(
+    "snowflake.cli._plugins.spcs.image_registry.manager.subprocess.check_output"
+)
 def test_docker_registry_login(mock_check_output, mock_get_url, mock_get_token):
     test_output = mock_check_output.return_value = "Login Succeeded\n"
     test_url = (
@@ -163,7 +165,7 @@ def test_docker_registry_login(mock_check_output, mock_get_url, mock_get_token):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.docker_registry_login"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.docker_registry_login"
 )
 def test_docker_registry_login_cli(mock_docker_login, runner, os_agnostic_snapshot):
     mock_docker_login.return_value = "Login Succeeded\n"
@@ -173,7 +175,7 @@ def test_docker_registry_login_cli(mock_docker_login, runner, os_agnostic_snapsh
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
 )
 def test_docker_registry_login_cli_no_repositories(
     mock_get_registry_url, runner, os_agnostic_snapshot
@@ -185,12 +187,14 @@ def test_docker_registry_login_cli_no_repositories(
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_token"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.get_token"
 )
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
 )
-@mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.subprocess.check_output")
+@mock.patch(
+    "snowflake.cli._plugins.spcs.image_registry.manager.subprocess.check_output"
+)
 def test_docker_registry_login_subprocess_error(
     mock_check_output, mock_get_url, mock_get_token, os_agnostic_snapshot
 ):
@@ -221,12 +225,14 @@ def test_docker_registry_login_subprocess_error(
 
 
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_token"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.get_token"
 )
 @mock.patch(
-    "snowflake.cli.plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
 )
-@mock.patch("snowflake.cli.plugins.spcs.image_registry.manager.subprocess.check_output")
+@mock.patch(
+    "snowflake.cli._plugins.spcs.image_registry.manager.subprocess.check_output"
+)
 def test_docker_registry_login_docker_not_installed_error(
     mock_check_output, mock_get_url, mock_get_token
 ):

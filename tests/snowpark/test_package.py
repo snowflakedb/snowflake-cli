@@ -88,7 +88,7 @@ class TestPackage:
         assert "in-anaconda-package>=2" in result.output
         assert os.path.isfile("totally-awesome-package.zip"), result.output
 
-    @mock.patch("snowflake.cli.plugins.snowpark.package.manager.StageManager")
+    @mock.patch("snowflake.cli._plugins.snowpark.package.manager.StageManager")
     @mock.patch("snowflake.connector.connect")
     def test_package_upload(
         self,
@@ -113,7 +113,7 @@ class TestPackage:
         assert ctx.get_query() == ""
 
     @mock.patch(
-        "snowflake.cli.plugins.snowpark.package.manager.StageManager._execute_query"
+        "snowflake.cli._plugins.snowpark.package.manager.StageManager._execute_query"
     )
     def test_package_upload_to_path(
         self,
@@ -156,11 +156,11 @@ class TestPackage:
         )
 
     @mock.patch(
-        "snowflake.cli.plugins.snowpark.package.commands.download_unavailable_packages"
+        "snowflake.cli._plugins.snowpark.package.commands.download_unavailable_packages"
     )
-    @mock.patch("snowflake.cli.plugins.snowpark.package.commands.zip_dir")
+    @mock.patch("snowflake.cli._plugins.snowpark.package.commands.zip_dir")
     @mock.patch(
-        "snowflake.cli.plugins.snowpark.package.commands.get_package_name_from_pip_wheel"
+        "snowflake.cli._plugins.snowpark.package.commands.get_package_name_from_pip_wheel"
     )
     def test_create_without_flags_does_not_warn(
         self,

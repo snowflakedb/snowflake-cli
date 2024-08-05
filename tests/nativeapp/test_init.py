@@ -366,7 +366,7 @@ def test_nativeapp_init_with_unknown_template_name(mock_clone_from, temp_dir):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.init._init_from_template", return_value=None
+    "snowflake.cli._plugins.nativeapp.init._init_from_template", return_value=None
 )
 def test_init_expands_user(mock_init_from_template):
     expanded_project_path = Path("/home/testuser/my_app")
@@ -377,7 +377,7 @@ def test_init_expands_user(mock_init_from_template):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.init._init_from_template", return_value=None
+    "snowflake.cli._plugins.nativeapp.init._init_from_template", return_value=None
 )
 def test_init_fails_on_invalid_path(mock_init_from_template):
     with pytest.raises(InitError):

@@ -53,8 +53,8 @@ def _put_query(source: str, dest: str):
     )
 
 
-@mock.patch("snowflake.cli.plugins.connection.util.get_account")
-@mock.patch("snowflake.cli.plugins.streamlit.commands.typer")
+@mock.patch("snowflake.cli._plugins.connection.util.get_account")
+@mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
 def test_deploy_only_streamlit_file(
     mock_connector,
@@ -104,8 +104,8 @@ def test_deploy_only_streamlit_file(
     mock_typer.launch.assert_not_called()
 
 
-@mock.patch("snowflake.cli.plugins.connection.util.get_account")
-@mock.patch("snowflake.cli.plugins.streamlit.commands.typer")
+@mock.patch("snowflake.cli._plugins.connection.util.get_account")
+@mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
 def test_deploy_only_streamlit_file_no_stage(
     mock_connector,
@@ -154,8 +154,8 @@ def test_deploy_only_streamlit_file_no_stage(
     mock_typer.launch.assert_not_called()
 
 
-@mock.patch("snowflake.cli.plugins.connection.util.get_account")
-@mock.patch("snowflake.cli.plugins.streamlit.commands.typer")
+@mock.patch("snowflake.cli._plugins.connection.util.get_account")
+@mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
 def test_deploy_only_streamlit_file_replace(
     mock_connector,
@@ -239,7 +239,7 @@ def test_artifacts_must_exists(
         assert result.output == snapshot
 
 
-@mock.patch("snowflake.cli.plugins.streamlit.commands.typer")
+@mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
 def test_deploy_launch_browser(
     mock_connector, mock_typer, mock_cursor, runner, mock_ctx, project_directory

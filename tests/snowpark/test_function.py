@@ -28,7 +28,7 @@ if IS_WINDOWS:
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
 def test_deploy_function(
     mock_object_manager,
     mock_connector,
@@ -71,7 +71,7 @@ def test_deploy_function(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
 def test_deploy_function_with_external_access(
     mock_object_manager,
     mock_connector,
@@ -121,7 +121,7 @@ def test_deploy_function_with_external_access(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
 def test_deploy_function_secrets_without_external_access(
     mock_object_manager,
     mock_conn,
@@ -291,8 +291,8 @@ def test_deploy_function_needs_update_because_handler_changes(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_deploy_procedure_fully_qualified_name(
     mock_om_show,
     mock_om_describe,

@@ -23,7 +23,7 @@ from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
 
 
 @mock.patch(
-    "snowflake.cli.app.dev.docs.project_definition_generate_json_schema.ProjectDefinitionGenerateJsonSchema.generate"
+    "snowflake.cli._app.dev.docs.project_definition_generate_json_schema.ProjectDefinitionGenerateJsonSchema.generate"
 )
 def test_definition_file_format_generated_from_json(mock_generate, runner, temp_dir):
     property1 = {

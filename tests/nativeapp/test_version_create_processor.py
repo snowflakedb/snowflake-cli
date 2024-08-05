@@ -405,7 +405,7 @@ def test_process_no_existing_release_directives_or_versions(
 
 # Test version create when there are no release directives matching the version AND a version exists for app pkg
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.artifacts.find_version_info_in_manifest_file"
+    "snowflake.cli._plugins.nativeapp.artifacts.find_version_info_in_manifest_file"
 )
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
 @mock.patch(
@@ -514,7 +514,7 @@ def test_process_no_existing_release_directives_w_existing_version(
     return_value=None,
 )
 @mock.patch(
-    f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
 )
 @mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_version_info")
 @pytest.mark.parametrize(
@@ -611,7 +611,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_patch_to_version", return_value=None
 )
 @mock.patch(
-    f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
 @pytest.mark.parametrize(
     "policy_param, is_interactive_param",
@@ -709,7 +709,7 @@ def test_process_existing_release_directives_w_existing_version_two(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_version_info", return_value=None
 )
 @mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_version", return_value=None)
-@mock.patch(f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}")
+@mock.patch(f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}")
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )

@@ -46,8 +46,10 @@ def test_prepare_app_zip(
     app_zip: str,
     temp_directory_for_app_zip: str,
 ):
-    result = snowflake.cli.plugins.snowpark.package.utils.prepare_app_zip(
-        SecurePath(app_zip), SecurePath(temp_directory_for_app_zip)
+    result = (
+        snowflake.cli._plugins.snowpark.package.utils.prepare_app_zip(  # noqa: SLF001
+            SecurePath(app_zip), SecurePath(temp_directory_for_app_zip)
+        )
     )
     assert str(result.path) == os.path.join(
         temp_directory_for_app_zip, Path(app_zip).name
@@ -58,7 +60,7 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
     temp_directory_for_app_zip,
 ):
     with pytest.raises(FileNotFoundError) as expected_error:
-        snowflake.cli.plugins.snowpark.package.utils.prepare_app_zip(
+        snowflake.cli._plugins.snowpark.package.utils.prepare_app_zip(  # noqa: SLF001
             SecurePath("/non/existent/path"), SecurePath(temp_directory_for_app_zip)
         )
 
@@ -68,7 +70,7 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_source(
 
 def test_prepare_app_zip_if_exception_is_raised_if_no_dst(app_zip):
     with pytest.raises(FileNotFoundError) as expected_error:
-        snowflake.cli.plugins.snowpark.package.utils.prepare_app_zip(
+        snowflake.cli._plugins.snowpark.package.utils.prepare_app_zip(  # noqa: SLF001
             SecurePath(app_zip), SecurePath("/non/existent/path")
         )
 
@@ -110,7 +112,7 @@ def test_parse_requirements_with_nonexistent_file(temp_dir):
         ),
     ],
 )
-@mock.patch("snowflake.cli.plugins.snowpark.package_utils.SecurePath.read_text")
+@mock.patch("snowflake.cli._plugins.snowpark.package_utils.SecurePath.read_text")
 def test_parse_requirements_corner_cases(
     mock_file, contents, expected, correct_requirements_snowflake_txt
 ):

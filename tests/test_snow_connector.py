@@ -40,7 +40,7 @@ MOCK_CONNECTION = {
     ],
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
 def test_command_context_is_passed_to_snowflake_connection(
     mock_command_info, mock_connect, cmd, expected, test_snowcli_config
 ):

@@ -251,7 +251,7 @@ def test_project_name(pdfv2_input, expected_project_name):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.v2_conversions.v2_to_v1_decorator._pdf_v2_to_v1"
+    "snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator._pdf_v2_to_v1"
 )
 def test_decorator_skips_when_project_is_not_v2(mock_pdf_v2_to_v1):
     pdfv1 = DefinitionV11(
