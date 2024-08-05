@@ -84,17 +84,19 @@ def test_set_schema():
         # Callables
         (
             "db.schema.function(string, int, variant)",
-            "db.schema.function(string, int, variant)",
+            "db.schema.function",
         ),
         (
             'db.schema."fun tion"(string, int, variant)',
-            'db.schema."fun tion"(string, int, variant)',
+            'db.schema."fun tion"',
         ),
     ],
 )
 def test_from_string(fqn_str, identifier):
     fqn = FQN.from_string(fqn_str)
     assert fqn.identifier == identifier
+    if fqn.signature:
+        assert fqn.signature == "(string, int, variant)"
 
 
 @pytest.mark.parametrize(

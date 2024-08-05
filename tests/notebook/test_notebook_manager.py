@@ -62,8 +62,8 @@ def test_create(mock_ctx, mock_execute, mock_url):
             FROM '@stage'
             QUERY_WAREHOUSE = 'MY_WH'
             MAIN_FILE = 'nb file.ipynb';
-
-            ALTER NOTEBOOK IDENTIFIER('nb_db.nb_schema.MY_NOTEBOOK') ADD LIVE VERSION FROM LAST;
+            // Cannot use IDENTIFIER(...)
+            ALTER NOTEBOOK nb_db.nb_schema.MY_NOTEBOOK ADD LIVE VERSION FROM LAST;
             """
         )
         mock_execute.assert_called_once_with(queries=expected_query)
