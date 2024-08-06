@@ -13,8 +13,7 @@
   warehouse = "some warehouse"
   role = "some role"
   authenticator = " foo   "
-  private_key_path = "bar"
-  token_file_path = "baz"
+  private_key_path = ""
   
   '''
 # ---
@@ -35,8 +34,7 @@
               "warehouse": "some warehouse",
               "role": "some role",
               "authenticator": " foo   ",
-              "private_key_path": "bar",
-              "token_file_path": "baz"
+              "private_key_path": ""
           },
           "is_default": false
       }

@@ -116,7 +116,7 @@ def test_if_whitespaces_are_stripped_from_connection_name(runner, os_agnostic_sn
                 "--account",
                 "             accName",
             ],
-            input="123\n some role    \n some warehouse\n foo \n bar     \n baz \n    12345 \n Kaszuby \n foo   \n bar \n baz ",
+            input="123\n some role    \n some warehouse\n foo \n bar     \n baz \n    12345 \n Kaszuby \n foo   \n \n",
         )
         content = tmp_file.read()
 
