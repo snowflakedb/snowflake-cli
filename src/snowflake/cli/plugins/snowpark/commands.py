@@ -558,8 +558,8 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
             "database": entity.database,
             "schema": entity.schema_name,
         }
-        if isinstance(callable, ProcedureSchema):
-            v2_entity["execute_as_caller"] = callable.execute_as_caller
+        if isinstance(entity, ProcedureSchema):
+            v2_entity["execute_as_caller"] = entity.execute_as_caller
 
         data["entities"][entity.name] = v2_entity
 
