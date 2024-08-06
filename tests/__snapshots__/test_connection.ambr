@@ -1,4 +1,76 @@
 # serializer version: 1
+# name: test_connection_can_be_added_with_existing_paths_in_arguments[-k]
+  '''
+  Snowflake password [optional]: 
+  Role for the connection [optional]: 
+  Warehouse for the connection [optional]: 
+  Database for the connection [optional]: 
+  Schema for the connection [optional]: 
+  Connection host [optional]: 
+  Snowflake region [optional]: 
+  Authentication method [optional]: 
+  Path to token file [optional]: 
+  Wrote new connection conn1 to /Users/jsikorski/.snowflake/config.toml
+  
+  '''
+# ---
+# name: test_connection_can_be_added_with_existing_paths_in_arguments[-t]
+  '''
+  Snowflake password [optional]: 
+  Role for the connection [optional]: 
+  Warehouse for the connection [optional]: 
+  Database for the connection [optional]: 
+  Schema for the connection [optional]: 
+  Connection host [optional]: 
+  Snowflake region [optional]: 
+  Authentication method [optional]: 
+  Path to private key file [optional]: 
+  Wrote new connection conn1 to /Users/jsikorski/.snowflake/config.toml
+  
+  '''
+# ---
+# name: test_connection_can_be_added_with_existing_paths_in_prompt[10]
+  '''
+  [connections.connName]
+  account = "accName"
+  user = "userName"
+  password = "password"
+  token_file_path = "/var/folders/k8/3sdqh3nn4gg7lpr5fz0fjlqw0000gn/T/tmpjbd8o_i2"
+  
+  '''
+# ---
+# name: test_connection_can_be_added_with_existing_paths_in_prompt[9]
+  '''
+  [connections.connName]
+  account = "accName"
+  user = "userName"
+  password = "password"
+  private_key_path = "/var/folders/k8/3sdqh3nn4gg7lpr5fz0fjlqw0000gn/T/tmp0rnw_ay8"
+  
+  '''
+# ---
+# name: test_file_paths_have_to_exist_when_given_in_arguments[-k]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Path ~/path/to/file does not exist.                                          |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_file_paths_have_to_exist_when_given_in_arguments[-t]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Path ~/path/to/file does not exist.                                          |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_file_paths_have_to_exist_when_given_in_prompt[10]
+  ''
+# ---
+# name: test_file_paths_have_to_exist_when_given_in_prompt[9]
+  ''
+# ---
 # name: test_if_whitespaces_are_stripped_from_connection_name
   '''
   [connections.whitespaceTest]
