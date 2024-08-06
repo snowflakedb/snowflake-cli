@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Dict
 
+from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.schemas.entities.entities import (
     Entity,
@@ -15,10 +16,7 @@ class WorkspaceManager:
     """
 
     def __init__(self, project_definition: DefinitionV20, project_root: Path):
-        if (
-            project_definition.definition_version != "2"
-            and not project_definition.definition_version.startswith("2.")
-        ):
+        if not project_definition.meets_version_requirement("2"):
             raise InvalidProjectDefinitionVersionError(
                 "2.x", project_definition.definition_version
             )
@@ -36,7 +34,7 @@ class WorkspaceManager:
 
     def bundle(self, entity_id: str):
         entity = self.get_entity(entity_id)
-        if callable(getattr(entity, "bundle", None)):
+        if entity.supports(EntityActions.BUNDLE):
             entity.bundle()
         else:
             raise ValueError("This entity type does not support bundling")
