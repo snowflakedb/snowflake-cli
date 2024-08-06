@@ -97,7 +97,7 @@ def connect_to_snowflake(
         k: v for k, v in connection_parameters.items() if v is not None
     }
 
-    connection_parameters = _update_connection_details_with_private_key(
+    connection_parameters = update_connection_details_with_private_key(
         connection_parameters
     )
 
@@ -163,7 +163,7 @@ def _raise_errors_related_to_session_token(
         )
 
 
-def _update_connection_details_with_private_key(connection_parameters: Dict):
+def update_connection_details_with_private_key(connection_parameters: Dict):
     if "private_key_path" in connection_parameters:
         if connection_parameters.get("authenticator") == "SNOWFLAKE_JWT":
             private_key = _load_pem_to_der(connection_parameters["private_key_path"])
@@ -189,13 +189,6 @@ def _load_pem_to_der(private_key_path: str) -> bytes:
     Given a private key file path (in PEM format), decode key data into DER
     format
     """
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives.serialization import (
-        Encoding,
-        NoEncryption,
-        PrivateFormat,
-        load_pem_private_key,
-    )
 
     with SecurePath(private_key_path).open(
         "rb", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
@@ -222,6 +215,18 @@ def _load_pem_to_der(private_key_path: str) -> bytes:
     if private_key_pem.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
         private_key_passphrase = None
 
+    return prepare_private_key(private_key_pem, private_key_passphrase)
+
+
+def prepare_private_key(private_key_pem, private_key_passphrase=None):
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding,
+        NoEncryption,
+        PrivateFormat,
+        load_pem_private_key,
+    )
+
     private_key = load_pem_private_key(
         private_key_pem,
         (
@@ -231,7 +236,6 @@ def _load_pem_to_der(private_key_path: str) -> bytes:
         ),
         default_backend(),
     )
-
     return private_key.private_bytes(
         encoding=Encoding.DER,
         format=PrivateFormat.PKCS8,
