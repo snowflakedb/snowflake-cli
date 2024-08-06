@@ -258,7 +258,7 @@ def _find_existing_objects(
         try:
             current_state = om.describe(
                 object_type=object_type.value.sf_name,
-                name=identifier,
+                fqn=FQN.from_string(identifier),
             )
             existing_objects[identifier] = current_state
         except ProgrammingError:
@@ -510,7 +510,7 @@ def list_(
 @app.command("drop", requires_connection=True)
 def drop(
     object_type: _SnowparkObject = ObjectTypeArgument,
-    identifier: str = IdentifierArgument,
+    identifier: FQN = IdentifierArgument,
     **options,
 ):
     """Drop procedure or function."""
@@ -520,7 +520,7 @@ def drop(
 @app.command("describe", requires_connection=True)
 def describe(
     object_type: _SnowparkObject = ObjectTypeArgument,
-    identifier: str = IdentifierArgument,
+    identifier: FQN = IdentifierArgument,
     **options,
 ):
     """Provides description of a procedure or function."""
