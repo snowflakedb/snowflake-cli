@@ -17,14 +17,16 @@ from unittest.mock import Mock, patch
 
 import pytest
 from click import ClickException
+from snowflake.cli._plugins.spcs.common import (
+    NoPropertiesProvidedError,
+)
+from snowflake.cli._plugins.spcs.compute_pool.commands import (
+    _compute_pool_name_callback,
+)
+from snowflake.cli._plugins.spcs.compute_pool.manager import ComputePoolManager
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
-from snowflake.cli.plugins.spcs.common import (
-    NoPropertiesProvidedError,
-)
-from snowflake.cli.plugins.spcs.compute_pool.commands import _compute_pool_name_callback
-from snowflake.cli.plugins.spcs.compute_pool.manager import ComputePoolManager
 from snowflake.connector.cursor import SnowflakeCursor
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
@@ -34,7 +36,7 @@ from tests_integration.testing_utils.assertions.test_result_assertions import (
 
 
 @patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
 )
 def test_create(mock_execute_query):
     pool_name = "test_pool"
@@ -75,7 +77,7 @@ def test_create(mock_execute_query):
     assert result == cursor
 
 
-@patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.create")
+@patch("snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create")
 def test_create_pool_cli_defaults(mock_create, runner):
     result = runner.invoke(
         [
@@ -101,7 +103,7 @@ def test_create_pool_cli_defaults(mock_create, runner):
     )
 
 
-@patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.create")
+@patch("snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create")
 def test_create_pool_cli(mock_create, runner):
     result = runner.invoke(
         [
@@ -139,9 +141,9 @@ def test_create_pool_cli(mock_create, runner):
 
 
 @patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
 )
-@patch("snowflake.cli.plugins.spcs.compute_pool.manager.handle_object_already_exists")
+@patch("snowflake.cli._plugins.spcs.compute_pool.manager.handle_object_already_exists")
 def test_create_compute_pool_already_exists(mock_handle, mock_execute):
     pool_name = "test_pool"
     mock_execute.side_effect = SPCS_OBJECT_EXISTS_ERROR
@@ -162,7 +164,7 @@ def test_create_compute_pool_already_exists(mock_handle, mock_execute):
 
 
 @patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
 )
 def test_create_compute_pool_if_not_exists(mock_execute_query):
     cursor = Mock(spec=SnowflakeCursor)
@@ -195,7 +197,7 @@ def test_create_compute_pool_if_not_exists(mock_execute_query):
 
 
 @patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
 )
 def test_stop(mock_execute_query):
     pool_name = "test_pool"
@@ -208,7 +210,7 @@ def test_stop(mock_execute_query):
 
 
 @patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
 )
 def test_suspend(mock_execute_query):
     pool_name = "test_pool"
@@ -220,7 +222,7 @@ def test_suspend(mock_execute_query):
     assert result == cursor
 
 
-@patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.suspend")
+@patch("snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.suspend")
 def test_suspend_cli(mock_suspend, mock_cursor, runner):
     pool_name = "test_pool"
     cursor = mock_cursor(
@@ -245,7 +247,7 @@ def test_suspend_cli(mock_suspend, mock_cursor, runner):
 
 
 @patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
 )
 def test_resume(mock_execute_query):
     pool_name = "test_pool"
@@ -257,7 +259,7 @@ def test_resume(mock_execute_query):
     assert result == cursor
 
 
-@patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.resume")
+@patch("snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.resume")
 def test_resume_cli(mock_resume, mock_cursor, runner):
     pool_name = "test_pool"
     cursor = mock_cursor(
@@ -281,7 +283,7 @@ def test_resume_cli(mock_resume, mock_cursor, runner):
     assert result_json_parsed == {"status": "Statement executed successfully."}
 
 
-@patch("snowflake.cli.plugins.spcs.compute_pool.commands.is_valid_object_name")
+@patch("snowflake.cli._plugins.spcs.compute_pool.commands.is_valid_object_name")
 def test_compute_pool_name_callback(mock_is_valid):
     name = "test_pool"
     mock_is_valid.return_value = True
@@ -289,7 +291,7 @@ def test_compute_pool_name_callback(mock_is_valid):
     assert _compute_pool_name_callback(fqn) == fqn
 
 
-@patch("snowflake.cli.plugins.spcs.compute_pool.commands.is_valid_object_name")
+@patch("snowflake.cli._plugins.spcs.compute_pool.commands.is_valid_object_name")
 def test_compute_pool_name_callback_invalid(mock_is_valid):
     name = "test_pool"
     mock_is_valid.return_value = False
@@ -299,7 +301,7 @@ def test_compute_pool_name_callback_invalid(mock_is_valid):
 
 
 @patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
 )
 def test_set_property(mock_execute_query):
     pool_name = "test_pool"
@@ -338,7 +340,7 @@ def test_set_property_no_properties():
 
 
 @patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.set_property"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.set_property"
 )
 def test_set_property_cli(mock_set, mock_statement_success, runner):
     cursor = mock_statement_success()
@@ -379,7 +381,7 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
 
 
 @patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.set_property"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.set_property"
 )
 def test_set_property_no_properties_cli(mock_set, runner):
     pool_name = "test_pool"
@@ -400,7 +402,7 @@ def test_set_property_no_properties_cli(mock_set, runner):
 
 
 @patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
 )
 def test_unset_property(mock_execute_query):
     pool_name = "test_pool"
@@ -425,7 +427,7 @@ def test_unset_property_no_properties():
 
 
 @patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.unset_property"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.unset_property"
 )
 def test_unset_property_cli(mock_unset, mock_statement_success, runner):
     cursor = mock_statement_success()
@@ -450,7 +452,7 @@ def test_unset_property_cli(mock_unset, mock_statement_success, runner):
 
 
 @patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.unset_property"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.unset_property"
 )
 def test_unset_property_no_properties_cli(mock_unset, runner):
     pool_name = "test_pool"
@@ -475,7 +477,7 @@ def test_unset_property_with_args(runner):
 
 
 @patch(
-    "snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
 )
 def test_status(mock_execute_query):
     pool_name = "test_pool"
@@ -487,7 +489,7 @@ def test_status(mock_execute_query):
     assert result == cursor
 
 
-@patch("snowflake.cli.plugins.spcs.compute_pool.manager.ComputePoolManager.status")
+@patch("snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.status")
 def test_status_cli(mock_status, mock_statement_success, runner):
     pool_name = "test_pool"
     mock_status.return_value = mock_statement_success()

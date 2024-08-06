@@ -17,8 +17,8 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
-from snowflake.cli.plugins.stage.manager import StageManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -28,7 +28,7 @@ if IS_WINDOWS:
     pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
 
 
-STAGE_MANAGER = "snowflake.cli.plugins.stage.manager.StageManager"
+STAGE_MANAGER = "snowflake.cli._plugins.stage.manager.StageManager"
 
 skip_python_3_12 = pytest.mark.skipif(
     sys.version_info >= (3, 12), reason="Snowpark is not supported in Python >= 3.12"
@@ -514,7 +514,7 @@ def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     )
 
 
-@mock.patch("snowflake.cli.plugins.object.commands.ObjectManager._execute_query")
+@mock.patch("snowflake.cli._plugins.object.commands.ObjectManager._execute_query")
 def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", "stageName", "-c", "empty"])
@@ -522,7 +522,7 @@ def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with("drop stage IDENTIFIER('stageName')")
 
 
-@mock.patch("snowflake.cli.plugins.object.commands.ObjectManager._execute_query")
+@mock.patch("snowflake.cli._plugins.object.commands.ObjectManager._execute_query")
 def test_stage_drop_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", '"stage name"', "-c", "empty"])

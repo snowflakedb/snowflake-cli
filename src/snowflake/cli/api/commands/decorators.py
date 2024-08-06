@@ -125,7 +125,7 @@ def with_experimental_behaviour(
 
 
 def _execute_before_command_using_global_options(**options):
-    from snowflake.cli.app.loggers import create_loggers
+    from snowflake.cli._app.loggers import create_loggers
 
     cli_context = get_cli_context()
     create_loggers(cli_context.verbose, cli_context.enable_tracebacks)
@@ -343,7 +343,7 @@ GLOBAL_OPTIONS = [
 
 
 def with_output(func):
-    from snowflake.cli.app.printing import print_result
+    from snowflake.cli._app.printing import print_result
 
     @wraps(func)
     def wrapper(*args, **kwargs):

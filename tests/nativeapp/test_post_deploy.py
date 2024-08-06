@@ -18,13 +18,13 @@ from unittest import mock
 
 import pytest
 from pydantic import ValidationError
+from snowflake.cli._plugins.nativeapp.exceptions import MissingScriptError
+from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.application import (
     ApplicationPostDeployHook,
 )
-from snowflake.cli.plugins.nativeapp.exceptions import MissingScriptError
-from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
 
 from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (

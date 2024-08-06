@@ -15,11 +15,11 @@
 from textwrap import dedent
 
 import pytest
-import snowflake.cli.plugins.nativeapp.codegen.snowpark.extension_function_utils as ef_utils
-from snowflake.cli.api.project.schemas.snowpark.argument import Argument
-from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
+import snowflake.cli._plugins.nativeapp.codegen.snowpark.extension_function_utils as ef_utils
+from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
     NativeAppExtensionFunction,
 )
+from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 
 
 @pytest.mark.parametrize(

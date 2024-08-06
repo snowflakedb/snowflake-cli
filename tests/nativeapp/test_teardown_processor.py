@@ -18,23 +18,23 @@ from unittest import mock
 import pytest
 import typer
 from click import Abort
+from snowflake.cli._plugins.nativeapp.constants import (
+    SPECIAL_COMMENT,
+    SPECIAL_COMMENT_OLD,
+)
+from snowflake.cli._plugins.nativeapp.exceptions import (
+    CouldNotDropApplicationPackageWithVersions,
+    UnexpectedOwnerError,
+)
+from snowflake.cli._plugins.nativeapp.manager import SnowflakeSQLExecutionError
+from snowflake.cli._plugins.nativeapp.teardown_processor import (
+    NativeAppTeardownProcessor,
+)
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.constants import (
-    SPECIAL_COMMENT,
-    SPECIAL_COMMENT_OLD,
-)
-from snowflake.cli.plugins.nativeapp.exceptions import (
-    CouldNotDropApplicationPackageWithVersions,
-    UnexpectedOwnerError,
-)
-from snowflake.cli.plugins.nativeapp.manager import SnowflakeSQLExecutionError
-from snowflake.cli.plugins.nativeapp.teardown_processor import (
-    NativeAppTeardownProcessor,
-)
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
