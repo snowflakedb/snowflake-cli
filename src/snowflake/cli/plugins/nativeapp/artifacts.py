@@ -199,6 +199,12 @@ class _ArtifactPathMap:
         """
         return self.__src_to_dest.keys()
 
+    def is_empty(self) -> bool:
+        """
+        Returns True if this map has no source-destination mappings.
+        """
+        return len(self.__src_dest_pairs) == 0
+
     def __iter__(self) -> Iterator[Tuple[Path, Path]]:
         """
         Returns all (source, destination) pairs known to this map, in insertion order.
@@ -239,6 +245,9 @@ class BundleMap:
         self._project_root: Path = resolve_without_follow(project_root)
         self._deploy_root: Path = resolve_without_follow(deploy_root)
         self._artifact_map = _ArtifactPathMap(project_root=self._project_root)
+
+    def is_empty(self) -> bool:
+        return self._artifact_map.is_empty()
 
     def deploy_root(self) -> Path:
         return self._deploy_root
@@ -657,6 +666,10 @@ def build_bundle(
     bundle_map = BundleMap(project_root=project_root, deploy_root=deploy_root)
     for artifact in artifacts:
         bundle_map.add(artifact)
+
+    if bundle_map.is_empty():
+        # Should we use ArtifactError here or create a specific NoArtifactsError class instead?
+        raise ArtifactError("No artifacts were found, nothing to do.")
 
     for (absolute_src, absolute_dest) in bundle_map.all_mappings(
         absolute=True, expand_directories=False
