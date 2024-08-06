@@ -27,8 +27,8 @@ from unittest import mock
         "SNOWFLAKE_CONNECTIONS_INTEGRATION_USER": os.environ.get(
             "SNOWFLAKE_CONNECTIONS_INTEGRATION_USER", None
         ),
-        "SNOWFLAKE_PASSWORD": os.environ.get(
-            "SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD"
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH": os.environ.get(
+            "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH", None
         ),
     },
     clear=True,
@@ -41,10 +41,14 @@ def test_temporary_connection(runner, snapshot):
             "-q",
             "select 1",
             "--temporary-connection",
+            "--authenticator",
+            "SNOWFLAKE_JWT",
             "--account",
             os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"],
             "--user",
             os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"],
+            "--private-key-path",
+            os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH"],
         ]
     )
     assert result.exit_code == 0

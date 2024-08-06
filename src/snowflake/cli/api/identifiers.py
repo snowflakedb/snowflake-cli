@@ -35,10 +35,17 @@ class FQN:
     fqn = FQN.from_string("my_name").set_database("db").set_schema("foo")
     """
 
-    def __init__(self, database: str | None, schema: str | None, name: str):
+    def __init__(
+        self,
+        database: str | None,
+        schema: str | None,
+        name: str,
+        signature: str | None = None,
+    ):
         self._database = database
         self._schema = schema
         self._name = name
+        self.signature = signature
 
     @property
     def database(self) -> str | None:
@@ -72,6 +79,8 @@ class FQN:
 
     @property
     def sql_identifier(self) -> str:
+        if self.signature:
+            return f"IDENTIFIER('{self.identifier}'){self.signature}"
         return f"IDENTIFIER('{self.identifier}')"
 
     def __str__(self):
@@ -98,9 +107,13 @@ class FQN:
         else:
             database = None
             schema = result.group("first_qualifier")
-        if signature := result.group("signature"):
-            unqualified_name = unqualified_name + signature
-        return cls(name=unqualified_name, schema=schema, database=database)
+
+        signature = None
+        if result.group("signature"):
+            signature = result.group("signature")
+        return cls(
+            name=unqualified_name, schema=schema, database=database, signature=signature
+        )
 
     @classmethod
     def from_stage(cls, stage: str) -> "FQN":

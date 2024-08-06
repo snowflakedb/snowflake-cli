@@ -147,11 +147,11 @@ class SqlExecutionMixin:
                 self.use(object_type=ObjectType.WAREHOUSE, name=prev_wh)
 
     def create_password_secret(
-        self, name: str, username: str, password: str
+        self, name: FQN, username: str, password: str
     ) -> SnowflakeCursor:
         return self._execute_query(
             f"""
-            create secret {name}
+            create secret {name.sql_identifier}
             type = password
             username = '{username}'
             password = '{password}'
@@ -159,11 +159,11 @@ class SqlExecutionMixin:
         )
 
     def create_api_integration(
-        self, name: str, api_provider: str, allowed_prefix: str, secret: Optional[str]
+        self, name: FQN, api_provider: str, allowed_prefix: str, secret: Optional[str]
     ) -> SnowflakeCursor:
         return self._execute_query(
             f"""
-            create api integration {name}
+            create api integration {name.sql_identifier}
             api_provider = {api_provider}
             api_allowed_prefixes = ('{allowed_prefix}')
             allowed_authentication_secrets = ({secret if secret else ''})

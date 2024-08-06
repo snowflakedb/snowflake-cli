@@ -20,6 +20,7 @@ import typer
 from click import ClickException
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.plugins.object.commands import (
     ScopeOption,
     describe,
@@ -72,7 +73,7 @@ def add_object_command_aliases(
     if "drop" not in ommit_commands:
 
         @app.command("drop", requires_connection=True)
-        def drop_cmd(name: str = name_argument, **options):
+        def drop_cmd(name: FQN = name_argument, **options):
             return drop(
                 object_type=object_type.value.cli_name,
                 object_name=name,
@@ -84,7 +85,7 @@ def add_object_command_aliases(
     if "describe" not in ommit_commands:
 
         @app.command("describe", requires_connection=True)
-        def describe_cmd(name: str = name_argument, **options):
+        def describe_cmd(name: FQN = name_argument, **options):
             return describe(
                 object_type=object_type.value.cli_name,
                 object_name=name,
