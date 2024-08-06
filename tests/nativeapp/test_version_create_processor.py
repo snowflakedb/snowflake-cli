@@ -641,16 +641,8 @@ def test_process_existing_release_directives_user_does_not_proceed(
 @mock.patch.object(
     NativeAppVersionCreateProcessor, "get_existing_version_info", return_value=None
 )
-<<<<<<< HEAD
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_patch_to_version", return_value=None
-)
-@mock.patch(
-    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
-=======
 @mock.patch.object(
     NativeAppVersionCreateProcessor, "add_new_patch_to_version", return_value=None
->>>>>>> 36823177 (Add deploy scripts to version create as well)
 )
 @mock.patch.object(typer, "confirm", return_value=True)
 @pytest.mark.parametrize(
@@ -759,15 +751,10 @@ def test_process_existing_release_directives_w_existing_version_two(
 @mock.patch.object(
     NativeAppVersionCreateProcessor, "get_existing_version_info", return_value=None
 )
-<<<<<<< HEAD
-@mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_version", return_value=None)
-@mock.patch(f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}")
-=======
 @mock.patch.object(
     NativeAppVersionCreateProcessor, "add_new_version", return_value=None
 )
 @mock.patch.object(typer, "confirm")
->>>>>>> 36823177 (Add deploy scripts to version create as well)
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
