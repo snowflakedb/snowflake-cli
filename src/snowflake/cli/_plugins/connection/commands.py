@@ -45,11 +45,11 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     ObjectResult,
 )
-from snowflake.cli.plugins.connection.util import (
+from snowflake.cli._plugins.connection.util import (
     strip_and_check_if_exists,
     strip_if_value_present,
 )
-from snowflake.cli.plugins.object.manager import ObjectManager
+from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
