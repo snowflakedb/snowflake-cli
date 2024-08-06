@@ -17,10 +17,10 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from snowflake.cli._api.identifiers import FQN
-from snowflake.cli._api.secure_path import SecurePath
 from snowflake.cli._plugins.snowpark.package.utils import prepare_app_zip
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
 

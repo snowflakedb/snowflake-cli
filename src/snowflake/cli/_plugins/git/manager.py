@@ -18,13 +18,13 @@ from pathlib import Path
 from textwrap import dedent
 from typing import List
 
-from snowflake.cli._api.identifiers import FQN
 from snowflake.cli._plugins.stage.manager import (
     USER_STAGE_PREFIX,
     StageManager,
     StagePathParts,
     UserStagePathParts,
 )
+from snowflake.cli.api.identifiers import FQN
 from snowflake.connector.cursor import SnowflakeCursor
 
 

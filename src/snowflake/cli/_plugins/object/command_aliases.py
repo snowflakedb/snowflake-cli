@@ -18,9 +18,6 @@ from typing import List, Optional, Tuple
 
 import typer
 from click import ClickException
-from snowflake.cli._api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli._api.constants import ObjectType
-from snowflake.cli._api.identifiers import FQN
 from snowflake.cli._plugins.object.commands import (
     ScopeOption,
     describe,
@@ -28,6 +25,9 @@ from snowflake.cli._plugins.object.commands import (
     list_,
     scope_option,  # noqa: F401
 )
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.identifiers import FQN
 
 
 def add_object_command_aliases(

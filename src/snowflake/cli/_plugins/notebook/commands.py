@@ -15,12 +15,12 @@
 import logging
 
 import typer
-from snowflake.cli._api.commands.flags import identifier_argument
-from snowflake.cli._api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli._api.identifiers import FQN
-from snowflake.cli._api.output.types import MessageResult
 from snowflake.cli._plugins.notebook.manager import NotebookManager
 from snowflake.cli._plugins.notebook.types import NotebookStagePath
+from snowflake.cli.api.commands.flags import identifier_argument
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.output.types import MessageResult
 from typing_extensions import Annotated
 
 app = SnowTyperFactory(

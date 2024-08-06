@@ -18,17 +18,17 @@ from typing import List, Optional, Tuple
 
 import typer
 from click import ClickException
-from snowflake.cli._api.commands.flags import (
+from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api.commands.flags import (
     IdentifierType,
     like_option,
     parse_key_value_variables,
 )
-from snowflake.cli._api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli._api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
-from snowflake.cli._api.identifiers import FQN
-from snowflake.cli._api.output.types import MessageResult, QueryResult
-from snowflake.cli._api.project.util import is_valid_identifier
-from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.output.types import MessageResult, QueryResult
+from snowflake.cli.api.project.util import is_valid_identifier
 
 app = SnowTyperFactory(
     name="object",

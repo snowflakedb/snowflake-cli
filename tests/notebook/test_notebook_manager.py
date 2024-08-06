@@ -17,9 +17,9 @@ from unittest import mock
 from unittest.mock import MagicMock, PropertyMock
 
 import pytest
-from snowflake.cli._api.identifiers import FQN
 from snowflake.cli._plugins.notebook.exceptions import NotebookStagePathError
 from snowflake.cli._plugins.notebook.manager import NotebookManager
+from snowflake.cli.api.identifiers import FQN
 
 
 @mock.patch.object(NotebookManager, "_execute_query")

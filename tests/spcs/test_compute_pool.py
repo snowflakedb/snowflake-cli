@@ -17,9 +17,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 from click import ClickException
-from snowflake.cli._api.constants import ObjectType
-from snowflake.cli._api.identifiers import FQN
-from snowflake.cli._api.project.util import to_string_literal
 from snowflake.cli._plugins.spcs.common import (
     NoPropertiesProvidedError,
 )
@@ -27,6 +24,9 @@ from snowflake.cli._plugins.spcs.compute_pool.commands import (
     _compute_pool_name_callback,
 )
 from snowflake.cli._plugins.spcs.compute_pool.manager import ComputePoolManager
+from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.connector.cursor import SnowflakeCursor
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR

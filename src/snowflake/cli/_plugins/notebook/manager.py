@@ -15,12 +15,12 @@
 from pathlib import Path
 from textwrap import dedent
 
-from snowflake.cli._api.cli_global_context import get_cli_context
-from snowflake.cli._api.identifiers import FQN
-from snowflake.cli._api.sql_execution import SqlExecutionMixin
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.notebook.exceptions import NotebookStagePathError
 from snowflake.cli._plugins.notebook.types import NotebookStagePath
+from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 
 class NotebookManager(SqlExecutionMixin):
