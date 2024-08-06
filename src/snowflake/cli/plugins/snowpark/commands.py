@@ -130,10 +130,7 @@ def deploy(
     By default, if any of the objects exist already the commands will fail unless `--replace` flag is provided.
     All deployed objects use the same artifact which is deployed only once.
     """
-    cli_context = get_cli_context()
-    pd = cli_context.project_definition
-    if not pd.meets_version_requirement("2"):
-        pd = _migrate_v1_snowpark_to_v2(pd)
+    cli_context, pd = _get_v2_context_and_project_definition()
 
     paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
