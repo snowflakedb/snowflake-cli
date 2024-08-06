@@ -20,40 +20,6 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import typer
 from click import ClickException
-from snowflake.cli._plugins.object.commands import (
-    describe as object_describe,
-)
-from snowflake.cli._plugins.object.commands import (
-    drop as object_drop,
-)
-from snowflake.cli._plugins.object.commands import (
-    list_ as object_list,
-)
-from snowflake.cli._plugins.object.commands import (
-    scope_option,
-)
-from snowflake.cli._plugins.object.manager import ObjectManager
-from snowflake.cli._plugins.snowpark import package_utils
-from snowflake.cli._plugins.snowpark.common import (
-    FunctionOrProcedure,
-    UdfSprocIdentifier,
-    check_if_replace_is_required,
-)
-from snowflake.cli._plugins.snowpark.manager import FunctionManager, ProcedureManager
-from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
-    AnacondaPackages,
-    AnacondaPackagesManager,
-)
-from snowflake.cli._plugins.snowpark.package.commands import app as package_app
-from snowflake.cli._plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
-from snowflake.cli._plugins.snowpark.snowpark_shared import (
-    AllowSharedLibrariesOption,
-    IgnoreAnacondaOption,
-    IndexUrlOption,
-    SkipVersionCheckOption,
-)
-from snowflake.cli._plugins.snowpark.zipper import zip_dir
-from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import (
     _CliGlobalContextAccess,
     get_cli_context,
@@ -94,40 +60,39 @@ from snowflake.cli.api.project.schemas.snowpark.callable import (
     ProcedureSchema,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.plugins.object.commands import (
+from snowflake.cli._plugins.object.commands import (
     describe as object_describe,
 )
-from snowflake.cli.plugins.object.commands import (
+from snowflake.cli._plugins.object.commands import (
     drop as object_drop,
 )
-from snowflake.cli.plugins.object.commands import (
+from snowflake.cli._plugins.object.commands import (
     list_ as object_list,
 )
-from snowflake.cli.plugins.object.commands import (
+from snowflake.cli._plugins.object.commands import (
     scope_option,
 )
-from snowflake.cli.plugins.object.manager import ObjectManager
-from snowflake.cli.plugins.snowpark import package_utils
-from snowflake.cli.plugins.snowpark.common import (
-    FunctionOrProcedure,
+from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli._plugins.snowpark import package_utils
+from snowflake.cli._plugins.snowpark.common import (
     UdfSprocIdentifier,
     check_if_replace_is_required,
 )
-from snowflake.cli.plugins.snowpark.manager import FunctionManager, ProcedureManager
-from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
+from snowflake.cli._plugins.snowpark.manager import FunctionManager, ProcedureManager
+from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AnacondaPackagesManager,
 )
-from snowflake.cli.plugins.snowpark.package.commands import app as package_app
-from snowflake.cli.plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
-from snowflake.cli.plugins.snowpark.snowpark_shared import (
+from snowflake.cli._plugins.snowpark.package.commands import app as package_app
+from snowflake.cli._plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
+from snowflake.cli._plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
     IgnoreAnacondaOption,
     IndexUrlOption,
     SkipVersionCheckOption,
 )
-from snowflake.cli.plugins.snowpark.zipper import zip_dir
-from snowflake.cli.plugins.stage.manager import StageManager
+from snowflake.cli._plugins.snowpark.zipper import zip_dir
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)
@@ -215,6 +180,9 @@ def deploy(
     project_name = (
         pd.defaults.project_name if pd.defaults.project_name else "my_snowpark_project"
     )
+
+    #TODO: Raise error if stage name is not provided
+
     for stage in stage_names:
         stage = FQN.from_string(stage).using_context()
         stage_manager.create(fqn=stage, comment="deployments managed by Snowflake CLI")
@@ -325,7 +293,7 @@ def _check_if_all_defined_integrations_exists(
         )
 
 
-def get_app_stage_path(stage_name: Optional[str], project_name: str) -> str:
+def get_app_stage_path(stage_name: Optional[str | FQN], project_name: str) -> str:
     artifact_stage_directory = f"@{(stage_name or DEPLOYMENT_STAGE)}/{project_name}"
     return artifact_stage_directory
 
