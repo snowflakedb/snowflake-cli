@@ -187,7 +187,8 @@ def DiscriminatorField(*args, **kwargs):  # noqa N802
     When this `DiscriminatorField` is used on a pydantic attribute,
     we will not allow templating on it.
     """
-    return Field(is_discriminator_field=True, *args, **kwargs)
+    extra = dict(is_discriminator_field=True)
+    return Field(json_schema_extra=extra, *args, **kwargs)
 
 
 def IdentifierField(*args, **kwargs):  # noqa N802
