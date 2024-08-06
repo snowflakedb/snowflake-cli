@@ -18,6 +18,7 @@ from unittest.mock import Mock, patch
 import pytest
 from click import ClickException
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.plugins.spcs.common import (
     NoPropertiesProvidedError,
@@ -284,7 +285,8 @@ def test_resume_cli(mock_resume, mock_cursor, runner):
 def test_compute_pool_name_callback(mock_is_valid):
     name = "test_pool"
     mock_is_valid.return_value = True
-    assert _compute_pool_name_callback(name) == name
+    fqn = FQN.from_string(name)
+    assert _compute_pool_name_callback(fqn) == fqn
 
 
 @patch("snowflake.cli.plugins.spcs.compute_pool.commands.is_valid_object_name")
@@ -292,7 +294,7 @@ def test_compute_pool_name_callback_invalid(mock_is_valid):
     name = "test_pool"
     mock_is_valid.return_value = False
     with pytest.raises(ClickException) as e:
-        _compute_pool_name_callback(name)
+        _compute_pool_name_callback(FQN.from_string(name))
     assert "is not a valid compute pool name." in e.value.message
 
 

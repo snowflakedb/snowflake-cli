@@ -193,7 +193,9 @@ class StageManager(SqlExecutionMixin):
         self._python_exe_procedure = None
 
     @staticmethod
-    def get_standard_stage_prefix(name: str) -> str:
+    def get_standard_stage_prefix(name: str | FQN) -> str:
+        if isinstance(name, FQN):
+            name = name.identifier
         # Handle embedded stages
         if name.startswith("snow://") or name.startswith("@"):
             return name
@@ -325,8 +327,8 @@ class StageManager(SqlExecutionMixin):
             quoted_stage_name = self.quote_stage_name(f"{stage_name}{path}")
             return self._execute_query(f"remove {quoted_stage_name}")
 
-    def create(self, stage_name: str, comment: Optional[str] = None) -> SnowflakeCursor:
-        query = f"create stage if not exists {stage_name}"
+    def create(self, fqn: FQN, comment: Optional[str] = None) -> SnowflakeCursor:
+        query = f"create stage if not exists {fqn.sql_identifier}"
         if comment:
             query += f" comment='{comment}'"
         return self._execute_query(query)

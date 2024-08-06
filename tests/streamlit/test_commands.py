@@ -44,7 +44,7 @@ def test_describe_streamlit(mock_connector, runner, mock_ctx):
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        f"describe streamlit {STREAMLIT_NAME}",
+        f"describe streamlit IDENTIFIER('{STREAMLIT_NAME}')",
     ]
 
 
@@ -86,7 +86,7 @@ def test_deploy_only_streamlit_file(
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MockDatabase.MockSchema.streamlit",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
         _put_query(
             "streamlit_app.py", "@MockDatabase.MockSchema.streamlit/test_streamlit"
         ),
@@ -137,7 +137,7 @@ def test_deploy_only_streamlit_file_no_stage(
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MockDatabase.MockSchema.streamlit",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
         _put_query(
             "streamlit_app.py", "@MockDatabase.MockSchema.streamlit/test_streamlit"
         ),
@@ -187,7 +187,7 @@ def test_deploy_only_streamlit_file_replace(
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MockDatabase.MockSchema.streamlit",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
         _put_query(
             "streamlit_app.py", "@MockDatabase.MockSchema.streamlit/test_streamlit"
         ),
@@ -256,7 +256,7 @@ def test_deploy_streamlit_and_environment_files(
     root_path = f"@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MockDatabase.MockSchema.streamlit",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", root_path),
         dedent(
@@ -297,7 +297,7 @@ def test_deploy_streamlit_and_pages_files(
     root_path = f"@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MockDatabase.MockSchema.streamlit",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
         _put_query("streamlit_app.py", root_path),
         _put_query("pages/*.py", f"{root_path}/pages"),
         dedent(
@@ -337,7 +337,7 @@ def test_deploy_all_streamlit_files(
     root_path = f"@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MockDatabase.MockSchema.streamlit",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", root_path),
         _put_query("pages/*.py", f"{root_path}/pages"),
@@ -382,7 +382,7 @@ def test_deploy_put_files_on_stage(
     root_path = f"@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MockDatabase.MockSchema.streamlit_stage",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit_stage')",
         _put_query("streamlit_app.py", root_path),
         _put_query("environment.yml", root_path),
         _put_query("pages/*.py", f"{root_path}/pages"),
@@ -423,7 +423,7 @@ def test_deploy_all_streamlit_files_not_defaults(
     root_path = f"@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MockDatabase.MockSchema.streamlit_stage",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit_stage')",
         _put_query("main.py", root_path),
         _put_query("streamlit_environment.yml", root_path),
         _put_query("streamlit_pages/*.py", f"{root_path}/pages"),
@@ -726,7 +726,7 @@ def test_drop_streamlit(mock_connector, runner, mock_ctx):
     result = runner.invoke(["object", "drop", "streamlit", STREAMLIT_NAME])
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == f"drop streamlit {STREAMLIT_NAME}"
+    assert ctx.get_query() == f"drop streamlit IDENTIFIER('{STREAMLIT_NAME}')"
 
 
 @mock.patch(

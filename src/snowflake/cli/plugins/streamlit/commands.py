@@ -25,7 +25,11 @@ from snowflake.cli.api.commands.decorators import (
     with_experimental_behaviour,
     with_project_definition,
 )
-from snowflake.cli.api.commands.flags import ReplaceOption, like_option
+from snowflake.cli.api.commands.flags import (
+    ReplaceOption,
+    identifier_argument,
+    like_option,
+)
 from snowflake.cli.api.commands.project_initialisation import add_init_command
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
@@ -49,19 +53,8 @@ app = SnowTyperFactory(
 )
 log = logging.getLogger(__name__)
 
-
-class IdentifierType(click.ParamType):
-    name = "TEXT"
-
-    def convert(self, value, param, ctx):
-        return FQN.from_string(value)
-
-
-StreamlitNameArgument = typer.Argument(
-    ...,
-    help="Name of the Streamlit app.",
-    show_default=False,
-    click_type=IdentifierType(),
+StreamlitNameArgument = identifier_argument(
+    sf_object="Streamlit app", example="my_streamlit"
 )
 OpenOption = typer.Option(
     False,

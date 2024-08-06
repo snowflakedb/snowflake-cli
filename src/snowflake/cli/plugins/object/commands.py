@@ -18,9 +18,14 @@ from typing import List, Optional, Tuple
 
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.flags import like_option, parse_key_value_variables
+from snowflake.cli.api.commands.flags import (
+    IdentifierType,
+    like_option,
+    parse_key_value_variables,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import MessageResult, QueryResult
 from snowflake.cli.api.project.util import is_valid_identifier
 from snowflake.cli.plugins.object.manager import ObjectManager
@@ -31,7 +36,9 @@ app = SnowTyperFactory(
 )
 
 
-NameArgument = typer.Argument(help="Name of the object")
+NameArgument = typer.Argument(
+    help="Name of the object.", show_default=False, click_type=IdentifierType()
+)
 ObjectArgument = typer.Argument(
     help="Type of object. For example table, database, compute-pool.",
     case_sensitive=False,
@@ -112,8 +119,8 @@ def list_(
     help=f"Drops Snowflake object of given name and type. {SUPPORTED_TYPES_MSG}",
     requires_connection=True,
 )
-def drop(object_type: str = ObjectArgument, object_name: str = NameArgument, **options):
-    return QueryResult(ObjectManager().drop(object_type=object_type, name=object_name))
+def drop(object_type: str = ObjectArgument, object_name: FQN = NameArgument, **options):
+    return QueryResult(ObjectManager().drop(object_type=object_type, fqn=object_name))
 
 
 # Image repository is the only supported object that does not have a DESCRIBE command.
@@ -125,10 +132,10 @@ DESCRIBE_SUPPORTED_TYPES_MSG = f"\n\nSupported types: {', '.join(obj for obj in 
     requires_connection=True,
 )
 def describe(
-    object_type: str = ObjectArgument, object_name: str = NameArgument, **options
+    object_type: str = ObjectArgument, object_name: FQN = NameArgument, **options
 ):
     return QueryResult(
-        ObjectManager().describe(object_type=object_type, name=object_name)
+        ObjectManager().describe(object_type=object_type, fqn=object_name)
     )
 
 
