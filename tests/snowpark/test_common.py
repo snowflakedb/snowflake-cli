@@ -17,13 +17,13 @@ from __future__ import annotations
 from typing import Tuple
 
 import pytest
-from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.plugins.snowpark.common import (
+from snowflake.cli._plugins.snowpark.common import (
     _convert_resource_details_to_dict,
     _snowflake_dependencies_differ,
     _sql_to_python_return_type_mapper,
     check_if_replace_is_required,
 )
+from snowflake.cli.api.constants import ObjectType
 
 
 def test_get_snowflake_packages_delta():

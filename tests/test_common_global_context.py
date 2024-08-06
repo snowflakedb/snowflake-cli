@@ -57,7 +57,7 @@ def test_connection_details_callback():
     assert cli_context_manager.connection_context.temporary_connection is False
 
 
-@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 def test_connection_caching(mock_connect):
     cli_context = get_cli_context()
     flags.RoleOption.callback("newValue")

@@ -15,8 +15,10 @@
 from textwrap import dedent
 
 import pytest
+from snowflake.cli._plugins.nativeapp.utils import (
+    get_first_paragraph_from_markdown_file,
+)
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.plugins.nativeapp.utils import get_first_paragraph_from_markdown_file
 
 
 @pytest.mark.parametrize(

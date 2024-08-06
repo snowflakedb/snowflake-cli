@@ -18,12 +18,12 @@ from unittest import mock
 
 from click import Command
 from pydantic.json_schema import GenerateJsonSchema, model_json_schema
+from snowflake.cli._app.cli_app import app_context_holder
 from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
-from snowflake.cli.app.cli_app import app_context_holder
 
 
 @mock.patch(
-    "snowflake.cli.app.dev.docs.project_definition_generate_json_schema.ProjectDefinitionGenerateJsonSchema.generate"
+    "snowflake.cli._app.dev.docs.project_definition_generate_json_schema.ProjectDefinitionGenerateJsonSchema.generate"
 )
 def test_definition_file_format_generated_from_json(mock_generate, runner, temp_dir):
     property1 = {

@@ -17,9 +17,9 @@ from unittest import mock
 from unittest.mock import MagicMock, PropertyMock
 
 import pytest
+from snowflake.cli._plugins.notebook.exceptions import NotebookStagePathError
+from snowflake.cli._plugins.notebook.manager import NotebookManager
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.plugins.notebook.exceptions import NotebookStagePathError
-from snowflake.cli.plugins.notebook.manager import NotebookManager
 
 
 @mock.patch.object(NotebookManager, "_execute_query")
@@ -30,7 +30,7 @@ def test_execute(mock_execute):
     )
 
 
-@mock.patch("snowflake.cli.plugins.notebook.manager.make_snowsight_url")
+@mock.patch("snowflake.cli._plugins.notebook.manager.make_snowsight_url")
 def test_get_url(mock_url):
     mock_url.return_value = "my_url"
     conn_mock = MagicMock(database="nb_database", schema="nb_schema")
@@ -43,9 +43,9 @@ def test_get_url(mock_url):
     )
 
 
-@mock.patch("snowflake.cli.plugins.notebook.manager.make_snowsight_url")
+@mock.patch("snowflake.cli._plugins.notebook.manager.make_snowsight_url")
 @mock.patch.object(NotebookManager, "_execute_queries")
-@mock.patch("snowflake.cli.plugins.notebook.manager.get_cli_context")
+@mock.patch("snowflake.cli._plugins.notebook.manager.get_cli_context")
 def test_create(mock_ctx, mock_execute, mock_url):
     type(mock_ctx().connection).warehouse = PropertyMock(return_value="MY_WH")
     mock_url.return_value = "nb_url"

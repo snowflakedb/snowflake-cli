@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import Tuple
 
 import pytest
-from snowflake.cli.plugins.object.common import (
+from snowflake.cli._plugins.object.common import (
     Tag,
     TagError,
     _parse_tag,

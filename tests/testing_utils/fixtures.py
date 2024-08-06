@@ -28,15 +28,15 @@ from unittest import mock
 
 import pytest
 import yaml
+from snowflake.cli._app.cli_app import app_factory
+from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
+    NativeAppExtensionFunction,
+)
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
-from snowflake.cli.app.cli_app import app_factory
-from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
-    NativeAppExtensionFunction,
-)
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 from typer import Typer

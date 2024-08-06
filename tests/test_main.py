@@ -26,7 +26,7 @@ from unittest import mock
 
 import pytest
 from click import Command
-from snowflake.cli.app.cli_app import app_context_holder
+from snowflake.cli._app.cli_app import app_context_holder
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from typer.core import TyperArgument, TyperOption
 

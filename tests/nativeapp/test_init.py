@@ -17,8 +17,7 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.exceptions import MissingConfiguration
-from snowflake.cli.plugins.nativeapp.init import (
+from snowflake.cli._plugins.nativeapp.init import (
     CannotInitializeAnExistingProjectError,
     DirectoryAlreadyExistsError,
     InitError,
@@ -31,6 +30,7 @@ from snowflake.cli.plugins.nativeapp.init import (
     _validate_and_update_snowflake_yml,
     nativeapp_init,
 )
+from snowflake.cli.api.exceptions import MissingConfiguration
 
 from tests.testing_utils.files_and_dirs import create_named_file
 
@@ -366,7 +366,7 @@ def test_nativeapp_init_with_unknown_template_name(mock_clone_from, temp_dir):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.init._init_from_template", return_value=None
+    "snowflake.cli._plugins.nativeapp.init._init_from_template", return_value=None
 )
 def test_init_expands_user(mock_init_from_template):
     expanded_project_path = Path("/home/testuser/my_app")
@@ -377,7 +377,7 @@ def test_init_expands_user(mock_init_from_template):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.init._init_from_template", return_value=None
+    "snowflake.cli._plugins.nativeapp.init._init_from_template", return_value=None
 )
 def test_init_fails_on_invalid_path(mock_init_from_template):
     with pytest.raises(InitError):

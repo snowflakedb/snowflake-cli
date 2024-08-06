@@ -19,17 +19,17 @@ from pathlib import Path
 from textwrap import dedent
 from typing import List, Optional, Set
 
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
-from snowflake.cli.plugins.nativeapp.project_model import (
+from snowflake.cli._plugins.nativeapp.project_model import (
     NativeAppProjectModel,
 )
+from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 
-NATIVEAPP_MODULE = "snowflake.cli.plugins.nativeapp.manager"
-TEARDOWN_MODULE = "snowflake.cli.plugins.nativeapp.teardown_processor"
+NATIVEAPP_MODULE = "snowflake.cli._plugins.nativeapp.manager"
+TEARDOWN_MODULE = "snowflake.cli._plugins.nativeapp.teardown_processor"
 TYPER_CONFIRM = "typer.confirm"
 TYPER_PROMPT = "typer.prompt"
-RUN_MODULE = "snowflake.cli.plugins.nativeapp.run_processor"
-VERSION_MODULE = "snowflake.cli.plugins.nativeapp.version.version_processor"
+RUN_MODULE = "snowflake.cli._plugins.nativeapp.run_processor"
+VERSION_MODULE = "snowflake.cli._plugins.nativeapp.version.version_processor"
 
 TEARDOWN_PROCESSOR = f"{TEARDOWN_MODULE}.NativeAppTeardownProcessor"
 NATIVEAPP_MANAGER = f"{NATIVEAPP_MODULE}.NativeAppManager"
