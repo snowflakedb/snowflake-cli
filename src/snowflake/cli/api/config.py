@@ -115,7 +115,7 @@ def config_init(config_file: Optional[Path]):
     Initializes the app configuration. Config provided via cli flag takes precedence.
     If config file does not exist we create an empty one.
     """
-    from snowflake.cli.app.loggers import create_initial_loggers
+    from snowflake.cli._app.loggers import create_initial_loggers
 
     if config_file:
         CONFIG_MANAGER.file_path = config_file

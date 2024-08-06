@@ -20,7 +20,7 @@ from typing import List, Tuple
 from unittest import mock
 
 import pytest
-from snowflake.cli.plugins.stage.md5 import (
+from snowflake.cli._plugins.stage.md5 import (
     ONE_MEGABYTE,
     UnknownMD5FormatError,
     compute_md5sum,
@@ -136,7 +136,7 @@ def test_multipart_md5sum():
     ],
 )
 @mock.patch("os.path.getsize")
-@mock.patch("snowflake.cli.plugins.stage.md5.compute_md5sum")
+@mock.patch("snowflake.cli._plugins.stage.md5.compute_md5sum")
 def test_file_matches_md5sum(
     compute_md5sum: mock.NonCallableMock,
     getsize: mock.NonCallableMock,

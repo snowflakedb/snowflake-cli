@@ -15,8 +15,8 @@
 from unittest import mock
 
 import typer
+from snowflake.cli._plugins.notebook.manager import NotebookManager
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.plugins.notebook.manager import NotebookManager
 
 
 @mock.patch.object(NotebookManager, "execute")

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli.plugins.snowpark.models import Requirement
+from snowflake.cli._plugins.snowpark.models import Requirement
 
 requirements = [
     "pytest==1.0.0",

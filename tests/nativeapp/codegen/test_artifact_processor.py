@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import pytest
-from snowflake.cli.plugins.nativeapp.codegen.artifact_processor import (
+from snowflake.cli._plugins.nativeapp.codegen.artifact_processor import (
     ProjectFileContextManager,
 )
 

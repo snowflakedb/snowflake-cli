@@ -23,9 +23,9 @@ from typing import Optional
 
 import pytest
 import tomlkit
+from snowflake.cli._app import loggers
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.exceptions import InvalidLogsConfiguration
-from snowflake.cli.app import loggers
 
 from tests.conftest import clean_logging_handlers
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
