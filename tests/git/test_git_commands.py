@@ -239,7 +239,7 @@ def test_setup_no_secret_existing_api(
     )
     assert ctx.get_query() == dedent(
         """
-        create git repository repo_name
+        create git repository IDENTIFIER('repo_name')
         api_integration = existing_api_integration
         origin = 'https://github.com/an-example-repo.git'
         """
@@ -271,14 +271,14 @@ def test_setup_no_secret_create_api(mock_om_describe, mock_connector, runner, mo
     )
     assert ctx.get_query() == dedent(
         """
-        create api integration repo_name_api_integration
+        create api integration IDENTIFIER('repo_name_api_integration')
         api_provider = git_https_api
         api_allowed_prefixes = ('https://github.com/an-example-repo.git')
         allowed_authentication_secrets = ()
         enabled = true
         
         
-        create git repository repo_name
+        create git repository IDENTIFIER('repo_name')
         api_integration = repo_name_api_integration
         origin = 'https://github.com/an-example-repo.git'
         """
@@ -319,7 +319,7 @@ def test_setup_existing_secret_existing_api(
     )
     assert ctx.get_query() == dedent(
         """
-        create git repository repo_name
+        create git repository IDENTIFIER('repo_name')
         api_integration = existing_api_integration
         origin = 'https://github.com/an-example-repo.git'
         git_credentials = existing_secret
@@ -359,14 +359,14 @@ def test_setup_existing_secret_create_api(
     )
     assert ctx.get_query() == dedent(
         """
-        create api integration repo_name_api_integration
+        create api integration IDENTIFIER('repo_name_api_integration')
         api_provider = git_https_api
         api_allowed_prefixes = ('https://github.com/an-example-repo.git')
         allowed_authentication_secrets = (existing_secret)
         enabled = true
 
 
-        create git repository repo_name
+        create git repository IDENTIFIER('repo_name')
         api_integration = repo_name_api_integration
         origin = 'https://github.com/an-example-repo.git'
         git_credentials = existing_secret
@@ -408,20 +408,20 @@ def test_setup_create_secret_create_api(
     )
     assert ctx.get_query() == dedent(
         """
-        create secret repo_name_secret
+        create secret IDENTIFIER('repo_name_secret')
         type = password
         username = 'john_doe'
         password = 'admin123'
         
         
-        create api integration new_integration
+        create api integration IDENTIFIER('new_integration')
         api_provider = git_https_api
         api_allowed_prefixes = ('https://github.com/an-example-repo.git')
         allowed_authentication_secrets = (repo_name_secret)
         enabled = true
         
         
-        create git repository repo_name
+        create git repository IDENTIFIER('repo_name')
         api_integration = new_integration
         origin = 'https://github.com/an-example-repo.git'
         git_credentials = repo_name_secret

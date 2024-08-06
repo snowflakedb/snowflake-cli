@@ -3671,7 +3671,9 @@
    Creates a new compute pool.                                                    
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the compute pool. [required]                    |
+  | *    name      TEXT  Identifier of the compute pool. For example:            |
+  |                      my_compute_pool                                         |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | *  --family                                TEXT             Name of the      |
@@ -3794,7 +3796,9 @@
    Provides description of compute pool.                                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the compute pool. [required]                    |
+  | *    name      TEXT  Identifier of the compute pool. For example:            |
+  |                      my_compute_pool                                         |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -3865,7 +3869,9 @@
    Drops compute pool with given name.                                            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the compute pool. [required]                    |
+  | *    name      TEXT  Identifier of the compute pool. For example:            |
+  |                      my_compute_pool                                         |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -4008,7 +4014,9 @@
    Resumes the compute pool from a SUSPENDED state.                               
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the compute pool. [required]                    |
+  | *    name      TEXT  Identifier of the compute pool. For example:            |
+  |                      my_compute_pool                                         |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -4079,7 +4087,9 @@
    Sets one or more properties for the compute pool.                              
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the compute pool. [required]                    |
+  | *    name      TEXT  Identifier of the compute pool. For example:            |
+  |                      my_compute_pool                                         |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --min-nodes                               INTEGER RANGE     Minimum number   |
@@ -4176,7 +4186,9 @@
    exists.                                                                        
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    pool_name      TEXT  Name of the compute pool. [required]               |
+  | *    pool_name      TEXT  Identifier of the compute pool. For example:       |
+  |                           my_compute_pool                                    |
+  |                           [required]                                         |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -4247,7 +4259,9 @@
    Deletes all services running on the compute pool.                              
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the compute pool. [required]                    |
+  | *    name      TEXT  Identifier of the compute pool. For example:            |
+  |                      my_compute_pool                                         |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -4319,7 +4333,9 @@
    then releasing compute pool nodes.                                             
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the compute pool. [required]                    |
+  | *    name      TEXT  Identifier of the compute pool. For example:            |
+  |                      my_compute_pool                                         |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -4390,7 +4406,9 @@
    Resets one or more properties for the compute pool to their default value(s).  
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the compute pool. [required]                    |
+  | *    name      TEXT  Identifier of the compute pool. For example:            |
+  |                      my_compute_pool                                         |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --auto-resume                  Reset the AUTO_RESUME property - The compute  |
@@ -4738,7 +4756,9 @@
    Creates a new image repository in the current schema.                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the image repository. [required]                |
+  | *    name      TEXT  Identifier of the image repository. For example:        |
+  |                      my_repository                                           |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --replace                  Replace this object if it already exists.         |
@@ -4812,7 +4832,9 @@
    Drops image repository with given name.                                        
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the image repository. [required]                |
+  | *    name      TEXT  Identifier of the image repository. For example:        |
+  |                      my_repository                                           |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -4883,7 +4905,9 @@
    Lists images in the given repository.                                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the image repository. [required]                |
+  | *    name      TEXT  Identifier of the image repository. For example:        |
+  |                      my_repository                                           |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -4954,7 +4978,9 @@
    Lists tags for the given image in a repository.                                
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the image repository. [required]                |
+  | *    name      TEXT  Identifier of the image repository. For example:        |
+  |                      my_repository                                           |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | *  --image-name,--image_name  -i      TEXT  Fully qualified name of the      |
@@ -5106,7 +5132,9 @@
    Returns the URL for the given repository.                                      
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the image repository. [required]                |
+  | *    name      TEXT  Identifier of the image repository. For example:        |
+  |                      my_repository                                           |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -5434,7 +5462,8 @@
    Creates a new service in the current schema.                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the service. [required]                         |
+  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | *  --compute-pool                          TEXT             Compute pool to  |
@@ -5567,7 +5596,8 @@
    Provides description of service.                                               
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the service. [required]                         |
+  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -5638,7 +5668,8 @@
    Drops service with given name.                                                 
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the service. [required]                         |
+  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -5709,7 +5740,8 @@
    Lists the endpoints in a service.                                              
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the service. [required]                         |
+  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -5856,7 +5888,8 @@
    Retrieves local logs from a service container.                                 
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the service. [required]                         |
+  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | *  --container-name          TEXT     Name of the container. [required]      |
@@ -5933,7 +5966,8 @@
    Resumes the service from a SUSPENDED state.                                    
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the service. [required]                         |
+  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -6004,7 +6038,8 @@
    Sets one or more properties for the service.                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the service. [required]                         |
+  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --min-instances                           INTEGER RANGE     Minimum number   |
@@ -6104,7 +6139,8 @@
    Retrieves the status of a service.                                             
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the service. [required]                         |
+  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -6175,7 +6211,8 @@
    Suspends the service, shutting down and deleting all its containers.           
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the service. [required]                         |
+  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -6246,7 +6283,8 @@
    Resets one or more properties for the service to their default value(s).       
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the service. [required]                         |
+  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --min-instances              Reset the MIN_INSTANCES property - Minimum      |
@@ -6330,7 +6368,8 @@
    Updates an existing service with a new specification file.                     
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the service. [required]                         |
+  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | *  --spec-path          FILE  Path to service specification file. [required] |
@@ -6638,7 +6677,8 @@
    Creates a named stage if it does not already exist.                            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    stage_name      TEXT  Name of the stage. [required]                     |
+  | *    stage_name      TEXT  Identifier of the stage. For example: @my_stage   |
+  |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -6709,7 +6749,8 @@
    Provides description of stage.                                                 
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the stage. [required]                           |
+  | *    name      TEXT  Identifier of the stage. For example: @my_stage         |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -6852,7 +6893,8 @@
    Drops stage with given name.                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the stage. [required]                           |
+  | *    name      TEXT  Identifier of the stage. For example: @my_stage         |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -7013,7 +7055,8 @@
    Lists the stage contents.                                                      
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    stage_name      TEXT  Name of the stage. [required]                     |
+  | *    stage_name      TEXT  Identifier of the stage. For example: @my_stage   |
+  |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --pattern          TEXT  Regex pattern for filtering files by name. For      |
@@ -7163,7 +7206,8 @@
    Removes a file from a stage.                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    stage_name      TEXT  Name of the stage. [required]                     |
+  | *    stage_name      TEXT  Identifier of the stage. For example: @my_stage   |
+  |                            [required]                                        |
   | *    file_name       TEXT  Name of the file to remove. [required]            |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -7342,7 +7386,9 @@
    Provides description of streamlit.                                             
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the Streamlit app. [required]                   |
+  | *    name      TEXT  Identifier of the Streamlit app. For example:           |
+  |                      my_streamlit                                            |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -7413,7 +7459,9 @@
    Drops streamlit with given name.                                               
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the Streamlit app. [required]                   |
+  | *    name      TEXT  Identifier of the Streamlit app. For example:           |
+  |                      my_streamlit                                            |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -7484,7 +7532,9 @@
    Returns a URL to the specified Streamlit app                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the Streamlit app. [required]                   |
+  | *    name      TEXT  Identifier of the Streamlit app. For example:           |
+  |                      my_streamlit                                            |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --open            Whether to open the Streamlit app in a browser.            |
@@ -7632,7 +7682,9 @@
    Shares a Streamlit app with another role.                                      
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name         TEXT  Name of the Streamlit app. [required]                |
+  | *    name         TEXT  Identifier of the Streamlit app. For example:        |
+  |                         my_streamlit                                         |
+  |                         [required]                                           |
   | *    to_role      TEXT  Role with which to share the Streamlit app.          |
   |                         [required]                                           |
   +------------------------------------------------------------------------------+

@@ -83,10 +83,12 @@ add_object_command_aliases(
     scope_option=scope_option(help_example="`list --in database my_db`"),
 )
 
+from snowflake.cli.api.identifiers import FQN
 
-def _assure_repository_does_not_exist(om: ObjectManager, repository_name: str) -> None:
+
+def _assure_repository_does_not_exist(om: ObjectManager, repository_name: FQN) -> None:
     if om.object_exists(
-        object_type=ObjectType.GIT_REPOSITORY.value.cli_name, name=repository_name
+        object_type=ObjectType.GIT_REPOSITORY.value.cli_name, fqn=repository_name
     ):
         raise ClickException(f"Repository '{repository_name}' already exists")
 
@@ -98,7 +100,7 @@ def _validate_origin_url(url: str) -> None:
 
 @app.command("setup", requires_connection=True)
 def setup(
-    repository_name: str = RepoNameArgument,
+    repository_name: FQN = RepoNameArgument,
     **options,
 ) -> CommandResult:
     """
@@ -128,8 +130,9 @@ def setup(
         secret_name = typer.prompt(
             "Secret identifier (will be created if not exists)", default=secret_name
         )
+        secret_fqn = FQN.from_string(secret_name)
         if om.object_exists(
-            object_type=ObjectType.SECRET.value.cli_name, name=secret_name
+            object_type=ObjectType.SECRET.value.cli_name, fqn=secret_fqn
         ):
             cli_console.step(f"Using existing secret '{secret_name}'")
         else:
@@ -143,18 +146,19 @@ def setup(
         "API integration identifier (will be created if not exists)",
         default=api_integration,
     )
+    api_integration_fqn = FQN.from_string(api_integration)
 
     if should_create_secret:
         manager.create_password_secret(
-            name=secret_name, username=secret_username, password=secret_password
+            name=secret_fqn, username=secret_username, password=secret_password
         )
         cli_console.step(f"Secret '{secret_name}' successfully created.")
 
     if not om.object_exists(
-        object_type=ObjectType.INTEGRATION.value.cli_name, name=api_integration
+        object_type=ObjectType.INTEGRATION.value.cli_name, fqn=api_integration_fqn
     ):
         manager.create_api_integration(
-            name=api_integration,
+            name=api_integration_fqn,
             api_provider="git_https_api",
             allowed_prefix=url,
             secret=secret_name,
@@ -178,7 +182,7 @@ def setup(
     requires_connection=True,
 )
 def list_branches(
-    repository_name: str = RepoNameArgument,
+    repository_name: FQN = RepoNameArgument,
     like=like_option(
         help_example='`list-branches --like "%_test"` lists all branches that end with "_test"'
     ),
@@ -187,7 +191,9 @@ def list_branches(
     """
     List all branches in the repository.
     """
-    return QueryResult(GitManager().show_branches(repo_name=repository_name, like=like))
+    return QueryResult(
+        GitManager().show_branches(repo_name=repository_name.identifier, like=like)
+    )
 
 
 @app.command(
@@ -195,7 +201,7 @@ def list_branches(
     requires_connection=True,
 )
 def list_tags(
-    repository_name: str = RepoNameArgument,
+    repository_name: FQN = RepoNameArgument,
     like=like_option(
         help_example='`list-tags --like "v2.0%"` lists all tags that start with "v2.0"'
     ),
@@ -204,7 +210,9 @@ def list_tags(
     """
     List all tags in the repository.
     """
-    return QueryResult(GitManager().show_tags(repo_name=repository_name, like=like))
+    return QueryResult(
+        GitManager().show_tags(repo_name=repository_name.identifier, like=like)
+    )
 
 
 @app.command(
@@ -229,13 +237,13 @@ def list_files(
     requires_connection=True,
 )
 def fetch(
-    repository_name: str = RepoNameArgument,
+    repository_name: FQN = RepoNameArgument,
     **options,
 ) -> CommandResult:
     """
     Fetch changes from origin to Snowflake repository.
     """
-    return QueryResult(GitManager().fetch(repo_name=repository_name))
+    return QueryResult(GitManager().fetch(fqn=repository_name))
 
 
 @app.command(
