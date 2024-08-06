@@ -21,10 +21,12 @@ from click import ClickException
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
+    identifier_argument,
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
 from snowflake.cli.api.project.util import is_valid_object_name
 from snowflake.cli.plugins.object.command_aliases import (
@@ -43,22 +45,21 @@ app = SnowTyperFactory(
 )
 
 
-def _compute_pool_name_callback(name: str) -> str:
+def _compute_pool_name_callback(name: FQN) -> FQN:
     """
     Verifies that compute pool name is a single valid identifier.
     """
-    if not is_valid_object_name(name, max_depth=0, allow_quoted=False):
+    if not is_valid_object_name(name.identifier, max_depth=0, allow_quoted=False):
         raise ClickException(
             f"'{name}' is not a valid compute pool name. Note that compute pool names must be unquoted identifiers."
         )
     return name
 
 
-ComputePoolNameArgument = typer.Argument(
-    ...,
-    help="Name of the compute pool.",
+ComputePoolNameArgument = identifier_argument(
+    sf_object="compute pool",
+    example="my_compute_pool",
     callback=_compute_pool_name_callback,
-    show_default=False,
 )
 
 
@@ -106,7 +107,7 @@ add_object_command_aliases(
 
 @app.command(requires_connection=True)
 def create(
-    name: str = ComputePoolNameArgument,
+    name: FQN = ComputePoolNameArgument,
     instance_family: str = typer.Option(
         ...,
         "--family",
@@ -131,7 +132,7 @@ def create(
     """
     max_nodes = validate_and_set_instances(min_nodes, max_nodes, "nodes")
     cursor = ComputePoolManager().create(
-        pool_name=name,
+        pool_name=name.identifier,
         min_nodes=min_nodes,
         max_nodes=max_nodes,
         instance_family=instance_family,
@@ -145,33 +146,33 @@ def create(
 
 
 @app.command("stop-all", requires_connection=True)
-def stop_all(name: str = ComputePoolNameArgument, **options) -> CommandResult:
+def stop_all(name: FQN = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Deletes all services running on the compute pool.
     """
-    cursor = ComputePoolManager().stop(pool_name=name)
+    cursor = ComputePoolManager().stop(pool_name=name.identifier)
     return SingleQueryResult(cursor)
 
 
 @app.command(requires_connection=True)
-def suspend(name: str = ComputePoolNameArgument, **options) -> CommandResult:
+def suspend(name: FQN = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Suspends the compute pool by suspending all currently running services and then releasing compute pool nodes.
     """
-    return SingleQueryResult(ComputePoolManager().suspend(name))
+    return SingleQueryResult(ComputePoolManager().suspend(name.identifier))
 
 
 @app.command(requires_connection=True)
-def resume(name: str = ComputePoolNameArgument, **options) -> CommandResult:
+def resume(name: FQN = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Resumes the compute pool from a SUSPENDED state.
     """
-    return SingleQueryResult(ComputePoolManager().resume(name))
+    return SingleQueryResult(ComputePoolManager().resume(name.identifier))
 
 
 @app.command("set", requires_connection=True)
 def set_property(
-    name: str = ComputePoolNameArgument,
+    name: FQN = ComputePoolNameArgument,
     min_nodes: Optional[int] = MinNodesOption(default=None, show_default=False),
     max_nodes: Optional[int] = MaxNodesOption(show_default=False),
     auto_resume: Optional[bool] = AutoResumeOption(default=None, show_default=False),
@@ -187,7 +188,7 @@ def set_property(
     Sets one or more properties for the compute pool.
     """
     cursor = ComputePoolManager().set_property(
-        pool_name=name,
+        pool_name=name.identifier,
         min_nodes=min_nodes,
         max_nodes=max_nodes,
         auto_resume=auto_resume,
@@ -199,7 +200,7 @@ def set_property(
 
 @app.command("unset", requires_connection=True)
 def unset_property(
-    name: str = ComputePoolNameArgument,
+    name: FQN = ComputePoolNameArgument,
     auto_resume: bool = AutoResumeOption(
         default=False,
         param_decls=["--auto-resume"],
@@ -223,7 +224,7 @@ def unset_property(
     Resets one or more properties for the compute pool to their default value(s).
     """
     cursor = ComputePoolManager().unset_property(
-        pool_name=name,
+        pool_name=name.identifier,
         auto_resume=auto_resume,
         auto_suspend_secs=auto_suspend_secs,
         comment=comment,
@@ -232,9 +233,9 @@ def unset_property(
 
 
 @app.command(requires_connection=True)
-def status(pool_name: str = ComputePoolNameArgument, **options) -> CommandResult:
+def status(pool_name: FQN = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Retrieves the status of a compute pool along with a relevant message, if one exists.
     """
-    cursor = ComputePoolManager().status(pool_name=pool_name)
+    cursor = ComputePoolManager().status(pool_name=pool_name.identifier)
     return SingleQueryResult(cursor)

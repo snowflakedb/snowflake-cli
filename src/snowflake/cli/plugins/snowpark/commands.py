@@ -167,9 +167,7 @@ def deploy(
     stage_name = snowpark.stage_name
     stage_manager = StageManager()
     stage_name = FQN.from_string(stage_name).using_context()
-    stage_manager.create(
-        stage_name=stage_name, comment="deployments managed by Snowflake CLI"
-    )
+    stage_manager.create(fqn=stage_name, comment="deployments managed by Snowflake CLI")
 
     snowflake_dependencies = _read_snowflake_requrements_file(
         paths.snowflake_requirements_file
@@ -245,7 +243,7 @@ def _find_existing_objects(
         try:
             current_state = om.describe(
                 object_type=object_type.value.sf_name,
-                name=identifier,
+                fqn=FQN.from_string(identifier),
             )
             existing_objects[identifier] = current_state
         except ProgrammingError:
@@ -497,7 +495,7 @@ def list_(
 @app.command("drop", requires_connection=True)
 def drop(
     object_type: _SnowparkObject = ObjectTypeArgument,
-    identifier: str = IdentifierArgument,
+    identifier: FQN = IdentifierArgument,
     **options,
 ):
     """Drop procedure or function."""
@@ -507,7 +505,7 @@ def drop(
 @app.command("describe", requires_connection=True)
 def describe(
     object_type: _SnowparkObject = ObjectTypeArgument,
-    identifier: str = IdentifierArgument,
+    identifier: FQN = IdentifierArgument,
     **options,
 ):
     """Provides description of a procedure or function."""
