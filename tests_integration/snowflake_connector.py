@@ -22,6 +22,7 @@ from unittest import mock
 import pytest
 from snowflake import connector
 from snowflake.cli.api.exceptions import EnvironmentVariableNotFoundError
+from snowflake.cli.app.snow_connector import update_connection_details_with_private_key
 
 _ENV_PARAMETER_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
 SCHEMA_ENV_PARAMETER = f"{_ENV_PARAMETER_PREFIX}_SCHEMA"
@@ -89,14 +90,16 @@ def test_role(snowflake_session):
 def snowflake_session():
     config = {
         "application": "INTEGRATION_TEST",
+        "authenticator": "SNOWFLAKE_JWT",
         "account": _get_from_env("ACCOUNT"),
         "user": _get_from_env("USER"),
-        "password": _get_from_env("PASSWORD"),
+        "private_key_path": _get_from_env("PRIVATE_KEY_PATH"),
         "host": _get_from_env("HOST", allow_none=True),
         "warehouse": _get_from_env("WAREHOUSE", allow_none=True),
         "role": _get_from_env("ROLE", allow_none=True),
     }
     config = {k: v for k, v in config.items() if v is not None}
+    update_connection_details_with_private_key(config)
     connection = connector.connect(**config)
     yield connection
     connection.close()
