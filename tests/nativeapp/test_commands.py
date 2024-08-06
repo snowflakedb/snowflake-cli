@@ -77,7 +77,7 @@ PROJECT_PATH = "demo_na_project"
     ],
 )
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.init._init_from_template", return_value=None
+    "snowflake.cli._plugins.nativeapp.init._init_from_template", return_value=None
 )
 def test_init_no_template_success(
     mock_init_from_template, runner, temp_dir, os_agnostic_snapshot, id_, init_args
@@ -114,7 +114,7 @@ def test_init_no_template_success(
     ],
 )
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.init._init_from_template", return_value=None
+    "snowflake.cli._plugins.nativeapp.init._init_from_template", return_value=None
 )
 def test_init_no_template_failure(
     mock_init_from_template, runner, temp_dir, os_agnostic_snapshot, id_, init_args

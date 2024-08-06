@@ -34,7 +34,7 @@ def install_plugins():
 @pytest.fixture()
 def reset_command_registration_state():
     def _reset_command_registration_state():
-        from snowflake.cli.app.cli_app import _commands_registration
+        from snowflake.cli._app.cli_app import _commands_registration
 
         _commands_registration.reset_running_instance_registration_state()
 

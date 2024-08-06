@@ -17,19 +17,19 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import identifier_to_show_like_pattern
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
-from snowflake.cli.plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_query(mock_execute, runner, mock_cursor):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
 
@@ -39,7 +39,7 @@ def test_sql_execute_query(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with("query", cursor_class=VerboseCursor)
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_file(mock_execute, runner, mock_cursor, named_temporary_file):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from file"
@@ -52,7 +52,7 @@ def test_sql_execute_file(mock_execute, runner, mock_cursor, named_temporary_fil
     mock_execute.assert_called_once_with(query, cursor_class=VerboseCursor)
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_multiple_file(mock_execute, runner, mock_cursor):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from file"
@@ -74,7 +74,7 @@ def test_sql_execute_multiple_file(mock_execute, runner, mock_cursor):
     )
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from input"
@@ -107,7 +107,7 @@ def test_sql_fails_if_query_and_stdin_provided(runner):
     )
 
 
-@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
     mock_conn.return_value.execute_string.return_value = [mock_cursor(["row"], [])]
 
@@ -161,7 +161,7 @@ def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
     )
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
 def test_show_specific_object(mock_execute, mock_cursor):
     mock_columns = ["id", "created_on"]
     mock_row_dict = {c: r for c, r in zip(mock_columns, ["EXAMPLE_ID", "dummy"])}
@@ -176,7 +176,7 @@ def test_show_specific_object(mock_execute, mock_cursor):
     assert result == mock_row_dict
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
 def test_show_specific_object_in_clause(mock_execute, mock_cursor):
     mock_columns = ["name", "created_on"]
     mock_row_dict = {c: r for c, r in zip(mock_columns, ["AbcDef", "dummy"])}
@@ -191,7 +191,7 @@ def test_show_specific_object_in_clause(mock_execute, mock_cursor):
     assert result == mock_row_dict
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
 def test_show_specific_object_no_match(mock_execute, mock_cursor):
     mock_columns = ["id", "created_on"]
     mock_row_dict = {c: r for c, r in zip(mock_columns, ["OTHER_ID", "dummy"])}
@@ -206,7 +206,7 @@ def test_show_specific_object_no_match(mock_execute, mock_cursor):
     assert result is None
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
 def test_show_specific_object_sql_execution_error(mock_execute):
     cursor = mock.Mock(spec=DictCursor)
     cursor.rowcount = None
@@ -237,7 +237,7 @@ def test_qualified_name_to_in_clause(fqn, expected_in_clause):
     )
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
 @mock.patch(
     "snowflake.cli.api.sql_execution.SqlExecutionMixin._qualified_name_to_in_clause"
 )
@@ -312,7 +312,7 @@ def test_use_command(mock_execute_query, _object):
         "select &aaa.&{ bbb }",
     ],
 )
-@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_rendering_of_sql(mock_execute_query, query, runner):
     result = runner.invoke(["sql", "-q", query, "-D", "aaa=foo", "-D", "bbb=bar"])
     assert result.exit_code == 0, result.output
@@ -345,7 +345,7 @@ def test_snowsql_compatibility(text, expected):
     assert transpile_snowsql_templates(text) == expected
 
 
-@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_uses_variables_from_snowflake_yml(
     mock_execute_query, project_directory, runner
 ):
@@ -358,7 +358,7 @@ def test_uses_variables_from_snowflake_yml(
     )
 
 
-@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_uses_variables_from_snowflake_local_yml(
     mock_execute_query, project_directory, runner
 ):
@@ -371,7 +371,7 @@ def test_uses_variables_from_snowflake_local_yml(
     )
 
 
-@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_uses_variables_from_cli_are_added_outside_context(
     mock_execute_query, project_directory, runner
 ):

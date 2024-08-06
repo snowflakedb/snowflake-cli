@@ -17,10 +17,10 @@ import os
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.workspace.manager import WorkspaceManager
 
 from tests.testing_utils.files_and_dirs import create_named_file
 from tests.workspace.utils import (

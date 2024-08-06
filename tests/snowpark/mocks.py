@@ -33,6 +33,6 @@ def mock_available_packages_sql_result(mock_ctx, mock_cursor):
         )
     )
     with mock.patch(
-        "snowflake.cli.app.snow_connector.connect_to_snowflake", return_value=ctx
+        "snowflake.cli._app.snow_connector.connect_to_snowflake", return_value=ctx
     ):
         yield
