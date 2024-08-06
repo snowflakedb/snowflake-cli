@@ -183,7 +183,7 @@ def deploy(
     for stage in stage_names:
         stage = FQN.from_string(stage).using_context()
         stage_manager.create(
-            stage_name=stage, comment="deployments managed by Snowflake CLI"
+            fqn=stage, comment="deployments managed by Snowflake CLI"
         )
         artifact_stage_directory = get_app_stage_path(stage, project_name)
         artifact_stage_target = (
