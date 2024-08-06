@@ -799,6 +799,8 @@ class NativeAppManager(SqlExecutionMixin):
         until: str | datetime | None = None,
         record_types: list[str] | None = None,
         scopes: list[str] | None = None,
+        consumer_org: str = "",
+        consumer_account: str = "",
         first: int = -1,
         last: int = -1,
     ) -> list[dict]:
@@ -811,8 +813,18 @@ class NativeAppManager(SqlExecutionMixin):
         if not self.account_event_table:
             raise NoEventTableForAccount()
 
-        # resource_attributes:"snow.database.name" uses the unquoted/uppercase app name
+        # resource_attributes uses the unquoted/uppercase app and package name
         app_name = unquote_identifier(self.app_name)
+        package_name = unquote_identifier(self.package_name)
+        app_clause = (
+            f"resource_attributes:\"snow.database.name\" = '{app_name}'"
+            if not (consumer_org and consumer_account)
+            else (
+                f"resource_attributes:\"snow.application.package.name\" = '{package_name}' "
+                f"and resource_attributes:\"snow.application.consumer.organization\" = '{consumer_org}' "
+                f"and resource_attributes:\"snow.application.consumer.name\" = '{consumer_account}'"
+            )
+        )
         if isinstance(since, datetime):
             since_clause = f"and timestamp >= '{since}'"
         elif isinstance(since, str) and since:
@@ -840,7 +852,7 @@ class NativeAppManager(SqlExecutionMixin):
             select * from (
                 select timestamp, value::varchar value
                 from {self.account_event_table}
-                where resource_attributes:"snow.database.name" = '{app_name}'
+                where {app_clause}
                 {since_clause}
                 {until_clause}
                 {types_clause}
@@ -862,11 +874,18 @@ class NativeAppManager(SqlExecutionMixin):
         since: str | datetime | None = None,
         record_types: list[str] | None = None,
         scopes: list[str] | None = None,
+        consumer_org: str = "",
+        consumer_account: str = "",
         last: int = -1,
     ) -> Generator[dict, None, None]:
         try:
             events = self.get_events(
-                since=since, record_types=record_types, scopes=scopes, last=last
+                since=since,
+                record_types=record_types,
+                scopes=scopes,
+                consumer_org=consumer_org,
+                consumer_account=consumer_account,
+                last=last,
             )
             yield from events  # Yield the initial batch of events
             last_event_time = events[-1]["TIMESTAMP"]
@@ -875,7 +894,11 @@ class NativeAppManager(SqlExecutionMixin):
                 time.sleep(interval_seconds)
                 previous_events = events
                 events = self.get_events(
-                    since=last_event_time, record_types=record_types, scopes=scopes
+                    since=last_event_time,
+                    record_types=record_types,
+                    scopes=scopes,
+                    consumer_org=consumer_org,
+                    consumer_account=consumer_account,
                 )
                 if not events:
                     continue
