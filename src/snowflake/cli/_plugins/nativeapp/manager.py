@@ -611,6 +611,12 @@ class NativeAppManager(SqlExecutionMixin):
         Assuming the application package exists and we are using the correct role,
         applies all package scripts in-order to the application package.
         """
+
+        if self.package_scripts:
+            cc.warning(
+                "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
+            )
+
         env = jinja2.Environment(
             loader=jinja2.loaders.FileSystemLoader(self.project_root),
             keep_trailing_newline=True,

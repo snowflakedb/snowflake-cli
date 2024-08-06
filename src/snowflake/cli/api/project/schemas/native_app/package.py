@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import List, Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from snowflake.cli.api.project.schemas.native_app.application import PostDeployHook
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
@@ -58,6 +58,16 @@ class Package(UpdatableModel):
                 "package.scripts field should contain unique values. Check the list for duplicates and try again"
             )
         return input_list
+
+    @model_validator(mode="after")
+    @classmethod
+    def validate_no_scripts_and_post_deploy(cls, value: Package):
+        if value.scripts and value.post_deploy:
+            raise ValueError(
+                "package.scripts and package.post_deploy fields cannot be used together. "
+                "We recommend using package.post_deploy for all post package deploy scripts"
+            )
+        return value
 
 
 class PackageV11(Package):

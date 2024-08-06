@@ -27,6 +27,7 @@
 * Added support for `native_app.package.post_deploy` scripts in project definition file.
   * These scripts will execute whenever a Native App Package is created or updated.
   * Currently only supports SQL scripts: `post_deploy: [{sql_script: script.sql}]`
+  * Added deprecation warning for `native_app.package.scripts`
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command

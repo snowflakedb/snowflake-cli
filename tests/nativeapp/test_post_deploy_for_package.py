@@ -21,6 +21,7 @@ import pytest
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli._plugins.nativeapp.exceptions import MissingScriptError
 from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
+from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.connector import ProgrammingError
 
 from tests.nativeapp.patch_utils import mock_connection
@@ -150,3 +151,25 @@ def test_package_post_deploy_scripts_with_sql_error(
 
         with pytest.raises(ProgrammingError):
             manager.execute_package_post_deploy_hooks()
+
+
+@mock.patch.dict(os.environ, {"USER": "test_user"})
+def test_package_scripts_and_post_deploy_found(
+    project_directory,
+):
+    with project_directory(
+        "napp_post_deploy",
+        {"native_app": {"package": {"scripts": ["scripts/package_post_deploy2.sql"]}}},
+    ) as project_dir:
+
+        with pytest.raises(SchemaValidationError) as err:
+            dm = DefinitionManager(project_dir)
+            NativeAppManager(
+                project_definition=dm.project_definition.native_app,
+                project_root=dm.project_root,
+            )
+
+        assert (
+            "package.scripts and package.post_deploy fields cannot be used together"
+            in err.value.message
+        )
