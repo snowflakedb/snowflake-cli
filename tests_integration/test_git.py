@@ -226,9 +226,6 @@ def test_copy_directory_to_local_file_system(runner, sf_git_repository, test_roo
         assert downloaded_files == expected_files  # contents are copied
 
 
-@pytest.mark.skip(
-    reason="Temporarily disabled until server side issue (SNOW-1541830) is resolved"
-)
 @pytest.mark.integration
 def test_copy_single_file_to_local_file_system(runner, sf_git_repository):
     REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v2.1.0-rc0"
