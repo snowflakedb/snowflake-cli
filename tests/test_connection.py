@@ -178,6 +178,55 @@ def test_port_has_cannot_be_float(runner):
     assert "Value of port must be integer" in result.output
 
 
+@pytest.mark.parametrize(
+    "selected_option",
+    [9, 10],  # 9 - private_key_path prompt, 10 - token_file_path prompt
+)
+def test_file_paths_have_to_exist_when_given_in_prompt(
+    selected_option, runner, os_agnostic_snapshot
+):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+            ],
+            input="connName\naccName\nuserName\npassword{}~/path/to/file".format(
+                selected_option * "\n"
+            ),
+        )
+        content = tmp_file.read()
+    assert result.exit_code == 1, result.output
+    assert "Path ~/path/to/file does not exist." in result.output
+
+
+@pytest.mark.parametrize("selected_option", ["-k", "-t"])
+def test_file_paths_have_to_exist_when_given_in_arguments(
+    selected_option, runner, os_agnostic_snapshot
+):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+                "--connection-name",
+                "conn1",
+                "--username",
+                "user1",
+                "--account",
+                "account1",
+                "--port",
+                "12378",
+                selected_option,
+                "~/path/to/file",
+            ],
+        )
+    assert result.exit_code == 1, result.output
+    assert "Path ~/path/to/file does not exist." in result.output
+
+
 def test_new_connection_add_prompt_handles_default_values(runner, os_agnostic_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
