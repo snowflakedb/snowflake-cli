@@ -39,7 +39,6 @@ from snowflake.connector.cursor import DictCursor
 from tests.nativeapp.utils import (
     FIND_VERSION_FROM_MANIFEST,
     NATIVEAPP_MANAGER_EXECUTE,
-    TYPER_CONFIRM,
     VERSION_MODULE,
     mock_execute_helper,
     mock_snowflake_yml_file,
@@ -326,25 +325,33 @@ def test_process_no_version_exists_throws_bad_option_exception_two(
 # Test version create when there are no release directives matching the version AND no version exists for app pkg
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.create_app_package", return_value=None
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "create_app_package", return_value=None
 )
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}._apply_package_scripts", return_value=None
-)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.sync_deploy_root_with_stage",
+@mock.patch.object(NativeAppVersionCreateProcessor, "use_package_warehouse")
+@mock.patch.object(
+    NativeAppVersionCreateProcessor,
+    "execute_package_post_deploy_hooks",
     return_value=None,
 )
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_release_directive_info_for_version",
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "_apply_package_scripts", return_value=None
+)
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "sync_deploy_root_with_stage", return_value=None
+)
+@mock.patch.object(
+    NativeAppVersionCreateProcessor,
+    "get_existing_release_directive_info_for_version",
     return_value=None,
 )
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_version_info", return_value=None
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "get_existing_version_info", return_value=None
 )
-@mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_version", return_value=None)
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "add_new_version", return_value=None
+)
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
@@ -354,6 +361,8 @@ def test_process_no_existing_release_directives_or_versions(
     mock_rd,
     mock_sync,
     mock_apply_package_scripts,
+    mock_execute_package_post_deploy_hooks,
+    mock_use_package_warehouse,
     mock_execute,
     mock_create_app_pkg,
     mock_check_git,
@@ -398,6 +407,8 @@ def test_process_no_existing_release_directives_or_versions(
     mock_rd.assert_called_once()
     mock_create_app_pkg.assert_called_once()
     mock_apply_package_scripts.assert_called_once()
+    mock_use_package_warehouse.assert_called_once(),
+    mock_execute_package_post_deploy_hooks.assert_called_once(),
     mock_sync.assert_called_once()
     mock_existing_version_info.assert_called_once()
     mock_add_new_version.assert_called_once()
@@ -408,25 +419,31 @@ def test_process_no_existing_release_directives_or_versions(
     "snowflake.cli._plugins.nativeapp.artifacts.find_version_info_in_manifest_file"
 )
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.create_app_package", return_value=None
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "create_app_package", return_value=None
 )
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}._apply_package_scripts", return_value=None
-)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.sync_deploy_root_with_stage",
+@mock.patch.object(NativeAppVersionCreateProcessor, "use_package_warehouse")
+@mock.patch.object(
+    NativeAppVersionCreateProcessor,
+    "execute_package_post_deploy_hooks",
     return_value=None,
 )
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_release_directive_info_for_version",
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "_apply_package_scripts", return_value=None
+)
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "sync_deploy_root_with_stage", return_value=None
+)
+@mock.patch.object(
+    NativeAppVersionCreateProcessor,
+    "get_existing_release_directive_info_for_version",
     return_value=None,
 )
-@mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_version_info")
-@mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_version")
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_patch_to_version", return_value=None
+@mock.patch.object(NativeAppVersionCreateProcessor, "get_existing_version_info")
+@mock.patch.object(NativeAppVersionCreateProcessor, "add_new_version")
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "add_new_patch_to_version", return_value=None
 )
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
@@ -438,6 +455,8 @@ def test_process_no_existing_release_directives_w_existing_version(
     mock_rd,
     mock_sync,
     mock_apply_package_scripts,
+    mock_execute_package_post_deploy_hooks,
+    mock_use_package_warehouse,
     mock_execute,
     mock_create_app_pkg,
     mock_check_git,
@@ -488,6 +507,8 @@ def test_process_no_existing_release_directives_w_existing_version(
     mock_rd.assert_called_once()
     mock_create_app_pkg.assert_called_once()
     mock_apply_package_scripts.assert_called_once()
+    mock_use_package_warehouse.assert_called_once(),
+    mock_execute_package_post_deploy_hooks.assert_called_once()
     mock_sync.assert_called_once()
     assert mock_existing_version_info.call_count == 2
     mock_add_new_version.assert_not_called()
@@ -498,25 +519,29 @@ def test_process_no_existing_release_directives_w_existing_version(
 # Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is False AND --interactive is True AND  user does not want to proceed
 # Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is True AND user does not want to proceed
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.create_app_package", return_value=None
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "create_app_package", return_value=None
 )
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}._apply_package_scripts", return_value=None
-)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.sync_deploy_root_with_stage",
+@mock.patch.object(NativeAppVersionCreateProcessor, "use_package_warehouse")
+@mock.patch.object(
+    NativeAppVersionCreateProcessor,
+    "execute_package_post_deploy_hooks",
     return_value=None,
 )
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_release_directive_info_for_version",
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "_apply_package_scripts", return_value=None
+)
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "sync_deploy_root_with_stage", return_value=None
+)
+@mock.patch.object(
+    NativeAppVersionCreateProcessor,
+    "get_existing_release_directive_info_for_version",
     return_value=None,
 )
-@mock.patch(
-    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
-)
-@mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_version_info")
+@mock.patch.object(typer, "confirm", return_value=False)
+@mock.patch.object(NativeAppVersionCreateProcessor, "get_existing_version_info")
 @pytest.mark.parametrize(
     "policy_param, is_interactive_param, expected_code",
     [
@@ -531,6 +556,8 @@ def test_process_existing_release_directives_user_does_not_proceed(
     mock_rd,
     mock_sync,
     mock_apply_package_scripts,
+    mock_execute_package_post_deploy_hooks,
+    mock_use_package_warehouse,
     mock_execute,
     mock_create_app_pkg,
     mock_check_git,
@@ -568,7 +595,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
 
     processor = _get_version_create_processor()
     with pytest.raises(typer.Exit):
-        result = processor.process(
+        processor.process(
             bundle_map=mock_bundle_map,
             version=version,
             patch=12,
@@ -576,12 +603,13 @@ def test_process_existing_release_directives_user_does_not_proceed(
             git_policy=allow_always_policy,
             is_interactive=is_interactive_param,
         )
-        assert result.exit_code == expected_code
     assert mock_execute.mock_calls == expected
     mock_check_git.assert_called_once()
     mock_rd.assert_called_once()
     mock_create_app_pkg.assert_called_once()
     mock_apply_package_scripts.assert_called_once()
+    mock_use_package_warehouse.assert_called_once(),
+    mock_execute_package_post_deploy_hooks.assert_called_once(),
     mock_sync.assert_called_once()
 
 
@@ -589,30 +617,42 @@ def test_process_existing_release_directives_user_does_not_proceed(
 # Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is False AND --interactive is True AND user wants to proceed
 # Test version create when there are release directives matching the version AND no version exists for app pkg AND --force is False AND interactive mode is True AND user wants to proceed
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.create_app_package", return_value=None
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "create_app_package", return_value=None
 )
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}._apply_package_scripts", return_value=None
-)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.sync_deploy_root_with_stage",
+@mock.patch.object(NativeAppVersionCreateProcessor, "use_package_warehouse")
+@mock.patch.object(
+    NativeAppVersionCreateProcessor,
+    "execute_package_post_deploy_hooks",
     return_value=None,
 )
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_release_directive_info_for_version",
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "_apply_package_scripts", return_value=None
+)
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "sync_deploy_root_with_stage", return_value=None
+)
+@mock.patch.object(
+    NativeAppVersionCreateProcessor,
+    "get_existing_release_directive_info_for_version",
     return_value=None,
 )
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_version_info", return_value=None
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "get_existing_version_info", return_value=None
 )
+<<<<<<< HEAD
 @mock.patch(
     f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_patch_to_version", return_value=None
 )
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+=======
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "add_new_patch_to_version", return_value=None
+>>>>>>> 36823177 (Add deploy scripts to version create as well)
 )
+@mock.patch.object(typer, "confirm", return_value=True)
 @pytest.mark.parametrize(
     "policy_param, is_interactive_param",
     [
@@ -628,6 +668,8 @@ def test_process_existing_release_directives_w_existing_version_two(
     mock_rd,
     mock_sync,
     mock_apply_package_scripts,
+    mock_execute_package_post_deploy_hooks,
+    mock_use_package_warehouse,
     mock_execute,
     mock_create_app_pkg,
     mock_check_git,
@@ -681,6 +723,8 @@ def test_process_existing_release_directives_w_existing_version_two(
     mock_rd.assert_called_once()
     mock_create_app_pkg.assert_called_once()
     mock_apply_package_scripts.assert_called_once()
+    mock_use_package_warehouse.assert_called_once(),
+    mock_execute_package_post_deploy_hooks.assert_called_once()
     mock_sync.assert_called_once()
     assert mock_existing_version_info.call_count == 2
     mock_add_patch.assert_called_once()
@@ -689,27 +733,41 @@ def test_process_existing_release_directives_w_existing_version_two(
 # Test version create when the app package doesn't have the magic CLI comment
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
 @mock.patch(f"{VERSION_MODULE}.check_index_changes_in_git_repo", return_value=None)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.create_app_package",
+@mock.patch.object(
+    NativeAppVersionCreateProcessor,
+    "create_app_package",
     side_effect=ApplicationPackageAlreadyExistsError(""),
 )
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}._apply_package_scripts", return_value=None
-)
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.sync_deploy_root_with_stage",
+@mock.patch.object(NativeAppVersionCreateProcessor, "use_package_warehouse")
+@mock.patch.object(
+    NativeAppVersionCreateProcessor,
+    "execute_package_post_deploy_hooks",
     return_value=None,
 )
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_release_directive_info_for_version",
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "_apply_package_scripts", return_value=None
+)
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "sync_deploy_root_with_stage", return_value=None
+)
+@mock.patch.object(
+    NativeAppVersionCreateProcessor,
+    "get_existing_release_directive_info_for_version",
     return_value=None,
 )
-@mock.patch(
-    f"{VERSION_MODULE}.{CREATE_PROCESSOR}.get_existing_version_info", return_value=None
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "get_existing_version_info", return_value=None
 )
+<<<<<<< HEAD
 @mock.patch(f"{VERSION_MODULE}.{CREATE_PROCESSOR}.add_new_version", return_value=None)
 @mock.patch(f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}")
+=======
+@mock.patch.object(
+    NativeAppVersionCreateProcessor, "add_new_version", return_value=None
+)
+@mock.patch.object(typer, "confirm")
+>>>>>>> 36823177 (Add deploy scripts to version create as well)
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
@@ -721,6 +779,8 @@ def test_process_package_no_magic_comment(
     mock_rd,
     mock_sync,
     mock_apply_package_scripts,
+    mock_execute_package_post_deploy_hooks,
+    mock_use_package_warehouse,
     mock_execute,
     mock_create_app_pkg,
     mock_check_git,
@@ -772,6 +832,8 @@ def test_process_package_no_magic_comment(
         mock_rd.assert_called_once()
         mock_create_app_pkg.assert_called_once()
         mock_apply_package_scripts.assert_called_once()
+        mock_execute_package_post_deploy_hooks.assert_called_once()
+        mock_use_package_warehouse.assert_called_once()
         mock_sync.assert_called_once()
         mock_existing_version_info.assert_called_once()
         mock_add_new_version.assert_called_once()
