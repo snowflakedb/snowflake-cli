@@ -17,6 +17,7 @@ import os
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.workspace.manager import WorkspaceManager
@@ -67,11 +68,11 @@ def test_get_entity_invalid_id(temp_dir):
 def test_bundle(temp_dir):
     ws_manager = _get_ws_manager()
     with mock.patch(f"{APP_PACKAGE_ENTITY}.bundle") as app_pkg_bundle_mock:
-        ws_manager.bundle("pkg")
+        ws_manager.perform_action("pkg", EntityActions.BUNDLE)
         app_pkg_bundle_mock.assert_called_once()
 
 
 def test_bundle_of_invalid_entity_type(temp_dir):
     ws_manager = _get_ws_manager()
-    with pytest.raises(ValueError, match="This entity type does not support bundling"):
-        ws_manager.bundle("app")
+    with pytest.raises(ValueError, match='This entity type does not support "bundle"'):
+        ws_manager.perform_action("app", EntityActions.BUNDLE)

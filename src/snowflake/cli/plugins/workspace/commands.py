@@ -18,6 +18,7 @@ import typer
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.plugins.workspace.manager import WorkspaceManager
 
@@ -56,4 +57,4 @@ def bundle(
         project_root=cli_context.project_root,
     )
 
-    ws.bundle(entity_id)
+    ws.perform_action(entity_id, EntityActions.BUNDLE)

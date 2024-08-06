@@ -32,9 +32,9 @@ class WorkspaceManager:
             self._entities_cache[entity_id] = entity_cls()
         return self._entities_cache[entity_id]
 
-    def bundle(self, entity_id: str):
+    def perform_action(self, entity_id: str, action: EntityActions):
         entity = self.get_entity(entity_id)
-        if entity.supports(EntityActions.BUNDLE):
-            entity.bundle()
+        if entity.supports(action):
+            getattr(entity, action)()
         else:
-            raise ValueError("This entity type does not support bundling")
+            raise ValueError(f'This entity type does not support "{action.value}"')
