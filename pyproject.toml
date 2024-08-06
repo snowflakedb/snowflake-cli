@@ -69,7 +69,7 @@ development = [
 "Bug Tracker" = "https://github.com/snowflakedb/snowflake-cli/issues"
 
 [project.scripts]
-snow = "snowflake.cli.app.__main__:main"
+snow = "snowflake.cli._app.__main__:main"
 
 [tool.coverage.report]
 exclude_also = ["@(abc\\.)?abstractmethod", "@(abc\\.)?abstractproperty"]

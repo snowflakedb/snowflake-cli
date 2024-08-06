@@ -15,7 +15,7 @@
 import unittest.mock as mock
 
 import pytest
-from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
+from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 
 
 @pytest.fixture()

@@ -17,8 +17,8 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
-from snowflake.cli.plugins.snowpark.models import Requirement
-from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
+from snowflake.cli._plugins.snowpark.models import Requirement
+from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AnacondaPackagesManager,
     AvailablePackage,
@@ -145,7 +145,7 @@ def test_anaconda_packages_from_sql_query(mock_available_packages_sql_result):
 
 
 @mock.patch("requests.get")
-@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 def test_filter_anaconda_packages_from_fallback_to_channel_data(mock_connect, mock_get):
     mock_connect.side_effect = ConnectorError("test error")
 
@@ -184,8 +184,8 @@ def test_filter_anaconda_packages_from_fallback_to_channel_data(mock_connect, mo
     )
 
 
-@patch("snowflake.cli.plugins.snowpark.package.anaconda_packages.requests")
-@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
+@patch("snowflake.cli._plugins.snowpark.package.anaconda_packages.requests")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 def test_anaconda_packages_from_fallback_to_channel_data(mock_connect, mock_requests):
     mock_connect.side_effect = ConnectorError("test error")
 

@@ -14,12 +14,12 @@
 
 from unittest.mock import patch
 
-from snowflake.cli.plugins.snowpark.package_utils import (
+from snowflake.cli._plugins.snowpark.package_utils import (
     DownloadUnavailablePackagesResult,
 )
 
 
-@patch("snowflake.cli.plugins.snowpark.package_utils.download_unavailable_packages")
+@patch("snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages")
 def test_snowpark_build_no_deprecated_warnings_by_default(
     mock_download, runner, project_directory
 ):

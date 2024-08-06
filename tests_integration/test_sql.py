@@ -103,8 +103,8 @@ def _round_values_for_multi_queries(results):
 
 
 @pytest.mark.integration
-@mock.patch("snowflake.cli.app.printing._get_table")
-@mock.patch("snowflake.cli.app.printing.Live")
+@mock.patch("snowflake.cli._app.printing._get_table")
+@mock.patch("snowflake.cli._app.printing.Live")
 def test_queries_are_streamed_to_output(
     _, mock_get_table, runner, capsys, test_root_path
 ):

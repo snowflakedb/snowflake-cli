@@ -20,11 +20,11 @@ from pathlib import Path
 
 import pytest
 import tomlkit
+from snowflake.cli._app import loggers
 from snowflake.cli.api import secure_path
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.exceptions import DirectoryIsNotEmptyError, FileTooLargeError
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.app import loggers
 
 from tests.conftest import clean_logging_handlers
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
