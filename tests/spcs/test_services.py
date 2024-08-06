@@ -24,6 +24,7 @@ from snowflake.cli._plugins.spcs.common import NoPropertiesProvidedError
 from snowflake.cli._plugins.spcs.services.commands import _service_name_callback
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.connector.cursor import SnowflakeCursor
 from yaml import YAMLError
@@ -617,14 +618,15 @@ def test_invalid_service_name(runner):
     invalid_service_name = "account.db.schema.name"
     result = runner.invoke(["spcs", "service", "status", invalid_service_name])
     assert result.exit_code == 1
-    assert f"'{invalid_service_name}' is not a valid service name." in result.output
+    assert f"'{invalid_service_name}' is not valid" in result.output
 
 
 @patch("snowflake.cli._plugins.spcs.services.commands.is_valid_object_name")
 def test_service_name_parser(mock_is_valid_object_name):
     service_name = "db.schema.test_service"
     mock_is_valid_object_name.return_value = True
-    assert _service_name_callback(service_name) == service_name
+    fqn = FQN.from_string(service_name)
+    assert _service_name_callback(fqn) == fqn
     mock_is_valid_object_name.assert_called_once_with(
         service_name, max_depth=2, allow_quoted=False
     )
@@ -632,10 +634,10 @@ def test_service_name_parser(mock_is_valid_object_name):
 
 @patch("snowflake.cli._plugins.spcs.services.commands.is_valid_object_name")
 def test_service_name_parser_invalid_object_name(mock_is_valid_object_name):
-    invalid_service_name = "account.db.schema.test_service"
+    invalid_service_name = '"db.schema.test_service"'
     mock_is_valid_object_name.return_value = False
     with pytest.raises(ClickException) as e:
-        _service_name_callback(invalid_service_name)
+        _service_name_callback(FQN.from_string(invalid_service_name))
     assert f"'{invalid_service_name}' is not a valid service name." in e.value.message
 
 

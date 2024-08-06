@@ -15,28 +15,28 @@
 from pathlib import Path
 from textwrap import dedent
 
+from snowflake.cli._api.cli_global_context import get_cli_context
+from snowflake.cli._api.identifiers import FQN
+from snowflake.cli._api.sql_execution import SqlExecutionMixin
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.notebook.exceptions import NotebookStagePathError
-from snowflake.cli._plugins.notebook.types import NotebookName, NotebookStagePath
-from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli._plugins.notebook.types import NotebookStagePath
 
 
 class NotebookManager(SqlExecutionMixin):
-    def execute(self, notebook_name: NotebookName):
-        query = f"EXECUTE NOTEBOOK {notebook_name}()"
+    def execute(self, notebook_name: FQN):
+        query = f"EXECUTE NOTEBOOK {notebook_name.sql_identifier}()"
         return self._execute_query(query=query)
 
-    def get_url(self, notebook_name: NotebookName):
-        fqn = FQN.from_string(notebook_name).using_connection(self._conn)
+    def get_url(self, notebook_name: FQN):
+        fqn = notebook_name.using_connection(self._conn)
         return make_snowsight_url(
             self._conn,
             f"/#/notebooks/{fqn.url_identifier}",
         )
 
     @staticmethod
-    def parse_stage_as_path(notebook_file: NotebookName) -> Path:
+    def parse_stage_as_path(notebook_file: str) -> Path:
         """Parses notebook file path to pathlib.Path."""
         if not notebook_file.endswith(".ipynb"):
             raise NotebookStagePathError(notebook_file)
@@ -48,19 +48,19 @@ class NotebookManager(SqlExecutionMixin):
 
     def create(
         self,
-        notebook_name: NotebookName,
+        notebook_name: FQN,
         notebook_file: NotebookStagePath,
     ) -> str:
-        notebook_fqn = FQN.from_string(notebook_name).using_connection(self._conn)
+        notebook_fqn = notebook_name.using_connection(self._conn)
         stage_path = self.parse_stage_as_path(notebook_file)
 
         queries = dedent(
             f"""
-            CREATE OR REPLACE NOTEBOOK {notebook_fqn.identifier}
+            CREATE OR REPLACE NOTEBOOK {notebook_fqn.sql_identifier}
             FROM '{stage_path.parent}'
             QUERY_WAREHOUSE = '{get_cli_context().connection.warehouse}'
             MAIN_FILE = '{stage_path.name}';
-
+            // Cannot use IDENTIFIER(...)
             ALTER NOTEBOOK {notebook_fqn.identifier} ADD LIVE VERSION FROM LAST;
             """
         )

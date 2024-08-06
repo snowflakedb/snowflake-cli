@@ -18,6 +18,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import List
 
+from snowflake.cli._api.identifiers import FQN
 from snowflake.cli._plugins.stage.manager import (
     USER_STAGE_PREFIX,
     StageManager,
@@ -63,15 +64,15 @@ class GitManager(StageManager):
     def show_tags(self, repo_name: str, like: str) -> SnowflakeCursor:
         return self._execute_query(f"show git tags like '{like}' in {repo_name}")
 
-    def fetch(self, repo_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"alter git repository {repo_name} fetch")
+    def fetch(self, fqn: FQN) -> SnowflakeCursor:
+        return self._execute_query(f"alter git repository {fqn} fetch")
 
     def create(
-        self, repo_name: str, api_integration: str, url: str, secret: str
+        self, repo_name: FQN, api_integration: str, url: str, secret: str
     ) -> SnowflakeCursor:
         query = dedent(
             f"""
-            create git repository {repo_name}
+            create git repository {repo_name.sql_identifier}
             api_integration = {api_integration}
             origin = '{url}'
             """

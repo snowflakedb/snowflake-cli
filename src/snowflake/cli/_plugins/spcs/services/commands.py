@@ -33,10 +33,12 @@ from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
+    identifier_argument,
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
     QueryJsonValueResult,
@@ -52,19 +54,18 @@ app = SnowTyperFactory(
 )
 
 
-def _service_name_callback(name: str) -> str:
-    if not is_valid_object_name(name, max_depth=2, allow_quoted=False):
+def _service_name_callback(name: FQN) -> FQN:
+    if not is_valid_object_name(name.identifier, max_depth=2, allow_quoted=False):
         raise ClickException(
             f"'{name}' is not a valid service name. Note service names must be unquoted identifiers. The same constraint also applies to database and schema names where you create a service."
         )
     return name
 
 
-ServiceNameArgument = typer.Argument(
-    ...,
-    help="Name of the service.",
+ServiceNameArgument = identifier_argument(
+    sf_object="service pool",
+    example="my_service",
     callback=_service_name_callback,
-    show_default=False,
 )
 
 SpecPathOption = typer.Option(
@@ -116,7 +117,7 @@ add_object_command_aliases(
 
 @app.command(requires_connection=True)
 def create(
-    name: str = ServiceNameArgument,
+    name: FQN = ServiceNameArgument,
     compute_pool: str = typer.Option(
         ...,
         "--compute-pool",
@@ -145,7 +146,7 @@ def create(
         min_instances, max_instances, "instances"
     )
     cursor = ServiceManager().create(
-        service_name=name,
+        service_name=name.identifier,
         min_instances=min_instances,
         max_instances=max_instances,
         compute_pool=compute_pool,
@@ -161,17 +162,17 @@ def create(
 
 
 @app.command(requires_connection=True)
-def status(name: str = ServiceNameArgument, **options) -> CommandResult:
+def status(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     """
     Retrieves the status of a service.
     """
-    cursor = ServiceManager().status(service_name=name)
+    cursor = ServiceManager().status(service_name=name.identifier)
     return QueryJsonValueResult(cursor)
 
 
 @app.command(requires_connection=True)
 def logs(
-    name: str = ServiceNameArgument,
+    name: FQN = ServiceNameArgument,
     container_name: str = typer.Option(
         ...,
         "--container-name",
@@ -193,7 +194,7 @@ def logs(
     Retrieves local logs from a service container.
     """
     results = ServiceManager().logs(
-        service_name=name,
+        service_name=name.identifier,
         instance_id=instance_id,
         container_name=container_name,
         num_lines=num_lines,
@@ -205,7 +206,7 @@ def logs(
 
 @app.command(requires_connection=True)
 def upgrade(
-    name: str = ServiceNameArgument,
+    name: FQN = ServiceNameArgument,
     spec_path: Path = SpecPathOption,
     **options,
 ):
@@ -213,20 +214,20 @@ def upgrade(
     Updates an existing service with a new specification file.
     """
     return SingleQueryResult(
-        ServiceManager().upgrade_spec(service_name=name, spec_path=spec_path)
+        ServiceManager().upgrade_spec(service_name=name.identifier, spec_path=spec_path)
     )
 
 
 @app.command("list-endpoints", requires_connection=True)
-def list_endpoints(name: str = ServiceNameArgument, **options):
+def list_endpoints(name: FQN = ServiceNameArgument, **options):
     """
     Lists the endpoints in a service.
     """
-    return QueryResult(ServiceManager().list_endpoints(service_name=name))
+    return QueryResult(ServiceManager().list_endpoints(service_name=name.identifier))
 
 
 @app.command(requires_connection=True)
-def suspend(name: str = ServiceNameArgument, **options) -> CommandResult:
+def suspend(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     """
     Suspends the service, shutting down and deleting all its containers.
     """
@@ -234,7 +235,7 @@ def suspend(name: str = ServiceNameArgument, **options) -> CommandResult:
 
 
 @app.command(requires_connection=True)
-def resume(name: str = ServiceNameArgument, **options) -> CommandResult:
+def resume(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     """
     Resumes the service from a SUSPENDED state.
     """
@@ -243,7 +244,7 @@ def resume(name: str = ServiceNameArgument, **options) -> CommandResult:
 
 @app.command("set", requires_connection=True)
 def set_property(
-    name: str = ServiceNameArgument,
+    name: FQN = ServiceNameArgument,
     min_instances: Optional[int] = MinInstancesOption(default=None, show_default=False),
     max_instances: Optional[int] = MaxInstancesOption(show_default=False),
     query_warehouse: Optional[str] = QueryWarehouseOption(show_default=False),
@@ -255,7 +256,7 @@ def set_property(
     Sets one or more properties for the service.
     """
     cursor = ServiceManager().set_property(
-        service_name=name,
+        service_name=name.identifier,
         min_instances=min_instances,
         max_instances=max_instances,
         query_warehouse=query_warehouse,
@@ -267,7 +268,7 @@ def set_property(
 
 @app.command("unset", requires_connection=True)
 def unset_property(
-    name: str = ServiceNameArgument,
+    name: FQN = ServiceNameArgument,
     min_instances: bool = MinInstancesOption(
         default=False,
         help=f"Reset the MIN_INSTANCES property - {_MIN_INSTANCES_HELP}",
@@ -301,7 +302,7 @@ def unset_property(
     Resets one or more properties for the service to their default value(s).
     """
     cursor = ServiceManager().unset_property(
-        service_name=name,
+        service_name=name.identifier,
         min_instances=min_instances,
         max_instances=max_instances,
         query_warehouse=query_warehouse,

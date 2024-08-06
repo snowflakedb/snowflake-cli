@@ -21,6 +21,7 @@ from unittest.mock import call
 import pytest
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.identifiers import FQN
 from snowflake.connector import ProgrammingError
 
 from tests_common import IS_WINDOWS
@@ -75,7 +76,7 @@ def test_deploy_procedure(
         ]
     )
     assert ctx.get_queries() == [
-        "create stage if not exists MockDatabase.MockSchema.dev_deployment comment='deployments managed by Snowflake CLI'",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
         f"put file://{Path(tmp).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
@@ -139,12 +140,12 @@ def test_deploy_procedure_with_external_access(
         [
             call(
                 object_type=str(ObjectType.PROCEDURE),
-                name="MockDatabase.MockSchema.procedureName(string)",
+                fqn=FQN.from_string("MockDatabase.MockSchema.procedureName(string)"),
             ),
         ]
     )
     assert ctx.get_queries() == [
-        "create stage if not exists MockDatabase.MockSchema.dev_deployment comment='deployments managed by Snowflake CLI'",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
         f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(

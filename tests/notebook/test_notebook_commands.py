@@ -15,6 +15,7 @@
 from unittest import mock
 
 import typer
+from snowflake.cli._api.identifiers import FQN
 from snowflake.cli._plugins.notebook.manager import NotebookManager
 
 
@@ -24,7 +25,7 @@ def test_execute(mock_execute, runner):
 
     assert result.exit_code == 0, result.output
     assert result.output == "Notebook my_notebook executed.\n"
-    mock_execute.assert_called_once_with(notebook_name="my_notebook")
+    mock_execute.assert_called_once_with(notebook_name=FQN.from_string("my_notebook"))
 
 
 @mock.patch.object(NotebookManager, "get_url")
@@ -34,7 +35,7 @@ def test_get_url(mock_url, runner):
 
     assert result.exit_code == 0, result.output
     assert result.output == "http://my.url\n"
-    mock_url.assert_called_once_with(notebook_name="my_notebook")
+    mock_url.assert_called_once_with(notebook_name=FQN.from_string("my_notebook"))
 
 
 @mock.patch.object(NotebookManager, "get_url")
@@ -45,7 +46,7 @@ def test_open(mock_launch, mock_url, runner):
 
     assert result.exit_code == 0, result.output
     assert result.output == "http://my.url\n"
-    mock_url.assert_called_once_with(notebook_name="my_notebook")
+    mock_url.assert_called_once_with(notebook_name=FQN.from_string("my_notebook"))
     mock_launch.assert_called_once_with("http://my.url")
 
 
@@ -61,6 +62,6 @@ def test_create(mock_create, runner):
     assert result.exit_code == 0, result.output
 
     mock_create.assert_called_once_with(
-        notebook_name=notebook_name,
+        notebook_name=FQN.from_string("my_notebook"),
         notebook_file=notebook_file,
     )

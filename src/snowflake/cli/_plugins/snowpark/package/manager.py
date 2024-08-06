@@ -17,9 +17,10 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from snowflake.cli._api.identifiers import FQN
+from snowflake.cli._api.secure_path import SecurePath
 from snowflake.cli._plugins.snowpark.package.utils import prepare_app_zip
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ def upload(file: Path, stage: str, overwrite: bool):
         temp_app_zip_path = prepare_app_zip(SecurePath(file), temp_dir)
         sm = StageManager()
 
-        sm.create(sm.get_stage_from_path(stage))
+        sm.create(FQN.from_string(sm.get_stage_from_path(stage)))
         put_response = sm.put(
             temp_app_zip_path.path, stage, overwrite=overwrite
         ).fetchone()

@@ -29,11 +29,13 @@ from snowflake.cli._plugins.spcs.image_repository.manager import ImageRepository
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     ReplaceOption,
+    identifier_argument,
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
     MessageResult,
@@ -48,18 +50,18 @@ app = SnowTyperFactory(
 )
 
 
-def _repo_name_callback(name: str):
-    if not is_valid_object_name(name, max_depth=2, allow_quoted=False):
+def _repo_name_callback(name: FQN):
+    if not is_valid_object_name(name.identifier, max_depth=2, allow_quoted=False):
         raise ClickException(
             f"'{name}' is not a valid image repository name. Note that image repository names must be unquoted identifiers. The same constraint also applies to database and schema names where you create an image repository."
         )
     return name
 
 
-REPO_NAME_ARGUMENT = typer.Argument(
-    help="Name of the image repository.",
+REPO_NAME_ARGUMENT = identifier_argument(
+    sf_object="image repository",
+    example="my_repository",
     callback=_repo_name_callback,
-    show_default=False,
 )
 
 add_object_command_aliases(
@@ -76,7 +78,7 @@ add_object_command_aliases(
 
 @app.command(requires_connection=True)
 def create(
-    name: str = REPO_NAME_ARGUMENT,
+    name: FQN = REPO_NAME_ARGUMENT,
     replace: bool = ReplaceOption(),
     if_not_exists: bool = IfNotExistsOption(),
     **options,
@@ -86,21 +88,21 @@ def create(
     """
     return SingleQueryResult(
         ImageRepositoryManager().create(
-            name=name, replace=replace, if_not_exists=if_not_exists
+            name=name.identifier, replace=replace, if_not_exists=if_not_exists
         )
     )
 
 
 @app.command("list-images", requires_connection=True)
 def list_images(
-    name: str = REPO_NAME_ARGUMENT,
+    name: FQN = REPO_NAME_ARGUMENT,
     **options,
 ) -> CollectionResult:
     """Lists images in the given repository."""
     repository_manager = ImageRepositoryManager()
     database = repository_manager.get_database()
     schema = repository_manager.get_schema()
-    url = repository_manager.get_repository_url(name)
+    url = repository_manager.get_repository_url(name.identifier)
     api_url = repository_manager.get_repository_api_url(url)
     bearer_login = RegistryManager().login_to_registry(api_url)
     repos = []
@@ -136,7 +138,7 @@ def list_images(
 
 @app.command("list-tags", requires_connection=True)
 def list_tags(
-    name: str = REPO_NAME_ARGUMENT,
+    name: FQN = REPO_NAME_ARGUMENT,
     image_name: str = typer.Option(
         ...,
         "--image-name",
@@ -150,7 +152,7 @@ def list_tags(
     """Lists tags for the given image in a repository."""
 
     repository_manager = ImageRepositoryManager()
-    url = repository_manager.get_repository_url(name)
+    url = repository_manager.get_repository_url(name.identifier)
     api_url = repository_manager.get_repository_api_url(url)
     bearer_login = RegistryManager().login_to_registry(api_url)
 
@@ -187,10 +189,14 @@ def list_tags(
 
 @app.command("url", requires_connection=True)
 def repo_url(
-    name: str = REPO_NAME_ARGUMENT,
+    name: FQN = REPO_NAME_ARGUMENT,
     **options,
 ):
     """Returns the URL for the given repository."""
     return MessageResult(
-        (ImageRepositoryManager().get_repository_url(repo_name=name, with_scheme=False))
+        (
+            ImageRepositoryManager().get_repository_url(
+                repo_name=name.identifier, with_scheme=False
+            )
+        )
     )

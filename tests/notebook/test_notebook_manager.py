@@ -17,14 +17,17 @@ from unittest import mock
 from unittest.mock import MagicMock, PropertyMock
 
 import pytest
+from snowflake.cli._api.identifiers import FQN
 from snowflake.cli._plugins.notebook.exceptions import NotebookStagePathError
 from snowflake.cli._plugins.notebook.manager import NotebookManager
 
 
 @mock.patch.object(NotebookManager, "_execute_query")
 def test_execute(mock_execute):
-    _ = NotebookManager().execute(notebook_name="MY_NOTEBOOK")
-    mock_execute.assert_called_once_with(query="EXECUTE NOTEBOOK MY_NOTEBOOK()")
+    _ = NotebookManager().execute(notebook_name=FQN.from_string("MY_NOTEBOOK"))
+    mock_execute.assert_called_once_with(
+        query="EXECUTE NOTEBOOK IDENTIFIER('MY_NOTEBOOK')()"
+    )
 
 
 @mock.patch("snowflake.cli._plugins.notebook.manager.make_snowsight_url")
@@ -32,7 +35,7 @@ def test_get_url(mock_url):
     mock_url.return_value = "my_url"
     conn_mock = MagicMock(database="nb_database", schema="nb_schema")
     with mock.patch.object(NotebookManager, "_conn", conn_mock):
-        result = NotebookManager().get_url(notebook_name="MY_NOTEBOOK")
+        result = NotebookManager().get_url(notebook_name=FQN.from_string("MY_NOTEBOOK"))
 
     assert result == "my_url"
     mock_url.assert_called_once_with(
@@ -50,17 +53,17 @@ def test_create(mock_ctx, mock_execute, mock_url):
 
     with mock.patch.object(NotebookManager, "_conn", cn_mock):
         _ = NotebookManager().create(
-            notebook_name="my_notebook",
+            notebook_name=FQN.from_string("MY_NOTEBOOK"),
             notebook_file="@stage/nb file.ipynb",
         )
         expected_query = dedent(
             """
-            CREATE OR REPLACE NOTEBOOK nb_db.nb_schema.my_notebook
+            CREATE OR REPLACE NOTEBOOK IDENTIFIER('nb_db.nb_schema.MY_NOTEBOOK')
             FROM '@stage'
             QUERY_WAREHOUSE = 'MY_WH'
             MAIN_FILE = 'nb file.ipynb';
-
-            ALTER NOTEBOOK nb_db.nb_schema.my_notebook ADD LIVE VERSION FROM LAST;
+            // Cannot use IDENTIFIER(...)
+            ALTER NOTEBOOK nb_db.nb_schema.MY_NOTEBOOK ADD LIVE VERSION FROM LAST;
             """
         )
         mock_execute.assert_called_once_with(queries=expected_query)

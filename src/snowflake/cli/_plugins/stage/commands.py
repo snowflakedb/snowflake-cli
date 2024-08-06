@@ -36,11 +36,13 @@ from snowflake.cli.api.commands.flags import (
     ExecuteVariablesOption,
     OnErrorOption,
     PatternOption,
+    identifier_argument,
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -56,7 +58,7 @@ app = SnowTyperFactory(
     help="Manages stages.",
 )
 
-StageNameArgument = typer.Argument(..., help="Name of the stage.", show_default=False)
+StageNameArgument = identifier_argument(sf_object="stage", example="@my_stage")
 
 add_object_command_aliases(
     app=app,
@@ -142,17 +144,17 @@ def copy(
 
 
 @app.command("create", requires_connection=True)
-def stage_create(stage_name: str = StageNameArgument, **options) -> CommandResult:
+def stage_create(stage_name: FQN = StageNameArgument, **options) -> CommandResult:
     """
     Creates a named stage if it does not already exist.
     """
-    cursor = StageManager().create(stage_name=stage_name)
+    cursor = StageManager().create(fqn=stage_name)
     return SingleQueryResult(cursor)
 
 
 @app.command("remove", requires_connection=True)
 def stage_remove(
-    stage_name: str = StageNameArgument,
+    stage_name: FQN = StageNameArgument,
     file_name: str = typer.Argument(
         ...,
         help="Name of the file to remove.",
@@ -164,7 +166,7 @@ def stage_remove(
     Removes a file from a stage.
     """
 
-    cursor = StageManager().remove(stage_name=stage_name, path=file_name)
+    cursor = StageManager().remove(stage_name=stage_name.identifier, path=file_name)
     return SingleQueryResult(cursor)
 
 

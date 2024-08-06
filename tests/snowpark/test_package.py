@@ -89,10 +89,12 @@ class TestPackage:
         assert os.path.isfile("totally-awesome-package.zip"), result.output
 
     @mock.patch("snowflake.cli._plugins.snowpark.package.manager.StageManager")
+    @mock.patch("snowflake.cli._plugins.snowpark.package.manager.FQN.from_string")
     @mock.patch("snowflake.connector.connect")
     def test_package_upload(
         self,
         mock_connector,
+        _,
         mock_stage_manager,
         package_file: str,
         runner,
@@ -140,7 +142,9 @@ class TestPackage:
         assert result.exit_code == 0
         assert mock_execute_queries.call_count == 2
         create, put = mock_execute_queries.call_args_list
-        assert create.args[0] == "create stage if not exists db.schema.stage"
+        assert (
+            create.args[0] == "create stage if not exists IDENTIFIER('db.schema.stage')"
+        )
         assert "db.schema.stage/path/to/file" in put.args[0]
 
     @patch(

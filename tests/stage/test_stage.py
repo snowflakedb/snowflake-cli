@@ -499,7 +499,9 @@ def test_stage_create(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["stage", "create", "-c", "empty", "stageName"])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with("create stage if not exists stageName")
+    mock_execute.assert_called_once_with(
+        "create stage if not exists IDENTIFIER('stageName')"
+    )
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -507,7 +509,9 @@ def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["stage", "create", "-c", "empty", '"stage name"'])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with('create stage if not exists "stage name"')
+    mock_execute.assert_called_once_with(
+        """create stage if not exists IDENTIFIER('"stage name"')"""
+    )
 
 
 @mock.patch("snowflake.cli._plugins.object.commands.ObjectManager._execute_query")
@@ -515,7 +519,7 @@ def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", "stageName", "-c", "empty"])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with("drop stage stageName")
+    mock_execute.assert_called_once_with("drop stage IDENTIFIER('stageName')")
 
 
 @mock.patch("snowflake.cli._plugins.object.commands.ObjectManager._execute_query")
@@ -523,7 +527,7 @@ def test_stage_drop_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", '"stage name"', "-c", "empty"])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with('drop stage "stage name"')
+    mock_execute.assert_called_once_with("""drop stage IDENTIFIER('"stage name"')""")
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
