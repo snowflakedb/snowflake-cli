@@ -52,9 +52,12 @@ if __name__ == "__main__":
     role = "INTEGRATION_TESTS"
     session = Session.builder.configs(
         {
+            "authenticator": "SNOWFLAKE_JWT",
             "account": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"),
             "user": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"),
-            "password": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD"),
+            "private_key_path": os.getenv(
+                "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH"
+            ),
             "database": "SNOWCLI_DB",
             "role": role,
         }
