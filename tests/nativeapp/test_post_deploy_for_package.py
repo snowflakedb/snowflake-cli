@@ -18,9 +18,9 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli._plugins.nativeapp.exceptions import MissingScriptError
 from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.connector import ProgrammingError
 
