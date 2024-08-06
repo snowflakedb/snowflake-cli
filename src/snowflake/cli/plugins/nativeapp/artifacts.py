@@ -668,7 +668,6 @@ def build_bundle(
         bundle_map.add(artifact)
 
     if bundle_map.is_empty():
-        # Should we use ArtifactError here or create a specific NoArtifactsError class instead?
         raise ArtifactError("No artifacts were found, nothing to do.")
 
     for (absolute_src, absolute_dest) in bundle_map.all_mappings(
