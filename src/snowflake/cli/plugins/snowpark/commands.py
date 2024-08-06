@@ -20,7 +20,10 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import typer
 from click import ClickException
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import (
+    _CliGlobalContextAccess,
+    get_cli_context,
+)
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
@@ -186,15 +189,15 @@ def deploy(
             stage_name=stage, comment="deployments managed by Snowflake CLI"
         )
         artifact_stage_directory = get_app_stage_path(stage, project_name)
-    artifact_stage_target = (
-        f"{artifact_stage_directory}/{paths.artifact_file.path.name}"
-    )
+        artifact_stage_target = (
+            f"{artifact_stage_directory}/{paths.artifact_file.path.name}"
+        )
 
-    stage_manager.put(
-        local_path=paths.artifact_file.path,
-        stage_path=artifact_stage_directory,
-        overwrite=True,
-    )
+        stage_manager.put(
+            local_path=paths.artifact_file.path,
+            stage_path=artifact_stage_directory,
+            overwrite=True,
+        )
 
     deploy_status = []
     # Procedures
@@ -388,10 +391,7 @@ def build(
     Builds the Snowpark project as a `.zip` archive that can be used by `deploy` command.
     The archive is built using only the `src` directory specified in the project file.
     """
-    cli_context = get_cli_context()
-    pd = cli_context.project_definition
-    if not pd.meets_version_requirement("2"):
-        pd = _migrate_v1_snowpark_to_v2(pd)
+    cli_context, pd = _get_v2_context_and_project_definition()
 
     snowpark_paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
@@ -541,42 +541,36 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
         },
         "entities": {},
     }
-    # TODO: think how to join those two loops
-    for function in pd.snowpark.functions:
-        function_dict = {
-            "type": "function",
-            "stage": pd.snowpark.stage_name,
-            "src": pd.snowpark.src,
-            "handler": function.handler,
-            "returns": function.returns,
-            "signature": function.signature,
-            "runtime": function.runtime,
-            "external_access_integrations": function.external_access_integrations,
-            "secrets": function.secrets,
-            "imports": function.imports,
-            "name": function.name,
-            "database": function.database,
-            "schema": function.schema_name,
-        }
-        data["entities"][function.name] = function_dict
 
-    for procedure in pd.snowpark.procedures:
-        procedure_dict = {
-            "type": "procedure",
+    for entity in [*pd.snowpark.procedures, *pd.snowpark.functions]:
+        v2_entity = {
+            "type": "function" if isinstance(entity, FunctionSchema) else "procedure",
             "stage": pd.snowpark.stage_name,
             "src": pd.snowpark.src,
-            "handler": procedure.handler,
-            "returns": procedure.returns,
-            "signature": procedure.signature,
-            "runtime": procedure.runtime,
-            "external_access_integrations": procedure.external_access_integrations,
-            "secrets": procedure.secrets,
-            "imports": procedure.imports,
-            "execute_as_caller": procedure.execute_as_caller,
-            "name": procedure.name,
-            "database": procedure.database,
-            "schema": procedure.schema_name,
+            "handler": entity.handler,
+            "returns": entity.returns,
+            "signature": entity.signature,
+            "runtime": entity.runtime,
+            "external_access_integrations": entity.external_access_integrations,
+            "secrets": entity.secrets,
+            "imports": entity.imports,
+            "name": entity.name,
+            "database": entity.database,
+            "schema": entity.schema_name,
         }
-        data["entities"][procedure.name] = procedure_dict
+        if isinstance(callable, ProcedureSchema):
+            v2_entity["execute_as_caller"] = callable.execute_as_caller
+
+        data["entities"][entity.name] = v2_entity
 
     return ProjectDefinitionV2(**data)
+
+
+def _get_v2_context_and_project_definition() -> Tuple[
+    _CliGlobalContextAccess, ProjectDefinitionV2
+]:
+    cli_context = get_cli_context()
+    pd = cli_context.project_definition
+    if not pd.meets_version_requirement("2"):
+        pd = _migrate_v1_snowpark_to_v2(pd)
+    return cli_context, pd
