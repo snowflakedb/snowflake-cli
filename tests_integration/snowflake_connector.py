@@ -22,7 +22,7 @@ from unittest import mock
 import pytest
 from snowflake import connector
 from snowflake.cli.api.exceptions import EnvironmentVariableNotFoundError
-from snowflake.cli.app.snow_connector import update_connection_details_with_private_key
+from snowflake.cli._app.snow_connector import update_connection_details_with_private_key
 
 _ENV_PARAMETER_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
 SCHEMA_ENV_PARAMETER = f"{_ENV_PARAMETER_PREFIX}_SCHEMA"
