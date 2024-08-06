@@ -78,7 +78,9 @@ def test_new_connection_can_be_added_as_default(runner, os_agnostic_snapshot):
     assert content == os_agnostic_snapshot
 
 
-def test_new_connection_with_jwt_auth(runner, os_agnostic_snapshot):
+@mock.patch("os.path.exists")
+def test_new_connection_with_jwt_auth(mock_os, runner, os_agnostic_snapshot):
+    mock_os.return_value = True
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
             tmp_file.name,
