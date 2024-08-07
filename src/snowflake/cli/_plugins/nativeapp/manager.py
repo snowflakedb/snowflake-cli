@@ -67,6 +67,7 @@ from snowflake.cli._plugins.stage.diff import (
     to_stage_path,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
@@ -75,13 +76,16 @@ from snowflake.cli.api.errno import (
 )
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.native_app.application import (
-    ApplicationPostDeployHook,
+    PostDeployHook,
 )
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     identifier_for_url,
     unquote_identifier,
+)
+from snowflake.cli.api.rendering.sql_templates import (
+    get_sql_cli_jinja_env,
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import DictCursor, ProgrammingError
@@ -281,8 +285,12 @@ class NativeAppManager(SqlExecutionMixin):
         return self.na_project.app_role
 
     @property
-    def app_post_deploy_hooks(self) -> Optional[List[ApplicationPostDeployHook]]:
+    def app_post_deploy_hooks(self) -> Optional[List[PostDeployHook]]:
         return self.na_project.app_post_deploy_hooks
+
+    @property
+    def package_post_deploy_hooks(self) -> Optional[List[PostDeployHook]]:
+        return self.na_project.package_post_deploy_hooks
 
     @property
     def debug_mode(self) -> bool:
@@ -603,6 +611,12 @@ class NativeAppManager(SqlExecutionMixin):
         Assuming the application package exists and we are using the correct role,
         applies all package scripts in-order to the application package.
         """
+
+        if self.package_scripts:
+            cc.warning(
+                "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
+            )
+
         env = jinja2.Environment(
             loader=jinja2.loaders.FileSystemLoader(self.project_root),
             keep_trailing_newline=True,
@@ -623,6 +637,67 @@ class NativeAppManager(SqlExecutionMixin):
                 generic_sql_error_handler(
                     err, role=self.package_role, warehouse=self.package_warehouse
                 )
+
+    def _execute_sql_script(
+        self, script_content: str, database_name: Optional[str] = None
+    ) -> None:
+        """
+        Executing the provided SQL script content.
+        This assumes that a relevant warehouse is already active.
+        If database_name is passed in, it will be used first.
+        """
+        try:
+            if database_name is not None:
+                self._execute_query(f"use database {database_name}")
+
+            self._execute_queries(script_content)
+        except ProgrammingError as err:
+            generic_sql_error_handler(err)
+
+    def _execute_post_deploy_hooks(
+        self,
+        post_deploy_hooks: Optional[List[PostDeployHook]],
+        deployed_object_type: str,
+        database_name: str,
+    ) -> None:
+        """
+        Executes post-deploy hooks for the given object type.
+        While executing SQL post deploy hooks, it first switches to the database provided in the input.
+        All post deploy scripts templates will first be expanded using the global template context.
+        """
+        if not post_deploy_hooks:
+            return
+
+        with cc.phase(f"Executing {deployed_object_type} post-deploy actions"):
+            sql_scripts_paths = []
+            for hook in post_deploy_hooks:
+                if hook.sql_script:
+                    sql_scripts_paths.append(hook.sql_script)
+                else:
+                    raise ValueError(
+                        f"Unsupported {deployed_object_type} post-deploy hook type: {hook}"
+                    )
+
+            env = get_sql_cli_jinja_env(
+                loader=jinja2.loaders.FileSystemLoader(self.project_root)
+            )
+            scripts_content_list = self._expand_script_templates(
+                env, get_cli_context().template_context, sql_scripts_paths
+            )
+
+            for index, sql_script_path in enumerate(sql_scripts_paths):
+                cc.step(f"Executing SQL script: {sql_script_path}")
+                self._execute_sql_script(scripts_content_list[index], database_name)
+
+    def execute_package_post_deploy_hooks(self) -> None:
+        self._execute_post_deploy_hooks(
+            self.package_post_deploy_hooks, "application package", self.package_name
+        )
+
+    def execute_app_post_deploy_hooks(self) -> None:
+        self._execute_post_deploy_hooks(
+            self.app_post_deploy_hooks, "application", self.app_name
+        )
 
     def deploy(
         self,
@@ -654,6 +729,10 @@ class NativeAppManager(SqlExecutionMixin):
                 local_paths_to_sync=local_paths_to_sync,
                 print_diff=print_diff,
             )
+
+            # 4. Execute post-deploy hooks
+            with self.use_package_warehouse():
+                self.execute_package_post_deploy_hooks()
 
         if validate:
             self.validate(use_scratch_stage=False)

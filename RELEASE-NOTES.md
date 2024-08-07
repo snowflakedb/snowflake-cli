@@ -22,11 +22,16 @@
 * Removed deprecated flags from `snow snowpark` commands.
 
 ## Deprecations
+  * Added deprecation warning for `native_app.package.scripts` in project definition file.
 
 ## New additions
+* Added support for `native_app.package.post_deploy` scripts in project definition file.
+  * These scripts will execute whenever a Native App Package is created or updated.
+  * Currently only supports SQL scripts: `post_deploy: [{sql_script: script.sql}]`
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command
+* Added check for the correctness of token file and private key paths when addind a connection
 
 
 # v2.7.0
