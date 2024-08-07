@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Optional
 
 from click.exceptions import ClickException
@@ -182,3 +183,13 @@ def make_snowsight_url(conn: SnowflakeConnection, path: str) -> str:
 
 def strip_if_value_present(value: Optional[str]) -> Optional[str]:
     return value.strip() if value else value
+
+
+def ensure_that_path_exist(path: Optional[str]) -> Optional[str]:
+    if path and not os.path.exists(path):
+        raise ClickException(f"Path {path} does not exist.")
+    return path
+
+
+def strip_and_check_if_exists(value: Optional[str]) -> Optional[str]:
+    return ensure_that_path_exist(strip_if_value_present(value))
