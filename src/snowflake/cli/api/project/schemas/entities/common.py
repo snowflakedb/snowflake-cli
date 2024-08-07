@@ -19,7 +19,7 @@ from typing import Generic, List, Optional, TypeVar
 
 from pydantic import Field
 from snowflake.cli.api.project.schemas.native_app.application import (
-    ApplicationPostDeployHook,
+    PostDeployHook,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
@@ -35,7 +35,7 @@ class MetaField(UpdatableModel):
         title="Role to use when creating the entity object",
         default=None,
     )
-    post_deploy: Optional[List[ApplicationPostDeployHook]] = Field(
+    post_deploy: Optional[List[PostDeployHook]] = Field(
         title="Actions that will be executed after the application object is created/upgraded",
         default=None,
     )

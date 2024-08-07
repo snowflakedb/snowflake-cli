@@ -19,6 +19,7 @@
       'package': dict({
         'distribution': 'internal',
         'name': None,
+        'post_deploy': None,
         'role': None,
         'scripts': list([
           'package/001-shared.sql',
@@ -53,6 +54,7 @@
       'package': dict({
         'distribution': 'external',
         'name': None,
+        'post_deploy': None,
         'role': None,
         'scripts': list([
           'package/001-shared.sql',
@@ -136,6 +138,7 @@
       'package': dict({
         'distribution': 'internal',
         'name': 'myapp_pkg_polly',
+        'post_deploy': None,
         'role': 'accountadmin',
         'scripts': list([
           '001-shared.sql',
@@ -188,6 +191,7 @@
       'package': dict({
         'distribution': 'internal',
         'name': 'myapp_pkg_polly',
+        'post_deploy': None,
         'role': 'accountadmin',
         'scripts': list([
           '001-shared.sql',

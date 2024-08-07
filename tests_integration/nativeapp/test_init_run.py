@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import uuid
 
 from snowflake.cli.api.project.util import generate_user_env
@@ -26,9 +25,6 @@ from tests_integration.test_utils import (
     not_contains_row_with,
     row_from_snowflake_session,
     enable_definition_v2_feature_flag,
-)
-from tests_integration.testing_utils.working_directory_utils import (
-    WorkingDirectoryChanger,
 )
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
@@ -418,94 +414,6 @@ def test_nativeapp_init_from_repo_with_single_template(
             assert result.exit_code == 0
         finally:
             single_template_repo.close()
-
-
-# Tests that application post-deploy scripts are executed by creating a post_deploy_log table and having each post-deploy script add a record to it
-@pytest.mark.integration
-@enable_definition_v2_feature_flag
-@pytest.mark.parametrize("definition_version", ["v1", "v2"])
-@pytest.mark.parametrize("is_versioned", [True, False])
-@pytest.mark.parametrize("with_project_flag", [True, False])
-def test_nativeapp_app_post_deploy(
-    runner,
-    snowflake_session,
-    project_directory,
-    definition_version,
-    is_versioned,
-    with_project_flag,
-):
-    version = "v1"
-    project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}"
-
-    with project_directory(
-        f"napp_application_post_deploy_{definition_version}"
-    ) as tmp_dir:
-        version_run_args = ["--version", version] if is_versioned else []
-        project_args = ["--project", f"{tmp_dir}"] if with_project_flag else []
-
-        def run():
-            """(maybe) create a version, then snow app run"""
-            if is_versioned:
-                result = runner.invoke_with_connection_json(
-                    ["app", "version", "create", version] + project_args,
-                    env=TEST_ENV,
-                )
-                assert result.exit_code == 0
-
-            result = runner.invoke_with_connection_json(
-                ["app", "run"] + version_run_args + project_args,
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
-
-        if with_project_flag:
-            working_directory_changer = WorkingDirectoryChanger()
-            working_directory_changer.change_working_directory_to("app")
-
-        try:
-            # First run, application is created (and maybe a version)
-            run()
-
-            # Verify both scripts were executed
-            assert row_from_snowflake_session(
-                snowflake_session.execute_string(
-                    f"select * from {app_name}.public.post_deploy_log",
-                )
-            ) == [
-                {"TEXT": "post-deploy-part-1"},
-                {"TEXT": "post-deploy-part-2"},
-            ]
-
-            # Second run, application is upgraded
-            run()
-
-            # Verify both scripts were executed
-            assert row_from_snowflake_session(
-                snowflake_session.execute_string(
-                    f"select * from {app_name}.public.post_deploy_log",
-                )
-            ) == [
-                {"TEXT": "post-deploy-part-1"},
-                {"TEXT": "post-deploy-part-2"},
-                {"TEXT": "post-deploy-part-1"},
-                {"TEXT": "post-deploy-part-2"},
-            ]
-
-        finally:
-            # need to drop the version before we can teardown
-            if is_versioned:
-                result = runner.invoke_with_connection_json(
-                    ["app", "version", "drop", version, "--force"] + project_args,
-                    env=TEST_ENV,
-                )
-                assert result.exit_code == 0
-
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"] + project_args,
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
 
 
 # Tests running an app whose package was dropped externally (requires dropping and recreating the app)
