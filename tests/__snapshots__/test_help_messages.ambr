@@ -5732,6 +5732,92 @@
   
   '''
 # ---
+# name: test_help_messages[spcs.service.execute-job]
+  '''
+                                                                                  
+   Usage: default spcs service execute-job [OPTIONS] NAME                         
+                                                                                  
+   Execute a job service in the current schema.                                   
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    name      TEXT  Name of the service. [required]                         |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | *  --compute-pool             TEXT  Compute pool to run the job service on.  |
+  |                                     [required]                               |
+  | *  --spec-path                FILE  Path to service specification file.      |
+  |                                     [required]                               |
+  |    --eai-name                 TEXT  Identifies External Access               |
+  |                                     Integrations(EAI) that the job service   |
+  |                                     can access. This option may be specified |
+  |                                     multiple times for multiple EAIs.        |
+  |                                     [default: None]                          |
+  |    --query-warehouse          TEXT  Warehouse to use if a service container  |
+  |                                     connects to Snowflake to execute a query |
+  |                                     without explicitly specifying a          |
+  |                                     warehouse to use.                        |
+  |                                     [default: None]                          |
+  |    --comment                  TEXT  Comment for the service. [default: None] |
+  |    --help             -h            Show this message and exit.              |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment  -c      TEXT  Name of the connection, as defined |
+  |                                           in your `config.toml`. Default:    |
+  |                                           `default`.                         |
+  | --account,--accountname             TEXT  Name assigned to your Snowflake    |
+  |                                           account. Overrides the value       |
+  |                                           specified for the connection.      |
+  | --user,--username                   TEXT  Username to connect to Snowflake.  |
+  |                                           Overrides the value specified for  |
+  |                                           the connection.                    |
+  | --password                          TEXT  Snowflake password. Overrides the  |
+  |                                           value specified for the            |
+  |                                           connection.                        |
+  | --authenticator                     TEXT  Snowflake authenticator. Overrides |
+  |                                           the value specified for the        |
+  |                                           connection.                        |
+  | --private-key-path                  TEXT  Snowflake private key path.        |
+  |                                           Overrides the value specified for  |
+  |                                           the connection.                    |
+  | --token-file-path                   TEXT  Path to file with an OAuth token   |
+  |                                           that should be used when           |
+  |                                           connecting to Snowflake            |
+  | --database,--dbname                 TEXT  Database to use. Overrides the     |
+  |                                           value specified for the            |
+  |                                           connection.                        |
+  | --schema,--schemaname               TEXT  Database schema to use. Overrides  |
+  |                                           the value specified for the        |
+  |                                           connection.                        |
+  | --role,--rolename                   TEXT  Role to use. Overrides the value   |
+  |                                           specified for the connection.      |
+  | --warehouse                         TEXT  Warehouse to use. Overrides the    |
+  |                                           value specified for the            |
+  |                                           connection.                        |
+  | --temporary-connection      -x            Uses connection defined with       |
+  |                                           command line parameters, instead   |
+  |                                           of one defined in config           |
+  | --mfa-passcode                      TEXT  Token to use for multi-factor      |
+  |                                           authentication (MFA)               |
+  | --enable-diag                             Run python connector diagnostic    |
+  |                                           test                               |
+  | --diag-log-path                     TEXT  Diagnostic report path             |
+  | --diag-allowlist-path               TEXT  Diagnostic report path to optional |
+  |                                           allowlist                          |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels `info`  |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels `debug` |
+  |                                  and higher; debug logs contains additional  |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[spcs.service.list-endpoints]
   '''
                                                                                   
@@ -6447,6 +6533,7 @@
   | create           Creates a new service in the current schema.                |
   | describe         Provides description of service.                            |
   | drop             Drops service with given name.                              |
+  | execute-job      Execute a job service in the current schema.                |
   | list             Lists all available services.                               |
   | list-endpoints   Lists the endpoints in a service.                           |
   | logs             Retrieves local logs from a service container.              |
