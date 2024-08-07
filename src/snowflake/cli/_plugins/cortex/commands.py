@@ -53,7 +53,7 @@ SEARCH_COMMAND_ENABLED = sys.version_info < PYTHON_3_12
 
 SOURCE_EXCLUSIVE_OPTION_NAMES = ["text", "file", "source_document_text"]
 
-ReadableFileOption = OverrideableOption(
+ExclusiveReadableFileOption = OverrideableOption(
     None,
     "--file",
     mutually_exclusive=SOURCE_EXCLUSIVE_OPTION_NAMES,
@@ -64,7 +64,7 @@ ReadableFileOption = OverrideableOption(
     show_default=False,
 )
 
-TextSourceArgument = OverrideableArgument(
+ExclusiveTextSourceArgument = OverrideableArgument(
     mutually_exclusive=SOURCE_EXCLUSIVE_OPTION_NAMES,
 )
 
@@ -120,7 +120,7 @@ def search(
     requires_connection=True,
 )
 def complete(
-    text: Optional[str] = TextSourceArgument(
+    text: Optional[str] = ExclusiveTextSourceArgument(
         default=None,
         help="Prompt to be used to generate a completion. Cannot be combined with --file option.",
         show_default=False,
@@ -130,7 +130,7 @@ def complete(
         "--model",
         help="String specifying the model to be used.",
     ),
-    file: Optional[Path] = ReadableFileOption(
+    file: Optional[Path] = ExclusiveReadableFileOption(
         help="JSON file containing conversation history to be used to generate a completion. Cannot be combined with TEXT argument.",
     ),
     **options,
@@ -169,12 +169,12 @@ def extract_answer(
         help="String containing the question to be answered.",
         show_default=False,
     ),
-    source_document_text: Optional[str] = TextSourceArgument(
+    source_document_text: Optional[str] = ExclusiveTextSourceArgument(
         default=None,
         help="String containing the plain-text or JSON document that contains the answer to the question. Cannot be combined with --file option.",
         show_default=False,
     ),
-    file: Optional[Path] = ReadableFileOption(
+    file: Optional[Path] = ExclusiveReadableFileOption(
         help="File containing the plain-text or JSON document that contains the answer to the question. Cannot be combined with SOURCE_DOCUMENT_TEXT argument.",
     ),
     **options,
@@ -209,12 +209,12 @@ def extract_answer(
     requires_connection=True,
 )
 def sentiment(
-    text: Optional[str] = TextSourceArgument(
+    text: Optional[str] = ExclusiveTextSourceArgument(
         default=None,
         help="String containing the text for which a sentiment score should be calculated. Cannot be combined with --file option.",
         show_default=False,
     ),
-    file: Optional[Path] = ReadableFileOption(
+    file: Optional[Path] = ExclusiveReadableFileOption(
         help="File containing the text for which a sentiment score should be calculated. Cannot be combined with TEXT argument.",
     ),
     **options,
@@ -246,12 +246,12 @@ def sentiment(
     requires_connection=True,
 )
 def summarize(
-    text: Optional[str] = TextSourceArgument(
+    text: Optional[str] = ExclusiveTextSourceArgument(
         default=None,
         help="String containing the English text from which a summary should be generated. Cannot be combined with --file option.",
         show_default=False,
     ),
-    file: Optional[Path] = ReadableFileOption(
+    file: Optional[Path] = ExclusiveReadableFileOption(
         help="File containing the English text from which a summary should be generated. Cannot be combined with TEXT argument.",
     ),
     **options,
@@ -281,7 +281,7 @@ def summarize(
     requires_connection=True,
 )
 def translate(
-    text: Optional[str] = TextSourceArgument(
+    text: Optional[str] = ExclusiveTextSourceArgument(
         default=None,
         help="String containing the text to be translated. Cannot be combined with --file option.",
         show_default=False,
@@ -298,7 +298,7 @@ def translate(
         help="String specifying the language code into which the text should be translated. See Snowflake Cortex documentation for a list of supported language codes.",
         show_default=False,
     ),
-    file: Optional[Path] = ReadableFileOption(
+    file: Optional[Path] = ExclusiveReadableFileOption(
         help="File containing the text to be translated. Cannot be combined with TEXT argument.",
     ),
     **options,
