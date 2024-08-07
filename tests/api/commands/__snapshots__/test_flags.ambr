@@ -15,7 +15,8 @@
   Usage: - [OPTIONS]
   Try '- --help' for help.
   +- Error ----------------------------------------------------------------------+
-  | Parameters '--option2' and '--option1' are incompatible.                     |
+  | Parameters '--option2' and '--option1' are incompatible and cannot be used   |
+  | simultaneously.                                                              |
   +------------------------------------------------------------------------------+
   
   '''
@@ -25,7 +26,8 @@
   Usage: - [OPTIONS]
   Try '- --help' for help.
   +- Error ----------------------------------------------------------------------+
-  | Parameters '--option2' and '--option1' are incompatible.                     |
+  | Parameters '--option2' and '--option1' are incompatible and cannot be used   |
+  | simultaneously.                                                              |
   +------------------------------------------------------------------------------+
   
   '''

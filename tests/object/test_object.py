@@ -263,5 +263,5 @@ def test_object_create_with_multiple_json_sources(runner):
         )
         assert_that_result_is_usage_error(
             result,
-            f"Parameters 'object_attributes' and '--json' are incompatible.",
+            f"Parameters 'object_attributes' and '--json' are incompatible and cannot be used simultaneously.",
         )

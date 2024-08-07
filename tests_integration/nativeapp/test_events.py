@@ -17,6 +17,7 @@ import uuid
 from snowflake.cli.api.project.util import generate_user_env
 from tests.project.fixtures import *
 from tests_integration.test_utils import enable_definition_v2_feature_flag
+from tests_integration.testing_utils import assert_that_result_is_usage_error
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
@@ -53,10 +54,9 @@ def test_app_events_mutually_exclusive_options(
             ["app", "events", *command],
             env=TEST_ENV,
         )
-        assert result.exit_code == 2, result.output
-        assert (
-            f"Parameters '{flag_names[0]}' and '{flag_names[1]}' are incompatible."
-            in result.output
+        assert_that_result_is_usage_error(
+            result,
+            f"Parameters '{flag_names[0]}' and '{flag_names[1]}' are incompatible and cannot be used simultaneously.",
         )
 
 
@@ -87,10 +87,9 @@ def test_app_events_paired_options(
             ["app", "events", *command],
             env=TEST_ENV,
         )
-        assert result.exit_code == 2, result.output
-        assert (
-            f"Parameters '{flag_names[0]}' and '{flag_names[1]}' are incompatible."
-            in result.output
+        assert_that_result_is_usage_error(
+            result,
+            f"Parameters '{flag_names[0]}' and '{flag_names[1]}' are incompatible and cannot be used simultaneously.",
         )
 
 

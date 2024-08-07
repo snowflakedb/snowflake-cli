@@ -176,5 +176,5 @@ class IncompatibleParametersError(UsageError):
         options_with_quotes = [f"'{option}'" for option in options]
         comma_separated_options = ", ".join(options_with_quotes[:-1])
         super().__init__(
-            f"Parameters {comma_separated_options} and {options_with_quotes[-1]} are incompatible."
+            f"Parameters {comma_separated_options} and {options_with_quotes[-1]} are incompatible and cannot be used simultaneously."
         )
