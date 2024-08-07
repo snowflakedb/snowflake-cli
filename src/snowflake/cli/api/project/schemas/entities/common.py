@@ -54,7 +54,7 @@ class DefaultsField(UpdatableModel):
 
     project_name: Optional[str] = Field(
         title="Name of the project.",
-        default=None,
+        default="my_project",
     )
 
 

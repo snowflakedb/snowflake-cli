@@ -20,6 +20,39 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import typer
 from click import ClickException
+from snowflake.cli._plugins.object.commands import (
+    describe as object_describe,
+)
+from snowflake.cli._plugins.object.commands import (
+    drop as object_drop,
+)
+from snowflake.cli._plugins.object.commands import (
+    list_ as object_list,
+)
+from snowflake.cli._plugins.object.commands import (
+    scope_option,
+)
+from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli._plugins.snowpark import package_utils
+from snowflake.cli._plugins.snowpark.common import (
+    UdfSprocIdentifier,
+    check_if_replace_is_required,
+)
+from snowflake.cli._plugins.snowpark.manager import FunctionManager, ProcedureManager
+from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
+    AnacondaPackages,
+    AnacondaPackagesManager,
+)
+from snowflake.cli._plugins.snowpark.package.commands import app as package_app
+from snowflake.cli._plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
+from snowflake.cli._plugins.snowpark.snowpark_shared import (
+    AllowSharedLibrariesOption,
+    IgnoreAnacondaOption,
+    IndexUrlOption,
+    SkipVersionCheckOption,
+)
+from snowflake.cli._plugins.snowpark.zipper import zip_dir
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import (
     _CliGlobalContextAccess,
     get_cli_context,
@@ -60,39 +93,6 @@ from snowflake.cli.api.project.schemas.snowpark.callable import (
     ProcedureSchema,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli._plugins.object.commands import (
-    describe as object_describe,
-)
-from snowflake.cli._plugins.object.commands import (
-    drop as object_drop,
-)
-from snowflake.cli._plugins.object.commands import (
-    list_ as object_list,
-)
-from snowflake.cli._plugins.object.commands import (
-    scope_option,
-)
-from snowflake.cli._plugins.object.manager import ObjectManager
-from snowflake.cli._plugins.snowpark import package_utils
-from snowflake.cli._plugins.snowpark.common import (
-    UdfSprocIdentifier,
-    check_if_replace_is_required,
-)
-from snowflake.cli._plugins.snowpark.manager import FunctionManager, ProcedureManager
-from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
-    AnacondaPackages,
-    AnacondaPackagesManager,
-)
-from snowflake.cli._plugins.snowpark.package.commands import app as package_app
-from snowflake.cli._plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
-from snowflake.cli._plugins.snowpark.snowpark_shared import (
-    AllowSharedLibrariesOption,
-    IgnoreAnacondaOption,
-    IndexUrlOption,
-    SkipVersionCheckOption,
-)
-from snowflake.cli._plugins.snowpark.zipper import zip_dir
-from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)
@@ -177,16 +177,13 @@ def deploy(
         entity.stage for entity in [*functions.values(), *procedures.values()]
     }
     stage_manager = StageManager()
-    project_name = (
-        pd.defaults.project_name if pd.defaults.project_name else "my_snowpark_project"
-    )
 
-    #TODO: Raise error if stage name is not provided
+    # TODO: Raise error if stage name is not provided
 
     for stage in stage_names:
         stage = FQN.from_string(stage).using_context()
         stage_manager.create(fqn=stage, comment="deployments managed by Snowflake CLI")
-        artifact_stage_directory = get_app_stage_path(stage, project_name)
+        artifact_stage_directory = get_app_stage_path(stage, pd.defaults.project_name)
         artifact_stage_target = (
             f"{artifact_stage_directory}/{paths.artifact_file.path.name}"
         )
