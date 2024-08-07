@@ -53,6 +53,7 @@ SEARCH_COMMAND_ENABLED = sys.version_info < PYTHON_3_12
 
 SOURCE_EXCLUSIVE_OPTION_NAMES = ["text", "file", "source_document_text"]
 
+# Creates a Typer option and verifies if the mutually exclusive options are set in the command.
 ExclusiveReadableFileOption = OverrideableOption(
     None,
     "--file",
@@ -64,6 +65,7 @@ ExclusiveReadableFileOption = OverrideableOption(
     show_default=False,
 )
 
+# Creates a Typer argument and verifies if the mutually exclusive options are set in the command.
 ExclusiveTextSourceArgument = OverrideableArgument(
     mutually_exclusive=SOURCE_EXCLUSIVE_OPTION_NAMES,
 )
