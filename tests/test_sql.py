@@ -101,7 +101,7 @@ def test_sql_fails_if_query_and_stdin_and_file_provided(runner):
 
 
 @pytest.mark.parametrize("inputs", [(("-i",), "stdin"), (("-q", "foo"), "query")])
-def test_sql_fails_if_other_inputs_and_file_provided(runner, inputs):
+def test_sql_fails_if_other_input_and_file_provided(runner, inputs):
     with NamedTemporaryFile("r") as tmp_file:
         result = runner.invoke(["sql", *(inputs[0]), "-f", tmp_file.name])
         assert_that_result_is_usage_error(
