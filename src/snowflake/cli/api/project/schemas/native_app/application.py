@@ -28,7 +28,7 @@ class SqlScriptHookType(UpdatableModel):
 
 
 # Currently sql_script is the only supported hook type. Change to a Union once other hook types are added
-ApplicationPostDeployHook = SqlScriptHookType
+PostDeployHook = SqlScriptHookType
 
 
 class Application(UpdatableModel):
@@ -48,7 +48,7 @@ class Application(UpdatableModel):
         title="When set, forces debug_mode on/off for the deployed application object",
         default=None,
     )
-    post_deploy: Optional[List[ApplicationPostDeployHook]] = Field(
+    post_deploy: Optional[List[PostDeployHook]] = Field(
         title="Actions that will be executed after the application object is created/upgraded",
         default=None,
     )
