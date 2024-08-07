@@ -18,7 +18,7 @@ from typing import List, Literal, Optional, Union
 
 from pydantic import Field
 from snowflake.cli.api.project.schemas.entities.common import (
-    EntityBase,
+    EntityModelBase,
 )
 from snowflake.cli.api.project.schemas.native_app.package import DistributionOptions
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
@@ -28,7 +28,7 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 )
 
 
-class ApplicationPackageEntity(EntityBase):
+class ApplicationPackageEntityModel(EntityModelBase):
     type: Literal["application package"] = DiscriminatorField()  # noqa: A003
     name: str = Field(
         title="Name of the application package created when this entity is deployed"

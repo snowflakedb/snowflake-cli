@@ -45,7 +45,9 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
-from snowflake.cli.api.project.schemas.entities.streamlit_entity import StreamlitEntity
+from snowflake.cli.api.project.schemas.entities.streamlit_entity_model import (
+    StreamlitEntityModel,
+)
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
@@ -136,7 +138,7 @@ def streamlit_deploy(
             )
         pd = _migrate_v1_streamlit_to_v2(pd)
 
-    streamlits: Dict[str, StreamlitEntity] = pd.get_entities_by_type(
+    streamlits: Dict[str, StreamlitEntityModel] = pd.get_entities_by_type(
         entity_type="streamlit"
     )
 
@@ -152,7 +154,7 @@ def streamlit_deploy(
         )
 
     # Get first streamlit
-    streamlit: StreamlitEntity = streamlits[list(streamlits)[0]]
+    streamlit: StreamlitEntityModel = streamlits[list(streamlits)[0]]
     streamlit_id = FQN.from_identifier_model(streamlit).using_context()
 
     url = StreamlitManager().deploy(

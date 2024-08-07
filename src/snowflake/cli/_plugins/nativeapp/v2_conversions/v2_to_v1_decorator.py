@@ -22,11 +22,11 @@ from snowflake.cli.api.cli_global_context import (
     get_cli_context,
     get_cli_context_manager,
 )
-from snowflake.cli.api.project.schemas.entities.application_entity import (
-    ApplicationEntity,
+from snowflake.cli.api.project.schemas.entities.application_entity_model import (
+    ApplicationEntityModel,
 )
-from snowflake.cli.api.project.schemas.entities.application_package_entity import (
-    ApplicationPackageEntity,
+from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
+    ApplicationPackageEntityModel,
 )
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import (
@@ -51,17 +51,17 @@ def _convert_v2_artifact_to_v1_dict(
 def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
     pdfv1: Dict[str, Any] = {"definition_version": "1.1", "native_app": {}}
 
-    app_package_definition: Optional[ApplicationPackageEntity] = None
-    app_definition: Optional[ApplicationEntity] = None
+    app_package_definition: Optional[ApplicationPackageEntityModel] = None
+    app_definition: Optional[ApplicationEntityModel] = None
 
     for key, entity in v2_definition.entities.items():
-        if entity.get_type() == ApplicationPackageEntity.get_type():
+        if entity.get_type() == ApplicationPackageEntityModel.get_type():
             if app_package_definition:
                 raise ClickException(
                     "More than one application package entity exists in the project definition file."
                 )
             app_package_definition = entity
-        elif entity.get_type() == ApplicationEntity.get_type():
+        elif entity.get_type() == ApplicationEntityModel.get_type():
             if app_definition:
                 raise ClickException(
                     "More than one application entity exists in the project definition file."
