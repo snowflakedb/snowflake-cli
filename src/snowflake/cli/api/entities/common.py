@@ -11,4 +11,7 @@ class EntityBase:
     """
 
     def supports(self, action: EntityActions) -> bool:
+        """
+        Checks whether this entity supports the given action. An entity is considered to support an action if it implements a method with the action name.
+        """
         return callable(getattr(self, action, None))
