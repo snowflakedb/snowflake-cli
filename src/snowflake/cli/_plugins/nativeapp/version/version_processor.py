@@ -215,6 +215,8 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 is_interactive=is_interactive,
             )
 
+        # TODO: consider using self.deploy() instead
+
         try:
             self.create_app_package()
         except ApplicationPackageAlreadyExistsError as e:
@@ -234,6 +236,8 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 recursive=True,
                 stage_fqn=self.stage_fqn,
             )
+            with self.use_package_warehouse():
+                self.execute_package_post_deploy_hooks()
 
         # Warn if the version exists in a release directive(s)
         existing_release_directives = (
