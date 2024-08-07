@@ -14,8 +14,12 @@
 
 from __future__ import annotations
 
+import typer
+from snowflake.cli._plugins.workspace.manager import WorkspaceManager
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.output.types import MessageResult
 
 ws = SnowTyper(
@@ -33,3 +37,24 @@ def validate(
     """Validates the project definition file."""
     # If we get to this point, @with_project_definition() has already validated the PDF schema
     return MessageResult("Project definition is valid.")
+
+
+@ws.command(requires_connection=True)
+@with_project_definition()
+def bundle(
+    entity_id: str = typer.Option(
+        help=f"""The ID of the entity you want to bundle.""",
+    ),
+    **options,
+):
+    """
+    Prepares a local folder with the configured artifacts of the specified entity.
+    """
+
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+
+    ws.perform_action(entity_id, EntityActions.BUNDLE)
