@@ -14,7 +14,8 @@
   Usage: default spcs image-repository create [OPTIONS] NAME
   Try 'default spcs image-repository create --help' for help.
   +- Error ----------------------------------------------------------------------+
-  | Parameters '--if-not-exists' and '--replace' are incompatible.               |
+  | Parameters '--if-not-exists' and '--replace' are incompatible and cannot be  |
+  | used simultaneously.                                                         |
   +------------------------------------------------------------------------------+
   
   '''

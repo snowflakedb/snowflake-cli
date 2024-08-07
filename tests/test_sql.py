@@ -96,7 +96,7 @@ def test_sql_fails_if_query_and_stdin_and_file_provided(runner):
         result = runner.invoke(["sql", "-i", "-q", "foo", "-f", tmp_file.name])
         assert_that_result_is_usage_error(
             result,
-            f"Parameters '--query' and '--stdin' are incompatible.",
+            f"Parameters '--query' and '--stdin' are incompatible and cannot be used simultaneously.",
         )
 
 
@@ -105,14 +105,16 @@ def test_sql_fails_if_other_inputs_and_file_provided(runner, inputs):
     with NamedTemporaryFile("r") as tmp_file:
         result = runner.invoke(["sql", *(inputs[0]), "-f", tmp_file.name])
         assert_that_result_is_usage_error(
-            result, f"Parameters '--filename' and '--{inputs[1]}' are incompatible."
+            result,
+            f"Parameters '--filename' and '--{inputs[1]}' are incompatible and cannot be used simultaneously.",
         )
 
 
 def test_sql_fails_if_query_and_stdin_provided(runner):
     result = runner.invoke(["sql", "-q", "fooo", "-i"])
     assert_that_result_is_usage_error(
-        result, "Parameters '--stdin' and '--query' are incompatible. "
+        result,
+        "Parameters '--stdin' and '--query' are incompatible and cannot be used simultaneously. ",
     )
 
 

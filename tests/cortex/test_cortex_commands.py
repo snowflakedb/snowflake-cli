@@ -77,7 +77,8 @@ def test_cortex_commands_with_text_and_file(runner, command):
         )
 
         assert_that_result_is_usage_error(
-            result, "Parameters 'text' and '--file' are incompatible."
+            result,
+            "Parameters 'text' and '--file' are incompatible and cannot be used simultaneously.",
         )
 
 
@@ -95,7 +96,8 @@ def test_cortex_extract_answer_with_text_and_file(runner):
         )
 
         assert_that_result_is_usage_error(
-            result, "Parameters 'source_document_text' and '--file' are incompatible."
+            result,
+            "Parameters 'source_document_text' and '--file' are incompatible and cannot be used simultaneously.",
         )
 
 
