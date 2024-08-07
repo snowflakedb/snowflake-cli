@@ -243,7 +243,7 @@ def test_cortex_translate_file(_mock_cortex_result, runner):
         )
 
 
-@mock.patch("snowflake.cli.plugins.cortex.commands.SEARCH_COMMAND_ENABLED", new=False)
+@mock.patch("snowflake.cli._plugins.cortex.commands.SEARCH_COMMAND_ENABLED", new=False)
 def test_if_search_raises_exception_for_312(runner, os_agnostic_snapshot):
 
     result = runner.invoke(

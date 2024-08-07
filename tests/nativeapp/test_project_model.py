@@ -22,20 +22,20 @@ from unittest import mock
 
 import pytest
 import yaml
+from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
+from snowflake.cli._plugins.nativeapp.project_model import NativeAppProjectModel
 from snowflake.cli.api.project.definition import default_app_package, load_project
 from snowflake.cli.api.project.schemas.native_app.application import SqlScriptHookType
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
-from snowflake.cli.plugins.nativeapp.bundle_context import BundleContext
-from snowflake.cli.plugins.nativeapp.project_model import NativeAppProjectModel
 
 CURRENT_ROLE = "current_role"
 
 
 @pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
-@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 @mock.patch.dict(os.environ, {"USER": "test_user"}, clear=True)
 def test_project_model_all_defaults(
     mock_connect, project_definition_files: List[Path], mock_ctx
@@ -79,7 +79,7 @@ def test_project_model_all_defaults(
     assert project.debug_mode is None
 
 
-@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 @mock.patch.dict(os.environ, {"USER": "test_user"}, clear=True)
 def test_project_model_all_explicit(mock_connect, mock_ctx):
     ctx = mock_ctx()
@@ -154,7 +154,7 @@ def test_project_model_all_explicit(mock_connect, mock_ctx):
 
 
 @pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
-@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 @mock.patch.dict(os.environ, {"USER": "test_user"}, clear=True)
 def test_project_model_falls_back_to_current_role(
     mock_connect, project_definition_files: List[Path], mock_ctx, mock_cursor

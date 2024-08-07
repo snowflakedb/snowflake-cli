@@ -16,8 +16,8 @@ from unittest import mock
 
 import pytest
 from click import ClickException
+from snowflake.cli._plugins.object.commands import _scope_validate
 from snowflake.cli.api.constants import OBJECT_TO_NAMES, SUPPORTED_OBJECTS
-from snowflake.cli.plugins.object.commands import _scope_validate
 
 
 @mock.patch("snowflake.connector.connect")

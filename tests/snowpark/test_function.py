@@ -28,7 +28,7 @@ if IS_WINDOWS:
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
 def test_deploy_function(
     mock_object_manager,
     mock_connector,
@@ -52,7 +52,7 @@ def test_deploy_function(
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MockDatabase.MockSchema.dev_deployment comment='deployments managed by Snowflake CLI'",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
         f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
@@ -71,7 +71,7 @@ def test_deploy_function(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
 def test_deploy_function_with_external_access(
     mock_object_manager,
     mock_connector,
@@ -100,7 +100,7 @@ def test_deploy_function_with_external_access(
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
-        "create stage if not exists MockDatabase.MockSchema.dev_deployment comment='deployments managed by Snowflake CLI'",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
         f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
@@ -121,7 +121,7 @@ def test_deploy_function_with_external_access(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
 def test_deploy_function_secrets_without_external_access(
     mock_object_manager,
     mock_conn,
@@ -184,7 +184,7 @@ def test_deploy_function_no_changes(
         }
     ]
     assert queries == [
-        "create stage if not exists MockDatabase.MockSchema.dev_deployment comment='deployments managed by Snowflake CLI'",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
         f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
     ]
 
@@ -222,7 +222,7 @@ def test_deploy_function_needs_update_because_packages_changes(
         }
     ]
     assert queries == [
-        "create stage if not exists MockDatabase.MockSchema.dev_deployment comment='deployments managed by Snowflake CLI'",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
         f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
@@ -272,7 +272,7 @@ def test_deploy_function_needs_update_because_handler_changes(
         }
     ]
     assert queries == [
-        "create stage if not exists MockDatabase.MockSchema.dev_deployment comment='deployments managed by Snowflake CLI'",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
         f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
@@ -291,8 +291,8 @@ def test_deploy_function_needs_update_because_handler_changes(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_deploy_procedure_fully_qualified_name(
     mock_om_show,
     mock_om_describe,
@@ -361,9 +361,9 @@ def _deploy_function(
     ctx = mock_ctx(mock_cursor(rows=rows, columns=[]))
     mock_connector.return_value = ctx
     with mock.patch(
-        "snowflake.cli.plugins.snowpark.commands.ObjectManager.describe"
+        "snowflake.cli._plugins.snowpark.commands.ObjectManager.describe"
     ) as om_describe, mock.patch(
-        "snowflake.cli.plugins.snowpark.commands.ObjectManager.show"
+        "snowflake.cli._plugins.snowpark.commands.ObjectManager.show"
     ) as om_show:
         om_describe.return_value = rows
 
