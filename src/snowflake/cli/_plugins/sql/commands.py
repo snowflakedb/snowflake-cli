@@ -17,7 +17,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
-import typer
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
