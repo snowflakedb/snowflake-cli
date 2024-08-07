@@ -2,4 +2,4 @@
 
 CREATE SCHEMA IF NOT EXISTS &{ ctx.env.schema };
 CREATE TABLE IF NOT EXISTS &{ ctx.env.schema }.post_deploy_log (text VARCHAR);
-INSERT INTO &{ ctx.env.schema }.post_deploy_log VALUES('post-deploy-part-1');
+INSERT INTO &{ ctx.env.schema }.post_deploy_log VALUES('app-post-deploy-part-1');

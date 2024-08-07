@@ -18,7 +18,6 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
-import jinja2
 import typer
 from click import UsageError
 from snowflake.cli.api.cli_global_context import cli_context
@@ -36,9 +35,6 @@ from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
     unquote_identifier,
-)
-from snowflake.cli.api.rendering.sql_templates import (
-    get_sql_cli_jinja_env,
 )
 from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
@@ -309,7 +305,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                                 )
 
                         # hooks always executed after a create or upgrade
-                        self._execute_post_deploy_hooks()
+                        self.execute_app_post_deploy_hooks()
                         return
 
                     except ProgrammingError as err:
@@ -356,7 +352,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     )
 
                     # hooks always executed after a create or upgrade
-                    self._execute_post_deploy_hooks()
+                    self.execute_app_post_deploy_hooks()
 
                 except ProgrammingError as err:
                     generic_sql_error_handler(err)
