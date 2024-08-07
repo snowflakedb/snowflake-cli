@@ -18,10 +18,8 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
-import jinja2
 import typer
 from click import UsageError
-from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
@@ -36,9 +34,6 @@ from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
     unquote_identifier,
-)
-from snowflake.cli.api.rendering.sql_templates import (
-    get_sql_cli_jinja_env,
 )
 from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
@@ -138,46 +133,6 @@ class SameAccountInstallMethod:
 class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def __init__(self, project_definition: NativeApp, project_root: Path):
         super().__init__(project_definition, project_root)
-
-    def _execute_sql_script(
-        self, script_content: str, database_name: Optional[str] = None
-    ):
-        """
-        Executing the provided SQL script content.
-        This assumes that a relevant warehouse is already active.
-        If database_name is passed in, it will be used first.
-        """
-        try:
-            if database_name is not None:
-                self._execute_query(f"use database {database_name}")
-
-            self._execute_queries(script_content)
-        except ProgrammingError as err:
-            generic_sql_error_handler(err)
-
-    def _execute_post_deploy_hooks(self):
-        post_deploy_script_hooks = self.app_post_deploy_hooks
-        if post_deploy_script_hooks:
-            with cc.phase("Executing application post-deploy actions"):
-                sql_scripts_paths = []
-                for hook in post_deploy_script_hooks:
-                    if hook.sql_script:
-                        sql_scripts_paths.append(hook.sql_script)
-                    else:
-                        raise ValueError(
-                            f"Unsupported application post-deploy hook type: {hook}"
-                        )
-
-                env = get_sql_cli_jinja_env(
-                    loader=jinja2.loaders.FileSystemLoader(self.project_root)
-                )
-                scripts_content_list = self._expand_script_templates(
-                    env, cli_context.template_context, sql_scripts_paths
-                )
-
-                for index, sql_script_path in enumerate(sql_scripts_paths):
-                    cc.step(f"Executing SQL script: {sql_script_path}")
-                    self._execute_sql_script(scripts_content_list[index], self.app_name)
 
     def get_all_existing_versions(self) -> SnowflakeCursor:
         """
@@ -309,7 +264,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                                 )
 
                         # hooks always executed after a create or upgrade
-                        self._execute_post_deploy_hooks()
+                        self.execute_app_post_deploy_hooks()
                         return
 
                     except ProgrammingError as err:
@@ -356,7 +311,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                     )
 
                     # hooks always executed after a create or upgrade
-                    self._execute_post_deploy_hooks()
+                    self.execute_app_post_deploy_hooks()
 
                 except ProgrammingError as err:
                     generic_sql_error_handler(err)

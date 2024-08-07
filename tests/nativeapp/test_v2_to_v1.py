@@ -125,9 +125,9 @@ from tests.testing_utils.mock_config import mock_config_key
                     "package": {
                         "name": "pkg_name",
                         "distribution": "external",
-                        "scripts": [
-                            "scripts/script1.sql",
-                            "scripts/script2.sql",
+                        "post_deploy": [
+                            {"sql_script": "scripts/script1.sql"},
+                            {"sql_script": "scripts/script2.sql"},
                         ],
                     },
                     "application": {
