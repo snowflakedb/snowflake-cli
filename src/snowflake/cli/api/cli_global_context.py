@@ -21,7 +21,8 @@ from typing import Callable, Optional
 
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.cli.api.output.formats import OutputFormat
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+
+# from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.compat import IS_WINDOWS
 
@@ -284,10 +285,10 @@ class _CliGlobalContextManager:
         self._experimental = value
 
     @property
-    def project_definition(self) -> Optional[ProjectDefinition]:
+    def project_definition(self):
         return self._project_definition
 
-    def set_project_definition(self, value: ProjectDefinition):
+    def set_project_definition(self, value):
         self._project_definition = value
 
     @property
@@ -374,7 +375,7 @@ class _CliGlobalContextAccess:
         return self._manager.experimental
 
     @property
-    def project_definition(self) -> ProjectDefinition | None:
+    def project_definition(self):
         return self._manager.project_definition
 
     @property

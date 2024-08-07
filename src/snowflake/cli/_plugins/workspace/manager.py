@@ -25,6 +25,7 @@ class WorkspaceManager:
             )
         self._entities_cache: Dict[str, Entity] = {}
         self._project_definition: DefinitionV20 = project_definition
+        self._project_root = project_root
 
     def get_entity(self, entity_id: str):
         """
@@ -34,9 +35,10 @@ class WorkspaceManager:
             return self._entities_cache[entity_id]
         if entity_id not in self._project_definition.entities:
             raise ValueError(f"No such entity ID: {entity_id}")
-        entity_model_cls = self._project_definition.entities[entity_id].__class__
+        entity_model = self._project_definition.entities[entity_id]
+        entity_model_cls = entity_model.__class__
         entity_cls = v2_entity_model_to_entity_map[entity_model_cls]
-        self._entities_cache[entity_id] = entity_cls()
+        self._entities_cache[entity_id] = entity_cls(entity_model)
         return self._entities_cache[entity_id]
 
     def perform_action(self, entity_id: str, action: EntityActions):
@@ -45,6 +47,9 @@ class WorkspaceManager:
         """
         entity = self.get_entity(entity_id)
         if entity.supports(action):
-            getattr(entity, action)()
+            return getattr(entity, action)(self)
         else:
             raise ValueError(f'This entity type does not support "{action.value}"')
+
+    def project_root(self) -> Path:
+        return self._project_root

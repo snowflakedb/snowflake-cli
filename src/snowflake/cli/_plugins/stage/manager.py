@@ -21,6 +21,7 @@ import re
 import sys
 from contextlib import nullcontext
 from dataclasses import dataclass
+from enum import Enum
 from os import path
 from pathlib import Path
 from textwrap import dedent
@@ -28,11 +29,12 @@ from typing import Dict, List, Optional, Union
 
 from click import ClickException
 from snowflake.cli._plugins.snowpark.package_utils import parse_requirements
-from snowflake.cli.api.commands.flags import (
-    OnErrorType,
-    Variable,
-    parse_key_value_variables,
-)
+
+# from snowflake.cli.api.commands.flags import (
+#     OnErrorType,
+#     Variable,
+#     parse_key_value_variables,
+# )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import PYTHON_3_12
 from snowflake.cli.api.identifiers import FQN
@@ -42,6 +44,38 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import path_resolver
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
+
+
+class OnErrorType(Enum):
+    BREAK = "break"
+    CONTINUE = "continue"
+
+
+@dataclass
+class Variable:
+    key: str
+    value: str
+
+    def __init__(self, key: str, value: str):
+        self.key = key
+        self.value = value
+
+
+def parse_key_value_variables(variables: Optional[List[str]]) -> List[Variable]:
+    """Util for parsing key=value input. Useful for commands accepting multiple input options."""
+    if not variables:
+        return []
+    result: List[Variable] = []
+    if not variables:
+        return result
+    for p in variables:
+        if "=" not in p:
+            raise ClickException(f"Invalid variable: '{p}'")
+
+        key, value = p.split("=", 1)
+        result.append(Variable(key.strip(), value.strip()))
+    return result
+
 
 if sys.version_info < PYTHON_3_12:
     # Because Snowpark works only below 3.12 and to use @sproc Session must be imported here.

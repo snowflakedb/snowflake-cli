@@ -57,4 +57,5 @@ def bundle(
         project_root=cli_context.project_root,
     )
 
-    ws.perform_action(entity_id, EntityActions.BUNDLE)
+    bundle_map = ws.perform_action(entity_id, EntityActions.BUNDLE)
+    return MessageResult(f"Bundle generated at {bundle_map.deploy_root()}")
