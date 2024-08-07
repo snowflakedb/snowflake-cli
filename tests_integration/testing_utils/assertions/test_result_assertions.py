@@ -60,6 +60,15 @@ def assert_successful_result_message(result: CommandResult, expected_msg: str) -
     assert result.output == expected_msg + "\n"
 
 
+def assert_that_result_is_usage_error(
+    result: CommandResult, expected_error_message: str
+) -> None:
+    assert result.output is not None
+    result_output = re.sub("\s*││\s*", " ", result.output.replace("\n", ""))  # type: ignore
+    assert result.exit_code == 2, result.output
+    assert expected_error_message in result_output, result.output
+
+
 def assert_that_result_is_successful_and_output_json_contains(
     result: CommandResult,
     expected_output: Dict,

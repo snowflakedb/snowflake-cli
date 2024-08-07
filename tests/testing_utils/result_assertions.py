@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import re
 
 from click.testing import Result
 
@@ -23,7 +24,8 @@ def assert_successful_result_message(result: Result, expected_msg: str):
 def assert_that_result_is_usage_error(
     result: Result, expected_error_message: str
 ) -> None:
+    result_output = re.sub(r"\s*\|\|\s*", " ", result.output.replace("\n", ""))
     assert result.exit_code == 2, result.output
-    assert expected_error_message in result.output, result.output
+    assert expected_error_message in result_output, result.output
     assert isinstance(result.exception, SystemExit)
     assert "traceback" not in result.output.lower()

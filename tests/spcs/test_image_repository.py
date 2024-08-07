@@ -118,7 +118,7 @@ def test_create_cli_replace_and_if_not_exists_fails(runner, os_agnostic_snapshot
         "--if-not-exists",
     ]
     result = runner.invoke(command)
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert result.output == os_agnostic_snapshot
 
 

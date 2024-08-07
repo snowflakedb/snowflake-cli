@@ -13,8 +13,8 @@
    &VARIABLE or &{ VARIABLE } syntax are supported.                               
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --query     -q      TEXT  Query to execute. [default: None]                  |
-  | --filename  -f      FILE  File to execute. [default: None]                   |
+  | --query     -q      TEXT  Query to execute.                                  |
+  | --filename  -f      FILE  File to execute.                                   |
   | --stdin     -i            Read the query from standard input. Use it when    |
   |                           piping input to this command.                      |
   | --variable  -D      TEXT  String in format of key=value. If provided the SQL |
