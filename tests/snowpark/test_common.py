@@ -101,7 +101,7 @@ def test_check_if_replace_is_required(mock_procedure_description, arguments, exp
         "external_access_integrations": [],
         "imports": [],
         "stage_artifact_file": "@FOO.BAR.BAZ/my_snowpark_project/app.zip",
-        "runtime_ver": "3.8",
+        "runtime_ver": "3.10",
         "execute_as_caller": True,
     }
     replace_arguments.update(arguments)
