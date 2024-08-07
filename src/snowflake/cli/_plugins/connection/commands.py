@@ -21,7 +21,10 @@ import typer
 from click import ClickException, Context, Parameter  # type: ignore
 from click.core import ParameterSource  # type: ignore
 from click.types import StringParamType
-from snowflake.cli._plugins.connection.util import strip_if_value_present
+from snowflake.cli._plugins.connection.util import (
+    strip_and_check_if_exists,
+    strip_if_value_present,
+)
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
@@ -228,7 +231,7 @@ def add(
         click_type=OptionalPrompt(),
         prompt="Path to private key file",
         help="Path to file containing private key",
-        callback=strip_if_value_present,
+        callback=strip_and_check_if_exists,
     ),
     token_file_path: str = typer.Option(
         EmptyInput(),
@@ -237,7 +240,7 @@ def add(
         click_type=OptionalPrompt(),
         prompt="Path to token file",
         help="Path to file with an OAuth token that should be used when connecting to Snowflake",
-        callback=strip_if_value_present,
+        callback=strip_and_check_if_exists,
     ),
     set_as_default: bool = typer.Option(
         False,

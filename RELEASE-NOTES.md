@@ -27,6 +27,7 @@
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command
+* Added check for the correctness of token file and private key paths when addind a connection
 
 
 # v2.7.0
