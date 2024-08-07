@@ -64,7 +64,7 @@ def assert_that_result_is_usage_error(
     result: CommandResult, expected_error_message: str
 ) -> None:
     assert result.output is not None
-    result_output = re.sub("\s*││\s*", " ", result.output.replace("\n", ""))
+    result_output = re.sub("\s*││\s*", " ", result.output.replace("\n", ""))  # type: ignore
     assert result.exit_code == 2, result.output
     assert expected_error_message in result_output, result.output
 
