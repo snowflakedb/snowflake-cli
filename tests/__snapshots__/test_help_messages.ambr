@@ -5462,7 +5462,7 @@
    Creates a new service in the current schema.                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -5596,7 +5596,7 @@
    Provides description of service.                                               
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -5668,7 +5668,7 @@
    Drops service with given name.                                                 
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -5737,10 +5737,11 @@
                                                                                   
    Usage: default spcs service execute-job [OPTIONS] NAME                         
                                                                                   
-   Execute a job service in the current schema.                                   
+   Creates and executes a job service in the current schema.                      
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Name of the service. [required]                         |
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | *  --compute-pool             TEXT  Compute pool to run the job service on.  |
@@ -5826,7 +5827,7 @@
    Lists the endpoints in a service.                                              
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -5974,7 +5975,7 @@
    Retrieves local logs from a service container.                                 
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -6052,7 +6053,7 @@
    Resumes the service from a SUSPENDED state.                                    
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -6124,7 +6125,7 @@
    Sets one or more properties for the service.                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -6225,7 +6226,7 @@
    Retrieves the status of a service.                                             
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -6297,7 +6298,7 @@
    Suspends the service, shutting down and deleting all its containers.           
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -6369,7 +6370,7 @@
    Resets one or more properties for the service to their default value(s).       
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -6454,7 +6455,7 @@
    Updates an existing service with a new specification file.                     
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the service pool. For example: my_service |
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -6533,7 +6534,7 @@
   | create           Creates a new service in the current schema.                |
   | describe         Provides description of service.                            |
   | drop             Drops service with given name.                              |
-  | execute-job      Execute a job service in the current schema.                |
+  | execute-job      Creates and executes a job service in the current schema.   |
   | list             Lists all available services.                               |
   | list-endpoints   Lists the endpoints in a service.                           |
   | logs             Retrieves local logs from a service container.              |
@@ -8204,6 +8205,7 @@
   | create           Creates a new service in the current schema.                |
   | describe         Provides description of service.                            |
   | drop             Drops service with given name.                              |
+  | execute-job      Creates and executes a job service in the current schema.   |
   | list             Lists all available services.                               |
   | list-endpoints   Lists the endpoints in a service.                           |
   | logs             Retrieves local logs from a service container.              |

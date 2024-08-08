@@ -63,7 +63,7 @@ def _service_name_callback(name: FQN) -> FQN:
 
 
 ServiceNameArgument = identifier_argument(
-    sf_object="service pool",
+    sf_object="service",
     example="my_service",
     callback=_service_name_callback,
 )
@@ -181,7 +181,7 @@ def execute_job(
     **options,
 ) -> CommandResult:
     """
-    Execute a job service in the current schema.
+    Creates and executes a job service in the current schema.
     """
     cursor = ServiceManager().execute_job(
         job_service_name=name.identifier,
