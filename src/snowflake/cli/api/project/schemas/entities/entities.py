@@ -14,12 +14,10 @@
 
 from __future__ import annotations
 
-from typing import Union, get_args
+from typing import Dict, List, Union, get_args
 
-from snowflake.cli.api.project.schemas.entities.application_entity import (
-    ApplicationEntity,
-)
-from snowflake.cli.api.project.schemas.entities.application_package_entity import (
+from snowflake.cli.api.entities.application_entity import ApplicationEntity
+from snowflake.cli.api.entities.application_package_entity import (
     ApplicationPackageEntity,
 )
 from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
@@ -27,6 +25,16 @@ from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
     ProcedureEntity,
 )
 from snowflake.cli.api.project.schemas.entities.streamlit_entity import StreamlitEntity
+from snowflake.cli.api.entities.streamlit_entity import StreamlitEntity
+from snowflake.cli.api.project.schemas.entities.application_entity_model import (
+    ApplicationEntityModel,
+)
+from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
+    ApplicationPackageEntityModel,
+)
+from snowflake.cli.api.project.schemas.entities.streamlit_entity_model import (
+    StreamlitEntityModel,
+)
 
 Entity = Union[
     ApplicationEntity,
@@ -35,7 +43,16 @@ Entity = Union[
     ProcedureEntity,
     FunctionEntity,
 ]
+EntityModel = Union[
+    ApplicationEntityModel, ApplicationPackageEntityModel, StreamlitEntityModel
+]
 
-ALL_ENTITIES = [*get_args(Entity)]
+ALL_ENTITIES: List[Entity] = [*get_args(Entity)]
+ALL_ENTITY_MODELS: List[EntityModel] = [*get_args(EntityModel)]
 
-v2_entity_types_map = {e.get_type(): e for e in ALL_ENTITIES}
+v2_entity_model_types_map = {e.get_type(): e for e in ALL_ENTITY_MODELS}
+v2_entity_model_to_entity_map: Dict[EntityModel, Entity] = {
+    ApplicationEntityModel: ApplicationEntity,
+    ApplicationPackageEntityModel: ApplicationPackageEntity,
+    StreamlitEntityModel: StreamlitEntity,
+}

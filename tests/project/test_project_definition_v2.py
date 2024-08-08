@@ -16,7 +16,10 @@
 import pytest
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.entities import (
-    v2_entity_types_map,
+    ALL_ENTITIES,
+    ALL_ENTITY_MODELS,
+    v2_entity_model_to_entity_map,
+    v2_entity_model_types_map,
 )
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV20,
@@ -241,9 +244,20 @@ def test_defaults_do_not_override_values():
         assert project.entities["pkg"].stage == "pkg_stage"
 
 
-# Verify that each entity type has the correct "type" field
+# Verify that each entity model type has the correct "type" field
 def test_entity_types():
-    v2_entity_types_map
-    for entity_type, entity_class in v2_entity_types_map.items():
+    for entity_type, entity_class in v2_entity_model_types_map.items():
         model_entity_type = entity_class.get_type()
         assert model_entity_type == entity_type
+
+
+# Verify that each entity class has a corresponding entity model class, and that all entities are covered
+def test_entity_model_to_entity_map():
+    entities = set(ALL_ENTITIES)
+    entity_models = set(ALL_ENTITY_MODELS)
+    assert len(entities) == len(entity_models)
+    for entity_model_class, entity_class in v2_entity_model_to_entity_map.items():
+        entities.remove(entity_class)
+        entity_models.remove(entity_model_class)
+    assert len(entities) == 0
+    assert len(entity_models) == 0
