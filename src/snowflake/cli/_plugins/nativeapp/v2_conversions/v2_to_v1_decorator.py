@@ -15,22 +15,18 @@
 from __future__ import annotations
 
 from functools import wraps
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from click import ClickException
 from snowflake.cli.api.cli_global_context import (
     get_cli_context,
     get_cli_context_manager,
 )
-from snowflake.cli.api.project.schemas.entities.application_entity import (
-    ApplicationEntity,
+from snowflake.cli.api.project.schemas.entities.application_entity_model import (
+    ApplicationEntityModel,
 )
-from snowflake.cli.api.project.schemas.entities.application_package_entity import (
-    ApplicationPackageEntity,
-)
-from snowflake.cli.api.project.schemas.native_app.application import (
-    ApplicationPostDeployHook,
-    SqlScriptHookType,
+from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
+    ApplicationPackageEntityModel,
 )
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import (
@@ -52,28 +48,20 @@ def _convert_v2_artifact_to_v1_dict(
     return v2_artifact
 
 
-def _convert_v2_post_deploy_hook_to_v1_scripts(
-    v2_post_deploy_hook: ApplicationPostDeployHook,
-) -> List[str]:
-    if isinstance(v2_post_deploy_hook, SqlScriptHookType):
-        return v2_post_deploy_hook.sql_script
-    raise ValueError(f"Unsupported post deploy hook type: {v2_post_deploy_hook}")
-
-
 def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
     pdfv1: Dict[str, Any] = {"definition_version": "1.1", "native_app": {}}
 
-    app_package_definition: Optional[ApplicationPackageEntity] = None
-    app_definition: Optional[ApplicationEntity] = None
+    app_package_definition: Optional[ApplicationPackageEntityModel] = None
+    app_definition: Optional[ApplicationEntityModel] = None
 
     for key, entity in v2_definition.entities.items():
-        if entity.get_type() == ApplicationPackageEntity.get_type():
+        if entity.get_type() == ApplicationPackageEntityModel.get_type():
             if app_package_definition:
                 raise ClickException(
                     "More than one application package entity exists in the project definition file."
                 )
             app_package_definition = entity
-        elif entity.get_type() == ApplicationEntity.get_type():
+        elif entity.get_type() == ApplicationEntityModel.get_type():
             if app_definition:
                 raise ClickException(
                     "More than one application entity exists in the project definition file."
@@ -106,10 +94,9 @@ def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
             "distribution"
         ] = app_package_definition.distribution
     if app_package_definition.meta and app_package_definition.meta.post_deploy:
-        pdfv1["native_app"]["package"]["scripts"] = [
-            _convert_v2_post_deploy_hook_to_v1_scripts(s)
-            for s in app_package_definition.meta.post_deploy
-        ]
+        pdfv1["native_app"]["package"][
+            "post_deploy"
+        ] = app_package_definition.meta.post_deploy
     if app_package_definition.meta:
         if app_package_definition.meta.role:
             pdfv1["native_app"]["package"]["role"] = app_package_definition.meta.role

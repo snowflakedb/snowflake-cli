@@ -31,6 +31,10 @@ TYPER_PROMPT = "typer.prompt"
 RUN_MODULE = "snowflake.cli._plugins.nativeapp.run_processor"
 VERSION_MODULE = "snowflake.cli._plugins.nativeapp.version.version_processor"
 
+CLI_GLOBAL_TEMPLATE_CONTEXT = (
+    "snowflake.cli.api.cli_global_context._CliGlobalContextAccess.template_context"
+)
+
 TEARDOWN_PROCESSOR = f"{TEARDOWN_MODULE}.NativeAppTeardownProcessor"
 NATIVEAPP_MANAGER = f"{NATIVEAPP_MODULE}.NativeAppManager"
 RUN_PROCESSOR = f"{RUN_MODULE}.NativeAppRunProcessor"
