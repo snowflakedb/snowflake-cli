@@ -1,0 +1,5 @@
+spec:
+  containers:
+  - name: main
+    image: /snowcli_db/public/snowcli_repository/test_counter
+    args: ["1"]

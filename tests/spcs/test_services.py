@@ -283,6 +283,130 @@ def test_create_service_if_not_exists(mock_execute_query, other_directory):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+def test_execute_job_service(mock_execute_query, other_directory):
+    job_service_name = "test_job_service"
+    compute_pool = "test_pool"
+    tmp_dir = Path(other_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(SPEC_CONTENT)
+    external_access_integrations = [
+        "google_apis_access_integration",
+        "salesforce_api_access_integration",
+    ]
+    query_warehouse = "test_warehouse"
+    comment = "'user\\'s comment'"
+
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+
+    result = ServiceManager().execute_job(
+        job_service_name=job_service_name,
+        compute_pool=compute_pool,
+        spec_path=Path(spec_path),
+        external_access_integrations=external_access_integrations,
+        query_warehouse=query_warehouse,
+        comment=comment,
+    )
+    expected_query = " ".join(
+        [
+            "EXECUTE JOB SERVICE",
+            "IN COMPUTE POOL test_pool",
+            f"FROM SPECIFICATION $$ {json.dumps(SPEC_DICT)} $$",
+            "NAME = test_job_service",
+            "EXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration,salesforce_api_access_integration)",
+            "QUERY_WAREHOUSE = test_warehouse",
+            "COMMENT = 'user\\'s comment'",
+        ]
+    )
+    actual_query = " ".join(mock_execute_query.mock_calls[0].args[0].split())
+    assert expected_query == actual_query
+    assert result == cursor
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_job")
+def test_execute_job_service_cli_defaults(mock_execute_job, other_directory, runner):
+    tmp_dir = Path(other_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(SPEC_CONTENT)
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "execute-job",
+            "test_job_service",
+            "--compute-pool",
+            "test_pool",
+            "--spec-path",
+            f"{spec_path}",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    mock_execute_job.assert_called_once_with(
+        job_service_name="test_job_service",
+        compute_pool="test_pool",
+        spec_path=spec_path,
+        external_access_integrations=None,
+        query_warehouse=None,
+        comment=None,
+    )
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_job")
+def test_execute_job_service_cli(mock_execute_job, other_directory, runner):
+    tmp_dir = Path(other_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(SPEC_CONTENT)
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "execute-job",
+            "test_job_service",
+            "--compute-pool",
+            "test_pool",
+            "--spec-path",
+            f"{spec_path}",
+            "--eai-name",
+            "google_api",
+            "--eai-name",
+            "salesforce_api",
+            "--query-warehouse",
+            "test_warehouse",
+            "--comment",
+            "this is a test",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    mock_execute_job.assert_called_once_with(
+        job_service_name="test_job_service",
+        compute_pool="test_pool",
+        spec_path=spec_path,
+        external_access_integrations=["google_api", "salesforce_api"],
+        query_warehouse="test_warehouse",
+        comment=to_string_literal("this is a test"),
+    )
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._read_yaml")
+def test_execute_job_service_with_invalid_spec(mock_read_yaml):
+    job_service_name = "test_job_service"
+    compute_pool = "test_pool"
+    spec_path = "/path/to/spec.yaml"
+    external_access_integrations = query_warehouse = comment = None
+    mock_read_yaml.side_effect = YAMLError("Invalid YAML")
+
+    with pytest.raises(YAMLError):
+        ServiceManager().execute_job(
+            job_service_name=job_service_name,
+            compute_pool=compute_pool,
+            spec_path=Path(spec_path),
+            external_access_integrations=external_access_integrations,
+            query_warehouse=query_warehouse,
+            comment=comment,
+        )
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
 def test_status(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
