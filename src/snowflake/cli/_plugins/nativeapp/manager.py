@@ -816,13 +816,15 @@ class NativeAppManager(SqlExecutionMixin):
         # resource_attributes uses the unquoted/uppercase app and package name
         app_name = unquote_identifier(self.app_name)
         package_name = unquote_identifier(self.package_name)
+        org_name = unquote_identifier(consumer_org)
+        account_name = unquote_identifier(consumer_account)
         app_clause = (
             f"resource_attributes:\"snow.database.name\" = '{app_name}'"
             if not (consumer_org and consumer_account)
             else (
                 f"resource_attributes:\"snow.application.package.name\" = '{package_name}' "
-                f"and resource_attributes:\"snow.application.consumer.organization\" = '{consumer_org}' "
-                f"and resource_attributes:\"snow.application.consumer.name\" = '{consumer_account}'"
+                f"and resource_attributes:\"snow.application.consumer.organization\" = '{org_name}' "
+                f"and resource_attributes:\"snow.application.consumer.name\" = '{account_name}'"
             )
         )
         if isinstance(since, datetime):
@@ -852,7 +854,7 @@ class NativeAppManager(SqlExecutionMixin):
             select * from (
                 select timestamp, value::varchar value
                 from {self.account_event_table}
-                where {app_clause}
+                where ({app_clause})
                 {since_clause}
                 {until_clause}
                 {types_clause}
