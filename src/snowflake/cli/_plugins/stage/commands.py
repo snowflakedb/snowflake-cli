@@ -28,9 +28,9 @@ from snowflake.cli._plugins.object.command_aliases import (
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     compute_stage_diff,
-    print_diff_to_console,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     ExecuteVariablesOption,
