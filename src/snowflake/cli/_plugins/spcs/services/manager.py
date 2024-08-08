@@ -85,6 +85,44 @@ class ServiceManager(SqlExecutionMixin):
         except ProgrammingError as e:
             handle_object_already_exists(e, ObjectType.SERVICE, service_name)
 
+    def execute_job(
+        self,
+        job_service_name: str,
+        compute_pool: str,
+        spec_path: Path,
+        external_access_integrations: Optional[List[str]],
+        query_warehouse: Optional[str],
+        comment: Optional[str],
+    ) -> SnowflakeCursor:
+        spec = self._read_yaml(spec_path)
+        query = f"""\
+                EXECUTE JOB SERVICE
+                IN COMPUTE POOL {compute_pool}
+                FROM SPECIFICATION $$
+                {spec}
+                $$
+                NAME = {job_service_name}
+                """.splitlines()
+
+        if external_access_integrations:
+            external_access_integration_list = ",".join(
+                f"{e}" for e in external_access_integrations
+            )
+            query.append(
+                f"EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_list})"
+            )
+
+        if query_warehouse:
+            query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
+
+        if comment:
+            query.append(f"COMMENT = {comment}")
+
+        try:
+            return self._execute_query(strip_empty_lines(query))
+        except ProgrammingError as e:
+            handle_object_already_exists(e, ObjectType.SERVICE, job_service_name)
+
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
         with SecurePath(path).open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fh:
