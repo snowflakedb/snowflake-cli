@@ -63,7 +63,7 @@ def _service_name_callback(name: FQN) -> FQN:
 
 
 ServiceNameArgument = identifier_argument(
-    sf_object="service pool",
+    sf_object="service",
     example="my_service",
     callback=_service_name_callback,
 )
@@ -157,6 +157,39 @@ def create(
         tags=tags,
         comment=comment,
         if_not_exists=if_not_exists,
+    )
+    return SingleQueryResult(cursor)
+
+
+@app.command(requires_connection=True)
+def execute_job(
+    name: FQN = ServiceNameArgument,
+    compute_pool: str = typer.Option(
+        ...,
+        "--compute-pool",
+        help="Compute pool to run the job service on.",
+        show_default=False,
+    ),
+    spec_path: Path = SpecPathOption,
+    external_access_integrations: Optional[List[str]] = typer.Option(
+        None,
+        "--eai-name",
+        help="Identifies External Access Integrations(EAI) that the job service can access. This option may be specified multiple times for multiple EAIs.",
+    ),
+    query_warehouse: Optional[str] = QueryWarehouseOption(),
+    comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
+    **options,
+) -> CommandResult:
+    """
+    Creates and executes a job service in the current schema.
+    """
+    cursor = ServiceManager().execute_job(
+        job_service_name=name.identifier,
+        compute_pool=compute_pool,
+        spec_path=spec_path,
+        external_access_integrations=external_access_integrations,
+        query_warehouse=query_warehouse,
+        comment=comment,
     )
     return SingleQueryResult(cursor)
 

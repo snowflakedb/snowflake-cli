@@ -84,7 +84,7 @@ def test_deploy_procedure(
             copy grants
             returns string
             language python
-            runtime_version=3.8
+            runtime_version=3.10
             imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
             handler='hello'
             packages=()
@@ -154,7 +154,7 @@ def test_deploy_procedure_with_external_access(
             copy grants
             returns string
             language python
-            runtime_version=3.8
+            runtime_version=3.10
             imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
             handler='app.hello'
             packages=()

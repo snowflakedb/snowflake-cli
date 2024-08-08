@@ -442,7 +442,7 @@ def mock_procedure_description(mock_cursor):
             ("body", None),
             ("imports", "[@FOO.BAR.BAZ/my_snowpark_project/app.zip]"),
             ("handler", "app.hello_procedure"),
-            ("runtime_version", "3.8"),
+            ("runtime_version", "3.10"),
             ("packages", "['snowflake-snowpark-python','pytest<9.0.0,>=7.0.0']"),
             ("installed_packages", "['_libgcc_mutex==0.1']"),
         ],
