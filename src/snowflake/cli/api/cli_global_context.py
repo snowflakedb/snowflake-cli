@@ -17,14 +17,15 @@ from __future__ import annotations
 import re
 import warnings
 from pathlib import Path
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.cli.api.output.formats import OutputFormat
-
-# from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.compat import IS_WINDOWS
+
+if TYPE_CHECKING:
+    from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 
 schema_pattern = re.compile(r".+\..+")
 
@@ -285,10 +286,10 @@ class _CliGlobalContextManager:
         self._experimental = value
 
     @property
-    def project_definition(self):
+    def project_definition(self) -> Optional[ProjectDefinition]:
         return self._project_definition
 
-    def set_project_definition(self, value):
+    def set_project_definition(self, value: ProjectDefinition):
         self._project_definition = value
 
     @property
@@ -375,7 +376,7 @@ class _CliGlobalContextAccess:
         return self._manager.experimental
 
     @property
-    def project_definition(self):
+    def project_definition(self) -> ProjectDefinition | None:
         return self._manager.project_definition
 
     @property
