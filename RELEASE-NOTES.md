@@ -42,7 +42,7 @@
 * `snow spcs job` command is removed. This command is a deprecated command which is now replaced by the new command `snow spcs service execute-job`
 
 ## New additions
-* Added `snow spcs service execute-job` command, which supports creating and executing s job service in the current schema.
+* Added `snow spcs service execute-job` command, which supports creating and executing a job service in the current schema.
 
 ## Fixes and improvements
 * Fix the typo in spcs service name argument description. It is the identifier of the service instead of the service pool.
