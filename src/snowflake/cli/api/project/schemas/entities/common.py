@@ -83,10 +83,6 @@ class EntityModelBase(ABC, UpdatableModel):
         if self._key:
             return FQN.from_string(self._key)
 
-    @property
-    def name(self) -> str:
-        return self.fqn.identifier
-
 
 TargetType = TypeVar("TargetType")
 
