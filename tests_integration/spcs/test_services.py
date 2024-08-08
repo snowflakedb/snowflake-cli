@@ -49,7 +49,7 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps.list_should_not_return_service(service_name)
 
 
-# @pytest.mark.integration
+@pytest.mark.integration
 def test_job_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
 
     test_steps, job_service_name = _test_steps
