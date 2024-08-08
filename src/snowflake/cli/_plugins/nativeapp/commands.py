@@ -22,7 +22,7 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
-from click import ClickException
+from click import ClickException, UsageError
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -491,20 +491,18 @@ def app_events(
     https://docs.snowflake.com/en/developer-guide/native-apps/setting-up-logging-and-events
     """
     if first >= 0 and last >= 0:
-        raise ClickException("--first and --last cannot be used together.")
+        raise UsageError("--first and --last cannot be used together.")
 
     if (consumer_org and not consumer_account) or (
         consumer_account and not consumer_org
     ):
-        raise ClickException(
-            "--consumer-org and --consumer-account must be used together."
-        )
+        raise UsageError("--consumer-org and --consumer-account must be used together.")
 
     if follow:
         if until:
-            raise ClickException("--follow and --until cannot be used together.")
+            raise UsageError("--follow and --until cannot be used together.")
         if first >= 0:
-            raise ClickException("--follow and --first cannot be used together.")
+            raise UsageError("--follow and --first cannot be used together.")
 
     assert_project_type("native_app")
 
