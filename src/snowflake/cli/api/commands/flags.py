@@ -15,8 +15,6 @@
 from __future__ import annotations
 
 import tempfile
-from dataclasses import dataclass
-from enum import Enum
 from inspect import signature
 from pathlib import Path
 from typing import Any, Callable, List, Optional, Tuple
@@ -25,7 +23,9 @@ import click
 import typer
 from click import ClickException
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
+from snowflake.cli.api.commands.structs import OnErrorType
 from snowflake.cli.api.commands.typer_pre_execute import register_pre_execute_command
+from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.identifiers import FQN
@@ -37,11 +37,6 @@ DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
 _CONNECTION_SECTION = "Connection configuration"
 _CLI_BEHAVIOUR = "Global configuration"
-
-
-class OnErrorType(Enum):
-    BREAK = "break"
-    CONTINUE = "continue"
 
 
 class OverrideableOption:
@@ -643,32 +638,6 @@ def deprecated_flag_callback_enum(msg: str):
         return value.value
 
     return _warning_callback
-
-
-@dataclass
-class Variable:
-    key: str
-    value: str
-
-    def __init__(self, key: str, value: str):
-        self.key = key
-        self.value = value
-
-
-def parse_key_value_variables(variables: Optional[List[str]]) -> List[Variable]:
-    """Util for parsing key=value input. Useful for commands accepting multiple input options."""
-    if not variables:
-        return []
-    result: List[Variable] = []
-    if not variables:
-        return result
-    for p in variables:
-        if "=" not in p:
-            raise ClickException(f"Invalid variable: '{p}'")
-
-        key, value = p.split("=", 1)
-        result.append(Variable(key.strip(), value.strip()))
-    return result
 
 
 class IdentifierType(click.ParamType):
