@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Dict
 
+from snowflake.cli._plugins.workspace.action_context import ActionContext
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.schemas.entities.entities import (
@@ -47,7 +48,8 @@ class WorkspaceManager:
         """
         entity = self.get_entity(entity_id)
         if entity.supports(action):
-            return getattr(entity, action)(self)
+            action_ctx = ActionContext(project_root=self.project_root())
+            return getattr(entity, action)(action_ctx)
         else:
             raise ValueError(f'This entity type does not support "{action.value}"')
 
