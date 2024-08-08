@@ -33,9 +33,11 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import (
     ReplaceOption,
+    entity_argument,
     identifier_argument,
     like_option,
 )
+from snowflake.cli.api.commands.prompts import select_entity_prompt
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import NoProjectDefinitionError
@@ -120,6 +122,7 @@ def streamlit_deploy(
     replace: bool = ReplaceOption(
         help="Replace the Streamlit app if it already exists."
     ),
+    entity_id: str = entity_argument("streamlit"),
     open_: bool = OpenOption,
     **options,
 ) -> CommandResult:
@@ -127,6 +130,8 @@ def streamlit_deploy(
     Deploys a Streamlit app defined in the project definition file (snowflake.yml). By default, the command uploads
     environment.yml and any other pages or folders, if present. If you don’t specify a stage name, the `streamlit`
     stage is used. If the specified stage does not exist, the command creates it.
+
+    If multiple Streamlits are defined in snowflake.yml then the command will ask to select one of them.
     """
 
     cli_context = get_cli_context()
@@ -147,14 +152,10 @@ def streamlit_deploy(
             project_type="streamlit", project_file=cli_context.project_root
         )
 
-    # TODO: fix in follow-up
-    if len(list(streamlits)) > 1:
-        raise ClickException(
-            "Currently only single streamlit entity per project is supported."
-        )
+    entity_id = select_entity_prompt(entities=streamlits, provided_entity_id=entity_id)
 
     # Get first streamlit
-    streamlit: StreamlitEntityModel = streamlits[list(streamlits)[0]]
+    streamlit: StreamlitEntityModel = streamlits[entity_id]
     url = StreamlitManager().deploy(streamlit=streamlit, replace=replace)
 
     if open_:

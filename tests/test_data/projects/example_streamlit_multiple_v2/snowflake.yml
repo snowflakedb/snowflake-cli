@@ -1,0 +1,12 @@
+definition_version: 2
+entities:
+  app_1:
+    type: "streamlit"
+    main_file: streamlit_app.py
+    artifacts:
+      - streamlit_app.py
+  app_2:
+    type: "streamlit"
+    main_file: streamlit_app.py
+    artifacts:
+      - streamlit_app.py

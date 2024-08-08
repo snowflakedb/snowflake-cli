@@ -27,6 +27,7 @@ from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.commands.experimental_behaviour import (
     experimental_behaviour_enabled,
 )
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.streamlit_entity_model import (
@@ -50,6 +51,7 @@ class StreamlitManager(SqlExecutionMixin):
         root_location: str,
         artifacts: Optional[List[Path]] = None,
     ):
+        cli_console.step(f"Deploying files to {root_location}")
         if not artifacts:
             return
         stage_manager = StageManager()
@@ -71,6 +73,7 @@ class StreamlitManager(SqlExecutionMixin):
         from_stage_name: Optional[str] = None,
     ):
         streamlit_id = streamlit.fqn.using_connection(self._conn)
+        cli_console.step(f"Creating {streamlit_id} Streamlit")
         query = []
         if replace:
             query.append(f"CREATE OR REPLACE STREAMLIT {streamlit_id.sql_identifier}")
@@ -167,6 +170,7 @@ class StreamlitManager(SqlExecutionMixin):
             stage_name = streamlit.stage or "streamlit"
             stage_name = FQN.from_string(stage_name).using_connection(self._conn)
 
+            cli_console.step(f"Creating {stage_name} stage")
             stage_manager.create(fqn=stage_name)
 
             root_location = stage_manager.get_standard_stage_prefix(

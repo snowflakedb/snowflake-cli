@@ -33,6 +33,7 @@
 * Added `snow app events` command to fetch logs and traces from local and customer app installations
 * Added support for project definition file defaults in templates
 * Added support for external access (api integrations and secrets) in Streamlit.
+* Support multiple Streamlit application in single snowflake.yml project definition file.
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command
