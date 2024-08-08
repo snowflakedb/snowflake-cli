@@ -17,7 +17,7 @@ import os
 import typing as t
 from datetime import datetime, timedelta
 
-from snowflake.cli.app.snow_connector import update_connection_details_with_private_key
+from snowflake.cli._app.snow_connector import update_connection_details_with_private_key
 from snowflake.snowpark.session import Session
 
 
@@ -55,9 +55,9 @@ if __name__ == "__main__":
         "authenticator": "SNOWFLAKE_JWT",
         "account": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"),
         "user": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"),
-        "private_key_path": os.getenv(
+        "private_key_path": os.environ[
             "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH"
-        ),
+        ],
         "database": "SNOWCLI_DB",
         "role": role,
     }
