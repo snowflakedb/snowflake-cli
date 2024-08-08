@@ -169,7 +169,7 @@ class SnowparkServicesTestSteps:
             "status": f"{service_name.upper()} successfully dropped."
         }
 
-    def wait_until_service_is_ready(self, service_name: str) -> None:
+    def wait_until_service_is_running(self, service_name: str) -> None:
         self._wait_until_service_reaches_state(service_name, "RUNNING", 900)
 
     def suspend_service(self, service_name: str):

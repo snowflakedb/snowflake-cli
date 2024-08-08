@@ -33,14 +33,14 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps.create_service(service_name)
     test_steps.status_should_return_service(service_name, "hello-world")
     test_steps.list_should_return_service(service_name)
-    test_steps.wait_until_service_is_ready(service_name)
+    test_steps.wait_until_service_is_running(service_name)
     test_steps.logs_should_return_service_logs(
         service_name, "hello-world", '"GET /healthcheck HTTP/1.1" 200 -'
     )
     test_steps.suspend_service(service_name)
     test_steps.wait_until_service_is_suspended(service_name)
     test_steps.resume_service(service_name)
-    test_steps.wait_until_service_is_ready(service_name)
+    test_steps.wait_until_service_is_running(service_name)
     test_steps.describe_should_return_service(service_name)
     test_steps.list_endpoints_should_show_endpoint(service_name)
     test_steps.upgrade_service_should_change_spec(service_name)
