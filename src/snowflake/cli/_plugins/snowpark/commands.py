@@ -134,7 +134,7 @@ def deploy(
 
     paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
-        snowpark_project_definition=pd,
+        project_definition=pd,
     )
 
     procedures = pd.get_entities_by_type("procedure")
@@ -390,7 +390,7 @@ def build(
 
     snowpark_paths = SnowparkPackagePaths.for_snowpark_project(
         project_root=SecurePath(cli_context.project_root),
-        snowpark_project_definition=pd,
+        project_definition=pd,
     )
     log.info("Building package using sources from:")
     log.info(",".join(str(s) for s in snowpark_paths.sources))

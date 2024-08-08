@@ -115,16 +115,6 @@ class DefinitionV11(DefinitionV10):
 class DefinitionV20(_ProjectDefinitionBase):
     entities: Dict[str, AnnotatedEntity] = Field(title="Entity definitions.")
 
-    defaults: Optional[DefaultsField] = Field(
-        title="Default key/value entity values that are merged recursively for each entity.",
-        default=None,
-    )
-
-    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
-        title="Default environment specification for this project.",
-        default=None,
-    )
-
     @model_validator(mode="before")
     @classmethod
     def apply_defaults(cls, data: Dict) -> Dict:
@@ -183,6 +173,16 @@ class DefinitionV20(_ProjectDefinitionBase):
             raise ValueError(
                 f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
             )
+
+    defaults: Optional[DefaultsField] = Field(
+        title="Default key/value entity values that are merged recursively for each entity.",
+        default=None,
+    )
+
+    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
+        title="Default environment specification for this project.",
+        default=None,
+    )
 
     def get_entities_by_type(self, entity_type: str):
         return {i: e for i, e in self.entities.items() if e.get_type() == entity_type}

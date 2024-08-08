@@ -32,12 +32,12 @@ class SnowparkPackagePaths:
 
     @classmethod
     def for_snowpark_project(
-        cls, project_root: SecurePath, snowpark_project_definition: DefinitionV20
+        cls, project_root: SecurePath, project_definition: DefinitionV20
     ) -> "SnowparkPackagePaths":
         sources = set()
-        entities = snowpark_project_definition.get_entities_by_type(
+        entities = project_definition.get_entities_by_type(
             "function"
-        ) | snowpark_project_definition.get_entities_by_type("procedure")
+        ) | project_definition.get_entities_by_type("procedure")
         for name, entity in entities.items():
             sources.add(entity.artifacts)
 
