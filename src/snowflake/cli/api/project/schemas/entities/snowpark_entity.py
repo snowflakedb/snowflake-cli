@@ -17,13 +17,13 @@ from __future__ import annotations
 from typing import Dict, List, Literal, Optional, Union
 
 from pydantic import Field, field_validator
-from snowflake.cli.api.project.schemas.entities.common import EntityBase
+from snowflake.cli.api.project.schemas.entities.common import EntityModelBase
 from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierModel
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 
 
-class SnowparkEntity(EntityBase):
+class SnowparkEntityModel(EntityModelBase):
     handler: str = Field(
         title="Function’s or procedure’s implementation of the object inside source module",
         examples=["functions.hello_function"],
@@ -60,7 +60,7 @@ class SnowparkEntity(EntityBase):
         return runtime_input
 
 
-class ProcedureEntity(SnowparkEntity, ObjectIdentifierModel("procedure")):  # type: ignore
+class ProcedureEntityModel(SnowparkEntityModel, ObjectIdentifierModel("procedure")):  # type: ignore
     type: Literal["procedure"] = DiscriminatorField()  # noqa: A003
     execute_as_caller: Optional[bool] = Field(
         title="Determine whether the procedure is executed with the privileges of "
@@ -69,5 +69,5 @@ class ProcedureEntity(SnowparkEntity, ObjectIdentifierModel("procedure")):  # ty
     )
 
 
-class FunctionEntity(SnowparkEntity, ObjectIdentifierModel("function")):  # type: ignore
+class FunctionEntityModel(SnowparkEntityModel, ObjectIdentifierModel("function")):  # type: ignore
     type: Literal["function"] = DiscriminatorField()  # noqa: A003

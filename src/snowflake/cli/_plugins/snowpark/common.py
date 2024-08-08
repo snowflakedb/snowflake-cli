@@ -22,8 +22,8 @@ from snowflake.cli._plugins.snowpark.package_utils import (
     generate_deploy_stage_name,
 )
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.entities.snowpark_entity import SnowparkEntity
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.schemas.entities.snowpark_entity import SnowparkEntity
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 

@@ -42,7 +42,7 @@ from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
 
-AnnotatedEntity = Annotated[Entity, Field(discriminator="type")]
+AnnotatedEntity = Annotated[EntityModel, Field(discriminator="type")]
 
 
 @dataclass
@@ -161,7 +161,7 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     @classmethod
     def _validate_single_entity(
-        cls, entity: Entity, entities: Dict[str, AnnotatedEntity]
+        cls, entity: EntityModel, entities: Dict[str, AnnotatedEntity]
     ):
         if entity.type == ApplicationEntityModel.get_type():
             if isinstance(entity.from_, TargetField):

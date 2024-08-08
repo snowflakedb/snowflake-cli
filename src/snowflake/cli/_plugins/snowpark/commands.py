@@ -72,6 +72,7 @@ from snowflake.cli.api.constants import (
     DEPLOYMENT_STAGE,
     ObjectType,
 )
+from snowflake.cli.api.entities.snowpark_entity import SnowparkEntity
 from snowflake.cli.api.exceptions import (
     NoProjectDefinitionError,
     SecretsWithoutExternalAccessIntegrationError,
@@ -83,7 +84,6 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
-from snowflake.cli.api.project.schemas.entities.snowpark_entity import SnowparkEntity
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
