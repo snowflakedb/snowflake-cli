@@ -60,7 +60,7 @@ if __name__ == "__main__":
         "database": "SNOWCLI_DB",
         "role": role,
     }
-    print(config["private_key_path"])
+    print("PKP:", config["private_key_path"])
     session = Session.builder.configs(config).create()
 
     session.use_role("INTEGRATION_TESTS")
