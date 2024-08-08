@@ -1532,7 +1532,7 @@ def test_get_events_quoted_app_name(
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
-                            where resource_attributes:"snow.database.name" = 'My Application'
+                            where (resource_attributes:"snow.database.name" = 'My Application')
                         
                         
                         
@@ -1599,7 +1599,7 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
-                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            where (resource_attributes:"snow.database.name" = 'MYAPP')
                             
                             
                             
@@ -1621,7 +1621,7 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
-                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            where (resource_attributes:"snow.database.name" = 'MYAPP')
                             and timestamp >= '2024-01-01 00:00:00'
                             
                             
