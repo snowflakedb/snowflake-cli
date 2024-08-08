@@ -33,6 +33,19 @@
 * Fixed problem with whitespaces in `snow connection add` command
 * Added check for the correctness of token file and private key paths when addind a connection
 
+# v3.0.0
+
+# Unreleased version
+## Backward incompatibility
+
+## Deprecations
+* `snow spcs job` command is removed. This command is a deprecated command which is now replaced by the new command `snow spcs service execute-job`
+
+## New additions
+* Added `snow spcs service execute-job` command, which supports creating and executing s job service in the current schema.
+
+## Fixes and improvements
+* Fix the typo in spcs service name argument description. It is the identifier of the service instead of the service pool.
 
 # v2.7.0
 
