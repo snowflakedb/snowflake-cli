@@ -50,18 +50,18 @@ def remove_resources(single: str, plural: str, known_instances: t.List[str], rol
 
 if __name__ == "__main__":
     role = "INTEGRATION_TESTS"
-    session = Session.builder.configs(
-        {
-            "authenticator": "SNOWFLAKE_JWT",
-            "account": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"),
-            "user": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"),
-            "private_key_path": os.environ[
-                "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH"
-            ],
-            "database": "SNOWCLI_DB",
-            "role": role,
-        }
-    ).create()
+    config = {
+        "authenticator": "SNOWFLAKE_JWT",
+        "account": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"),
+        "user": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"),
+        "private_key_path": os.getenv(
+            "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH"
+        ),
+        "database": "SNOWCLI_DB",
+        "role": role,
+    }
+    print(config["private_key_path"])
+    session = Session.builder.configs(config).create()
 
     session.use_role("INTEGRATION_TESTS")
 
