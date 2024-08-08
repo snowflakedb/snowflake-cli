@@ -39,7 +39,7 @@ class SnowparkPackagePaths:
             "function"
         ) | snowpark_project_definition.get_entities_by_type("procedure")
         for name, entity in entities.items():
-            sources.add(entity.src)
+            sources.add(entity.artifacts)
 
         return cls(
             sources=[

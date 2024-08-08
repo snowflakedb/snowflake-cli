@@ -384,7 +384,7 @@ def build(
 ) -> CommandResult:
     """
     Builds the Snowpark project as a `.zip` archive that can be used by `deploy` command.
-    The archive is built using only the `src` directory specified in the project file.
+    The archive is built using only the `artifacts` directory specified in the project file.
     """
     cli_context, pd = _get_v2_context_and_project_definition()
 
@@ -541,7 +541,7 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
         v2_entity = {
             "type": "function" if isinstance(entity, FunctionSchema) else "procedure",
             "stage": pd.snowpark.stage_name,
-            "src": pd.snowpark.src,
+            "artifacts": pd.snowpark.src,
             "handler": entity.handler,
             "returns": entity.returns,
             "signature": entity.signature,

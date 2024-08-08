@@ -50,7 +50,7 @@ class SnowparkEntity(EntityBase):
         default=[],
     )
     stage: str = Field(title="Stage in which artifacts will be stored")
-    src: str = Field(title="Folder where your code should be located")
+    artifacts: str = Field(title="Folder where your code should be located")
 
     @field_validator("runtime")
     @classmethod

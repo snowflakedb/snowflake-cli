@@ -173,7 +173,7 @@ from tests.testing_utils.mock_config import mock_config_key
                         "returns": "string",
                         "signature": [{"name": "name", "type": "string"}],
                         "runtime": "3.8",
-                        "src": "src",
+                        "artifacts": "src",
                     }
                 },
             },
