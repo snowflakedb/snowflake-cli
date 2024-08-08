@@ -17,7 +17,7 @@ import os
 import typing as t
 from datetime import datetime, timedelta
 
-from snowflake.cli.app.snow_connector import update_connection_details_with_private_key
+from snowflake.cli._app.snow_connector import update_connection_details_with_private_key
 from snowflake.snowpark.session import Session
 
 
