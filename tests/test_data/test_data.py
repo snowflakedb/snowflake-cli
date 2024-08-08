@@ -136,7 +136,7 @@ describe_function_response = """[
   },
   {
     "property": "runtime_version",
-    "value": "3.8"
+    "value": "3.10"
   },
   {
     "property": "packages",
@@ -144,6 +144,6 @@ describe_function_response = """[
   },
   {
     "property": "installed_packages",
-    "value": "['python==3.8.17']"
+    "value": "['python==3.10.17']"
   }
 ]"""
