@@ -55,9 +55,9 @@ if __name__ == "__main__":
         "authenticator": "SNOWFLAKE_JWT",
         "account": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"),
         "user": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"),
-        "private_key_path": os.environ[
+        "private_key_path": os.getenv(
             "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH"
-        ],
+        ),
         "database": "SNOWCLI_DB",
         "role": role,
     }
