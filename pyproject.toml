@@ -63,6 +63,7 @@ development = [
   "pytest-randomly==3.15.0",
   "syrupy==4.6.1",
 ]
+packaging = ["pyinstaller~=6.9"]
 
 [project.urls]
 "Source code" = "https://github.com/snowflakedb/snowflake-cli"
@@ -92,6 +93,18 @@ test-cov = [
   "coverage run --source=snowflake.cli --module pytest tests/ ",
   "coverage run --source=snowflake.cli --module pytest -m loaded_modules tests/ ",
   "coverage report",
+]
+
+[tool.hatch.envs.packaging]
+python = "3.10"
+features = ["development", "packaging"]
+
+[tool.hatch.envs.packaging.scripts]
+build-binaries = ["./scripts/packaging/build_binaries.sh"]
+build-packages = ["./scripts/packaging/build_packages.sh"]
+build-all = [
+  "./scripts/packaging/build_binaries.sh",
+  "./scripts/packaging/build_packages.sh",
 ]
 
 [tool.hatch.envs.e2e]
@@ -158,4 +171,4 @@ markers = [
 
 
 [tool.codespell]
-skip = 'tests/*'
+skip = 'tests/*,snow.spec'
