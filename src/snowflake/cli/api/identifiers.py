@@ -152,7 +152,7 @@ class FQN:
         if fqn.database and model.database:
             raise FQNInconsistencyError("database", model.name)
         if fqn.schema and model.schema_:
-            raise FQNInconsistencyError("schema2", model.name)
+            raise FQNInconsistencyError("schema", model.name)
 
         return fqn.set_database(model.database).set_schema(model.schema_)
 
