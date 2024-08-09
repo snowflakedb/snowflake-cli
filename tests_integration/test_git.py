@@ -202,11 +202,10 @@ def test_copy_to_stage(runner, sf_git_repository):
 
 
 @pytest.mark.integration
-def test_copy_directory_to_local_file_system(runner, sf_git_repository):
-    # TODO: change subdir to dedicated one after merging this to main
-    REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v2.1.0-rc0"
-    SUBDIR = "tests_integration/config"
-    FILE_IN_SUBDIR = "connection_configs.toml"
+def test_copy_directory_to_local_file_system(runner, sf_git_repository, test_root_path):
+    # Project with files in root and subdirectory
+    REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v2.7.0"
+    SUBDIR = "tests_integration/test_data/projects/snowpark_with_import"
     with tempfile.TemporaryDirectory() as tmp_dir:
         LOCAL_DIR = Path(tmp_dir) / "a_dir"
         assert not LOCAL_DIR.exists()
@@ -218,7 +217,13 @@ def test_copy_directory_to_local_file_system(runner, sf_git_repository):
         )
         assert result.exit_code == 0
         assert LOCAL_DIR.exists()  # create directory if not exists
-        assert (LOCAL_DIR / FILE_IN_SUBDIR).exists()  # contents are copied
+
+        def _relative_content_set(root: Path):
+            return set(x.relative_to(root) for x in root.rglob("*"))
+
+        downloaded_files = _relative_content_set(LOCAL_DIR)
+        expected_files = _relative_content_set(test_root_path.parent / SUBDIR)
+        assert downloaded_files == expected_files  # contents are copied
 
 
 @pytest.mark.skip(
