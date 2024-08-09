@@ -63,7 +63,7 @@ CREATE OR REPLACE NETWORK RULE snowflake_docs_network_rule
 
 CREATE OR REPLACE SECRET test_secret
   TYPE = GENERIC_STRING
---   SECRET_STRING = ''; -- provide password
+  SECRET_STRING = 'test';
 GRANT READ ON SECRET test_secret TO ROLE integration_tests;
 
 CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION snowflake_docs_access_integration

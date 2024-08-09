@@ -65,44 +65,48 @@ or by running `pytest` inside activated environment.
 
 
 ## Integration tests
-
 Every integration test should have `integration` mark. By default, integration tests are not execute when running `pytest`.
 
-To execute only integration tests run `hatch run integration:test` or `pytest -m integration` inside environment.
-### Connection parameters in `config.toml`
+### Account setup
+The account used for integration tests must first be set up using the `ACCOUNTADMIN` role. Run
+```bash
+snow sql -c <connection name> -f tests_integration/scripts/integration_account_setup.sql
+```
+in the desired account to create all the necessary objects.
 
-Add the following connection to your `config.toml`
-
-```toml
-[connections.integration]
-host = <host>
-account = <account_name>
-user = <user>
-password = <password>
+### User setup
+Integration tests use keypair authentication, so a public and private key RSA key need to be generated and associated with
+the `snowcli_test` user to be able to authenticate:
+```bash
+openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out ~/.ssh/snowcli_test_rsa_key.p8 -nocrypt
+openssl rsa -in snowcli_test_rsa_key.p8 -pubout -out ~/.ssh/snowcli_test_rsa_key.pub
+PUBKEY="$(sed '1d; $d' < ~/.ssh/snowcli_test_rsa_key.pub)"
+snow sql -c <connection name> -q "ALTER USER snowcli_test SET RSA_PUBLIC_KEY='$PUBKEY';"
 ```
 
-### Connection parameters in environment parameters
-
-Parameters must use the following format:
-
-``SNOWFLAKE_CONNECTIONS_INTEGRATION_<key>=<value>``
-
-where ``<key>`` is the name of the key
+### Connection configuration
+All integration test connection parameters must be passed using environment variables. Parameters must use the following format:
+```bash
+SNOWFLAKE_CONNECTIONS_INTEGRATION_<key>=<value>
+```
+where `<key>` is the name of the key.
 
 For example: SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT="my-account"
 
 List of required parameter keys:
-- host
-- account
-- user
-- password
+- `HOST="<your host here>"`
+- `ACCOUNT="<your account here>"`
+- `USER="snowcli_test"`
+- `PRIVATE_KEY_PATH="~/.ssh/snowcli_test_rsa_key.p8"`
 
-### User setup
-
-Run the script with ACCOUNTADMIN role
-
+### Invoking tests
+To invoke tests, either `export` the above environment variables in your shell/bashrc/zshrc or specify them when invoking the test command:
 ```bash
-tests_integration/scripts/integration_account_setup.sql
+SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST="<your host here>" \
+SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT="<your account here>" \
+SNOWFLAKE_CONNECTIONS_INTEGRATION_USER="snowcli_test" \
+SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH="~/.ssh/snowflake_rsa_key.p8" \
+hatch run integration:test
 ```
 
 ## Remote debugging with PyCharm or IntelliJ
