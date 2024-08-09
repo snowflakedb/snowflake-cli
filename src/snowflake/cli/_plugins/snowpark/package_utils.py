@@ -61,7 +61,7 @@ def parse_requirements(
         ).splitlines():
             line = re.sub(r"\s*#.*", "", line).strip()
             if line:
-                reqs.append(Requirement.parse(line))
+                reqs.append(Requirement.parse_line(line))
     return reqs
 
 

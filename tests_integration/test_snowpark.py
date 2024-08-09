@@ -20,6 +20,7 @@ from textwrap import dedent
 
 import pytest
 
+
 from tests_integration.testing_utils import (
     SnowparkTestSteps,
 )
@@ -860,10 +861,10 @@ def test_incorrect_requirements(project_directory, runner, alter_requirements_tx
         )
         with pytest.raises(InvalidRequirement) as err:
             runner.invoke_with_connection(["snowpark", "build"])
-            assert (
-                "Expected end or semicolon (after name and no valid version specifier)"
-                in str(err)
-            )
+        assert (
+            "Expected end or semicolon (after name and no valid version specifier)"
+            in str(err)
+        )
 
 
 @pytest.fixture
