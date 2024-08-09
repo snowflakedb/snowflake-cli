@@ -45,7 +45,7 @@ MOCK_SNOWFLAKE_YML_V1_FILE = dedent(
     """\
         definition_version: 1
         native_app:
-            identifier: myapp
+            name: myapp
             source_stage: app_src.stage
             artifacts:
                 - src: app/*

@@ -131,7 +131,10 @@ class UpdatableModel(BaseModel):
 
         # Add Pydantic validation wrapper around all fields except `DiscriminatorField`s
         for field_name in field_annotations:
-            if not cls._is_entity_type_field(field_values.get(field_name)):
+            field = field_values.get(field_name)
+            if field is None:
+                continue
+            if not cls._is_entity_type_field(field):
                 cls._add_validator(field_name)
 
     @classmethod
@@ -155,9 +158,7 @@ class UpdatableModel(BaseModel):
         setattr(
             cls,
             f"_field_validator_with_verbose_name_to_avoid_name_conflict_{field_name}",
-            field_validator(field_name, mode="wrap", check_fields=False)(
-                validator_skipping_templated_str
-            ),
+            field_validator(field_name, mode="wrap")(validator_skipping_templated_str),
         )
 
     def update_from_dict(self, update_values: Dict[str, Any]):

@@ -64,14 +64,19 @@ class EntityModelBase(ABC, UpdatableModel):
     identifier: Optional[Union[Identifier | str]] = Field(
         title="Entity identifier", default=None
     )
-    _key: Optional[str] = PrivateAttr(default=None)
+    # Set by parent model in post validation. To reference it use `entity_id`.
+    _entity_id: str = PrivateAttr(default=None)
 
-    def set_key(self, value: str):
-        self._key = value
+    @property
+    def entity_id(self):
+        return self._entity_id
+
+    def set_entity_id(self, value: str):
+        self._entity_id = value
 
     def validate_identifier(self):
         """Helper that's used by ProjectDefinition validator."""
-        if not self._key and not self.identifier:
+        if not self._entity_id and not self.identifier:
             raise ValueError("Missing entity identifier")
 
     @property
@@ -80,8 +85,8 @@ class EntityModelBase(ABC, UpdatableModel):
             return FQN.from_string(self.identifier)
         if isinstance(self.identifier, Identifier):
             return FQN.from_identifier_model_v2(self.identifier)
-        if self._key:
-            return FQN.from_string(self._key)
+        if self.entity_id:
+            return FQN.from_string(self.entity_id)
 
 
 TargetType = TypeVar("TargetType")

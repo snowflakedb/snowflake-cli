@@ -210,9 +210,16 @@ def test_identifiers():
     entities = project.entities
 
     assert entities["A"].fqn.identifier == "A"
+    assert entities["A"].entity_id == "A"
+
     assert entities["B"].fqn.identifier == "foo_streamlit"
+    assert entities["B"].entity_id == "B"
+
     assert entities["C"].fqn.identifier == "schema_value.foo_app"
+    assert entities["C"].entity_id == "C"
+
     assert entities["D"].fqn.identifier == "db_value.schema_value.foo_app_2"
+    assert entities["D"].entity_id == "D"
 
 
 def test_defaults_are_applied():
