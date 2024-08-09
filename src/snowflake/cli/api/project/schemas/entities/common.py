@@ -15,9 +15,11 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Generic, List, Optional, TypeVar
+from typing import Generic, List, Optional, TypeVar, Union
 
-from pydantic import Field
+from pydantic import Field, PrivateAttr
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.identifier_model import Identifier
 from snowflake.cli.api.project.schemas.native_app.application import (
     PostDeployHook,
 )
@@ -59,6 +61,32 @@ class EntityModelBase(ABC, UpdatableModel):
         return cls.model_fields["type"].annotation.__args__[0]
 
     meta: Optional[MetaField] = Field(title="Meta fields", default=None)
+    identifier: Optional[Union[Identifier | str]] = Field(
+        title="Entity identifier", default=None
+    )
+    # Set by parent model in post validation. To reference it use `entity_id`.
+    _entity_id: str = PrivateAttr(default=None)
+
+    @property
+    def entity_id(self):
+        return self._entity_id
+
+    def set_entity_id(self, value: str):
+        self._entity_id = value
+
+    def validate_identifier(self):
+        """Helper that's used by ProjectDefinition validator."""
+        if not self._entity_id and not self.identifier:
+            raise ValueError("Missing entity identifier")
+
+    @property
+    def fqn(self) -> FQN:
+        if isinstance(self.identifier, str):
+            return FQN.from_string(self.identifier)
+        if isinstance(self.identifier, Identifier):
+            return FQN.from_identifier_model_v2(self.identifier)
+        if self.entity_id:
+            return FQN.from_string(self.entity_id)
 
 
 TargetType = TypeVar("TargetType")

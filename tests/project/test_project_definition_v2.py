@@ -46,7 +46,6 @@ from tests.testing_utils.mock_config import mock_config_key
         [
             {"entities": {"pkg": {"type": "application package"}}},
             [
-                "missing the following field: 'entities.pkg.application package.name'",
                 "missing the following field: 'entities.pkg.application package.artifacts'",
                 "missing the following field: 'entities.pkg.application package.manifest'",
             ],
@@ -56,7 +55,7 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "",
+                        "identifier": "",
                         "artifacts": [],
                         "manifest": "",
                     }
@@ -69,7 +68,7 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "",
+                        "identifier": "",
                         "artifacts": [],
                         "manifest": "",
                         "bundle_root": "",
@@ -88,7 +87,7 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "",
+                        "identifier": "",
                         "artifacts": [],
                         "manifest": "",
                         "distribution": "invalid",
@@ -101,7 +100,6 @@ from tests.testing_utils.mock_config import mock_config_key
         [
             {"entities": {"app": {"type": "application"}}},
             [
-                "Your project definition is missing the following field: 'entities.app.application.name'",
                 "Your project definition is missing the following field: 'entities.app.application.from'",
             ],
         ],
@@ -110,7 +108,7 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "app": {
                         "type": "application",
-                        "name": "",
+                        "identifier": "",
                         "from": {"target": "non_existing"},
                     }
                 }
@@ -122,13 +120,13 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "",
+                        "identifier": "",
                         "artifacts": [],
                         "manifest": "",
                     },
                     "app": {
                         "type": "application",
-                        "name": "",
+                        "identifier": "",
                         "from": {"target": "pkg"},
                     },
                 }
@@ -141,7 +139,7 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "",
+                        "identifier": "",
                         "artifacts": [],
                         "manifest": "",
                         "meta": {
@@ -152,7 +150,7 @@ from tests.testing_utils.mock_config import mock_config_key
                     },
                     "app": {
                         "type": "application",
-                        "name": "",
+                        "identifier": "",
                         "from": {"target": "pkg"},
                         "meta": {
                             "warehouse": "warehouse",
@@ -182,13 +180,55 @@ def test_project_definition_v2_schema(definition_input, expected_error):
                 raise err
 
 
+def test_identifiers():
+    definition_input = {
+        "definition_version": "2",
+        "entities": {
+            "A": {
+                "type": "application package",
+                "artifacts": [],
+                "manifest": "",
+            },
+            "B": {"type": "streamlit", "identifier": "foo_streamlit"},
+            "C": {
+                "type": "application",
+                "from": {"target": "A"},
+                "identifier": {"name": "foo_app", "schema": "schema_value"},
+            },
+            "D": {
+                "type": "application",
+                "from": {"target": "A"},
+                "identifier": {
+                    "name": "foo_app_2",
+                    "schema": "schema_value",
+                    "database": "db_value",
+                },
+            },
+        },
+    }
+    project = DefinitionV20(**definition_input)
+    entities = project.entities
+
+    assert entities["A"].fqn.identifier == "A"
+    assert entities["A"].entity_id == "A"
+
+    assert entities["B"].fqn.identifier == "foo_streamlit"
+    assert entities["B"].entity_id == "B"
+
+    assert entities["C"].fqn.identifier == "schema_value.foo_app"
+    assert entities["C"].entity_id == "C"
+
+    assert entities["D"].fqn.identifier == "db_value.schema_value.foo_app_2"
+    assert entities["D"].entity_id == "D"
+
+
 def test_defaults_are_applied():
     definition_input = {
         "definition_version": "2",
         "entities": {
             "pkg": {
                 "type": "application package",
-                "name": "",
+                "identifier": "",
                 "artifacts": [],
                 "manifest": "",
             }
@@ -206,7 +246,7 @@ def test_defaults_do_not_override_values():
         "entities": {
             "pkg": {
                 "type": "application package",
-                "name": "",
+                "identifier": "",
                 "artifacts": [],
                 "manifest": "",
                 "stage": "pkg_stage",

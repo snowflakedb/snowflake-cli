@@ -3,7 +3,7 @@ definition_version: 2
 entities:
   pkg:
     type: application package
-    name: myapp_pkg_<% ctx.env.USER %>
+    identifier: myapp_pkg_<% ctx.env.USER %>
     artifacts:
       - src: app/*
         dest: ./
@@ -14,7 +14,7 @@ entities:
         - sql_script: scripts/package_post_deploy2.sql
   app:
     type: application
-    name: myapp_<% ctx.env.USER %>
+    identifier: myapp_<% ctx.env.USER %>
     from:
       target: pkg
     meta:

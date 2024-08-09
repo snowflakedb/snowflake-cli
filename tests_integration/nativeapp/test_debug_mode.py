@@ -61,7 +61,7 @@ def set_yml_application_debug(snowflake_yml: Path, debug: Optional[bool]):
         if "app" not in pdf["entities"]:
             pdf["entities"]["app"] = {
                 "type": "application",
-                "name": "integration_<% ctx.env.USER %>",
+                "identifier": "integration_<% ctx.env.USER %>",
                 "from": {"target": "pkg"},
             }
         if debug is None and "debug" in pdf["entities"]["app"]:
