@@ -20,6 +20,7 @@
 * `snow object stage` commands are removed in favour of `snow stage`.
 * `snow snowpark init` and `snow streamlit init` commands are removed in favor of `snow init` command.
 * Removed deprecated flags from `snow snowpark` commands.
+* Default Python version for Snowpark functions and procedures was bumped to 3.10 from 3.8.
 
 ## Deprecations
   * Added deprecation warning for `native_app.package.scripts` in project definition file.

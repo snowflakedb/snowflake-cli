@@ -27,9 +27,8 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
-DEFAULT_RUNTIME = (
-    "3.8"  # TODO: Should we change this, as we plan to drop support for 3.8?
-)
+DEFAULT_RUNTIME = "3.10"
+FunctionOrProcedure = Union[FunctionSchema, ProcedureSchema]
 
 
 def check_if_replace_is_required(
