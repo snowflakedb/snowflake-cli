@@ -27,6 +27,7 @@
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command
+* Fix error handling and messaging when no artifacts provided
 
 
 # v2.7.0
