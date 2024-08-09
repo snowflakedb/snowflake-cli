@@ -302,7 +302,7 @@ def test_nativeapp_bundle_throws_error_on_no_artifacts(template_setup):
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
         result,
-        "No artifacts were found, nothing to do.",
+        "No artifacts mapping found in project definition, nothing to do.",
     )
 
 
