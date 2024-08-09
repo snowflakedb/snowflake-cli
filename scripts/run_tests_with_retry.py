@@ -8,7 +8,7 @@ from operator import itemgetter
 from pathlib import Path
 from subprocess import run
 from textwrap import dedent
-from typing import Generator, cast
+from typing import Iterable, cast
 
 import requests
 
@@ -47,25 +47,25 @@ def main():
         os.environ["FLAKE"] = "true"
         if run(pytest, check=False).returncode == 0:
             sys.exit(0)
-
         first_failed_tests = get_failed_tests(report_path)
 
-        # Then run the failed tests once more,
-        # if they fail, the failure was most likely legitimate
+        # Then run the failed tests once more
         p(f"{test_type} tests failed, re-running to detect flakes")
         del os.environ["FLAKE"]
-        if (ret := run(pytest + ["--last-failed"]).returncode) != 0:
-            p(f"{test_type} tests re-run failed")
-            sys.exit(ret)
-
-        # If they succeed, they are flaky, we should tell the user
-        p(f"{test_type} tests passed during retry, these are most likely flaky:")
+        returncode = run(pytest + ["--last-failed"]).returncode
         second_failed_tests = get_failed_tests(report_path)
-        flaky_tests = find_flaky_tests(first_failed_tests, second_failed_tests)
-        for flaky_test in sorted(flaky_tests, key=itemgetter("nodeid")):
-            p(flaky_test["nodeid"])
-            if github:
-                create_or_update_flaky_test_issue(flaky_test)
+
+        # Compare reports to see which tests failed then passed
+        if flaky_tests := find_flaky_tests(first_failed_tests, second_failed_tests):
+            p(f"{test_type} tests passed during retry, these are most likely flaky:")
+            for flaky_test in flaky_tests:
+                p(flaky_test["nodeid"])
+                if github:
+                    create_or_update_flaky_test_issue(flaky_test)
+
+        if returncode != 0:
+            p(f"{test_type} tests re-run failed")
+            sys.exit(returncode)
 
 
 def get_failed_tests(report: Path) -> dict[str, dict]:
@@ -80,10 +80,15 @@ def get_failed_tests(report: Path) -> dict[str, dict]:
 
 def find_flaky_tests(
     first_failed_tests: dict[str, dict], second_failed_tests: dict[str, dict]
-) -> Generator[dict, None, None]:
-    for nodeid, test in first_failed_tests.items():
-        if nodeid not in second_failed_tests:
-            yield test
+) -> Iterable[dict]:
+    return sorted(
+        (
+            test
+            for nodeid, test in first_failed_tests.items()
+            if nodeid not in second_failed_tests
+        ),
+        key=itemgetter("nodeid"),
+    )
 
 
 def create_or_update_flaky_test_issue(test: dict) -> None:
