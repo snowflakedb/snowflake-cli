@@ -22,7 +22,7 @@ USER_NAME = f"user_{uuid.uuid4().hex}"
 TEST_ENV = generate_user_env(USER_NAME)
 
 
-# Tests that snow app events --first N --last M exits with an error
+# Tests that snow app events with incompatible flags exits with an error
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
@@ -53,9 +53,43 @@ def test_app_events_mutually_exclusive_options(
             ["app", "events", *command],
             env=TEST_ENV,
         )
-        assert result.exit_code == 1, result.output
+        assert result.exit_code == 2, result.output
         assert (
             f"{flag_names[0]} and {flag_names[1]} cannot be used together."
+            in result.output
+        )
+
+
+# Tests that snow app events without paired flags exits with an error
+@pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    ["flag_names", "command"],
+    [
+        [
+            ["--consumer-org", "--consumer-account"],
+            ["--consumer-org", "testorg"],
+        ],
+        [
+            ["--consumer-org", "--consumer-account"],
+            ["--consumer-account", "testacc"],
+        ],
+    ],
+)
+def test_app_events_paired_options(
+    test_project, runner, project_directory, flag_names, command
+):
+    with project_directory(test_project):
+        # The integration test account doesn't have an event table set up
+        # but this test is still useful to validate the negative case
+        result = runner.invoke_with_connection(
+            ["app", "events", *command],
+            env=TEST_ENV,
+        )
+        assert result.exit_code == 2, result.output
+        assert (
+            f"{flag_names[0]} and {flag_names[1]} must be used together."
             in result.output
         )
 
