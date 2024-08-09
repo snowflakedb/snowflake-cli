@@ -668,7 +668,9 @@ def build_bundle(
         bundle_map.add(artifact)
 
     if bundle_map.is_empty():
-        raise ArtifactError("No artifacts mapping found in project definition, nothing to do.")
+        raise ArtifactError(
+            "No artifacts mapping found in project definition, nothing to do."
+        )
 
     for (absolute_src, absolute_dest) in bundle_map.all_mappings(
         absolute=True, expand_directories=False
