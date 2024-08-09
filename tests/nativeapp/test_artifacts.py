@@ -960,6 +960,7 @@ def test_bad_deploy_root(project_definition_files):
             artifacts=[],
         )
 
+
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_no_artifacts(project_definition_files):
     project_root = project_definition_files[0].parent
