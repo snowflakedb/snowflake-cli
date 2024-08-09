@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import pytest
-from pydantic import Field, ValidationError, field_validator
+from pydantic import ValidationError, field_validator
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel, context
 
 
@@ -50,7 +50,7 @@ def test_updatable_model_with_sub_class_models():
 
 def test_updatable_model_with_validators():
     class TestModel(UpdatableModel):
-        a: str = Field()
+        a: str
 
         @field_validator("a", mode="before")
         @classmethod
@@ -99,7 +99,7 @@ def test_updatable_model_with_validators():
 
 def test_updatable_model_with_plain_validator():
     class TestModel(UpdatableModel):
-        a: str = Field()
+        a: str
 
         @field_validator("a", mode="plain")
         @classmethod
@@ -130,7 +130,7 @@ def test_updatable_model_with_plain_validator():
 
 def test_updatable_model_with_int_and_templates():
     class TestModel(UpdatableModel):
-        a: int = Field()
+        a: int
 
     result = TestModel(a="123")
     assert result.a == 123
@@ -150,7 +150,7 @@ def test_updatable_model_with_int_and_templates():
 
 def test_updatable_model_with_bool_and_templates():
     class TestModel(UpdatableModel):
-        a: bool = Field()
+        a: bool
 
     result = TestModel(a="true")
     assert result.a is True
@@ -170,10 +170,10 @@ def test_updatable_model_with_bool_and_templates():
 
 def test_updatable_model_with_sub_classes_and_template_values():
     class ParentModel(UpdatableModel):
-        a: str = Field()
+        a: str
 
     class ChildModel(ParentModel):
-        b: int = Field()
+        b: int
 
     result = ChildModel(a="any_value", b="123")
     assert result.b == 123
@@ -193,7 +193,7 @@ def test_updatable_model_with_sub_classes_and_template_values():
 
 def test_updatable_model_with_sub_classes_and_template_values_and_custom_validator_in_parent():
     class ParentModel(UpdatableModel):
-        a: str = Field()
+        a: str
 
         @field_validator("a", mode="before")
         @classmethod
@@ -203,7 +203,7 @@ def test_updatable_model_with_sub_classes_and_template_values_and_custom_validat
             return value
 
     class ChildModel(ParentModel):
-        b: str = Field()
+        b: str
 
     result = ChildModel(a="expected_value", b="any_value")
     assert result.a == "expected_value"
@@ -223,10 +223,10 @@ def test_updatable_model_with_sub_classes_and_template_values_and_custom_validat
 
 def test_updatable_model_with_sub_classes_and_template_values_and_custom_validator_in_child():
     class ParentModel(UpdatableModel):
-        a: str = Field()
+        a: str
 
     class ChildModel(ParentModel):
-        b: str = Field()
+        b: str
 
         @field_validator("b", mode="before")
         @classmethod
