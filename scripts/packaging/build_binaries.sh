@@ -1,7 +1,8 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 set -o pipefail
 
 VERSION=$(hatch version)
+ENTRY_POINT="src/snowflake/cli/_app/__main__.py"
 
 hatch -e packaging run pyinstaller \
   --name=snow \
@@ -9,4 +10,4 @@ hatch -e packaging run pyinstaller \
   --clean \
   --noconfirm \
   --contents-directory=snowflake-cli-${VERSION} \
-  src/snowflake/cli/app/__main__.py
+  ${ENTRY_POINT}

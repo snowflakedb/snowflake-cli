@@ -96,7 +96,7 @@ test-cov = [
 ]
 
 [tool.hatch.envs.packaging]
-python = "3.11"
+python = "3.10"
 features = ["development", "packaging"]
 
 [tool.hatch.envs.packaging.scripts]
