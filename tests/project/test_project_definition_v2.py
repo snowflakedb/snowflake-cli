@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import pytest
+from snowflake.cli._plugins.snowpark.commands import _migrate_v1_snowpark_to_v2
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.entities import (
     ALL_ENTITIES,
@@ -21,9 +22,13 @@ from snowflake.cli.api.project.schemas.entities.entities import (
     v2_entity_model_to_entity_map,
     v2_entity_model_types_map,
 )
+from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
+    SnowparkEntityModel,
+)
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV20,
 )
+from snowflake.cli.api.project.schemas.snowpark.callable import _CallableBase
 
 from tests.testing_utils.mock_config import mock_config_key
 
@@ -175,12 +180,49 @@ from tests.testing_utils.mock_config import mock_config_key
                         "handler": "app.hello",
                         "returns": "string",
                         "signature": [{"name": "name", "type": "string"}],
-                        "runtime": "3.8",
+                        "runtime": "3.10",
                         "artifacts": "src",
                     }
                 },
             },
             None,
+        ],
+        [
+            {
+                "defaults": {"stage": "dev", "project_name": "my_project"},
+                "entities": {
+                    "procedure1": {
+                        "type": "procedure",
+                        "name": "name",
+                        "handler": "app.hello",
+                        "returns": "string",
+                        "signature": [{"name": "name", "type": "string"}],
+                        "runtime": "3.10",
+                        "artifacts": "src",
+                        "execute_as_caller": True,
+                    }
+                },
+            },
+            None,
+        ],
+        [
+            {
+                "defaults": {"stage": "dev", "project_name": "my_project"},
+                "entities": {
+                    "procedure1": {
+                        "type": "procedure",
+                        "handler": "app.hello",
+                        "returns": "string",
+                        "signature": [{"name": "name", "type": "string"}],
+                        "runtime": "3.10",
+                        "artifacts": "src",
+                        "execute_as_caller": True,
+                    }
+                },
+            },
+            [
+                "Your project definition is missing the following field: 'entities.procedure1.procedure.name'",
+            ],
         ],
         [
             {"entities": {"function1": {"type": "function", "handler": "app.hello"}}},
@@ -261,3 +303,53 @@ def test_entity_model_to_entity_map():
         entity_models.remove(entity_model_class)
     assert len(entities) == 0
     assert len(entity_models) == 0
+
+
+@pytest.mark.parametrize(
+    "project_name",
+    [
+        "snowpark_functions",
+        "snowpark_procedures",
+        "snowpark_procedures_coverage",
+        "snowpark_function_fully_qualified_name",
+    ],
+)
+def test_v1_to_v2_conversion(
+    project_directory, project_name: str
+):  # project_name: str, expected_values: Dict[str, Any]):
+
+    with project_directory(project_name) as project_dir:
+        definition_v1 = DefinitionManager(project_dir).project_definition
+        definition_v2 = _migrate_v1_snowpark_to_v2(definition_v1)
+        assert definition_v2.definition_version == "2"
+        assert (
+            definition_v1.snowpark.project_name == definition_v2.defaults.project_name
+        )
+        assert len(definition_v1.snowpark.procedures) == len(
+            definition_v2.get_entities_by_type("procedure")
+        )
+        assert len(definition_v1.snowpark.functions) == len(
+            definition_v2.get_entities_by_type("function")
+        )
+
+        for v1_procedure in definition_v1.snowpark.procedures:
+            v2_procedure = definition_v2.entities.get(v1_procedure.name)
+            assert v2_procedure
+            assert v2_procedure.artifacts == definition_v1.snowpark.src
+            assert _compare_entity(v1_procedure, v2_procedure)
+
+        for v1_function in definition_v1.snowpark.functions:
+            v2_function = definition_v2.entities.get(v1_function.name)
+            assert v2_function
+            assert v2_function.artifacts == definition_v1.snowpark.src
+            assert _compare_entity(v1_function, v2_function)
+
+
+def _compare_entity(v1_entity: _CallableBase, v2_entity: SnowparkEntityModel) -> bool:
+    return (
+        v1_entity.name == v2_entity.name
+        and v1_entity.handler == v2_entity.handler
+        and v1_entity.returns == v2_entity.returns
+        and v1_entity.signature == v2_entity.signature
+        and v1_entity.runtime == v2_entity.runtime
+    )

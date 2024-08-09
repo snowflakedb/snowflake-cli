@@ -6,8 +6,16 @@ class SnowparkEntity(EntityBase):
 
 
 class FunctionEntity(SnowparkEntity):
+    """
+    A single UDF
+    """
+
     pass
 
 
 class ProcedureEntity(SnowparkEntity):
+    """
+    A stored procedure
+    """
+
     pass
