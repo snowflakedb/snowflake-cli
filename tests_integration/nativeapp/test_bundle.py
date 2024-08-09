@@ -284,6 +284,7 @@ def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup)
         "Multiple file or directories were mapped to one output destination.",
     )
 
+
 # Tests handling of no artifacts
 @pytest.mark.integration
 def test_nativeapp_bundle_throws_error_on_no_artifacts(template_setup):
