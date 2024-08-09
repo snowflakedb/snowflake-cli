@@ -24,32 +24,32 @@ from unittest.mock import call
 
 import pytest
 from click import ClickException
-from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
-from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
-from snowflake.cli.plugins.nativeapp.constants import (
+from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
+from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     NAME_COL,
     SPECIAL_COMMENT,
     SPECIAL_COMMENT_OLD,
 )
-from snowflake.cli.plugins.nativeapp.exceptions import (
+from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
     NoEventTableForAccount,
     SetupScriptFailedValidation,
     UnexpectedOwnerError,
 )
-from snowflake.cli.plugins.nativeapp.manager import (
+from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
     _get_stage_paths_to_sync,
     ensure_correct_owner,
 )
-from snowflake.cli.plugins.stage.diff import (
+from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePath,
 )
+from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -589,9 +589,9 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
 
 # With connection warehouse, with PDF warehouse
 # Without connection warehouse, with PDF warehouse
-@mock.patch("snowflake.cli.plugins.connection.util.get_context")
-@mock.patch("snowflake.cli.plugins.connection.util.get_account")
-@mock.patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
+@mock.patch("snowflake.cli._plugins.connection.util.get_context")
+@mock.patch("snowflake.cli._plugins.connection.util.get_account")
+@mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
@@ -654,9 +654,9 @@ def test_get_snowsight_url_with_pdf_warehouse(
 
 # With connection warehouse, without PDF warehouse
 # Without connection warehouse, without PDF warehouse
-@mock.patch("snowflake.cli.plugins.connection.util.get_context")
-@mock.patch("snowflake.cli.plugins.connection.util.get_account")
-@mock.patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
+@mock.patch("snowflake.cli._plugins.connection.util.get_context")
+@mock.patch("snowflake.cli._plugins.connection.util.get_account")
+@mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
@@ -1638,3 +1638,61 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
         pass
     else:
         pytest.fail("stream_events didn't end when receiving a KeyboardInterrupt")
+
+
+@mock.patch.object(NativeAppManager, "validate")
+@mock.patch.object(NativeAppManager, "execute_package_post_deploy_hooks")
+@mock.patch.object(NativeAppManager, "sync_deploy_root_with_stage")
+@mock.patch.object(NativeAppManager, "_apply_package_scripts")
+@mock.patch.object(NativeAppManager, "create_app_package")
+@mock.patch.object(NativeAppManager, "use_role")
+@mock.patch.object(NativeAppManager, "use_package_warehouse")
+def test_deploy_with_package_post_deploy_hook(
+    mock_use_package_warehouse,
+    mock_use_role,
+    mock_create_app_package,
+    mock_apply_package_scripts,
+    mock_sync_deploy_root_with_stage,
+    mock_execute_package_post_deploy_hooks,
+    mock_validate,
+    temp_dir,
+):
+    # Setup
+    mock_diff_result = DiffResult(different=[StagePath("setup.sql")])
+    mock_sync_deploy_root_with_stage.return_value = mock_diff_result
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    # Create NativeAppManager instance
+    manager = _get_na_manager(temp_dir)
+
+    mock_bundle_map = mock.Mock(spec=BundleMap)
+    # Test with default parameters
+    result = manager.deploy(
+        bundle_map=mock_bundle_map,
+        prune=True,
+        recursive=True,
+    )
+
+    # Assertions
+    mock_create_app_package.assert_called_once()
+    mock_use_package_warehouse.assert_called_once()
+    mock_use_role.assert_called_once_with(manager.package_role)
+    mock_apply_package_scripts.assert_called_once()
+    mock_sync_deploy_root_with_stage.assert_called_once_with(
+        bundle_map=mock_bundle_map,
+        role=manager.package_role,
+        prune=True,
+        recursive=True,
+        stage_fqn=manager.stage_fqn,
+        local_paths_to_sync=None,
+        print_diff=True,
+    )
+    mock_execute_package_post_deploy_hooks.assert_called_once()
+    mock_validate.assert_called_once_with(use_scratch_stage=False)
+    assert result == mock_diff_result

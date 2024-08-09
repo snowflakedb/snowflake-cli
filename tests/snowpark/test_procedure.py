@@ -43,8 +43,8 @@ def test_deploy_function_no_procedure(runner, project_directory):
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_deploy_procedure(
     mock_om_show,
     mock_om_describe,
@@ -84,7 +84,7 @@ def test_deploy_procedure(
             copy grants
             returns string
             language python
-            runtime_version=3.8
+            runtime_version=3.10
             imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
             handler='hello'
             packages=()
@@ -106,8 +106,8 @@ def test_deploy_procedure(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_deploy_procedure_with_external_access(
     mock_om_show,
     mock_om_describe,
@@ -154,7 +154,7 @@ def test_deploy_procedure_with_external_access(
             copy grants
             returns string
             language python
-            runtime_version=3.8
+            runtime_version=3.10
             imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
             handler='app.hello'
             packages=()
@@ -166,8 +166,8 @@ def test_deploy_procedure_with_external_access(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_deploy_procedure_secrets_without_external_access(
     mock_om_show,
     mock_om_describe,
@@ -199,8 +199,8 @@ def test_deploy_procedure_secrets_without_external_access(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_deploy_procedure_fails_if_integration_does_not_exists(
     mock_om_show,
     mock_om_describe,
@@ -231,11 +231,11 @@ def test_deploy_procedure_fails_if_integration_does_not_exists(
 
 
 @mock.patch(
-    "snowflake.cli.plugins.snowpark.commands._check_if_all_defined_integrations_exists"
+    "snowflake.cli._plugins.snowpark.commands._check_if_all_defined_integrations_exists"
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_deploy_procedure_fails_if_object_exists_and_no_replace(
     mock_om_show,
     mock_om_describe,
@@ -266,8 +266,8 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_deploy_procedure_replace_nothing_to_update(
     mock_om_show,
     mock_om_describe,
@@ -321,8 +321,8 @@ def test_deploy_procedure_replace_nothing_to_update(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_deploy_procedure_replace_updates_single_object(
     mock_om_show,
     mock_om_describe,
@@ -374,8 +374,8 @@ def test_deploy_procedure_replace_updates_single_object(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_deploy_procedure_replace_creates_missing_object(
     mock_om_show,
     mock_om_describe,
@@ -419,8 +419,8 @@ def test_deploy_procedure_replace_creates_missing_object(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
-@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_deploy_procedure_fully_qualified_name(
     mock_om_show,
     mock_om_describe,

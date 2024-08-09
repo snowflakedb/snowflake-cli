@@ -215,7 +215,7 @@ class _ConnectionContext:
         }
 
     def _build_connection(self):
-        from snowflake.cli.app.snow_connector import connect_to_snowflake
+        from snowflake.cli._app.snow_connector import connect_to_snowflake
 
         # Ignore warnings about bad owner or permissions on Windows
         # Telemetry omit our warning filter from config.py

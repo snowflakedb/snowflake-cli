@@ -20,15 +20,22 @@
 * `snow object stage` commands are removed in favour of `snow stage`.
 * `snow snowpark init` and `snow streamlit init` commands are removed in favor of `snow init` command.
 * Removed deprecated flags from `snow snowpark` commands.
+* Default Python version for Snowpark functions and procedures was bumped to 3.10 from 3.8.
 
 ## Deprecations
+  * Added deprecation warning for `native_app.package.scripts` in project definition file.
 
 ## New additions
+* Added support for `native_app.package.post_deploy` scripts in project definition file.
+  * These scripts will execute whenever a Native App Package is created or updated.
+  * Currently only supports SQL scripts: `post_deploy: [{sql_script: script.sql}]`
+* Added `snow spcs service execute-job` command, which supports creating and executing a job service in the current schema.
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command
+* Added check for the correctness of token file and private key paths when addind a connection
+* Fix the typo in spcs service name argument description. It is the identifier of the **service** instead of the **service pool**.
 * Fix error handling and messaging when no artifacts provided
-
 
 # v2.7.0
 
