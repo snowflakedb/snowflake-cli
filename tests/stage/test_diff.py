@@ -31,11 +31,11 @@ from snowflake.cli._plugins.stage.diff import (
     enumerate_files,
     get_stage_subpath,
     preserve_from_diff,
-    print_diff_to_console,
     put_files_on_stage,
     sync_local_diff_with_stage,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )

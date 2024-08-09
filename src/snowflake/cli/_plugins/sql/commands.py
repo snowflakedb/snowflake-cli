@@ -21,10 +21,10 @@ import typer
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
-    parse_key_value_variables,
     variables_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
 
 # simple Typer with defaults because it won't become a command group as it contains only one command

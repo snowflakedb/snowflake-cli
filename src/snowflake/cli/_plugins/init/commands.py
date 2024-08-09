@@ -22,10 +22,10 @@ import yaml
 from click import ClickException
 from snowflake.cli.api.commands.flags import (
     NoInteractiveOption,
-    parse_key_value_variables,
     variables_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.output.types import (
