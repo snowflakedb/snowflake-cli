@@ -155,7 +155,7 @@ def streamlit_deploy(
 
     # Get first streamlit
     streamlit: StreamlitEntityModel = streamlits[list(streamlits)[0]]
-    streamlit_id = FQN.from_identifier_model(streamlit).using_context()
+    streamlit_id = streamlit.fqn.using_context()
 
     url = StreamlitManager().deploy(
         streamlit_id=streamlit_id,
@@ -200,14 +200,18 @@ def _migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
     if pd.streamlit.additional_source_files:
         artifacts.extend(pd.streamlit.additional_source_files)
 
+    identifier = {"name": pd.streamlit.name}
+    if pd.streamlit.schema_name:
+        identifier["schema"] = pd.streamlit.schema_name
+    if pd.streamlit.database:
+        identifier["database"] = pd.streamlit.database
+
     data = {
         "definition_version": "2",
         "entities": {
-            "streamlit_app": {
+            pd.streamlit.name: {
                 "type": "streamlit",
-                "name": pd.streamlit.name,
-                "schema": pd.streamlit.schema_name,
-                "database": pd.streamlit.database,
+                "identifier": identifier,
                 "title": pd.streamlit.title,
                 "query_warehouse": pd.streamlit.query_warehouse,
                 "main_file": str(pd.streamlit.main_file),

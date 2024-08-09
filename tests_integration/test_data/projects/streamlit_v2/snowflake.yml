@@ -2,7 +2,8 @@ definition_version: 2
 entities:
   my_streamlit:
     type: "streamlit"
-    name: test_streamlit_deploy_snowcli
+    identifier:
+      name: test_streamlit_deploy_snowcli
     title: "My Fancy Streamlit"
     stage: streamlit
     query_warehouse: xsmall

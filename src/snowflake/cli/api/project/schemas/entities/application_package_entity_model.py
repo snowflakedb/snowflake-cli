@@ -30,9 +30,6 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 
 class ApplicationPackageEntityModel(EntityModelBase):
     type: Literal["application package"] = DiscriminatorField()  # noqa: A003
-    name: str = Field(
-        title="Name of the application package created when this entity is deployed"
-    )
     artifacts: List[Union[PathMapping, str]] = Field(
         title="List of paths or file source/destination pairs to add to the deploy root",
     )
