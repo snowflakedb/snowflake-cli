@@ -168,9 +168,10 @@ def test_streamlit_deploy_experimental_twice(
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "pdf_version, param_path", [("1", "streamlit"), ("2", "entities.my_streamlit")]
+    "pdf_version, param_path",
+    [("1", "streamlit"), ("2", "entities.my_streamlit.identifier")],
 )
-def test_fully_qualified_name_v1(
+def test_fully_qualified_name(
     alter_snowflake_yml,
     test_database,
     project_directory,
@@ -191,7 +192,7 @@ def test_fully_qualified_name_v1(
     # test fully qualified name as name
     with project_directory(f"streamlit_v{pdf_version}") as tmp_dir:
         streamlit_name = "streamlit_fqn"
-        snowflake_yml = tmp_dir / "snowflake.yml"
+        snowflake_yml: Path = tmp_dir / "snowflake.yml"
 
         # FQN with "default" values
         alter_snowflake_yml(
@@ -199,6 +200,7 @@ def test_fully_qualified_name_v1(
             parameter_path=f"{param_path}.name",
             value=f"{database}.{default_schema}.{streamlit_name}",
         )
+
         result = runner.invoke_with_connection_json(["streamlit", "deploy"])
         assert result.exit_code == 0
         assert result.json == {

@@ -277,7 +277,7 @@ class UdfSprocIdentifier:
                 types.append(arg.arg_type)
                 defaults.append(arg.default)
 
-        identifier = FQN.from_identifier_model(udf_sproc).using_context()
+        identifier = FQN.from_identifier_model_v1(udf_sproc).using_context()
         return cls(identifier, names, types, defaults)
 
 

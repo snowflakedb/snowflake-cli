@@ -26,7 +26,7 @@ MOCK_SNOWFLAKE_YML_FILE = dedent(
     entities:
         pkg:
             type: application package
-            name: myapp_pkg
+            identifier: myapp_pkg
             artifacts:
                 - setup.sql
                 - app/README.md
@@ -35,7 +35,7 @@ MOCK_SNOWFLAKE_YML_FILE = dedent(
             manifest: app/manifest.yml
         app:
             type: application
-            name: myapp
+            identifier: myapp
             from:
                 target: pkg
     """

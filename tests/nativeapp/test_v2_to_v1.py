@@ -41,13 +41,13 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "pkg1": {
                         "type": "application package",
-                        "name": "pkg",
+                        "identifier": "pkg",
                         "artifacts": [],
                         "manifest": "",
                     },
                     "pkg2": {
                         "type": "application package",
-                        "name": "pkg",
+                        "identifier": "pkg",
                         "artifacts": [],
                         "manifest": "",
                     },
@@ -62,18 +62,18 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "pkg",
+                        "identifier": "pkg",
                         "artifacts": [],
                         "manifest": "",
                     },
                     "app1": {
                         "type": "application",
-                        "name": "pkg",
+                        "identifier": "pkg",
                         "from": {"target": "pkg"},
                     },
                     "app2": {
                         "type": "application",
-                        "name": "pkg",
+                        "identifier": "pkg",
                         "from": {"target": "pkg"},
                     },
                 },
@@ -87,7 +87,7 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "pkg_name",
+                        "identifier": "pkg_name",
                         "artifacts": [{"src": "app/*", "dest": "./"}],
                         "manifest": "",
                         "stage": "app.stage",
@@ -107,7 +107,7 @@ from tests.testing_utils.mock_config import mock_config_key
                     },
                     "app": {
                         "type": "application",
-                        "name": "app_name",
+                        "identifier": "app_name",
                         "from": {"target": "pkg"},
                         "debug": True,
                         "meta": {
@@ -186,14 +186,14 @@ def test_decorator_error_when_no_project_exists():
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "package_name",
+                        "identifier": "package_name",
                         "artifacts": [{"src": "app/*", "dest": "./"}],
                         "manifest": "",
                         "stage": "app.stage",
                     },
                     "app": {
                         "type": "application",
-                        "name": "application_name",
+                        "identifier": "application_name",
                         "from": {"target": "pkg"},
                         "meta": {
                             "role": "app_role",
@@ -214,7 +214,7 @@ def test_decorator_error_when_no_project_exists():
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "package_name",
+                        "identifier": "package_name",
                         "artifacts": [{"src": "app/*", "dest": "./"}],
                         "manifest": "",
                         "stage": "app.stage",
@@ -230,7 +230,7 @@ def test_decorator_error_when_no_project_exists():
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "appname_pkg_username",
+                        "identifier": "appname_pkg_username",
                         "artifacts": [{"src": "app/*", "dest": "./"}],
                         "manifest": "",
                         "stage": "app.stage",
