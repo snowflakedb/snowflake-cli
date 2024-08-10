@@ -20,6 +20,7 @@ from snowflake.cli.api.entities.application_entity import ApplicationEntity
 from snowflake.cli.api.entities.application_package_entity import (
     ApplicationPackageEntity,
 )
+from snowflake.cli.api.entities.snowpark_entity import FunctionEntity, ProcedureEntity
 from snowflake.cli.api.entities.streamlit_entity import StreamlitEntity
 from snowflake.cli.api.project.schemas.entities.application_entity_model import (
     ApplicationEntityModel,
@@ -27,13 +28,27 @@ from snowflake.cli.api.project.schemas.entities.application_entity_model import 
 from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
     ApplicationPackageEntityModel,
 )
+from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
+    FunctionEntityModel,
+    ProcedureEntityModel,
+)
 from snowflake.cli.api.project.schemas.entities.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 
-Entity = Union[ApplicationEntity, ApplicationPackageEntity, StreamlitEntity]
+Entity = Union[
+    ApplicationEntity,
+    ApplicationPackageEntity,
+    StreamlitEntity,
+    ProcedureEntity,
+    FunctionEntity,
+]
 EntityModel = Union[
-    ApplicationEntityModel, ApplicationPackageEntityModel, StreamlitEntityModel
+    ApplicationEntityModel,
+    ApplicationPackageEntityModel,
+    StreamlitEntityModel,
+    FunctionEntityModel,
+    ProcedureEntityModel,
 ]
 
 ALL_ENTITIES: List[Entity] = [*get_args(Entity)]
@@ -44,4 +59,6 @@ v2_entity_model_to_entity_map: Dict[EntityModel, Entity] = {
     ApplicationEntityModel: ApplicationEntity,
     ApplicationPackageEntityModel: ApplicationPackageEntity,
     StreamlitEntityModel: StreamlitEntity,
+    FunctionEntityModel: FunctionEntity,
+    ProcedureEntityModel: ProcedureEntity,
 }
