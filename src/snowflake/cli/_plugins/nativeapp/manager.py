@@ -890,7 +890,7 @@ class NativeAppManager(SqlExecutionMixin):
                 last=last,
             )
             yield from events  # Yield the initial batch of events
-            last_event_time = events[-1]["TIMESTAMP"]
+            last_event_time = events[-1]["TIMESTAMP"] if events else None
 
             while True:  # Then infinite poll for new events
                 time.sleep(interval_seconds)
