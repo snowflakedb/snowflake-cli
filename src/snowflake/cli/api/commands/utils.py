@@ -6,8 +6,6 @@ from snowflake.cli.api.commands.common import Variable
 
 def parse_key_value_variables(variables: Optional[List[str]]) -> List[Variable]:
     """Util for parsing key=value input. Useful for commands accepting multiple input options."""
-    if not variables:
-        return []
     result: List[Variable] = []
     if not variables:
         return result

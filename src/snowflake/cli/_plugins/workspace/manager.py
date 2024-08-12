@@ -34,9 +34,9 @@ class WorkspaceManager:
         """
         if entity_id in self._entities_cache:
             return self._entities_cache[entity_id]
-        if entity_id not in self._project_definition.entities:
+        entity_model = self._project_definition.entities.get(entity_id, None)
+        if entity_model is None:
             raise ValueError(f"No such entity ID: {entity_id}")
-        entity_model = self._project_definition.entities[entity_id]
         entity_model_cls = entity_model.__class__
         entity_cls = v2_entity_model_to_entity_map[entity_model_cls]
         self._entities_cache[entity_id] = entity_cls(entity_model)
