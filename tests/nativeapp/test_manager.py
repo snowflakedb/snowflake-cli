@@ -1586,11 +1586,15 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
     )
 
     events = [
+        [],
         [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")] * 10,
         [dict(TIMESTAMP=datetime(2024, 1, 2), VALUE="test")] * 10,
     ]
+    last = 20
     side_effects, expected = mock_execute_helper(
         [
+            # Initial call
+            # Returns no events
             (
                 mock_cursor(events[0], []),
                 mock.call(
@@ -1605,7 +1609,7 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
                             
                             
                             order by timestamp desc
-                            limit {len(events[0])}
+                            limit {last}
                         ) order by timestamp asc
                         
                         """
@@ -1613,8 +1617,35 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
                     cursor_class=DictCursor,
                 ),
             ),
+            # Second call
+            # No where clause on the timestamp since previous call didn't return any events
+            # Returns some events
             (
                 mock_cursor(events[1], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        select * from (
+                            select timestamp, value::varchar value
+                            from db.schema.event_table
+                            where (resource_attributes:"snow.database.name" = 'MYAPP')
+                            
+                            
+                            
+                            
+                            order by timestamp desc
+                            
+                        ) order by timestamp asc
+                        
+                        """
+                    ),
+                    cursor_class=DictCursor,
+                ),
+            ),
+            # Third call
+            # Where clause on the timestamp >= the last timestamp of the previous call
+            (
+                mock_cursor(events[2], []),
                 mock.call(
                     dedent(
                         """\
@@ -1640,16 +1671,10 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
     mock_execute.side_effect = side_effects
 
     native_app_manager = _get_na_manager()
-    stream = native_app_manager.stream_events(interval_seconds=0, last=len(events[0]))
-    for i in range(len(events[0])):
-        # Exhaust the initial set of events
-        assert next(stream) == events[0][i]
-    assert mock_execute.call_count == 1
-
-    for i in range(len(events[1])):
-        # Then it'll make another query which returns the second set of events
-        assert next(stream) == events[1][i]
-    assert mock_execute.call_count == 2
+    stream = native_app_manager.stream_events(interval_seconds=0, last=last)
+    for call in events:
+        for event in call:
+            assert next(stream) == event
     assert mock_execute.mock_calls == expected
 
     try:
