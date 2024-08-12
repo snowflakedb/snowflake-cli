@@ -1387,6 +1387,21 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     ],
 )
 @pytest.mark.parametrize(
+    ["consumer_org", "consumer_account", "expected_app_clause"],
+    [
+        ("", "", f"resource_attributes:\"snow.database.name\" = 'MYAPP'"),
+        (
+            "testorg",
+            "testacc",
+            (
+                f"resource_attributes:\"snow.application.package.name\" = 'APP_PKG' "
+                f"and resource_attributes:\"snow.application.consumer.organization\" = 'TESTORG' "
+                f"and resource_attributes:\"snow.application.consumer.name\" = 'TESTACC'"
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize(
     ["first", "expected_first_clause"],
     [
         (-1, ""),
@@ -1419,6 +1434,9 @@ def test_get_events(
     expected_until_clause,
     types,
     expected_types_clause,
+    consumer_org,
+    consumer_account,
+    expected_app_clause,
     scopes,
     expected_scopes_clause,
     first,
@@ -1443,7 +1461,7 @@ def test_get_events(
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
-                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            where ({expected_app_clause})
                             {expected_since_clause}
                             {expected_until_clause}
                             {expected_types_clause}
@@ -1468,6 +1486,8 @@ def test_get_events(
             until=until,
             record_types=types,
             scopes=scopes,
+            consumer_org=consumer_org,
+            consumer_account=consumer_account,
             first=first,
             last=last,
         )
@@ -1512,7 +1532,7 @@ def test_get_events_quoted_app_name(
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
-                            where resource_attributes:"snow.database.name" = 'My Application'
+                            where (resource_attributes:"snow.database.name" = 'My Application')
                         
                         
                         
@@ -1566,11 +1586,15 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
     )
 
     events = [
+        [],
         [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")] * 10,
         [dict(TIMESTAMP=datetime(2024, 1, 2), VALUE="test")] * 10,
     ]
+    last = 20
     side_effects, expected = mock_execute_helper(
         [
+            # Initial call
+            # Returns no events
             (
                 mock_cursor(events[0], []),
                 mock.call(
@@ -1579,13 +1603,13 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
-                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            where (resource_attributes:"snow.database.name" = 'MYAPP')
                             
                             
                             
                             
                             order by timestamp desc
-                            limit {len(events[0])}
+                            limit {last}
                         ) order by timestamp asc
                         
                         """
@@ -1593,15 +1617,42 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
                     cursor_class=DictCursor,
                 ),
             ),
+            # Second call
+            # No where clause on the timestamp since previous call didn't return any events
+            # Returns some events
             (
                 mock_cursor(events[1], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        select * from (
+                            select timestamp, value::varchar value
+                            from db.schema.event_table
+                            where (resource_attributes:"snow.database.name" = 'MYAPP')
+                            
+                            
+                            
+                            
+                            order by timestamp desc
+                            
+                        ) order by timestamp asc
+                        
+                        """
+                    ),
+                    cursor_class=DictCursor,
+                ),
+            ),
+            # Third call
+            # Where clause on the timestamp >= the last timestamp of the previous call
+            (
+                mock_cursor(events[2], []),
                 mock.call(
                     dedent(
                         """\
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
-                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            where (resource_attributes:"snow.database.name" = 'MYAPP')
                             and timestamp >= '2024-01-01 00:00:00'
                             
                             
@@ -1620,16 +1671,10 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
     mock_execute.side_effect = side_effects
 
     native_app_manager = _get_na_manager()
-    stream = native_app_manager.stream_events(interval_seconds=0, last=len(events[0]))
-    for i in range(len(events[0])):
-        # Exhaust the initial set of events
-        assert next(stream) == events[0][i]
-    assert mock_execute.call_count == 1
-
-    for i in range(len(events[1])):
-        # Then it'll make another query which returns the second set of events
-        assert next(stream) == events[1][i]
-    assert mock_execute.call_count == 2
+    stream = native_app_manager.stream_events(interval_seconds=0, last=last)
+    for call in events:
+        for event in call:
+            assert next(stream) == event
     assert mock_execute.mock_calls == expected
 
     try:

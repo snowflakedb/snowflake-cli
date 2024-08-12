@@ -42,6 +42,8 @@ from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
 
+AnnotatedEntity = Annotated[EntityModel, Field(discriminator="type")]
+
 
 @dataclass
 class ProjectProperties:
@@ -111,9 +113,7 @@ class DefinitionV11(DefinitionV10):
 
 
 class DefinitionV20(_ProjectDefinitionBase):
-    entities: Dict[str, Annotated[EntityModel, Field(discriminator="type")]] = Field(
-        title="Entity definitions."
-    )
+    entities: Dict[str, AnnotatedEntity] = Field(title="Entity definitions.")
 
     @model_validator(mode="before")
     @classmethod
@@ -137,18 +137,38 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     @field_validator("entities", mode="after")
     @classmethod
-    def validate_entities(
+    def validate_entities_identifiers(
         cls, entities: Dict[str, EntityModel]
     ) -> Dict[str, EntityModel]:
         for key, entity in entities.items():
-            # TODO Automatically detect TargetFields to validate
-            if entity.type == ApplicationEntityModel.get_type():
-                if isinstance(entity.from_, TargetField):
-                    target_key = entity.from_.target
-                    target_object = entity.from_
-                    target_type = target_object.get_type()
-                    cls._validate_target_field(target_key, target_type, entities)
+            entity.set_entity_id(key)
+            entity.validate_identifier()
         return entities
+
+    @field_validator("entities", mode="after")
+    @classmethod
+    def validate_entities(
+        cls, entities: Dict[str, AnnotatedEntity]
+    ) -> Dict[str, AnnotatedEntity]:
+        for key, entity in entities.items():
+            # TODO Automatically detect TargetFields to validate
+            if isinstance(entity, list):
+                for e in entity:
+                    cls._validate_single_entity(e, entities)
+            else:
+                cls._validate_single_entity(entity, entities)
+        return entities
+
+    @classmethod
+    def _validate_single_entity(
+        cls, entity: EntityModel, entities: Dict[str, AnnotatedEntity]
+    ):
+        if entity.type == ApplicationEntityModel.get_type():
+            if isinstance(entity.from_, TargetField):
+                target_key = entity.from_.target
+                target_object = entity.from_
+                target_type = target_object.get_type()
+                cls._validate_target_field(target_key, target_type, entities)
 
     @classmethod
     def _validate_target_field(

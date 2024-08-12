@@ -15,23 +15,19 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set
 
 from snowflake.cli._plugins.snowpark.models import Requirement
 from snowflake.cli._plugins.snowpark.package_utils import (
     generate_deploy_stage_name,
 )
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.entities.snowpark_entity import SnowparkEntity
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.schemas.snowpark.callable import (
-    FunctionSchema,
-    ProcedureSchema,
-)
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
 DEFAULT_RUNTIME = "3.10"
-FunctionOrProcedure = Union[FunctionSchema, ProcedureSchema]
 
 
 def check_if_replace_is_required(
@@ -271,7 +267,7 @@ class UdfSprocIdentifier:
         return self._identifier_from_signature(self._full_signature(), for_sql=True)
 
     @classmethod
-    def from_definition(cls, udf_sproc: FunctionOrProcedure):
+    def from_definition(cls, udf_sproc: SnowparkEntity):
         names = []
         types = []
         defaults = []
@@ -281,7 +277,7 @@ class UdfSprocIdentifier:
                 types.append(arg.arg_type)
                 defaults.append(arg.default)
 
-        identifier = FQN.from_identifier_model(udf_sproc).using_context()
+        identifier = FQN.from_identifier_model_v1(udf_sproc).using_context()
         return cls(identifier, names, types, defaults)
 
 
