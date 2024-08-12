@@ -835,3 +835,101 @@ def test_defaults_native_app_pkg_name(
     env = project_context.get("ctx", {}).get("env", {})
     assert env.get("app_reference") == expected_app_name
     assert env.get("pkg_reference") == expected_pkg_name
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        {
+            "definition_version": "1.1",
+            "native_app": {
+                "name": "myapp",
+                "artifacts": [],
+            },
+        },
+        {
+            "definition_version": "2",
+            "entities": {
+                "myapp": {
+                    "type": "application",
+                    "identifier": "myapp_<% ctx.env.USER %>",
+                    "from": {"target": "mypackage"},
+                },
+                "mypackage": {
+                    "type": "application package",
+                    "identifier": "myapp_pkg_<% ctx.env.USER %>",
+                    "manifest": "manifest.xml",
+                    "artifacts": [],
+                },
+            },
+        },
+    ],
+    ids=["v1.1", "v2"],
+)
+@mock.patch.dict(
+    os.environ,
+    {"USER": "username", "SNOWFLAKE_CLI_TEST_RESOURCE_SUFFIX": "hehe"},
+    clear=True,
+)
+def test_identifier_suffixing(definition):
+    project_properties = render_definition_template(definition, {})
+    project_definition = project_properties.project_definition
+    if definition["definition_version"] == "1.1":
+        # v1
+        app = project_definition.native_app.application.name
+        package = project_definition.native_app.package.name
+    else:
+        # v2+
+        app = project_definition.entities["myapp"].identifier
+        package = project_definition.entities["mypackage"].identifier
+    assert app == "myapp_usernamehehe"
+    assert package == "myapp_pkg_usernamehehe"
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        {
+            "definition_version": "1.1",
+            "native_app": {
+                "name": "my@app",
+                "artifacts": [],
+            },
+        },
+        {
+            "definition_version": "2",
+            "entities": {
+                "myapp": {
+                    "type": "application",
+                    "identifier": "my@app_<% ctx.env.USER %>",
+                    "from": {"target": "mypackage"},
+                },
+                "mypackage": {
+                    "type": "application package",
+                    "identifier": "my@app_pkg_<% ctx.env.USER %>",
+                    "manifest": "manifest.xml",
+                    "artifacts": [],
+                },
+            },
+        },
+    ],
+    ids=["v1.1", "v2"],
+)
+@mock.patch.dict(
+    os.environ,
+    {"USER": "username", "SNOWFLAKE_CLI_TEST_RESOURCE_SUFFIX": "hehe!"},
+    clear=True,
+)
+def test_identifier_suffixing_quoted(definition):
+    project_properties = render_definition_template(definition, {})
+    project_definition = project_properties.project_definition
+    if definition["definition_version"] == "1.1":
+        # v1
+        app = project_definition.native_app.application.name
+        package = project_definition.native_app.package.name
+    else:
+        # v2+
+        app = project_definition.entities["myapp"].identifier
+        package = project_definition.entities["mypackage"].identifier
+    assert app == '"my@app_usernamehehe!"'
+    assert package == '"my@app_pkg_usernamehehe!"'

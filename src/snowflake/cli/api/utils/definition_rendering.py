@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from typing import Any, Optional
 
 from jinja2 import Environment, TemplateSyntaxError, nodes
@@ -369,7 +370,17 @@ def render_definition_template(
     )
 
     project_definition = build_project_definition(**definition)
-    project_context[CONTEXT_KEY] = definition
+
+    # Dump the model instead of using "definition" since model
+    # validators can change field values
+    project_context[CONTEXT_KEY] = json.loads(
+        project_definition.model_dump_json(
+            exclude_none=True,
+            warnings=False,
+            by_alias=True,
+            round_trip=True,
+        )
+    )
     # Use `ProjectEnvironment` in project context in order to
     # handle env variables overrides from OS env and from CLI arguments.
     project_context[CONTEXT_KEY]["env"] = ProjectEnvironment(

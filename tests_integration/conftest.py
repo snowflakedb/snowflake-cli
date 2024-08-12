@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 import pytest
 import yaml
@@ -32,6 +33,7 @@ from snowflake.cli._app.cli_app import app_factory
 from typer import Typer
 from typer.testing import CliRunner
 
+from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.conftest import clean_logging_handlers_fixture  # noqa: F401
 from tests.testing_utils.fixtures import (
     alter_snowflake_yml,  # noqa: F401
@@ -83,13 +85,16 @@ def test_root_path():
 
 
 class SnowCLIRunner(CliRunner):
-    def __init__(self, app: Typer, test_config_provider: TestConfigProvider):
+    def __init__(
+        self, app: Typer, test_config_provider: TestConfigProvider, resource_suffix: str
+    ):
         super().__init__()
         self.app = app
         self._test_config_provider = test_config_provider
         self._test_config_path = self._test_config_provider.get_config_path(
             DEFAULT_TEST_CONFIG
         )
+        self._resource_suffix = resource_suffix
 
     def use_config(self, config_file_name: str) -> None:
         self._test_config_path = self._test_config_provider.get_config_path(
@@ -100,7 +105,25 @@ class SnowCLIRunner(CliRunner):
     def invoke(self, *a, **kw):
         if "catch_exceptions" not in kw:
             kw.update(catch_exceptions=False)
+        kw = self._with_resource_suffix(kw)
         return super().invoke(self.app, *a, **kw)
+
+    def _with_resource_suffix(self, kw) -> dict:
+        """
+        Set the resource suffix env var and return new kwargs.
+
+        The CLI automatically appends the value of this env var to some
+        created resource identifiers, let's use this behaviour to add a unique
+        suffix to resources used in tests to allow us to run simultaneous instances.
+        """
+        env = kw.get("env", {})
+        return {
+            **kw,
+            "env": {
+                **env,
+                TEST_RESOURCE_SUFFIX_VAR: self._resource_suffix,
+            },
+        }
 
     def invoke_with_config(self, args, **kwargs) -> CommandResult:
         result = self.invoke(
@@ -136,9 +159,9 @@ class SnowCLIRunner(CliRunner):
 
 
 @pytest.fixture
-def runner(test_snowcli_config_provider):
+def runner(test_snowcli_config_provider, resource_suffix):
     app = app_factory()
-    yield SnowCLIRunner(app, test_snowcli_config_provider)
+    yield SnowCLIRunner(app, test_snowcli_config_provider, resource_suffix)
 
 
 class QueryResultJsonEncoderError(RuntimeError):
@@ -188,3 +211,17 @@ def isolate_snowflake_home(snowflake_home):
 @pytest.fixture(autouse=True)
 def env_setup(monkeypatch):
     monkeypatch.setenv("SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2", "true")
+
+
+@pytest.fixture
+def resource_suffix(request):
+    """
+    Generate a random identifier suffix that includes the current test name.
+
+    This suffix will be added to certain created resources like Native App
+    packages and applications to be able to detect tests that don't
+    clean up properly. The UUID is to avoid conflicts between concurrent runs.
+    """
+    # To generate a suffix that isn't too long or complex, we use originalname, which is the
+    # "bare" test function name, without filename, class name, or parameterization variables
+    return f"_{uuid4().hex}_{request.node.originalname}"

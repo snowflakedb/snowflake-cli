@@ -11,10 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import uuid
-
-from snowflake.cli.api.project.util import generate_user_env
+import os
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
@@ -27,9 +24,7 @@ from tests_integration.test_utils import (
     enable_definition_v2_feature_flag,
 )
 
-USER_NAME = f"user_{uuid.uuid4().hex}"
-TEST_ENV = generate_user_env(USER_NAME)
-
+USER_NAME = os.environ.get("USER", "")
 
 # Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
 @pytest.mark.integration
@@ -40,20 +35,20 @@ TEST_ENV = generate_user_env(USER_NAME)
 def test_nativeapp_version_create_and_drop(
     runner,
     snowflake_session,
+    resource_suffix,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
         result_create = runner.invoke_with_connection_json(
-            ["app", "version", "create", "v1", "--force", "--skip-git-check"],
-            env=TEST_ENV,
+            ["app", "version", "create", "v1", "--force", "--skip-git-check"]
         )
         assert result_create.exit_code == 0
 
         try:
             # package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -67,26 +62,18 @@ def test_nativeapp_version_create_and_drop(
             expect = snowflake_session.execute_string(
                 f"show versions in application package {package_name}"
             )
-            actual = runner.invoke_with_connection_json(
-                ["app", "version", "list"], env=TEST_ENV
-            )
+            actual = runner.invoke_with_connection_json(["app", "version", "list"])
             assert actual.json == row_from_snowflake_session(expect)
 
             result_drop = runner.invoke_with_connection_json(
-                ["app", "version", "drop", "v1", "--force"],
-                env=TEST_ENV,
+                ["app", "version", "drop", "v1", "--force"]
             )
             assert result_drop.exit_code == 0
-            actual = runner.invoke_with_connection_json(
-                ["app", "version", "list"], env=TEST_ENV
-            )
+            actual = runner.invoke_with_connection_json(["app", "version", "list"])
             assert len(actual.json) == 0
 
             # make sure we always delete the package
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown"])
             assert result.exit_code == 0
 
             expect = snowflake_session.execute_string(
@@ -98,10 +85,7 @@ def test_nativeapp_version_create_and_drop(
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -114,35 +98,30 @@ def test_nativeapp_version_create_and_drop(
 def test_nativeapp_upgrade(
     runner,
     snowflake_session,
+    resource_suffix,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
+        runner.invoke_with_connection_json(["app", "run"])
         runner.invoke_with_connection_json(
-            ["app", "run"],
-            env=TEST_ENV,
-        )
-        runner.invoke_with_connection_json(
-            ["app", "version", "create", "v1", "--force", "--skip-git-check"],
-            env=TEST_ENV,
+            ["app", "version", "create", "v1", "--force", "--skip-git-check"]
         )
 
         try:
             # package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{USER_NAME}".upper()
+            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
+            app_name = f"{project_name}_{USER_NAME}{resource_suffix}".upper()
             # app package contains version v1
             expect = snowflake_session.execute_string(
                 f"show versions in application package {package_name}"
             )
-            actual = runner.invoke_with_connection_json(
-                ["app", "version", "list"], env=TEST_ENV
-            )
+            actual = runner.invoke_with_connection_json(["app", "version", "list"])
             assert actual.json == row_from_snowflake_session(expect)
 
             runner.invoke_with_connection_json(
-                ["app", "run", "--version", "v1", "--force"], env=TEST_ENV
+                ["app", "run", "--version", "v1", "--force"]
             )
 
             expect = row_from_snowflake_session(
@@ -153,23 +132,16 @@ def test_nativeapp_upgrade(
             assert contains_row_with(expect, {"property": "patch", "value": "0"})
 
             runner.invoke_with_connection_json(
-                ["app", "version", "drop", "v1", "--force"],
-                env=TEST_ENV,
+                ["app", "version", "drop", "v1", "--force"]
             )
 
             # make sure we always delete the package
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown"])
             assert result.exit_code == 0
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -180,19 +152,19 @@ def test_nativeapp_upgrade(
 def test_nativeapp_version_create_3_patches(
     runner,
     snowflake_session,
+    resource_suffix,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
         try:
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
 
             # create three patches (deploys too)
             for _ in range(3):
                 result = runner.invoke_with_connection_json(
-                    ["app", "version", "create", "v1", "--force", "--skip-git-check"],
-                    env=TEST_ENV,
+                    ["app", "version", "create", "v1", "--force", "--skip-git-check"]
                 )
                 assert result.exit_code == 0
 
@@ -208,22 +180,16 @@ def test_nativeapp_version_create_3_patches(
 
             # drop the version
             result_drop = runner.invoke_with_connection_json(
-                ["app", "version", "drop", "v1", "--force"],
-                env=TEST_ENV,
+                ["app", "version", "drop", "v1", "--force"]
             )
             assert result_drop.exit_code == 0
 
             # ensure there are no versions now
-            actual = runner.invoke_with_connection_json(
-                ["app", "version", "list"], env=TEST_ENV
-            )
+            actual = runner.invoke_with_connection_json(["app", "version", "list"])
             assert len(actual.json) == 0
 
             # make sure we always delete the package
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown"])
             assert result.exit_code == 0
 
             expect = snowflake_session.execute_string(
@@ -235,10 +201,7 @@ def test_nativeapp_version_create_3_patches(
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -250,18 +213,18 @@ def test_nativeapp_version_create_3_patches(
 def test_nativeapp_version_create_patch_is_integer(
     runner,
     snowflake_session,
+    resource_suffix,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
         try:
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
 
             # create initial version
             result = runner.invoke_with_connection_json(
-                ["app", "version", "create", "v1", "--force", "--skip-git-check"],
-                env=TEST_ENV,
+                ["app", "version", "create", "v1", "--force", "--skip-git-check"]
             )
             assert result.exit_code == 0
 
@@ -277,7 +240,6 @@ def test_nativeapp_version_create_patch_is_integer(
                     "--patch",
                     "foo",
                 ],
-                env=TEST_ENV,
             )
             assert result.exit_code == 2
             assert (
@@ -297,28 +259,21 @@ def test_nativeapp_version_create_patch_is_integer(
                     "--patch",
                     "1",
                 ],
-                env=TEST_ENV,
             )
             assert result.exit_code == 0
 
             # drop the version
             result_drop = runner.invoke_with_connection_json(
-                ["app", "version", "drop", "v1", "--force"],
-                env=TEST_ENV,
+                ["app", "version", "drop", "v1", "--force"]
             )
             assert result_drop.exit_code == 0
 
             # ensure there are no versions now
-            actual = runner.invoke_with_connection_json(
-                ["app", "version", "list"], env=TEST_ENV
-            )
+            actual = runner.invoke_with_connection_json(["app", "version", "list"])
             assert len(actual.json) == 0
 
             # make sure we always delete the package
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown"])
             assert result.exit_code == 0
 
             expect = snowflake_session.execute_string(
@@ -329,10 +284,7 @@ def test_nativeapp_version_create_patch_is_integer(
             )
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -346,21 +298,19 @@ def test_nativeapp_version_create_patch_is_integer(
 def test_nativeapp_version_create_package_no_magic_comment(
     runner,
     snowflake_session,
+    resource_suffix,
     snapshot,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
-        result_create_abort = runner.invoke_with_connection_json(
-            ["app", "deploy"],
-            env=TEST_ENV,
-        )
+        result_create_abort = runner.invoke_with_connection_json(["app", "deploy"])
         assert result_create_abort.exit_code == 0
 
         try:
             # package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -382,7 +332,6 @@ def test_nativeapp_version_create_package_no_magic_comment(
             # say no
             result_create_abort = runner.invoke_with_connection(
                 ["app", "version", "create", "v1", "--skip-git-check", "--interactive"],
-                env=TEST_ENV,
                 input="n\n",
             )
             assert result_create_abort.exit_code == 1
@@ -396,7 +345,6 @@ def test_nativeapp_version_create_package_no_magic_comment(
             # say yes
             result_create_yes = runner.invoke_with_connection(
                 ["app", "version", "create", "v1", "--skip-git-check", "--interactive"],
-                env=TEST_ENV,
                 input="y\n",
             )
             assert result_create_yes.exit_code == 0
@@ -408,8 +356,7 @@ def test_nativeapp_version_create_package_no_magic_comment(
 
             # force
             result_create_force = runner.invoke_with_connection(
-                ["app", "version", "create", "v1", "--force", "--skip-git-check"],
-                env=TEST_ENV,
+                ["app", "version", "create", "v1", "--force", "--skip-git-check"]
             )
             assert result_create_force.exit_code == 0
             assert (
@@ -419,17 +366,12 @@ def test_nativeapp_version_create_package_no_magic_comment(
             )
 
             # app package contains version v1 with 2 patches
-            actual = runner.invoke_with_connection_json(
-                ["app", "version", "list"], env=TEST_ENV
-            )
+            actual = runner.invoke_with_connection_json(["app", "version", "list"])
             for row in actual.json:
                 # Remove date field
                 row.pop("created_on", None)
             assert actual.json == snapshot
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
