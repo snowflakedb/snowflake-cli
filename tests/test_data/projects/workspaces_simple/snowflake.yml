@@ -2,7 +2,6 @@ definition_version: 2
 entities:
   pkg:
     type: application package
-    name: my_app_pkg
     artifacts:
       - src: app/*
         dest: ./

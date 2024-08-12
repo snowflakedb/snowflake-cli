@@ -21,7 +21,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             ctx.project_root, Path(model.deploy_root), model.artifacts
         )
         bundle_context = BundleContext(
-            package_name=model.name,
+            package_name=model.identifier,
             artifacts=model.artifacts,
             project_root=ctx.project_root,
             bundle_root=Path(model.bundle_root),
