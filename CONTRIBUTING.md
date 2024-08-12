@@ -89,24 +89,35 @@ All integration test connection parameters must be passed using environment vari
 ```bash
 SNOWFLAKE_CONNECTIONS_INTEGRATION_<key>=<value>
 ```
-where `<key>` is the name of the key.
+where `<key>` is the name of the key. Either `export` the environment variables in your shell/bashrc/zshrc or specify them when invoking the test command.
 
-For example: SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT="my-account"
-
-List of required parameter keys:
-- `HOST="<your host here>"`
-- `ACCOUNT="<your account here>"`
-- `USER="snowcli_test"`
-- `PRIVATE_KEY_PATH="~/.ssh/snowcli_test_rsa_key.p8"`
+The required environment variables are:
+```bash
+SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST="<your host here>"
+SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT="<your account here>"
+SNOWFLAKE_CONNECTIONS_INTEGRATION_USER="snowcli_test"
+SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH="~/.ssh/snowcli_test_rsa_key.p8"
+SNOWFLAKE_CONNECTIONS_INTEGRATION_ROLE="integration_tests"
+SNOWFLAKE_CONNECTIONS_INTEGRATION_WAREHOUSE="xsmall"
+SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR="SNOWFLAKE_JWT"
+```
 
 ### Invoking tests
-To invoke tests, either `export` the above environment variables in your shell/bashrc/zshrc or specify them when invoking the test command:
+To run all integration tests, simply run
 ```bash
-SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST="<your host here>" \
-SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT="<your account here>" \
-SNOWFLAKE_CONNECTIONS_INTEGRATION_USER="snowcli_test" \
-SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH="~/.ssh/snowflake_rsa_key.p8" \
-hatch run integration:test
+pytest -m integration
+```
+
+Due to the number and duration of the integration tests, it's often more useful to run tth full suite in parallel:
+```bash
+pytest -m integration -n logical --dist=worksteal
+```
+
+To target individual tests, classes, or files, use standard pytest syntax:
+```bash
+pytest -m integration -k test_a
+pytest -m integration -k TestB
+pytest -m integration tests_integration/test_c.py
 ```
 
 ## Remote debugging with PyCharm or IntelliJ
