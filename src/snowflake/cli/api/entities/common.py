@@ -1,16 +1,20 @@
 from enum import Enum
+from typing import Generic, TypeVar
 
 
 class EntityActions(str, Enum):
     BUNDLE = "bundle"
 
 
-class EntityBase:
+TEntityModel = TypeVar("TEntityModel")
+
+
+class EntityBase(Generic[TEntityModel]):
     """
     Base class for the fully-featured entity classes.
     """
 
-    def __init__(self, entity_model):
+    def __init__(self, entity_model: TEntityModel):
         self._entity_model = entity_model
 
     def supports(self, action: EntityActions) -> bool:

@@ -10,12 +10,10 @@ from snowflake.cli.api.project.schemas.entities.application_package_entity_model
 )
 
 
-class ApplicationPackageEntity(EntityBase):
+class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     """
     A Native App application package.
     """
-
-    _entity_model: ApplicationPackageEntityModel
 
     def bundle(self, ctx: ActionContext):
         model = self._entity_model
