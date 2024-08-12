@@ -28,6 +28,7 @@ from snowflake.cli._plugins.object.command_aliases import (
     scope_option,
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.flags import (
     ExecuteVariablesOption,
     OnErrorOption,
@@ -36,7 +37,6 @@ from snowflake.cli.api.commands.flags import (
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.commands.structs import OnErrorType
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import CollectionResult, CommandResult, QueryResult

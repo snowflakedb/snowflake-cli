@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from click import ClickException
-from snowflake.cli.api.commands.structs import Variable
+from snowflake.cli.api.commands.common import Variable
 
 
 def parse_key_value_variables(variables: Optional[List[str]]) -> List[Variable]:

@@ -28,7 +28,7 @@ from typing import Dict, List, Optional, Union
 
 from click import ClickException
 from snowflake.cli._plugins.snowpark.package_utils import parse_requirements
-from snowflake.cli.api.commands.structs import (
+from snowflake.cli.api.commands.common import (
     OnErrorType,
     Variable,
 )

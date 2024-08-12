@@ -23,7 +23,7 @@ import click
 import typer
 from click import ClickException
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
-from snowflake.cli.api.commands.structs import OnErrorType
+from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.typer_pre_execute import register_pre_execute_command
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console import cli_console
