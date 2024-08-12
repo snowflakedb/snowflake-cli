@@ -1387,6 +1387,21 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     ],
 )
 @pytest.mark.parametrize(
+    ["consumer_org", "consumer_account", "expected_app_clause"],
+    [
+        ("", "", f"resource_attributes:\"snow.database.name\" = 'MYAPP'"),
+        (
+            "testorg",
+            "testacc",
+            (
+                f"resource_attributes:\"snow.application.package.name\" = 'APP_PKG' "
+                f"and resource_attributes:\"snow.application.consumer.organization\" = 'TESTORG' "
+                f"and resource_attributes:\"snow.application.consumer.name\" = 'TESTACC'"
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize(
     ["first", "expected_first_clause"],
     [
         (-1, ""),
@@ -1419,6 +1434,9 @@ def test_get_events(
     expected_until_clause,
     types,
     expected_types_clause,
+    consumer_org,
+    consumer_account,
+    expected_app_clause,
     scopes,
     expected_scopes_clause,
     first,
@@ -1443,7 +1461,7 @@ def test_get_events(
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
-                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            where ({expected_app_clause})
                             {expected_since_clause}
                             {expected_until_clause}
                             {expected_types_clause}
@@ -1468,6 +1486,8 @@ def test_get_events(
             until=until,
             record_types=types,
             scopes=scopes,
+            consumer_org=consumer_org,
+            consumer_account=consumer_account,
             first=first,
             last=last,
         )
@@ -1512,7 +1532,7 @@ def test_get_events_quoted_app_name(
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
-                            where resource_attributes:"snow.database.name" = 'My Application'
+                            where (resource_attributes:"snow.database.name" = 'My Application')
                         
                         
                         
@@ -1579,7 +1599,7 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
-                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            where (resource_attributes:"snow.database.name" = 'MYAPP')
                             
                             
                             
@@ -1601,7 +1621,7 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
-                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            where (resource_attributes:"snow.database.name" = 'MYAPP')
                             and timestamp >= '2024-01-01 00:00:00'
                             
                             
