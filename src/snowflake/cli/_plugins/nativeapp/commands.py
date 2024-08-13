@@ -426,7 +426,7 @@ class RecordType(Enum):
 DEFAULT_EVENT_FOLLOW_LAST = 20
 
 
-@app.command("events", hidden=True, requires_connection=True)
+@app.command("events", requires_connection=True)
 @with_project_definition()
 @nativeapp_definition_v2_to_v1
 def app_events(
