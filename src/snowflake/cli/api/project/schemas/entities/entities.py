@@ -56,9 +56,5 @@ ALL_ENTITY_MODELS: List[EntityModel] = [*get_args(EntityModel)]
 
 v2_entity_model_types_map = {e.get_type(): e for e in ALL_ENTITY_MODELS}
 v2_entity_model_to_entity_map: Dict[EntityModel, Entity] = {
-    ApplicationEntityModel: ApplicationEntity,
-    ApplicationPackageEntityModel: ApplicationPackageEntity,
-    StreamlitEntityModel: StreamlitEntity,
-    FunctionEntityModel: FunctionEntity,
-    ProcedureEntityModel: ProcedureEntity,
+    e.get_entity_model_type(): e for e in ALL_ENTITIES
 }

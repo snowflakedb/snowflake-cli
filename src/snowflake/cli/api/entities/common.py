@@ -1,21 +1,25 @@
 from enum import Enum
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, get_args
 
 
 class EntityActions(str, Enum):
     BUNDLE = "bundle"
 
 
-TEntityModel = TypeVar("TEntityModel")
+T = TypeVar("T")
 
 
-class EntityBase(Generic[TEntityModel]):
+class EntityBase(Generic[T]):
     """
     Base class for the fully-featured entity classes.
     """
 
-    def __init__(self, entity_model: TEntityModel):
+    def __init__(self, entity_model: T):
         self._entity_model = entity_model
+
+    @classmethod
+    def get_entity_model_type(cls) -> T:
+        return get_args(cls.__orig_bases__[0])[0]  # type: ignore[attr-defined]
 
     def supports(self, action: EntityActions) -> bool:
         """
