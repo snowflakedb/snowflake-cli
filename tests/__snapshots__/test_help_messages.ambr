@@ -1175,6 +1175,8 @@
   |            the application. Running this command with no arguments at all,   |
   |            as in `snow app deploy`, is a shorthand for `snow app deploy      |
   |            --prune --recursive`.                                             |
+  | events     Fetches events for this app from the event table configured in    |
+  |            Snowflake.                                                        |
   | init       Initializes a Snowflake Native App project.                       |
   | open       Opens the Snowflake Native App inside of your browser, once it    |
   |            has been installed in your account.                               |
@@ -7956,6 +7958,8 @@
   |            the application. Running this command with no arguments at all,   |
   |            as in `snow app deploy`, is a shorthand for `snow app deploy      |
   |            --prune --recursive`.                                             |
+  | events     Fetches events for this app from the event table configured in    |
+  |            Snowflake.                                                        |
   | init       Initializes a Snowflake Native App project.                       |
   | open       Opens the Snowflake Native App inside of your browser, once it    |
   |            has been installed in your account.                               |
