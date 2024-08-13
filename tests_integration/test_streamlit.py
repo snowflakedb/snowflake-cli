@@ -269,6 +269,19 @@ def test_fully_qualified_name(
         }
 
 
+@pytest.mark.integration
+def test_streamlit_deploy_with_ext_access(
+    runner,
+    snowflake_session,
+    test_database,
+    _new_streamlit_role,
+    project_directory,
+):
+    with project_directory("streamlit_v2_external_access"):
+        result = runner.invoke_with_connection_json(["streamlit", "deploy"])
+        assert result.exit_code == 0
+
+
 @pytest.fixture
 def _new_streamlit_role(snowflake_session, test_database):
     role_name = f"snowcli_streamlit_role_{uuid.uuid4().hex}"
