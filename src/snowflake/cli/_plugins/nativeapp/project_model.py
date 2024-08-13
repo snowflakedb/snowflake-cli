@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 from functools import cached_property
 from pathlib import Path
 from typing import List, Optional
@@ -21,18 +22,22 @@ from typing import List, Optional
 from snowflake.cli._plugins.nativeapp.artifacts import resolve_without_follow
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.project.definition import (
-    default_app_package,
-    default_application,
-    default_role,
-)
+from snowflake.cli.api.project.definition import DEFAULT_USERNAME, default_role
 from snowflake.cli.api.project.schemas.native_app.application import (
     PostDeployHook,
 )
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
-from snowflake.cli.api.project.util import extract_schema, to_identifier
+from snowflake.cli.api.project.util import (
+    clean_identifier,
+    concat_identifiers,
+    extract_schema,
+    get_env_username,
+    to_identifier,
+)
 from snowflake.connector import DictCursor
+
+RESOURCE_SUFFIX_VAR = "SNOWFLAKE_CLI_TEST_RESOURCE_SUFFIX"
 
 
 def current_role() -> str:
@@ -129,12 +134,24 @@ class NativeAppProjectModel:
         # sometimes strip out double quotes, so we try to get them back here.
         return to_identifier(self.definition.name)
 
-    @cached_property
+    @property
     def package_name(self) -> str:
+        # If an explicit package name is set, use it and append the resource suffix
+        # In this case, if the suffix is empty we don't append the default suffix
+        # since we want to honor the user's chosen package name
+        suffix = resource_suffix()
         if self.definition.package and self.definition.package.name:
-            return to_identifier(self.definition.package.name)
-        else:
-            return to_identifier(default_app_package(self.project_identifier))
+            return concat_identifiers(
+                [to_identifier(self.definition.package.name), suffix]
+            )
+
+        # If there's no explicit package name set in the project definition,
+        # generate a name for the package from the project identifier and
+        # append the resource suffix
+        # If we don't have a resource suffix specified, use the default one
+        return concat_identifiers(
+            [self.project_identifier, "_pkg", suffix or default_resource_suffix()]
+        )
 
     @cached_property
     def package_role(self) -> str:
@@ -150,12 +167,24 @@ class NativeAppProjectModel:
         else:
             return "internal"
 
-    @cached_property
+    @property
     def app_name(self) -> str:
+        # If an explicit app name is set, use it and append the resource suffix
+        # In this case, if the suffix is empty we don't append the default suffix
+        # since we want to honor the user's chosen app name
+        suffix = resource_suffix()
         if self.definition.application and self.definition.application.name:
-            return to_identifier(self.definition.application.name)
-        else:
-            return to_identifier(default_application(self.project_identifier))
+            return concat_identifiers(
+                [to_identifier(self.definition.application.name), suffix]
+            )
+
+        # If there's no explicit package name set in the project definition,
+        # generate a name for the package from the project identifier and
+        # append the resource suffix.
+        # If we don't have a resource suffix specified, use the default one
+        return concat_identifiers(
+            [self.project_identifier, suffix or default_resource_suffix()]
+        )
 
     @cached_property
     def app_role(self) -> str:
@@ -206,3 +235,17 @@ class NativeAppProjectModel:
             deploy_root=self.deploy_root,
             generated_root=self.generated_root,
         )
+
+
+def resource_suffix() -> str:
+    """
+    A suffix that should be added to account-level Native App resources.
+
+    This is an internal concern that is currently only used in tests.
+    """
+    return os.environ.get(RESOURCE_SUFFIX_VAR, "")
+
+
+def default_resource_suffix():
+    user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
+    return f"_{user}"

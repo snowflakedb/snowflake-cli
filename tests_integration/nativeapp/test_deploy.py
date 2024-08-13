@@ -15,6 +15,7 @@
 import os
 import uuid
 
+from snowflake.cli._plugins.nativeapp.project_model import RESOURCE_SUFFIX_VAR
 from snowflake.cli.api.project.util import generate_user_env
 
 
@@ -108,6 +109,87 @@ def test_nativeapp_deploy(
             result = runner.invoke_with_connection_json(
                 ["app", "teardown", "--force"],
                 env=TEST_ENV,
+            )
+            assert result.exit_code == 0
+
+
+@pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+def test_nativeapp_deploy_with_resource_suffix(
+    test_project,
+    project_directory,
+    runner,
+    snowflake_session,
+):
+    suffix = f"_some_suffix_{uuid.uuid4().hex}"
+    test_env_with_suffix = TEST_ENV | {RESOURCE_SUFFIX_VAR: suffix}
+    with project_directory(test_project):
+        result = runner.invoke_with_connection(
+            ["app", "deploy"],
+            env=test_env_with_suffix,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # package exist
+            assert row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show application packages like '%{suffix}'",
+                )
+            )
+
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=test_env_with_suffix,
+            )
+            assert result.exit_code == 0
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=test_env_with_suffix,
+            )
+            assert result.exit_code == 0
+
+
+@pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+def test_nativeapp_deploy_with_resource_suffix_quoted(
+    test_project,
+    project_directory,
+    runner,
+    snowflake_session,
+):
+    suffix = f"_must.be.quoted!!!_{uuid.uuid4().hex}"
+    test_env_with_quoted_suffix = TEST_ENV | {RESOURCE_SUFFIX_VAR: suffix}
+    with project_directory(test_project):
+        result = runner.invoke_with_connection(
+            ["app", "deploy"],
+            env=test_env_with_quoted_suffix,
+        )
+        assert result.exit_code == 0
+
+        try:
+            # package exist
+            assert row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show application packages like '%{suffix}'",
+                )
+            )
+            # make sure we always delete the app
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown"],
+                env=test_env_with_quoted_suffix,
+            )
+            assert result.exit_code == 0
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=test_env_with_quoted_suffix,
             )
             assert result.exit_code == 0
 
