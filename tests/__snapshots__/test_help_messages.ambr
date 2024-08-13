@@ -260,52 +260,56 @@
    nd-events                                                                      
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --since                     TEXT                   Fetch events that are     |
-  |                                                    newer than this time ago, |
-  |                                                    in Snowflake interval     |
-  |                                                    syntax.                   |
-  | --until                     TEXT                   Fetch events that are     |
-  |                                                    older than this time ago, |
-  |                                                    in Snowflake interval     |
-  |                                                    syntax.                   |
-  | --type                      [log|span|span_event]  Restrict results to       |
-  |                                                    specific record type. Can |
-  |                                                    be specified multiple     |
-  |                                                    times.                    |
-  | --scope                     TEXT                   Restrict results to a     |
-  |                                                    specific scope name. Can  |
-  |                                                    be specified multiple     |
-  |                                                    times.                    |
-  | --consumer-org              TEXT                   The name of the consumer  |
-  |                                                    organization.             |
-  | --consumer-account          TEXT                   The name of the consumer  |
-  |                                                    account in the            |
-  |                                                    organization.             |
-  | --first                     INTEGER                Fetch only the first N    |
-  |                                                    events. Cannot be used    |
-  |                                                    with --last.              |
-  | --last                      INTEGER                Fetch only the last N     |
-  |                                                    events. Cannot be used    |
-  |                                                    with --first.             |
-  | --follow            -f                             Continue polling for      |
-  |                                                    events. Implies --last 20 |
-  |                                                    unless overridden or the  |
-  |                                                    --since flag is used.     |
-  | --follow-interval           INTEGER                Polling interval in       |
-  |                                                    seconds when using the    |
-  |                                                    --follow flag.            |
-  |                                                    [default: 10]             |
-  | --project           -p      TEXT                   Path where Snowflake      |
-  |                                                    project resides. Defaults |
-  |                                                    to current working        |
-  |                                                    directory.                |
-  | --env                       TEXT                   String in format of       |
-  |                                                    key=value. Overrides      |
-  |                                                    variables from env        |
-  |                                                    section used for          |
-  |                                                    templating.               |
-  | --help              -h                             Show this message and     |
-  |                                                    exit.                     |
+  | --since                      TEXT                   Fetch events that are    |
+  |                                                     newer than this time     |
+  |                                                     ago, in Snowflake        |
+  |                                                     interval syntax.         |
+  | --until                      TEXT                   Fetch events that are    |
+  |                                                     older than this time     |
+  |                                                     ago, in Snowflake        |
+  |                                                     interval syntax.         |
+  | --type                       [log|span|span_event]  Restrict results to      |
+  |                                                     specific record type.    |
+  |                                                     Can be specified         |
+  |                                                     multiple times.          |
+  | --scope                      TEXT                   Restrict results to a    |
+  |                                                     specific scope name. Can |
+  |                                                     be specified multiple    |
+  |                                                     times.                   |
+  | --consumer-org               TEXT                   The name of the consumer |
+  |                                                     organization.            |
+  | --consumer-account           TEXT                   The name of the consumer |
+  |                                                     account in the           |
+  |                                                     organization.            |
+  | --consumer-app-hash          TEXT                   The SHA-1 hash of the    |
+  |                                                     consumer application     |
+  |                                                     name                     |
+  | --first                      INTEGER                Fetch only the first N   |
+  |                                                     events. Cannot be used   |
+  |                                                     with --last.             |
+  | --last                       INTEGER                Fetch only the last N    |
+  |                                                     events. Cannot be used   |
+  |                                                     with --first.            |
+  | --follow             -f                             Continue polling for     |
+  |                                                     events. Implies --last   |
+  |                                                     20 unless overridden or  |
+  |                                                     the --since flag is      |
+  |                                                     used.                    |
+  | --follow-interval            INTEGER                Polling interval in      |
+  |                                                     seconds when using the   |
+  |                                                     --follow flag.           |
+  |                                                     [default: 10]            |
+  | --project            -p      TEXT                   Path where Snowflake     |
+  |                                                     project resides.         |
+  |                                                     Defaults to current      |
+  |                                                     working directory.       |
+  | --env                        TEXT                   String in format of      |
+  |                                                     key=value. Overrides     |
+  |                                                     variables from env       |
+  |                                                     section used for         |
+  |                                                     templating.              |
+  | --help               -h                             Show this message and    |
+  |                                                     exit.                    |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment  -c      TEXT  Name of the connection, as defined |

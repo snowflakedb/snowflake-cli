@@ -457,6 +457,10 @@ def app_events(
         default="",
         help="The name of the consumer account in the organization.",
     ),
+    consumer_app_hash: str = typer.Option(
+        default="",
+        help="The SHA-1 hash of the consumer application name",
+    ),
     first: int = typer.Option(
         default=-1,
         show_default=False,
@@ -526,6 +530,7 @@ def app_events(
                 scopes=scopes,
                 consumer_org=consumer_org,
                 consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
             )
         )
         # Append a newline at the end to make the CLI output clean when we hit Ctrl-C
@@ -542,6 +547,7 @@ def app_events(
                 last=last,
                 consumer_org=consumer_org,
                 consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
             )
         )
 
