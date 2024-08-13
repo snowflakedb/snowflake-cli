@@ -39,7 +39,7 @@ def _get_app_pkg_entity(project_directory):
 def test_bundle(project_directory):
     app_pkg, bundle_ctx = _get_app_pkg_entity(project_directory)
 
-    bundle_result = app_pkg.bundle(bundle_ctx)
+    bundle_result = app_pkg.action_bundle(bundle_ctx)
 
     deploy_root = bundle_result.deploy_root()
     assert (deploy_root / "README.md").exists()

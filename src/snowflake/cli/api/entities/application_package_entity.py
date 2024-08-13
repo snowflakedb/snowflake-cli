@@ -15,7 +15,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     A Native App application package.
     """
 
-    def bundle(self, ctx: ActionContext):
+    def action_bundle(self, ctx: ActionContext):
         model = self._entity_model
         bundle_map = build_bundle(
             ctx.project_root, Path(model.deploy_root), model.artifacts

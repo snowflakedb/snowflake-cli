@@ -3,7 +3,7 @@ from typing import Generic, TypeVar, get_args
 
 
 class EntityActions(str, Enum):
-    BUNDLE = "bundle"
+    BUNDLE = "action_bundle"
 
 
 T = TypeVar("T")
@@ -19,6 +19,12 @@ class EntityBase(Generic[T]):
 
     @classmethod
     def get_entity_model_type(cls) -> T:
+        """
+        Returns the generic model type specified in each entity class.
+        For example:
+            ApplicationEntity(EntityBase[ApplicationEntityModel]
+                                                    ^
+        """
         return get_args(cls.__orig_bases__[0])[0]  # type: ignore[attr-defined]
 
     def supports(self, action: EntityActions) -> bool:
