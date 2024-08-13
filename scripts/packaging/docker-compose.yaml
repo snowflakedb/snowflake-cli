@@ -11,8 +11,8 @@ services:
     stdin_open: true
     volumes:
       - ../../:/data
-  fedora39:
-    image: fedora:39
+  centos7:
+    image: centos:7
     container_name: centos
     command: tail -f /dev/null
     tty: true
