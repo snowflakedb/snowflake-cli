@@ -3,7 +3,7 @@ definition_version: 2
 entities:
   pkg:
     type: application package
-    name: integration_<% ctx.env.INTERMEDIATE_CI_ENV %>_pkg_<% ctx.env.USER %>
+    identifier: integration_<% ctx.env.INTERMEDIATE_CI_ENV %>_pkg_<% ctx.env.USER %>
     artifacts:
       - src: <% ctx.env.APP_DIR %>/*
         dest: ./

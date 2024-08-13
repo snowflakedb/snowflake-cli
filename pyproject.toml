@@ -57,7 +57,7 @@ classifiers = [
 
 [project.optional-dependencies]
 development = [
-  "coverage==7.6.0",
+  "coverage==7.6.1",
   "pre-commit>=3.5.0",
   "pytest==8.3.2",
   "pytest-randomly==3.15.0",
@@ -69,7 +69,7 @@ development = [
 "Bug Tracker" = "https://github.com/snowflakedb/snowflake-cli/issues"
 
 [project.scripts]
-snow = "snowflake.cli.app.__main__:main"
+snow = "snowflake.cli._app.__main__:main"
 
 [tool.coverage.report]
 exclude_also = ["@(abc\\.)?abstractmethod", "@(abc\\.)?abstractproperty"]
@@ -119,7 +119,7 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
-test = ["pytest -m integration -n6 --dist=worksteal"]
+test = ["python scripts/run_tests_with_retry.py Integration -m integration -n6 --dist=worksteal"]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.10", "3.11", "3.12"]

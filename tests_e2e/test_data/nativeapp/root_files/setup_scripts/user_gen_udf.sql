@@ -18,7 +18,7 @@
 create or replace function ext_code_schema.py_echo_fn(STR string)
   RETURNS STRING
   LANGUAGE PYTHON
-  RUNTIME_VERSION=3.8
+  RUNTIME_VERSION=3.10
   PACKAGES=('snowflake-snowpark-python')
   HANDLER='echo.echo_fn'
   IMPORTS=('/user_gen/echo.py');

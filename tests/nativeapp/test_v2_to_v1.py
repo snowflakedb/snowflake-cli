@@ -16,6 +16,10 @@ from unittest import mock
 
 import pytest
 from click import ClickException
+from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+    _pdf_v2_to_v1,
+    nativeapp_definition_v2_to_v1,
+)
 from snowflake.cli.api.cli_global_context import (
     get_cli_context,
     get_cli_context_manager,
@@ -23,10 +27,6 @@ from snowflake.cli.api.cli_global_context import (
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV11,
     DefinitionV20,
-)
-from snowflake.cli.plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
-    _pdf_v2_to_v1,
-    nativeapp_definition_v2_to_v1,
 )
 
 from tests.testing_utils.mock_config import mock_config_key
@@ -41,13 +41,13 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "pkg1": {
                         "type": "application package",
-                        "name": "pkg",
+                        "identifier": "pkg",
                         "artifacts": [],
                         "manifest": "",
                     },
                     "pkg2": {
                         "type": "application package",
-                        "name": "pkg",
+                        "identifier": "pkg",
                         "artifacts": [],
                         "manifest": "",
                     },
@@ -62,18 +62,18 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "pkg",
+                        "identifier": "pkg",
                         "artifacts": [],
                         "manifest": "",
                     },
                     "app1": {
                         "type": "application",
-                        "name": "pkg",
+                        "identifier": "pkg",
                         "from": {"target": "pkg"},
                     },
                     "app2": {
                         "type": "application",
-                        "name": "pkg",
+                        "identifier": "pkg",
                         "from": {"target": "pkg"},
                     },
                 },
@@ -87,7 +87,7 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "pkg_name",
+                        "identifier": "pkg_name",
                         "artifacts": [{"src": "app/*", "dest": "./"}],
                         "manifest": "",
                         "stage": "app.stage",
@@ -107,7 +107,7 @@ from tests.testing_utils.mock_config import mock_config_key
                     },
                     "app": {
                         "type": "application",
-                        "name": "app_name",
+                        "identifier": "app_name",
                         "from": {"target": "pkg"},
                         "debug": True,
                         "meta": {
@@ -136,9 +136,9 @@ from tests.testing_utils.mock_config import mock_config_key
                         "distribution": "external",
                         "role": "pkg_role",
                         "warehouse": "pkg_wh",
-                        "scripts": [
-                            "scripts/script1.sql",
-                            "scripts/script2.sql",
+                        "post_deploy": [
+                            {"sql_script": "scripts/script1.sql"},
+                            {"sql_script": "scripts/script2.sql"},
                         ],
                     },
                     "application": {
@@ -186,14 +186,14 @@ def test_decorator_error_when_no_project_exists():
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "package_name",
+                        "identifier": "package_name",
                         "artifacts": [{"src": "app/*", "dest": "./"}],
                         "manifest": "",
                         "stage": "app.stage",
                     },
                     "app": {
                         "type": "application",
-                        "name": "application_name",
+                        "identifier": "application_name",
                         "from": {"target": "pkg"},
                         "meta": {
                             "role": "app_role",
@@ -214,7 +214,7 @@ def test_decorator_error_when_no_project_exists():
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "package_name",
+                        "identifier": "package_name",
                         "artifacts": [{"src": "app/*", "dest": "./"}],
                         "manifest": "",
                         "stage": "app.stage",
@@ -230,7 +230,7 @@ def test_decorator_error_when_no_project_exists():
                 "entities": {
                     "pkg": {
                         "type": "application package",
-                        "name": "appname_pkg_username",
+                        "identifier": "appname_pkg_username",
                         "artifacts": [{"src": "app/*", "dest": "./"}],
                         "manifest": "",
                         "stage": "app.stage",
@@ -251,7 +251,7 @@ def test_project_name(pdfv2_input, expected_project_name):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.v2_conversions.v2_to_v1_decorator._pdf_v2_to_v1"
+    "snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator._pdf_v2_to_v1"
 )
 def test_decorator_skips_when_project_is_not_v2(mock_pdf_v2_to_v1):
     pdfv1 = DefinitionV11(

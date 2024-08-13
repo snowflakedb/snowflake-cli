@@ -18,10 +18,10 @@ from typing import Any, Dict, List, Set
 
 from _pytest.fixtures import fixture
 from pydantic.json_schema import GenerateJsonSchema, model_json_schema
-from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
-from snowflake.cli.app.dev.docs.project_definition_generate_json_schema import (
+from snowflake.cli._app.dev.docs.project_definition_generate_json_schema import (
     ProjectDefinitionGenerateJsonSchema,
 )
+from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
 
 
 @fixture

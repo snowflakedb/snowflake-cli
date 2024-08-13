@@ -62,7 +62,7 @@ def override_snowflake_yml_artifacts(
                     "entities": {
                         "pkg": {
                             "type": "application package",
-                            "name": "myapp_pkg_<% ctx.env.USER %>",
+                            "identifier": "myapp_pkg_<% ctx.env.USER %>",
                             "artifacts": artifacts_section,
                             "manifest": "app/manifest.yml",
                             "deploy_root": str(deploy_root),

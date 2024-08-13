@@ -18,16 +18,16 @@ from unittest import mock
 
 import pytest
 from click import ClickException
+from snowflake.cli._plugins.nativeapp.exceptions import (
+    InvalidScriptError,
+    MissingScriptError,
+)
+from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.exceptions import (
-    InvalidScriptError,
-    MissingScriptError,
-)
-from snowflake.cli.plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 

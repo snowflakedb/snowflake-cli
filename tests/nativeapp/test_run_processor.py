@@ -20,6 +20,25 @@ from unittest.mock import MagicMock
 import pytest
 import typer
 from click import UsageError
+from snowflake.cli._plugins.nativeapp.constants import (
+    LOOSE_FILES_MAGIC_VERSION,
+    SPECIAL_COMMENT,
+)
+from snowflake.cli._plugins.nativeapp.exceptions import (
+    ApplicationCreatedExternallyError,
+    ApplicationPackageDoesNotExistError,
+    UnexpectedOwnerError,
+)
+from snowflake.cli._plugins.nativeapp.policy import (
+    AllowAlwaysPolicy,
+    AskAlwaysPolicy,
+    DenyAlwaysPolicy,
+)
+from snowflake.cli._plugins.nativeapp.run_processor import (
+    NativeAppRunProcessor,
+    SameAccountInstallMethod,
+)
+from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
@@ -28,25 +47,6 @@ from snowflake.cli.api.errno import (
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.constants import (
-    LOOSE_FILES_MAGIC_VERSION,
-    SPECIAL_COMMENT,
-)
-from snowflake.cli.plugins.nativeapp.exceptions import (
-    ApplicationCreatedExternallyError,
-    ApplicationPackageDoesNotExistError,
-    UnexpectedOwnerError,
-)
-from snowflake.cli.plugins.nativeapp.policy import (
-    AllowAlwaysPolicy,
-    AskAlwaysPolicy,
-    DenyAlwaysPolicy,
-)
-from snowflake.cli.plugins.nativeapp.run_processor import (
-    NativeAppRunProcessor,
-    SameAccountInstallMethod,
-)
-from snowflake.cli.plugins.stage.diff import DiffResult
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -1321,7 +1321,7 @@ def test_upgrade_app_fails_generic_error(
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(
-    f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
 )
 @mock_connection()
 @pytest.mark.parametrize(
@@ -1490,7 +1490,7 @@ def test_versioned_app_upgrade_to_unversioned(
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(
-    f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
 @mock_connection()
 @pytest.mark.parametrize(
@@ -1564,7 +1564,7 @@ def test_upgrade_app_fails_drop_fails(
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(
-    f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
 @mock_connection()
 @pytest.mark.parametrize("policy_param", [allow_always_policy, ask_always_policy])
@@ -1658,7 +1658,7 @@ def test_upgrade_app_recreate_app(
 
 # Test upgrade app method for version AND no existing version info
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
+    "snowflake.cli._plugins.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
     return_value=None,
 )
 @pytest.mark.parametrize(
@@ -1687,7 +1687,7 @@ def test_upgrade_app_from_version_throws_usage_error_one(
 
 # Test upgrade app method for version AND no existing app package from version info
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
+    "snowflake.cli._plugins.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
     side_effect=ApplicationPackageDoesNotExistError("app_pkg"),
 )
 @pytest.mark.parametrize(
@@ -1716,13 +1716,13 @@ def test_upgrade_app_from_version_throws_usage_error_two(
 
 # Test upgrade app method for version AND existing app info AND user wants to drop app AND drop succeeds AND app is created successfully
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
+    "snowflake.cli._plugins.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
     return_value={"key": "val"},
 )
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
 @mock.patch(
-    f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
 @mock_connection()
 @pytest.mark.parametrize("policy_param", [allow_always_policy, ask_always_policy])

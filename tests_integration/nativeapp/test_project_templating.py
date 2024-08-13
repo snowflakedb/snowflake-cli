@@ -382,14 +382,22 @@ def test_nativeapp_project_templating_bundle_deploy_successful(
     local_test_env["APP_DIR"] = "app"
 
     with pushd(project_dir):
-        result = runner.invoke_json(
-            ["app", "bundle"],
-            env=local_test_env,
-        )
-        assert result.exit_code == 0
+        try:
+            result = runner.invoke_json(
+                ["app", "bundle"],
+                env=local_test_env,
+            )
+            assert result.exit_code == 0
 
-        result = runner.invoke_with_connection_json(
-            ["app", "deploy"],
-            env=local_test_env,
-        )
-        assert result.exit_code == 0
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy"],
+                env=local_test_env,
+            )
+            assert result.exit_code == 0
+        finally:
+            # teardown is idempotent, so we can execute it again with no ill effects
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"],
+                env=local_test_env,
+            )
+            assert result.exit_code == 0

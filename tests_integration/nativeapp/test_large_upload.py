@@ -20,11 +20,11 @@ from snowflake.cli.api.project.util import generate_user_env
 from snowflake.connector.constants import S3_CHUNK_SIZE
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.manager import NativeAppManager
-from snowflake.cli.plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
+from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
     _pdf_v2_to_v1,
 )
-from snowflake.cli.plugins.stage.md5 import parse_multipart_md5sum
+from snowflake.cli._plugins.stage.md5 import parse_multipart_md5sum
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import pushd, enable_definition_v2_feature_flag
