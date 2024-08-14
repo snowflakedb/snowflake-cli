@@ -1046,7 +1046,8 @@ def test_remove_connection_with_existing_connection(runner, named_temporary_file
             [connections]
             [connections.test_connections]
             user = "foo"
-            """)
+            """
+            )
         )
         result = runner.invoke_with_config_file(
             tmp_config,
