@@ -36,6 +36,8 @@
 * Fixed problem with whitespaces in `snow connection add` command
 * Added check for the correctness of token file and private key paths when addind a connection
 * Fix the typo in spcs service name argument description. It is the identifier of the **service** instead of the **service pool**.
+* Improved error message for incompatible parameters.
+
 
 # v2.7.0
 

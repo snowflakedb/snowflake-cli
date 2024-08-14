@@ -17,7 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from click.exceptions import ClickException
+from click.exceptions import ClickException, UsageError
 from snowflake.cli.api.constants import ObjectType
 
 
@@ -168,4 +168,13 @@ class FQNInconsistencyError(ClickException):
     def __init__(self, part: str, name: str):
         super().__init__(
             f"{part.capitalize()} provided but name '{name}' is fully qualified name."
+        )
+
+
+class IncompatibleParametersError(UsageError):
+    def __init__(self, options: list[str]):
+        options_with_quotes = [f"'{option}'" for option in options]
+        comma_separated_options = ", ".join(options_with_quotes[:-1])
+        super().__init__(
+            f"Parameters {comma_separated_options} and {options_with_quotes[-1]} are incompatible and cannot be used simultaneously."
         )
