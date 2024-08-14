@@ -971,7 +971,6 @@ def test_connection_test_diag_report(mock_connect, mock_om, runner):
         ["connection", "test", "-c", "full", "--enable-diag", "--diag-log-path", "/tmp"]
     )
     assert result.exit_code == 0, result.output
-    print(result.output)
     assert "Host" in result.output
     assert "Diag Report" in result.output
     mock_connect.assert_called_once_with(
@@ -1036,3 +1035,46 @@ def _run_connection_add_with_path_provided_as_prompt(
         )
 
     return result
+
+
+def test_remove_connection_with_existing_connection(runner, named_temporary_file):
+
+    with named_temporary_file(suffix="toml") as tmp_config:
+        tmp_config.write_text(
+            dedent(
+                """\
+            [connections]
+            [connections.test_connections]
+            user = "foo"
+            """)
+        )
+        result = runner.invoke_with_config_file(
+            tmp_config,
+            [
+                "connection",
+                "remove",
+                "test_connections",
+            ],
+        )
+
+        config_file = tomlkit.loads(tmp_config.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert "Successfully removed connection test_connections" in result.output
+
+    assert (
+        config_file["connections"].get("test_connections", "not found") == "not found"
+    )
+
+
+def test_remove_connection_with_nonexistent_connection(runner, test_snowcli_config):
+    result = runner.invoke_with_config_file(
+        test_snowcli_config,
+        [
+            "connection",
+            "remove",
+            "conn2",
+        ],
+    )
+    assert result.exit_code == 1, result.output
+    assert "Connection conn2 not found" in result.output

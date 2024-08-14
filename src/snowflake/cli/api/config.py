@@ -135,6 +135,10 @@ def add_connection(name: str, connection_config: ConnectionConfig):
     )
 
 
+def remove_connection(name: str):
+    return remove_config_value(CONNECTIONS_SECTION, name)
+
+
 _DEFAULT_LOGS_CONFIG = {
     "save_logs": True,
     "path": str(CONFIG_MANAGER.file_path.parent / "logs"),
@@ -184,6 +188,15 @@ def set_config_value(section: str | None, key: str, value: Any):
             conf_file_cache[section][key] = value
         else:
             conf_file_cache[key] = value
+
+
+def remove_config_value(section: str, key: str) -> bool:
+    with _config_file() as conf_file_cache:
+        if section and conf_file_cache.get(section).get(key):
+            conf_file_cache[section].pop(key)
+            return True
+        else:
+            return False
 
 
 def get_logs_config() -> dict:

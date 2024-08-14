@@ -38,6 +38,7 @@ from snowflake.cli.api.config import (
     get_all_connections,
     get_connection_dict,
     get_default_connection_name,
+    remove_connection,
     set_config_value,
 )
 from snowflake.cli.api.console import cli_console
@@ -345,3 +346,19 @@ def set_default(
     get_connection_dict(connection_name=name)
     set_config_value(section=None, key="default_connection_name", value=name)
     return MessageResult(f"Default connection set to: {name}")
+
+
+@app.command(requires_connection=False)
+def remove(
+    name: str = typer.Argument(
+        help="Name of the connection, as defined in your `config.toml`",
+        show_default=False,
+    ),
+    **options,
+):
+    """Removes connection from configuration file."""
+    remove_result = remove_connection(name)
+    if remove_result:
+        return MessageResult(f"Successfully removed connection {name}")
+    else:
+        raise ClickException(f"Connection {name} not found")
