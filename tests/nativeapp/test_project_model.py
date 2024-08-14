@@ -103,8 +103,8 @@ def test_project_model_default_package_app_name_with_suffix(
         project_root=project_dir,
     )
 
-    assert project.package_name == '"minimal_pkg_suffix!"'
-    assert project.app_name == '"minimal_suffix!"'
+    assert project.package_name == '"minimal_pkg_test_user_suffix!"'
+    assert project.app_name == '"minimal_test_user_suffix!"'
 
 
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")

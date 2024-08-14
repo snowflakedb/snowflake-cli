@@ -102,6 +102,16 @@ def generate_local_override_yml(
     return project.update_from_dict(local)
 
 
+def default_app_package(project_name: str):
+    user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
+    return append_to_identifier(to_identifier(project_name), f"_pkg_{user}")
+
+
 def default_role():
     conn = get_cli_context().connection
     return conn.role
+
+
+def default_application(project_name: str):
+    user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
+    return append_to_identifier(to_identifier(project_name), f"_{user}")

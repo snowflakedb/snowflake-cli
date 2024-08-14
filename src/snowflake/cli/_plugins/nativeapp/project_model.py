@@ -22,17 +22,19 @@ from typing import List, Optional
 from snowflake.cli._plugins.nativeapp.artifacts import resolve_without_follow
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.project.definition import DEFAULT_USERNAME, default_role
+from snowflake.cli.api.project.definition import (
+    default_app_package,
+    default_application,
+    default_role,
+)
 from snowflake.cli.api.project.schemas.native_app.application import (
     PostDeployHook,
 )
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
-    clean_identifier,
     concat_identifiers,
     extract_schema,
-    get_env_username,
     to_identifier,
 )
 from snowflake.connector import DictCursor
@@ -136,22 +138,11 @@ class NativeAppProjectModel:
 
     @property
     def package_name(self) -> str:
-        # If an explicit package name is set, use it and append the resource suffix
-        # In this case, if the suffix is empty we don't append the default suffix
-        # since we want to honor the user's chosen package name
-        suffix = resource_suffix()
         if self.definition.package and self.definition.package.name:
-            return concat_identifiers(
-                [to_identifier(self.definition.package.name), suffix]
-            )
-
-        # If there's no explicit package name set in the project definition,
-        # generate a name for the package from the project identifier and
-        # append the resource suffix
-        # If we don't have a resource suffix specified, use the default one
-        return concat_identifiers(
-            [self.project_identifier, "_pkg", suffix or default_resource_suffix()]
-        )
+            name = self.definition.package.name
+        else:
+            name = default_app_package(self.project_identifier)
+        return concat_identifiers([name, resource_suffix()])
 
     @cached_property
     def package_role(self) -> str:
@@ -169,22 +160,11 @@ class NativeAppProjectModel:
 
     @property
     def app_name(self) -> str:
-        # If an explicit app name is set, use it and append the resource suffix
-        # In this case, if the suffix is empty we don't append the default suffix
-        # since we want to honor the user's chosen app name
-        suffix = resource_suffix()
         if self.definition.application and self.definition.application.name:
-            return concat_identifiers(
-                [to_identifier(self.definition.application.name), suffix]
-            )
-
-        # If there's no explicit package name set in the project definition,
-        # generate a name for the package from the project identifier and
-        # append the resource suffix.
-        # If we don't have a resource suffix specified, use the default one
-        return concat_identifiers(
-            [self.project_identifier, suffix or default_resource_suffix()]
-        )
+            name = to_identifier(self.definition.application.name)
+        else:
+            name = to_identifier(default_application(self.project_identifier))
+        return concat_identifiers([name, resource_suffix()])
 
     @cached_property
     def app_role(self) -> str:
@@ -244,8 +224,3 @@ def resource_suffix() -> str:
     This is an internal concern that is currently only used in tests.
     """
     return os.environ.get(RESOURCE_SUFFIX_VAR, "")
-
-
-def default_resource_suffix():
-    user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
-    return f"_{user}"
