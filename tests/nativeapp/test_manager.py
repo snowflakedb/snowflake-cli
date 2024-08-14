@@ -1387,16 +1387,28 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     ],
 )
 @pytest.mark.parametrize(
-    ["consumer_org", "consumer_account", "expected_app_clause"],
+    ["consumer_org", "consumer_account", "consumer_app_hash", "expected_app_clause"],
     [
-        ("", "", f"resource_attributes:\"snow.database.name\" = 'MYAPP'"),
+        ("", "", "", f"resource_attributes:\"snow.database.name\" = 'MYAPP'"),
         (
             "testorg",
             "testacc",
+            "",
             (
                 f"resource_attributes:\"snow.application.package.name\" = 'APP_PKG' "
                 f"and resource_attributes:\"snow.application.consumer.organization\" = 'TESTORG' "
                 f"and resource_attributes:\"snow.application.consumer.name\" = 'TESTACC'"
+            ),
+        ),
+        (
+            "testorg",
+            "testacc",
+            "428cdba48b74dfbbb333d5ea2cc51a78ecc56ce2",
+            (
+                f"resource_attributes:\"snow.application.package.name\" = 'APP_PKG' "
+                f"and resource_attributes:\"snow.application.consumer.organization\" = 'TESTORG' "
+                f"and resource_attributes:\"snow.application.consumer.name\" = 'TESTACC' "
+                f"and resource_attributes:\"snow.database.hash\" = '428cdba48b74dfbbb333d5ea2cc51a78ecc56ce2'"
             ),
         ),
     ],
@@ -1436,6 +1448,7 @@ def test_get_events(
     expected_types_clause,
     consumer_org,
     consumer_account,
+    consumer_app_hash,
     expected_app_clause,
     scopes,
     expected_scopes_clause,
@@ -1488,6 +1501,7 @@ def test_get_events(
             scopes=scopes,
             consumer_org=consumer_org,
             consumer_account=consumer_account,
+            consumer_app_hash=consumer_app_hash,
             first=first,
             last=last,
         )
