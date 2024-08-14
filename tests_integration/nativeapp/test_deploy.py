@@ -29,6 +29,7 @@ from tests_integration.test_utils import (
 )
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
+    assert_that_result_is_usage_error,
 )
 
 USER_NAME = f"user_{uuid.uuid4().hex}"
@@ -442,9 +443,10 @@ def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
                 ["app", "deploy", "app/README.md", "--prune"],
                 env=TEST_ENV,
             )
-            assert result.exit_code == 1
-            assert (
-                "--prune cannot be used when paths are also specified" in result.output
+
+            assert_that_result_is_usage_error(
+                result,
+                "Parameters 'paths' and '--prune' are incompatible and cannot be used simultaneously.",
             )
 
         finally:

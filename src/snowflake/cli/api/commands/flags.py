@@ -16,16 +16,20 @@ from __future__ import annotations
 
 import tempfile
 from inspect import signature
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional
 
 import click
 import typer
 from click import ClickException
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.commands.common import OnErrorType
+from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.typer_pre_execute import register_pre_execute_command
 from snowflake.cli.api.commands.utils import parse_key_value_variables
+from snowflake.cli.api.config import get_all_connections
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.identifiers import FQN
@@ -134,9 +138,6 @@ class OverrideableOption:
             return callback(**passed_params)
 
         return generated_callback
-
-
-from snowflake.cli.api.config import get_all_connections
 
 
 def _callback(provide_setter: Callable[[], Callable[[Any], Any]]):
@@ -603,19 +604,6 @@ def project_env_overrides_option():
         "--env",
         help="String in format of key=value. Overrides variables from env section used for templating.",
         callback=_callback(lambda: project_env_overrides_callback),
-        show_default=False,
-    )
-
-
-def readable_file_option(param_name: str, help_str: str) -> typer.Option:
-    return typer.Option(
-        None,
-        param_name,
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        help=help_str,
         show_default=False,
     )
 
