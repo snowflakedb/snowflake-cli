@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+from snowflake.connector import ProgrammingError
 
 from tests.testing_utils.fixtures import alter_snowflake_yml
 from tests_integration.testing_utils import SnowparkTestSetup, SnowparkTestSteps
@@ -20,6 +21,14 @@ from tests_integration.testing_utils import SnowparkTestSetup, SnowparkTestSteps
 STAGE_NAME = "dev_deployment"
 
 
+@pytest.mark.xfail(
+    raises=ProgrammingError,
+    strict=True,
+    reason=(
+        "Fails with \"Integrations do not allow secret 'EXTERNAL_ACCESS_DB.PUBLIC.TEST_SECRET'\" "
+        "without a recent code change"
+    ),
+)
 @pytest.mark.integration
 def test_snowpark_external_access(project_directory, _test_steps, test_database):
 
