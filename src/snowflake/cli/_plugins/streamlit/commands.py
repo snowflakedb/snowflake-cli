@@ -20,7 +20,7 @@ from typing import Dict
 
 import click
 import typer
-from click import ClickException
+from click import ClickException, UsageError
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
@@ -37,7 +37,6 @@ from snowflake.cli.api.commands.flags import (
     identifier_argument,
     like_option,
 )
-from snowflake.cli.api.commands.prompts import select_entity_prompt
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import NoProjectDefinitionError
@@ -152,7 +151,15 @@ def streamlit_deploy(
             project_type="streamlit", project_file=cli_context.project_root
         )
 
-    entity_id = select_entity_prompt(entities=streamlits, provided_entity_id=entity_id)
+    if len(streamlits.keys()) >= 1:
+        if entity_id is None:
+            raise UsageError(
+                "Multiple Streamlit apps found. Please provide entity id for the operation."
+            )
+        elif entity_id not in streamlits:
+            raise UsageError(f"No '{entity_id}' entity in project definition file.")
+    else:
+        entity_id = streamlits[list(streamlits.keys())[0]]
 
     # Get first streamlit
     streamlit: StreamlitEntityModel = streamlits[entity_id]
