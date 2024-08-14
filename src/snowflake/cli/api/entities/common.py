@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Generic, TypeVar, get_args
+from typing import Generic, Type, TypeVar, get_args
 
 
 class EntityActions(str, Enum):
@@ -18,12 +18,12 @@ class EntityBase(Generic[T]):
         self._entity_model = entity_model
 
     @classmethod
-    def get_entity_model_type(cls) -> T:
+    def get_entity_model_type(cls) -> Type[T]:
         """
-        Returns the generic model type specified in each entity class.
-        For example:
-            ApplicationEntity(EntityBase[ApplicationEntityModel]
-                                                    ^
+        Returns the generic model class specified in each entity class.
+
+        For example, the ApplicationEntityModel class will be returned:
+        ApplicationEntity(EntityBase[ApplicationEntityModel]
         """
         return get_args(cls.__orig_bases__[0])[0]  # type: ignore[attr-defined]
 
