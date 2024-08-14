@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 from functools import cached_property
 from pathlib import Path
 from typing import List, Optional
@@ -31,8 +32,14 @@ from snowflake.cli.api.project.schemas.native_app.application import (
 )
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
-from snowflake.cli.api.project.util import extract_schema, to_identifier
+from snowflake.cli.api.project.util import (
+    concat_identifiers,
+    extract_schema,
+    to_identifier,
+)
 from snowflake.connector import DictCursor
+
+RESOURCE_SUFFIX_VAR = "SNOWFLAKE_CLI_TEST_RESOURCE_SUFFIX"
 
 
 def current_role() -> str:
@@ -129,12 +136,13 @@ class NativeAppProjectModel:
         # sometimes strip out double quotes, so we try to get them back here.
         return to_identifier(self.definition.name)
 
-    @cached_property
+    @property
     def package_name(self) -> str:
         if self.definition.package and self.definition.package.name:
-            return to_identifier(self.definition.package.name)
+            name = self.definition.package.name
         else:
-            return to_identifier(default_app_package(self.project_identifier))
+            name = default_app_package(self.project_identifier)
+        return concat_identifiers([name, resource_suffix()])
 
     @cached_property
     def package_role(self) -> str:
@@ -150,12 +158,13 @@ class NativeAppProjectModel:
         else:
             return "internal"
 
-    @cached_property
+    @property
     def app_name(self) -> str:
         if self.definition.application and self.definition.application.name:
-            return to_identifier(self.definition.application.name)
+            name = to_identifier(self.definition.application.name)
         else:
-            return to_identifier(default_application(self.project_identifier))
+            name = to_identifier(default_application(self.project_identifier))
+        return concat_identifiers([name, resource_suffix()])
 
     @cached_property
     def app_role(self) -> str:
@@ -206,3 +215,12 @@ class NativeAppProjectModel:
             deploy_root=self.deploy_root,
             generated_root=self.generated_root,
         )
+
+
+def resource_suffix() -> str:
+    """
+    A suffix that should be added to account-level Native App resources.
+
+    This is an internal concern that is currently only used in tests.
+    """
+    return os.environ.get(RESOURCE_SUFFIX_VAR, "")
