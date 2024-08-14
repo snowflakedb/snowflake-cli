@@ -426,7 +426,7 @@ class RecordType(Enum):
 DEFAULT_EVENT_FOLLOW_LAST = 20
 
 
-@app.command("events", hidden=True, requires_connection=True)
+@app.command("events", requires_connection=True)
 @with_project_definition()
 @nativeapp_definition_v2_to_v1
 def app_events(
@@ -456,6 +456,10 @@ def app_events(
     consumer_account: str = typer.Option(
         default="",
         help="The name of the consumer account in the organization.",
+    ),
+    consumer_app_hash: str = typer.Option(
+        default="",
+        help="The SHA-1 hash of the consumer application name",
     ),
     first: int = typer.Option(
         default=-1,
@@ -526,6 +530,7 @@ def app_events(
                 scopes=scopes,
                 consumer_org=consumer_org,
                 consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
             )
         )
         # Append a newline at the end to make the CLI output clean when we hit Ctrl-C
@@ -542,6 +547,7 @@ def app_events(
                 last=last,
                 consumer_org=consumer_org,
                 consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
             )
         )
 
