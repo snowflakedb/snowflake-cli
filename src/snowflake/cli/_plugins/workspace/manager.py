@@ -49,7 +49,7 @@ class WorkspaceManager:
         entity = self.get_entity(entity_id)
         if entity.supports(action):
             action_ctx = ActionContext(project_root=self.project_root())
-            return getattr(entity, action)(action_ctx)
+            return entity.perform(action, action_ctx)
         else:
             raise ValueError(f'This entity type does not support "{action.value}"')
 

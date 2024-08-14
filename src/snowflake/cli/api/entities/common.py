@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Generic, Type, TypeVar, get_args
 
+from snowflake.cli._plugins.workspace.action_context import ActionContext
+
 
 class EntityActions(str, Enum):
     BUNDLE = "action_bundle"
@@ -22,8 +24,7 @@ class EntityBase(Generic[T]):
         """
         Returns the generic model class specified in each entity class.
 
-        For example, the ApplicationEntityModel class will be returned:
-        ApplicationEntity(EntityBase[ApplicationEntityModel]
+        For example, calling ApplicationEntity.get_entity_model_type() will return the ApplicationEntityModel class.
         """
         return get_args(cls.__orig_bases__[0])[0]  # type: ignore[attr-defined]
 
@@ -32,3 +33,9 @@ class EntityBase(Generic[T]):
         Checks whether this entity supports the given action. An entity is considered to support an action if it implements a method with the action name.
         """
         return callable(getattr(self, action, None))
+
+    def perform(self, action: EntityActions, action_ctx: ActionContext):
+        """
+        Performs the requested action.
+        """
+        return getattr(self, action)(action_ctx)
