@@ -372,7 +372,8 @@ def render_definition_template(
     project_definition = build_project_definition(**definition)
 
     # Dump the model instead of using "definition" since model
-    # validators can change field values
+    # validators can change field values. Round-trip as JSON
+    # to serialize non-scalar types like Path to strings
     project_context[CONTEXT_KEY] = json.loads(
         project_definition.model_dump_json(
             exclude_none=True,

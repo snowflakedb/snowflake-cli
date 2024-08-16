@@ -717,7 +717,7 @@ def test_non_str_scalar_with_templates():
                 },
                 "application": {
                     "name": "test_app_username",
-                    "debug": "true",
+                    "debug": True,
                 },
             },
             "env": ProjectEnvironment(default_env={}, override_env={}),
