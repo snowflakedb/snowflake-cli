@@ -267,5 +267,12 @@ def append_test_resource_suffix(identifier: str) -> str:
     """
     suffix = os.environ.get(TEST_RESOURCE_SUFFIX_VAR, "")
     if identifier_to_str(identifier).endswith(identifier_to_str(suffix)):
+        # If the suffix has already been added, don't add it again
         return to_identifier(identifier)
-    return concat_identifiers([identifier, suffix])
+    if is_valid_quoted_identifier(identifier) or is_valid_quoted_identifier(suffix):
+        # If either identifier is already quoted, use concat_identifier
+        # to add the suffix inside the quotes
+        return concat_identifiers([identifier, suffix])
+    # Otherwise just append the string, don't add quotes
+    # in case the user doesn't want them
+    return f"{identifier}{suffix}"

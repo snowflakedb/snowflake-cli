@@ -142,7 +142,7 @@ class NativeAppProjectModel:
             # explicitly specified, the default is generated here,
             # so we have to append the test resource suffix here
             name = default_app_package(self.project_identifier)
-            return append_test_resource_suffix(name)
+            return to_identifier(append_test_resource_suffix(name))
 
     @cached_property
     def package_role(self) -> str:
@@ -167,7 +167,7 @@ class NativeAppProjectModel:
             # explicitly specified, the default is generated here,
             # so we have to append the test resource suffix here
             name = default_application(self.project_identifier)
-            return append_test_resource_suffix(name)
+            return to_identifier(append_test_resource_suffix(name))
 
     @cached_property
     def app_role(self) -> str:
