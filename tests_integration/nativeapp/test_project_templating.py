@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
@@ -20,8 +19,6 @@ from tests_integration.test_utils import (
     row_from_snowflake_session,
     enable_definition_v2_feature_flag,
 )
-
-USER_NAME = os.environ.get("USER", "")
 
 
 # Tests a simple flow of native app with template reading env variables from OS
@@ -35,6 +32,7 @@ USER_NAME = os.environ.get("USER", "")
 def test_nativeapp_project_templating_use_env_from_os(
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
     project_definition_files: List[Path],
 ):
@@ -53,12 +51,8 @@ def test_nativeapp_project_templating_use_env_from_os(
 
         try:
             # app + package exist
-            package_name = (
-                f"{project_name}_{test_ci_env}_pkg_{USER_NAME}{resource_suffix}".upper()
-            )
-            app_name = (
-                f"{project_name}_{test_ci_env}_{USER_NAME}{resource_suffix}".upper()
-            )
+            package_name = f"{project_name}_{test_ci_env}_pkg_{default_username}{resource_suffix}".upper()
+            app_name = f"{project_name}_{test_ci_env}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -122,6 +116,7 @@ def test_nativeapp_project_templating_use_env_from_os(
 def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
     project_definition_files: List[Path],
 ):
@@ -140,12 +135,8 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
 
         try:
             # app + package exist
-            package_name = (
-                f"{project_name}_{test_ci_env}_pkg_{USER_NAME}{resource_suffix}".upper()
-            )
-            app_name = (
-                f"{project_name}_{test_ci_env}_{USER_NAME}{resource_suffix}".upper()
-            )
+            package_name = f"{project_name}_{test_ci_env}_pkg_{default_username}{resource_suffix}".upper()
+            app_name = f"{project_name}_{test_ci_env}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -209,6 +200,7 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
 def test_nativeapp_project_templating_use_default_env_from_project(
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
     project_definition_files: List[Path],
 ):
@@ -227,10 +219,8 @@ def test_nativeapp_project_templating_use_default_env_from_project(
 
         try:
             # app + package exist
-            package_name = f"{project_name}_{default_ci_env}_pkg_{USER_NAME}{resource_suffix}".upper()
-            app_name = (
-                f"{project_name}_{default_ci_env}_{USER_NAME}{resource_suffix}".upper()
-            )
+            package_name = f"{project_name}_{default_ci_env}_pkg_{default_username}{resource_suffix}".upper()
+            app_name = f"{project_name}_{default_ci_env}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -294,6 +284,7 @@ def test_nativeapp_project_templating_use_default_env_from_project(
 def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
     project_definition_files: List[Path],
 ):
@@ -314,10 +305,8 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
 
         try:
             # app + package exist
-            package_name = f"{project_name}_{expected_value}_pkg_{USER_NAME}{resource_suffix}".upper()
-            app_name = (
-                f"{project_name}_{expected_value}_{USER_NAME}{resource_suffix}".upper()
-            )
+            package_name = f"{project_name}_{expected_value}_pkg_{default_username}{resource_suffix}".upper()
+            app_name = f"{project_name}_{expected_value}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(

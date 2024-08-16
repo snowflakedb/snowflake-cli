@@ -22,9 +22,6 @@ from tests_integration.test_utils import (
 )
 
 
-USER_NAME = os.environ.get("USER", "")
-
-
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
@@ -51,11 +48,12 @@ def test_nativeapp_teardown_cascade(
     project_directory,
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
 ):
     project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}{resource_suffix}".upper()
-    db_name = f"{project_name}_db_{USER_NAME}{resource_suffix}".upper()
+    app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
+    db_name = f"{project_name}_db_{default_username}{resource_suffix}".upper()
 
     with project_directory(test_project):
         # Replacing the static DB name with a unique one to avoid collisions between tests
@@ -94,7 +92,7 @@ def test_nativeapp_teardown_cascade(
                 # this causes future `show objects owned by application` queries to fail
                 # and `snow app teardown` needs to be resilient against this
                 package_name = (
-                    f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
+                    f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
                 )
                 snowflake_session.execute_string(
                     f"drop application package {package_name}"
@@ -149,13 +147,14 @@ def test_nativeapp_teardown_cascade(
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_teardown_unowned_app(
     runner,
+    default_username,
     resource_suffix,
     force,
     test_project,
     project_directory,
 ):
     project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}{resource_suffix}"
+    app_name = f"{project_name}_{default_username}{resource_suffix}"
 
     with project_directory(test_project):
         result = runner.invoke_with_connection_json(["app", "run"])
@@ -186,13 +185,14 @@ def test_nativeapp_teardown_unowned_app(
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_teardown_pkg_versions(
     runner,
+    default_username,
     resource_suffix,
     default_release_directive,
     test_project,
     project_directory,
 ):
     project_name = "myapp"
-    pkg_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}"
+    pkg_name = f"{project_name}_pkg_{default_username}{resource_suffix}"
 
     with project_directory(test_project):
         result = runner.invoke_with_connection(["app", "version", "create", "v1"])

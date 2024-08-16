@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
@@ -24,7 +23,6 @@ from tests_integration.test_utils import (
     enable_definition_v2_feature_flag,
 )
 
-USER_NAME = os.environ.get("USER", "")
 
 # Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
 @pytest.mark.integration
@@ -35,6 +33,7 @@ USER_NAME = os.environ.get("USER", "")
 def test_nativeapp_version_create_and_drop(
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
     project_definition_files: List[Path],
 ):
@@ -48,7 +47,9 @@ def test_nativeapp_version_create_and_drop(
 
         try:
             # package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -98,6 +99,7 @@ def test_nativeapp_version_create_and_drop(
 def test_nativeapp_upgrade(
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
     project_definition_files: List[Path],
 ):
@@ -111,8 +113,10 @@ def test_nativeapp_upgrade(
 
         try:
             # package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
-            app_name = f"{project_name}_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             # app package contains version v1
             expect = snowflake_session.execute_string(
                 f"show versions in application package {package_name}"
@@ -152,6 +156,7 @@ def test_nativeapp_upgrade(
 def test_nativeapp_version_create_3_patches(
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
     project_definition_files: List[Path],
 ):
@@ -159,7 +164,9 @@ def test_nativeapp_version_create_3_patches(
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
         try:
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
 
             # create three patches (deploys too)
             for _ in range(3):
@@ -213,6 +220,7 @@ def test_nativeapp_version_create_3_patches(
 def test_nativeapp_version_create_patch_is_integer(
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
     project_definition_files: List[Path],
 ):
@@ -220,7 +228,9 @@ def test_nativeapp_version_create_patch_is_integer(
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
         try:
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
 
             # create initial version
             result = runner.invoke_with_connection_json(
@@ -298,6 +308,7 @@ def test_nativeapp_version_create_patch_is_integer(
 def test_nativeapp_version_create_package_no_magic_comment(
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
     snapshot,
     project_definition_files: List[Path],
@@ -310,7 +321,9 @@ def test_nativeapp_version_create_package_no_magic_comment(
 
         try:
             # package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(

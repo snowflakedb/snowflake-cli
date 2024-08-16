@@ -1,5 +1,4 @@
 # Tests that application post-deploy scripts are executed by creating a post_deploy_log table and having each post-deploy script add a record to it
-import os
 
 import pytest
 
@@ -10,8 +9,6 @@ from tests_integration.test_utils import (
 from tests_integration.testing_utils.working_directory_utils import (
     WorkingDirectoryChanger,
 )
-
-USER_NAME = os.environ.get("USER", "")
 
 
 def run(runner, args):
@@ -76,6 +73,7 @@ def verify_pkg_post_deploy_log(snowflake_session, pkg_name, expected_rows):
 def test_nativeapp_post_deploy(
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
     project_directory,
     test_project,
@@ -84,8 +82,8 @@ def test_nativeapp_post_deploy(
 ):
     version = "v1"
     project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}{resource_suffix}"
-    pkg_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}"
+    app_name = f"{project_name}_{default_username}{resource_suffix}"
+    pkg_name = f"{project_name}_pkg_{default_username}{resource_suffix}"
 
     with project_directory(test_project) as tmp_dir:
         project_args = ["--project", f"{tmp_dir}"] if with_project_flag else []

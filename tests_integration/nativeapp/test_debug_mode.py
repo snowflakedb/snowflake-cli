@@ -12,17 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import yaml
 from typing import Optional
 
+import yaml
 from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.errors import ProgrammingError
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import pushd, enable_definition_v2_feature_flag
-
-USER_NAME = os.environ.get("USER", "")
 
 
 class ApplicationNotFoundError(Exception):
@@ -91,6 +88,7 @@ def set_yml_application_debug(snowflake_yml: Path, debug: Optional[bool]):
 def test_nativeapp_controlled_debug_mode(
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
     project_definition_files: List[Path],
 ):
@@ -104,7 +102,7 @@ def test_nativeapp_controlled_debug_mode(
         assert "debug:" not in snowflake_yml.read_text()
 
         # make sure the app doesn't (yet) exist
-        app_name = f"{project_name}_{USER_NAME}{resource_suffix}".upper()
+        app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
         with pytest.raises(ApplicationNotFoundError):
             is_debug_mode(snowflake_session, app_name)
 

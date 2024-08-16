@@ -15,7 +15,6 @@ import os
 import uuid
 
 from snowflake.cli._plugins.nativeapp.init import OFFICIAL_TEMPLATES_GITHUB_URL
-from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from snowflake.cli.api.secure_path import SecurePath
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
@@ -26,7 +25,6 @@ from tests_integration.test_utils import (
     enable_definition_v2_feature_flag,
 )
 
-USER_NAME = os.environ.get("USER", "")
 
 # Tests a simple flow of initiating a new project, executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
@@ -37,6 +35,7 @@ def test_nativeapp_init_run_without_modifications(
     project_directory,
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
 ):
     project_name = "myapp"
@@ -46,8 +45,10 @@ def test_nativeapp_init_run_without_modifications(
 
         try:
             # app + package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
-            app_name = f"{project_name}_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -82,7 +83,11 @@ def test_nativeapp_init_run_without_modifications(
     "project_definition_files", ["integration", "integration_v2"], indirect=True
 )
 def test_nativeapp_run_existing(
-    runner, snowflake_session, project_definition_files: List[Path], resource_suffix
+    runner,
+    snowflake_session,
+    project_definition_files: List[Path],
+    default_username,
+    resource_suffix,
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
@@ -92,8 +97,10 @@ def test_nativeapp_run_existing(
 
         try:
             # app + package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
-            app_name = f"{project_name}_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -145,7 +152,12 @@ def test_nativeapp_run_existing(
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_init_run_handles_spaces(
-    test_project, project_directory, runner, snowflake_session, resource_suffix
+    test_project,
+    project_directory,
+    runner,
+    snowflake_session,
+    default_username,
+    resource_suffix,
 ):
     project_name = "myapp"
     with project_directory(test_project):
@@ -154,8 +166,10 @@ def test_nativeapp_init_run_handles_spaces(
 
         try:
             # app + package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
-            app_name = f"{project_name}_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -192,7 +206,11 @@ def test_nativeapp_init_run_handles_spaces(
     indirect=True,
 )
 def test_nativeapp_run_existing_w_external(
-    runner, snowflake_session, project_definition_files: List[Path], resource_suffix
+    runner,
+    snowflake_session,
+    project_definition_files: List[Path],
+    default_username,
+    resource_suffix,
 ):
     project_name = "integration_external"
     project_dir = project_definition_files[0].parent
@@ -202,8 +220,10 @@ def test_nativeapp_run_existing_w_external(
 
         try:
             # app + package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
-            app_name = f"{project_name}_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -282,11 +302,11 @@ def test_nativeapp_run_existing_w_external(
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_run_after_deploy(
-    test_project, project_directory, runner, resource_suffix
+    test_project, project_directory, runner, default_username, resource_suffix
 ):
     project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}{resource_suffix}"
-    stage_fqn = f"{project_name}_pkg_{USER_NAME}{resource_suffix}.app_src.stage"
+    app_name = f"{project_name}_{default_username}{resource_suffix}"
+    stage_fqn = f"{project_name}_pkg_{default_username}{resource_suffix}.app_src.stage"
 
     with project_directory(test_project):
         try:
@@ -368,6 +388,7 @@ def test_nativeapp_run_orphan(
     snowflake_session,
     project_definition_files: List[Path],
     force_flag,
+    default_username,
     resource_suffix,
 ):
     project_name = "integration"
@@ -378,8 +399,10 @@ def test_nativeapp_run_orphan(
 
         try:
             # app + package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
-            app_name = f"{project_name}_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -403,8 +426,10 @@ def test_nativeapp_run_orphan(
             assert result.exit_code == 0, result.output
 
             # package doesn't exist, app not readable
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
-            app_name = f"{project_name}_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert not_contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -496,11 +521,12 @@ def test_nativeapp_force_cross_upgrade(
     run_args_from,
     run_args_to,
     runner,
+    default_username,
     resource_suffix,
 ):
     project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}{resource_suffix}"
-    pkg_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}"
+    app_name = f"{project_name}_{default_username}{resource_suffix}"
+    pkg_name = f"{project_name}_pkg_{default_username}{resource_suffix}"
 
     with project_directory(test_project):
         try:

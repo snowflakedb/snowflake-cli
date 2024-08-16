@@ -86,7 +86,11 @@ def test_root_path():
 
 class SnowCLIRunner(CliRunner):
     def __init__(
-        self, app: Typer, test_config_provider: TestConfigProvider, resource_suffix: str
+        self,
+        app: Typer,
+        test_config_provider: TestConfigProvider,
+        default_username: str,
+        resource_suffix: str,
     ):
         super().__init__()
         self.app = app
@@ -94,6 +98,7 @@ class SnowCLIRunner(CliRunner):
         self._test_config_path = self._test_config_provider.get_config_path(
             DEFAULT_TEST_CONFIG
         )
+        self._default_username = default_username
         self._resource_suffix = resource_suffix
 
     def use_config(self, config_file_name: str) -> None:
@@ -105,13 +110,17 @@ class SnowCLIRunner(CliRunner):
     def invoke(self, *a, **kw):
         if "catch_exceptions" not in kw:
             kw.update(catch_exceptions=False)
-        kw = self._with_resource_suffix(kw)
+        kw = self._with_env_vars(kw)
         return super().invoke(self.app, *a, **kw)
 
-    def _with_resource_suffix(self, kw) -> dict:
+    def _with_env_vars(self, kw) -> dict:
         """
-        Set the resource suffix env var and return new kwargs.
+        Add required env vars to the invocation context if necessary and return new kwargs.
 
+        Sets the USER env var to a default value if not set in the test,
+        to allow us to use <% ctx.env.USER %> in test data on Windows.
+
+        Sets the resource suffix env var unconditionally.
         The CLI automatically appends the value of this env var to some
         created resource identifiers, let's use this behaviour to add a unique
         suffix to resources used in tests to allow us to run simultaneous instances.
@@ -121,6 +130,7 @@ class SnowCLIRunner(CliRunner):
             **kw,
             "env": {
                 **env,
+                "USER": env.get("USER", self._default_username),
                 TEST_RESOURCE_SUFFIX_VAR: self._resource_suffix,
             },
         }
@@ -159,9 +169,14 @@ class SnowCLIRunner(CliRunner):
 
 
 @pytest.fixture
-def runner(test_snowcli_config_provider, resource_suffix):
+def runner(test_snowcli_config_provider, default_username, resource_suffix):
     app = app_factory()
-    yield SnowCLIRunner(app, test_snowcli_config_provider, resource_suffix)
+    yield SnowCLIRunner(
+        app,
+        test_snowcli_config_provider,
+        default_username,
+        resource_suffix,
+    )
 
 
 class QueryResultJsonEncoderError(RuntimeError):
@@ -211,6 +226,11 @@ def isolate_snowflake_home(snowflake_home):
 @pytest.fixture(autouse=True)
 def env_setup(monkeypatch):
     monkeypatch.setenv("SNOWFLAKE_CLI_FEATURES_ENABLE_PROJECT_DEFINITION_V2", "true")
+
+
+@pytest.fixture
+def default_username():
+    return "snowflake"
 
 
 @pytest.fixture

@@ -30,14 +30,12 @@ from tests_integration.testing_utils import (
     assert_that_result_is_usage_error,
 )
 
-USER_NAME = os.environ.get("USER", "")
-
 
 @pytest.fixture
-def sanitize_deploy_output(resource_suffix):
+def sanitize_deploy_output(default_username, resource_suffix):
     def _sanitize_deploy_output(output):
         deploy_root = Path("output/deploy").resolve()
-        user_and_suffix = f"{USER_NAME}{resource_suffix}"
+        user_and_suffix = f"{default_username}{resource_suffix}"
         return output.replace(user_and_suffix, "@@USER@@").replace(
             str(deploy_root), "@@DEPLOY_ROOT@@"
         )
@@ -54,6 +52,7 @@ def test_nativeapp_deploy(
     project_directory,
     runner,
     snowflake_session,
+    default_username,
     resource_suffix,
     sanitize_deploy_output,
     snapshot,
@@ -67,8 +66,10 @@ def test_nativeapp_deploy(
 
         try:
             # package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
-            app_name = f"{project_name}_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -133,6 +134,7 @@ def test_nativeapp_deploy_prune(
     runner,
     snapshot,
     print_paths_as_posix,
+    default_username,
     resource_suffix,
     sanitize_deploy_output,
 ):
@@ -151,7 +153,9 @@ def test_nativeapp_deploy_prune(
             assert sanitize_deploy_output(result.output) == snapshot
 
             # verify the file does not exist on the stage
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
                 ["stage", "list-files", f"{package_name}.{stage_name}"]
@@ -181,6 +185,7 @@ def test_nativeapp_deploy_files(
     runner,
     snapshot,
     print_paths_as_posix,
+    default_username,
     resource_suffix,
     sanitize_deploy_output,
 ):
@@ -201,7 +206,9 @@ def test_nativeapp_deploy_files(
 
         try:
             # manifest and script files exist, readme doesn't exist
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
                 ["stage", "list-files", f"{package_name}.{stage_name}"]
@@ -232,6 +239,7 @@ def test_nativeapp_deploy_nested_directories(
     runner,
     snapshot,
     print_paths_as_posix,
+    default_username,
     resource_suffix,
     sanitize_deploy_output,
 ):
@@ -247,7 +255,9 @@ def test_nativeapp_deploy_nested_directories(
         assert sanitize_deploy_output(result.output) == snapshot
 
         try:
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
                 ["stage", "list-files", f"{package_name}.{stage_name}"]
@@ -274,6 +284,7 @@ def test_nativeapp_deploy_directory(
     test_project,
     project_directory,
     runner,
+    default_username,
     resource_suffix,
     sanitize_deploy_output,
 ):
@@ -293,7 +304,9 @@ def test_nativeapp_deploy_directory(
         assert result.exit_code == 0
 
         try:
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
                 ["stage", "list-files", f"{package_name}.{stage_name}"]
@@ -418,6 +431,7 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
     runner,
     snapshot,
     print_paths_as_posix,
+    default_username,
     resource_suffix,
     sanitize_deploy_output,
 ):
@@ -429,7 +443,9 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
             assert result.exit_code == 0
             assert sanitize_deploy_output(result.output) == snapshot
 
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
                 ["stage", "list-files", f"{package_name}.{stage_name}"]
@@ -510,6 +526,7 @@ def test_nativeapp_deploy_dot(
     runner,
     snapshot,
     print_paths_as_posix,
+    default_username,
     resource_suffix,
     sanitize_deploy_output,
 ):
@@ -520,7 +537,9 @@ def test_nativeapp_deploy_dot(
             assert result.exit_code == 0
             assert sanitize_deploy_output(result.output) == snapshot
 
-            package_name = f"{project_name}_pkg_{USER_NAME}{resource_suffix}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
                 ["stage", "list-files", f"{package_name}.{stage_name}"]
