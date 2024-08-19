@@ -370,7 +370,7 @@ def render_definition_template(
 
     project_definition = build_project_definition(**definition)
 
-    # Use the values originally provided by the user as the definition
+    # Use the values originally provided by the user as the template context
     # This intentionally doesn't reflect any field changes made by
     # validators, to minimize user surprise when templating values
     project_context[CONTEXT_KEY] = definition
