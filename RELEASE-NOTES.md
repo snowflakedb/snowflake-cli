@@ -25,6 +25,7 @@
 * Added support for `native_app.package.post_deploy` scripts in project definition file.
   * These scripts will execute whenever a Native App Package is created or updated.
   * Currently only supports SQL scripts: `post_deploy: [{sql_script: script.sql}]`
+* Added support for project definition file defaults in templates
 
 ## Fixes and improvements
 

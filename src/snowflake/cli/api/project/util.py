@@ -42,12 +42,20 @@ def encode_uri_component(s: str) -> str:
     return quote(s, safe="!~*'()")
 
 
-def clean_identifier(input_: str):
+def sanitize_identifier(input_: str):
     """
-    Removes characters that cannot be used in an unquoted identifier,
-    converting to lowercase as well.
+    Removes characters that cannot be used in an unquoted identifier.
+    If the identifier does not start with a letter or underscore, prefix it with an underscore.
+    Limits the identifier to 255 characters.
     """
-    return re.sub(r"[^a-z0-9_$]", "", f"{input_}".lower())
+    value = re.sub(r"[^a-zA-Z0-9_$]", "", f"{input_}")
+
+    # if it does not start with a letter or underscore, prefix it with an underscore
+    if not value or not re.match(r"[a-zA-Z_]", value[0]):
+        value = f"_{value}"
+
+    # limit it to 255 characters
+    return value[:255]
 
 
 def is_valid_unquoted_identifier(identifier: str) -> bool:
