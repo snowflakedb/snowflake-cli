@@ -31,6 +31,7 @@
   * Currently only supports SQL scripts: `post_deploy: [{sql_script: script.sql}]`
 * Added `snow spcs service execute-job` command, which supports creating and executing a job service in the current schema.
 * Added `snow app events` command to fetch logs and traces from local and customer app installations
+* Added support for project definition file defaults in templates
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command
@@ -51,7 +52,6 @@ but should be replaced with `snow init`
 * Added connection option `--token-file-path` allowing passing OAuth token using a file. The function is also
   supported by setting `token_file_path` in connection definition.
 * Support for Python remote execution via `snow stage execute` and `snow git execute` similar to existing EXECUTE IMMEDIATE support.
-* Added support for project definition file defaults in templates
 * Added support for autocomplete in `--connection` flag.
 * Added `snow init` command, which supports initializing projects with external templates.
 
