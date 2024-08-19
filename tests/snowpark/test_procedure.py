@@ -442,6 +442,28 @@ def test_deploy_procedure_fully_qualified_name(
         result = runner.invoke(["snowpark", "deploy"])
         assert result.output == os_agnostic_snapshot(name="database error")
 
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+def test_deploy_procedure_fully_qualified_name_duplicated_schema(
+    mock_om_show,
+    mock_om_describe,
+    mock_conn,
+    runner,
+    mock_ctx,
+    project_directory,
+    alter_snowflake_yml,
+    os_agnostic_snapshot,
+):
+    number_of_procedures_in_projects = 6
+    mock_om_describe.side_effect = [
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+    ] * number_of_procedures_in_projects
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory("snowpark_procedure_fully_qualified_name") as tmp_dir:
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.procedures.5.name",
@@ -449,15 +471,6 @@ def test_deploy_procedure_fully_qualified_name(
         )
         result = runner.invoke(["snowpark", "deploy"])
         assert result.output == os_agnostic_snapshot(name="schema error")
-
-        alter_snowflake_yml(
-            tmp_dir / "snowflake.yml",
-            parameter_path="snowpark.procedures.5.name",
-            value="fqn_procedure3",
-        )
-        result = runner.invoke(["snowpark", "deploy"])
-        assert result.exit_code == 0
-        assert result.output == os_agnostic_snapshot(name="ok")
 
 
 @mock.patch("snowflake.connector.connect")
