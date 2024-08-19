@@ -1011,7 +1011,6 @@ def test_identifier_suffixing_nested_refer_to_str():
         "native_app": {
             "name": "myapp",
             "artifacts": [],
-            # suffix is appended twice since we run validators before rendering on non-templated strings to get defaults
             "package": {"name": "pkg"},
             "application": {"name": "<% ctx.native_app.package.name %>_app"},
         },
@@ -1019,7 +1018,7 @@ def test_identifier_suffixing_nested_refer_to_str():
     project_properties = render_definition_template(definition, {})
     project_definition = project_properties.project_definition
     app = project_definition.native_app.application.name
-    assert app == "pkg_suffix_app_suffix"  # suffix is added twice
+    assert app == "pkg_app_suffix"
 
 
 @pytest.mark.xfail(
