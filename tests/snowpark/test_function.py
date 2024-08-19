@@ -293,7 +293,7 @@ def test_deploy_function_needs_update_because_handler_changes(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
-def test_deploy_procedure_fully_qualified_name(
+def test_deploy_function_fully_qualified_name_duplicated_database(
     mock_om_show,
     mock_om_describe,
     mock_conn,
@@ -314,6 +314,28 @@ def test_deploy_procedure_fully_qualified_name(
         result = runner.invoke(["snowpark", "deploy"])
         assert result.output == os_agnostic_snapshot(name="database error")
 
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+def test_deploy_function_fully_qualified_name_duplicated_schema(
+    mock_om_show,
+    mock_om_describe,
+    mock_conn,
+    runner,
+    mock_ctx,
+    project_directory,
+    alter_snowflake_yml,
+    os_agnostic_snapshot,
+):
+    number_of_functions_in_project = 6
+    mock_om_describe.side_effect = [
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+    ] * number_of_functions_in_project
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory("snowpark_function_fully_qualified_name") as tmp_dir:
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.functions.5.name",
@@ -322,6 +344,28 @@ def test_deploy_procedure_fully_qualified_name(
         result = runner.invoke(["snowpark", "deploy"])
         assert result.output == os_agnostic_snapshot(name="schema error")
 
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+def test_deploy_function_fully_qualified_name(
+    mock_om_show,
+    mock_om_describe,
+    mock_conn,
+    runner,
+    mock_ctx,
+    project_directory,
+    alter_snowflake_yml,
+    os_agnostic_snapshot,
+):
+    number_of_functions_in_project = 6
+    mock_om_describe.side_effect = [
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+    ] * number_of_functions_in_project
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory("snowpark_function_fully_qualified_name") as tmp_dir:
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.functions.5.name",
