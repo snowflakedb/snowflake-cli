@@ -28,7 +28,7 @@ from snowflake.cli._plugins.object.command_aliases import (
     scope_option,
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
-from snowflake.cli._plugins.stage.manager import OnErrorType
+from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.flags import (
     ExecuteVariablesOption,
     OnErrorOption,
