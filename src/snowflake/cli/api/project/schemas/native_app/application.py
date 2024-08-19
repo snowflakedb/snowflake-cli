@@ -16,11 +16,12 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
 )
+from snowflake.cli.api.project.util import append_test_resource_suffix
 
 
 class SqlScriptHookType(UpdatableModel):
@@ -52,6 +53,11 @@ class Application(UpdatableModel):
         title="Actions that will be executed after the application object is created/upgraded",
         default=None,
     )
+
+    @field_validator("name")
+    @classmethod
+    def append_test_resource_suffix_to_name(cls, input_value: str) -> str:
+        return append_test_resource_suffix(input_value)
 
 
 class ApplicationV11(Application):

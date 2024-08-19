@@ -34,6 +34,9 @@ UNQUOTED_IDENTIFIER_REGEX = r"([a-zA-Z_])([a-zA-Z0-9_$]{0,254})"
 QUOTED_IDENTIFIER_REGEX = r'"((""|[^"]){0,255})"'
 VALID_IDENTIFIER_REGEX = f"(?:{UNQUOTED_IDENTIFIER_REGEX}|{QUOTED_IDENTIFIER_REGEX})"
 
+# An env var that is used to suffix the names of some account-level resources
+TEST_RESOURCE_SUFFIX_VAR = "SNOWFLAKE_CLI_TEST_RESOURCE_SUFFIX"
+
 
 def encode_uri_component(s: str) -> str:
     """
@@ -191,12 +194,6 @@ def extract_schema(qualified_name: str):
     return None
 
 
-def generate_user_env(username: str) -> dict:
-    return {
-        "USER": username,
-    }
-
-
 def first_set_env(*keys: str):
     for k in keys:
         v = os.getenv(k)
@@ -259,3 +256,23 @@ def identifier_to_show_like_pattern(identifier: str) -> str:
     matching this identifier
     """
     return f"'{escape_like_pattern(unquote_identifier(identifier))}'"
+
+
+def append_test_resource_suffix(identifier: str) -> str:
+    """
+    Append a suffix that should be added to specified account-level resources.
+
+    This is an internal concern that is currently only used in tests
+    to isolate concurrent runs and to add the test name to resources.
+    """
+    suffix = os.environ.get(TEST_RESOURCE_SUFFIX_VAR, "")
+    if identifier_to_str(identifier).endswith(identifier_to_str(suffix)):
+        # If the suffix has already been added, don't add it again
+        return identifier
+    if is_valid_quoted_identifier(identifier) or is_valid_quoted_identifier(suffix):
+        # If either identifier is already quoted, use concat_identifier
+        # to add the suffix inside the quotes
+        return concat_identifiers([identifier, suffix])
+    # Otherwise just append the string, don't add quotes
+    # in case the user doesn't want them
+    return f"{identifier}{suffix}"

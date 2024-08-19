@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
     ApplicationPackageEntityModel,
 )
@@ -24,9 +24,11 @@ from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     TargetField,
 )
+from snowflake.cli.api.project.schemas.identifier_model import Identifier
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
 )
+from snowflake.cli.api.project.util import append_test_resource_suffix
 
 
 class ApplicationEntityModel(EntityModelBase):
@@ -39,3 +41,16 @@ class ApplicationEntityModel(EntityModelBase):
         title="Whether to enable debug mode when using a named stage to create an application object",
         default=None,
     )
+
+    @field_validator("identifier")
+    @classmethod
+    def append_test_resource_suffix_to_identifier(
+        cls, input_value: Identifier | str
+    ) -> Identifier | str:
+        identifier = (
+            input_value.name if isinstance(input_value, Identifier) else input_value
+        )
+        with_suffix = append_test_resource_suffix(identifier)
+        if isinstance(input_value, Identifier):
+            return input_value.model_copy(update=dict(name=with_suffix))
+        return with_suffix
