@@ -74,5 +74,5 @@ class PackageV11(Package):
     # Templated defaults only supported in v1.1+
     name: Optional[str] = IdentifierField(
         title="Name of the application package created when you run the snow app run command",
-        default="<% fn.id_concat(ctx.native_app.name, '_pkg_', fn.clean_id(fn.get_username('unknown_user'))) %>",
+        default="<% fn.concat_ids(ctx.native_app.name, '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>",
     )
