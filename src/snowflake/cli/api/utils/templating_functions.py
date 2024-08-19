@@ -18,10 +18,10 @@ from typing import Any, List, Optional
 
 from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.project.util import (
-    clean_identifier,
     concat_identifiers,
     get_env_username,
     identifier_to_str,
+    sanitize_identifier,
     to_identifier,
 )
 
@@ -55,7 +55,7 @@ class TemplatingFunctions:
                 raise InvalidTemplate(f"{func_name} only accepts String values")
 
     @staticmethod
-    def id_concat(*args):
+    def concat_ids(*args):
         """
         input: one or more string arguments (SQL ID or plain String).
         output: a valid SQL ID (quoted or unquoted)
@@ -66,7 +66,7 @@ class TemplatingFunctions:
         - It contains non SQL safe characters
         - Any of the input was a valid quoted identifier.
         """
-        TemplatingFunctions._verify_str_arguments("id_concat", args, min_count=1)
+        TemplatingFunctions._verify_str_arguments("concat_ids", args, min_count=1)
         return concat_identifiers(args)
 
     @staticmethod
@@ -114,19 +114,21 @@ class TemplatingFunctions:
         return get_env_username() or fallback_username
 
     @staticmethod
-    def clean_id(*args):
+    def sanitize_id(*args):
         """
         input: one string argument
         output: a valid non-quoted SQL ID
 
-        Removes any unsafe SQL characters from the input, lowercase it,
-        and return it as a valid unquoted SQL ID.
+        Removes any unsafe SQL characters from the input,
+        prepend it with an underscore if it does not start with a valid character,
+        and limit the result to 255 characters.
+        The result is a valid unquoted SQL ID.
         """
         TemplatingFunctions._verify_str_arguments(
-            "clean_id", args, min_count=1, max_count=1
+            "sanitize_id", args, min_count=1, max_count=1
         )
 
-        return clean_identifier(args[0])
+        return sanitize_identifier(args[0])
 
 
 def get_templating_functions():

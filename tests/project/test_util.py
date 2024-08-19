@@ -25,6 +25,7 @@ from snowflake.cli.api.project.util import (
     is_valid_quoted_identifier,
     is_valid_string_literal,
     is_valid_unquoted_identifier,
+    sanitize_identifier,
     to_identifier,
     to_quoted_identifier,
     to_string_literal,
@@ -309,3 +310,28 @@ def test_concat_identifiers(id1, id2, concatenated_value):
 )
 def test_identifier_to_str(identifier, expected_value):
     assert identifier_to_str(identifier) == expected_value
+
+
+@pytest.mark.parametrize(
+    "identifier, expected_value",
+    [
+        # valid unquoted id -> return same
+        ("Id_1", "Id_1"),
+        # valid quoted id -> remove quotes
+        ('"Id""1"', "Id1"),
+        # empty string -> return underscore
+        ("", "_"),
+        # valid string starting with number -> prepend underscore
+        ("1ABC", "_1ABC"),
+        # valid string starting with number after a special character -> prepend underscore
+        ("..1ABC", "_1ABC"),
+        # valid string starting with dollar sign -> prepend underscore
+        ("$ABC", "_$ABC"),
+        # string longer than 255 characters -> truncate to 255
+        ("A" * 256, "A" * 255),
+        # string longer than 255 characters with special characters -> truncate to 255 after removing special characters
+        ("." + "A" * 254 + "BC", "A" * 254 + "B"),
+    ],
+)
+def test_sanitize_identifier(identifier, expected_value):
+    assert sanitize_identifier(identifier) == expected_value
