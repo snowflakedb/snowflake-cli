@@ -32,11 +32,11 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppCommandProcessor,
     NativeAppManager,
-    ensure_correct_owner,
 )
 from snowflake.cli._plugins.nativeapp.policy import PolicyBase
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.entities.utils import ensure_correct_owner
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.util import unquote_identifier

@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Generic, Type, TypeVar, get_args
 
 from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli.api.sql_execution import SqlExecutor
 
 
 class EntityActions(str, Enum):
@@ -39,3 +40,13 @@ class EntityBase(Generic[T]):
         Performs the requested action.
         """
         return getattr(self, action)(action_ctx)
+
+
+_SQL_EXECUTOR: SqlExecutor | None = None
+
+
+def get_sql_executor() -> SqlExecutor:
+    global _SQL_EXECUTOR
+    if _SQL_EXECUTOR is None:
+        _SQL_EXECUTOR = SqlExecutor()
+    return _SQL_EXECUTOR

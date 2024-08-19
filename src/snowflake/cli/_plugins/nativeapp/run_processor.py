@@ -35,8 +35,6 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppCommandProcessor,
     NativeAppManager,
-    ensure_correct_owner,
-    generic_sql_error_handler,
 )
 from snowflake.cli._plugins.nativeapp.policy import PolicyBase
 from snowflake.cli._plugins.nativeapp.project_model import (
@@ -44,6 +42,10 @@ from snowflake.cli._plugins.nativeapp.project_model import (
 )
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.entities.utils import (
+    ensure_correct_owner,
+    generic_sql_error_handler,
+)
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
