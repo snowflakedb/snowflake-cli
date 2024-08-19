@@ -14,6 +14,7 @@
 
 import stat
 from pathlib import Path
+from typing import List
 
 from snowflake.connector.compat import IS_WINDOWS
 
@@ -36,20 +37,24 @@ def _windows_permissions_are_denied(permission_codes: str) -> bool:
     return "(DENY)" in permission_codes or "(N)" in permission_codes
 
 
-def _windows_file_permissions_are_strict(file_path: Path) -> bool:
+def windows_get_not_whitelisted_users_with_access(file_path: Path) -> List[str]:
     import re
 
     # according to https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/icacls
     icacls_output_regex = r".*\\(?P<user>.*):(?P<permissions>[(A-Z),]+)"
     whitelisted_users = _get_windows_whitelisted_users()
 
+    users_with_access = []
     for permission in re.finditer(icacls_output_regex, _run_icacls(file_path)):
         if (permission.group("user") not in whitelisted_users) and (
             not _windows_permissions_are_denied(permission.group("permissions"))
         ):
-            return False
+            users_with_access.append(permission.group("user"))
+    return list(set(users_with_access))
 
-    return True
+
+def _windows_file_permissions_are_strict(file_path: Path) -> bool:
+    return windows_get_not_whitelisted_users_with_access(file_path) == []
 
 
 def _unix_file_permissions_are_strict(file_path: Path) -> bool:
@@ -67,5 +72,5 @@ def _unix_file_permissions_are_strict(file_path: Path) -> bool:
 
 def file_permissions_are_strict(file_path: Path) -> bool:
     if IS_WINDOWS:
-        return True
+        return _windows_file_permissions_are_strict(file_path)
     return _unix_file_permissions_are_strict(file_path)
