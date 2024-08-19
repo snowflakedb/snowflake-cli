@@ -126,12 +126,14 @@ class ExternalAccessBaseModel:
         default={},
     )
 
-    def get_external_access_integrations_sql(self):
-        external_access_integration_name = ", ".join(
-            f"{e}" for e in self.external_access_integrations
-        )
+    def get_external_access_integrations_sql(self) -> str | None:
+        if not self.external_access_integrations:
+            return None
+        external_access_integration_name = ", ".join(self.external_access_integrations)
         return f"external_access_integrations=({external_access_integration_name})"
 
-    def get_secrets_sql(self):
+    def get_secrets_sql(self) -> str | None:
+        if not self.secrets:
+            return None
         secrets = ", ".join(f"'{key}' = {value}" for key, value in self.secrets.items())
         return f"secrets = ({secrets})"
