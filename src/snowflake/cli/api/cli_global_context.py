@@ -17,13 +17,15 @@ from __future__ import annotations
 import re
 import warnings
 from pathlib import Path
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.cli.api.output.formats import OutputFormat
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.compat import IS_WINDOWS
+
+if TYPE_CHECKING:
+    from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 
 schema_pattern = re.compile(r".+\..+")
 

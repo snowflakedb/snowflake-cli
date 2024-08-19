@@ -28,11 +28,11 @@ from typing import Dict, List, Optional, Union
 
 from click import ClickException
 from snowflake.cli._plugins.snowpark.package_utils import parse_requirements
-from snowflake.cli.api.commands.flags import (
+from snowflake.cli.api.commands.common import (
     OnErrorType,
     Variable,
-    parse_key_value_variables,
 )
+from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import PYTHON_3_12
 from snowflake.cli.api.identifiers import FQN

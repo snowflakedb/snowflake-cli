@@ -52,8 +52,8 @@ from snowflake.cli._plugins.nativeapp.version.commands import app as versions_ap
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     compute_stage_diff,
-    print_diff_to_console,
 )
+from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
