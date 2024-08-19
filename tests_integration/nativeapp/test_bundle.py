@@ -262,10 +262,7 @@ def test_nativeapp_bundle_throws_error_on_no_artifacts(template_setup):
         artifacts_section=[],
     )
 
-    result = runner.invoke_json(
-        ["app", "bundle"],
-        env=TEST_ENV,
-    )
+    result = runner.invoke_json(["app", "bundle"])
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
         result,
