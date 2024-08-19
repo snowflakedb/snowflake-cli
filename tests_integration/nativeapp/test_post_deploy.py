@@ -1,8 +1,7 @@
 # Tests that application post-deploy scripts are executed by creating a post_deploy_log table and having each post-deploy script add a record to it
-import uuid
+
 import pytest
 
-from snowflake.cli.api.project.util import generate_user_env
 from tests_integration.test_utils import (
     enable_definition_v2_feature_flag,
     row_from_snowflake_session,
@@ -11,46 +10,32 @@ from tests_integration.testing_utils.working_directory_utils import (
     WorkingDirectoryChanger,
 )
 
-USER_NAME = f"user_{uuid.uuid4().hex}"
-TEST_ENV = generate_user_env(USER_NAME)
-
 
 def run(runner, args):
-    result = runner.invoke_with_connection_json(
-        ["app", "run"] + args,
-        env=TEST_ENV,
-    )
+    result = runner.invoke_with_connection_json(["app", "run"] + args)
     assert result.exit_code == 0
 
 
 def deploy(runner, args):
-    result = runner.invoke_with_connection_json(
-        ["app", "deploy"] + args,
-        env=TEST_ENV,
-    )
+    result = runner.invoke_with_connection_json(["app", "deploy"] + args)
     assert result.exit_code == 0
 
 
 def teardown(runner, args):
-    result = runner.invoke_with_connection_json(
-        ["app", "teardown", "--force"] + args,
-        env=TEST_ENV,
-    )
+    result = runner.invoke_with_connection_json(["app", "teardown", "--force"] + args)
     assert result.exit_code == 0
 
 
 def create_version(runner, version, args):
     result = runner.invoke_with_connection_json(
-        ["app", "version", "create", version] + args,
-        env=TEST_ENV,
+        ["app", "version", "create", version] + args
     )
     assert result.exit_code == 0
 
 
 def drop_version(runner, version, args):
     result = runner.invoke_with_connection_json(
-        ["app", "version", "drop", version, "--force"] + args,
-        env=TEST_ENV,
+        ["app", "version", "drop", version, "--force"] + args
     )
     assert result.exit_code == 0
 
@@ -88,6 +73,8 @@ def verify_pkg_post_deploy_log(snowflake_session, pkg_name, expected_rows):
 def test_nativeapp_post_deploy(
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
     project_directory,
     test_project,
     is_versioned,
@@ -95,8 +82,8 @@ def test_nativeapp_post_deploy(
 ):
     version = "v1"
     project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}"
-    pkg_name = f"{project_name}_pkg_{USER_NAME}"
+    app_name = f"{project_name}_{default_username}{resource_suffix}"
+    pkg_name = f"{project_name}_pkg_{default_username}{resource_suffix}"
 
     with project_directory(test_project) as tmp_dir:
         project_args = ["--project", f"{tmp_dir}"] if with_project_flag else []

@@ -1,23 +1,7 @@
 # serializer version: 1
-# name: test_deploy_function_secrets_without_external_access
+# name: test_deploy_function_fully_qualified_name[ok]
   '''
-  +- Error ----------------------------------------------------------------------+
-  | func1 defined with secrets but without external integration.                 |
-  +------------------------------------------------------------------------------+
-  
-  '''
-# ---
-# name: test_deploy_procedure_fully_qualified_name[database error]
-  '''
-  +- Error ----------------------------------------------------------------------+
-  | database of function custom_database.custom_schema.fqn_function_error is     |
-  | redefined in its name                                                        |
-  +------------------------------------------------------------------------------+
-  
-  '''
-# ---
-# name: test_deploy_procedure_fully_qualified_name[ok]
-  '''
+  Creating stage: dev_deployment
   +------------------------------------------------------------------------------+
   | object                                                  | type     | status  |
   |---------------------------------------------------------+----------+---------|
@@ -33,10 +17,28 @@
   
   '''
 # ---
-# name: test_deploy_procedure_fully_qualified_name[schema error]
+# name: test_deploy_function_fully_qualified_name_duplicated_database[database error]
   '''
   +- Error ----------------------------------------------------------------------+
-  | schema of function custom_schema.fqn_function_error is redefined in its name |
+  | Database provided but name                                                   |
+  | 'custom_database.custom_schema.fqn_function_error' is fully qualified name.  |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_function_fully_qualified_name_duplicated_schema[schema error]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Schema provided but name 'custom_schema.fqn_function_error' is fully         |
+  | qualified name.                                                              |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_function_secrets_without_external_access
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | func1 defined with secrets but without external integration.                 |
   +------------------------------------------------------------------------------+
   
   '''

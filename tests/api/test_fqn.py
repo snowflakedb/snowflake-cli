@@ -127,7 +127,7 @@ def test_from_string_fails_if_pattern_does_not_match(fqn_str):
     ],
 )
 def test_from_identifier_model(model, expected):
-    fqn = FQN.from_identifier_model(model)
+    fqn = FQN.from_identifier_model_v1(model)
     assert fqn.identifier == expected
 
 
@@ -140,7 +140,7 @@ def test_from_identifier_model(model, expected):
 )
 def test_from_identifier_model_fails_if_name_is_fqn_and_schema_or_db(model):
     with pytest.raises(FQNInconsistencyError) as err:
-        FQN.from_identifier_model(model)
+        FQN.from_identifier_model_v1(model)
     assert (
         f"provided but name '{model.name}' is fully qualified name" in err.value.message
     )
@@ -152,7 +152,7 @@ def test_using_connection():
     assert fqn.identifier == "database_test.test_schema.name"
 
 
-@mock.patch("snowflake.cli.api.identifiers.get_cli_context")
+@mock.patch("snowflake.cli.api.cli_global_context.get_cli_context")
 def test_using_context(mock_ctx):
     mock_ctx().connection = MagicMock(database="database_test", schema="test_schema")
     fqn = FQN.from_string("name").using_context()

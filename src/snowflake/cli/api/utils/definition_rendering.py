@@ -26,7 +26,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
 from snowflake.cli.api.project.schemas.updatable_model import context
-from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
+from snowflake.cli.api.rendering.jinja import CONTEXT_KEY, FUNCTION_KEY
 from snowflake.cli.api.rendering.project_definition_templates import (
     get_project_definition_cli_jinja_env,
 )
@@ -91,6 +91,7 @@ class TemplatedEnvironment:
                     nodes.Output,
                     nodes.Call,
                     nodes.Const,
+                    nodes.Filter,
                 ),
             )
             or current_attr_chain is not None
@@ -338,7 +339,7 @@ def render_definition_template(
     _validate_env_section(definition.get("env", {}))
 
     # add available templating functions
-    project_context["fn"] = get_templating_functions()
+    project_context[FUNCTION_KEY] = get_templating_functions()
 
     referenced_vars = _get_referenced_vars_in_definition(template_env, definition)
 
@@ -368,7 +369,12 @@ def render_definition_template(
     )
 
     project_definition = build_project_definition(**definition)
+
+    # Use the values originally provided by the user as the template context
+    # This intentionally doesn't reflect any field changes made by
+    # validators, to minimize user surprise when templating values
     project_context[CONTEXT_KEY] = definition
+
     # Use `ProjectEnvironment` in project context in order to
     # handle env variables overrides from OS env and from CLI arguments.
     project_context[CONTEXT_KEY]["env"] = ProjectEnvironment(

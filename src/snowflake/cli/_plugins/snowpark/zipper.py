@@ -17,7 +17,7 @@ from __future__ import annotations
 import fnmatch
 import logging
 from pathlib import Path
-from typing import Iterator, Literal
+from typing import Dict, List, Literal
 from zipfile import ZIP_DEFLATED, ZipFile
 
 log = logging.getLogger(__name__)
@@ -59,16 +59,24 @@ def add_file_to_existing_zip(zip_file: str, file: str):
 
 
 def zip_dir(
-    source: Path, dest_zip: Path, mode: Literal["r", "w", "x", "a"] = "w"
+    source: Path | List[Path],
+    dest_zip: Path,
+    mode: Literal["r", "w", "x", "a"] = "w",
 ) -> None:
-    files_to_pack: Iterator[Path] = filter(
-        _to_be_zipped, map(lambda f: f.absolute(), source.glob("**/*"))
-    )
+
+    if isinstance(source, Path):
+        source = [source]
+
+    files_to_pack: Dict[Path, List[Path]] = {
+        src: list(filter(_to_be_zipped, (f.absolute() for f in src.glob("**/*"))))
+        for src in source
+    }
 
     with ZipFile(dest_zip, mode, ZIP_DEFLATED, allowZip64=True) as package_zip:
-        for file in files_to_pack:
-            log.debug("Adding %s to %s", file, dest_zip)
-            package_zip.write(file, arcname=file.relative_to(source.absolute()))
+        for src, files in files_to_pack.items():
+            for file in files:
+                log.debug("Adding %s to %s", file, dest_zip)
+                package_zip.write(file, arcname=file.relative_to(src))
 
 
 def _to_be_zipped(file: Path) -> bool:

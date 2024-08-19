@@ -14,5 +14,6 @@
 
 [connections.default]
 [connections.integration]
+authenticator = "SNOWFLAKE_JWT"
 schema = "public"
 role = "INTEGRATION_TESTS"

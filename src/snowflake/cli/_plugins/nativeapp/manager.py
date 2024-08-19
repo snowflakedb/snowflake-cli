@@ -62,11 +62,11 @@ from snowflake.cli._plugins.stage.diff import (
     StagePath,
     compute_stage_diff,
     preserve_from_diff,
-    print_diff_to_console,
     sync_local_diff_with_stage,
     to_stage_path,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.errno import (
@@ -799,6 +799,9 @@ class NativeAppManager(SqlExecutionMixin):
         until: str | datetime | None = None,
         record_types: list[str] | None = None,
         scopes: list[str] | None = None,
+        consumer_org: str = "",
+        consumer_account: str = "",
+        consumer_app_hash: str = "",
         first: int = -1,
         last: int = -1,
     ) -> list[dict]:
@@ -811,8 +814,29 @@ class NativeAppManager(SqlExecutionMixin):
         if not self.account_event_table:
             raise NoEventTableForAccount()
 
-        # resource_attributes:"snow.database.name" uses the unquoted/uppercase app name
+        # resource_attributes uses the unquoted/uppercase app and package name
         app_name = unquote_identifier(self.app_name)
+        package_name = unquote_identifier(self.package_name)
+        org_name = unquote_identifier(consumer_org)
+        account_name = unquote_identifier(consumer_account)
+
+        # Filter on record attributes
+        if consumer_org and consumer_account:
+            # Look for events shared from a consumer account
+            app_clause = (
+                f"resource_attributes:\"snow.application.package.name\" = '{package_name}' "
+                f"and resource_attributes:\"snow.application.consumer.organization\" = '{org_name}' "
+                f"and resource_attributes:\"snow.application.consumer.name\" = '{account_name}'"
+            )
+            if consumer_app_hash:
+                # If the user has specified a hash of a specific app installation
+                # in the consumer account, filter events to that installation only
+                app_clause += f" and resource_attributes:\"snow.database.hash\" = '{consumer_app_hash.lower()}'"
+        else:
+            # Otherwise look for events from an app installed in the same account as the package
+            app_clause = f"resource_attributes:\"snow.database.name\" = '{app_name}'"
+
+        # Filter on event time
         if isinstance(since, datetime):
             since_clause = f"and timestamp >= '{since}'"
         elif isinstance(since, str) and since:
@@ -825,22 +849,29 @@ class NativeAppManager(SqlExecutionMixin):
             until_clause = f"and timestamp <= sysdate() - interval '{until}'"
         else:
             until_clause = ""
+
+        # Filter on event type (log, span, span_event)
         type_in_values = ",".join(f"'{v}'" for v in record_types)
         types_clause = (
             f"and record_type in ({type_in_values})" if type_in_values else ""
         )
+
+        # Filter on event scope (e.g. the logger name)
         scope_in_values = ",".join(f"'{v}'" for v in scopes)
         scopes_clause = (
             f"and scope:name in ({scope_in_values})" if scope_in_values else ""
         )
+
+        # Limit event count
         first_clause = f"limit {first}" if first >= 0 else ""
         last_clause = f"limit {last}" if last >= 0 else ""
+
         query = dedent(
             f"""\
             select * from (
                 select timestamp, value::varchar value
                 from {self.account_event_table}
-                where resource_attributes:"snow.database.name" = '{app_name}'
+                where ({app_clause})
                 {since_clause}
                 {until_clause}
                 {types_clause}
@@ -862,20 +893,34 @@ class NativeAppManager(SqlExecutionMixin):
         since: str | datetime | None = None,
         record_types: list[str] | None = None,
         scopes: list[str] | None = None,
+        consumer_org: str = "",
+        consumer_account: str = "",
+        consumer_app_hash: str = "",
         last: int = -1,
     ) -> Generator[dict, None, None]:
         try:
             events = self.get_events(
-                since=since, record_types=record_types, scopes=scopes, last=last
+                since=since,
+                record_types=record_types,
+                scopes=scopes,
+                consumer_org=consumer_org,
+                consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
+                last=last,
             )
             yield from events  # Yield the initial batch of events
-            last_event_time = events[-1]["TIMESTAMP"]
+            last_event_time = events[-1]["TIMESTAMP"] if events else None
 
             while True:  # Then infinite poll for new events
                 time.sleep(interval_seconds)
                 previous_events = events
                 events = self.get_events(
-                    since=last_event_time, record_types=record_types, scopes=scopes
+                    since=last_event_time,
+                    record_types=record_types,
+                    scopes=scopes,
+                    consumer_org=consumer_org,
+                    consumer_account=consumer_account,
+                    consumer_app_hash=consumer_app_hash,
                 )
                 if not events:
                     continue

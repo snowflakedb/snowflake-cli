@@ -117,6 +117,7 @@ class UpdatableModel(BaseModel):
         # all the values of the class attributes. We go in reverse order so that
         # values in subclasses overrides values from parent classes in case of field overrides.
 
+        private_attrs = set()
         for class_ in reversed(cls.__mro__):
             class_dict = class_.__dict__
             field_annotations.update(class_dict.get("__annotations__", {}))
@@ -128,10 +129,15 @@ class UpdatableModel(BaseModel):
             else:
                 # If Pydantic did not process this class yet, get the values from class_dict directly
                 field_values.update(class_dict)
+            for pa in class_dict.get("__private_attributes__", []):
+                private_attrs.add(pa)
 
         # Add Pydantic validation wrapper around all fields except `DiscriminatorField`s
         for field_name in field_annotations:
-            if not cls._is_entity_type_field(field_values.get(field_name)):
+            if field_name in private_attrs:
+                continue
+            field = field_values.get(field_name)
+            if not cls._is_entity_type_field(field):
                 cls._add_validator(field_name)
 
     @classmethod
@@ -154,7 +160,8 @@ class UpdatableModel(BaseModel):
 
         setattr(
             cls,
-            f"_field_validator_with_verbose_name_to_avoid_name_conflict_{field_name}",
+            # Unique name so that subclasses get a unique instance of this validator
+            f"_{cls.__module__}.{cls.__name__}_validate_{field_name}",
             field_validator(field_name, mode="wrap")(validator_skipping_templated_str),
         )
 

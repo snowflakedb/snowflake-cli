@@ -31,7 +31,11 @@ from snowflake.cli.api.project.schemas.native_app.application import (
 )
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
-from snowflake.cli.api.project.util import extract_schema, to_identifier
+from snowflake.cli.api.project.util import (
+    append_test_resource_suffix,
+    extract_schema,
+    to_identifier,
+)
 from snowflake.connector import DictCursor
 
 
@@ -129,12 +133,16 @@ class NativeAppProjectModel:
         # sometimes strip out double quotes, so we try to get them back here.
         return to_identifier(self.definition.name)
 
-    @cached_property
+    @property
     def package_name(self) -> str:
         if self.definition.package and self.definition.package.name:
             return to_identifier(self.definition.package.name)
         else:
-            return to_identifier(default_app_package(self.project_identifier))
+            # V1.0 PDF doesn't support templating, so if the identifier isn't
+            # explicitly specified, the default is generated here,
+            # so we have to append the test resource suffix here
+            name = default_app_package(self.project_identifier)
+            return to_identifier(append_test_resource_suffix(name))
 
     @cached_property
     def package_role(self) -> str:
@@ -150,12 +158,16 @@ class NativeAppProjectModel:
         else:
             return "internal"
 
-    @cached_property
+    @property
     def app_name(self) -> str:
         if self.definition.application and self.definition.application.name:
             return to_identifier(self.definition.application.name)
         else:
-            return to_identifier(default_application(self.project_identifier))
+            # V1.0 PDF doesn't support templating, so if the identifier isn't
+            # explicitly specified, the default is generated here,
+            # so we have to append the test resource suffix here
+            name = default_application(self.project_identifier)
+            return to_identifier(append_test_resource_suffix(name))
 
     @cached_property
     def app_role(self) -> str:

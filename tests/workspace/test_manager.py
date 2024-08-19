@@ -67,12 +67,14 @@ def test_get_entity_invalid_id(temp_dir):
 
 def test_bundle(temp_dir):
     ws_manager = _get_ws_manager()
-    with mock.patch(f"{APP_PACKAGE_ENTITY}.bundle") as app_pkg_bundle_mock:
+    with mock.patch(f"{APP_PACKAGE_ENTITY}.action_bundle") as app_pkg_bundle_mock:
         ws_manager.perform_action("pkg", EntityActions.BUNDLE)
         app_pkg_bundle_mock.assert_called_once()
 
 
 def test_bundle_of_invalid_entity_type(temp_dir):
     ws_manager = _get_ws_manager()
-    with pytest.raises(ValueError, match='This entity type does not support "bundle"'):
+    with pytest.raises(
+        ValueError, match='This entity type does not support "action_bundle"'
+    ):
         ws_manager.perform_action("app", EntityActions.BUNDLE)

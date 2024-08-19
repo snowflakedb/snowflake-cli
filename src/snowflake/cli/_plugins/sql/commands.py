@@ -17,43 +17,46 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
-import typer
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
-    parse_key_value_variables,
     variables_option,
 )
+from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
 
 # simple Typer with defaults because it won't become a command group as it contains only one command
 app = SnowTyperFactory()
 
+SOURCE_EXCLUSIVE_OPTIONS_NAMES = ["query", "files", "std_in"]
+
+SourceOption = OverrideableOption(
+    mutually_exclusive=SOURCE_EXCLUSIVE_OPTIONS_NAMES, show_default=False
+)
+
 
 @app.command(name="sql", requires_connection=True, no_args_is_help=True)
 @with_project_definition(is_optional=True)
 def execute_sql(
-    query: Optional[str] = typer.Option(
-        None,
-        "--query",
-        "-q",
+    query: Optional[str] = SourceOption(
+        default=None,
+        param_decls=["--query", "-q"],
         help="Query to execute.",
     ),
-    files: Optional[List[Path]] = typer.Option(
-        None,
-        "--filename",
-        "-f",
+    files: Optional[List[Path]] = SourceOption(
+        default=[],
+        param_decls=["--filename", "-f"],
         exists=True,
         file_okay=True,
         dir_okay=False,
         readable=True,
         help="File to execute.",
     ),
-    std_in: Optional[bool] = typer.Option(
-        False,
-        "--stdin",
-        "-i",
+    std_in: Optional[bool] = SourceOption(
+        default=False,
+        param_decls=["--stdin", "-i"],
         help="Read the query from standard input. Use it when piping input to this command.",
     ),
     data_override: List[str] = variables_option(
@@ -73,6 +76,7 @@ def execute_sql(
     The command supports variable substitution that happens on client-side. Both &VARIABLE or &{ VARIABLE }
     syntax are supported.
     """
+
     data = {}
     if data_override:
         data = {v.key: v.value for v in parse_key_value_variables(data_override)}

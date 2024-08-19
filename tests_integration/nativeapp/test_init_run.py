@@ -11,14 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import os
 import uuid
 
-from snowflake.cli.api.project.util import generate_user_env
-from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli._plugins.nativeapp.init import OFFICIAL_TEMPLATES_GITHUB_URL
-
+from snowflake.cli.api.secure_path import SecurePath
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
     pushd,
@@ -27,12 +24,6 @@ from tests_integration.test_utils import (
     row_from_snowflake_session,
     enable_definition_v2_feature_flag,
 )
-from tests_integration.testing_utils.working_directory_utils import (
-    WorkingDirectoryChanger,
-)
-
-USER_NAME = f"user_{uuid.uuid4().hex}"
-TEST_ENV = generate_user_env(USER_NAME)
 
 
 # Tests a simple flow of initiating a new project, executing snow app run and teardown, all with distribution=internal
@@ -44,19 +35,20 @@ def test_nativeapp_init_run_without_modifications(
     project_directory,
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
 ):
     project_name = "myapp"
     with project_directory(test_project):
-        result = runner.invoke_with_connection_json(
-            ["app", "run"],
-            env=TEST_ENV,
-        )
+        result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
 
         try:
             # app + package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{USER_NAME}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -75,18 +67,12 @@ def test_nativeapp_init_run_without_modifications(
             )
 
             # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown"])
             assert result.exit_code == 0
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -100,20 +86,21 @@ def test_nativeapp_run_existing(
     runner,
     snowflake_session,
     project_definition_files: List[Path],
+    default_username,
+    resource_suffix,
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
-        result = runner.invoke_with_connection_json(
-            ["app", "run"],
-            env=TEST_ENV,
-        )
+        result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
 
         try:
             # app + package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{USER_NAME}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -151,18 +138,12 @@ def test_nativeapp_run_existing(
             )
 
             # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown"])
             assert result.exit_code == 0
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -175,19 +156,20 @@ def test_nativeapp_init_run_handles_spaces(
     project_directory,
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
 ):
     project_name = "myapp"
     with project_directory(test_project):
-        result = runner.invoke_with_connection_json(
-            ["app", "run"],
-            env=TEST_ENV,
-        )
+        result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
 
         try:
             # app + package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{USER_NAME}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -206,18 +188,12 @@ def test_nativeapp_init_run_handles_spaces(
             )
 
             # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown"])
             assert result.exit_code == 0
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -233,20 +209,21 @@ def test_nativeapp_run_existing_w_external(
     runner,
     snowflake_session,
     project_definition_files: List[Path],
+    default_username,
+    resource_suffix,
 ):
     project_name = "integration_external"
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
-        result = runner.invoke_with_connection_json(
-            ["app", "run"],
-            env=TEST_ENV,
-        )
+        result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
 
         try:
             # app + package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{USER_NAME}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -297,10 +274,7 @@ def test_nativeapp_run_existing_w_external(
             )
 
             # make sure we always delete the app, --force required for external distribution
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
             expect = snowflake_session.execute_string(
@@ -319,10 +293,7 @@ def test_nativeapp_run_existing_w_external(
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -331,37 +302,26 @@ def test_nativeapp_run_existing_w_external(
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_run_after_deploy(
-    test_project,
-    project_directory,
-    runner,
+    test_project, project_directory, runner, default_username, resource_suffix
 ):
     project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}"
-    stage_fqn = f"{project_name}_pkg_{USER_NAME}.app_src.stage"
+    app_name = f"{project_name}_{default_username}{resource_suffix}"
+    stage_fqn = f"{project_name}_pkg_{default_username}{resource_suffix}.app_src.stage"
 
     with project_directory(test_project):
         try:
             # Run #1
-            result = runner.invoke_with_connection_json(
-                ["app", "run"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "run"])
             assert result.exit_code == 0
 
             # Make a change & deploy
             with open("app/README.md", "a") as file:
                 file.write("### Test")
-            result = runner.invoke_with_connection_json(
-                ["app", "deploy"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "deploy"])
             assert result.exit_code == 0
 
             # Run #2
-            result = runner.invoke_with_connection_json(
-                ["app", "run", "--debug"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "run", "--debug"])
             assert result.exit_code == 0
             assert (
                 f"alter application {app_name} upgrade using @{stage_fqn}"
@@ -369,10 +329,7 @@ def test_nativeapp_run_after_deploy(
             )
 
         finally:
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -412,8 +369,7 @@ def test_nativeapp_init_from_repo_with_single_template(
                     "--template-repo",
                     f"file://{single_template_repo_path.path}",
                     project_name,
-                ],
-                env=TEST_ENV,
+                ]
             )
             assert result.exit_code == 0
         finally:
@@ -432,20 +388,21 @@ def test_nativeapp_run_orphan(
     snowflake_session,
     project_definition_files: List[Path],
     force_flag,
+    default_username,
+    resource_suffix,
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
-        result = runner.invoke_with_connection_json(
-            ["app", "run"],
-            env=TEST_ENV,
-        )
+        result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
 
         try:
             # app + package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{USER_NAME}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -464,14 +421,15 @@ def test_nativeapp_run_orphan(
             )
 
             result = runner.invoke_with_connection(
-                ["sql", "-q", f"drop application package {package_name}"],
-                env=TEST_ENV,
+                ["sql", "-q", f"drop application package {package_name}"]
             )
             assert result.exit_code == 0, result.output
 
             # package doesn't exist, app not readable
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{USER_NAME}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert not_contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -495,7 +453,7 @@ def test_nativeapp_run_orphan(
             else:
                 command = ["app", "run", "--interactive"]  # show prompt in tests
                 _input = "y\n"  # yes to drop app
-            result = runner.invoke_with_connection(command, input=_input, env=TEST_ENV)
+            result = runner.invoke_with_connection(command, input=_input)
             assert result.exit_code == 0, result.output
             if not force_flag:
                 assert (
@@ -522,25 +480,18 @@ def test_nativeapp_run_orphan(
             )
 
             # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown"])
             assert result.exit_code == 0
 
         finally:
             # manually drop the application in case the test failed and it wasn't dropped
             result = runner.invoke_with_connection(
-                ["sql", "-q", f"drop application if exists {app_name} cascade"],
-                env=TEST_ENV,
+                ["sql", "-q", f"drop application if exists {app_name} cascade"]
             )
             assert result.exit_code == 0, result.output
 
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -570,18 +521,17 @@ def test_nativeapp_force_cross_upgrade(
     run_args_from,
     run_args_to,
     runner,
+    default_username,
+    resource_suffix,
 ):
     project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}"
-    pkg_name = f"{project_name}_pkg_{USER_NAME}"
+    app_name = f"{project_name}_{default_username}{resource_suffix}"
+    pkg_name = f"{project_name}_pkg_{default_username}{resource_suffix}"
 
     with project_directory(test_project):
         try:
             # Create version
-            result = runner.invoke_with_connection(
-                ["app", "version", "create", "v1"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(["app", "version", "create", "v1"])
             assert result.exit_code == 0
 
             # Set default release directive
@@ -590,23 +540,18 @@ def test_nativeapp_force_cross_upgrade(
                     "sql",
                     "-q",
                     f"alter application package {pkg_name} set default release directive version = v1 patch = 0",
-                ],
-                env=TEST_ENV,
+                ]
             )
             assert result.exit_code == 0
 
             # Initial run
-            result = runner.invoke_with_connection(
-                ["app", "run"] + run_args_from,
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(["app", "run"] + run_args_from)
             assert result.exit_code == 0
 
             # (Cross-)upgrade
             is_cross_upgrade = run_args_from != run_args_to
             result = runner.invoke_with_connection(
-                ["app", "run"] + run_args_to + ["--force"],
-                env=TEST_ENV,
+                ["app", "run"] + run_args_to + ["--force"]
             )
             assert result.exit_code == 0
             if is_cross_upgrade:
@@ -614,8 +559,5 @@ def test_nativeapp_force_cross_upgrade(
 
         finally:
             # Drop the package
-            result = runner.invoke_with_connection(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(["app", "teardown", "--force"])
             assert result.exit_code == 0
