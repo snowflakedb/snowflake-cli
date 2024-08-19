@@ -174,7 +174,7 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "function1": {
                         "type": "function",
-                        "name": "name",
+                        "identifier": "name",
                         "handler": "app.hello",
                         "returns": "string",
                         "signature": [{"name": "name", "type": "string"}],
@@ -191,7 +191,7 @@ from tests.testing_utils.mock_config import mock_config_key
                 "entities": {
                     "procedure1": {
                         "type": "procedure",
-                        "name": "name",
+                        "identifier": "name",
                         "handler": "app.hello",
                         "returns": "string",
                         "signature": [{"name": "name", "type": "string"}],
@@ -376,20 +376,22 @@ def test_v1_to_v2_conversion(
             v2_procedure = definition_v2.entities.get(v1_procedure.name)
             assert v2_procedure
             assert v2_procedure.artifacts == definition_v1.snowpark.src
-            assert _compare_entity(v1_procedure, v2_procedure)
+            _assert_entities_are_equal(v1_procedure, v2_procedure)
 
         for v1_function in definition_v1.snowpark.functions:
             v2_function = definition_v2.entities.get(v1_function.name)
             assert v2_function
             assert v2_function.artifacts == definition_v1.snowpark.src
-            assert _compare_entity(v1_function, v2_function)
+            _assert_entities_are_equal(v1_function, v2_function)
 
 
-def _compare_entity(v1_entity: _CallableBase, v2_entity: SnowparkEntityModel) -> bool:
-    return (
-        v1_entity.name == v2_entity.name
-        and v1_entity.handler == v2_entity.handler
-        and v1_entity.returns == v2_entity.returns
-        and v1_entity.signature == v2_entity.signature
-        and v1_entity.runtime == v2_entity.runtime
-    )
+def _assert_entities_are_equal(
+    v1_entity: _CallableBase, v2_entity: SnowparkEntityModel
+):
+    assert v1_entity.name == v2_entity.identifier.name
+    assert v1_entity.schema_name == v2_entity.identifier.schema_
+    assert v1_entity.database == v2_entity.identifier.database
+    assert v1_entity.handler == v2_entity.handler
+    assert v1_entity.returns == v2_entity.returns
+    assert v1_entity.signature == v2_entity.signature
+    assert v1_entity.runtime == v2_entity.runtime

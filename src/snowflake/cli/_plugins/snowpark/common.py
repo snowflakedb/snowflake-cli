@@ -22,8 +22,10 @@ from snowflake.cli._plugins.snowpark.package_utils import (
     generate_deploy_stage_name,
 )
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.entities.snowpark_entity import SnowparkEntity
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
+    SnowparkEntityModel,
+)
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -267,7 +269,7 @@ class UdfSprocIdentifier:
         return self._identifier_from_signature(self._full_signature(), for_sql=True)
 
     @classmethod
-    def from_definition(cls, udf_sproc: SnowparkEntity):
+    def from_definition(cls, udf_sproc: SnowparkEntityModel):
         names = []
         types = []
         defaults = []
@@ -277,7 +279,7 @@ class UdfSprocIdentifier:
                 types.append(arg.arg_type)
                 defaults.append(arg.default)
 
-        identifier = FQN.from_identifier_model_v1(udf_sproc).using_context()
+        identifier = udf_sproc.fqn.using_context()
         return cls(identifier, names, types, defaults)
 
 
