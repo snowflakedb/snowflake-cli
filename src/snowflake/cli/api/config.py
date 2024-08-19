@@ -165,12 +165,14 @@ def _read_config_file():
             )
 
             if not file_permissions_are_strict(CONFIG_MANAGER.file_path):
-                users = windows_get_not_whitelisted_users_with_access(
-                    CONFIG_MANAGER.file_path
+                users = ", ".join(
+                    windows_get_not_whitelisted_users_with_access(
+                        CONFIG_MANAGER.file_path
+                    )
                 )
                 warnings.warn(
                     f"Unauthorized users ({users}) have access to configuration file {CONFIG_MANAGER.file_path}.\n"
-                    f'Run `icacls "{CONFIG_MANAGER.file_path}" /deny <USER>:F` on those users to restrict permissions.'
+                    f'Run `icacls "{CONFIG_MANAGER.file_path}" /deny <USER_ID>:F` on those users to restrict permissions.'
                 )
 
         try:
