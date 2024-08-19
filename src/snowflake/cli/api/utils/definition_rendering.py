@@ -91,6 +91,7 @@ class TemplatedEnvironment:
                     nodes.Output,
                     nodes.Call,
                     nodes.Const,
+                    nodes.Filter,
                 ),
             )
             or current_attr_chain is not None
