@@ -1,0 +1,8 @@
+definition_version: 2
+entities:
+  pkg:
+    type: application package
+    artifacts:
+      - src: app/*
+        dest: ./
+    manifest: app/manifest.yml

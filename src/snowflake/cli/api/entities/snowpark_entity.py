@@ -1,11 +1,19 @@
+from typing import Generic, TypeVar
+
 from snowflake.cli.api.entities.common import EntityBase
+from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
+    FunctionEntityModel,
+    ProcedureEntityModel,
+)
+
+T = TypeVar("T")
 
 
-class SnowparkEntity(EntityBase):
+class SnowparkEntity(EntityBase[Generic[T]]):
     pass
 
 
-class FunctionEntity(SnowparkEntity):
+class FunctionEntity(SnowparkEntity[FunctionEntityModel]):
     """
     A single UDF
     """
@@ -13,7 +21,7 @@ class FunctionEntity(SnowparkEntity):
     pass
 
 
-class ProcedureEntity(SnowparkEntity):
+class ProcedureEntity(SnowparkEntity[ProcedureEntityModel]):
     """
     A stored procedure
     """

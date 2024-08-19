@@ -1,0 +1,7 @@
+# This is the v2 version of the napp_init_v1 project
+
+manifest_version: 1
+
+artifacts:
+  setup_script: setup_script.sql
+  readme: README.md

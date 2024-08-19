@@ -22,9 +22,9 @@ from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.commands.flags import (
     IdentifierType,
     like_option,
-    parse_key_value_variables,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
 from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.identifiers import FQN
