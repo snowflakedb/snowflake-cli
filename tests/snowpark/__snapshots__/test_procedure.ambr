@@ -21,36 +21,17 @@
 # name: test_deploy_procedure_fully_qualified_name[database error]
   '''
   +- Error ----------------------------------------------------------------------+
-  | database of procedure custom_database.custom_schema.fqn_procedure_error is   |
-  | redefined in its name                                                        |
+  | Database provided but name                                                   |
+  | 'custom_database.custom_schema.fqn_procedure_error' is fully qualified name. |
   +------------------------------------------------------------------------------+
   
   '''
 # ---
-# name: test_deploy_procedure_fully_qualified_name[ok]
-  '''
-  +------------------------------------------------------------------------------+
-  | object                                                 | type      | status  |
-  |--------------------------------------------------------+-----------+---------|
-  | custom_db.custom_schema.fqn_procedure(name string)     | procedure | created |
-  | MockDatabase.custom_schema.fqn_procedure_only_schema(n | procedure | created |
-  | ame string)                                            |           |         |
-  | MockDatabase.custom_schema.schema_procedure(name       | procedure | created |
-  | string)                                                |           |         |
-  | custom_db.MockSchema.database_procedure(name string)   | procedure | created |
-  | custom_db.custom_schema.database_procedure(name        | procedure | created |
-  | string)                                                |           |         |
-  | custom_database.custom_schema.fqn_procedure3(name      | procedure | created |
-  | string)                                                |           |         |
-  +------------------------------------------------------------------------------+
-  
-  '''
-# ---
-# name: test_deploy_procedure_fully_qualified_name[schema error]
+# name: test_deploy_procedure_fully_qualified_name_duplicated_schema[schema error]
   '''
   +- Error ----------------------------------------------------------------------+
-  | schema of procedure custom_schema.fqn_procedure_error is redefined in its    |
-  | name                                                                         |
+  | Schema provided but name 'custom_schema.fqn_procedure_error' is fully        |
+  | qualified name.                                                              |
   +------------------------------------------------------------------------------+
   
   '''
