@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Dict
 
+from snowflake.cli._plugins.workspace.action_context import ActionContext
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.schemas.entities.entities import (
@@ -25,6 +26,7 @@ class WorkspaceManager:
             )
         self._entities_cache: Dict[str, Entity] = {}
         self._project_definition: DefinitionV20 = project_definition
+        self._project_root = project_root
 
     def get_entity(self, entity_id: str):
         """
@@ -32,11 +34,12 @@ class WorkspaceManager:
         """
         if entity_id in self._entities_cache:
             return self._entities_cache[entity_id]
-        if entity_id not in self._project_definition.entities:
+        entity_model = self._project_definition.entities.get(entity_id, None)
+        if entity_model is None:
             raise ValueError(f"No such entity ID: {entity_id}")
-        entity_model_cls = self._project_definition.entities[entity_id].__class__
+        entity_model_cls = entity_model.__class__
         entity_cls = v2_entity_model_to_entity_map[entity_model_cls]
-        self._entities_cache[entity_id] = entity_cls()
+        self._entities_cache[entity_id] = entity_cls(entity_model)
         return self._entities_cache[entity_id]
 
     def perform_action(self, entity_id: str, action: EntityActions):
@@ -45,6 +48,10 @@ class WorkspaceManager:
         """
         entity = self.get_entity(entity_id)
         if entity.supports(action):
-            getattr(entity, action)()
+            action_ctx = ActionContext(project_root=self.project_root())
+            return entity.perform(action, action_ctx)
         else:
             raise ValueError(f'This entity type does not support "{action.value}"')
+
+    def project_root(self) -> Path:
+        return self._project_root

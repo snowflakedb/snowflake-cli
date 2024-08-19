@@ -15,10 +15,7 @@
 import os
 import uuid
 
-from snowflake.cli._plugins.nativeapp.project_model import RESOURCE_SUFFIX_VAR
-from snowflake.cli.api.project.util import generate_user_env
-
-
+from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.nativeapp.utils import touch
 
 from tests.project.fixtures import *
@@ -33,15 +30,17 @@ from tests_integration.testing_utils import (
     assert_that_result_is_usage_error,
 )
 
-USER_NAME = f"user_{uuid.uuid4().hex}"
-TEST_ENV = generate_user_env(USER_NAME)
 
+@pytest.fixture
+def sanitize_deploy_output(default_username, resource_suffix):
+    def _sanitize_deploy_output(output):
+        deploy_root = Path("output/deploy").resolve()
+        user_and_suffix = f"{default_username}{resource_suffix}"
+        return output.replace(user_and_suffix, "@@USER@@").replace(
+            str(deploy_root), "@@DEPLOY_ROOT@@"
+        )
 
-def sanitize_deploy_output(output):
-    deploy_root = Path("output/deploy").resolve()
-    return output.replace(USER_NAME, "@@USER@@").replace(
-        str(deploy_root), "@@DEPLOY_ROOT@@"
-    )
+    return _sanitize_deploy_output
 
 
 # Tests a simple flow of executing "snow app deploy", verifying that an application package was created, and an application was not
@@ -53,22 +52,24 @@ def test_nativeapp_deploy(
     project_directory,
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
+    sanitize_deploy_output,
     snapshot,
     print_paths_as_posix,
 ):
     project_name = "myapp"
     with project_directory(test_project):
-        result = runner.invoke_with_connection(
-            ["app", "deploy"],
-            env=TEST_ENV,
-        )
+        result = runner.invoke_with_connection(["app", "deploy"])
         assert result.exit_code == 0
         assert sanitize_deploy_output(result.output) == snapshot
 
         try:
             # package exist
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{USER_NAME}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
+            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -81,8 +82,7 @@ def test_nativeapp_deploy(
             # manifest file exists
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
-                ["stage", "list-files", f"{package_name}.{stage_name}"],
-                env=TEST_ENV,
+                ["stage", "list-files", f"{package_name}.{stage_name}"]
             )
             assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
 
@@ -97,100 +97,13 @@ def test_nativeapp_deploy(
             )
 
             # re-deploying should be a no-op; make sure we don't issue any PUT commands
-            result = runner.invoke_with_connection_json(
-                ["app", "deploy", "--debug"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "deploy", "--debug"])
             assert result.exit_code == 0
             assert "Successfully uploaded chunk 0 of file" not in result.output
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
-
-
-@pytest.mark.integration
-@enable_definition_v2_feature_flag
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
-def test_nativeapp_deploy_with_resource_suffix(
-    test_project,
-    project_directory,
-    runner,
-    snowflake_session,
-):
-    suffix = f"_some_suffix_{uuid.uuid4().hex}"
-    test_env_with_suffix = TEST_ENV | {RESOURCE_SUFFIX_VAR: suffix}
-    with project_directory(test_project):
-        result = runner.invoke_with_connection(
-            ["app", "deploy"],
-            env=test_env_with_suffix,
-        )
-        assert result.exit_code == 0
-
-        try:
-            # package exist
-            assert row_from_snowflake_session(
-                snowflake_session.execute_string(
-                    f"show application packages like '%{suffix}'",
-                )
-            )
-
-            # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=test_env_with_suffix,
-            )
-            assert result.exit_code == 0
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=test_env_with_suffix,
-            )
-            assert result.exit_code == 0
-
-
-@pytest.mark.integration
-@enable_definition_v2_feature_flag
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
-def test_nativeapp_deploy_with_resource_suffix_quoted(
-    test_project,
-    project_directory,
-    runner,
-    snowflake_session,
-):
-    suffix = f"_must.be.quoted!!!_{uuid.uuid4().hex}"
-    test_env_with_quoted_suffix = TEST_ENV | {RESOURCE_SUFFIX_VAR: suffix}
-    with project_directory(test_project):
-        result = runner.invoke_with_connection(
-            ["app", "deploy"],
-            env=test_env_with_quoted_suffix,
-        )
-        assert result.exit_code == 0
-
-        try:
-            # package exist
-            assert row_from_snowflake_session(
-                snowflake_session.execute_string(
-                    f"show application packages like '%{suffix}'",
-                )
-            )
-            # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=test_env_with_quoted_suffix,
-            )
-            assert result.exit_code == 0
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=test_env_with_quoted_suffix,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -221,13 +134,13 @@ def test_nativeapp_deploy_prune(
     runner,
     snapshot,
     print_paths_as_posix,
+    default_username,
+    resource_suffix,
+    sanitize_deploy_output,
 ):
     project_name = "myapp"
     with project_directory(test_project):
-        result = runner.invoke_with_connection_json(
-            ["app", "deploy"],
-            env=TEST_ENV,
-        )
+        result = runner.invoke_with_connection_json(["app", "deploy"])
         assert result.exit_code == 0
 
         try:
@@ -235,19 +148,17 @@ def test_nativeapp_deploy_prune(
             os.remove(os.path.join("app", "README.md"))
 
             # deploy
-            result = runner.invoke_with_connection(
-                command.split(),
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(command.split())
             assert result.exit_code == 0
             assert sanitize_deploy_output(result.output) == snapshot
 
             # verify the file does not exist on the stage
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
-                ["stage", "list-files", f"{package_name}.{stage_name}"],
-                env=TEST_ENV,
+                ["stage", "list-files", f"{package_name}.{stage_name}"]
             )
             for name in contains:
                 assert contains_row_with(stage_files.json, {"name": name})
@@ -255,18 +166,12 @@ def test_nativeapp_deploy_prune(
                 assert not_contains_row_with(stage_files.json, {"name": name})
 
             # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown"])
             assert result.exit_code == 0
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -280,6 +185,9 @@ def test_nativeapp_deploy_files(
     runner,
     snapshot,
     print_paths_as_posix,
+    default_username,
+    resource_suffix,
+    sanitize_deploy_output,
 ):
     project_name = "myapp"
     with project_directory(test_project):
@@ -291,19 +199,19 @@ def test_nativeapp_deploy_files(
                 "app/manifest.yml",
                 "app/setup_script.sql",
                 "--no-validate",
-            ],
-            env=TEST_ENV,
+            ]
         )
         assert result.exit_code == 0
         assert sanitize_deploy_output(result.output) == snapshot
 
         try:
             # manifest and script files exist, readme doesn't exist
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
-                ["stage", "list-files", f"{package_name}.{stage_name}"],
-                env=TEST_ENV,
+                ["stage", "list-files", f"{package_name}.{stage_name}"]
             )
             assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
             assert contains_row_with(
@@ -312,18 +220,12 @@ def test_nativeapp_deploy_files(
             assert not_contains_row_with(stage_files.json, {"name": "stage/README.md"})
 
             # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown"])
             assert result.exit_code == 0
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -337,6 +239,9 @@ def test_nativeapp_deploy_nested_directories(
     runner,
     snapshot,
     print_paths_as_posix,
+    default_username,
+    resource_suffix,
+    sanitize_deploy_output,
 ):
     project_name = "myapp"
     with project_directory(test_project):
@@ -344,36 +249,30 @@ def test_nativeapp_deploy_nested_directories(
         touch("app/nested/dir/file.txt")
 
         result = runner.invoke_with_connection(
-            ["app", "deploy", "app/nested/dir/file.txt", "--no-validate"],
-            env=TEST_ENV,
+            ["app", "deploy", "app/nested/dir/file.txt", "--no-validate"]
         )
         assert result.exit_code == 0
         assert sanitize_deploy_output(result.output) == snapshot
 
         try:
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
-                ["stage", "list-files", f"{package_name}.{stage_name}"],
-                env=TEST_ENV,
+                ["stage", "list-files", f"{package_name}.{stage_name}"]
             )
             assert contains_row_with(
                 stage_files.json, {"name": "stage/nested/dir/file.txt"}
             )
 
             # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown"])
             assert result.exit_code == 0
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -385,46 +284,42 @@ def test_nativeapp_deploy_directory(
     test_project,
     project_directory,
     runner,
+    default_username,
+    resource_suffix,
+    sanitize_deploy_output,
 ):
     project_name = "myapp"
     with project_directory(test_project):
         touch("app/dir/file.txt")
         result = runner.invoke_with_connection(
-            ["app", "deploy", "app/dir", "--no-recursive", "--no-validate"],
-            env=TEST_ENV,
+            ["app", "deploy", "app/dir", "--no-recursive", "--no-validate"]
         )
         assert_that_result_failed_with_message_containing(
             result, "Add the -r flag to deploy directories."
         )
 
         result = runner.invoke_with_connection(
-            ["app", "deploy", "app/dir", "-r", "--no-validate"],
-            env=TEST_ENV,
+            ["app", "deploy", "app/dir", "-r", "--no-validate"]
         )
         assert result.exit_code == 0
 
         try:
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
-                ["stage", "list-files", f"{package_name}.{stage_name}"],
-                env=TEST_ENV,
+                ["stage", "list-files", f"{package_name}.{stage_name}"]
             )
             assert contains_row_with(stage_files.json, {"name": "stage/dir/file.txt"})
 
             # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown"])
             assert result.exit_code == 0
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -441,17 +336,13 @@ def test_nativeapp_deploy_directory_no_recursive(
         try:
             touch("app/nested/dir/file.txt")
             result = runner.invoke_with_connection_json(
-                ["app", "deploy", "app/nested", "--no-validate"],
-                env=TEST_ENV,
+                ["app", "deploy", "app/nested", "--no-validate"]
             )
             assert result.exit_code == 1, result.output
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -467,18 +358,14 @@ def test_nativeapp_deploy_unknown_path(
     with project_directory(test_project):
         try:
             result = runner.invoke_with_connection_json(
-                ["app", "deploy", "does_not_exist", "--no-validate"],
-                env=TEST_ENV,
+                ["app", "deploy", "does_not_exist", "--no-validate"]
             )
             assert result.exit_code == 1
             assert "The following path does not exist:" in result.output
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -494,18 +381,14 @@ def test_nativeapp_deploy_path_with_no_mapping(
     with project_directory(test_project):
         try:
             result = runner.invoke_with_connection_json(
-                ["app", "deploy", "snowflake.yml", "--no-validate"],
-                env=TEST_ENV,
+                ["app", "deploy", "snowflake.yml", "--no-validate"]
             )
             assert result.exit_code == 1
             assert "No artifact found for" in result.output
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -522,8 +405,7 @@ def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
         try:
             os.unlink("app/README.md")
             result = runner.invoke_with_connection_json(
-                ["app", "deploy", "app/README.md", "--prune"],
-                env=TEST_ENV,
+                ["app", "deploy", "app/README.md", "--prune"]
             )
 
             assert_that_result_is_usage_error(
@@ -533,10 +415,7 @@ def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
 
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -552,23 +431,24 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
     runner,
     snapshot,
     print_paths_as_posix,
+    default_username,
+    resource_suffix,
+    sanitize_deploy_output,
 ):
     project_name = "myapp"
 
     with project_directory(test_project):
         try:
-            result = runner.invoke_with_connection(
-                ["app", "deploy", "-r", "app"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(["app", "deploy", "-r", "app"])
             assert result.exit_code == 0
             assert sanitize_deploy_output(result.output) == snapshot
 
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
-                ["stage", "list-files", f"{package_name}.{stage_name}"],
-                env=TEST_ENV,
+                ["stage", "list-files", f"{package_name}.{stage_name}"]
             )
             assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
             assert contains_row_with(
@@ -583,13 +463,11 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
             )
 
             result = runner.invoke_with_connection(
-                ["app", "deploy", "-r", "lib/parent/child/c"],
-                env=TEST_ENV,
+                ["app", "deploy", "-r", "lib/parent/child/c"]
             )
             assert result.exit_code == 0
             stage_files = runner.invoke_with_connection_json(
-                ["stage", "list-files", f"{package_name}.{stage_name}"],
-                env=TEST_ENV,
+                ["stage", "list-files", f"{package_name}.{stage_name}"]
             )
             assert contains_row_with(
                 stage_files.json, {"name": "stage/parent-lib/child/c/c.py"}
@@ -602,13 +480,11 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
             )
 
             result = runner.invoke_with_connection(
-                ["app", "deploy", "lib/parent/child/a.py"],
-                env=TEST_ENV,
+                ["app", "deploy", "lib/parent/child/a.py"]
             )
             assert result.exit_code == 0
             stage_files = runner.invoke_with_connection_json(
-                ["stage", "list-files", f"{package_name}.{stage_name}"],
-                env=TEST_ENV,
+                ["stage", "list-files", f"{package_name}.{stage_name}"]
             )
             assert contains_row_with(
                 stage_files.json, {"name": "stage/parent-lib/child/c/c.py"}
@@ -620,14 +496,10 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
                 stage_files.json, {"name": "stage/parent-lib/child/b.py"}
             )
 
-            result = runner.invoke_with_connection(
-                ["app", "deploy", "lib", "-r"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(["app", "deploy", "lib", "-r"])
             assert result.exit_code == 0
             stage_files = runner.invoke_with_connection_json(
-                ["stage", "list-files", f"{package_name}.{stage_name}"],
-                env=TEST_ENV,
+                ["stage", "list-files", f"{package_name}.{stage_name}"]
             )
             assert contains_row_with(
                 stage_files.json, {"name": "stage/parent-lib/child/c/c.py"}
@@ -640,10 +512,7 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
             )
 
         finally:
-            result = runner.invoke_with_connection(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -657,22 +526,23 @@ def test_nativeapp_deploy_dot(
     runner,
     snapshot,
     print_paths_as_posix,
+    default_username,
+    resource_suffix,
+    sanitize_deploy_output,
 ):
     project_name = "myapp"
     with project_directory(test_project):
         try:
-            result = runner.invoke_with_connection(
-                ["app", "deploy", "-r", "."],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(["app", "deploy", "-r", "."])
             assert result.exit_code == 0
             assert sanitize_deploy_output(result.output) == snapshot
 
-            package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+            )
             stage_name = "app_src.stage"  # as defined in native-apps-templates/basic
             stage_files = runner.invoke_with_connection_json(
-                ["stage", "list-files", f"{package_name}.{stage_name}"],
-                env=TEST_ENV,
+                ["stage", "list-files", f"{package_name}.{stage_name}"]
             )
             assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
             assert contains_row_with(
@@ -681,8 +551,5 @@ def test_nativeapp_deploy_dot(
             assert contains_row_with(stage_files.json, {"name": "stage/README.md"})
 
         finally:
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0

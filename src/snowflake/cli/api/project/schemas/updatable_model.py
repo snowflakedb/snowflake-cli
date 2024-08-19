@@ -160,7 +160,8 @@ class UpdatableModel(BaseModel):
 
         setattr(
             cls,
-            f"_field_validator_with_verbose_name_to_avoid_name_conflict_{field_name}",
+            # Unique name so that subclasses get a unique instance of this validator
+            f"_{cls.__module__}.{cls.__name__}_validate_{field_name}",
             field_validator(field_name, mode="wrap")(validator_skipping_templated_str),
         )
 

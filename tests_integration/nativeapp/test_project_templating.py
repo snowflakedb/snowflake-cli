@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import uuid
-
-from snowflake.cli.api.project.util import generate_user_env
-
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
     pushd,
@@ -24,8 +20,6 @@ from tests_integration.test_utils import (
     enable_definition_v2_feature_flag,
 )
 
-USER_NAME = f"user_{uuid.uuid4().hex}"
-DEFAULT_TEST_ENV = generate_user_env(USER_NAME)
 
 # Tests a simple flow of native app with template reading env variables from OS
 @pytest.mark.integration
@@ -38,15 +32,15 @@ DEFAULT_TEST_ENV = generate_user_env(USER_NAME)
 def test_nativeapp_project_templating_use_env_from_os(
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
 
     test_ci_env = "prod"
-    local_test_env = dict(DEFAULT_TEST_ENV)
-    local_test_env["INTERMEDIATE_CI_ENV"] = test_ci_env
-    local_test_env["APP_DIR"] = "app"
+    local_test_env = {"INTERMEDIATE_CI_ENV": test_ci_env, "APP_DIR": "app"}
 
     with pushd(project_dir):
         result = runner.invoke_with_connection_json(
@@ -57,8 +51,8 @@ def test_nativeapp_project_templating_use_env_from_os(
 
         try:
             # app + package exist
-            package_name = f"{project_name}_{test_ci_env}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{test_ci_env}_{USER_NAME}".upper()
+            package_name = f"{project_name}_{test_ci_env}_pkg_{default_username}{resource_suffix}".upper()
+            app_name = f"{project_name}_{test_ci_env}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -122,15 +116,15 @@ def test_nativeapp_project_templating_use_env_from_os(
 def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
 
     test_ci_env = "prod"
-    local_test_env = dict(DEFAULT_TEST_ENV)
-    local_test_env["CI_ENV"] = test_ci_env
-    local_test_env["APP_DIR"] = "app"
+    local_test_env = {"CI_ENV": test_ci_env, "APP_DIR": "app"}
 
     with pushd(project_dir):
         result = runner.invoke_with_connection_json(
@@ -141,8 +135,8 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
 
         try:
             # app + package exist
-            package_name = f"{project_name}_{test_ci_env}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{test_ci_env}_{USER_NAME}".upper()
+            package_name = f"{project_name}_{test_ci_env}_pkg_{default_username}{resource_suffix}".upper()
+            app_name = f"{project_name}_{test_ci_env}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -206,14 +200,15 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
 def test_nativeapp_project_templating_use_default_env_from_project(
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
 
     default_ci_env = "dev"
-    local_test_env = dict(DEFAULT_TEST_ENV)
-    local_test_env["APP_DIR"] = "app"
+    local_test_env = {"APP_DIR": "app"}
 
     with pushd(project_dir):
         result = runner.invoke_with_connection_json(
@@ -224,8 +219,8 @@ def test_nativeapp_project_templating_use_default_env_from_project(
 
         try:
             # app + package exist
-            package_name = f"{project_name}_{default_ci_env}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{default_ci_env}_{USER_NAME}".upper()
+            package_name = f"{project_name}_{default_ci_env}_pkg_{default_username}{resource_suffix}".upper()
+            app_name = f"{project_name}_{default_ci_env}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -289,12 +284,14 @@ def test_nativeapp_project_templating_use_default_env_from_project(
 def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
 
-    local_test_env = dict(DEFAULT_TEST_ENV)
+    local_test_env = {}
     expected_value = "value_from_cli"
     local_test_env["CI_ENV"] = "value_from_os_env"
     local_test_env["APP_DIR"] = "app"
@@ -308,8 +305,8 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
 
         try:
             # app + package exist
-            package_name = f"{project_name}_{expected_value}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{expected_value}_{USER_NAME}".upper()
+            package_name = f"{project_name}_{expected_value}_pkg_{default_username}{resource_suffix}".upper()
+            app_name = f"{project_name}_{expected_value}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -377,9 +374,7 @@ def test_nativeapp_project_templating_bundle_deploy_successful(
     project_dir = project_definition_files[0].parent
 
     test_ci_env = "prod"
-    local_test_env = dict(DEFAULT_TEST_ENV)
-    local_test_env["CI_ENV"] = test_ci_env
-    local_test_env["APP_DIR"] = "app"
+    local_test_env = {"CI_ENV": test_ci_env, "APP_DIR": "app"}
 
     with pushd(project_dir):
         try:

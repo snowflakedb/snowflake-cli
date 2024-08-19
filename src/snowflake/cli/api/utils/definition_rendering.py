@@ -91,6 +91,7 @@ class TemplatedEnvironment:
                     nodes.Output,
                     nodes.Call,
                     nodes.Const,
+                    nodes.Filter,
                 ),
             )
             or current_attr_chain is not None
@@ -373,7 +374,12 @@ def render_definition_template(
     )
 
     project_definition = build_project_definition(**definition)
+
+    # Use the values originally provided by the user as the template context
+    # This intentionally doesn't reflect any field changes made by
+    # validators, to minimize user surprise when templating values
     project_context[CONTEXT_KEY] = definition
+
     # Use `ProjectEnvironment` in project context in order to
     # handle env variables overrides from OS env and from CLI arguments.
     project_context[CONTEXT_KEY]["env"] = ProjectEnvironment(

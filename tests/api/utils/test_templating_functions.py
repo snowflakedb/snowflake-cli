@@ -41,9 +41,9 @@ def test_available_templating_functions():
         [
             "id_to_str",
             "str_to_id",
-            "id_concat",
+            "concat_ids",
             "get_username",
-            "clean_id",
+            "sanitize_id",
         ]
     )
 
@@ -67,12 +67,12 @@ def test_available_templating_functions():
         (["''", "''"], '""'),
     ],
 )
-def test_id_concat_with_valid_values(input_list, expected_output):
+def test_concat_ids_with_valid_values(input_list, expected_output):
     input_list_str = ", ".join(input_list)
     definition = {
         "definition_version": "1.1",
         "env": {
-            "value": f"<% fn.id_concat({input_list_str}) %>",
+            "value": f"<% fn.concat_ids({input_list_str}) %>",
         },
     }
 
@@ -81,32 +81,32 @@ def test_id_concat_with_valid_values(input_list, expected_output):
     assert env.get("value") == expected_output
 
 
-def test_id_concat_with_no_args():
+def test_concat_ids_with_no_args():
     definition = {
         "definition_version": "1.1",
         "env": {
-            "value": "<% fn.id_concat() %>",
+            "value": "<% fn.concat_ids() %>",
         },
     }
 
     with pytest.raises(InvalidTemplate) as err:
         render_definition_template(definition, {})
 
-    assert "id_concat requires at least 1 argument(s)" in err.value.message
+    assert "concat_ids requires at least 1 argument(s)" in err.value.message
 
 
-def test_id_concat_with_non_string_arg():
+def test_concat_ids_with_non_string_arg():
     definition = {
         "definition_version": "1.1",
         "env": {
-            "value": "<% fn.id_concat(123) %>",
+            "value": "<% fn.concat_ids(123) %>",
         },
     }
 
     with pytest.raises(InvalidTemplate) as err:
         render_definition_template(definition, {})
 
-    assert "id_concat only accepts String values" in err.value.message
+    assert "concat_ids only accepts String values" in err.value.message
 
 
 @pytest.mark.parametrize(
@@ -311,18 +311,21 @@ def test_get_username_with_two_args_should_fail():
     "input_value, expected_output",
     [
         ("test_value", "test_value"),
-        (" T'EST_Va l.u-e" "", "test_value"),
-        ("", ""),
-        ('""', ""),
+        (" T'EST_Va l.u-e" "", "TEST_Value"),
+        ("", "_"),
+        ('""', "_"),
+        ("_val.ue", "_value"),
+        ("1val.ue", "_1value"),
         ('"some_id"', "some_id"),
+        ("a." + "b" * 254 + "c", "a" + "b" * 254),
     ],
 )
-def test_clean_id_valid_values(input_value, expected_output):
+def test_sanitize_id_valid_values(input_value, expected_output):
     definition = {
         "definition_version": "1.1",
         "env": {
             "input_value": input_value,
-            "output_value": "<% fn.clean_id(ctx.env.input_value) %>",
+            "output_value": "<% fn.sanitize_id(ctx.env.input_value) %>",
         },
     }
 
@@ -332,29 +335,29 @@ def test_clean_id_valid_values(input_value, expected_output):
     assert env.get("output_value") == expected_output
 
 
-def test_clean_id_with_no_args():
+def test_sanitize_id_with_no_args():
     definition = {
         "definition_version": "1.1",
         "env": {
-            "value": "<% fn.clean_id() %>",
+            "value": "<% fn.sanitize_id() %>",
         },
     }
 
     with pytest.raises(InvalidTemplate) as err:
         render_definition_template(definition, {})
 
-    assert "clean_id requires at least 1 argument(s)" in err.value.message
+    assert "sanitize_id requires at least 1 argument(s)" in err.value.message
 
 
-def test_clean_id_with_two_args():
+def test_sanitize_id_with_two_args():
     definition = {
         "definition_version": "1.1",
         "env": {
-            "value": "<% fn.clean_id('a', 'b') %>",
+            "value": "<% fn.sanitize_id('a', 'b') %>",
         },
     }
 
     with pytest.raises(InvalidTemplate) as err:
         render_definition_template(definition, {})
 
-    assert "clean_id supports at most 1 argument(s)" in err.value.message
+    assert "sanitize_id supports at most 1 argument(s)" in err.value.message
