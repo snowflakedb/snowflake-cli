@@ -322,8 +322,6 @@ def _dump_config(conf_file_cache: Dict):
 
 
 def _check_default_config_files_permissions() -> None:
-    if IS_WINDOWS:
-        return
     if CONNECTIONS_FILE.exists() and not file_permissions_are_strict(CONNECTIONS_FILE):
         raise ConfigFileTooWidePermissionsError(CONNECTIONS_FILE)
     if CONFIG_FILE.exists() and not file_permissions_are_strict(CONFIG_FILE):

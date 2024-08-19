@@ -15,8 +15,44 @@
 import stat
 from pathlib import Path
 
+from snowflake.connector.compat import IS_WINDOWS
 
-def file_permissions_are_strict(file_path: Path) -> bool:
+
+def _get_windows_whitelisted_users():
+    # whitelisted users list obtained in consultation with prodsec: CASEC-9627
+    import os
+
+    return ["SYSTEM", "Administrators", os.getlogin()]
+
+
+def _run_icacls(file_path: Path) -> str:
+    import subprocess
+
+    return subprocess.check_output(["icacls", str(file_path)], text=True)
+
+
+def _windows_permissions_are_denied(permission_codes: str) -> bool:
+    # according to https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/icacls
+    return "(DENY)" in permission_codes or "(N)" in permission_codes
+
+
+def _windows_file_permissions_are_strict(file_path: Path) -> bool:
+    import re
+
+    # according to https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/icacls
+    icacls_output_regex = r".*\\(?P<user>.*):(?P<permissions>[(A-Z),]+)"
+    whitelisted_users = _get_windows_whitelisted_users()
+
+    for permission in re.finditer(icacls_output_regex, _run_icacls(file_path)):
+        if (permission.group("user") not in whitelisted_users) and (
+            not _windows_permissions_are_denied(permission.group("permissions"))
+        ):
+            return False
+
+    return True
+
+
+def _unix_file_permissions_are_strict(file_path: Path) -> bool:
     accessible_by_others = (
         # https://docs.python.org/3/library/stat.html
         stat.S_IRGRP  # readable by group
@@ -27,3 +63,9 @@ def file_permissions_are_strict(file_path: Path) -> bool:
         | stat.S_IXOTH  # executable by others
     )
     return (file_path.stat().st_mode & accessible_by_others) == 0
+
+
+def file_permissions_are_strict(file_path: Path) -> bool:
+    if IS_WINDOWS:
+        return True
+    return _unix_file_permissions_are_strict(file_path)
