@@ -52,10 +52,5 @@ class ApplicationEntityModel(EntityModelBase):
         )
         with_suffix = append_test_resource_suffix(identifier)
         if isinstance(input_value, Identifier):
-            data = dict(name=with_suffix)
-            if input_value.schema_:
-                data["schema"] = input_value.schema_
-            if input_value.database:
-                data["database"] = input_value.database
-            return Identifier(**data)
+            return input_value.model_copy(update=dict(name=with_suffix))
         return with_suffix
