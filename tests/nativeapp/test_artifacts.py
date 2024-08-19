@@ -962,6 +962,17 @@ def test_bad_deploy_root(project_definition_files):
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
+def test_no_artifacts(project_definition_files):
+    project_root = project_definition_files[0].parent
+    with pytest.raises(ArtifactError):
+        build_bundle(
+            project_root,
+            deploy_root=Path(project_root, "deploy"),
+            artifacts=[],
+        )
+
+
+@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_too_many_files(project_definition_files):
     project_root = project_definition_files[0].parent
     with pytest.raises(TooManyFilesError):

@@ -252,6 +252,24 @@ def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup)
     )
 
 
+# Tests handling of no artifacts
+@pytest.mark.integration
+def test_nativeapp_bundle_throws_error_on_no_artifacts(template_setup):
+    _, runner, definition_version = template_setup
+
+    override_snowflake_yml_artifacts(
+        definition_version,
+        artifacts_section=[],
+    )
+
+    result = runner.invoke_json(["app", "bundle"])
+    assert result.exit_code == 1
+    assert_that_result_failed_with_message_containing(
+        result,
+        "No artifacts mapping found in project definition, nothing to do.",
+    )
+
+
 # Tests that bundle wipes out any existing deploy root to recreate it from scratch on every run
 @pytest.mark.integration
 def test_nativeapp_bundle_deletes_existing_deploy_root(template_setup):
