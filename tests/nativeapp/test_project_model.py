@@ -24,7 +24,6 @@ import pytest
 import yaml
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli._plugins.nativeapp.project_model import (
-    RESOURCE_SUFFIX_VAR,
     NativeAppProjectModel,
 )
 from snowflake.cli.api.project.definition import load_project
@@ -33,6 +32,7 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMappin
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
+from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 
 CURRENT_ROLE = "current_role"
 
@@ -86,7 +86,7 @@ def test_project_model_all_defaults(
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 @mock.patch.dict(
     os.environ,
-    {"USER": "test_user", RESOURCE_SUFFIX_VAR: "_suffix!"},
+    {"USER": "test_user", TEST_RESOURCE_SUFFIX_VAR: "_suffix!"},
     clear=True,
 )
 def test_project_model_default_package_app_name_with_suffix(
@@ -185,7 +185,7 @@ def test_project_model_all_explicit(mock_connect, mock_ctx):
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 @mock.patch.dict(
     os.environ,
-    {"USER": "test_user", RESOURCE_SUFFIX_VAR: "_suffix!"},
+    {"USER": "test_user", TEST_RESOURCE_SUFFIX_VAR: "_suffix!"},
     clear=True,
 )
 def test_project_model_explicit_package_app_name_with_suffix(
