@@ -686,7 +686,7 @@ def test_os_env_and_override_envs_in_version_1():
     assert result["ctx"]["env"]["os_env_var"] == "os_env_var_value"
 
 
-@mock.patch.dict(os.environ, {"debug": "true", "USER": "username"}, clear=True)
+@mock.patch.dict(os.environ, {"debug": "truE", "USER": "username"}, clear=True)
 def test_non_str_scalar_with_templates():
     definition = {
         "definition_version": "1.1",
@@ -717,7 +717,49 @@ def test_non_str_scalar_with_templates():
                 },
                 "application": {
                     "name": "test_app_username",
-                    "debug": "true",
+                    "debug": "truE",
+                },
+            },
+            "env": ProjectEnvironment(default_env={}, override_env={}),
+        },
+    }
+
+
+@mock.patch.dict(os.environ, {"USER": "username"}, clear=True)
+def test_boolean_field_with_str_with_templates():
+    definition = {
+        "definition_version": "1.1",
+        "native_app": {
+            "name": "test_app",
+            "artifacts": [],
+            "application": {
+                "name": "app_name_<% ctx.native_app.application.debug %>",
+                "debug": "truE",
+            },
+        },
+    }
+
+    result = render_definition_template(definition, {}).project_context
+
+    assert result == {
+        "fn": get_templating_functions(),
+        "ctx": {
+            "definition_version": "1.1",
+            "native_app": {
+                "name": "test_app",
+                "artifacts": [],
+                "bundle_root": "output/bundle/",
+                "deploy_root": "output/deploy/",
+                "generated_root": "__generated/",
+                "scratch_stage": "app_src.stage_snowflake_cli_scratch",
+                "source_stage": "app_src.stage",
+                "package": {
+                    "name": "test_app_pkg_username",
+                    "distribution": "internal",
+                },
+                "application": {
+                    "name": "app_name_truE",
+                    "debug": "truE",
                 },
             },
             "env": ProjectEnvironment(default_env={}, override_env={}),
@@ -969,7 +1011,6 @@ def test_identifier_suffixing_nested_refer_to_str():
         "native_app": {
             "name": "myapp",
             "artifacts": [],
-            # suffix is appended twice since we run validators before rendering on non-templated strings to get defaults
             "package": {"name": "pkg"},
             "application": {"name": "<% ctx.native_app.package.name %>_app"},
         },
@@ -977,7 +1018,7 @@ def test_identifier_suffixing_nested_refer_to_str():
     project_properties = render_definition_template(definition, {})
     project_definition = project_properties.project_definition
     app = project_definition.native_app.application.name
-    assert app == "pkg_suffix_app_suffix"  # suffix is added twice
+    assert app == "pkg_app_suffix"
 
 
 @pytest.mark.xfail(
