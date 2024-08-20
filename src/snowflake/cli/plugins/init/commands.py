@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional
 import typer
 import yaml
 from click import ClickException
+from snowflake.cli.__about__ import VERSION
 from snowflake.cli.api.commands.flags import (
     NoInteractiveOption,
     parse_key_value_variables,
@@ -176,7 +177,6 @@ def _determine_variable_values(
 
 def _validate_cli_version(required_version: str) -> None:
     from packaging.version import parse
-    from snowflake.cli.__about__ import VERSION
 
     if parse(required_version) > parse(VERSION):
         raise ClickException(
@@ -225,8 +225,10 @@ def init(
             variables_metadata=template_metadata.variables,
             variables_from_flags=variables_from_flags,
             no_interactive=no_interactive,
-        )
-        variable_values["project_dir_name"] = SecurePath(path).name
+        ) | {
+            "project_dir_name": SecurePath(path).name,
+            "snowflake_cli_version": VERSION,
+        }
         log.debug(
             "Rendering template files: %s", ", ".join(template_metadata.files_to_render)
         )
