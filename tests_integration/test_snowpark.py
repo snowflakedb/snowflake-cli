@@ -867,6 +867,46 @@ def test_incorrect_requirements(project_directory, runner, alter_requirements_tx
         )
 
 
+@pytest.mark.integration
+def test_snowpark_aliases(project_directory, runner, _test_steps, test_database):
+    with project_directory("snowpark"):
+        for command in ["build", "deploy"]:
+            result = runner.invoke_with_connection_json(["snowpark", command])
+            assert result.exit_code == 0, result
+
+        for command in [
+            ["list", "function"],
+            ["list", "procedure", "--like", "hello%"],
+            ["describe", "function", "hello_function(string)"],
+            ["describe", "procedure", "test()"],
+        ]:
+            expected_result = runner.invoke_with_connection_json(["object", *command])
+            assert expected_result.exit_code == 0, expected_result.output
+            result = runner.invoke_with_connection_json(["snowpark", *command])
+            assert result.exit_code == 0, result
+            assert result.json == expected_result.json
+
+        result = runner.invoke_with_connection_json(
+            ["snowpark", "drop", "function", "hello_function(string)"]
+        )
+        assert result.exit_code == 0, result.output
+        assert result.json == [
+            {
+                "status": "HELLO_FUNCTION successfully dropped.",
+            },
+        ]
+
+        result = runner.invoke_with_connection_json(
+            ["snowpark", "drop", "procedure", "hello_procedure(string)"]
+        )
+        assert result.exit_code == 0, result.output
+        assert result.json == [
+            {
+                "status": "HELLO_PROCEDURE successfully dropped.",
+            },
+        ]
+
+
 @pytest.fixture
 def _test_setup(
     runner,
