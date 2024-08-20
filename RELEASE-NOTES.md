@@ -27,6 +27,7 @@
   * Currently only supports SQL scripts: `post_deploy: [{sql_script: script.sql}]`
 
 ## Fixes and improvements
+* Fix return values of `snow snowpark list`, `describe` and `drop` commands.
 
 
 # v2.7.0
