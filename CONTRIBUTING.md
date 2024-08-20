@@ -69,40 +69,45 @@ or by running `pytest` inside activated environment.
 Every integration test should have `integration` mark. By default, integration tests are not execute when running `pytest`.
 
 To execute only integration tests run `hatch run integration:test` or `pytest -m integration` inside environment.
-### Connection parameters in `config.toml`
-
-Add the following connection to your `config.toml`
-
-```toml
-[connections.integration]
-host = <host>
-account = <account_name>
-user = <user>
-password = <password>
-```
-
-### Connection parameters in environment parameters
-
-Parameters must use the following format:
-
-``SNOWFLAKE_CONNECTIONS_INTEGRATION_<key>=<value>``
-
-where ``<key>`` is the name of the key
-
-For example: SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT="my-account"
-
-List of required parameter keys:
-- host
-- account
-- user
-- password
 
 ### User setup
 
-Run the script with ACCOUNTADMIN role
+Integration tests require environment variables to be set up. Parameters must use the following format:
+
+``SNOWFLAKE_CONNECTIONS_INTEGRATION_<key>=<value>``
+
+where ``<key>`` is the name of the key. The following environment variables are required:
+
+- `SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST`
+- `SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT`
+- `SNOWFLAKE_CONNECTIONS_INTEGRATION_USER`
+- `SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD` or `SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH` (if using private key authentication `SNOWFLAKE_CONNECTIONS_INTEGRATION_PASSWORD=SNOWFLAKE_JWT` should be set)
+- `SNOWFLAKE_CONNECTIONS_INTEGRATION_ROLE`
+- `SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE`
+- `SNOWFLAKE_CONNECTIONS_INTEGRATION_WAREHOUSE`
+
+### Integration account setup script
+
+To set up an account for integration tests, run the following script with `ACCOUNTADMIN` role:
 
 ```bash
-tests_integration/scripts/integration_account_setup.sql
+snow sql \
+  -f tests_integration/scripts/integration_account_setup.sql \
+  -D "user=${SNOWFLAKE_CONNECTIONS_INTEGRATION_USER}" \
+  -D "role=${SNOWFLAKE_CONNECTIONS_INTEGRATION_ROLE}" \
+  -D "warehouse=${SNOWFLAKE_CONNECTIONS_INTEGRATION_WAREHOUSE}" \
+  -D "main_database=${SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE}"\
+  -c <your_connection_name>
+```
+
+Note: Before running the script, set up your environment variables.
+
+### Build and push Docker images
+
+To build and push all required Docker images, run the following script:
+
+```bash
+./tests_integration/spcs/docker/build_and_push_all.sh
 ```
 
 ## Remote debugging with PyCharm or IntelliJ

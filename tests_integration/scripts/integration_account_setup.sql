@@ -13,98 +13,107 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 */
-
-SET INT_TEST_USER = 'SNOWCLI_TEST';
-CREATE USER IF NOT EXISTS IDENTIFIER($INT_TEST_USER);
+CREATE USER IF NOT EXISTS IDENTIFIER('&{ user }');
 
 -- BASE SETUP
-CREATE ROLE IF NOT EXISTS INTEGRATION_TESTS;
-GRANT CREATE ROLE ON ACCOUNT TO ROLE INTEGRATION_TESTS;
-GRANT CREATE DATABASE ON ACCOUNT TO ROLE INTEGRATION_TESTS;
-GRANT CREATE COMPUTE POOL ON ACCOUNT TO ROLE INTEGRATION_TESTS;
-GRANT BIND SERVICE ENDPOINT ON ACCOUNT TO ROLE INTEGRATION_TESTS;
-GRANT CREATE APPLICATION PACKAGE ON ACCOUNT TO ROLE INTEGRATION_TESTS;
-GRANT CREATE APPLICATION ON ACCOUNT TO ROLE INTEGRATION_TESTS;
-GRANT CREATE DATABASE ON ACCOUNT TO ROLE INTEGRATION_TESTS WITH GRANT OPTION;
-GRANT CREATE WAREHOUSE ON ACCOUNT TO ROLE INTEGRATION_TESTS;
-GRANT ROLE INTEGRATION_TESTS TO USER IDENTIFIER($INT_TEST_USER);
+CREATE ROLE IF NOT EXISTS &{ role };
+GRANT CREATE ROLE ON ACCOUNT TO ROLE &{ role };
+GRANT CREATE DATABASE ON ACCOUNT TO ROLE &{ role };
+GRANT CREATE COMPUTE POOL ON ACCOUNT TO ROLE &{ role };
+GRANT BIND SERVICE ENDPOINT ON ACCOUNT TO ROLE &{ role };
+GRANT CREATE APPLICATION PACKAGE ON ACCOUNT TO ROLE &{ role };
+GRANT CREATE APPLICATION ON ACCOUNT TO ROLE &{ role };
+GRANT CREATE DATABASE ON ACCOUNT TO ROLE &{ role } WITH GRANT OPTION;
+GRANT CREATE WAREHOUSE ON ACCOUNT TO ROLE &{ role };
+GRANT ROLE &{ role } TO USER IDENTIFIER('&{ user }');
 
 -- WAREHOUSE SETUP
-CREATE WAREHOUSE IF NOT EXISTS XSMALL WAREHOUSE_SIZE=XSMALL;
-GRANT ALL ON WAREHOUSE XSMALL TO ROLE INTEGRATION_TESTS;
+CREATE WAREHOUSE IF NOT EXISTS &{ warehouse } WAREHOUSE_SIZE=XSMALL;
+GRANT ALL ON WAREHOUSE &{ warehouse } TO ROLE &{ role };
 
--- DATABASES SETUP
-CREATE DATABASE IF NOT EXISTS SNOWCLI_DB;
-GRANT ALL ON DATABASE SNOWCLI_DB TO ROLE INTEGRATION_TESTS;
-GRANT ALL ON SCHEMA SNOWCLI_DB.PUBLIC TO ROLE INTEGRATION_TESTS;
+-- MAIN DATABASES SETUP
+CREATE DATABASE IF NOT EXISTS &{ main_database };
+GRANT ALL ON DATABASE &{ main_database } TO ROLE &{ role };
+GRANT ALL ON SCHEMA &{ main_database }.PUBLIC TO ROLE &{ role };
+USE DATABASE &{ main_database };
 
 -- STAGES SETUP
-CREATE STAGE IF NOT EXISTS SNOWCLI_DB.PUBLIC.SNOWCLI_STAGE DIRECTORY = ( ENABLE = TRUE );
+CREATE STAGE IF NOT EXISTS &{ main_database }.PUBLIC.SNOWCLI_STAGE DIRECTORY = ( ENABLE = TRUE );
 
 -- CONTAINERS SETUP
-CREATE OR REPLACE IMAGE REPOSITORY SNOWCLI_DB.PUBLIC.SNOWCLI_REPOSITORY;
-GRANT READ, WRITE ON IMAGE REPOSITORY SNOWCLI_DB.PUBLIC.SNOWCLI_REPOSITORY TO ROLE INTEGRATION_TESTS;
+CREATE IMAGE REPOSITORY IF NOT EXISTS &{ main_database }.PUBLIC.SNOWCLI_REPOSITORY;
+GRANT READ, WRITE ON IMAGE REPOSITORY &{ main_database }.PUBLIC.SNOWCLI_REPOSITORY TO ROLE &{ role };
 
-CREATE COMPUTE POOL IF NOT EXISTS SNOWCLI_COMPUTE_POOL
-    MIN_NODES = 1
-    MAX_NODES = 1
-    INSTANCE_FAMILY = CPU_X64_XS;
+CREATE COMPUTE POOL IF NOT EXISTS snowcli_compute_pool
+  MIN_NODES = 1
+  MAX_NODES = 1
+  INSTANCE_FAMILY = CPU_X64_XS;
 
-GRANT USAGE ON COMPUTE POOL SNOWCLI_COMPUTE_POOL TO ROLE INTEGRATION_TESTS;
-GRANT MONITOR ON COMPUTE POOL SNOWCLI_COMPUTE_POOL TO ROLE INTEGRATION_TESTS;
+GRANT USAGE ON COMPUTE POOL snowcli_compute_pool TO ROLE &{ role };
+GRANT MONITOR ON COMPUTE POOL snowcli_compute_pool TO ROLE &{ role };
 
-ALTER COMPUTE POOL SNOWCLI_COMPUTE_POOL SUSPEND;
+ALTER COMPUTE POOL snowcli_compute_pool SUSPEND;
 
 -- EXTERNAL ACCESS INTEGRATION
-CREATE OR REPLACE NETWORK RULE snowflake_docs_network_rule
+CREATE NETWORK RULE IF NOT EXISTS snowflake_docs_network_rule
   MODE = EGRESS
   TYPE = HOST_PORT
   VALUE_LIST = ('docs.snowflake.com');
 
-CREATE OR REPLACE SECRET test_secret
+CREATE SECRET IF NOT EXISTS test_secret
   TYPE = GENERIC_STRING
---   SECRET_STRING = ''; -- provide password
-GRANT READ ON SECRET test_secret TO ROLE integration_tests;
+  SECRET_STRING = 'test'; -- provide password
+GRANT READ ON SECRET test_secret TO ROLE &{ role };
 
-CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION snowflake_docs_access_integration
+CREATE EXTERNAL ACCESS INTEGRATION IF NOT EXISTS snowflake_docs_access_integration
   ALLOWED_NETWORK_RULES = (snowflake_docs_network_rule)
   ALLOWED_AUTHENTICATION_SECRETS = (test_secret)
   ENABLED = true;
-GRANT USAGE ON INTEGRATION snowflake_docs_access_integration TO ROLE integration_tests;
+GRANT USAGE ON INTEGRATION snowflake_docs_access_integration TO ROLE &{ role };
+
+CREATE EXTERNAL ACCESS INTEGRATION IF NOT EXISTS cli_test_integration
+  ALLOWED_NETWORK_RULES = (snowflake_docs_network_rule)
+  ALLOWED_AUTHENTICATION_SECRETS = (test_secret)
+  ENABLED = true;
+GRANT USAGE ON INTEGRATION cli_test_integration TO ROLE &{ role };
 
 -- API INTEGRATION FOR SNOWGIT
-CREATE API INTEGRATION snowcli_testing_repo_api_integration
-API_PROVIDER = git_https_api
-API_ALLOWED_PREFIXES = ('https://github.com/snowflakedb/')
-ALLOWED_AUTHENTICATION_SECRETS = ()
-ENABLED = true;
-GRANT USAGE ON INTEGRATION snowcli_testing_repo_api_integration TO ROLE INTEGRATION_TESTS;
+CREATE API INTEGRATION IF NOT EXISTS snowcli_testing_repo_api_integration
+  API_PROVIDER = git_https_api
+  API_ALLOWED_PREFIXES = ('https://github.com/snowflakedb/')
+  ALLOWED_AUTHENTICATION_SECRETS = ()
+  ENABLED = true;
+GRANT USAGE ON INTEGRATION snowcli_testing_repo_api_integration TO ROLE &{ role };
 
--- Notebooks setup
-CREATE DATABASE NOTEBOOK;
+-- NOTEBOOKS SETUP
+CREATE DATABASE IF NOT EXISTS NOTEBOOK;
 
--- CORTEX SEARCH SETUP         UNCOMMENT THIS WHEN ENABLING CORTEX INTEGRATION TESTS
--- CREATE TABLE transcripts (
---     transcript_text VARCHAR,
---     region VARCHAR,
---     agent_id VARCHAR
--- );
---
--- INSERT INTO transcripts VALUES('Ah, I see you have the machine that goes "ping!". This is my favourite.', 'Meaning of Life', '01'),
---     ('First shalt thou take out the Holy Pin. Then shalt thou count to three, no more, no less.', 'Holy Grail', '02'),
---     ('And the beast shall be huge and black, and the eyes thereof red with the blood of living creatures', 'Life of Brian', '03'),
---     ('This parrot is no more! It has ceased to be! It`s expired and gone to meet its maker!', 'Flying Circus', '04');
---
--- CREATE OR REPLACE CORTEX SEARCH SERVICE  test_service
---   ON transcript_text
---   ATTRIBUTES region
---   WAREHOUSE = mywh
---   TARGET_LAG = '1 day'
---   AS (
---     SELECT
---         transcript_text,
---         region,
---         agent_id
---     FROM support_transcripts
--- );
--- END OF CORTEX SETUP - THIS LINE CAN BE DELETED AFTER UNCOMMENTING ABOVE CODE WHEN ENABLING CORTEX TESTS
+-- CORTEX SEARCH SETUP
+CREATE TABLE IF NOT EXISTS transcripts (
+  transcript_text VARCHAR,
+  region VARCHAR,
+  agent_id VARCHAR
+);
+
+-- INSERT IF NOT EXISTS
+MERGE INTO transcripts AS t USING (
+  VALUES('Ah, I see you have the machine that goes "ping!". This is my favourite.', 'Meaning of Life', '01'),
+        ('First shalt thou take out the Holy Pin. Then shalt thou count to three, no more, no less.', 'Holy Grail', '02'),
+        ('And the beast shall be huge and black, and the eyes thereof red with the blood of living creatures', 'Life of Brian', '03'),
+        ('This parrot is no more! It has ceased to be! It`s expired and gone to meet its maker!', 'Flying Circus', '04')
+  ) AS s (c1, c2, c3) ON t.agent_id = s.c3
+  WHEN NOT MATCHED THEN
+    INSERT (transcript_text, region, agent_id) VALUES (s.c1, s.c2, s.c3);
+
+CREATE CORTEX SEARCH SERVICE IF NOT EXISTS test_service
+  ON transcript_text
+  ATTRIBUTES region
+  WAREHOUSE = &{ warehouse }
+  TARGET_LAG = '1 day'
+  AS (
+    SELECT
+        transcript_text,
+        region,
+        agent_id
+    FROM transcripts
+);
