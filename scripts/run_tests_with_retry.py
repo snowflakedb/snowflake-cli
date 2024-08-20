@@ -13,6 +13,7 @@ import requests
 
 APP_REPO = "snowflakedb/snowflake-cli"
 ISSUE_REPO = APP_REPO
+# ISSUE_REPO = "snowflakedb/frank-test"
 FLAKY_LABEL = "flaky-test"
 TEST_STEPS = ["setup", "call", "teardown"]
 
@@ -35,33 +36,30 @@ else:
 def main(test_type: str, pytest_args: list[str]):
     with tempfile.TemporaryDirectory() as tmpdir:
         base_pytest = [
+            "python",
+            "-m",
             "pytest",
-            "--json-report",
-            "--json-report-omit",
-            "warnings",
-            "keywords",
-            "environment",
-            "collectors",
-            "streams",
-            "log",
+            "-p",
+            "tests_common.pytest_json_report",
         ] + pytest_args
 
         # Run tests once
         report_path = Path(tmpdir) / "pytest1.json"
-        pytest = base_pytest + ["--json-report-file", str(report_path)]
-        if run(pytest, check=False).returncode == 0:
+        pytest = base_pytest + ["--json-file", str(report_path)]
+        flake_env = os.environ | dict(FLAKE="true")
+        if run(pytest, check=False, env=flake_env).returncode == 0:
             sys.exit(0)
-        first_failed_tests = get_failed_tests(report_path)
+        root, first_failed_tests = get_failed_tests(report_path)
 
         # Then run the failed tests once more
         p(f"{test_type} tests failed, re-running to detect flakes")
         report_path = Path(tmpdir) / "pytest2.json"
-        pytest = base_pytest + ["--json-report-file", str(report_path), "--last-failed"]
+        pytest = base_pytest + ["--json-file", str(report_path), "--last-failed"]
         final_exit_code = run(pytest, check=False).returncode
 
         try:
             # Compare reports to see which tests failed then passed
-            second_failed_tests = get_failed_tests(report_path)
+            _, second_failed_tests = get_failed_tests(report_path)
             if flaky_tests := find_flaky_tests(first_failed_tests, second_failed_tests):
                 p(
                     f"{test_type} tests passed during retry, these are most likely flaky:"
@@ -70,9 +68,6 @@ def main(test_type: str, pytest_args: list[str]):
                     nodeid = flaky_test["nodeid"]
                     p(nodeid)
                     if github:
-                        with report_path.open() as f:
-                            report_data = json.load(f)
-                            root = Path(report_data["root"])
                         try:
                             create_or_update_flaky_test_issue(
                                 root, test_type, flaky_test
@@ -87,14 +82,16 @@ def main(test_type: str, pytest_args: list[str]):
             sys.exit(final_exit_code)
 
 
-def get_failed_tests(report: Path) -> dict[str, dict]:
+def get_failed_tests(report: Path) -> tuple[Path, dict[str, dict]]:
     with report.open() as f:
         report_data = json.load(f)
-    tests_by_node_id = {}
-    for test in report_data["tests"]:
-        if test["outcome"] == "failed":
-            tests_by_node_id[test["nodeid"]] = test
-    return tests_by_node_id
+    root = Path(report_data["root"])
+    tests = {
+        nodeid: test
+        for nodeid, test in report_data["tests"].items()
+        if test["outcome"] == "failed"
+    }
+    return root, tests
 
 
 def find_flaky_tests(
@@ -223,168 +220,6 @@ def api(method, path, *args, **kwargs) -> dict | list:
     resp.raise_for_status()
     return resp.json()
 
-
-EXAMPLE = {
-    "created": 1724090139.107965,
-    "duration": 0.1522068977355957,
-    "exitcode": 1,
-    "root": "/Users/fcampbell/Software/snowflakedb/snowflake-cli",
-    "environment": {},
-    "summary": {"failed": 4, "passed": 1, "error": 2, "total": 7, "collected": 7},
-    "tests": [
-        {
-            "nodeid": "tests_integration/test_test.py::test_fail_parametrized[1]",
-            "lineno": 35,
-            "outcome": "failed",
-            "setup": {"duration": 0.062450499972328544, "outcome": "passed"},
-            "call": {
-                "duration": 0.00045116699766367674,
-                "outcome": "failed",
-                "crash": {
-                    "path": "/Users/fcampbell/Software/snowflakedb/snowflake-cli/tests_integration/test_test.py",
-                    "lineno": 39,
-                    "message": "AssertionError: assert 1 == 'foobar'",
-                },
-                "traceback": [
-                    {
-                        "path": "tests_integration/test_test.py",
-                        "lineno": 39,
-                        "message": "AssertionError",
-                    }
-                ],
-                "longrepr": 'somevar = 1\n\n    @pytest.mark.integration\n    @pytest.mark.parametrize("somevar", [1, True, "3"])\n    def test_fail_parametrized(somevar):\n>       assert somevar == "foobar"\nE       AssertionError: assert 1 == \'foobar\'\n\ntests_integration/test_test.py:39: AssertionError',
-            },
-            "teardown": {"duration": 0.0009553750278428197, "outcome": "passed"},
-        },
-        {
-            "nodeid": "tests_integration/test_test.py::test_successful",
-            "lineno": 25,
-            "outcome": "passed",
-            "setup": {"duration": 0.0029910000157542527, "outcome": "passed"},
-            "call": {"duration": 0.00015962502220645547, "outcome": "passed"},
-            "teardown": {"duration": 0.0008229169761762023, "outcome": "passed"},
-        },
-        {
-            "nodeid": "tests_integration/test_test.py::test_fail",
-            "lineno": 30,
-            "outcome": "failed",
-            "setup": {"duration": 0.0027732919552363455, "outcome": "passed"},
-            "call": {
-                "duration": 0.0003886250196956098,
-                "outcome": "failed",
-                "crash": {
-                    "path": "/Users/fcampbell/Software/snowflakedb/snowflake-cli/tests_integration/test_test.py",
-                    "lineno": 33,
-                    "message": "assert 1 == 2",
-                },
-                "traceback": [
-                    {
-                        "path": "tests_integration/test_test.py",
-                        "lineno": 33,
-                        "message": "AssertionError",
-                    }
-                ],
-                "longrepr": "@pytest.mark.integration\n    def test_fail():\n>       assert 1 == 2\nE       assert 1 == 2\n\ntests_integration/test_test.py:33: AssertionError",
-            },
-            "teardown": {"duration": 0.000846582988742739, "outcome": "passed"},
-        },
-        {
-            "nodeid": "tests_integration/test_test.py::test_fail_parametrized[True]",
-            "lineno": 35,
-            "outcome": "failed",
-            "setup": {"duration": 0.00286454102024436, "outcome": "passed"},
-            "call": {
-                "duration": 0.00038183294236660004,
-                "outcome": "failed",
-                "crash": {
-                    "path": "/Users/fcampbell/Software/snowflakedb/snowflake-cli/tests_integration/test_test.py",
-                    "lineno": 39,
-                    "message": "AssertionError: assert True == 'foobar'",
-                },
-                "traceback": [
-                    {
-                        "path": "tests_integration/test_test.py",
-                        "lineno": 39,
-                        "message": "AssertionError",
-                    }
-                ],
-                "longrepr": 'somevar = True\n\n    @pytest.mark.integration\n    @pytest.mark.parametrize("somevar", [1, True, "3"])\n    def test_fail_parametrized(somevar):\n>       assert somevar == "foobar"\nE       AssertionError: assert True == \'foobar\'\n\ntests_integration/test_test.py:39: AssertionError',
-            },
-            "teardown": {"duration": 0.0008507499587722123, "outcome": "passed"},
-        },
-        {
-            "nodeid": "tests_integration/test_test.py::test_teardown_failure",
-            "lineno": 57,
-            "outcome": "error",
-            "setup": {"duration": 0.0037783330189995468, "outcome": "passed"},
-            "call": {"duration": 0.00018399994587525725, "outcome": "passed"},
-            "teardown": {
-                "duration": 0.0009889589855447412,
-                "outcome": "failed",
-                "crash": {
-                    "path": "/Users/fcampbell/Software/snowflakedb/snowflake-cli/tests_integration/test_test.py",
-                    "lineno": 55,
-                    "message": "ValueError: teardown failure",
-                },
-                "traceback": [
-                    {
-                        "path": "tests_integration/test_test.py",
-                        "lineno": 55,
-                        "message": "ValueError",
-                    }
-                ],
-                "longrepr": '@pytest.fixture\n    def fail_teardown():\n        yield\n>       raise ValueError("teardown failure")\nE       ValueError: teardown failure\n\ntests_integration/test_test.py:55: ValueError',
-            },
-        },
-        {
-            "nodeid": "tests_integration/test_test.py::test_fail_parametrized[3]",
-            "lineno": 35,
-            "outcome": "failed",
-            "setup": {"duration": 0.0027936670230701566, "outcome": "passed"},
-            "call": {
-                "duration": 0.00043699995148926973,
-                "outcome": "failed",
-                "crash": {
-                    "path": "/Users/fcampbell/Software/snowflakedb/snowflake-cli/tests_integration/test_test.py",
-                    "lineno": 39,
-                    "message": "AssertionError: assert '3' == 'foobar'\n  \n  - foobar\n  + 3",
-                },
-                "traceback": [
-                    {
-                        "path": "tests_integration/test_test.py",
-                        "lineno": 39,
-                        "message": "AssertionError",
-                    }
-                ],
-                "longrepr": "somevar = '3'\n\n    @pytest.mark.integration\n    @pytest.mark.parametrize(\"somevar\", [1, True, \"3\"])\n    def test_fail_parametrized(somevar):\n>       assert somevar == \"foobar\"\nE       AssertionError: assert '3' == 'foobar'\nE         \nE         - foobar\nE         + 3\n\ntests_integration/test_test.py:39: AssertionError",
-            },
-            "teardown": {"duration": 0.0010245830053463578, "outcome": "passed"},
-        },
-        {
-            "nodeid": "tests_integration/test_test.py::test_setup_failure",
-            "lineno": 46,
-            "outcome": "error",
-            "setup": {
-                "duration": 0.002809500030707568,
-                "outcome": "failed",
-                "crash": {
-                    "path": "/Users/fcampbell/Software/snowflakedb/snowflake-cli/tests_integration/test_test.py",
-                    "lineno": 44,
-                    "message": "ValueError: setup failure",
-                },
-                "traceback": [
-                    {
-                        "path": "tests_integration/test_test.py",
-                        "lineno": 44,
-                        "message": "ValueError",
-                    }
-                ],
-                "longrepr": '@pytest.fixture\n    def fail_setup():\n>       raise ValueError("setup failure")\nE       ValueError: setup failure\n\ntests_integration/test_test.py:44: ValueError',
-            },
-            "teardown": {"duration": 0.0010127919958904386, "outcome": "passed"},
-        },
-    ],
-}
 
 if __name__ == "__main__":
     main(
