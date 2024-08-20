@@ -102,6 +102,7 @@ features = ["development", "packaging"]
 [tool.hatch.envs.packaging.scripts]
 build-binaries = ["./scripts/packaging/build_binaries.sh"]
 build-packages = ["./scripts/packaging/build_packages.sh"]
+package-darwin-binaries = ["./scripts/packaging/package_darwin_binaries.sh"]
 build-all = [
   "./scripts/packaging/build_binaries.sh",
   "./scripts/packaging/build_packages.sh",
