@@ -124,7 +124,7 @@ if ! grep -q -E "^$SNOWFLAKE_CLI_COMMENT" $SNOWFLAKE_CLI_LOGIN_SHELL; then
 fi
 POSTINSTALL
 
-ls -l
+ls -l ${DIST_DIR}
 
 chmod +x $DIST_DIR/scripts/postinstall
 pkgbuild \
@@ -136,14 +136,14 @@ pkgbuild \
   --component-plist ${PACKAGING_DIR}/macos/SnowflakeCLI.plist \
   ${DIST_DIR}/SnowflakeCLI.unsigned.pkg
 
-ls -l
+ls -l ${DIST_DIR}
 
 productsign \
   --sign "Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)" \
   ${DIST_DIR}/SnowflakeCLI.unsigned.pkg \
   ${DIST_DIR}/SnowflakeCLI.pkg
 
-ls -l
+ls -l ${DIST_DIR}
 
 productbuild \
   --distribution ${PACKAGING_DIR}/macos/Distribution.xml \
@@ -152,17 +152,17 @@ productbuild \
   --package-path ${DIST_DIR} \
   ${DIST_DIR}/SnowflakeCLI-$(uname)-$(uname -m).unsigned.pkg
 
-ls -l
+ls -l ${DIST_DIR}
 
 productsign \
   --sign "Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)" \
   ${DIST_DIR}/SnowflakeCLI-$(uname)-$(uname -m).unsigned.pkg \
   ${DIST_DIR}/SnowflakeCLI-$(uname)-$(uname -m).pkg
 
-ls -l
+ls -l ${DIST_DIR}
 
 cp -p \
   ${DIST_DIR}/SnowflakeCLI-$(uname)-$(uname -m).pkg \
   ${DIST_DIR}/SnowflakeCLI-${CLI_VERSION}-$(uname)-$(uname -m).pkg
 
-ls -l
+ls -l ${DIST_DIR}
