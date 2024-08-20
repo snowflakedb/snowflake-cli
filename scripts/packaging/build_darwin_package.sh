@@ -68,9 +68,11 @@ chmod +x ${APP_NAME}/Contents/MacOS/SnowflakeCLI.bash
 
 ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
 code_sign() {
+  loginfo "Code signing $1"
   codesign --force --deep --timestamp --entitlements $ENTITLEMENTS --options=runtime --sign "Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" $1
 }
 code_sign_validate() {
+  loginfo "Validating code signing for $1"
   codesign -dvvv --force $1
 }
 
@@ -122,7 +124,7 @@ if ! grep -q -E "^$SNOWFLAKE_CLI_COMMENT" $SNOWFLAKE_CLI_LOGIN_SHELL; then
 fi
 POSTINSTALL
 
-chmod +x $DIST_DIR/scripts/positnstall.sh
+chmod +x $DIST_DIR/scripts/postinstall
 pkgbuild \
   --identifier net.snowflake.snowflake-cli \
   --install-location '/Applications' \
