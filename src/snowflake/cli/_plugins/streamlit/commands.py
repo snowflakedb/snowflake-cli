@@ -155,17 +155,7 @@ def streamlit_deploy(
 
     # Get first streamlit
     streamlit: StreamlitEntityModel = streamlits[list(streamlits)[0]]
-    streamlit_id = streamlit.fqn.using_context()
-
-    url = StreamlitManager().deploy(
-        streamlit_id=streamlit_id,
-        artifacts=streamlit.artifacts,
-        stage_name=streamlit.stage,
-        main_file=streamlit.main_file,
-        replace=replace,
-        query_warehouse=streamlit.query_warehouse,
-        title=streamlit.title,
-    )
+    url = StreamlitManager().deploy(streamlit=streamlit, replace=replace)
 
     if open_:
         typer.launch(url)

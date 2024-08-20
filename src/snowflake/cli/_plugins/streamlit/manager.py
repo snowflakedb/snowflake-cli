@@ -29,6 +29,9 @@ from snowflake.cli.api.commands.experimental_behaviour import (
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.entities.streamlit_entity_model import (
+    StreamlitEntityModel,
+)
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
@@ -62,14 +65,12 @@ class StreamlitManager(SqlExecutionMixin):
 
     def _create_streamlit(
         self,
-        streamlit_id: FQN,
-        main_file: str,
+        streamlit: StreamlitEntityModel,
         replace: Optional[bool] = None,
         experimental: Optional[bool] = None,
-        query_warehouse: Optional[str] = None,
         from_stage_name: Optional[str] = None,
-        title: Optional[str] = None,
     ):
+        streamlit_id = streamlit.fqn.using_connection(self._conn)
         query = []
         if replace:
             query.append(f"CREATE OR REPLACE STREAMLIT {streamlit_id.sql_identifier}")
@@ -87,25 +88,24 @@ class StreamlitManager(SqlExecutionMixin):
         if from_stage_name:
             query.append(f"ROOT_LOCATION = '{from_stage_name}'")
 
-        query.append(f"MAIN_FILE = '{main_file}'")
+        query.append(f"MAIN_FILE = '{streamlit.main_file}'")
 
-        if query_warehouse:
-            query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
-        if title:
-            query.append(f"TITLE = '{title}'")
+        if streamlit.query_warehouse:
+            query.append(f"QUERY_WAREHOUSE = {streamlit.query_warehouse}")
+        if streamlit.title:
+            query.append(f"TITLE = '{streamlit.title}'")
+
+        if streamlit.external_access_integrations:
+            query.append(streamlit.get_external_access_integrations_sql())
+
+        if streamlit.secrets:
+            query.append(streamlit.get_secrets_sql())
 
         self._execute_query("\n".join(query))
 
-    def deploy(
-        self,
-        streamlit_id: FQN,
-        main_file: str,
-        artifacts: Optional[List[Path]] = None,
-        stage_name: Optional[str] = None,
-        query_warehouse: Optional[str] = None,
-        replace: Optional[bool] = False,
-        title: Optional[str] = None,
-    ):
+    def deploy(self, streamlit: StreamlitEntityModel, replace: bool = False):
+        streamlit_id = streamlit.fqn.using_connection(self._conn)
+
         # for backwards compatibility - quoted stage path might be case-sensitive
         # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers
         streamlit_name_for_root_location = streamlit_id.name
@@ -122,12 +122,9 @@ class StreamlitManager(SqlExecutionMixin):
             # TODO: Support from_stage
             # from_stage_stmt = f"FROM_STAGE = '{stage_name}'" if stage_name else ""
             self._create_streamlit(
-                streamlit_id,
-                main_file,
+                streamlit=streamlit,
                 replace=replace,
-                query_warehouse=query_warehouse,
                 experimental=True,
-                title=title,
             )
             try:
                 if use_versioned_stage:
@@ -157,7 +154,7 @@ class StreamlitManager(SqlExecutionMixin):
 
             self._put_streamlit_files(
                 root_location,
-                artifacts,
+                streamlit.artifacts,
             )
         else:
             """
@@ -167,7 +164,7 @@ class StreamlitManager(SqlExecutionMixin):
             """
             stage_manager = StageManager()
 
-            stage_name = stage_name or "streamlit"
+            stage_name = streamlit.stage or "streamlit"
             stage_name = FQN.from_string(stage_name).using_connection(self._conn)
 
             stage_manager.create(fqn=stage_name)
@@ -176,16 +173,13 @@ class StreamlitManager(SqlExecutionMixin):
                 f"{stage_name}/{streamlit_name_for_root_location}"
             )
 
-            self._put_streamlit_files(root_location, artifacts)
+            self._put_streamlit_files(root_location, streamlit.artifacts)
 
             self._create_streamlit(
-                streamlit_id,
-                main_file,
+                streamlit=streamlit,
                 replace=replace,
-                query_warehouse=query_warehouse,
                 from_stage_name=root_location,
                 experimental=False,
-                title=title,
             )
 
         return self.get_url(streamlit_name=streamlit_id)
