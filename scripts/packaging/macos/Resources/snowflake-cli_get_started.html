@@ -1,0 +1,33 @@
+<html>
+<style type="text/css">
+body {
+    font-family: Sans-Serif;
+}
+.monospace {
+    font-family:monospace;
+    font-weight: bold;
+}
+</style>
+<body>
+<h3>Congratulations! Software installation complete.</h3>
+<p>Complete the following steps to connect to Snowflake:</p>
+<ol>
+    <li>Open a new terminal window.</li>
+    <li>Execute the following command to test your connection:<br/>
+        <span class="monospace">snowsql -a &lt;account_name&gt; -u &lt;login_name&gt;</span><br/>
+        Enter your password when prompted. Enter !quit to quit the connection.
+    </li>
+    <li>Add your connection information to the <span class="monospace">~/.snowsql/config</span> file:<br/>
+        <span class="monospace">accountname = &lt;account_name&gt;</span><br/>
+        <span class="monospace">username = &lt;user_name&gt;</span><br/>
+        <span class="monospace">password = &lt;password&gt;</span>
+    </li>
+    <li>Execute the following command to connect to Snowflake:<br/>
+        <span class="monospace">snowsql</span><br/>
+        or double click the <span class="monospace">SnowSQL</span> application icon in the <span class="monospace">Applications</span> directory.
+    </li>
+</ol>
+<br/>
+<p>See the Snowflake documentation <a href="https://docs.snowflake.net/manuals/user-guide/snowsql.html">https://docs.snowflake.net/manuals/user-guide/snowsql.html</a> for more information.</p>
+</body>
+</html>
