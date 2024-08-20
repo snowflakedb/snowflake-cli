@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 
 import pytest
 from snowflake.cli.api.project.util import escape_like_pattern
@@ -18,14 +19,16 @@ from snowflake.cli.api.project.util import escape_like_pattern
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
 from tests_integration.testing_utils import ObjectNameProvider
 
-INTEGRATION_DATABASE = "SNOWCLI_DB"
+INTEGRATION_DATABASE = os.environ.get(
+    "SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE", "SNOWCLI_DB"
+)
 INTEGRATION_SCHEMA = "PUBLIC"
 INTEGRATION_REPOSITORY = "snowcli_repository"
 
 
 @pytest.mark.integration
 def test_list_images_tags(runner):
-    # test assumes the testing environment has been set up with /SNOWCLI_DB/PUBLIC/snowcli_repository/snowpark_test_echo:1
+    # test assumes the testing environment has been set up with /<DATABASE>/PUBLIC/snowcli_repository/snowpark_test_echo:1
     _list_images(runner)
     _list_tags(runner)
 
