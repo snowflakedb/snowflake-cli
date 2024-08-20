@@ -321,6 +321,9 @@ def test_use_command(mock_execute_query, _object):
         "select &{ aaa }.&{ bbb }",
         "select &aaa.&bbb",
         "select &aaa.&{ bbb }",
+        "select <% aaa %>.<% bbb %>",
+        "select <% aaa %>.&{ bbb }",
+        "select &aaa.<% bbb %>",
     ],
 )
 @mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
@@ -332,7 +335,9 @@ def test_rendering_of_sql(mock_execute_query, query, runner):
     )
 
 
-@pytest.mark.parametrize("query", ["select &{ foo }", "select &foo"])
+@pytest.mark.parametrize(
+    "query", ["select &{ foo }", "select &foo", "select <% foo %>"]
+)
 def test_execution_fails_if_unknown_variable(runner, query):
     result = runner.invoke(["sql", "-q", query, "-D", "bbb=1"])
     assert "SQL template rendering error: 'foo' is undefined" in result.output
@@ -356,12 +361,15 @@ def test_snowsql_compatibility(text, expected):
     assert transpile_snowsql_templates(text) == expected
 
 
+@pytest.mark.parametrize("template_start,template_end", [("&{", "}"), ("<%", "%>")])
 @mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_uses_variables_from_snowflake_yml(
-    mock_execute_query, project_directory, runner
+    mock_execute_query, project_directory, runner, template_start, template_end
 ):
     with project_directory("sql_templating"):
-        result = runner.invoke(["sql", "-q", "select &{ ctx.env.sf_var }"])
+        result = runner.invoke(
+            ["sql", "-q", f"select {template_start} ctx.env.sf_var {template_end}"]
+        )
 
     assert result.exit_code == 0
     mock_execute_query.assert_called_once_with(
@@ -369,12 +377,19 @@ def test_uses_variables_from_snowflake_yml(
     )
 
 
+@pytest.mark.parametrize("template_start,template_end", [("&{", "}"), ("<%", "%>")])
 @mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_uses_variables_from_snowflake_local_yml(
-    mock_execute_query, project_directory, runner
+    mock_execute_query, project_directory, runner, template_start, template_end
 ):
     with project_directory("sql_templating"):
-        result = runner.invoke(["sql", "-q", "select &{ ctx.env.sf_var_override }"])
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                f"select {template_start} ctx.env.sf_var_override {template_end}",
+            ]
+        )
 
     assert result.exit_code == 0
     mock_execute_query.assert_called_once_with(
@@ -382,16 +397,17 @@ def test_uses_variables_from_snowflake_local_yml(
     )
 
 
+@pytest.mark.parametrize("template_start,template_end", [("&{", "}"), ("<%", "%>")])
 @mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_uses_variables_from_cli_are_added_outside_context(
-    mock_execute_query, project_directory, runner
+    mock_execute_query, project_directory, runner, template_start, template_end
 ):
     with project_directory("sql_templating"):
         result = runner.invoke(
             [
                 "sql",
                 "-q",
-                "select &{ ctx.env.sf_var } &{ other }",
+                f"select {template_start} ctx.env.sf_var {template_end} {template_start} other {template_end}",
                 "-D",
                 "other=other_value",
             ]
