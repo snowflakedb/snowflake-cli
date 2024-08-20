@@ -32,11 +32,13 @@
 * Added `snow spcs service execute-job` command, which supports creating and executing a job service in the current schema.
 * Added `snow app events` command to fetch logs and traces from local and customer app installations
 * Added support for project definition file defaults in templates
+* Added support for external access (api integrations and secrets) in Streamlit.
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command
 * Added check for the correctness of token file and private key paths when addind a connection
 * Fix the typo in spcs service name argument description. It is the identifier of the **service** instead of the **service pool**.
+* Fix error handling and improve messaging when no artifacts provided
 * Improved error message for incompatible parameters.
 
 

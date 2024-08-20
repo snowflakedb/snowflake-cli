@@ -35,13 +35,20 @@ from snowflake.cli.api.project.util import (
     unquote_identifier,
 )
 from snowflake.cli.api.utils.cursor import find_first_row
+from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
 
 class SqlExecutor:
+    def __init__(self, connection: SnowflakeConnection | None = None):
+        self._snowpark_session = None
+        self._connection = connection
+
     @property
-    def _conn(self):
+    def _conn(self) -> SnowflakeConnection:
+        if self._connection:
+            return self._connection
         return get_cli_context().connection
 
     @cached_property
@@ -248,7 +255,8 @@ class SqlExecutor:
 
 
 class SqlExecutionMixin(SqlExecutor):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._snowpark_session = None
 
     @property
