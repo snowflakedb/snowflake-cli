@@ -71,12 +71,18 @@ def test_streamlit_deploy(
             result.json,
             {"status": "Statement executed successfully."},
         )
-        expect = snowflake_session.execute_string(
-            f"use role {_new_streamlit_role}; show streamlits like '{streamlit_name}'; use role integration_tests;"
-        )
-        assert contains_row_with(
-            rows_from_snowflake_session(expect)[1], {"name": streamlit_name.upper()}
-        )
+
+        result = snowflake_session.execute_string("select current_role()")
+        current_role = row_from_snowflake_session(result)[0]["CURRENT_ROLE()"]
+        try:
+            expect = snowflake_session.execute_string(
+                f"use role {_new_streamlit_role}; show streamlits like '{streamlit_name}'"
+            )
+            assert contains_row_with(
+                rows_from_snowflake_session(expect)[1], {"name": streamlit_name.upper()}
+            )
+        finally:
+            snowflake_session.execute_string(f"use role {current_role}")
 
     result = runner.invoke_with_connection_json(["streamlit", "drop", streamlit_name])
     assert contains_row_with(
@@ -145,12 +151,17 @@ def test_streamlit_deploy_experimental_twice(
             result.json,
             {"status": "Statement executed successfully."},
         )
-        expect = snowflake_session.execute_string(
-            f"use role {_new_streamlit_role}; show streamlits like '{streamlit_name}'; use role integration_tests;"
-        )
-        assert contains_row_with(
-            rows_from_snowflake_session(expect)[1], {"name": streamlit_name.upper()}
-        )
+        result = snowflake_session.execute_string("select current_role()")
+        current_role = row_from_snowflake_session(result)[0]["CURRENT_ROLE()"]
+        try:
+            expect = snowflake_session.execute_string(
+                f"use role {_new_streamlit_role}; show streamlits like '{streamlit_name}'"
+            )
+            assert contains_row_with(
+                rows_from_snowflake_session(expect)[1], {"name": streamlit_name.upper()}
+            )
+        finally:
+            snowflake_session.execute_string(f"use role {current_role}")
 
     result = runner.invoke_with_connection_json(
         ["object", "drop", "streamlit", streamlit_name]

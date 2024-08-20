@@ -15,4 +15,3 @@
 [connections.default]
 [connections.integration]
 schema = "public"
-role = "INTEGRATION_TESTS"
