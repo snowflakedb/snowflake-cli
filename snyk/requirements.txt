@@ -5,7 +5,7 @@ packaging
 rich==13.7.1
 requests==2.32.3
 requirements-parser==0.10.2
-setuptools==70.3.0
+setuptools==73.0.0
 snowflake.core==0.8.0; python_version < "3.12"
 snowflake-connector-python[secure-local-storage]==3.12.0
 snowflake-snowpark-python>=1.15.0;python_version < "3.12"
