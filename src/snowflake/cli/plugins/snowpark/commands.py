@@ -522,7 +522,7 @@ def list_(
     **options,
 ):
     """Lists all available procedures or functions."""
-    object_list(object_type=object_type.value, like=like, scope=scope, **options)
+    return object_list(object_type=object_type.value, like=like, scope=scope, **options)
 
 
 @app.command("drop", requires_connection=True)
@@ -532,7 +532,7 @@ def drop(
     **options,
 ):
     """Drop procedure or function."""
-    object_drop(object_type=object_type.value, object_name=identifier, **options)
+    return object_drop(object_type=object_type.value, object_name=identifier, **options)
 
 
 @app.command("describe", requires_connection=True)
@@ -542,4 +542,7 @@ def describe(
     **options,
 ):
     """Provides description of a procedure or function."""
-    object_describe(object_type=object_type.value, object_name=identifier, **options)
+
+    return object_describe(
+        object_type=object_type.value, object_name=identifier, **options
+    )
