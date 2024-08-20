@@ -50,7 +50,7 @@ def remove_resources(single: str, plural: str, known_instances: t.List[str], rol
 
 
 if __name__ == "__main__":
-    role = "INTEGRATION_TESTS"
+    role = os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ROLE", "INTEGRATION_TESTS")
     config = {
         "authenticator": "SNOWFLAKE_JWT",
         "account": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"),
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     update_connection_details_with_private_key(config)
     session = Session.builder.configs(config).create()
 
-    session.use_role("INTEGRATION_TESTS")
+    session.use_role(role)
 
     known_objects: t.Dict[t.Tuple[str, str], t.List[str]] = {
         ("database", "databases"): [
