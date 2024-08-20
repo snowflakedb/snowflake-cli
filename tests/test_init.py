@@ -468,3 +468,26 @@ def test_project_directory_name_variable(runner, temp_dir, project_definition_co
             assert (
                 project_path / "file.txt"
             ).read_text() == f"project directory name: {project_path.name}"
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("", "Users are empty\n"),
+        ("user1,user2,user3", "Users:\n  * user1\n  * user2\n  * user3\n\n"),
+    ],
+)
+def test_jinja_blocks(runner, temp_dir, test_projects_path, value, expected):
+    project_name = "project_templating_jinja_blocks"
+    template_root = test_projects_path / project_name
+    result = runner.invoke(
+        [
+            "init",
+            project_name,
+            "--template-source",
+            str(template_root),
+            f"-D users={value}",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert (Path(project_name) / "blocks.txt").read_text() == expected

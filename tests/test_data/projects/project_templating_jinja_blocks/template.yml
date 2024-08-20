@@ -1,0 +1,6 @@
+files_to_render:
+    - blocks.txt
+variables:
+    - name: users
+      prompt: comma-separated list of users
+      default: ''
