@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+from unittest import mock
 
 import pytest
 
@@ -309,8 +311,11 @@ def test_create_error_schema_not_exist(runner, test_database):
 
 
 @pytest.mark.integration
+@mock.patch.dict(os.environ, os.environ, clear=True)
 def test_create_error_undefined_database(runner):
     # undefined database
+    del os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE"]
+
     result = runner.invoke_with_connection(
         ["object", "create", "schema", f"name=test_schema"]
     )

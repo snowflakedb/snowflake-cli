@@ -14,14 +14,14 @@
 
 import json
 import math
+import os
 import time
 from textwrap import dedent
-from typing import Union
 
 import pytest
 from snowflake.connector import SnowflakeConnection
 
-from tests_integration.conftest import SnowCLIRunner, CommandResult
+from tests_integration.conftest import SnowCLIRunner
 from tests_integration.test_utils import contains_row_with, not_contains_row_with
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful_and_executed_successfully,
@@ -44,7 +44,9 @@ class SnowparkServicesTestSetup:
 
 class SnowparkServicesTestSteps:
     compute_pool = "snowcli_compute_pool"
-    database = "snowcli_db"
+    database = os.environ.get(
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE", "SNOWCLI_DB"
+    )
     schema = "public"
     container_name = "hello-world"
 
@@ -235,12 +237,11 @@ class SnowparkServicesTestSteps:
         )
 
         describe_result = self._execute_describe(service_name)
-        with open(spec_path, "r") as f:
-            assert describe_result.exit_code == 0, describe_result.output
-            # do not assert direct equality because the spec field in output of DESCRIBE SERVICE has some extra info
-            assert (
-                new_container_name in describe_result.json[0]["spec"]
-            ), f"Container name '{new_container_name}' from spec_upgrade.yml not found in output of DESCRIBE SERVICE."
+        assert describe_result.exit_code == 0, describe_result.output
+        # do not assert direct equality because the spec field in output of DESCRIBE SERVICE has some extra info
+        assert (
+            new_container_name in describe_result.json[0]["spec"]
+        ), f"Container name '{new_container_name}' from spec_upgrade.yml not found in output of DESCRIBE SERVICE."
 
     def list_endpoints_should_show_endpoint(self, service_name: str):
         result = self._setup.runner.invoke_with_connection_json(
@@ -303,7 +304,7 @@ class SnowparkServicesTestSteps:
         )
 
     def _get_spec_path(self, spec_file_name) -> str:
-        return f"{self._setup.test_root_path}/spcs/spec/{spec_file_name}"
+        return self._setup.test_root_path / "spcs" / "spec" / spec_file_name
 
     def _get_fqn(self, service_name) -> str:
         return f"{self.database}.{self.schema}.{service_name}"

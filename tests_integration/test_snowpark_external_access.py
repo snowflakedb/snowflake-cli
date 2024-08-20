@@ -24,7 +24,6 @@ STAGE_NAME = "dev_deployment"
 def test_snowpark_external_access(project_directory, _test_steps, test_database):
 
     with project_directory("snowpark_external_access") as project_dir:
-
         _test_steps.snowpark_build_should_zip_files()
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
