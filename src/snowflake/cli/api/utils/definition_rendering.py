@@ -30,7 +30,7 @@ from snowflake.cli.api.rendering.jinja import CONTEXT_KEY, FUNCTION_KEY
 from snowflake.cli.api.rendering.project_definition_templates import (
     get_project_definition_cli_jinja_env,
 )
-from snowflake.cli.api.utils.dict_utils import traverse
+from snowflake.cli.api.utils.dict_utils import deep_merge_dicts, traverse
 from snowflake.cli.api.utils.graph import Graph, Node
 from snowflake.cli.api.utils.models import ProjectEnvironment
 from snowflake.cli.api.utils.templating_functions import get_templating_functions
@@ -273,15 +273,20 @@ def _template_version_warning():
     )
 
 
-def _add_defaults_to_definition(definition: Definition) -> Definition:
+def _add_defaults_to_definition(original_definition: Definition) -> Definition:
     with context({"skip_validation_on_templates": True}):
         # pass a flag to Pydantic to skip validation for templated scalars
         # populate the defaults
-        project_definition = build_project_definition(**definition)
+        project_definition = build_project_definition(**original_definition)
 
-    return project_definition.model_dump(
+    definition_with_defaults = project_definition.model_dump(
         exclude_none=True, warnings=False, by_alias=True
     )
+    # The main purpose of the above operation was to populate defaults from Pydantic.
+    # By merging the original definition back in, we ensure that any transformations
+    # that Pydantic would have performed are undone.
+    deep_merge_dicts(definition_with_defaults, original_definition)
+    return definition_with_defaults
 
 
 def render_definition_template(
