@@ -13,7 +13,11 @@ APP_NAME=SnowflakeCLI.app
 APP_DIR=$DIST_DIR/app
 APP_SCRIPTS=$DIST_DIR/scripts
 
-log INFO "Building darwin package for version $CLI_VERSION"
+loginfo() {
+  logger -s -p INFO $1
+}
+
+loginfo "Building darwin package for version $CLI_VERSION"
 
 rm -rf $APP_DIR || true
 mkdir -p $APP_DIR || true
