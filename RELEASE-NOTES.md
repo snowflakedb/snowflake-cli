@@ -40,6 +40,7 @@
 * Fix the typo in spcs service name argument description. It is the identifier of the **service** instead of the **service pool**.
 * Fix error handling and improve messaging when no artifacts provided
 * Improved error message for incompatible parameters.
+* Fix return values of `snow snowpark list`, `describe` and `drop` commands.
 
 
 # v2.7.0
