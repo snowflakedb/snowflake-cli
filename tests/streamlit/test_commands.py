@@ -828,3 +828,15 @@ def test_selecting_streamlit_from_pdf(
     # Make sure the streamlit was called with proper app definition
     st = calls.call_args.kwargs
     assert st["streamlit_id"].name == entity_id
+
+
+@mock.patch("snowflake.connector.connect")
+def test_multiple_streamlit_raise_error_if_multiple_entities(
+    _, runner, project_directory, os_agnostic_snapshot
+):
+
+    with project_directory("example_streamlit_multiple_v2"):
+        result = runner.invoke(["streamlit", "deploy"])
+
+    assert result.exit_code == 2, result.output
+    assert result.output == os_agnostic_snapshot

@@ -151,15 +151,16 @@ def streamlit_deploy(
             project_type="streamlit", project_file=cli_context.project_root
         )
 
-    if len(streamlits.keys()) >= 1:
-        if entity_id is None:
-            raise UsageError(
-                "Multiple Streamlit apps found. Please provide entity id for the operation."
-            )
-        elif entity_id not in streamlits:
-            raise UsageError(f"No '{entity_id}' entity in project definition file.")
-    else:
-        entity_id = streamlits[list(streamlits.keys())[0]]
+    if entity_id and entity_id not in streamlits:
+        raise UsageError(f"No '{entity_id}' entity in project definition file.")
+
+    if len(streamlits.keys()) == 1:
+        entity_id = list(streamlits.keys())[0]
+
+    if entity_id is None:
+        raise UsageError(
+            "Multiple Streamlit apps found. Please provide entity id for the operation."
+        )
 
     # Get first streamlit
     streamlit: StreamlitEntityModel = streamlits[entity_id]
