@@ -122,7 +122,7 @@ def test_error_too_low_cli_version(
     # Too low CLI version
     project_name = "example_streamlit_no_defaults"
     with project_definition_copy(project_name) as template_root:
-        monkeypatch.setattr("snowflake.cli.__about__.VERSION", "915.6.0")
+        monkeypatch.setattr("snowflake.cli.plugins.init.commands.VERSION", "915.6.0")
         (template_root / "template.yml").write_text('minimum_cli_version: "916.0.0"')
         result = runner.invoke(
             [
@@ -468,3 +468,48 @@ def test_project_directory_name_variable(runner, temp_dir, project_definition_co
             assert (
                 project_path / "file.txt"
             ).read_text() == f"project directory name: {project_path.name}"
+
+
+def test_snowflake_cli_version_variable(
+    runner, temp_dir, project_definition_copy, monkeypatch
+):
+    project_name = "project_templating"
+    with project_definition_copy(project_name) as template_root:
+        monkeypatch.setattr("snowflake.cli.plugins.init.commands.VERSION", "2.13.7")
+        (template_root / "template.yml").write_text("files_to_render:\n - file.txt")
+        (template_root / "file.txt").write_text("version: <! snowflake_cli_version !>")
+        project = "project"
+        result = runner.invoke(
+            [
+                "init",
+                project,
+                "--template-source",
+                template_root,
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert f"Initialized the new project in {project}" in result.output
+        assert (Path(project) / "file.txt").read_text() == f"version: 2.13.7"
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("", "Users are empty\n"),
+        ("user1,user2,user3", "Users:\n  * user1\n  * user2\n  * user3\n\n"),
+    ],
+)
+def test_jinja_blocks(runner, temp_dir, test_projects_path, value, expected):
+    project_name = "project_templating_jinja_blocks"
+    template_root = test_projects_path / project_name
+    result = runner.invoke(
+        [
+            "init",
+            project_name,
+            "--template-source",
+            str(template_root),
+            f"-D users={value}",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert (Path(project_name) / "blocks.txt").read_text() == expected
