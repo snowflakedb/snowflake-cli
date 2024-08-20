@@ -53,7 +53,7 @@ def test_deploy_function(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project"
+        f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
@@ -62,7 +62,7 @@ def test_deploy_function(
             returns string
             language python
             runtime_version=3.10
-            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.py')
             handler='app.func1_handler'
             packages=()
             """
@@ -101,7 +101,7 @@ def test_deploy_function_with_external_access(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project"
+        f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
@@ -110,7 +110,7 @@ def test_deploy_function_with_external_access(
             returns string
             language python
             runtime_version=3.10
-            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.py')
             handler='app.func1_handler'
             packages=()
             external_access_integrations=(external_1,external_2)
@@ -161,7 +161,7 @@ def test_deploy_function_no_changes(
         ("packages", '["foo==1.2.3", "bar>=3.0.0"]'),
         ("handler", "app.func1_handler"),
         ("returns", "string"),
-        ("imports", "dev_deployment/my_snowpark_project/app.zip"),
+        ("imports", "dev_deployment/my_snowpark_project/app.py"),
         ("runtime_version", "3.10"),
     ]
 
@@ -185,7 +185,7 @@ def test_deploy_function_no_changes(
     ]
     assert queries == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
+        f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
     ]
 
 
@@ -223,7 +223,7 @@ def test_deploy_function_needs_update_because_packages_changes(
     ]
     assert queries == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
+        f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a string default 'default value', b variant)
@@ -231,7 +231,7 @@ def test_deploy_function_needs_update_because_packages_changes(
             returns string
             language python
             runtime_version=3.10
-            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.py')
             handler='app.func1_handler'
             packages=('foo==1.2.3','bar>=3.0.0')
             """
@@ -273,7 +273,7 @@ def test_deploy_function_needs_update_because_handler_changes(
     ]
     assert queries == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project"
+        f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
@@ -282,7 +282,7 @@ def test_deploy_function_needs_update_because_handler_changes(
             returns string
             language python
             runtime_version=3.10
-            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.py')
             handler='app.func1_handler'
             packages=('foo==1.2.3','bar>=3.0.0')
             """

@@ -71,6 +71,7 @@ def test_snowpark_flow(
 
         expected_files = [
             f"{STAGE_NAME}/my_snowpark_project/app.zip",
+            f"{STAGE_NAME}/my_snowpark_project/dependencies.zip",
         ]
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
@@ -373,7 +374,9 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
         result = runner.invoke_json(["snowpark", "build"])
         assert result.exit_code == 0
 
-        assert "dummy_pkg_for_tests/shrubbery.py" in ZipFile("app.zip").namelist()
+        assert (
+            "dummy_pkg_for_tests/shrubbery.py" in ZipFile("dependencies.zip").namelist()
+        )
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -400,7 +403,7 @@ def test_snowpark_with_single_requirement_having_transient_deps(
         result = runner.invoke_json(["snowpark", "build"])
         assert result.exit_code == 0
 
-        files = ZipFile("app.zip").namelist()
+        files = ZipFile("dependencies.zip").namelist()
         assert "dummy_pkg_for_tests_with_deps/shrubbery.py" in files
         assert "dummy_pkg_for_tests/shrubbery.py" in files  # as transient dep
 
@@ -433,7 +436,7 @@ def test_snowpark_commands_executed_outside_project_dir(
         result = runner.invoke_json(["snowpark", "build", "--project", project_subpath])
         assert result.exit_code == 0
 
-        files = ZipFile(Path(project_subpath) / "app.zip").namelist()
+        files = ZipFile(Path(project_subpath) / "dependencies.zip").namelist()
         assert "dummy_pkg_for_tests_with_deps/shrubbery.py" in files
         assert "dummy_pkg_for_tests/shrubbery.py" in files  # as transient dep
 
@@ -726,7 +729,9 @@ def test_build_skip_version_check(
             ["snowpark", "build", "--skip-version-check"]
         )
         assert result.exit_code == 0, result.output
-        assert "Build done. Artifact path: " in result.output
+        assert "Build done." in result.output
+        assert "Creating dependencies.zip" in result.output
+        assert "Creating: app.zip" in result.output
 
 
 @pytest.mark.integration
@@ -745,7 +750,9 @@ def test_build_with_anaconda_dependencies(
         alter_requirements_txt(tmp_dir / "requirements.txt", ["july", "snowflake.core"])
         result = runner.invoke_with_connection(["snowpark", "build", *flags])
         assert result.exit_code == 0, result.output
-        assert "Build done. Artifact path:" in result.output
+        assert "Build done." in result.output
+        assert "Creating dependencies.zip" in result.output
+        assert "Creating: app.zip" in result.output
 
         requirements_snowflake = tmp_dir / "requirements.snowflake.txt"
         if "--ignore-anaconda" in flags:
@@ -767,9 +774,11 @@ def test_build_with_non_anaconda_dependencies(
         )
         result = runner.invoke_with_connection(["snowpark", "build"])
         assert result.exit_code == 0, result.output
-        assert "Build done. Artifact path:" in result.output
+        assert "Build done." in result.output
+        assert "Creating dependencies.zip" in result.output
+        assert "Creating: app.zip" in result.output
 
-        files = ZipFile(tmp_dir / "app.zip").namelist()
+        files = ZipFile(tmp_dir / "dependencies.zip").namelist()
         assert "dummy_pkg_for_tests/shrubbery.py" in files
         assert "dummy_pkg_for_tests_with_deps/shrubbery.py" in files
 
@@ -820,11 +829,13 @@ def test_build_package_from_github(
         )
         result = runner.invoke_with_connection(["snowpark", "build"])
         assert result.exit_code == 0, result.output
-        assert "Build done. Artifact path:" in result.output
+        assert "Build done." in result.output
+        assert "Creating dependencies.zip" in result.output
+        assert "Creating: app.zip" in result.output
 
         assert (
             "dummy_pkg_for_tests/shrubbery.py"
-            in ZipFile(tmp_dir / "app.zip").namelist()
+            in ZipFile(tmp_dir / "dependencies.zip").namelist()
         )
 
 

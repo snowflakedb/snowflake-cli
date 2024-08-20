@@ -23,7 +23,6 @@ from snowflake.cli._plugins.snowpark.common import (
     _sql_to_python_return_type_mapper,
     check_if_replace_is_required,
 )
-from snowflake.cli.api.constants import ObjectType
 
 
 def test_get_snowflake_packages_delta():
@@ -86,7 +85,11 @@ def test_sql_to_python_return_type_mapper(argument: Tuple[str, str]):
         ({"imports": ["@FOO.BAR.BAZ/some_project/some_package.zip"]}, True),
         ({"imports": ["@FOO.BAR.BAZ/my_snowpark_project/app.zip"]}, False),
         (
-            {"stage_artifact_file": "@FOO.BAR.BAZ/my_snowpark_project/another_app.zip"},
+            {
+                "stage_artifact_files": [
+                    "@FOO.BAR.BAZ/my_snowpark_project/another_app.zip"
+                ]
+            },
             True,
         ),
         ({"runtime_ver": "3.9"}, True),
@@ -100,7 +103,7 @@ def test_check_if_replace_is_required(mock_procedure_description, arguments, exp
         "snowflake_dependencies": ["snowflake-snowpark-python", "pytest<9.0.0,>=7.0.0"],
         "external_access_integrations": [],
         "imports": [],
-        "stage_artifact_file": "@FOO.BAR.BAZ/my_snowpark_project/app.zip",
+        "stage_artifact_files": ["@FOO.BAR.BAZ/my_snowpark_project/app.zip"],
         "runtime_ver": "3.10",
         "execute_as_caller": True,
     }
@@ -108,7 +111,7 @@ def test_check_if_replace_is_required(mock_procedure_description, arguments, exp
 
     assert (
         check_if_replace_is_required(
-            ObjectType.PROCEDURE, mock_procedure_description, **replace_arguments
+            "procedure", mock_procedure_description, **replace_arguments
         )
         == expected
     )
