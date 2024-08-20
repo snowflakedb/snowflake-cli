@@ -72,12 +72,12 @@ UPGRADE_RESTRICTION_CODES = {
 }
 
 
-def print_warnings(create_or_upgrade_cursor: DictCursor):
+def print_warnings(create_or_upgrade_cursor: SnowflakeCursor):
     """
     Shows warnings in the console returned by the CREATE or UPGRADE
     APPLICATION command.
     """
-    messages = [row["status"] for row in create_or_upgrade_cursor.fetchall()]
+    messages = [row[0] for row in create_or_upgrade_cursor.fetchall()]
     warnings = [m for m in messages if m.lower().startswith("warning:")]
     if warnings:
         for warning in warnings:
@@ -267,7 +267,6 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                         using_clause = install_method.using_clause(self._na_project)
                         upgrade_cursor = self._execute_query(
                             f"alter application {self.app_name} upgrade {using_clause}",
-                            cursor_class=DictCursor,
                         )
                         print_warnings(upgrade_cursor)
 
@@ -323,7 +322,6 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                             comment = {SPECIAL_COMMENT}
                         """
                         ),
-                        cursor_class=DictCursor,
                     )
                     print_warnings(create_cursor)
 
