@@ -1,0 +1,3 @@
+<!! if users !!>Users:
+  * <! users|replace(",", "\n  * ") !>
+<!! else !!>Users are empty<!! endif !!>
