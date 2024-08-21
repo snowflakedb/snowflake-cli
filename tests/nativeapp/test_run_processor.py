@@ -208,15 +208,60 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @mock_connection()
-def test_create_dev_app_with_warning(
+@pytest.mark.parametrize(
+    "existing_app_info",
+    [
+        None,
+        {
+            "name": "MYAPP",
+            "comment": SPECIAL_COMMENT,
+            "version": LOOSE_FILES_MAGIC_VERSION,
+            "owner": "APP_ROLE",
+        },
+    ],
+)
+def test_create_or_upgrade_dev_app_with_warning(
     mock_conn,
     mock_warning,
     mock_execute,
     mock_get_existing_app_info,
     temp_dir,
     mock_cursor,
+    existing_app_info,
 ):
-    warning_string = "Warning: grant_callback 'SETUP.CREATE_SERVICE(ARRAY)' does not exist or is not granted to an application role."
+    status_messages = ["App created/upgraded", "Warning: some warning"]
+    status_cursor = mock_cursor(
+        [(msg,) for msg in status_messages],
+        ["status"],
+    )
+    create_or_upgrade_calls = (
+        [
+            (
+                status_cursor,
+                mock.call(
+                    dedent(
+                        f"""\
+                create application myapp
+                    from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
+                    comment = {SPECIAL_COMMENT}
+                """
+                    )
+                ),
+            ),
+        ]
+        if existing_app_info is None
+        else [
+            (
+                status_cursor,
+                mock.call(
+                    "alter application myapp upgrade using @app_pkg.app_src.stage"
+                ),
+            ),
+            (None, mock.call("alter application myapp set debug_mode = True")),
+        ]
+    )
+
+    mock_get_existing_app_info.return_value = existing_app_info
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -229,21 +274,7 @@ def test_create_dev_app_with_warning(
                 mock.call("select current_warehouse()", cursor_class=DictCursor),
             ),
             (None, mock.call("use warehouse app_warehouse")),
-            (
-                mock_cursor(
-                    [("Application 'MYAPP' created successfully.",), (warning_string,)],
-                    ["status"],
-                ),
-                mock.call(
-                    dedent(
-                        f"""\
-                    create application myapp
-                        from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
-                        comment = {SPECIAL_COMMENT}
-                    """
-                    )
-                ),
-            ),
+            *create_or_upgrade_calls,
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -266,7 +297,7 @@ def test_create_dev_app_with_warning(
     )
     assert mock_execute.mock_calls == expected
 
-    mock_warning.assert_has_calls([mock.call(warning_string)])
+    mock_warning.assert_has_calls([mock.call(msg) for msg in status_messages])
 
 
 # Test create_dev_app with no existing application AND create succeeds AND app role != package role

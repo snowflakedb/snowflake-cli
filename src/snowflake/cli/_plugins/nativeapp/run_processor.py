@@ -72,20 +72,18 @@ UPGRADE_RESTRICTION_CODES = {
 }
 
 
-def print_warnings(create_or_upgrade_cursor: Optional[SnowflakeCursor]):
+def print_messages(create_or_upgrade_cursor: Optional[SnowflakeCursor]):
     """
-    Shows warnings in the console returned by the CREATE or UPGRADE
+    Shows messages in the console returned by the CREATE or UPGRADE
     APPLICATION command.
     """
     if not create_or_upgrade_cursor:
         return
 
     messages = [row[0] for row in create_or_upgrade_cursor.fetchall()]
-    warnings = [m for m in messages if m.lower().startswith("warning:")]
-    if warnings:
-        for warning in warnings:
-            cc.warning(warning)
-        cc.message("")
+    for message in messages:
+        cc.warning(message)
+    cc.message("")
 
 
 class SameAccountInstallMethod:
@@ -271,7 +269,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                         upgrade_cursor = self._execute_query(
                             f"alter application {self.app_name} upgrade {using_clause}",
                         )
-                        print_warnings(upgrade_cursor)
+                        print_messages(upgrade_cursor)
 
                         if install_method.is_dev_mode:
                             # if debug_mode is present (controlled), ensure it is up-to-date
@@ -326,7 +324,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                         """
                         ),
                     )
-                    print_warnings(create_cursor)
+                    print_messages(create_cursor)
 
                     # hooks always executed after a create or upgrade
                     self.execute_app_post_deploy_hooks()
