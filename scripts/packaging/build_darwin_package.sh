@@ -176,7 +176,7 @@ pkgbuild \
   --install-location '/Applications' \
   --version $CLI_VERSION \
   --scripts $APP_SCRIPTS \
-  --root $APP_NAME \
+  --root $APP_DIR \
   --component-plist $PACKAGING_DIR/macos/SnowflakeCLI.plist \
   $DIST_DIR/SnowflakeCLI.unsigned.pkg
 
