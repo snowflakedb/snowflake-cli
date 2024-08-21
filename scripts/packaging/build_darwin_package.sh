@@ -65,6 +65,11 @@ cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns $APP_NAME/Contents/Resources/Sn
 cp -r $PACKAGING_DIR/macos/Snow.bash $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
 chmod +x $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
 
+
+loginfo "#-------------------------------#"
+security find-identity -v -p codesigning
+loginfo "#-------------------------------#"
+
 code_sign() {
   ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
   loginfo "#-------------------------------#"
