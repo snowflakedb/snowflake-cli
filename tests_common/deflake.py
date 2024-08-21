@@ -14,8 +14,7 @@ TEST_TYPE_OPTION = "--deflake-test-type"
 PREVIOUS_OUTCOME_KEY = pytest.StashKey[dict[str, str]]()
 
 APP_REPO = "snowflakedb/snowflake-cli"
-# ISSUE_REPO = APP_REPO
-ISSUE_REPO = "snowflakedb/frank-test"
+ISSUE_REPO = APP_REPO
 FLAKY_LABEL = "flaky-test"
 PHASES = ["setup", "call", "teardown"]
 
@@ -43,10 +42,8 @@ class DeflakePlugin:
     def pytest_runtest_protocol(self, item, nextitem):
         ihook = item.ihook
         ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
-        os.environ["FORCE_FLAKE"] = "true"
         reports = self.runner.runtestprotocol(item, nextitem=nextitem)
         if any(report.should_retry for report in reports):
-            del os.environ["FORCE_FLAKE"]
             self.runner.runtestprotocol(item, nextitem=nextitem)
         ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
         return True

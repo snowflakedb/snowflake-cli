@@ -25,10 +25,6 @@ from tests_integration.snowflake_connector import (
 
 @pytest.mark.integration
 def test_connection_test_simple(runner):
-    if os.environ.get("FORCE_FLAKE"):
-        assert 1 == 2
-    else:
-        return
     result = runner.invoke_with_connection_json(["connection", "test"])
     assert result.exit_code == 0, result.output
     assert result.json["Connection name"] == "integration"
