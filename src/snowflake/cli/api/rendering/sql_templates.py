@@ -25,6 +25,7 @@ from snowflake.cli.api.rendering.jinja import (
     FUNCTION_KEY,
     IgnoreAttrEnvironment,
     env_bootstrap,
+    path_to_jinja_pathlike_str,
 )
 
 _PRIMARY_TEMPLATE_START = "<%"
@@ -71,9 +72,9 @@ class SqlTemplateEnv:
         return self._render_from_secondary_env(first_rendering, data)
 
     def render_from_file(self, template_file_path: Path, data: Dict[str, Any]) -> str:
-        first_rendering = self.primary_env.get_template(str(template_file_path)).render(
-            **data
-        )
+        first_rendering = self.primary_env.get_template(
+            path_to_jinja_pathlike_str(template_file_path)
+        ).render(**data)
         return self._render_from_secondary_env(first_rendering, data)
 
 

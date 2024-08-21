@@ -125,7 +125,7 @@ def test_package_post_deploy_scripts_with_non_existing_scripts(
 
         assert (
             err.value.message
-            == f'Script "scripts{os.path.sep}package_missing_script.sql" does not exist'
+            == f'Script "scripts/package_missing_script.sql" does not exist'
         )
 
 
@@ -159,13 +159,7 @@ def test_package_scripts_and_post_deploy_found(
 ):
     with project_directory(
         "napp_post_deploy",
-        {
-            "native_app": {
-                "package": {
-                    "scripts": [f"scripts{os.path.sep}package_post_deploy2.sql"]
-                }
-            }
-        },
+        {"native_app": {"package": {"scripts": [f"scripts/package_post_deploy2.sql"]}}},
     ) as project_dir:
 
         with pytest.raises(SchemaValidationError) as err:

@@ -82,6 +82,11 @@ class IgnoreAttrEnvironment(Environment):
             return self.undefined(obj=obj, name=argument)
 
 
+def path_to_jinja_pathlike_str(path: Path) -> str:
+    # jinja2 template loader user '/' as path separator (even on Windows)
+    return "/".join(path.parts)
+
+
 def jinja_render_from_file(
     template_path: Path, data: Dict, output_file_path: Optional[Path] = None
 ) -> Optional[str]:
@@ -98,7 +103,9 @@ def jinja_render_from_file(
     """
     env = env_bootstrap(
         IgnoreAttrEnvironment(
-            loader=loaders.FileSystemLoader(template_path.parent),
+            loader=loaders.FileSystemLoader(
+                path_to_jinja_pathlike_str(template_path.parent)
+            ),
             keep_trailing_newline=True,
             undefined=StrictUndefined,
         )
