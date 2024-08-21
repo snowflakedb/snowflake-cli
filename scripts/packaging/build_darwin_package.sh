@@ -14,7 +14,7 @@ APP_DIR=$DIST_DIR/app
 APP_SCRIPTS=$DIST_DIR/scripts
 
 loginfo() {
-  logger -s -p INFO $1
+  logger -s -p INFO -- $1
 }
 
 loginfo "Building darwin package for version ${CLI_VERSION}"
@@ -35,7 +35,7 @@ cat >$APP_NAME/Contents/Info.plist <<INFO_PLIST
     <key>CFBundleDisplayName</key>
     <string>SnowflakeCLI</string>
     <key>CFBundleIdentifier</key>
-    <string>net.snowflake.snowsql</string>
+    <string>net.snowflake.snowflake-cli</string>
     <key>CFBundleVersion</key>
     <string>$CLI_VERSION</string>
     <key>CFBundleShortVersionString</key>
@@ -62,19 +62,19 @@ INFO_PLIST
 
 cp -r $DIST_DIR/snow $APP_NAME/Contents/MacOS/snow
 cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns $APP_NAME/Contents/Resources/SnowflakeCLI.icns
-cp -r $PACKAGING_DIR/macos/Snow.bash $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
+cp -r $PACKAGING_DIR/macos/SnowflakeCLI.bash $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
 chmod +x $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
 
 
-loginfo "#-------------------------------#"
+loginfo "---------------------------------"
 security find-identity -v -p codesigning
-loginfo "#-------------------------------#"
+loginfo "---------------------------------"
 
 code_sign() {
   ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
-  loginfo "#-------------------------------#"
+  loginfo "---------------------------------"
   loginfo "Code signing $1"
-  loginfo "#-------------------------------#"
+  loginfo "---------------------------------"
   codesign \
     --timestamp \
     --deep \
@@ -86,9 +86,9 @@ code_sign() {
 }
 
 code_sign_validate() {
-  loginfo "#-------------------------------#"
+  loginfo "---------------------------------"
   loginfo "Validating code signing for $1"
-  loginfo "#-------------------------------#"
+  loginfo "---------------------------------"
   codesign \
     -dvvv \
     --force \
@@ -147,9 +147,9 @@ POSTINSTALL
 ls -l $DIST_DIR
 
 chmod +x $DIST_DIR/scripts/postinstall
-loginfo "#-------------------------------#"
+loginfo "---------------------------------"
 loginfo "Package build $DIST_DIR/SnowflakeCLI.unsigned.pkg "
-loginfo "#-------------------------------#"
+loginfo "---------------------------------"
 pkgbuild \
   --identifier net.snowflake.snowflake-cli \
   --install-location '/Applications' \
@@ -161,9 +161,9 @@ pkgbuild \
 
 ls -l $DIST_DIR
 
-loginfo "#-------------------------------#"
+loginfo "---------------------------------"
 loginfo "Procuct sign $DIST_DIR/SnowflakeCLI.unsigned.pkg -> $DIST_DIR/SnowflakeCLI.pkg"
-loginfo "#-------------------------------#"
+loginfo "---------------------------------"
 productsign \
   --sign "Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)" \
   $DIST_DIR/SnowflakeCLI.unsigned.pkg \
@@ -171,9 +171,9 @@ productsign \
 
 ls -l $DIST_DIR
 
-loginfo "#-------------------------------#"
+loginfo "---------------------------------"
 loginfo "Procuct build $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).unsigned.pkg -> $DIST_DIR/SnowflakeCLI.pkg"
-loginfo "#-------------------------------#"
+loginfo "---------------------------------"
 productbuild \
   --distribution $PACKAGING_DIR/macos/Distribution.xml \
   --version $CLI_VERSION \
@@ -183,9 +183,9 @@ productbuild \
 
 ls -l $DIST_DIR
 
-loginfo "#-------------------------------#"
+loginfo "---------------------------------"
 loginfo "Procuct sign $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).unsigned.pkg -> $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).pkg
-loginfo "#-------------------------------#"
+loginfo "---------------------------------"
 productsign \
   --sign "Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)" \
   $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).unsigned.pkg \
