@@ -55,6 +55,7 @@ from tests.nativeapp.patch_utils import (
 )
 from tests.nativeapp.utils import (
     NATIVEAPP_MANAGER_EXECUTE,
+    NATIVEAPP_MODULE,
     RUN_PROCESSOR_GET_EXISTING_APP_INFO,
     TYPER_CONFIRM,
     mock_execute_helper,
@@ -200,6 +201,103 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute.mock_calls == expected
+
+
+# Test create_dev_app with no existing application AND create returns a warning
+@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+@mock_connection()
+@pytest.mark.parametrize(
+    "existing_app_info",
+    [
+        None,
+        {
+            "name": "MYAPP",
+            "comment": SPECIAL_COMMENT,
+            "version": LOOSE_FILES_MAGIC_VERSION,
+            "owner": "APP_ROLE",
+        },
+    ],
+)
+def test_create_or_upgrade_dev_app_with_warning(
+    mock_conn,
+    mock_warning,
+    mock_execute,
+    mock_get_existing_app_info,
+    temp_dir,
+    mock_cursor,
+    existing_app_info,
+):
+    status_messages = ["App created/upgraded", "Warning: some warning"]
+    status_cursor = mock_cursor(
+        [(msg,) for msg in status_messages],
+        ["status"],
+    )
+    create_or_upgrade_calls = (
+        [
+            (
+                status_cursor,
+                mock.call(
+                    dedent(
+                        f"""\
+                create application myapp
+                    from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
+                    comment = {SPECIAL_COMMENT}
+                """
+                    )
+                ),
+            ),
+        ]
+        if existing_app_info is None
+        else [
+            (
+                status_cursor,
+                mock.call(
+                    "alter application myapp upgrade using @app_pkg.app_src.stage"
+                ),
+            ),
+            (None, mock.call("alter application myapp set debug_mode = True")),
+        ]
+    )
+
+    mock_get_existing_app_info.return_value = existing_app_info
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role app_role")),
+            (
+                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
+                mock.call("select current_warehouse()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use warehouse app_warehouse")),
+            *create_or_upgrade_calls,
+            (None, mock.call("use warehouse old_wh")),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+
+    mock_diff_result = DiffResult()
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
+    )
+
+    run_processor = _get_na_run_processor()
+    assert not mock_diff_result.has_changes()
+    run_processor.create_or_upgrade_app(
+        policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
+    )
+    assert mock_execute.mock_calls == expected
+
+    mock_warning.assert_has_calls([mock.call(msg) for msg in status_messages])
 
 
 # Test create_dev_app with no existing application AND create succeeds AND app role != package role

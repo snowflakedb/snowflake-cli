@@ -28,6 +28,7 @@
 
 ## Fixes and improvements
 * Fix return values of `snow snowpark list`, `describe` and `drop` commands.
+* Show warnings returned by Snowflake when `snow app run` is successful
 
 
 # v2.7.0
