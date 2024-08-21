@@ -65,7 +65,6 @@ cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns $APP_NAME/Contents/Resources/Sn
 cp -r $PACKAGING_DIR/macos/SnowflakeCLI.bash $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
 chmod +x $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
 
-
 loginfo "---------------------------------"
 security find-identity -v -p codesigning
 loginfo "---------------------------------"
@@ -184,7 +183,7 @@ productbuild \
 ls -l $DIST_DIR
 
 loginfo "---------------------------------"
-loginfo "Procuct sign $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).unsigned.pkg -> $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).pkg
+loginfo "Procuct sign $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).unsigned.pkg -> $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).pkg"
 loginfo "---------------------------------"
 productsign \
   --sign "Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)" \
