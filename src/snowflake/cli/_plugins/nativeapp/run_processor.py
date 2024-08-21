@@ -72,11 +72,14 @@ UPGRADE_RESTRICTION_CODES = {
 }
 
 
-def print_warnings(create_or_upgrade_cursor: SnowflakeCursor):
+def print_warnings(create_or_upgrade_cursor: Optional[SnowflakeCursor]):
     """
     Shows warnings in the console returned by the CREATE or UPGRADE
     APPLICATION command.
     """
+    if not create_or_upgrade_cursor:
+        return
+
     messages = [row[0] for row in create_or_upgrade_cursor.fetchall()]
     warnings = [m for m in messages if m.lower().startswith("warning:")]
     if warnings:
