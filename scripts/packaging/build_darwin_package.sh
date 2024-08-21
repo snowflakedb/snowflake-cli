@@ -203,12 +203,12 @@ productbuild \
   --version $CLI_VERSION \
   --resources $PACKAGING_DIR/macos/Resources \
   --package-path $DIST_DIR \
-  $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).unsigned.pkg
+  $DIST_DIR/snowflake-cli-${SYSTEM}-${PLATFORM}.unsigned.pkg
 
 ls -l $DIST_DIR
 
 loginfo "---------------------------------"
-loginfo "Procuct sign $DIST_DIR/snowflake-cli-${SYSTEM}-${PLATFORM}.unsigned.pkg -> $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).pkg"
+loginfo "Procuct sign $DIST_DIR/snowflake-cli-${SYSTEM}-${PLATFORM}.unsigned.pkg -> $DIST_DIR/snowflake-cli-${SYSTEM}-${PLATFORM}.pkg"
 loginfo "---------------------------------"
 productsign \
   --sign "Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)" \
