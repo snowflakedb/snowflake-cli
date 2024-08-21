@@ -83,7 +83,19 @@ code_sign() {
     --sign "Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
     $1
 }
-
+code_sign_nrt() {
+  ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
+  loginfo "---------------------------------"
+  loginfo "Code signing $1 no runtime"
+  loginfo "---------------------------------"
+  codesign \
+    --timestamp \
+    --deep \
+    --force \
+    --entitlements $ENTITLEMENTS \
+    --sign "Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
+    $1 # --options=runtime \
+}
 code_sign_validate() {
   loginfo "---------------------------------"
   loginfo "Validating code signing for $1"
@@ -95,11 +107,21 @@ code_sign_validate() {
 }
 
 APP_CONTENTS=$APP_NAME/Contents/MacOS/snow
+ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
+
 code_sign $APP_CONTENTS
 code_sign_validate $APP_CONTENTS
 
-code_sign $APP_NAME
-code_sign_validate $APP_NAME
+for l in $(find . -name '*.so'); do
+  code_sign_nrt $l
+  code_sign_validate $l
+done
+
+for l in $(find . -name '*.dylib'); do
+  code_sign_nrt $l
+  code_sign_validate $l
+done
+
 
 # POSTINSTALL SCRIPT
 rm -rf $APP_SCRIPTS || true
