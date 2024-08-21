@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import typer
 from click import ClickException, UsageError
@@ -100,6 +100,7 @@ from snowflake.cli.api.project.schemas.snowpark.callable import (
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import DictCursor, ProgrammingError
+from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
@@ -124,6 +125,8 @@ LikeOption = like_option(
 
 
 SnowparkEntities = Dict[str, SnowparkEntityModel]
+StageToArtefactMapping = Dict[str, set[Artefact]]
+EntityToImportPathsMapping = Dict[str, set[str]]
 
 
 @app.command("deploy", requires_connection=True)
@@ -207,8 +210,10 @@ def validate_all_artifacts_exists(
 
 def check_for_existing_objects(
     om: ObjectManager, replace: bool, snowpark_entities: SnowparkEntities
-):
-    existing_objects: Dict[str, Any] = _find_existing_objects(snowpark_entities, om)
+) -> Dict[str, SnowflakeCursor]:
+    existing_objects: Dict[str, SnowflakeCursor] = _find_existing_objects(
+        snowpark_entities, om
+    )
     if existing_objects and not replace:
         existing_entities = [snowpark_entities[e] for e in existing_objects]
         msg = "Following objects already exists. Consider using --replace.\n"
@@ -219,9 +224,9 @@ def check_for_existing_objects(
 
 def build_artifacts_mappings(
     project_paths: SnowparkProjectPaths, snowpark_entities: SnowparkEntities
-):
-    stages_to_artifact_map: Dict[str, set[Artefact]] = defaultdict(set)
-    entities_to_imports_map: Dict[str, set[str]] = defaultdict(set)
+) -> Tuple[EntityToImportPathsMapping, StageToArtefactMapping]:
+    stages_to_artifact_map: StageToArtefactMapping = defaultdict(set)
+    entities_to_imports_map: EntityToImportPathsMapping = defaultdict(set)
     for entity_id, entity in snowpark_entities.items():
         stage = entity.stage
         required_artifacts = set()
@@ -238,9 +243,7 @@ def build_artifacts_mappings(
     return entities_to_imports_map, stages_to_artifact_map
 
 
-def create_stages_and_upload_artifacts(
-    stages_to_artifact_map: Dict[str, set[Artefact]]
-):
+def create_stages_and_upload_artifacts(stages_to_artifact_map: StageToArtefactMapping):
     stage_manager = StageManager()
     for stage, artifacts in stages_to_artifact_map.items():
         cli_console.step(f"Creating stage: {stage}")
@@ -260,7 +263,7 @@ def create_stages_and_upload_artifacts(
 def _find_existing_objects(
     objects: SnowparkEntities,
     om: ObjectManager,
-) -> Dict[str, Any]:
+) -> Dict[str, SnowflakeCursor]:
     existing_objects = {}
     for entity_id, entity in objects.items():
         identifier = entity.udf_sproc_identifier.identifier_with_arg_types
@@ -305,9 +308,9 @@ def _check_if_all_defined_integrations_exists(
 
 def _deploy_single_object(
     entity: SnowparkEntityModel,
-    existing_objects: Dict[str, Any],
+    existing_objects: Dict[str, SnowflakeCursor],
     snowflake_dependencies: List[str],
-    entities_to_artifact_map: Dict[str, set[str]],
+    entities_to_artifact_map: EntityToImportPathsMapping,
 ):
 
     object_type = entity.get_type()
