@@ -106,7 +106,7 @@ code_sign_validate() {
   codesign \
     -dvvv \
     --force \
-    $1
+   $1
 }
 
 APP_CONTENTS=$APP_NAME/Contents/MacOS/snow
@@ -222,3 +222,17 @@ cp -p \
   $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
 
 ls -l $DIST_DIR
+
+
+SF_STAGE_BASE=s3://sfc-eng-jenkins/repository/snowflake-cli
+BRANCH=${BRANCH:-HEAD}
+REVISION=$(git rev-parse $BRANCH)
+
+loginfo "---------------------------------"
+loginfo "copying to s3 ${SF_STAGE_BASE}/mac_${MACHINE}/${REVISION}/"
+loginfo "---------------------------------"
+aws s3 cp  --only-show-errors . \
+  $SF_STAGE_BASE/mac_${MACHINE}/${REVISION}/ \
+  --recursive \
+  --exclude "*" \
+  --include "snowflake-cli*.pkg"
