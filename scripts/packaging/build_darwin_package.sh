@@ -230,7 +230,7 @@ loginfo "---------------------------------"
 loginfo "${SF_STAGE_BASE}, ${BRANCH}, ${REVISION}"
 loginfo "copying to s3 ${SF_STAGE_BASE}/mac_${MACHINE}/${REVISION}/"
 loginfo "---------------------------------"
-aws s3 cp . \
+aws s3 cp $DIST_DIR \
   $SF_STAGE_BASE/mac_${MACHINE}/${REVISION}/ \
   --recursive \
   --exclude "*" \
