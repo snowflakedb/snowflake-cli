@@ -6,6 +6,9 @@ git config --global --add safe.directory /snowflake-cli
 ROOT_DIR=$(git rev-parse --show-toplevel)
 PACKAGING_DIR=$ROOT_DIR/scripts/packaging
 
+SYSTEM=$(uname -s | tr '[:upper:]' '[:lower:]')
+PLATFORM=$(uname -m | tr '[:upper:]' '[:lower:]')
+
 CLI_VERSION=$(hatch version)
 
 DIST_DIR=$ROOT_DIR/dist
@@ -169,7 +172,7 @@ ls -l $DIST_DIR
 
 chmod +x $DIST_DIR/scripts/postinstall
 loginfo "---------------------------------"
-loginfo "Package build $DIST_DIR/SnowflakeCLI.unsigned.pkg "
+loginfo "Package build $DIST_DIR/snowflake-cli.unsigned.pkg "
 loginfo "---------------------------------"
 pkgbuild \
   --identifier net.snowflake.snowflake-cli \
@@ -178,22 +181,22 @@ pkgbuild \
   --scripts $APP_SCRIPTS \
   --root $APP_DIR \
   --component-plist $PACKAGING_DIR/macos/SnowflakeCLI.plist \
-  $DIST_DIR/SnowflakeCLI.unsigned.pkg
+  $DIST_DIR/snowflake-cli.unsigned.pkg
 
 ls -l $DIST_DIR
 
 loginfo "---------------------------------"
-loginfo "Procuct sign $DIST_DIR/SnowflakeCLI.unsigned.pkg -> $DIST_DIR/SnowflakeCLI.pkg"
+loginfo "Procuct sign $DIST_DIR/snowflake-cli.unsigned.pkg -> $DIST_DIR/snowflake-cli.pkg"
 loginfo "---------------------------------"
 productsign \
   --sign "Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)" \
-  $DIST_DIR/SnowflakeCLI.unsigned.pkg \
-  $DIST_DIR/SnowflakeCLI.pkg
+  $DIST_DIR/snowflake-cli.unsigned.pkg \
+  $DIST_DIR/snowflake-cli.pkg
 
 ls -l $DIST_DIR
 
 loginfo "---------------------------------"
-loginfo "Procuct build $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).unsigned.pkg -> $DIST_DIR/SnowflakeCLI.pkg"
+loginfo "Procuct build $DIST_DIR/snowflake-cli-${SYSTEM}-${PLATFORM}.unsigned.pkg -> $DIST_DIR/snowflake-cli.pkg"
 loginfo "---------------------------------"
 productbuild \
   --distribution $PACKAGING_DIR/macos/Distribution.xml \
@@ -205,17 +208,17 @@ productbuild \
 ls -l $DIST_DIR
 
 loginfo "---------------------------------"
-loginfo "Procuct sign $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).unsigned.pkg -> $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).pkg"
+loginfo "Procuct sign $DIST_DIR/snowflake-cli-${SYSTEM}-${PLATFORM}.unsigned.pkg -> $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).pkg"
 loginfo "---------------------------------"
 productsign \
   --sign "Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)" \
-  $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).unsigned.pkg \
-  $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).pkg
+  $DIST_DIR/snowflake-cli-${SYSTEM}-${PLATFORM}.unsigned.pkg \
+  $DIST_DIR/snowflake-cli-${SYSTEM}-${PLATFORM}.pkg
 
 ls -l $DIST_DIR
 
 cp -p \
-  $DIST_DIR/SnowflakeCLI-$(uname)-$(uname -m).pkg \
-  $DIST_DIR/SnowflakeCLI-$CLI_VERSION-$(uname)-$(uname -m).pkg
+  $DIST_DIR/snowflake-cli-${SYSTEM}-${PLATFORM}.pkg \
+  $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${PLATFORM}.pkg
 
 ls -l $DIST_DIR
