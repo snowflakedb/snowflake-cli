@@ -74,6 +74,20 @@ UPGRADE_RESTRICTION_CODES = {
 }
 
 
+def print_messages(create_or_upgrade_cursor: Optional[SnowflakeCursor]):
+    """
+    Shows messages in the console returned by the CREATE or UPGRADE
+    APPLICATION command.
+    """
+    if not create_or_upgrade_cursor:
+        return
+
+    messages = [row[0] for row in create_or_upgrade_cursor.fetchall()]
+    for message in messages:
+        cc.warning(message)
+    cc.message("")
+
+
 class SameAccountInstallMethod:
     _requires_created_by_cli: bool
     _from_release_directive: bool
@@ -254,9 +268,10 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                             f"Upgrading existing application object {self.app_name}."
                         )
                         using_clause = install_method.using_clause(self._na_project)
-                        self._execute_query(
-                            f"alter application {self.app_name} upgrade {using_clause}"
+                        upgrade_cursor = self._execute_query(
+                            f"alter application {self.app_name} upgrade {using_clause}",
                         )
+                        print_messages(upgrade_cursor)
 
                         if install_method.is_dev_mode:
                             # if debug_mode is present (controlled), ensure it is up-to-date
@@ -302,15 +317,16 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                         debug_mode_clause = f"debug_mode = {initial_debug_mode}"
 
                     using_clause = install_method.using_clause(self._na_project)
-                    self._execute_query(
+                    create_cursor = self._execute_query(
                         dedent(
                             f"""\
                         create application {self.app_name}
                             from application package {self.package_name} {using_clause} {debug_mode_clause}
                             comment = {SPECIAL_COMMENT}
                         """
-                        )
+                        ),
                     )
+                    print_messages(create_cursor)
 
                     # hooks always executed after a create or upgrade
                     self.execute_app_post_deploy_hooks()

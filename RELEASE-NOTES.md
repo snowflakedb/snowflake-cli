@@ -41,6 +41,7 @@
 * Fix error handling and improve messaging when no artifacts provided
 * Improved error message for incompatible parameters.
 * Fix return values of `snow snowpark list`, `describe` and `drop` commands.
+* Show warnings returned by Snowflake when `snow app run` is successful
 
 
 # v2.7.0
