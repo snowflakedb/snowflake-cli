@@ -230,7 +230,7 @@ loginfo "---------------------------------"
 loginfo "${SF_STAGE_BASE}, ${BRANCH}, ${REVISION}"
 loginfo "copying to s3 ${SF_STAGE_BASE}/mac_${MACHINE}/${REVISION}/"
 loginfo "---------------------------------"
-aws s3 cp --only-show-errors . \
+aws s3 cp . \
   $SF_STAGE_BASE/mac_${MACHINE}/${REVISION}/ \
   --recursive \
   --exclude "*" \
