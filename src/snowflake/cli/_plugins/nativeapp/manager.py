@@ -593,7 +593,7 @@ class NativeAppManager(SqlExecutionMixin):
         scripts_contents = []
         for relpath in scripts:
             try:
-                result = render_from_file(Path(relpath), jinja_context)
+                result = render_from_file(relpath, jinja_context)
                 scripts_contents.append(result)
 
             except jinja2.TemplateNotFound as e:
