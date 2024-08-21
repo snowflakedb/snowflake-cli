@@ -579,7 +579,7 @@ class NativeAppManager(SqlExecutionMixin):
         self,
         render_from_file: Callable[[Path, Dict[str, Any]], str],
         jinja_context: dict[str, Any],
-        scripts: List[str],
+        scripts: List[Path],
     ) -> List[str]:
         """
         Input:
@@ -618,16 +618,10 @@ class NativeAppManager(SqlExecutionMixin):
                 "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
             )
 
-        env = jinja2.Environment(
-            loader=jinja2.loaders.FileSystemLoader(self.project_root),
-            keep_trailing_newline=True,
-            undefined=jinja2.StrictUndefined,
-        )
-
         queued_queries = self._expand_script_templates(
             jinja_render_from_file,
             dict(package_name=self.package_name),
-            self.package_scripts,
+            [self.project_root / path for path in self.package_scripts],
         )
 
         # once we're sure all the templates expanded correctly, execute all of them
@@ -675,7 +669,7 @@ class NativeAppManager(SqlExecutionMixin):
             sql_scripts_paths = []
             for hook in post_deploy_hooks:
                 if hook.sql_script:
-                    sql_scripts_paths.append(hook.sql_script)
+                    sql_scripts_paths.append(Path(hook.sql_script))
                 else:
                     raise ValueError(
                         f"Unsupported {deployed_object_type} post-deploy hook type: {hook}"
