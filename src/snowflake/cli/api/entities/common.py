@@ -42,11 +42,5 @@ class EntityBase(Generic[T]):
         return getattr(self, action)(action_ctx)
 
 
-_SQL_EXECUTOR: SqlExecutor | None = None
-
-
 def get_sql_executor() -> SqlExecutor:
-    global _SQL_EXECUTOR
-    if _SQL_EXECUTOR is None:
-        _SQL_EXECUTOR = SqlExecutor()
-    return _SQL_EXECUTOR
+    return SqlExecutor()
