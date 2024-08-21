@@ -432,7 +432,7 @@
       'procedures': list([
       ]),
       'project_name': 'my_snowpark_project',
-      'src': 'app/',
+      'src': 'app.py',
       'stage_name': 'dev_deployment',
     }),
     'streamlit': None,
@@ -704,7 +704,7 @@
         }),
       ]),
       'project_name': 'my_snowpark_project',
-      'src': 'app/',
+      'src': 'app.py',
       'stage_name': 'dev_deployment',
     }),
     'streamlit': None,

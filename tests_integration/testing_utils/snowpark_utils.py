@@ -179,7 +179,6 @@ class SnowparkTestSteps:
 
         assert_that_current_working_directory_contains_only_following_files(
             *current_files,
-            Path("app.zip"),
             Path("dependencies.zip"),
             *additional_files,
             Path("requirements.snowflake.txt"),

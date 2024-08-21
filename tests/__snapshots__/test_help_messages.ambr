@@ -3014,8 +3014,9 @@
                                                                                   
    Deploys procedures and functions defined in project. Deploying the project     
    alters all objects defined in it. By default, if any of the objects exist      
-   already the commands will fail unless `--replace` flag is provided. All        
-   deployed objects use the same artifact which is deployed only once.            
+   already the commands will fail unless `--replace` flag is provided. Required   
+   artifacts are deployed before creating functions or procedures. Dependencies   
+   are deployed once to every stage specified in definitions.                     
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --replace                Replaces procedure or function, even if no detected |
@@ -3671,8 +3672,9 @@
   | deploy     Deploys procedures and functions defined in project. Deploying    |
   |            the project alters all objects defined in it. By default, if any  |
   |            of the objects exist already the commands will fail unless        |
-  |            `--replace` flag is provided. All deployed objects use the same   |
-  |            artifact which is deployed only once.                             |
+  |            `--replace` flag is provided. Required artifacts are deployed     |
+  |            before creating functions or procedures. Dependencies are         |
+  |            deployed once to every stage specified in definitions.            |
   | describe   Provides description of a procedure or function.                  |
   | drop       Drop procedure or function.                                       |
   | execute    Executes a procedure or function in a specified environment.      |
@@ -8117,8 +8119,9 @@
   | deploy     Deploys procedures and functions defined in project. Deploying    |
   |            the project alters all objects defined in it. By default, if any  |
   |            of the objects exist already the commands will fail unless        |
-  |            `--replace` flag is provided. All deployed objects use the same   |
-  |            artifact which is deployed only once.                             |
+  |            `--replace` flag is provided. Required artifacts are deployed     |
+  |            before creating functions or procedures. Dependencies are         |
+  |            deployed once to every stage specified in definitions.            |
   | describe   Provides description of a procedure or function.                  |
   | drop       Drop procedure or function.                                       |
   | execute    Executes a procedure or function in a specified environment.      |

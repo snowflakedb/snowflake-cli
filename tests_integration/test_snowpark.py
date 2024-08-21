@@ -40,7 +40,7 @@ def test_snowpark_flow(
 ):
     database = test_database.upper()
     with project_directory("snowpark") as tmp_dir:
-        _test_steps.snowpark_build_should_zip_files()
+        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -464,7 +464,7 @@ def test_snowpark_default_arguments(
 ):
     database = test_database.upper()
     with project_directory("snowpark_with_default_values") as tmp_dir:
-        _test_steps.snowpark_build_should_zip_files()
+        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -571,7 +571,7 @@ def test_snowpark_fully_qualified_name(
         ["sql", "-q", f"create schema {database}.{different_schema}"]
     )
     with project_directory("snowpark_fully_qualified_name") as tmp_dir:
-        _test_steps.snowpark_build_should_zip_files()
+        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
 
         # "default" database and schema provided by fully qualified name
         alter_snowflake_yml(
@@ -685,7 +685,7 @@ def test_snowpark_vector_function(
 ):
     database = test_database.upper()
     with project_directory("snowpark_vectorized") as tmp_dir:
-        _test_steps.snowpark_build_should_zip_files()
+        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -916,6 +916,72 @@ def test_snowpark_aliases(project_directory, runner, _test_steps, test_database)
                 "status": "HELLO_PROCEDURE successfully dropped.",
             },
         ]
+
+
+@pytest.mark.integration
+def test_snowpark_flow_v2(
+    _test_steps, project_directory, alter_snowflake_yml, test_database
+):
+    database = test_database.upper()
+    with project_directory("snowpark_v2") as tmp_dir:
+        _test_steps.snowpark_build_should_zip_files(
+            additional_files=[Path("app_1.zip"), Path("app_2.zip")]
+        )
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": f"{database}.PUBLIC.hello_procedure(name string)",
+                    "status": "created",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{database}.PUBLIC.test()",
+                    "status": "created",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{database}.PUBLIC.hello_function(name string)",
+                    "status": "created",
+                    "type": "function",
+                },
+            ]
+        )
+
+        _test_steps.assert_those_procedures_are_in_snowflake(
+            "hello_procedure(VARCHAR) RETURN VARCHAR"
+        )
+        _test_steps.assert_those_functions_are_in_snowflake(
+            "hello_function(VARCHAR) RETURN VARCHAR"
+        )
+
+        expected_files = [
+            f"{STAGE_NAME}/my_project/app_1.zip",
+            f"{STAGE_NAME}/my_project/app_2.zip",
+            f"{STAGE_NAME}/my_project/c.py",
+            f"{STAGE_NAME}/my_project/dependencies.zip",
+        ]
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+            *expected_files, stage_name=STAGE_NAME
+        )
+
+        # Created objects can be executed
+        _test_steps.snowpark_execute_should_return_expected_value(
+            object_type="procedure",
+            identifier="hello_procedure('foo')",
+            expected_value="Hello foo",
+        )
+
+        _test_steps.snowpark_execute_should_return_expected_value(
+            object_type="procedure",
+            identifier="test()",
+            expected_value="Test procedure",
+        )
+
+        _test_steps.snowpark_execute_should_return_expected_value(
+            object_type="function",
+            identifier="hello_function('foo')",
+            expected_value="Hello foo!",
+        )
 
 
 @pytest.fixture
