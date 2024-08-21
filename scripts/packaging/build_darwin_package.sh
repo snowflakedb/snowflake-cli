@@ -225,8 +225,6 @@ ls -l $DIST_DIR
 
 
 SF_STAGE_BASE=s3://sfc-eng-jenkins/repository/snowflake-cli
-BRANCH=${BRANCH:-HEAD}
-REVISION=$(git rev-parse $BRANCH)
 
 loginfo "---------------------------------"
 loginfo "${SF_STAGE_BASE}, ${BRANCH}, ${REVISION}"
