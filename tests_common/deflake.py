@@ -34,6 +34,7 @@ class DeflakePlugin:
             rev_parse = run(["git", "rev-parse", "HEAD"], text=True, stdout=PIPE)
             self.github = GitHub(token, rev_parse.stdout.strip())
         else:
+            self.github = None
             self.log.info("GH_TOKEN not provided, issue reporting disabled.")
 
     def pytest_sessionstart(self, session):
@@ -69,6 +70,7 @@ class DeflakePlugin:
         elif report.outcome == "failed":
             # This test should be retried
             report.should_retry = True
+            report.wasxfail = "Failure will be retried"
 
         previous_outcomes[call.when] = report.outcome
         return report
@@ -99,7 +101,7 @@ class DeflakePlugin:
             return "flaky", "K", "FLAKY"
         return None
 
-    def pytest_sessionfinish(self, session, exitstatus):
+    def pytest_sessionfinish(self, session: pytest.Session, exitstatus):
         for nodeid, test in self.report.tests.items():
             if test.outcome != "flaky":
                 continue
