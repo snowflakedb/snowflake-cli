@@ -27,6 +27,14 @@ PHASES = ["setup", "call", "teardown"]
 
 
 class DeflakePlugin:
+    """Pytest plugin to retry tests and mark them as flaky.
+
+    This plugin is used to determine which tests are flaky by automatically
+    retrying them and marking them as "flaky" instead of "passing" if they
+    pass on the retry. After then test run, a GitHub issue is opened or updated
+    for each flaky test encountered.
+    """
+
     name = "deflake"
 
     def __init__(self: DeflakePlugin) -> None:
@@ -35,34 +43,57 @@ class DeflakePlugin:
         self._flaky_tests: int = 0
 
     def pytest_configure(self, config: Config) -> None:
+        # First hook called, gives us the Pytest config and access to the
+        # default runner so we can wrap it later
         self.runner = config.pluginmanager.getplugin("runner")
         self.test_type = config.getoption(TEST_TYPE_OPTION)
 
         if token := os.getenv("GH_TOKEN"):
+            # Grab the current commit so we can generate absolute URLs
             rev_parse = run(["git", "rev-parse", "HEAD"], text=True, stdout=PIPE)
             self.github: GitHub | None = GitHub(token, rev_parse.stdout.strip())
         else:
             self.github = None
 
     def pytest_sessionstart(self, session: Session) -> None:
-        self.report = Report(root=session.path)
+        # The session is the root node in pytest's collection tree
+        # Its path is the root directory that pytest looks in for tests, in
+        # our case it's the root of the repo, so we can use it to make
+        # relative paths that can be used to generate GitHub urls
+        self.test_run = TestRun(root=session.path)
 
     def pytest_runtest_protocol(self, item: Item, nextitem: Item | None) -> bool:
+        # The main protocol for running a single test
+        # This function was adapted from pytest internals since we
+        # need to override it completely to retry a test
+
         ihook = item.ihook
+
+        # Call the logstart hook, which typically prints the name of the tests
         ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
+
+        # Delegate back to the pytest runner to run all the phases for this test
         reports = self.runner.runtestprotocol(item, nextitem=nextitem)
+
+        # Retry if the test reports that it should retry (report.should_retry is
+        # set by us in pytest_runtest_makereport below)
         if any(report.should_retry for report in reports):
             self.runner.runtestprotocol(item, nextitem=nextitem)
+
+        # Close the log line for this test
         ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
 
         # Just return something so the next hook implementation isn't called
         return True
 
     def pytest_runtest_logstart(self, nodeid: str):
-        self.report.tests[nodeid] = TestResult(nodeid)
+        # This is called once before each test regardless of the number of retries
+        self.test_run.tests[nodeid] = TestResult(nodeid)
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_makereport(self, item: Item, call: CallInfo) -> TestReport:
+        # Wrap the creation of the test report for this phase to override the
+        # status to "flaky" if it's a retry and it passed
         previous_outcomes = item.stash.setdefault(PREVIOUS_OUTCOME_KEY, {})
         report = (yield).get_result()
 
@@ -83,7 +114,9 @@ class DeflakePlugin:
         return report
 
     def pytest_runtest_logreport(self, report: TestReport) -> None:
-        test = self.report.tests[report.nodeid]
+        # Record the crash data for the GitHub issue
+        # and set the status of the overall test result
+        test = self.test_run.tests[report.nodeid]
         phase = getattr(test, report.when)
         phase.outcome = report.outcome
 
@@ -103,6 +136,7 @@ class DeflakePlugin:
     def pytest_report_teststatus(
         self, report: TestReport
     ) -> tuple[str, str, str] | None:
+        # Hook into the terminal reporting of the test status
         if report.should_retry:
             # Don't log a status for this yet since it's not final
             return "", "", ""
@@ -111,19 +145,21 @@ class DeflakePlugin:
         return None
 
     def pytest_sessionfinish(self) -> None:
-        for nodeid, test in self.report.tests.items():
+        # Called at the end of the pytest run to log flaky tests to GitHub
+        for nodeid, test in self.test_run.tests.items():
             if test.outcome != "flaky":
                 continue
 
             if self.github and self.test_type:
                 try:
                     self.github.create_or_update_flaky_test_issue(
-                        self.report.root, self.test_type, test
+                        self.test_run.root, self.test_type, test
                     )
                 except Exception as e:  # noqa
                     self._exceptions[nodeid] = e
 
     def pytest_terminal_summary(self, terminalreporter: TerminalReporter) -> None:
+        # Called at the end of the pytest run to print custom messages to the terminal
         lines = []
         if self._flaky_tests > 0:
             if not self.github:
@@ -145,11 +181,14 @@ class DeflakePlugin:
 
 
 def pytest_configure(config: Config) -> None:
+    # Register our plugin with pytest
     plugin = DeflakePlugin()
     config.pluginmanager.register(plugin, name=plugin.name)
 
 
 def pytest_addoption(parser: Parser):
+    # Add a flag so the user can tell us what kind of tests we're running
+    # (used by the GitHub class to create issue titles)
     group = parser.getgroup(
         "deflake", "deflake tests by recording flakes as GitHub issues"
     )
@@ -182,7 +221,7 @@ class TestResult:
 
 
 @dataclass(frozen=True)
-class Report:
+class TestRun:
     root: Path
     tests: dict[str, TestResult] = field(default_factory=dict)
 
