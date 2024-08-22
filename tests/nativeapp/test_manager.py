@@ -64,6 +64,7 @@ from tests.nativeapp.utils import (
     NATIVEAPP_MANAGER_EXECUTE,
     NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO,
     NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME,
+    NATIVEAPP_MANAGER_USE_ROLE,
     NATIVEAPP_MODULE,
     mock_execute_helper,
     mock_snowflake_yml_file,
@@ -207,7 +208,7 @@ Use the --prune flag to delete them from the stage."""
     else:
         mock_warning.assert_not_called()
 
-
+# Test use_role and success path of get_app_pkg_distribution_in_snowflake  
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_cursor):
 
@@ -247,18 +248,14 @@ def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_curs
     assert mock_execute.mock_calls == expected
 
 
+@mock.patch(NATIVEAPP_MANAGER_USE_ROLE)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
-    mock_execute, temp_dir, mock_cursor
+    mock_execute, mock_use_role, temp_dir, mock_cursor
 ):
 
     side_effects, expected = mock_execute_helper(
         [
-            (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
-            ),
-            (None, mock.call("use role package_role")),
             (
                 ProgrammingError(
                     msg="Application package app_pkg does not exist or not authorized.",
@@ -266,7 +263,6 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
                 ),
                 mock.call("describe application package app_pkg"),
             ),
-            (None, mock.call("use role old_role")),
         ]
     )
     mock_execute.side_effect = side_effects
@@ -284,21 +280,15 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
 
     assert mock_execute.mock_calls == expected
 
-
+@mock.patch(NATIVEAPP_MANAGER_USE_ROLE)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
-    mock_execute, temp_dir, mock_cursor
+    mock_execute, mock_use_role, temp_dir, mock_cursor
 ):
 
     side_effects, expected = mock_execute_helper(
         [
-            (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
-            ),
-            (None, mock.call("use role package_role")),
             (mock_cursor([], []), mock.call("describe application package app_pkg")),
-            (None, mock.call("use role old_role")),
         ]
     )
     mock_execute.side_effect = side_effects
@@ -316,24 +306,18 @@ def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
 
     assert mock_execute.mock_calls == expected
 
-
+@mock.patch(NATIVEAPP_MANAGER_USE_ROLE)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
-    mock_execute, temp_dir, mock_cursor
+    mock_execute, mock_use_role, temp_dir, mock_cursor
 ):
 
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
-            ),
-            (None, mock.call("use role package_role")),
-            (
                 mock_cursor([("name", "app_pkg"), ["owner", "package_role"]], []),
                 mock.call("describe application package app_pkg"),
             ),
-            (None, mock.call("use role old_role")),
         ]
     )
     mock_execute.side_effect = side_effects
