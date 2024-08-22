@@ -42,6 +42,7 @@
 * Fix the typo in spcs service name argument description. It is the identifier of the **service** instead of the **service pool**.
 * Fix error handling and improve messaging when no artifacts provided.
 * Improved error message for incompatible parameters.
+* Fixed SQL error when running `snow app version create` and `snow app version drop` with a version name that isn't a valid Snowflake unquoted identifier
 
 
 # v2.8.0
