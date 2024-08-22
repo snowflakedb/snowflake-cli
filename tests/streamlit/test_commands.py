@@ -827,7 +827,7 @@ def test_selecting_streamlit_from_pdf(
 
     # Make sure the streamlit was called with proper app definition
     st = calls.call_args.kwargs
-    assert st["streamlit_id"].name == entity_id
+    assert st["streamlit"].entity_id == entity_id
 
 
 @mock.patch("snowflake.connector.connect")
