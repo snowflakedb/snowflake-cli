@@ -91,6 +91,7 @@ def _get_na_run_processor():
         project_root=dm.project_root,
     )
 
+
 # Test create_dev_app with no existing application AND create succeeds AND app role == package role
 @mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
