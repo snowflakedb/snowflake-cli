@@ -15,18 +15,12 @@
 import os
 import os.path
 import yaml
-import uuid
-
-from snowflake.cli.api.project.util import generate_user_env
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import enable_definition_v2_feature_flag
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
 )
-
-USER_NAME = f"user_{uuid.uuid4().hex}"
-TEST_ENV = generate_user_env(USER_NAME)
 
 
 @pytest.fixture(scope="function", params=["napp_init_v1", "napp_init_v2"])
@@ -35,10 +29,7 @@ def template_setup(runner, project_directory, request):
     with enable_definition_v2_feature_flag:
         with project_directory(test_project) as project_root:
             # Vanilla bundle on the unmodified template
-            result = runner.invoke_json(
-                ["app", "bundle"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_json(["app", "bundle"])
             assert result.exit_code == 0
 
             # The newly created deploy_root is explicitly deleted here, as bundle should take care of it.
@@ -99,10 +90,7 @@ def test_nativeapp_bundle_does_explicit_copy(
         ],
     )
 
-    result = runner.invoke_json(
-        ["app", "bundle"],
-        env=TEST_ENV,
-    )
+    result = runner.invoke_json(["app", "bundle"])
     assert result.exit_code == 0
     assert not os.path.exists("app/snowflake.yml")
     app_path = Path("output", "deploy", "app")
@@ -142,10 +130,7 @@ def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
 
     assert deploy_root_as_file.is_file()
 
-    result = runner.invoke_json(
-        ["app", "bundle"],
-        env=TEST_ENV,
-    )
+    result = runner.invoke_json(["app", "bundle"])
 
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
@@ -170,10 +155,7 @@ def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
         deploy_root=deploy_root,
     )
 
-    result = runner.invoke_json(
-        ["app", "bundle"],
-        env=TEST_ENV,
-    )
+    result = runner.invoke_json(["app", "bundle"])
 
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
@@ -189,10 +171,7 @@ def test_nativeapp_bundle_throws_error_on_incorrect_src_glob(template_setup):
     # incorrect glob
     override_snowflake_yml_artifacts(definition_version, artifacts_section=["app/?"])
 
-    result = runner.invoke_json(
-        ["app", "bundle"],
-        env=TEST_ENV,
-    )
+    result = runner.invoke_json(["app", "bundle"])
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
         result,
@@ -211,10 +190,7 @@ def test_nativeapp_bundle_throws_error_on_bad_src(template_setup):
         definition_version, artifacts_section=[f"{src_path}"]
     )
 
-    result = runner.invoke_json(
-        ["app", "bundle"],
-        env=TEST_ENV,
-    )
+    result = runner.invoke_json(["app", "bundle"])
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
         result, "Source path must be a relative path"
@@ -230,10 +206,7 @@ def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
         definition_version, artifacts_section=[{"src": "app/*", "dest": "/"}]
     )
 
-    result = runner.invoke_json(
-        ["app", "bundle"],
-        env=TEST_ENV,
-    )
+    result = runner.invoke_json(["app", "bundle"])
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
         result, "The specified destination path is outside of the deploy root"
@@ -251,10 +224,7 @@ def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
         ],
     )
 
-    result = runner.invoke_json(
-        ["app", "bundle"],
-        env=TEST_ENV,
-    )
+    result = runner.invoke_json(["app", "bundle"])
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
         result, "Destination path must be a relative path"
@@ -274,14 +244,29 @@ def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup)
         ],
     )
 
-    result = runner.invoke_json(
-        ["app", "bundle"],
-        env=TEST_ENV,
-    )
+    result = runner.invoke_json(["app", "bundle"])
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
         result,
         "Multiple file or directories were mapped to one output destination.",
+    )
+
+
+# Tests handling of no artifacts
+@pytest.mark.integration
+def test_nativeapp_bundle_throws_error_on_no_artifacts(template_setup):
+    _, runner, definition_version = template_setup
+
+    override_snowflake_yml_artifacts(
+        definition_version,
+        artifacts_section=[],
+    )
+
+    result = runner.invoke_json(["app", "bundle"])
+    assert result.exit_code == 1
+    assert_that_result_failed_with_message_containing(
+        result,
+        "No artifacts mapping found in project definition, nothing to do.",
     )
 
 
@@ -292,9 +277,6 @@ def test_nativeapp_bundle_deletes_existing_deploy_root(template_setup):
 
     existing_deploy_root_dest = Path(project_root, "output", "deploy", "dummy.txt")
     existing_deploy_root_dest.mkdir(parents=True, exist_ok=False)
-    result = runner.invoke_json(
-        ["app", "bundle"],
-        env=TEST_ENV,
-    )
+    result = runner.invoke_json(["app", "bundle"])
     assert result.exit_code == 0
     assert not existing_deploy_root_dest.exists()

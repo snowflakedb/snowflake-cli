@@ -11,10 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import uuid
-
-from snowflake.cli.api.project.util import generate_user_env
+import os
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
@@ -23,9 +20,6 @@ from tests_integration.test_utils import (
     row_from_snowflake_session,
     enable_definition_v2_feature_flag,
 )
-
-USER_NAME = f"user_{uuid.uuid4().hex}"
-TEST_ENV = generate_user_env(USER_NAME)
 
 
 @pytest.mark.integration
@@ -54,10 +48,12 @@ def test_nativeapp_teardown_cascade(
     project_directory,
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
 ):
     project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}".upper()
-    db_name = f"{project_name}_db_{USER_NAME}".upper()
+    app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
+    db_name = f"{project_name}_db_{default_username}{resource_suffix}".upper()
 
     with project_directory(test_project):
         # Replacing the static DB name with a unique one to avoid collisions between tests
@@ -69,10 +65,7 @@ def test_nativeapp_teardown_cascade(
         with open("app/setup_script.sql", "w") as file:
             file.write(setup_script_content)
 
-        result = runner.invoke_with_connection_json(
-            ["app", "run"],
-            env=TEST_ENV,
-        )
+        result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
         try:
             # Grant permission to create databases
@@ -98,7 +91,9 @@ def test_nativeapp_teardown_cascade(
                 # orphan the app by dropping the application package,
                 # this causes future `show objects owned by application` queries to fail
                 # and `snow app teardown` needs to be resilient against this
-                package_name = f"{project_name}_pkg_{USER_NAME}".upper()
+                package_name = (
+                    f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+                )
                 snowflake_session.execute_string(
                     f"drop application package {package_name}"
                 )
@@ -112,10 +107,7 @@ def test_nativeapp_teardown_cascade(
                 )
 
             # Run the teardown command
-            result = runner.invoke_with_connection_json(
-                command.split(),
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(command.split())
             if expected_error is not None:
                 assert result.exit_code == 1
                 assert expected_error in result.output
@@ -144,8 +136,7 @@ def test_nativeapp_teardown_cascade(
         finally:
             # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force", "--cascade"],
-                env=TEST_ENV,
+                ["app", "teardown", "--force", "--cascade"]
             )
             assert result.exit_code == 0
 
@@ -156,44 +147,35 @@ def test_nativeapp_teardown_cascade(
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_teardown_unowned_app(
     runner,
+    default_username,
+    resource_suffix,
     force,
     test_project,
     project_directory,
 ):
     project_name = "myapp"
-    app_name = f"{project_name}_{USER_NAME}"
+    app_name = f"{project_name}_{default_username}{resource_suffix}"
 
     with project_directory(test_project):
-        result = runner.invoke_with_connection_json(
-            ["app", "run"],
-            env=TEST_ENV,
-        )
+        result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
         try:
             result = runner.invoke_with_connection_json(
-                ["sql", "-q", f"alter application {app_name} set comment = 'foo'"],
-                env=TEST_ENV,
+                ["sql", "-q", f"alter application {app_name} set comment = 'foo'"]
             )
             assert result.exit_code == 0
 
             if force:
                 result = runner.invoke_with_connection_json(
-                    ["app", "teardown", "--force"],
-                    env=TEST_ENV,
+                    ["app", "teardown", "--force"]
                 )
                 assert result.exit_code == 0
             else:
-                result = runner.invoke_with_connection_json(
-                    ["app", "teardown"],
-                    env=TEST_ENV,
-                )
+                result = runner.invoke_with_connection_json(["app", "teardown"])
                 assert result.exit_code == 1
 
         finally:
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
 
 
@@ -203,18 +185,17 @@ def test_nativeapp_teardown_unowned_app(
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_teardown_pkg_versions(
     runner,
+    default_username,
+    resource_suffix,
     default_release_directive,
     test_project,
     project_directory,
 ):
     project_name = "myapp"
-    pkg_name = f"{project_name}_pkg_{USER_NAME}"
+    pkg_name = f"{project_name}_pkg_{default_username}{resource_suffix}"
 
     with project_directory(test_project):
-        result = runner.invoke_with_connection(
-            ["app", "version", "create", "v1"],
-            env=TEST_ENV,
-        )
+        result = runner.invoke_with_connection(["app", "version", "create", "v1"])
         assert result.exit_code == 0
 
         try:
@@ -225,16 +206,12 @@ def test_nativeapp_teardown_pkg_versions(
                         "sql",
                         "-q",
                         f"alter application package {pkg_name} set default release directive version = v1 patch = 0",
-                    ],
-                    env=TEST_ENV,
+                    ]
                 )
                 assert result.exit_code == 0
 
             # try to teardown; fail because we have a version
-            result = runner.invoke_with_connection(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(["app", "teardown"])
             assert result.exit_code == 1
             assert f"Drop versions first, or use --force to override." in result.output
 
@@ -242,8 +219,7 @@ def test_nativeapp_teardown_pkg_versions(
             if not default_release_directive:
                 # if we didn't set a release directive, we can drop the version and try again
                 result = runner.invoke_with_connection(
-                    ["app", "version", "drop", "v1", "--force"],
-                    env=TEST_ENV,
+                    ["app", "version", "drop", "v1", "--force"]
                 )
                 assert result.exit_code == 0
             else:
@@ -251,15 +227,9 @@ def test_nativeapp_teardown_pkg_versions(
                 teardown_args = ["--force"]
 
             # either way, we can now tear down the application package
-            result = runner.invoke_with_connection(
-                ["app", "teardown"] + teardown_args,
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(["app", "teardown"] + teardown_args)
             assert result.exit_code == 0
 
         finally:
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0

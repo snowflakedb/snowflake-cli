@@ -16,16 +16,18 @@ from __future__ import annotations
 
 from typing import List, Literal, Optional, Union
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
 )
+from snowflake.cli.api.project.schemas.identifier_model import Identifier
 from snowflake.cli.api.project.schemas.native_app.package import DistributionOptions
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
     IdentifierField,
 )
+from snowflake.cli.api.project.util import append_test_resource_suffix
 
 
 class ApplicationPackageEntityModel(EntityModelBase):
@@ -60,3 +62,16 @@ class ApplicationPackageEntityModel(EntityModelBase):
     manifest: str = Field(
         title="Path to manifest.yml",
     )
+
+    @field_validator("identifier")
+    @classmethod
+    def append_test_resource_suffix_to_identifier(
+        cls, input_value: Identifier | str
+    ) -> Identifier | str:
+        identifier = (
+            input_value.name if isinstance(input_value, Identifier) else input_value
+        )
+        with_suffix = append_test_resource_suffix(identifier)
+        if isinstance(input_value, Identifier):
+            return input_value.model_copy(update=dict(name=with_suffix))
+        return with_suffix

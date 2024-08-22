@@ -12,16 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import uuid
-
-from snowflake.cli.api.project.util import generate_user_env
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
     enable_definition_v2_feature_flag,
 )
-
-USER_NAME = f"user_{uuid.uuid4().hex}"
-TEST_ENV = generate_user_env(USER_NAME)
 
 
 @pytest.mark.integration
@@ -31,17 +25,11 @@ def test_nativeapp_validate(test_project, project_directory, runner):
     with project_directory(test_project):
         try:
             # validate the app's setup script
-            result = runner.invoke_with_connection(
-                ["app", "validate"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(["app", "validate"])
             assert result.exit_code == 0, result.output
             assert "Native App validation succeeded." in result.output
         finally:
-            result = runner.invoke_with_connection(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(["app", "teardown", "--force"])
             assert result.exit_code == 0, result.output
 
 
@@ -56,18 +44,12 @@ def test_nativeapp_validate_failing(test_project, project_directory, runner):
         try:
             # validate the app's setup script, this will fail
             # because we include an empty file
-            result = runner.invoke_with_connection(
-                ["app", "validate"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(["app", "validate"])
             assert result.exit_code == 1, result.output
             assert (
                 "Snowflake Native App setup script failed validation." in result.output
             )
             assert "syntax error" in result.output
         finally:
-            result = runner.invoke_with_connection(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection(["app", "teardown", "--force"])
             assert result.exit_code == 0, result.output

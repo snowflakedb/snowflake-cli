@@ -109,3 +109,31 @@ class TargetField(UpdatableModel, Generic[TargetType]):
         them in __pydantic_generic_metadata__
         """
         return self.__pydantic_generic_metadata__["args"][0]
+
+
+from typing import Dict, List, Optional
+
+from pydantic import Field
+
+
+class ExternalAccessBaseModel:
+    external_access_integrations: Optional[List[str]] = Field(
+        title="Names of external access integrations needed for this entity to access external networks",
+        default=[],
+    )
+    secrets: Optional[Dict[str, str]] = Field(
+        title="Assigns the names of secrets to variables so that you can use the variables to reference the secrets",
+        default={},
+    )
+
+    def get_external_access_integrations_sql(self) -> str | None:
+        if not self.external_access_integrations:
+            return None
+        external_access_integration_name = ", ".join(self.external_access_integrations)
+        return f"external_access_integrations=({external_access_integration_name})"
+
+    def get_secrets_sql(self) -> str | None:
+        if not self.secrets:
+            return None
+        secrets = ", ".join(f"'{key}' = {value}" for key, value in self.secrets.items())
+        return f"secrets = ({secrets})"

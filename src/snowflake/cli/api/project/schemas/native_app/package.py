@@ -22,6 +22,7 @@ from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
 )
+from snowflake.cli.api.project.util import append_test_resource_suffix
 
 DistributionOptions = Literal["internal", "external", "INTERNAL", "EXTERNAL"]
 
@@ -49,6 +50,11 @@ class Package(UpdatableModel):
         title="Actions that will be executed after the application package object is created/updated",
         default=None,
     )
+
+    @field_validator("name")
+    @classmethod
+    def append_test_resource_suffix_to_name(cls, input_value: str) -> str:
+        return append_test_resource_suffix(input_value)
 
     @field_validator("scripts")
     @classmethod
