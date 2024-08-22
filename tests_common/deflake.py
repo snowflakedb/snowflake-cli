@@ -141,7 +141,9 @@ class DeflakePlugin:
             # Don't log a status for this yet since it's not final
             return "", "", ""
         if report.outcome == "flaky":
+            # outcome category, letter used for regular output, and status used for full output, respectively
             return "flaky", "K", "FLAKY"
+        # Otherwise let the default hook implementation decide the status strings
         return None
 
     def pytest_sessionfinish(self) -> None:
@@ -156,6 +158,7 @@ class DeflakePlugin:
                         self.test_run.root, self.test_type, test
                     )
                 except Exception as e:  # noqa
+                    # Catch all exceptions to be logged later, don't let this fail the test run
                     self._exceptions[nodeid] = e
 
     def pytest_terminal_summary(self, terminalreporter: TerminalReporter) -> None:
