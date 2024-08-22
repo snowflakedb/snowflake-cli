@@ -31,7 +31,7 @@ class DeflakePlugin:
 
     This plugin is used to determine which tests are flaky by automatically
     retrying them and marking them as "flaky" instead of "passing" if they
-    pass on the retry. After then test run, a GitHub issue is opened or updated
+    pass on the retry. After the test run, a GitHub issue is opened or updated
     for each flaky test encountered.
     """
 
