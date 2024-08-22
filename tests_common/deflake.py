@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -9,6 +8,7 @@ from typing import Generator, cast
 
 import pytest
 import requests
+from _pytest import runner
 from _pytest.config import Config, Parser
 from _pytest.main import Session
 from _pytest.nodes import Item
@@ -37,16 +37,14 @@ class DeflakePlugin:
 
     name = "deflake"
 
-    def __init__(self: DeflakePlugin) -> None:
+    def __init__(self: DeflakePlugin, config: Config) -> None:
         super().__init__()
-        self._exceptions: dict[str, Exception] = {}
-        self._flaky_tests: int = 0
+        self.exceptions: dict[str, Exception] = {}
+        self.flaky_tests = 0
+        self.test_run = TestRun()
 
-    def pytest_configure(self, config: Config) -> None:
-        # First hook called, gives us the Pytest config and access to the
-        # default runner so we can wrap it later
-        self.runner = config.pluginmanager.getplugin("runner")
-        self.test_type = config.getoption(TEST_TYPE_OPTION)
+        self.runner: type[runner] = config.pluginmanager.getplugin("runner")
+        self.test_type: str = config.getoption(TEST_TYPE_OPTION)
 
         if token := os.getenv("GH_TOKEN"):
             # Grab the current commit so we can generate absolute URLs
@@ -60,7 +58,7 @@ class DeflakePlugin:
         # Its path is the root directory that pytest looks in for tests, in
         # our case it's the root of the repo, so we can use it to make
         # relative paths that can be used to generate GitHub urls
-        self.test_run = TestRun(root=session.path)
+        self.test_run.root = session.path
 
     def pytest_runtest_protocol(self, item: Item, nextitem: Item | None) -> bool:
         # The main protocol for running a single test
@@ -103,7 +101,7 @@ class DeflakePlugin:
             if previous_outcomes[call.when] == "failed" and report.outcome == "passed":
                 # This test initially failed then passed on a retry, it's flaky
                 report.outcome = "flaky"
-                self._flaky_tests += 1
+                self.flaky_tests += 1
         elif report.outcome == "failed":
             # This test should be retried
             report.should_retry = True
@@ -159,12 +157,12 @@ class DeflakePlugin:
                     )
                 except Exception as e:  # noqa
                     # Catch all exceptions to be logged later, don't let this fail the test run
-                    self._exceptions[nodeid] = e
+                    self.exceptions[nodeid] = e
 
     def pytest_terminal_summary(self, terminalreporter: TerminalReporter) -> None:
         # Called at the end of the pytest run to print custom messages to the terminal
         lines = []
-        if self._flaky_tests > 0:
+        if self.flaky_tests > 0:
             if not self.github:
                 lines.append(
                     "Could not report flaky tests because GH_TOKEN was missing"
@@ -173,7 +171,7 @@ class DeflakePlugin:
                 lines.append(
                     f"Could not report flaky tests because {TEST_TYPE_OPTION} was missing"
                 )
-        for nodeid, e in self._exceptions.items():
+        for nodeid, e in self.exceptions.items():
             lines.append(
                 f"Failed to create or update flaky test issue for {nodeid}: {e}"
             )
@@ -185,7 +183,7 @@ class DeflakePlugin:
 
 def pytest_configure(config: Config) -> None:
     # Register our plugin with pytest
-    plugin = DeflakePlugin()
+    plugin = DeflakePlugin(config)
     config.pluginmanager.register(plugin, name=plugin.name)
 
 
@@ -223,9 +221,9 @@ class TestResult:
     teardown: TestPhase = field(default_factory=TestPhase)
 
 
-@dataclass(frozen=True)
+@dataclass
 class TestRun:
-    root: Path
+    root: Path = field(init=False)
     tests: dict[str, TestResult] = field(default_factory=dict)
 
 
