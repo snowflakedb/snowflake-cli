@@ -9,9 +9,16 @@ from typing import Generator, cast
 
 import pytest
 import requests
+from _pytest.config import Config, Parser
+from _pytest.main import Session
+from _pytest.nodes import Item
+from _pytest.reports import TestReport
+from _pytest.runner import CallInfo
+from _pytest.stash import StashKey
+from _pytest.terminal import TerminalReporter
 
 TEST_TYPE_OPTION = "--deflake-test-type"
-PREVIOUS_OUTCOME_KEY = pytest.StashKey[dict[str, str]]()
+PREVIOUS_OUTCOME_KEY = StashKey[dict[str, str]]()
 
 APP_REPO = "snowflakedb/snowflake-cli"
 ISSUE_REPO = APP_REPO
@@ -22,39 +29,40 @@ PHASES = ["setup", "call", "teardown"]
 class DeflakePlugin:
     name = "deflake"
 
-    def pytest_configure(self, config):
-        level = logging.DEBUG if config.option.verbose > 1 else logging.INFO
-        self.log = logging.getLogger(self.name)
-        self.log.setLevel(level)
+    def __init__(self: DeflakePlugin) -> None:
+        super().__init__()
+        self._exceptions: dict[str, Exception] = {}
+        self._flaky_tests: int = 0
+
+    def pytest_configure(self, config: Config) -> None:
         self.runner = config.pluginmanager.getplugin("runner")
         self.test_type = config.getoption(TEST_TYPE_OPTION)
 
         if token := os.getenv("GH_TOKEN"):
             rev_parse = run(["git", "rev-parse", "HEAD"], text=True, stdout=PIPE)
-            self.github = GitHub(token, rev_parse.stdout.strip())
+            self.github: GitHub | None = GitHub(token, rev_parse.stdout.strip())
         else:
             self.github = None
-            self.log.info("GH_TOKEN not provided, issue reporting disabled.")
 
-    def pytest_sessionstart(self, session):
-        self.report = Report(root=session.fspath)
+    def pytest_sessionstart(self, session: Session) -> None:
+        self.report = Report(root=session.path)
 
-    def pytest_runtest_protocol(self, item, nextitem):
+    def pytest_runtest_protocol(self, item: Item, nextitem: Item | None) -> bool:
         ihook = item.ihook
         ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
         reports = self.runner.runtestprotocol(item, nextitem=nextitem)
         if any(report.should_retry for report in reports):
             self.runner.runtestprotocol(item, nextitem=nextitem)
         ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
+
+        # Just return something so the next hook implementation isn't called
         return True
 
-    def pytest_runtest_logstart(self, nodeid, location):
+    def pytest_runtest_logstart(self, nodeid: str):
         self.report.tests[nodeid] = TestResult(nodeid)
 
     @pytest.hookimpl(hookwrapper=True)
-    def pytest_runtest_makereport(
-        self, item: pytest.Item, call: pytest.CallInfo
-    ) -> pytest.TestReport:
+    def pytest_runtest_makereport(self, item: Item, call: CallInfo) -> TestReport:
         previous_outcomes = item.stash.setdefault(PREVIOUS_OUTCOME_KEY, {})
         report = (yield).get_result()
 
@@ -64,15 +72,17 @@ class DeflakePlugin:
             if previous_outcomes[call.when] == "failed" and report.outcome == "passed":
                 # This test initially failed then passed on a retry, it's flaky
                 report.outcome = "flaky"
+                self._flaky_tests += 1
         elif report.outcome == "failed":
             # This test should be retried
             report.should_retry = True
+            # Don't count this as an error
             report.wasxfail = "Failure will be retried"
 
         previous_outcomes[call.when] = report.outcome
         return report
 
-    def pytest_runtest_logreport(self, report):
+    def pytest_runtest_logreport(self, report: TestReport) -> None:
         test = self.report.tests[report.nodeid]
         phase = getattr(test, report.when)
         phase.outcome = report.outcome
@@ -90,7 +100,9 @@ class DeflakePlugin:
             test.outcome = "flaky"
 
     @pytest.hookimpl(tryfirst=True)
-    def pytest_report_teststatus(self, report, config) -> tuple[str, str, str] | None:
+    def pytest_report_teststatus(
+        self, report: TestReport
+    ) -> tuple[str, str, str] | None:
         if report.should_retry:
             # Don't log a status for this yet since it's not final
             return "", "", ""
@@ -98,27 +110,46 @@ class DeflakePlugin:
             return "flaky", "K", "FLAKY"
         return None
 
-    def pytest_sessionfinish(self, session: pytest.Session, exitstatus):
+    def pytest_sessionfinish(self) -> None:
         for nodeid, test in self.report.tests.items():
             if test.outcome != "flaky":
                 continue
 
-            self.log.debug(nodeid)
             if self.github and self.test_type:
                 try:
                     self.github.create_or_update_flaky_test_issue(
                         self.report.root, self.test_type, test
                     )
-                except Exception:  # noqa
-                    self.log.exception(f"Failed to create or update flaky test issue")
+                except Exception as e:  # noqa
+                    self._exceptions[nodeid] = e
+
+    def pytest_terminal_summary(self, terminalreporter: TerminalReporter) -> None:
+        lines = []
+        if self._flaky_tests > 0:
+            if not self.github:
+                lines.append(
+                    "Could not report flaky tests because GH_TOKEN was missing"
+                )
+            if not self.test_type:
+                lines.append(
+                    f"Could not report flaky tests because {TEST_TYPE_OPTION} was missing"
+                )
+        for nodeid, e in self._exceptions.items():
+            lines.append(
+                f"Failed to create or update flaky test issue for {nodeid}: {e}"
+            )
+        if lines:
+            terminalreporter.write_sep("=", f"{self.name} plugin warnings", yellow=True)
+            for line in lines:
+                terminalreporter.write_line(line)
 
 
-def pytest_configure(config):
+def pytest_configure(config: Config) -> None:
     plugin = DeflakePlugin()
     config.pluginmanager.register(plugin, name=plugin.name)
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: Parser):
     group = parser.getgroup(
         "deflake", "deflake tests by recording flakes as GitHub issues"
     )
