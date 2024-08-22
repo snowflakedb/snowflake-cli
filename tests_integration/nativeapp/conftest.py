@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -22,14 +23,21 @@ def nativeapp_project_directory(project_directory, nativeapp_teardown):
 @pytest.fixture
 def nativeapp_teardown(runner: SnowCLIRunner):
     @contextmanager
-    def _nativeapp_teardown(project_dir: Path | None = None):
+    def _nativeapp_teardown(
+        *,
+        project_dir: Path | None = None,
+        env: dict | None = None,
+    ):
         try:
             yield
         finally:
             args = ["--force", "--cascade"]
             if project_dir:
                 args += ["--project", str(project_dir)]
-            result = runner.invoke_with_connection_json(["app", "teardown", *args])
+            kwargs: dict[str, Any] = {}
+            if env:
+                kwargs["env"] = env
+            result = runner.invoke_with_connection(["app", "teardown", *args], **kwargs)
             assert result.exit_code == 0
 
     return _nativeapp_teardown

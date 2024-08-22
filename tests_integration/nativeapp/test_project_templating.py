@@ -50,7 +50,7 @@ def test_nativeapp_project_templating_use_env_from_os(
         )
         assert result.exit_code == 0
 
-        with nativeapp_teardown():
+        with nativeapp_teardown(env=local_test_env):
             # app + package exist
             package_name = f"{project_name}_{test_ci_env}_pkg_{default_username}{resource_suffix}".upper()
             app_name = f"{project_name}_{test_ci_env}_{default_username}{resource_suffix}".upper()
@@ -120,7 +120,7 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
         )
         assert result.exit_code == 0
 
-        with nativeapp_teardown():
+        with nativeapp_teardown(env=local_test_env):
             # app + package exist
             package_name = f"{project_name}_{test_ci_env}_pkg_{default_username}{resource_suffix}".upper()
             app_name = f"{project_name}_{test_ci_env}_{default_username}{resource_suffix}".upper()
@@ -190,7 +190,7 @@ def test_nativeapp_project_templating_use_default_env_from_project(
         )
         assert result.exit_code == 0
 
-        with nativeapp_teardown():
+        with nativeapp_teardown(env=local_test_env):
             # app + package exist
             package_name = f"{project_name}_{default_ci_env}_pkg_{default_username}{resource_suffix}".upper()
             app_name = f"{project_name}_{default_ci_env}_{default_username}{resource_suffix}".upper()
@@ -262,7 +262,7 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
         )
         assert result.exit_code == 0
 
-        with nativeapp_teardown():
+        with nativeapp_teardown(env=local_test_env):
             # app + package exist
             package_name = f"{project_name}_{expected_value}_pkg_{default_username}{resource_suffix}".upper()
             app_name = f"{project_name}_{expected_value}_{default_username}{resource_suffix}".upper()
@@ -329,7 +329,7 @@ def test_nativeapp_project_templating_bundle_deploy_successful(
     local_test_env = {"CI_ENV": test_ci_env, "APP_DIR": "app"}
 
     with pushd(project_dir):
-        with nativeapp_teardown():
+        with nativeapp_teardown(env=local_test_env):
             result = runner.invoke_json(
                 ["app", "bundle"],
                 env=local_test_env,
