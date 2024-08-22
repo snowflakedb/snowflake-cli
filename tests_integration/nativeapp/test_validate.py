@@ -21,35 +21,25 @@ from tests_integration.test_utils import (
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
-def test_nativeapp_validate(test_project, project_directory, runner):
-    with project_directory(test_project):
-        try:
-            # validate the app's setup script
-            result = runner.invoke_with_connection(["app", "validate"])
-            assert result.exit_code == 0, result.output
-            assert "Native App validation succeeded." in result.output
-        finally:
-            result = runner.invoke_with_connection(["app", "teardown", "--force"])
-            assert result.exit_code == 0, result.output
+def test_nativeapp_validate(test_project, nativeapp_project_directory, runner):
+    with nativeapp_project_directory(test_project):
+        # validate the app's setup script
+        result = runner.invoke_with_connection(["app", "validate"])
+        assert result.exit_code == 0, result.output
+        assert "Native App validation succeeded." in result.output
 
 
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
-def test_nativeapp_validate_failing(test_project, project_directory, runner):
-    with project_directory(test_project):
+def test_nativeapp_validate_failing(test_project, nativeapp_project_directory, runner):
+    with nativeapp_project_directory(test_project):
         # Create invalid SQL file
         Path("app/setup_script.sql").write_text("Lorem ipsum dolor sit amet")
 
-        try:
-            # validate the app's setup script, this will fail
-            # because we include an empty file
-            result = runner.invoke_with_connection(["app", "validate"])
-            assert result.exit_code == 1, result.output
-            assert (
-                "Snowflake Native App setup script failed validation." in result.output
-            )
-            assert "syntax error" in result.output
-        finally:
-            result = runner.invoke_with_connection(["app", "teardown", "--force"])
-            assert result.exit_code == 0, result.output
+        # validate the app's setup script, this will fail
+        # because we include an empty file
+        result = runner.invoke_with_connection(["app", "validate"])
+        assert result.exit_code == 1, result.output
+        assert "Snowflake Native App setup script failed validation." in result.output
+        assert "syntax error" in result.output

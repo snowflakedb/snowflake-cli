@@ -39,9 +39,9 @@ from tests_integration.testing_utils import assert_that_result_is_usage_error
     ],
 )
 def test_app_events_mutually_exclusive_options(
-    test_project, runner, project_directory, flag_names, command
+    test_project, runner, nativeapp_project_directory, flag_names, command
 ):
-    with project_directory(test_project):
+    with nativeapp_project_directory(test_project):
         # The integration test account doesn't have an event table set up
         # but this test is still useful to validate the negative case
         result = runner.invoke_with_connection(["app", "events", *command])
@@ -69,9 +69,9 @@ def test_app_events_mutually_exclusive_options(
     ],
 )
 def test_app_events_paired_options(
-    test_project, runner, project_directory, flag_names, command
+    test_project, runner, nativeapp_project_directory, flag_names, command
 ):
-    with project_directory(test_project):
+    with nativeapp_project_directory(test_project):
         # The integration test account doesn't have an event table set up
         # but this test is still useful to validate the negative case
         result = runner.invoke_with_connection(["app", "events", *command])
@@ -84,8 +84,10 @@ def test_app_events_paired_options(
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
-def test_app_events_reject_invalid_type(test_project, runner, project_directory):
-    with project_directory(test_project):
+def test_app_events_reject_invalid_type(
+    test_project, runner, nativeapp_project_directory
+):
+    with nativeapp_project_directory(test_project):
         # The integration test account doesn't have an event table set up
         # but this test is still useful to validate the negative case
         result = runner.invoke_with_connection(["app", "events", "--type", "foo"])

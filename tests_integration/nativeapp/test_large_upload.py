@@ -97,6 +97,5 @@ def test_large_upload_skips_reupload(
             # make sure our file has been deleted
             temp_file.unlink(missing_ok=True)
 
-            # teardown is idempotent, so we can execute it again with no ill effects
             result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0

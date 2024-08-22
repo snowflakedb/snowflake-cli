@@ -34,6 +34,7 @@ def test_nativeapp_project_templating_use_env_from_os(
     snowflake_session,
     default_username,
     resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
@@ -49,7 +50,7 @@ def test_nativeapp_project_templating_use_env_from_os(
         )
         assert result.exit_code == 0
 
-        try:
+        with nativeapp_teardown():
             # app + package exist
             package_name = f"{project_name}_{test_ci_env}_pkg_{default_username}{resource_suffix}".upper()
             app_name = f"{project_name}_{test_ci_env}_{default_username}{resource_suffix}".upper()
@@ -88,21 +89,6 @@ def test_nativeapp_project_templating_use_env_from_os(
                 ),
                 {"ECHO": test_string},
             )
-
-            # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
 
 
 # Tests a simple flow of native app with template reading env variables from OS through an intermediate var
@@ -118,6 +104,7 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
     snowflake_session,
     default_username,
     resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
@@ -133,7 +120,7 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
         )
         assert result.exit_code == 0
 
-        try:
+        with nativeapp_teardown():
             # app + package exist
             package_name = f"{project_name}_{test_ci_env}_pkg_{default_username}{resource_suffix}".upper()
             app_name = f"{project_name}_{test_ci_env}_{default_username}{resource_suffix}".upper()
@@ -173,21 +160,6 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
                 {"ECHO": test_string},
             )
 
-            # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-
 
 # Tests a simple flow of native app with template reading default env values from project definition file
 @pytest.mark.integration
@@ -202,6 +174,7 @@ def test_nativeapp_project_templating_use_default_env_from_project(
     snowflake_session,
     default_username,
     resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
@@ -217,7 +190,7 @@ def test_nativeapp_project_templating_use_default_env_from_project(
         )
         assert result.exit_code == 0
 
-        try:
+        with nativeapp_teardown():
             # app + package exist
             package_name = f"{project_name}_{default_ci_env}_pkg_{default_username}{resource_suffix}".upper()
             app_name = f"{project_name}_{default_ci_env}_{default_username}{resource_suffix}".upper()
@@ -257,21 +230,6 @@ def test_nativeapp_project_templating_use_default_env_from_project(
                 {"ECHO": test_string},
             )
 
-            # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-
 
 # Tests a native app with --env parameter through command line overwriting values from os env and project definition filetemplate reading env var
 @pytest.mark.integration
@@ -286,6 +244,7 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
     snowflake_session,
     default_username,
     resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
@@ -303,7 +262,7 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
         )
         assert result.exit_code == 0
 
-        try:
+        with nativeapp_teardown():
             # app + package exist
             package_name = f"{project_name}_{expected_value}_pkg_{default_username}{resource_suffix}".upper()
             app_name = f"{project_name}_{expected_value}_{default_username}{resource_suffix}".upper()
@@ -350,14 +309,6 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
             )
             assert result.exit_code == 0
 
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--env", f"CI_ENV={expected_value}", "--force"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-
 
 # Tests that other native app commands still succeed with templating
 @pytest.mark.integration
@@ -369,6 +320,7 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
 )
 def test_nativeapp_project_templating_bundle_deploy_successful(
     runner,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_dir = project_definition_files[0].parent
@@ -377,7 +329,7 @@ def test_nativeapp_project_templating_bundle_deploy_successful(
     local_test_env = {"CI_ENV": test_ci_env, "APP_DIR": "app"}
 
     with pushd(project_dir):
-        try:
+        with nativeapp_teardown():
             result = runner.invoke_json(
                 ["app", "bundle"],
                 env=local_test_env,
@@ -386,13 +338,6 @@ def test_nativeapp_project_templating_bundle_deploy_successful(
 
             result = runner.invoke_with_connection_json(
                 ["app", "deploy"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
                 env=local_test_env,
             )
             assert result.exit_code == 0
