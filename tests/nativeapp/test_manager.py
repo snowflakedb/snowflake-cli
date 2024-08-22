@@ -208,7 +208,8 @@ Use the --prune flag to delete them from the stage."""
     else:
         mock_warning.assert_not_called()
 
-# Test use_role and success path of get_app_pkg_distribution_in_snowflake  
+
+# Test use_role and success path of get_app_pkg_distribution_in_snowflake
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_cursor):
 
@@ -280,6 +281,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
 
     assert mock_execute.mock_calls == expected
 
+
 @mock.patch(NATIVEAPP_MANAGER_USE_ROLE)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
@@ -305,6 +307,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
         native_app_manager.get_app_pkg_distribution_in_snowflake
 
     assert mock_execute.mock_calls == expected
+
 
 @mock.patch(NATIVEAPP_MANAGER_USE_ROLE)
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
