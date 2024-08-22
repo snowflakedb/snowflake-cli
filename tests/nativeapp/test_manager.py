@@ -1462,6 +1462,8 @@ def test_get_events_no_event_table(mock_account_event_table, temp_dir, mock_curs
 )
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cursor):
+    from datetime import datetime
+
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,

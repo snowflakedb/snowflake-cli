@@ -25,7 +25,7 @@ from typing import Any, List, NoReturn, Optional, TypedDict
 
 import jinja2
 from click import ClickException
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
@@ -682,7 +682,7 @@ class NativeAppManager(SqlExecutionMixin):
                 loader=jinja2.loaders.FileSystemLoader(self.project_root)
             )
             scripts_content_list = self._expand_script_templates(
-                env, get_cli_context().template_context, sql_scripts_paths
+                env, cli_context.template_context, sql_scripts_paths
             )
 
             for index, sql_script_path in enumerate(sql_scripts_paths):

@@ -20,7 +20,6 @@ from typing import Optional
 
 import typer
 from click import UsageError
-from snowflake.cli.api.cli_global_context import cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
@@ -150,30 +149,6 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             self._execute_queries(script_content)
         except ProgrammingError as err:
             generic_sql_error_handler(err)
-
-    def _execute_post_deploy_hooks(self):
-        post_deploy_script_hooks = self.app_post_deploy_hooks
-        if post_deploy_script_hooks:
-            with cc.phase("Executing application post-deploy actions"):
-                sql_scripts_paths = []
-                for hook in post_deploy_script_hooks:
-                    if hook.sql_script:
-                        sql_scripts_paths.append(hook.sql_script)
-                    else:
-                        raise ValueError(
-                            f"Unsupported application post-deploy hook type: {hook}"
-                        )
-
-                env = get_sql_cli_jinja_env(
-                    loader=jinja2.loaders.FileSystemLoader(self.project_root)
-                )
-                scripts_content_list = self._expand_script_templates(
-                    env, cli_context.template_context, sql_scripts_paths
-                )
-
-                for index, sql_script_path in enumerate(sql_scripts_paths):
-                    cc.step(f"Executing SQL script: {sql_script_path}")
-                    self._execute_sql_script(scripts_content_list[index], self.app_name)
 
     def get_all_existing_versions(self) -> SnowflakeCursor:
         """
