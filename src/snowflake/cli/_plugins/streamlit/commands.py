@@ -139,7 +139,7 @@ def streamlit_deploy(
             raise NoProjectDefinitionError(
                 project_type="streamlit", project_file=cli_context.project_root
             )
-        pd = _migrate_v1_streamlit_to_v2(pd)
+        pd = migrate_v1_streamlit_to_v2(pd)
 
     streamlits: Dict[str, StreamlitEntityModel] = pd.get_entities_by_type(
         entity_type="streamlit"
@@ -171,7 +171,7 @@ def streamlit_deploy(
     return MessageResult(f"Streamlit successfully deployed and available under {url}")
 
 
-def _migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
+def migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
     default_env_file = "environment.yml"
     default_pages_dir = "pages"
 

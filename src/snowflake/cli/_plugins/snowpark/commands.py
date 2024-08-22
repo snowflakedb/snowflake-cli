@@ -511,7 +511,7 @@ def describe(
     )
 
 
-def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
+def migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
     if not pd.snowpark:
         raise NoProjectDefinitionError(
             project_type="snowpark", project_file=get_cli_context().project_root
@@ -556,5 +556,5 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
 def _get_v2_project_definition(cli_context) -> ProjectDefinitionV2:
     pd = cli_context.project_definition
     if not pd.meets_version_requirement("2"):
-        pd = _migrate_v1_snowpark_to_v2(pd)
+        pd = migrate_v1_snowpark_to_v2(pd)
     return pd
