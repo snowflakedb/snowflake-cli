@@ -954,14 +954,17 @@ def test_snowpark_flow_v2(
             "hello_function(VARCHAR) RETURN VARCHAR"
         )
 
-        expected_files = [
-            f"{STAGE_NAME}/my_project/app_1.zip",
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+            "stage_a/my_project/app_1.zip",
+            "stage_a/my_project/dependencies.zip",
+            stage_name="stage_a",
+        )
+
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
             f"{STAGE_NAME}/my_project/app_2.zip",
             f"{STAGE_NAME}/my_project/c.py",
             f"{STAGE_NAME}/my_project/dependencies.zip",
-        ]
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-            *expected_files, stage_name=STAGE_NAME
+            stage_name=STAGE_NAME,
         )
 
         # Created objects can be executed

@@ -6,6 +6,7 @@ defaults:
 entities:
   hello_procedure:
     type: "procedure"
+    stage: "stage_a"
     identifier:
       name: "hello_procedure"
     handler: "a.hello_procedure"

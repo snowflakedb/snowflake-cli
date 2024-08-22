@@ -4,7 +4,7 @@
   Performing initial validation
   Checking remote state
   Preparing required stages and artifacts
-    Creating stage: dev_deployment
+    Creating (if not exists) stage: dev_deployment
     Uploading app.zip to @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/
   Creating Snowpark entities
     Creating function custom_db.custom_schema.fqn_function

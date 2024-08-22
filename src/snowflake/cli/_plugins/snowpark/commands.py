@@ -246,7 +246,7 @@ def build_artifacts_mappings(
 def create_stages_and_upload_artifacts(stages_to_artifact_map: StageToArtefactMapping):
     stage_manager = StageManager()
     for stage, artifacts in stages_to_artifact_map.items():
-        cli_console.step(f"Creating stage: {stage}")
+        cli_console.step(f"Creating (if not exists) stage: {stage}")
         stage = FQN.from_stage(stage).using_context()
         stage_manager.create(fqn=stage, comment="deployments managed by Snowflake CLI")
         for artefact in artifacts:
@@ -312,15 +312,8 @@ def _deploy_single_object(
     snowflake_dependencies: List[str],
     entities_to_artifact_map: EntityToImportPathsMapping,
 ):
-
     object_type = entity.get_type()
     is_procedure = isinstance(entity, ProcedureEntityModel)
-
-    log.info(
-        "Deploying %s: %s",
-        object_type,
-        entity.udf_sproc_identifier.identifier_with_arg_names_types,
-    )
 
     handler = entity.handler
     returns = entity.returns
