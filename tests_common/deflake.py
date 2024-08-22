@@ -246,7 +246,8 @@ class GitHub:
     def get_issue(self, test_type: str, test: TestResult) -> dict[str, dict] | None:
         issues = self.get(f"repos/{ISSUE_REPO}/issues", labels=FLAKY_LABEL, state="all")
         for issue in issues:
-            if issue["title"] == self.issue_title(test_type, test):
+            # We prepend a JIRA ticket ID to new issues, so check for then of the title only
+            if issue["title"].endswith(self.issue_title(test_type, test)):
                 return issue
         return None
 
