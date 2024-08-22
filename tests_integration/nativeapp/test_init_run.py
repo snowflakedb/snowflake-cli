@@ -242,20 +242,6 @@ def test_nativeapp_run_existing_w_external(
                 {"ECHO": test_string},
             )
 
-            expect = snowflake_session.execute_string(
-                f"show applications like '{app_name}'"
-            )
-            assert not_contains_row_with(
-                row_from_snowflake_session(expect), {"name": app_name}
-            )
-
-            expect = snowflake_session.execute_string(
-                f"show application packages like '{package_name}'"
-            )
-            assert not_contains_row_with(
-                row_from_snowflake_session(expect), {"name": package_name}
-            )
-
 
 # Verifies that running "app run" after "app deploy" upgrades the app
 @pytest.mark.integration

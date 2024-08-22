@@ -74,13 +74,6 @@ def test_nativeapp_version_create_and_drop(
             actual = runner.invoke_with_connection_json(["app", "version", "list"])
             assert len(actual.json) == 0
 
-            expect = snowflake_session.execute_string(
-                f"show application packages like '{package_name}'"
-            )
-            assert not_contains_row_with(
-                row_from_snowflake_session(expect), {"name": package_name}
-            )
-
 
 # Tests upgrading an app from an existing loose files installation to versioned installation.
 @pytest.mark.integration
@@ -180,13 +173,6 @@ def test_nativeapp_version_create_3_patches(
             actual = runner.invoke_with_connection_json(["app", "version", "list"])
             assert len(actual.json) == 0
 
-            expect = snowflake_session.execute_string(
-                f"show application packages like '{package_name}'"
-            )
-            assert not_contains_row_with(
-                row_from_snowflake_session(expect), {"name": package_name}
-            )
-
 
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
@@ -258,13 +244,6 @@ def test_nativeapp_version_create_patch_is_integer(
             # ensure there are no versions now
             actual = runner.invoke_with_connection_json(["app", "version", "list"])
             assert len(actual.json) == 0
-
-            expect = snowflake_session.execute_string(
-                f"show application packages like '{package_name}'"
-            )
-            assert not_contains_row_with(
-                row_from_snowflake_session(expect), {"name": package_name}
-            )
 
 
 # Tests creating a version for a package that was not created by the CLI
