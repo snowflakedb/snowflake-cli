@@ -7410,14 +7410,18 @@
 # name: test_help_messages[streamlit.deploy]
   '''
                                                                                   
-   Usage: default streamlit deploy [OPTIONS]                                      
+   Usage: default streamlit deploy [OPTIONS] [ENTITY_ID]                          
                                                                                   
    Deploys a Streamlit app defined in the project definition file                 
    (snowflake.yml). By default, the command uploads environment.yml and any other 
    pages or folders, if present. If you don’t specify a stage name, the           
    `streamlit` stage is used. If the specified stage does not exist, the command  
-   creates it.                                                                    
+   creates it. If multiple Streamlits are defined in snowflake.yml and no         
+   entity_id is provided then command will raise an error.                        
                                                                                   
+  +- Arguments ------------------------------------------------------------------+
+  |   entity_id      [ENTITY_ID]  ID of streamlit entity. [default: None]        |
+  +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --replace                Replace the Streamlit app if it already exists.     |
   | --open                   Whether to open the Streamlit app in a browser.     |
@@ -7871,7 +7875,9 @@
   |            (snowflake.yml). By default, the command uploads environment.yml  |
   |            and any other pages or folders, if present. If you don’t specify  |
   |            a stage name, the `streamlit` stage is used. If the specified     |
-  |            stage does not exist, the command creates it.                     |
+  |            stage does not exist, the command creates it. If multiple         |
+  |            Streamlits are defined in snowflake.yml and no entity_id is       |
+  |            provided then command will raise an error.                        |
   | describe   Provides description of streamlit.                                |
   | drop       Drops streamlit with given name.                                  |
   | get-url    Returns a URL to the specified Streamlit app                      |
@@ -8308,7 +8314,9 @@
   |            (snowflake.yml). By default, the command uploads environment.yml  |
   |            and any other pages or folders, if present. If you don’t specify  |
   |            a stage name, the `streamlit` stage is used. If the specified     |
-  |            stage does not exist, the command creates it.                     |
+  |            stage does not exist, the command creates it. If multiple         |
+  |            Streamlits are defined in snowflake.yml and no entity_id is       |
+  |            provided then command will raise an error.                        |
   | describe   Provides description of streamlit.                                |
   | drop       Drops streamlit with given name.                                  |
   | get-url    Returns a URL to the specified Streamlit app                      |

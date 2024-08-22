@@ -372,6 +372,10 @@ OnErrorOption = typer.Option(
 NoInteractiveOption = typer.Option(False, "--no-interactive", help="Disable prompting.")
 
 
+def entity_argument(entity_type: str) -> typer.Argument:
+    return typer.Argument(None, help=f"ID of {entity_type} entity.")
+
+
 def variables_option(description: str):
     return typer.Option(
         None,
