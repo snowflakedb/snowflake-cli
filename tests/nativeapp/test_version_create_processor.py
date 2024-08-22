@@ -105,8 +105,11 @@ def test_get_existing_release_direction_info(mock_execute, temp_dir, mock_cursor
 
 # Test add_new_version adds a new version to an app pkg correctly
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_add_version(mock_execute, temp_dir, mock_cursor):
-    version = "V1"
+@pytest.mark.parametrize(
+    ["version", "version_identifier"],
+    [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
+)
+def test_add_version(mock_execute, temp_dir, mock_cursor, version, version_identifier):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -120,7 +123,7 @@ def test_add_version(mock_execute, temp_dir, mock_cursor):
                     dedent(
                         f"""\
                         alter application package app_pkg
-                            add version V1
+                            add version {version_identifier}
                             using @app_pkg.app_src.stage
                     """
                     ),
@@ -146,8 +149,13 @@ def test_add_version(mock_execute, temp_dir, mock_cursor):
 
 # Test add_new_patch_to_version adds an "auto-increment" patch to an existing version
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_add_new_patch_auto(mock_execute, temp_dir, mock_cursor):
-    version = "V1"
+@pytest.mark.parametrize(
+    ["version", "version_identifier"],
+    [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
+)
+def test_add_new_patch_auto(
+    mock_execute, temp_dir, mock_cursor, version, version_identifier
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -161,7 +169,7 @@ def test_add_new_patch_auto(mock_execute, temp_dir, mock_cursor):
                     dedent(
                         f"""\
                         alter application package app_pkg
-                            add patch  for version V1
+                            add patch  for version {version_identifier}
                             using @app_pkg.app_src.stage
                     """
                     ),
@@ -187,8 +195,13 @@ def test_add_new_patch_auto(mock_execute, temp_dir, mock_cursor):
 
 # Test add_new_patch_to_version adds a custom patch to an existing version
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_add_new_patch_custom(mock_execute, temp_dir, mock_cursor):
-    version = "V1"
+@pytest.mark.parametrize(
+    ["version", "version_identifier"],
+    [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
+)
+def test_add_new_patch_custom(
+    mock_execute, temp_dir, mock_cursor, version, version_identifier
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -202,7 +215,7 @@ def test_add_new_patch_custom(mock_execute, temp_dir, mock_cursor):
                     dedent(
                         f"""\
                         alter application package app_pkg
-                            add patch 12 for version V1
+                            add patch 12 for version {version_identifier}
                             using @app_pkg.app_src.stage
                     """
                     ),
@@ -222,7 +235,7 @@ def test_add_new_patch_custom(mock_execute, temp_dir, mock_cursor):
     )
 
     processor = _get_version_create_processor()
-    processor.add_new_patch_to_version(version, "12")
+    processor.add_new_patch_to_version(version, 12)
     assert mock_execute.mock_calls == expected
 
 
@@ -282,7 +295,7 @@ def test_process_no_version_exists_throws_bad_option_exception_one(
         processor.process(
             bundle_map=mock_bundle_map,
             version="v1",
-            patch="12",
+            patch=12,
             policy=policy_param,
             git_policy=policy_param,
             is_interactive=False,
@@ -315,7 +328,7 @@ def test_process_no_version_exists_throws_bad_option_exception_two(
         processor.process(
             bundle_map=mock_bundle_map,
             version="v1",
-            patch="12",
+            patch=12,
             policy=policy_param,
             git_policy=policy_param,
             is_interactive=False,
