@@ -2,7 +2,7 @@ definition_version: 1
 snowpark:
   project_name: "my_snowpark_project"
   stage_name: "dev_deployment"
-  src: "app/"
+  src: "app.py"
   procedures:
     - name: procedureName
       handler: "hello"

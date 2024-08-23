@@ -175,11 +175,11 @@ class SnowparkTestSteps:
         assert result.exit_code == 0, result.output
         assert result.json, result.output
         assert "message" in result.json
-        assert "Build done. Artifact path:" in result.json["message"]  # type: ignore
+        assert "Build done." in result.json["message"]  # type: ignore
 
         assert_that_current_working_directory_contains_only_following_files(
             *current_files,
-            Path("app.zip"),
+            Path("dependencies.zip"),
             *additional_files,
             Path("requirements.snowflake.txt"),
             excluded_paths=[".packages"],
