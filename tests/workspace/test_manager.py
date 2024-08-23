@@ -106,3 +106,17 @@ def test_migration_already_v2(runner, project_directory, project_directory_name)
 
     assert result.exit_code == 0
     assert "Project definition is already at version 2." in result.output
+
+
+@pytest.mark.parametrize(
+    "project_directory_name", ["snowpark_templated_v1", "streamlit_templated_v1"]
+)
+def test_if_template_is_not_rendered_during_migration(
+    runner, project_directory, project_directory_name, snapshot
+):
+    with project_directory(project_directory_name):
+        result = runner.invoke(["ws", "migrate"])
+
+    assert result.exit_code == 0
+    assert Path("snowflake.yml").read_text() == snapshot
+    assert Path("snowflake_V1.yml").read_text() == snapshot

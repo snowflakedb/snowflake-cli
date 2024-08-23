@@ -348,7 +348,9 @@ def test_snowpark_with_separately_created_package(
 
     with project_directory("snowpark_with_import") as p_dir:
 
-        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
+        _test_steps.snowpark_build_should_zip_files(
+            additional_files=[Path("app.zip")], no_dependencies=True
+        )
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -464,7 +466,9 @@ def test_snowpark_default_arguments(
 ):
     database = test_database.upper()
     with project_directory("snowpark_with_default_values") as tmp_dir:
-        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
+        _test_steps.snowpark_build_should_zip_files(
+            additional_files=[Path("app.zip")], no_dependencies=True
+        )
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -730,7 +734,7 @@ def test_build_skip_version_check(
         )
         assert result.exit_code == 0, result.output
         assert "Build done." in result.output
-        assert "Creating dependencies.zip" in result.output
+        assert "Creating dependencies.zip" not in result.output
         assert "Creating: app.zip" in result.output
 
 

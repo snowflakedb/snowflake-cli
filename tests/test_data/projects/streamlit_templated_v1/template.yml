@@ -1,0 +1,12 @@
+files_to_render:
+  - snowflake.yml
+variables:
+  - name: name
+    default: streamlit_app
+    prompt: "Name of the streamlit app"
+  - name: stage
+    default: my_streamlit_stage
+    prompt: "What stage should the app be deployed to?"
+  - name: query_warehouse
+    default: my_streamlit_warehouse
+    prompt: "On which warehouse SQL queries issued by the application are run"

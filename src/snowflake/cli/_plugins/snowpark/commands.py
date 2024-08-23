@@ -440,11 +440,14 @@ def build(
                     requirements=download_result.anaconda_packages,
                 )
 
-            cli_console.step(f"Creating {project_paths.dependencies.name}")
-            zip_dir(
-                source=temp_deps_dir.path,
-                dest_zip=project_paths.dependencies,
-            )
+            if any(temp_deps_dir.path.iterdir()):
+                cli_console.step(f"Creating {project_paths.dependencies.name}")
+                zip_dir(
+                    source=temp_deps_dir.path,
+                    dest_zip=project_paths.dependencies,
+                )
+            else:
+                cli_console.step(f"No external dependencies.")
 
     artifacts = set()
     for entity in get_snowpark_entities(pd).values():
