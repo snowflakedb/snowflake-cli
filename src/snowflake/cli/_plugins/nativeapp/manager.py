@@ -23,7 +23,7 @@ from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Callable, Dict, Generator, List, NoReturn, Optional, TypedDict
+from typing import Any, Generator, List, NoReturn, Optional, TypedDict
 
 import jinja2
 from click import ClickException
@@ -84,8 +84,9 @@ from snowflake.cli.api.project.util import (
     identifier_for_url,
     unquote_identifier,
 )
-from snowflake.cli.api.rendering.jinja import jinja_render_from_file
-from snowflake.cli.api.rendering.sql_templates import SqlTemplateEnv
+from snowflake.cli.api.rendering.sql_templates import (
+    get_sql_cli_jinja_env,
+)
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import DictCursor, ProgrammingError
 
@@ -576,10 +577,7 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
     def _expand_script_templates(
-        self,
-        render_from_file: Callable[[Path, Dict[str, Any]], str],
-        jinja_context: dict[str, Any],
-        scripts: List[Path],
+        self, env: jinja2.Environment, jinja_context: dict[str, Any], scripts: List[str]
     ) -> List[str]:
         """
         Input:
@@ -593,7 +591,8 @@ class NativeAppManager(SqlExecutionMixin):
         scripts_contents = []
         for relpath in scripts:
             try:
-                result = render_from_file(relpath, jinja_context)
+                template = env.get_template(relpath)
+                result = template.render(**jinja_context)
                 scripts_contents.append(result)
 
             except jinja2.TemplateNotFound as e:
@@ -618,10 +617,14 @@ class NativeAppManager(SqlExecutionMixin):
                 "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
             )
 
+        env = jinja2.Environment(
+            loader=jinja2.loaders.FileSystemLoader(self.project_root),
+            keep_trailing_newline=True,
+            undefined=jinja2.StrictUndefined,
+        )
+
         queued_queries = self._expand_script_templates(
-            jinja_render_from_file,
-            dict(package_name=self.package_name),
-            [self.project_root / path for path in self.package_scripts],
+            env, dict(package_name=self.package_name), self.package_scripts
         )
 
         # once we're sure all the templates expanded correctly, execute all of them
@@ -669,19 +672,17 @@ class NativeAppManager(SqlExecutionMixin):
             sql_scripts_paths = []
             for hook in post_deploy_hooks:
                 if hook.sql_script:
-                    sql_scripts_paths.append(Path(hook.sql_script))
+                    sql_scripts_paths.append(hook.sql_script)
                 else:
                     raise ValueError(
                         f"Unsupported {deployed_object_type} post-deploy hook type: {hook}"
                     )
 
-            env = SqlTemplateEnv(
+            env = get_sql_cli_jinja_env(
                 loader=jinja2.loaders.FileSystemLoader(self.project_root)
             )
             scripts_content_list = self._expand_script_templates(
-                env.render_from_file,
-                get_cli_context().template_context,
-                sql_scripts_paths,
+                env, get_cli_context().template_context, sql_scripts_paths
             )
 
             for index, sql_script_path in enumerate(sql_scripts_paths):
