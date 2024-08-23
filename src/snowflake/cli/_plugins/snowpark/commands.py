@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, Optional, Set, Tuple
 
 import typer
 from click import ClickException, UsageError
@@ -34,18 +34,19 @@ from snowflake.cli._plugins.object.commands import (
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.snowpark import package_utils
-from snowflake.cli._plugins.snowpark.common import (
+from snowflake.cli._plugins.snowpark.manager import (
+    EntityToImportPathsMapping,
+    SnowparkEntities,
     SnowparkObject,
-    check_if_replace_is_required,
+    SnowparkObjectManager,
+    StageToArtefactMapping,
 )
-from snowflake.cli._plugins.snowpark.manager import SnowparkObjectManager
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AnacondaPackagesManager,
 )
 from snowflake.cli._plugins.snowpark.package.commands import app as package_app
 from snowflake.cli._plugins.snowpark.snowpark_project_paths import (
-    Artefact,
     SnowparkProjectPaths,
 )
 from snowflake.cli._plugins.snowpark.snowpark_shared import (
@@ -87,7 +88,6 @@ from snowflake.cli.api.output.types import (
 from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
     FunctionEntityModel,
     ProcedureEntityModel,
-    SnowparkEntityModel,
 )
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
@@ -121,11 +121,6 @@ IdentifierArgument = identifier_argument(
 LikeOption = like_option(
     help_example='`list function --like "my%"` lists all functions that begin with “my”',
 )
-
-
-SnowparkEntities = Dict[str, SnowparkEntityModel]
-StageToArtefactMapping = Dict[str, set[Artefact]]
-EntityToImportPathsMapping = Dict[str, set[str]]
 
 
 @app.command("deploy", requires_connection=True)
@@ -178,13 +173,13 @@ def deploy(
 
     # Create snowpark entities
     with cli_console.phase("Creating Snowpark entities"):
+        snowpark_manager = SnowparkObjectManager()
         snowflake_dependencies = _read_snowflake_requirements_file(
             project_paths.snowflake_requirements
         )
         deploy_status = []
         for entity in snowpark_entities.values():
-            cli_console.step(f"Creating {entity.type} {entity.fqn}")
-            operation_result = _deploy_single_object(
+            operation_result = snowpark_manager.deploy_entity(
                 entity=entity,
                 existing_objects=existing_objects,
                 snowflake_dependencies=snowflake_dependencies,
@@ -303,37 +298,6 @@ def _check_if_all_defined_integrations_exists(
         raise ClickException(
             f"Following external access integration does not exists in Snowflake: {', '.join(missing)}"
         )
-
-
-def _deploy_single_object(
-    entity: SnowparkEntityModel,
-    existing_objects: Dict[str, SnowflakeCursor],
-    snowflake_dependencies: List[str],
-    entities_to_artifact_map: EntityToImportPathsMapping,
-):
-    object_exists = entity.entity_id in existing_objects
-    replace_object = False
-    if object_exists:
-        replace_object = check_if_replace_is_required(
-            entity=entity,
-            current_state=existing_objects[entity.entity_id],
-            snowflake_dependencies=snowflake_dependencies,
-            stage_artifact_files=entities_to_artifact_map[entity.entity_id],
-        )
-
-    state = {
-        "object": entity.udf_sproc_identifier.identifier_with_arg_names_types_defaults,
-        "type": entity.get_type(),
-    }
-    if object_exists and not replace_object:
-        return {**state, "status": "packages updated"}
-
-    SnowparkObjectManager().create_or_replace(
-        entity=entity,
-        artifact_files=entities_to_artifact_map[entity.entity_id],
-        snowflake_dependencies=snowflake_dependencies,
-    )
-    return {**state, "status": "created" if not object_exists else "definition updated"}
 
 
 def _read_snowflake_requirements_file(file_path: SecurePath):

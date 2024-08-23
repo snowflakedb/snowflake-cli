@@ -17,11 +17,11 @@ from __future__ import annotations
 from typing import Tuple
 
 import pytest
-from snowflake.cli._plugins.snowpark.common import (
+from snowflake.cli._plugins.snowpark.manager import (
+    _check_if_replace_is_required,
     _convert_resource_details_to_dict,
     _snowflake_dependencies_differ,
     _sql_to_python_return_type_mapper,
-    check_if_replace_is_required,
 )
 from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
     ProcedureEntityModel,
@@ -110,7 +110,7 @@ def test_check_if_replace_is_required_entity_changes(
     entity = ProcedureEntityModel(**entity_spec)
 
     assert (
-        check_if_replace_is_required(
+        _check_if_replace_is_required(
             entity=entity,
             current_state=mock_procedure_description,
             snowflake_dependencies=[
@@ -160,7 +160,7 @@ def test_check_if_replace_is_required_file_changes(
     }
     kwargs.update(arguments)
     assert (
-        check_if_replace_is_required(
+        _check_if_replace_is_required(
             entity=entity, current_state=mock_procedure_description, **kwargs
         )
         == expected
