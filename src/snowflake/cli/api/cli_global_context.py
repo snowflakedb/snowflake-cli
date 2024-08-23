@@ -380,8 +380,8 @@ class _CliGlobalContextAccess:
         return self._manager.project_definition
 
     @property
-    def project_root(self):
-        return self._manager.project_root
+    def project_root(self) -> Path:
+        return Path(self._manager.project_root)
 
     @property
     def template_context(self) -> dict:

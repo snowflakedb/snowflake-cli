@@ -2922,9 +2922,9 @@
                                                                                   
    Usage: default snowpark build [OPTIONS]                                        
                                                                                   
-   Builds the Snowpark project as a `.zip` archive that can be used by `deploy`   
-   command. The archive is built using only the `artifacts` directory specified   
-   in the project file.                                                           
+   Builds artifacts required for the Snowpark project. The artifacts can be used  
+   by `deploy` command. For each directory in artifacts a .zip file is created.   
+   All non-anaconda dependencies are packaged in dependencies.zip file.           
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --ignore-anaconda                       Does not lookup packages on          |
@@ -3014,8 +3014,9 @@
                                                                                   
    Deploys procedures and functions defined in project. Deploying the project     
    alters all objects defined in it. By default, if any of the objects exist      
-   already the commands will fail unless `--replace` flag is provided. All        
-   deployed objects use the same artifact which is deployed only once.            
+   already the commands will fail unless `--replace` flag is provided. Required   
+   artifacts are deployed before creating functions or procedures. Dependencies   
+   are deployed once to every stage specified in definitions.                     
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --replace                Replaces procedure or function, even if no detected |
@@ -3664,14 +3665,16 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build      Builds the Snowpark project as a `.zip` archive that can be used  |
-  |            by `deploy` command. The archive is built using only the          |
-  |            `artifacts` directory specified in the project file.              |
+  | build      Builds artifacts required for the Snowpark project. The artifacts |
+  |            can be used by `deploy` command. For each directory in artifacts  |
+  |            a .zip file is created. All non-anaconda dependencies are         |
+  |            packaged in dependencies.zip file.                                |
   | deploy     Deploys procedures and functions defined in project. Deploying    |
   |            the project alters all objects defined in it. By default, if any  |
   |            of the objects exist already the commands will fail unless        |
-  |            `--replace` flag is provided. All deployed objects use the same   |
-  |            artifact which is deployed only once.                             |
+  |            `--replace` flag is provided. Required artifacts are deployed     |
+  |            before creating functions or procedures. Dependencies are         |
+  |            deployed once to every stage specified in definitions.            |
   | describe   Provides description of a procedure or function.                  |
   | drop       Drop procedure or function.                                       |
   | execute    Executes a procedure or function in a specified environment.      |
@@ -7410,14 +7413,18 @@
 # name: test_help_messages[streamlit.deploy]
   '''
                                                                                   
-   Usage: default streamlit deploy [OPTIONS]                                      
+   Usage: default streamlit deploy [OPTIONS] [ENTITY_ID]                          
                                                                                   
    Deploys a Streamlit app defined in the project definition file                 
    (snowflake.yml). By default, the command uploads environment.yml and any other 
    pages or folders, if present. If you don’t specify a stage name, the           
    `streamlit` stage is used. If the specified stage does not exist, the command  
-   creates it.                                                                    
+   creates it. If multiple Streamlits are defined in snowflake.yml and no         
+   entity_id is provided then command will raise an error.                        
                                                                                   
+  +- Arguments ------------------------------------------------------------------+
+  |   entity_id      [ENTITY_ID]  ID of streamlit entity. [default: None]        |
+  +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --replace                Replace the Streamlit app if it already exists.     |
   | --open                   Whether to open the Streamlit app in a browser.     |
@@ -7871,7 +7878,9 @@
   |            (snowflake.yml). By default, the command uploads environment.yml  |
   |            and any other pages or folders, if present. If you don’t specify  |
   |            a stage name, the `streamlit` stage is used. If the specified     |
-  |            stage does not exist, the command creates it.                     |
+  |            stage does not exist, the command creates it. If multiple         |
+  |            Streamlits are defined in snowflake.yml and no entity_id is       |
+  |            provided then command will raise an error.                        |
   | describe   Provides description of streamlit.                                |
   | drop       Drops streamlit with given name.                                  |
   | get-url    Returns a URL to the specified Streamlit app                      |
@@ -8103,14 +8112,16 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build      Builds the Snowpark project as a `.zip` archive that can be used  |
-  |            by `deploy` command. The archive is built using only the          |
-  |            `artifacts` directory specified in the project file.              |
+  | build      Builds artifacts required for the Snowpark project. The artifacts |
+  |            can be used by `deploy` command. For each directory in artifacts  |
+  |            a .zip file is created. All non-anaconda dependencies are         |
+  |            packaged in dependencies.zip file.                                |
   | deploy     Deploys procedures and functions defined in project. Deploying    |
   |            the project alters all objects defined in it. By default, if any  |
   |            of the objects exist already the commands will fail unless        |
-  |            `--replace` flag is provided. All deployed objects use the same   |
-  |            artifact which is deployed only once.                             |
+  |            `--replace` flag is provided. Required artifacts are deployed     |
+  |            before creating functions or procedures. Dependencies are         |
+  |            deployed once to every stage specified in definitions.            |
   | describe   Provides description of a procedure or function.                  |
   | drop       Drop procedure or function.                                       |
   | execute    Executes a procedure or function in a specified environment.      |
@@ -8308,7 +8319,9 @@
   |            (snowflake.yml). By default, the command uploads environment.yml  |
   |            and any other pages or folders, if present. If you don’t specify  |
   |            a stage name, the `streamlit` stage is used. If the specified     |
-  |            stage does not exist, the command creates it.                     |
+  |            stage does not exist, the command creates it. If multiple         |
+  |            Streamlits are defined in snowflake.yml and no entity_id is       |
+  |            provided then command will raise an error.                        |
   | describe   Provides description of streamlit.                                |
   | drop       Drops streamlit with given name.                                  |
   | get-url    Returns a URL to the specified Streamlit app                      |

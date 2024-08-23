@@ -14,9 +14,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import List, Literal, Optional, Union
 
 from pydantic import Field, field_validator
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     ExternalAccessBaseModel,
@@ -44,7 +46,7 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel):
         default=[],
     )
     stage: str = Field(title="Stage in which artifacts will be stored")
-    artifacts: str = Field(title="Folder where your code should be located")
+    artifacts: List[Path] = Field(title="List of required sources")
 
     @field_validator("runtime")
     @classmethod
@@ -52,6 +54,18 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel):
         if isinstance(runtime_input, float):
             return str(runtime_input)
         return runtime_input
+
+    @field_validator("artifacts")
+    @classmethod
+    def validate_artifacts(cls, artifacts: List[Path]) -> List[Path]:
+        for artefact in artifacts:
+            if "*" in str(artefact):
+                raise ValueError("Glob patterns not supported for Snowpark artifacts.")
+        return artifacts
+
+    @property
+    def udf_sproc_identifier(self) -> UdfSprocIdentifier:
+        return UdfSprocIdentifier.from_definition(self)
 
 
 class ProcedureEntityModel(SnowparkEntityModel):
@@ -65,3 +79,71 @@ class ProcedureEntityModel(SnowparkEntityModel):
 
 class FunctionEntityModel(SnowparkEntityModel):
     type: Literal["function"] = DiscriminatorField()  # noqa: A003
+
+
+class UdfSprocIdentifier:
+    def __init__(self, identifier: FQN, arg_names, arg_types, arg_defaults):
+        self._identifier = identifier
+        self._arg_names = arg_names
+        self._arg_types = arg_types
+        self._arg_defaults = arg_defaults
+
+    def _identifier_from_signature(self, sig: List[str], for_sql: bool = False):
+        signature = self._comma_join(sig)
+        id_ = self._identifier.sql_identifier if for_sql else self._identifier
+        return f"{id_}({signature})"
+
+    @staticmethod
+    def _comma_join(*args):
+        return ", ".join(*args)
+
+    @property
+    def identifier_with_arg_names(self):
+        return self._identifier_from_signature(self._arg_names)
+
+    @property
+    def identifier_with_arg_types(self):
+        return self._identifier_from_signature(self._arg_types)
+
+    @property
+    def identifier_with_arg_names_types(self):
+        sig = [f"{n} {t}" for n, t in zip(self._arg_names, self._arg_types)]
+        return self._identifier_from_signature(sig)
+
+    @property
+    def identifier_with_arg_names_types_defaults(self):
+        return self._identifier_from_signature(self._full_signature())
+
+    def _is_signature_type_a_string(self, sig_type: str) -> bool:
+        return sig_type.lower() in ["string", "varchar"]
+
+    def _full_signature(self):
+        sig = []
+        for name, _type, _default in zip(
+            self._arg_names, self._arg_types, self._arg_defaults
+        ):
+            s = f"{name} {_type}"
+            if _default:
+                if self._is_signature_type_a_string(_type):
+                    _default = f"'{_default}'"
+                s += f" default {_default}"
+            sig.append(s)
+        return sig
+
+    @property
+    def identifier_for_sql(self):
+        return self._identifier_from_signature(self._full_signature(), for_sql=True)
+
+    @classmethod
+    def from_definition(cls, udf_sproc: SnowparkEntityModel):
+        names = []
+        types = []
+        defaults = []
+        if udf_sproc.signature and udf_sproc.signature != "null":
+            for arg in udf_sproc.signature:
+                names.append(arg.name)  # type:ignore
+                types.append(arg.arg_type)  # type:ignore
+                defaults.append(arg.default)  # type:ignore
+
+        identifier = udf_sproc.fqn.using_context()
+        return cls(identifier, names, types, defaults)
