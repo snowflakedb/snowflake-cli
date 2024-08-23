@@ -84,20 +84,16 @@ def test_sql_env_value_from_cli_duplicate_arg(runner, snowflake_session):
     assert result.json == [{"'SECONDARG'": "secondArg"}]
 
 
-@pytest.mark.parametrize(
-    "template_syntaxes", ["&{.}.&{.}", "&{.}.<%.%>", "<%.%>.&{.}", "<%.%>.<%.%>"]
-)
+@pytest.mark.parametrize("t_start,t_end", [("&{", "}"), ("<%", "%>")])
 @pytest.mark.integration
 def test_sql_env_value_from_cli_multiple_args(
-    runner, snowflake_session, template_syntaxes
+    runner, snowflake_session, t_start, t_end
 ):
     result = runner.invoke_with_connection_json(
         [
             "sql",
             "-q",
-            "select '{}ctx.env.Test1{}-{}ctx.env.Test2{}'".format(
-                *template_syntaxes.split(".")
-            ),
+            f"select '{t_start}ctx.env.Test1{t_end}-{t_start}ctx.env.Test2{t_end}'",
             "--env",
             "Test1=test1",
             "--env",

@@ -322,8 +322,6 @@ def test_use_command(mock_execute_query, _object):
         "select &aaa.&bbb",
         "select &aaa.&{ bbb }",
         "select <% aaa %>.<% bbb %>",
-        "select <% aaa %>.&{ bbb }",
-        "select &aaa.<% bbb %>",
     ],
 )
 @mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
@@ -333,6 +331,15 @@ def test_rendering_of_sql(mock_execute_query, query, runner):
     mock_execute_query.assert_called_once_with(
         "select foo.bar", cursor_class=VerboseCursor
     )
+
+
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
+def test_mixed_template_syntax_error(mock_execute_query, runner):
+    result = runner.invoke(
+        ["sql", "-q", "select <% aaa %>.&{ bbb }", "-D", "aaa=foo", "-D", "bbb=bar"]
+    )
+    assert result.exit_code == 1
+    assert "The SQL query mixes &{ ... } syntax and <% ... %> syntax." in result.output
 
 
 @pytest.mark.parametrize(
