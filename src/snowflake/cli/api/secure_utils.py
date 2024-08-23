@@ -23,7 +23,14 @@ def _get_windows_whitelisted_users():
     # whitelisted users list obtained in consultation with prodsec: CASEC-9627
     import os
 
-    return ["SYSTEM", "Administrators", os.getlogin()]
+    return [
+        "SYSTEM",
+        "Administrators",
+        "Network",
+        "Domain Admins",
+        "Domain Users",
+        os.getlogin(),
+    ]
 
 
 def _run_icacls(file_path: Path) -> str:
