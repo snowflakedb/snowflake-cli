@@ -163,9 +163,14 @@ class SnowparkTestSteps:
         )
         assert result.json is not None
 
-    def snowpark_build_should_zip_files(self, *args, additional_files=None) -> None:
+    def snowpark_build_should_zip_files(
+        self, *args, additional_files=None, no_dependencies=False
+    ) -> None:
         if not additional_files:
             additional_files = []
+
+        if not no_dependencies:
+            additional_files.append(Path("dependencies.zip"))
 
         current_files = set(Path(".").glob("**/*"))
         result = self._setup.runner.invoke_json(
@@ -179,7 +184,6 @@ class SnowparkTestSteps:
 
         assert_that_current_working_directory_contains_only_following_files(
             *current_files,
-            Path("dependencies.zip"),
             *additional_files,
             Path("requirements.snowflake.txt"),
             excluded_paths=[".packages"],
