@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from textwrap import dedent
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import jinja2
 from jinja2 import Environment, StrictUndefined, loaders
@@ -82,13 +82,37 @@ class IgnoreAttrEnvironment(Environment):
             return self.undefined(obj=obj, name=argument)
 
 
+def _get_jinja_env(loader: Optional[loaders.BaseLoader] = None) -> Environment:
+    return env_bootstrap(
+        IgnoreAttrEnvironment(
+            loader=loader or loaders.BaseLoader(),
+            keep_trailing_newline=True,
+            undefined=StrictUndefined,
+        )
+    )
+
+
+def jinja_render_from_str(template_content: str, data: Dict[str, Any]) -> str:
+    """
+    Renders a jinja template and outputs either the rendered contents as string or writes to a file.
+
+    Args:
+        template_content (str): template contents
+        data (dict): A dictionary of jinja variables and their actual values
+
+    Returns:
+        None if file path is provided, else returns the rendered string.
+    """
+    return _get_jinja_env().from_string(template_content).render(data)
+
+
 def path_to_jinja_pathlike_str(path: Path) -> str:
     # jinja2 template loader user '/' as path separator (even on Windows)
     return "/".join(path.parts)
 
 
 def jinja_render_from_file(
-    template_path: Path, data: Dict, output_file_path: Optional[Path] = None
+    template_path: Path, data: Dict[str, Any], output_file_path: Optional[Path] = None
 ) -> Optional[str]:
     """
     Renders a jinja template and outputs either the rendered contents as string or writes to a file.
@@ -101,13 +125,9 @@ def jinja_render_from_file(
     Returns:
         None if file path is provided, else returns the rendered string.
     """
-    env = env_bootstrap(
-        IgnoreAttrEnvironment(
-            loader=loaders.FileSystemLoader(
-                path_to_jinja_pathlike_str(template_path.parent)
-            ),
-            keep_trailing_newline=True,
-            undefined=StrictUndefined,
+    env = _get_jinja_env(
+        loader=loaders.FileSystemLoader(
+            path_to_jinja_pathlike_str(template_path.parent)
         )
     )
     loaded_template = env.get_template(template_path.name)
