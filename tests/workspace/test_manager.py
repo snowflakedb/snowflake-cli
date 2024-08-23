@@ -98,11 +98,11 @@ def test_migration_v1_to_v2(
 
 
 @pytest.mark.parametrize(
-    "project_directory_name", ["migration_streamlit_v2", "migration_snowpark_V2"]
+    "project_directory_name", ["migration_streamlit_V2", "migration_snowpark_V2"]
 )
 def test_migration_already_v2(runner, project_directory, project_directory_name):
     with project_directory(project_directory_name):
         result = runner.invoke(["ws", "migrate"])
 
-    # assert result.exit_code == 0
+    assert result.exit_code == 0
     assert "Project definition is already at version 2." in result.output

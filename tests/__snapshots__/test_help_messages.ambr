@@ -34,6 +34,7 @@
   | sql          Executes Snowflake query.                                       |
   | stage        Manages stages.                                                 |
   | streamlit    Manages a Streamlit app in Snowflake.                           |
+  | ws           Deploy and interact with snowflake.yml-based entities.          |
   +------------------------------------------------------------------------------+
   
   
@@ -5241,241 +5242,6 @@
   
   '''
 # ---
-# name: test_help_messages[spcs.job.create]
-  '''
-                                                                                  
-   Usage: default spcs job create [OPTIONS]                                       
-                                                                                  
-   Creates a job to run in a compute pool.                                        
-                                                                                  
-  +- Options --------------------------------------------------------------------+
-  | *  --compute-pool          TEXT  Name of the pool in which to run the job.   |
-  |                                  [required]                                  |
-  | *  --spec-path             FILE  Path to the `spec.yaml` file containing the |
-  |                                  job details.                                |
-  |                                  [required]                                  |
-  |    --help          -h            Show this message and exit.                 |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --connection,--environment  -c      TEXT  Name of the connection, as defined |
-  |                                           in your `config.toml`. Default:    |
-  |                                           `default`.                         |
-  | --account,--accountname             TEXT  Name assigned to your Snowflake    |
-  |                                           account. Overrides the value       |
-  |                                           specified for the connection.      |
-  | --user,--username                   TEXT  Username to connect to Snowflake.  |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --password                          TEXT  Snowflake password. Overrides the  |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --authenticator                     TEXT  Snowflake authenticator. Overrides |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --private-key-path                  TEXT  Snowflake private key path.        |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --token-file-path                   TEXT  Path to file with an OAuth token   |
-  |                                           that should be used when           |
-  |                                           connecting to Snowflake            |
-  | --database,--dbname                 TEXT  Database to use. Overrides the     |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --schema,--schemaname               TEXT  Database schema to use. Overrides  |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --role,--rolename                   TEXT  Role to use. Overrides the value   |
-  |                                           specified for the connection.      |
-  | --warehouse                         TEXT  Warehouse to use. Overrides the    |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --temporary-connection      -x            Uses connection defined with       |
-  |                                           command line parameters, instead   |
-  |                                           of one defined in config           |
-  | --mfa-passcode                      TEXT  Token to use for multi-factor      |
-  |                                           authentication (MFA)               |
-  | --enable-diag                             Run python connector diagnostic    |
-  |                                           test                               |
-  | --diag-log-path                     TEXT  Diagnostic report path             |
-  | --diag-allowlist-path               TEXT  Diagnostic report path to optional |
-  |                                           allowlist                          |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels `info`  |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels `debug` |
-  |                                  and higher; debug logs contains additional  |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[spcs.job.logs]
-  '''
-                                                                                  
-   Usage: default spcs job logs [OPTIONS] IDENTIFIER                              
-                                                                                  
-   Retrieves local logs from a job container.                                     
-                                                                                  
-  +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Job id [required]                                 |
-  +------------------------------------------------------------------------------+
-  +- Options --------------------------------------------------------------------+
-  | *  --container-name          TEXT  Name of the container. [required]         |
-  |    --help            -h            Show this message and exit.               |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --connection,--environment  -c      TEXT  Name of the connection, as defined |
-  |                                           in your `config.toml`. Default:    |
-  |                                           `default`.                         |
-  | --account,--accountname             TEXT  Name assigned to your Snowflake    |
-  |                                           account. Overrides the value       |
-  |                                           specified for the connection.      |
-  | --user,--username                   TEXT  Username to connect to Snowflake.  |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --password                          TEXT  Snowflake password. Overrides the  |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --authenticator                     TEXT  Snowflake authenticator. Overrides |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --private-key-path                  TEXT  Snowflake private key path.        |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --token-file-path                   TEXT  Path to file with an OAuth token   |
-  |                                           that should be used when           |
-  |                                           connecting to Snowflake            |
-  | --database,--dbname                 TEXT  Database to use. Overrides the     |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --schema,--schemaname               TEXT  Database schema to use. Overrides  |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --role,--rolename                   TEXT  Role to use. Overrides the value   |
-  |                                           specified for the connection.      |
-  | --warehouse                         TEXT  Warehouse to use. Overrides the    |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --temporary-connection      -x            Uses connection defined with       |
-  |                                           command line parameters, instead   |
-  |                                           of one defined in config           |
-  | --mfa-passcode                      TEXT  Token to use for multi-factor      |
-  |                                           authentication (MFA)               |
-  | --enable-diag                             Run python connector diagnostic    |
-  |                                           test                               |
-  | --diag-log-path                     TEXT  Diagnostic report path             |
-  | --diag-allowlist-path               TEXT  Diagnostic report path to optional |
-  |                                           allowlist                          |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels `info`  |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels `debug` |
-  |                                  and higher; debug logs contains additional  |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[spcs.job.status]
-  '''
-                                                                                  
-   Usage: default spcs job status [OPTIONS] IDENTIFIER                            
-                                                                                  
-   Returns the status of a named Snowpark Container Services job.                 
-                                                                                  
-  +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  ID of the job. [required]                         |
-  +------------------------------------------------------------------------------+
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --connection,--environment  -c      TEXT  Name of the connection, as defined |
-  |                                           in your `config.toml`. Default:    |
-  |                                           `default`.                         |
-  | --account,--accountname             TEXT  Name assigned to your Snowflake    |
-  |                                           account. Overrides the value       |
-  |                                           specified for the connection.      |
-  | --user,--username                   TEXT  Username to connect to Snowflake.  |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --password                          TEXT  Snowflake password. Overrides the  |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --authenticator                     TEXT  Snowflake authenticator. Overrides |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --private-key-path                  TEXT  Snowflake private key path.        |
-  |                                           Overrides the value specified for  |
-  |                                           the connection.                    |
-  | --token-file-path                   TEXT  Path to file with an OAuth token   |
-  |                                           that should be used when           |
-  |                                           connecting to Snowflake            |
-  | --database,--dbname                 TEXT  Database to use. Overrides the     |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --schema,--schemaname               TEXT  Database schema to use. Overrides  |
-  |                                           the value specified for the        |
-  |                                           connection.                        |
-  | --role,--rolename                   TEXT  Role to use. Overrides the value   |
-  |                                           specified for the connection.      |
-  | --warehouse                         TEXT  Warehouse to use. Overrides the    |
-  |                                           value specified for the            |
-  |                                           connection.                        |
-  | --temporary-connection      -x            Uses connection defined with       |
-  |                                           command line parameters, instead   |
-  |                                           of one defined in config           |
-  | --mfa-passcode                      TEXT  Token to use for multi-factor      |
-  |                                           authentication (MFA)               |
-  | --enable-diag                             Run python connector diagnostic    |
-  |                                           test                               |
-  | --diag-log-path                     TEXT  Diagnostic report path             |
-  | --diag-allowlist-path               TEXT  Diagnostic report path to optional |
-  |                                           allowlist                          |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels `info`  |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels `debug` |
-  |                                  and higher; debug logs contains additional  |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[spcs.job]
-  '''
-                                                                                  
-   Usage: default spcs job [OPTIONS] COMMAND [ARGS]...                            
-                                                                                  
-   Manages Snowpark jobs.                                                         
-                                                                                  
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Commands -------------------------------------------------------------------+
-  | create   Creates a job to run in a compute pool.                             |
-  | logs     Retrieves local logs from a job container.                          |
-  | status   Returns the status of a named Snowpark Container Services job.      |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
 # name: test_help_messages[spcs.service.create]
   '''
                                                                                   
@@ -7926,6 +7692,7 @@
   | sql          Executes Snowflake query.                                       |
   | stage        Manages stages.                                                 |
   | streamlit    Manages a Streamlit app in Snowflake.                           |
+  | ws           Deploy and interact with snowflake.yml-based entities.          |
   +------------------------------------------------------------------------------+
   
   
@@ -8199,25 +7966,6 @@
   | list-images   Lists images in the given repository.                          |
   | list-tags     Lists tags for the given image in a repository.                |
   | url           Returns the URL for the given repository.                      |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages_no_help_flag[spcs.job]
-  '''
-                                                                                  
-   Usage: default spcs job [OPTIONS] COMMAND [ARGS]...                            
-                                                                                  
-   Manages Snowpark jobs.                                                         
-                                                                                  
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Commands -------------------------------------------------------------------+
-  | create   Creates a job to run in a compute pool.                             |
-  | logs     Retrieves local logs from a job container.                          |
-  | status   Returns the status of a named Snowpark Container Services job.      |
   +------------------------------------------------------------------------------+
   
   
