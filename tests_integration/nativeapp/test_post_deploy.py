@@ -75,7 +75,7 @@ def test_nativeapp_post_deploy(
     snowflake_session,
     default_username,
     resource_suffix,
-    project_directory,
+    nativeapp_project_directory,
     test_project,
     is_versioned,
     with_project_flag,
@@ -85,7 +85,7 @@ def test_nativeapp_post_deploy(
     app_name = f"{project_name}_{default_username}{resource_suffix}"
     pkg_name = f"{project_name}_pkg_{default_username}{resource_suffix}"
 
-    with project_directory(test_project) as tmp_dir:
+    with nativeapp_project_directory(test_project) as tmp_dir:
         project_args = ["--project", f"{tmp_dir}"] if with_project_flag else []
         version_run_args = ["--version", version] if is_versioned else []
 
