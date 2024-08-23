@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import Tuple
 
 import pytest
-from snowflake.cli._plugins.snowpark.manager import (
+from snowflake.cli._plugins.snowpark.common import (
     _check_if_replace_is_required,
     _convert_resource_details_to_dict,
     _snowflake_dependencies_differ,

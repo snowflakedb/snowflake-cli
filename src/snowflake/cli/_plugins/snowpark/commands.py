@@ -34,7 +34,7 @@ from snowflake.cli._plugins.object.commands import (
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.snowpark import package_utils
-from snowflake.cli._plugins.snowpark.manager import (
+from snowflake.cli._plugins.snowpark.common import (
     EntityToImportPathsMapping,
     SnowparkEntities,
     SnowparkObject,
