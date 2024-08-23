@@ -39,10 +39,9 @@ from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.utils import ensure_correct_owner
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
-from snowflake.cli.api.project.util import unquote_identifier
+from snowflake.cli.api.project.util import to_identifier, unquote_identifier
 from snowflake.cli.api.utils.cursor import (
     find_all_rows,
-    find_first_row,
 )
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
@@ -121,6 +120,8 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         """
         Defines a new version in an existing application package.
         """
+        # Make the version a valid identifier, adding quotes if necessary
+        version = to_identifier(version)
         with self.use_role(self.package_role):
             cc.step(
                 f"Defining a new version {version} in application package {self.package_name}"
@@ -141,6 +142,8 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
         """
+        # Make the version a valid identifier, adding quotes if necessary
+        version = to_identifier(version)
         with self.use_role(self.package_role):
             cc.step(
                 f"Adding new patch to version {version} defined in application package {self.package_name}"
@@ -156,11 +159,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 add_version_query, cursor_class=DictCursor
             )
 
-            show_row = find_first_row(
-                result_cursor,
-                lambda row: row[VERSION_COL] == unquote_identifier(version),
-            )
-
+            show_row = result_cursor.fetchall()[0]
             new_patch = show_row["patch"]
             cc.message(
                 f"Patch {new_patch} created for version {version} defined in application package {self.package_name}."
@@ -327,6 +326,9 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
                 raise ClickException(
                     "Manifest.yml file does not contain a value for the version field."
                 )
+
+        # Make the version a valid identifier, adding quotes if necessary
+        version = to_identifier(version)
 
         cc.step(
             dedent(
