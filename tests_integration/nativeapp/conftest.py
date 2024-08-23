@@ -14,7 +14,7 @@ def nativeapp_project_directory(project_directory, nativeapp_teardown):
     @contextmanager
     def _nativeapp_project_directory(name):
         with project_directory(name) as d:
-            with nativeapp_teardown(d):
+            with nativeapp_teardown(project_dir=d):
                 yield d
 
     return _nativeapp_project_directory
