@@ -104,7 +104,6 @@ def test_does_not_accept_unknown_fields(project_definition_files):
         "snowpark_procedure_fully_qualified_name",
         "snowpark_procedure_secrets_without_external_access",
         "snowpark_procedures",
-        "snowpark_procedures_coverage",
         "streamlit_full_definition",
     ],
     indirect=True,

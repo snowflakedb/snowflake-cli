@@ -807,3 +807,36 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
 
     queries = ctx.get_queries()
     assert queries[0] == queries[1]
+
+
+@pytest.mark.parametrize("entity_id", ["app_1", "app_2"])
+@mock.patch("snowflake.cli._plugins.streamlit.commands.StreamlitManager")
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
+@mock.patch("snowflake.connector.connect")
+def test_selecting_streamlit_from_pdf(
+    _, __, mock_manager, project_directory, runner, entity_id
+):
+
+    with project_directory("example_streamlit_multiple_v2"):
+        result = runner.invoke(["streamlit", "deploy", entity_id])
+
+    assert result.exit_code == 0, result.output
+
+    calls = mock_manager().deploy
+    assert calls.call_count == 1
+
+    # Make sure the streamlit was called with proper app definition
+    st = calls.call_args.kwargs
+    assert st["streamlit"].entity_id == entity_id
+
+
+@mock.patch("snowflake.connector.connect")
+def test_multiple_streamlit_raise_error_if_multiple_entities(
+    _, runner, project_directory, os_agnostic_snapshot
+):
+
+    with project_directory("example_streamlit_multiple_v2"):
+        result = runner.invoke(["streamlit", "deploy"])
+
+    assert result.exit_code == 2, result.output
+    assert result.output == os_agnostic_snapshot

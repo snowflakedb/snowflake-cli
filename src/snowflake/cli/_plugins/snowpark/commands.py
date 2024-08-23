@@ -15,11 +15,12 @@
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple
 
 import typer
-from click import ClickException
+from click import ClickException, UsageError
 from snowflake.cli._plugins.object.commands import (
     describe as object_describe,
 )
@@ -35,7 +36,6 @@ from snowflake.cli._plugins.object.commands import (
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.snowpark import package_utils
 from snowflake.cli._plugins.snowpark.common import (
-    UdfSprocIdentifier,
     check_if_replace_is_required,
 )
 from snowflake.cli._plugins.snowpark.manager import FunctionManager, ProcedureManager
@@ -44,7 +44,10 @@ from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackagesManager,
 )
 from snowflake.cli._plugins.snowpark.package.commands import app as package_app
-from snowflake.cli._plugins.snowpark.snowpark_package_paths import SnowparkPackagePaths
+from snowflake.cli._plugins.snowpark.snowpark_project_paths import (
+    Artefact,
+    SnowparkProjectPaths,
+)
 from snowflake.cli._plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
     IgnoreAnacondaOption,
@@ -69,7 +72,6 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
-    DEPLOYMENT_STAGE,
     ObjectType,
 )
 from snowflake.cli.api.exceptions import (
@@ -98,6 +100,7 @@ from snowflake.cli.api.project.schemas.snowpark.callable import (
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import DictCursor, ProgrammingError
+from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
@@ -121,6 +124,11 @@ LikeOption = like_option(
 )
 
 
+SnowparkEntities = Dict[str, SnowparkEntityModel]
+StageToArtefactMapping = Dict[str, set[Artefact]]
+EntityToImportPathsMapping = Dict[str, set[str]]
+
+
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
 def deploy(
@@ -132,116 +140,139 @@ def deploy(
     """
     Deploys procedures and functions defined in project. Deploying the project alters all objects defined in it.
     By default, if any of the objects exist already the commands will fail unless `--replace` flag is provided.
-    All deployed objects use the same artifact which is deployed only once.
+    Required artifacts are deployed before creating functions or procedures. Dependencies are deployed once to
+    every stage specified in definitions.
     """
     cli_context = get_cli_context()
     pd = _get_v2_project_definition(cli_context)
 
-    paths = SnowparkPackagePaths.for_snowpark_project(
-        project_root=SecurePath(cli_context.project_root),
-        project_definition=pd,
+    snowpark_entities = get_snowpark_entities(pd)
+    project_name = (
+        pd.defaults.project_name if pd.defaults and pd.defaults.project_name else ""
+    )
+    project_paths = SnowparkProjectPaths(
+        project_root=cli_context.project_root, project_name=project_name
     )
 
-    procedures: Dict[str, ProcedureEntityModel] = pd.get_entities_by_type("procedure")
-    functions: Dict[str, FunctionEntityModel] = pd.get_entities_by_type("function")
-
-    if not procedures and not functions:
-        raise ClickException(
-            "No procedures or functions were specified in the project definition."
+    with cli_console.phase("Performing initial validation"):
+        if not snowpark_entities:
+            raise ClickException(
+                "No procedures or functions were specified in the project definition."
+            )
+        validate_all_artifacts_exists(
+            project_paths=project_paths, snowpark_entities=snowpark_entities
         )
 
-    if not paths.artifact_file.exists():
-        raise ClickException(
-            "Artifact required for deploying the project does not exist in this directory. "
-            "Please use build command to create it."
+    # Validate current state
+    with cli_console.phase("Checking remote state"):
+        om = ObjectManager()
+        _check_if_all_defined_integrations_exists(om, snowpark_entities)
+        existing_objects = check_for_existing_objects(om, replace, snowpark_entities)
+
+    with cli_console.phase("Preparing required stages and artifacts"):
+        entities_to_imports_map, stages_to_artifact_map = build_artifacts_mappings(
+            project_paths=project_paths,
+            snowpark_entities=snowpark_entities,
         )
 
-    pm = ProcedureManager()
-    fm = FunctionManager()
-    om = ObjectManager()
+        create_stages_and_upload_artifacts(stages_to_artifact_map)
 
-    _check_if_all_defined_integrations_exists(om, functions, procedures)
-
-    existing_functions = _find_existing_objects(ObjectType.FUNCTION, functions, om)
-    existing_procedures = _find_existing_objects(ObjectType.PROCEDURE, procedures, om)
-
-    if (existing_functions or existing_procedures) and not replace:
-        msg = "Following objects already exists. Consider using --replace.\n"
-        msg += "\n".join(f"function: {n}" for n in existing_functions)
-        msg += "\n" if existing_functions and existing_procedures else ""
-        msg += "\n".join(f"procedure: {n}" for n in existing_procedures)
-        raise ClickException(msg)
-
-    # Create stage
-    snowflake_dependencies = _read_snowflake_requrements_file(
-        paths.snowflake_requirements_file
-    )
-    stage_names = {
-        entity.stage for entity in [*functions.values(), *procedures.values()]
-    }
-    stage_manager = StageManager()
-
-    # TODO: Raise error if stage name is not provided
-
-    for stage in stage_names:
-        cli_console.step(f"Creating stage: {stage}")
-        stage = FQN.from_string(stage).using_context()
-        stage_manager.create(fqn=stage, comment="deployments managed by Snowflake CLI")
-        artifact_stage_directory = get_app_stage_path(stage, pd.defaults.project_name)
-        artifact_stage_target = (
-            f"{artifact_stage_directory}/{paths.artifact_file.path.name}"
+    # Create snowpark entities
+    with cli_console.phase("Creating Snowpark entities"):
+        snowflake_dependencies = _read_snowflake_requirements_file(
+            project_paths.snowflake_requirements
         )
-
-        stage_manager.put(
-            local_path=paths.artifact_file.path,
-            stage_path=artifact_stage_directory,
-            overwrite=True,
-        )
-
-    deploy_status = []
-    # Procedures
-    for procedure in procedures.values():
-        operation_result = _deploy_single_object(
-            manager=pm,
-            object_type=ObjectType.PROCEDURE,
-            object_definition=procedure,
-            existing_objects=existing_procedures,
-            snowflake_dependencies=snowflake_dependencies,
-            stage_artifact_path=artifact_stage_target,
-        )
-        deploy_status.append(operation_result)
-
-    # Functions
-    for function in functions.values():
-        operation_result = _deploy_single_object(
-            manager=fm,
-            object_type=ObjectType.FUNCTION,
-            object_definition=function,
-            existing_objects=existing_functions,
-            snowflake_dependencies=snowflake_dependencies,
-            stage_artifact_path=artifact_stage_target,
-        )
-        deploy_status.append(operation_result)
+        deploy_status = []
+        for entity in snowpark_entities.values():
+            cli_console.step(f"Creating {entity.type} {entity.fqn}")
+            operation_result = _deploy_single_object(
+                entity=entity,
+                existing_objects=existing_objects,
+                snowflake_dependencies=snowflake_dependencies,
+                entities_to_artifact_map=entities_to_imports_map,
+            )
+            deploy_status.append(operation_result)
 
     return CollectionResult(deploy_status)
 
 
-def _find_existing_objects(
-    object_type: ObjectType,
-    objects: Dict[str, SnowparkEntityModel],
-    om: ObjectManager,
+def validate_all_artifacts_exists(
+    project_paths: SnowparkProjectPaths, snowpark_entities: SnowparkEntities
 ):
+    for key, entity in snowpark_entities.items():
+        for artefact in entity.artifacts:
+            path = project_paths.get_artefact_dto(artefact).post_build_path
+            if not path.exists():
+                raise UsageError(
+                    f"Artefact {path} required for {entity.type} {key} does not exist."
+                )
+
+
+def check_for_existing_objects(
+    om: ObjectManager, replace: bool, snowpark_entities: SnowparkEntities
+) -> Dict[str, SnowflakeCursor]:
+    existing_objects: Dict[str, SnowflakeCursor] = _find_existing_objects(
+        snowpark_entities, om
+    )
+    if existing_objects and not replace:
+        existing_entities = [snowpark_entities[e] for e in existing_objects]
+        msg = "Following objects already exists. Consider using --replace.\n"
+        msg += "\n".join(f"{e.type}: {e.entity_id}" for e in existing_entities)
+        raise ClickException(msg)
+    return existing_objects
+
+
+def build_artifacts_mappings(
+    project_paths: SnowparkProjectPaths, snowpark_entities: SnowparkEntities
+) -> Tuple[EntityToImportPathsMapping, StageToArtefactMapping]:
+    stages_to_artifact_map: StageToArtefactMapping = defaultdict(set)
+    entities_to_imports_map: EntityToImportPathsMapping = defaultdict(set)
+    for entity_id, entity in snowpark_entities.items():
+        stage = entity.stage
+        required_artifacts = set()
+        for artefact in entity.artifacts:
+            artefact_dto = project_paths.get_artefact_dto(artefact)
+            required_artifacts.add(artefact_dto)
+            entities_to_imports_map[entity_id].add(artefact_dto.import_path(stage))
+        stages_to_artifact_map[stage].update(required_artifacts)
+
+        if project_paths.dependencies.exists():
+            deps_artefact = project_paths.get_artefact_dto(project_paths.dependencies)
+            stages_to_artifact_map[stage].add(deps_artefact)
+            entities_to_imports_map[entity_id].add(deps_artefact.import_path(stage))
+    return entities_to_imports_map, stages_to_artifact_map
+
+
+def create_stages_and_upload_artifacts(stages_to_artifact_map: StageToArtefactMapping):
+    stage_manager = StageManager()
+    for stage, artifacts in stages_to_artifact_map.items():
+        cli_console.step(f"Creating (if not exists) stage: {stage}")
+        stage = FQN.from_stage(stage).using_context()
+        stage_manager.create(fqn=stage, comment="deployments managed by Snowflake CLI")
+        for artefact in artifacts:
+            cli_console.step(
+                f"Uploading {artefact.post_build_path.name} to {artefact.upload_path(stage)}"
+            )
+            stage_manager.put(
+                local_path=artefact.post_build_path,
+                stage_path=artefact.upload_path(stage),
+                overwrite=True,
+            )
+
+
+def _find_existing_objects(
+    objects: SnowparkEntities,
+    om: ObjectManager,
+) -> Dict[str, SnowflakeCursor]:
     existing_objects = {}
-    for object_name, object_definition in objects.items():
-        identifier = UdfSprocIdentifier.from_definition(
-            object_definition
-        ).identifier_with_arg_types
+    for entity_id, entity in objects.items():
+        identifier = entity.udf_sproc_identifier.identifier_with_arg_types
         try:
             current_state = om.describe(
-                object_type=object_type.value.sf_name,
+                object_type=entity.type,
                 fqn=FQN.from_string(identifier),
             )
-            existing_objects[identifier] = current_state
+            existing_objects[entity_id] = current_state
         except ProgrammingError:
             pass
     return existing_objects
@@ -249,8 +280,7 @@ def _find_existing_objects(
 
 def _check_if_all_defined_integrations_exists(
     om: ObjectManager,
-    functions: Dict[str, FunctionEntityModel],
-    procedures: Dict[str, ProcedureEntityModel],
+    snowpark_entities: Dict[str, FunctionEntityModel | ProcedureEntityModel],
 ):
     existing_integrations = {
         i["name"].lower()
@@ -258,7 +288,7 @@ def _check_if_all_defined_integrations_exists(
         if i["type"] == "EXTERNAL_ACCESS"
     }
     declared_integration: Set[str] = set()
-    for object_definition in [*functions.values(), *procedures.values()]:
+    for object_definition in snowpark_entities.values():
         external_access_integrations = {
             s.lower() for s in object_definition.external_access_integrations
         }
@@ -276,84 +306,73 @@ def _check_if_all_defined_integrations_exists(
         )
 
 
-def get_app_stage_path(stage_name: Optional[str | FQN], project_name: str) -> str:
-    artifact_stage_directory = f"@{(stage_name or DEPLOYMENT_STAGE)}/{project_name}"
-    return artifact_stage_directory
-
-
 def _deploy_single_object(
-    manager: FunctionManager | ProcedureManager,
-    object_type: ObjectType,
-    object_definition: SnowparkEntityModel,
-    existing_objects: Dict[str, Dict],
+    entity: SnowparkEntityModel,
+    existing_objects: Dict[str, SnowflakeCursor],
     snowflake_dependencies: List[str],
-    stage_artifact_path: str,
+    entities_to_artifact_map: EntityToImportPathsMapping,
 ):
+    object_type = entity.get_type()
+    is_procedure = isinstance(entity, ProcedureEntityModel)
 
-    identifiers = UdfSprocIdentifier.from_definition(object_definition)
-
-    log.info(
-        "Deploying %s: %s", object_type, identifiers.identifier_with_arg_names_types
-    )
-
-    handler = object_definition.handler
-    returns = object_definition.returns
-    imports = object_definition.imports
-    external_access_integrations = object_definition.external_access_integrations
-    runtime_ver = object_definition.runtime
+    handler = entity.handler
+    returns = entity.returns
+    imports = entity.imports
+    external_access_integrations = entity.external_access_integrations
+    runtime_ver = entity.runtime
     execute_as_caller = None
-    if object_type == ObjectType.PROCEDURE:
-        execute_as_caller = object_definition.execute_as_caller
+    if is_procedure:
+        execute_as_caller = entity.execute_as_caller
     replace_object = False
 
-    object_exists = identifiers.identifier_with_arg_types in existing_objects
+    object_exists = entity.entity_id in existing_objects
     if object_exists:
         replace_object = check_if_replace_is_required(
             object_type=object_type,
-            current_state=existing_objects[identifiers.identifier_with_arg_types],
+            current_state=existing_objects[entity.entity_id],
             handler=handler,
             return_type=returns,
             snowflake_dependencies=snowflake_dependencies,
             external_access_integrations=external_access_integrations,
             imports=imports,
-            stage_artifact_file=stage_artifact_path,
+            stage_artifact_files=entities_to_artifact_map[entity.entity_id],
             runtime_ver=runtime_ver,
             execute_as_caller=execute_as_caller,
         )
 
     if object_exists and not replace_object:
         return {
-            "object": identifiers.identifier_with_arg_names_types_defaults,
+            "object": entity.udf_sproc_identifier.identifier_with_arg_names_types_defaults,
             "type": str(object_type),
             "status": "packages updated",
         }
 
     create_or_replace_kwargs = {
-        "identifier": identifiers,
+        "identifier": entity.udf_sproc_identifier,
         "handler": handler,
         "return_type": returns,
-        "artifact_file": stage_artifact_path,
+        "artifact_files": entities_to_artifact_map[entity.entity_id],
         "packages": snowflake_dependencies,
-        "runtime": object_definition.runtime,
-        "external_access_integrations": object_definition.external_access_integrations,
-        "secrets": object_definition.secrets,
+        "runtime": entity.runtime,
+        "external_access_integrations": entity.external_access_integrations,
+        "secrets": entity.secrets,
         "imports": imports,
     }
-    if object_type == ObjectType.PROCEDURE:
-        create_or_replace_kwargs[
-            "execute_as_caller"
-        ] = object_definition.execute_as_caller
+    if is_procedure:
+        create_or_replace_kwargs["execute_as_caller"] = entity.execute_as_caller
+
+    manager = ProcedureManager() if is_procedure else FunctionManager()
     manager.create_or_replace(**create_or_replace_kwargs)
 
     status = "created" if not object_exists else "definition updated"
     return {
-        "object": identifiers.identifier_with_arg_names_types_defaults,
+        "object": entity.udf_sproc_identifier.identifier_with_arg_names_types_defaults,
         "type": str(object_type),
         "status": status,
     }
 
 
-def _read_snowflake_requrements_file(file_path: SecurePath):
+def _read_snowflake_requirements_file(file_path: SecurePath):
     if not file_path.exists():
         return []
     return file_path.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB).splitlines()
@@ -369,26 +388,27 @@ def build(
     **options,
 ) -> CommandResult:
     """
-    Builds the Snowpark project as a `.zip` archive that can be used by `deploy` command.
-    The archive is built using only the `artifacts` directory specified in the project file.
+    Builds artifacts required for the Snowpark project. The artifacts can be used by `deploy` command.
+    For each directory in artifacts a .zip file is created. All non-anaconda dependencies are packaged in
+    dependencies.zip file.
     """
     cli_context = get_cli_context()
     pd = _get_v2_project_definition(cli_context)
 
-    snowpark_paths = SnowparkPackagePaths.for_snowpark_project(
-        project_root=SecurePath(cli_context.project_root),
-        project_definition=pd,
+    project_paths = SnowparkProjectPaths(
+        project_root=cli_context.project_root, project_name=None
     )
-    log.info("Building package using sources from:")
-    log.info(",".join(str(s) for s in snowpark_paths.sources))
 
     anaconda_packages_manager = AnacondaPackagesManager()
 
-    with SecurePath.temporary_directory() as packages_dir:
-        if snowpark_paths.defined_requirements_file.exists():
-            log.info("Resolving any requirements from requirements.txt...")
+    # Resolve dependencies
+    if project_paths.requirements.exists():
+        with (
+            cli_console.phase("Resolving dependencies from requirements.txt"),
+            SecurePath.temporary_directory() as temp_deps_dir,
+        ):
             requirements = package_utils.parse_requirements(
-                requirements_file=snowpark_paths.defined_requirements_file,
+                requirements_file=project_paths.requirements,
             )
             anaconda_packages = (
                 AnacondaPackages.empty()
@@ -397,7 +417,7 @@ def build(
             )
             download_result = package_utils.download_unavailable_packages(
                 requirements=requirements,
-                target_dir=packages_dir,
+                target_dir=temp_deps_dir,
                 anaconda_packages=anaconda_packages,
                 skip_version_check=skip_version_check,
                 pip_index_url=index_url,
@@ -416,27 +436,38 @@ def build(
                     )
             if download_result.anaconda_packages:
                 anaconda_packages.write_requirements_file_in_snowflake_format(  # type: ignore
-                    file_path=snowpark_paths.snowflake_requirements_file,
+                    file_path=project_paths.snowflake_requirements,
                     requirements=download_result.anaconda_packages,
                 )
 
-        zip_dir(
-            source=snowpark_paths.sources_paths,
-            dest_zip=snowpark_paths.artifact_file.path,
-        )
-        if any(packages_dir.iterdir()):
-            # if any packages were generated, append them to the .zip
-            zip_dir(
-                source=packages_dir.path,
-                dest_zip=snowpark_paths.artifact_file.path,
-                mode="a",
-            )
+            if any(temp_deps_dir.path.iterdir()):
+                cli_console.step(f"Creating {project_paths.dependencies.name}")
+                zip_dir(
+                    source=temp_deps_dir.path,
+                    dest_zip=project_paths.dependencies,
+                )
+            else:
+                cli_console.step(f"No external dependencies.")
 
-    log.info("Package now ready: %s", snowpark_paths.artifact_file.path)
+    artifacts = set()
+    for entity in get_snowpark_entities(pd).values():
+        artifacts.update(entity.artifacts)
 
-    return MessageResult(
-        f"Build done. Artifact path: {snowpark_paths.artifact_file.path}"
-    )
+    with cli_console.phase("Preparing artifacts for source code"):
+        for artefact in artifacts:
+            artefact_dto = project_paths.get_artefact_dto(artefact)
+            artefact_dto.build()
+
+    return MessageResult(f"Build done.")
+
+
+def get_snowpark_entities(
+    pd: ProjectDefinition,
+) -> Dict[str, ProcedureEntityModel | FunctionEntityModel]:
+    procedures: Dict[str, ProcedureEntityModel] = pd.get_entities_by_type("procedure")
+    functions: Dict[str, FunctionEntityModel] = pd.get_entities_by_type("function")
+    snowpark_entities = {**procedures, **functions}
+    return snowpark_entities
 
 
 class _SnowparkObject(Enum):
@@ -514,7 +545,7 @@ def describe(
 def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
     if not pd.snowpark:
         raise NoProjectDefinitionError(
-            project_type="snowpark", project_file=get_cli_context().project_root
+            project_type="snowpark", project_root=get_cli_context().project_root
         )
 
     data: dict = {
@@ -535,7 +566,7 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
         v2_entity = {
             "type": "function" if isinstance(entity, FunctionSchema) else "procedure",
             "stage": pd.snowpark.stage_name,
-            "artifacts": pd.snowpark.src,
+            "artifacts": [pd.snowpark.src],
             "handler": entity.handler,
             "returns": entity.returns,
             "signature": entity.signature,

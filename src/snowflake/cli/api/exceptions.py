@@ -102,9 +102,9 @@ class ObjectAlreadyExistsError(ClickException):
 
 
 class NoProjectDefinitionError(ClickException):
-    def __init__(self, project_type: str, project_file: str):
+    def __init__(self, project_type: str, project_root: str | Path):
         super().__init__(
-            f"No {project_type} project definition found in {project_file}"
+            f"No {project_type} project definition found in {project_root}"
         )
 
 

@@ -19,9 +19,11 @@ from typing import Dict, List, Optional
 
 from snowflake.cli._plugins.snowpark.common import (
     SnowparkObjectManager,
-    UdfSprocIdentifier,
 )
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
+    UdfSprocIdentifier,
+)
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
@@ -41,7 +43,7 @@ class FunctionManager(SnowparkObjectManager):
         identifier: UdfSprocIdentifier,
         return_type: str,
         handler: str,
-        artifact_file: str,
+        artifact_files: set[str],
         packages: List[str],
         imports: List[str],
         external_access_integrations: Optional[List[str]] = None,
@@ -51,13 +53,13 @@ class FunctionManager(SnowparkObjectManager):
         log.debug(
             "Creating function %s using @%s",
             identifier.identifier_with_arg_names_types_defaults,
-            artifact_file,
+            artifact_files,
         )
         query = self.create_query(
             identifier,
             return_type,
             handler,
-            artifact_file,
+            artifact_files,
             packages,
             imports,
             external_access_integrations,
@@ -81,7 +83,7 @@ class ProcedureManager(SnowparkObjectManager):
         identifier: UdfSprocIdentifier,
         return_type: str,
         handler: str,
-        artifact_file: str,
+        artifact_files: set[str],
         packages: List[str],
         imports: List[str],
         external_access_integrations: Optional[List[str]] = None,
@@ -92,13 +94,13 @@ class ProcedureManager(SnowparkObjectManager):
         log.debug(
             "Creating procedure %s using @%s",
             identifier.identifier_with_arg_names_types_defaults,
-            artifact_file,
+            artifact_files,
         )
         query = self.create_query(
             identifier,
             return_type,
             handler,
-            artifact_file,
+            artifact_files,
             packages,
             imports,
             external_access_integrations,

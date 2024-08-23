@@ -20,7 +20,7 @@ from typing import Dict
 
 import click
 import typer
-from click import ClickException
+from click import ClickException, UsageError
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
@@ -33,6 +33,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import (
     ReplaceOption,
+    entity_argument,
     identifier_argument,
     like_option,
 )
@@ -120,13 +121,15 @@ def streamlit_deploy(
     replace: bool = ReplaceOption(
         help="Replace the Streamlit app if it already exists."
     ),
+    entity_id: str = entity_argument("streamlit"),
     open_: bool = OpenOption,
     **options,
 ) -> CommandResult:
     """
     Deploys a Streamlit app defined in the project definition file (snowflake.yml). By default, the command uploads
     environment.yml and any other pages or folders, if present. If you don’t specify a stage name, the `streamlit`
-    stage is used. If the specified stage does not exist, the command creates it.
+    stage is used. If the specified stage does not exist, the command creates it. If multiple Streamlits are defined
+    in snowflake.yml and no entity_id is provided then command will raise an error.
     """
 
     cli_context = get_cli_context()
@@ -134,7 +137,7 @@ def streamlit_deploy(
     if not pd.meets_version_requirement("2"):
         if not pd.streamlit:
             raise NoProjectDefinitionError(
-                project_type="streamlit", project_file=cli_context.project_root
+                project_type="streamlit", project_root=cli_context.project_root
             )
         pd = _migrate_v1_streamlit_to_v2(pd)
 
@@ -144,17 +147,22 @@ def streamlit_deploy(
 
     if not streamlits:
         raise NoProjectDefinitionError(
-            project_type="streamlit", project_file=cli_context.project_root
+            project_type="streamlit", project_root=cli_context.project_root
         )
 
-    # TODO: fix in follow-up
-    if len(list(streamlits)) > 1:
-        raise ClickException(
-            "Currently only single streamlit entity per project is supported."
+    if entity_id and entity_id not in streamlits:
+        raise UsageError(f"No '{entity_id}' entity in project definition file.")
+
+    if len(streamlits.keys()) == 1:
+        entity_id = list(streamlits.keys())[0]
+
+    if entity_id is None:
+        raise UsageError(
+            "Multiple Streamlit apps found. Please provide entity id for the operation."
         )
 
     # Get first streamlit
-    streamlit: StreamlitEntityModel = streamlits[list(streamlits)[0]]
+    streamlit: StreamlitEntityModel = streamlits[entity_id]
     url = StreamlitManager().deploy(streamlit=streamlit, replace=replace)
 
     if open_:

@@ -77,7 +77,7 @@ def test_deploy_procedure(
     )
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(tmp).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project auto_compress=false parallel=4 overwrite=True",
+        f"put file://{Path(tmp).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace procedure IDENTIFIER('MockDatabase.MockSchema.procedureName')(name string)
@@ -85,7 +85,7 @@ def test_deploy_procedure(
             returns string
             language python
             runtime_version=3.10
-            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.py')
             handler='hello'
             packages=()
             """
@@ -97,7 +97,7 @@ def test_deploy_procedure(
             returns string
             language python
             runtime_version=3.10
-            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.py')
             handler='test'
             packages=()
             """
@@ -146,7 +146,7 @@ def test_deploy_procedure_with_external_access(
     )
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/app.zip @MockDatabase.MockSchema.dev_deployment/my_snowpark_project"
+        f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
@@ -155,7 +155,7 @@ def test_deploy_procedure_with_external_access(
             returns string
             language python
             runtime_version=3.10
-            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.zip')
+            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.py')
             handler='app.hello'
             packages=()
             external_access_integrations=(external_1,external_2)
@@ -284,7 +284,7 @@ def test_deploy_procedure_replace_nothing_to_update(
                 ("packages", "[]"),
                 ("handler", "hello"),
                 ("returns", "string"),
-                ("imports", "dev_deployment/my_snowpark_project/app.zip"),
+                ("imports", "dev_deployment/my_snowpark_project/app.py"),
             ],
             columns=["key", "value"],
         ),
@@ -293,7 +293,7 @@ def test_deploy_procedure_replace_nothing_to_update(
                 ("packages", "[]"),
                 ("handler", "test"),
                 ("returns", "string"),
-                ("imports", "dev_deployment/my_snowpark_project/app.zip"),
+                ("imports", "dev_deployment/my_snowpark_project/app.py"),
                 ("runtime_version", "3.10"),
             ],
             columns=["key", "value"],
@@ -338,7 +338,7 @@ def test_deploy_procedure_replace_updates_single_object(
                 ("packages", "[]"),
                 ("handler", "hello"),
                 ("returns", "string"),
-                ("imports", "dev_deployment/my_snowpark_project/app.zip"),
+                ("imports", "dev_deployment/my_snowpark_project/app.py"),
             ],
             columns=["key", "value"],
         ),
@@ -391,7 +391,7 @@ def test_deploy_procedure_replace_creates_missing_object(
                 ("packages", "[]"),
                 ("handler", "hello"),
                 ("returns", "string"),
-                ("imports", "dev_deployment/my_snowpark_project/app.zip"),
+                ("imports", "dev_deployment/my_snowpark_project/app.py"),
             ],
             columns=["key", "value"],
         ),

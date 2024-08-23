@@ -22,9 +22,8 @@ from snowflake.cli._plugins.snowpark.package_utils import (
     generate_deploy_stage_name,
 )
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
-    SnowparkEntityModel,
+    UdfSprocIdentifier,
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
@@ -33,14 +32,14 @@ DEFAULT_RUNTIME = "3.10"
 
 
 def check_if_replace_is_required(
-    object_type: ObjectType,
+    object_type: str,
     current_state,
     handler: str,
     return_type: str,
     snowflake_dependencies: List[str],
     external_access_integrations: List[str],
     imports: List[str],
-    stage_artifact_file: str,
+    stage_artifact_files: set[str],
     runtime_ver: Optional[str] = None,
     execute_as_caller: Optional[bool] = None,
 ) -> bool:
@@ -81,7 +80,7 @@ def check_if_replace_is_required(
         )
         return True
 
-    if _compare_imports(resource_json, imports, stage_artifact_file):
+    if _compare_imports(resource_json, imports, stage_artifact_files):
         log.info("Imports do not match. Replacing the %s", object_type)
         return True
 
@@ -173,7 +172,7 @@ class SnowparkObjectManager(SqlExecutionMixin):
         identifier: UdfSprocIdentifier,
         return_type: str,
         handler: str,
-        artifact_file: str,
+        artifact_files: set[str],
         packages: List[str],
         imports: List[str],
         external_access_integrations: Optional[List[str]] = None,
@@ -181,7 +180,7 @@ class SnowparkObjectManager(SqlExecutionMixin):
         runtime: Optional[str] = None,
         execute_as_caller: bool = False,
     ) -> str:
-        imports.append(artifact_file)
+        imports.extend(artifact_files)
         imports = [f"'{x}'" for x in imports]
         packages_list = ",".join(f"'{p}'" for p in packages)
 
@@ -214,83 +213,14 @@ class SnowparkObjectManager(SqlExecutionMixin):
         return "\n".join(query)
 
 
-def _is_signature_type_a_string(sig_type: str) -> bool:
-    return sig_type.lower() in ["string", "varchar"]
-
-
-class UdfSprocIdentifier:
-    def __init__(self, identifier: FQN, arg_names, arg_types, arg_defaults):
-        self._identifier = identifier
-        self._arg_names = arg_names
-        self._arg_types = arg_types
-        self._arg_defaults = arg_defaults
-
-    def _identifier_from_signature(self, sig: List[str], for_sql: bool = False):
-        signature = self._comma_join(sig)
-        id_ = self._identifier.sql_identifier if for_sql else self._identifier
-        return f"{id_}({signature})"
-
-    @staticmethod
-    def _comma_join(*args):
-        return ", ".join(*args)
-
-    @property
-    def identifier_with_arg_names(self):
-        return self._identifier_from_signature(self._arg_names)
-
-    @property
-    def identifier_with_arg_types(self):
-        return self._identifier_from_signature(self._arg_types)
-
-    @property
-    def identifier_with_arg_names_types(self):
-        sig = [f"{n} {t}" for n, t in zip(self._arg_names, self._arg_types)]
-        return self._identifier_from_signature(sig)
-
-    @property
-    def identifier_with_arg_names_types_defaults(self):
-        return self._identifier_from_signature(self._full_signature())
-
-    def _full_signature(self):
-        sig = []
-        for name, _type, _default in zip(
-            self._arg_names, self._arg_types, self._arg_defaults
-        ):
-            s = f"{name} {_type}"
-            if _default:
-                if _is_signature_type_a_string(_type):
-                    _default = f"'{_default}'"
-                s += f" default {_default}"
-            sig.append(s)
-        return sig
-
-    @property
-    def identifier_for_sql(self):
-        return self._identifier_from_signature(self._full_signature(), for_sql=True)
-
-    @classmethod
-    def from_definition(cls, udf_sproc: SnowparkEntityModel):
-        names = []
-        types = []
-        defaults = []
-        if udf_sproc.signature and udf_sproc.signature != "null":
-            for arg in udf_sproc.signature:
-                names.append(arg.name)
-                types.append(arg.arg_type)
-                defaults.append(arg.default)
-
-        identifier = udf_sproc.fqn.using_context()
-        return cls(identifier, names, types, defaults)
-
-
 def _compare_imports(
-    resource_json: dict, imports: List[str], artifact_file: str
+    resource_json: dict, imports: List[str], artifact_files: set[str]
 ) -> bool:
     pattern = re.compile(r"(?:\[@?\w+_\w+\.)?(\w+(?:/\w+)+\.\w+)(?:\])?")
 
     project_imports = {
         imp
-        for import_string in [*imports, artifact_file]
+        for import_string in [*imports, *artifact_files]
         for imp in pattern.findall(import_string.lower())
     }
 
