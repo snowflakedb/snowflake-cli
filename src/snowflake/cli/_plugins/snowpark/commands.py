@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple
 
 import typer
@@ -36,9 +35,10 @@ from snowflake.cli._plugins.object.commands import (
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.snowpark import package_utils
 from snowflake.cli._plugins.snowpark.common import (
+    SnowparkObject,
     check_if_replace_is_required,
 )
-from snowflake.cli._plugins.snowpark.manager import FunctionManager, ProcedureManager
+from snowflake.cli._plugins.snowpark.manager import SnowparkObjectManager
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AnacondaPackagesManager,
@@ -72,7 +72,6 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
-    ObjectType,
 )
 from snowflake.cli.api.exceptions import (
     NoProjectDefinitionError,
@@ -280,7 +279,7 @@ def _find_existing_objects(
 
 def _check_if_all_defined_integrations_exists(
     om: ObjectManager,
-    snowpark_entities: Dict[str, FunctionEntityModel | ProcedureEntityModel],
+    snowpark_entities: SnowparkEntities,
 ):
     existing_integrations = {
         i["name"].lower()
@@ -312,64 +311,29 @@ def _deploy_single_object(
     snowflake_dependencies: List[str],
     entities_to_artifact_map: EntityToImportPathsMapping,
 ):
-    object_type = entity.get_type()
-    is_procedure = isinstance(entity, ProcedureEntityModel)
-
-    handler = entity.handler
-    returns = entity.returns
-    imports = entity.imports
-    external_access_integrations = entity.external_access_integrations
-    runtime_ver = entity.runtime
-    execute_as_caller = None
-    if is_procedure:
-        execute_as_caller = entity.execute_as_caller
-    replace_object = False
-
     object_exists = entity.entity_id in existing_objects
+    replace_object = False
     if object_exists:
         replace_object = check_if_replace_is_required(
-            object_type=object_type,
+            entity=entity,
             current_state=existing_objects[entity.entity_id],
-            handler=handler,
-            return_type=returns,
             snowflake_dependencies=snowflake_dependencies,
-            external_access_integrations=external_access_integrations,
-            imports=imports,
             stage_artifact_files=entities_to_artifact_map[entity.entity_id],
-            runtime_ver=runtime_ver,
-            execute_as_caller=execute_as_caller,
         )
 
-    if object_exists and not replace_object:
-        return {
-            "object": entity.udf_sproc_identifier.identifier_with_arg_names_types_defaults,
-            "type": str(object_type),
-            "status": "packages updated",
-        }
-
-    create_or_replace_kwargs = {
-        "identifier": entity.udf_sproc_identifier,
-        "handler": handler,
-        "return_type": returns,
-        "artifact_files": entities_to_artifact_map[entity.entity_id],
-        "packages": snowflake_dependencies,
-        "runtime": entity.runtime,
-        "external_access_integrations": entity.external_access_integrations,
-        "secrets": entity.secrets,
-        "imports": imports,
-    }
-    if is_procedure:
-        create_or_replace_kwargs["execute_as_caller"] = entity.execute_as_caller
-
-    manager = ProcedureManager() if is_procedure else FunctionManager()
-    manager.create_or_replace(**create_or_replace_kwargs)
-
-    status = "created" if not object_exists else "definition updated"
-    return {
+    state = {
         "object": entity.udf_sproc_identifier.identifier_with_arg_names_types_defaults,
-        "type": str(object_type),
-        "status": status,
+        "type": entity.get_type(),
     }
+    if object_exists and not replace_object:
+        return {**state, "status": "packages updated"}
+
+    SnowparkObjectManager().create_or_replace(
+        entity=entity,
+        artifact_files=entities_to_artifact_map[entity.entity_id],
+        snowflake_dependencies=snowflake_dependencies,
+    )
+    return {**state, "status": "created" if not object_exists else "definition updated"}
 
 
 def _read_snowflake_requirements_file(file_path: SecurePath):
@@ -470,46 +434,24 @@ def get_snowpark_entities(
     return snowpark_entities
 
 
-class _SnowparkObject(Enum):
-    """This clas is used only for Snowpark execute where choice is limited."""
-
-    PROCEDURE = str(ObjectType.PROCEDURE)
-    FUNCTION = str(ObjectType.FUNCTION)
-
-
-def _execute_object_method(
-    method_name: str,
-    object_type: _SnowparkObject,
-    **kwargs,
-):
-    if object_type == _SnowparkObject.PROCEDURE:
-        manager = ProcedureManager()
-    elif object_type == _SnowparkObject.FUNCTION:
-        manager = FunctionManager()
-    else:
-        raise ClickException(f"Unknown object type: {object_type}")
-
-    return getattr(manager, method_name)(**kwargs)
-
-
 @app.command("execute", requires_connection=True)
 def execute(
-    object_type: _SnowparkObject = ObjectTypeArgument,
+    object_type: SnowparkObject = ObjectTypeArgument,
     execution_identifier: str = execution_identifier_argument(
         "procedure/function", "hello(1, 'world')"
     ),
     **options,
 ) -> CommandResult:
     """Executes a procedure or function in a specified environment."""
-    cursor = _execute_object_method(
-        "execute", object_type=object_type, execution_identifier=execution_identifier
+    cursor = SnowparkObjectManager().execute(
+        execution_identifier=execution_identifier, object_type=object_type
     )
     return SingleQueryResult(cursor)
 
 
 @app.command("list", requires_connection=True)
 def list_(
-    object_type: _SnowparkObject = ObjectTypeArgument,
+    object_type: SnowparkObject = ObjectTypeArgument,
     like: str = LikeOption,
     scope: Tuple[str, str] = scope_option(
         help_example="`list function --in database my_db`"
@@ -522,7 +464,7 @@ def list_(
 
 @app.command("drop", requires_connection=True)
 def drop(
-    object_type: _SnowparkObject = ObjectTypeArgument,
+    object_type: SnowparkObject = ObjectTypeArgument,
     identifier: FQN = IdentifierArgument,
     **options,
 ):
@@ -532,7 +474,7 @@ def drop(
 
 @app.command("describe", requires_connection=True)
 def describe(
-    object_type: _SnowparkObject = ObjectTypeArgument,
+    object_type: SnowparkObject = ObjectTypeArgument,
     identifier: FQN = IdentifierArgument,
     **options,
 ):

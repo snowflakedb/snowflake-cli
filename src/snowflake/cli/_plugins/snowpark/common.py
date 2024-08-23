@@ -15,45 +15,33 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional, Set
+from enum import Enum
+from typing import List, Set
 
 from snowflake.cli._plugins.snowpark.models import Requirement
-from snowflake.cli._plugins.snowpark.package_utils import (
-    generate_deploy_stage_name,
-)
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
-    UdfSprocIdentifier,
+    ProcedureEntityModel,
+    SnowparkEntityModel,
 )
-from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
 DEFAULT_RUNTIME = "3.10"
 
+import logging
+
+log = logging.getLogger(__name__)
+
 
 def check_if_replace_is_required(
-    object_type: str,
+    entity: SnowparkEntityModel,
     current_state,
-    handler: str,
-    return_type: str,
     snowflake_dependencies: List[str],
-    external_access_integrations: List[str],
-    imports: List[str],
     stage_artifact_files: set[str],
-    runtime_ver: Optional[str] = None,
-    execute_as_caller: Optional[bool] = None,
 ) -> bool:
-    import logging
-
-    log = logging.getLogger(__name__)
+    object_type = entity.get_type()
     resource_json = _convert_resource_details_to_dict(current_state)
     old_dependencies = resource_json["packages"]
-    log.info(
-        "Found %d defined Anaconda packages in deployed %s...",
-        len(old_dependencies),
-        object_type,
-    )
-    log.info("Checking if app configuration has changed...")
 
     if _snowflake_dependencies_differ(old_dependencies, snowflake_dependencies):
         log.info(
@@ -61,7 +49,7 @@ def check_if_replace_is_required(
         )
         return True
 
-    if set(external_access_integrations) != set(
+    if set(entity.external_access_integrations) != set(
         resource_json.get("external_access_integrations", [])
     ):
         log.info(
@@ -71,33 +59,33 @@ def check_if_replace_is_required(
         return True
 
     if (
-        resource_json["handler"].lower() != handler.lower()
+        resource_json["handler"].lower() != entity.handler.lower()
         or _sql_to_python_return_type_mapper(resource_json["returns"]).lower()
-        != return_type.lower()
+        != entity.returns.lower()
     ):
         log.info(
             "Return type or handler types do not match. Replacing the %s.", object_type
         )
         return True
 
-    if _compare_imports(resource_json, imports, stage_artifact_files):
+    if _compare_imports(resource_json, entity.imports, stage_artifact_files):
         log.info("Imports do not match. Replacing the %s", object_type)
         return True
 
-    if runtime_ver is not None and runtime_ver != resource_json.get(
+    if entity.runtime is not None and entity.runtime != resource_json.get(
         "runtime_version", "RUNTIME_NOT_SET"
     ):
         log.info("Runtime versions do not match. Replacing the %s", object_type)
         return True
 
-    if execute_as_caller is not None and (
-        resource_json.get("execute as", "OWNER")
-        != ("CALLER" if execute_as_caller else "OWNER")
-    ):
-        log.info(
-            "Execute as caller settings do not match. Replacing the %s", object_type
-        )
-        return True
+    if isinstance(entity, ProcedureEntityModel):
+        if resource_json.get("execute as", "OWNER") != (
+            "CALLER" if entity.execute_as_caller else "OWNER"
+        ):
+            log.info(
+                "Execute as caller settings do not match. Replacing the %s", object_type
+            )
+            return True
 
     return False
 
@@ -148,69 +136,11 @@ def _sql_to_python_return_type_mapper(resource_return_type: str) -> str:
     return mapping.get(resource_return_type.lower(), resource_return_type.lower())
 
 
-class SnowparkObjectManager(SqlExecutionMixin):
-    @property
-    def _object_type(self) -> ObjectType:
-        raise NotImplementedError()
+class SnowparkObject(Enum):
+    """This clas is used only for Snowpark execute where choice is limited."""
 
-    @property
-    def _object_execute(self):
-        raise NotImplementedError()
-
-    def create(self, *args, **kwargs) -> SnowflakeCursor:
-        raise NotImplementedError()
-
-    def execute(self, execution_identifier: str) -> SnowflakeCursor:
-        return self._execute_query(f"{self._object_execute} {execution_identifier}")
-
-    @staticmethod
-    def artifact_stage_path(identifier: str):
-        return generate_deploy_stage_name(identifier).lower()
-
-    def create_query(
-        self,
-        identifier: UdfSprocIdentifier,
-        return_type: str,
-        handler: str,
-        artifact_files: set[str],
-        packages: List[str],
-        imports: List[str],
-        external_access_integrations: Optional[List[str]] = None,
-        secrets: Optional[Dict[str, str]] = None,
-        runtime: Optional[str] = None,
-        execute_as_caller: bool = False,
-    ) -> str:
-        imports.extend(artifact_files)
-        imports = [f"'{x}'" for x in imports]
-        packages_list = ",".join(f"'{p}'" for p in packages)
-
-        query = [
-            f"create or replace {self._object_type.value.sf_name} {identifier.identifier_for_sql}",
-            f"copy grants",
-            f"returns {return_type}",
-            "language python",
-            f"runtime_version={runtime or DEFAULT_RUNTIME}",
-            f"imports=({', '.join(imports)})",
-            f"handler='{handler}'",
-            f"packages=({packages_list})",
-        ]
-
-        if external_access_integrations:
-            external_access_integration_name = ",".join(
-                f"{e}" for e in external_access_integrations
-            )
-            query.append(
-                f"external_access_integrations=({external_access_integration_name})"
-            )
-
-        if secrets:
-            secret_name = ",".join(f"'{k}'={v}" for k, v in secrets.items())
-            query.append(f"secrets=({secret_name})")
-
-        if execute_as_caller:
-            query.append("execute as caller")
-
-        return "\n".join(query)
+    PROCEDURE = str(ObjectType.PROCEDURE)
+    FUNCTION = str(ObjectType.FUNCTION)
 
 
 def _compare_imports(
