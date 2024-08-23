@@ -137,7 +137,7 @@ def streamlit_deploy(
     if not pd.meets_version_requirement("2"):
         if not pd.streamlit:
             raise NoProjectDefinitionError(
-                project_type="streamlit", project_file=cli_context.project_root
+                project_type="streamlit", project_root=cli_context.project_root
             )
         pd = migrate_v1_streamlit_to_v2(pd)
 
@@ -147,7 +147,7 @@ def streamlit_deploy(
 
     if not streamlits:
         raise NoProjectDefinitionError(
-            project_type="streamlit", project_file=cli_context.project_root
+            project_type="streamlit", project_root=cli_context.project_root
         )
 
     if entity_id and entity_id not in streamlits:

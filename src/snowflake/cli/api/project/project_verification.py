@@ -19,5 +19,5 @@ def assert_project_type(project_type: str):
     cli_context = get_cli_context()
     if not getattr(cli_context.project_definition, project_type, None):
         raise NoProjectDefinitionError(
-            project_type=project_type, project_file=cli_context.project_root
+            project_type=project_type, project_root=cli_context.project_root
         )

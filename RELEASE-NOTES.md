@@ -21,6 +21,12 @@
 * `snow snowpark init` and `snow streamlit init` commands are removed in favor of `snow init` command.
 * Removed deprecated flags from `snow snowpark` commands.
 * Default Python version for Snowpark functions and procedures was bumped to 3.10 from 3.8.
+* Snowpark commands
+  * `snow snowpark build` creates a .zip file for each specified artifact that is a directory. Non-Anaconda
+    dependencies are packaged once as `dependencies.zip`.
+  * `snow snowpark deploy` uploads all artifacts created during build step. Dependencies zip is upload once to
+     every Snowpark stage specified in project definition.
+  * The changes are compatible with V1 projects definition though the result state (file layout) is different.
 
 ## Deprecations
   * Added deprecation warning for `native_app.package.scripts` in project definition file.

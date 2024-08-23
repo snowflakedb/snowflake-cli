@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from pathlib import Path
 
 import pytest
 from snowflake.cli._plugins.snowpark.commands import migrate_v1_snowpark_to_v2
@@ -179,7 +180,7 @@ from tests.testing_utils.mock_config import mock_config_key
                         "returns": "string",
                         "signature": [{"name": "name", "type": "string"}],
                         "runtime": "3.10",
-                        "artifacts": "src",
+                        "artifacts": ["src"],
                     }
                 },
             },
@@ -196,7 +197,7 @@ from tests.testing_utils.mock_config import mock_config_key
                         "returns": "string",
                         "signature": [{"name": "name", "type": "string"}],
                         "runtime": "3.10",
-                        "artifacts": "src",
+                        "artifacts": ["src"],
                         "execute_as_caller": True,
                     }
                 },
@@ -213,7 +214,7 @@ from tests.testing_utils.mock_config import mock_config_key
                         "returns": "string",
                         "signature": [{"name": "name", "type": "string"}],
                         "runtime": "3.10",
-                        "artifacts": "src",
+                        "artifacts": ["src"],
                         "execute_as_caller": True,
                     }
                 },
@@ -350,7 +351,6 @@ def test_entity_model_to_entity_map():
     [
         "snowpark_functions",
         "snowpark_procedures",
-        "snowpark_procedures_coverage",
         "snowpark_function_fully_qualified_name",
     ],
 )
@@ -375,13 +375,13 @@ def test_v1_to_v2_conversion(
         for v1_procedure in definition_v1.snowpark.procedures:
             v2_procedure = definition_v2.entities.get(v1_procedure.name)
             assert v2_procedure
-            assert v2_procedure.artifacts == definition_v1.snowpark.src
+            assert v2_procedure.artifacts == [Path(definition_v1.snowpark.src)]
             _assert_entities_are_equal(v1_procedure, v2_procedure)
 
         for v1_function in definition_v1.snowpark.functions:
             v2_function = definition_v2.entities.get(v1_function.name)
             assert v2_function
-            assert v2_function.artifacts == definition_v1.snowpark.src
+            assert v2_function.artifacts == [Path(definition_v1.snowpark.src)]
             _assert_entities_are_equal(v1_function, v2_function)
 
 
