@@ -24,10 +24,10 @@ from tests_integration.testing_utils import (
 
 
 @pytest.fixture(scope="function", params=["napp_init_v1", "napp_init_v2"])
-def template_setup(runner, project_directory, request):
+def template_setup(runner, nativeapp_project_directory, request):
     test_project = request.param
     with enable_definition_v2_feature_flag:
-        with project_directory(test_project) as project_root:
+        with nativeapp_project_directory(test_project) as project_root:
             # Vanilla bundle on the unmodified template
             result = runner.invoke_json(["app", "bundle"])
             assert result.exit_code == 0
