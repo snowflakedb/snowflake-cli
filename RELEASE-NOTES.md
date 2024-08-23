@@ -21,28 +21,44 @@
 * `snow snowpark init` and `snow streamlit init` commands are removed in favor of `snow init` command.
 * Removed deprecated flags from `snow snowpark` commands.
 * Default Python version for Snowpark functions and procedures was bumped to 3.10 from 3.8.
+* Snowpark commands
+  * `snow snowpark build` creates a .zip file for each specified artifact that is a directory. Non-Anaconda
+    dependencies are packaged once as `dependencies.zip`.
+  * `snow snowpark deploy` uploads all artifacts created during build step. Dependencies zip is upload once to
+     every Snowpark stage specified in project definition.
+  * The changes are compatible with V1 projects definition though the result state (file layout) is different.
+
+## Deprecations
+
+## New additions
+* Added `snow spcs service execute-job` command, which supports creating and executing a job service in the current schema.
+* Added `snow app events` command to fetch logs and traces from local and customer app installations.
+* Added support for external access (api integrations and secrets) in Streamlit.
+* Support multiple Streamlit application in single snowflake.yml project definition file.
+
+## Fixes and improvements
+* Fixed problem with whitespaces in `snow connection add` command.
+* Added check for the correctness of token file and private key paths when addind a connection.
+* Fix the typo in spcs service name argument description. It is the identifier of the **service** instead of the **service pool**.
+* Fix error handling and improve messaging when no artifacts provided.
+* Improved error message for incompatible parameters.
+
+
+# v2.8.0
+## Backward incompatibility
 
 ## Deprecations
   * Added deprecation warning for `native_app.package.scripts` in project definition file.
 
 ## New additions
+* Added support for project definition file defaults in templates.
 * Added support for `native_app.package.post_deploy` scripts in project definition file.
   * These scripts will execute whenever a Native App Package is created or updated.
-  * Currently only supports SQL scripts: `post_deploy: [{sql_script: script.sql}]`
-* Added `snow spcs service execute-job` command, which supports creating and executing a job service in the current schema.
-* Added `snow app events` command to fetch logs and traces from local and customer app installations
-* Added support for project definition file defaults in templates
-* Added support for external access (api integrations and secrets) in Streamlit.
-* Support multiple Streamlit application in single snowflake.yml project definition file.
+  * Currently only supports SQL scripts: `post_deploy: [{sql_script: script.sql}]`.
 
 ## Fixes and improvements
-* Fixed problem with whitespaces in `snow connection add` command
-* Added check for the correctness of token file and private key paths when addind a connection
-* Fix the typo in spcs service name argument description. It is the identifier of the **service** instead of the **service pool**.
-* Fix error handling and improve messaging when no artifacts provided
-* Improved error message for incompatible parameters.
 * Fix return values of `snow snowpark list`, `describe` and `drop` commands.
-* Show warnings returned by Snowflake when `snow app run` is successful
+* Show warnings returned by Snowflake when `snow app run` is successful.
 
 
 # v2.7.0
