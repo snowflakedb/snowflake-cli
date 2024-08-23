@@ -2922,9 +2922,9 @@
                                                                                   
    Usage: default snowpark build [OPTIONS]                                        
                                                                                   
-   Builds the Snowpark project as a `.zip` archive that can be used by `deploy`   
-   command. The archive is built using only the `artifacts` directory specified   
-   in the project file.                                                           
+   Builds artifacts required for the Snowpark project. The artifacts can be used  
+   by `deploy` command. For each directory in artifacts a .zip file is created.   
+   All non-anaconda dependencies are packaged in dependencies.zip file.           
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --ignore-anaconda                       Does not lookup packages on          |
@@ -3014,8 +3014,9 @@
                                                                                   
    Deploys procedures and functions defined in project. Deploying the project     
    alters all objects defined in it. By default, if any of the objects exist      
-   already the commands will fail unless `--replace` flag is provided. All        
-   deployed objects use the same artifact which is deployed only once.            
+   already the commands will fail unless `--replace` flag is provided. Required   
+   artifacts are deployed before creating functions or procedures. Dependencies   
+   are deployed once to every stage specified in definitions.                     
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --replace                Replaces procedure or function, even if no detected |
@@ -3664,14 +3665,16 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build      Builds the Snowpark project as a `.zip` archive that can be used  |
-  |            by `deploy` command. The archive is built using only the          |
-  |            `artifacts` directory specified in the project file.              |
+  | build      Builds artifacts required for the Snowpark project. The artifacts |
+  |            can be used by `deploy` command. For each directory in artifacts  |
+  |            a .zip file is created. All non-anaconda dependencies are         |
+  |            packaged in dependencies.zip file.                                |
   | deploy     Deploys procedures and functions defined in project. Deploying    |
   |            the project alters all objects defined in it. By default, if any  |
   |            of the objects exist already the commands will fail unless        |
-  |            `--replace` flag is provided. All deployed objects use the same   |
-  |            artifact which is deployed only once.                             |
+  |            `--replace` flag is provided. Required artifacts are deployed     |
+  |            before creating functions or procedures. Dependencies are         |
+  |            deployed once to every stage specified in definitions.            |
   | describe   Provides description of a procedure or function.                  |
   | drop       Drop procedure or function.                                       |
   | execute    Executes a procedure or function in a specified environment.      |
@@ -8109,14 +8112,16 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build      Builds the Snowpark project as a `.zip` archive that can be used  |
-  |            by `deploy` command. The archive is built using only the          |
-  |            `artifacts` directory specified in the project file.              |
+  | build      Builds artifacts required for the Snowpark project. The artifacts |
+  |            can be used by `deploy` command. For each directory in artifacts  |
+  |            a .zip file is created. All non-anaconda dependencies are         |
+  |            packaged in dependencies.zip file.                                |
   | deploy     Deploys procedures and functions defined in project. Deploying    |
   |            the project alters all objects defined in it. By default, if any  |
   |            of the objects exist already the commands will fail unless        |
-  |            `--replace` flag is provided. All deployed objects use the same   |
-  |            artifact which is deployed only once.                             |
+  |            `--replace` flag is provided. Required artifacts are deployed     |
+  |            before creating functions or procedures. Dependencies are         |
+  |            deployed once to every stage specified in definitions.            |
   | describe   Provides description of a procedure or function.                  |
   | drop       Drop procedure or function.                                       |
   | execute    Executes a procedure or function in a specified environment.      |
