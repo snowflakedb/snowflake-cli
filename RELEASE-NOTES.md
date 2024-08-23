@@ -18,17 +18,27 @@
 ## Backward incompatibility
 
 ## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v2.8.0
+## Backward incompatibility
+
+## Deprecations
   * Added deprecation warning for `native_app.package.scripts` in project definition file.
 
 ## New additions
-* Added support for project definition file defaults in templates
+* Added support for project definition file defaults in templates.
 * Added support for `native_app.package.post_deploy` scripts in project definition file.
   * These scripts will execute whenever a Native App Package is created or updated.
-  * Currently only supports SQL scripts: `post_deploy: [{sql_script: script.sql}]`
+  * Currently only supports SQL scripts: `post_deploy: [{sql_script: script.sql}]`.
 
 ## Fixes and improvements
 * Fix return values of `snow snowpark list`, `describe` and `drop` commands.
-* Show warnings returned by Snowflake when `snow app run` is successful
+* Show warnings returned by Snowflake when `snow app run` is successful.
 
 
 # v2.7.0
