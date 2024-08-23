@@ -114,6 +114,7 @@
     pages_dir: pages/
     additional_source_files:
       - common/hello.py
+  
   '''
 # ---
 # name: test_migration_streamlit_v1_to_v2[migration_snowpark_V1_to_V2]
