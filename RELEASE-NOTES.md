@@ -59,7 +59,7 @@
 * Fix error handling and improve messaging when no artifacts provided.
 * Improved error message for incompatible parameters.
 * Fixed SQL error when running `snow app version create` and `snow app version drop` with a version name that isn't a valid Snowflake unquoted identifier
-
+* Fixed git execute is not working with upper case in directory name.
 
 # v2.8.0
 ## Backward incompatibility

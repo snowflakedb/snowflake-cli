@@ -381,8 +381,10 @@ class StageManager(SqlExecutionMixin):
         stage_path = stage_path_parts.path.lower()
 
         # Exact file path was provided if stage_path in file list
-        if stage_path in files_on_stage:
-            filtered_files = self._filter_supported_files([stage_path])
+        for file in files_on_stage:
+            if file.lower() != stage_path:
+                continue
+            filtered_files = self._filter_supported_files([file])
             if filtered_files:
                 return filtered_files
             else:
