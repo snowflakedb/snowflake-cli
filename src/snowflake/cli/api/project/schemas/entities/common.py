@@ -41,7 +41,7 @@ class MetaField(UpdatableModel):
         title="Actions that will be executed after the application object is created/upgraded",
         default=None,
     )
-    use_mixin: Optional[str] = Field(
+    use_mixins: Optional[str | List[str]] = Field(
         title="Name of the mixin used to fill the entity fields",
         default=None,
     )

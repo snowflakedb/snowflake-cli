@@ -394,7 +394,9 @@ def test_mixins(project_directory, project_name, stage1, stage2):
         definition = DefinitionManager(project_dir).project_definition
 
     assert definition.entities["function1"].stage == stage1
+    assert definition.entities["function1"].handler == "app.hello"
     assert definition.entities["function2"].stage == stage2
+    assert definition.entities["function1"].handler == "app.hello"
 
 
 def test_mixins_for_different_entities(project_directory):
@@ -405,10 +407,13 @@ def test_mixins_for_different_entities(project_directory):
     assert definition.entities["streamlit1"].main_file == "streamlit_app.py"
 
 
-# TODO: add tests for the following:
-# - entities of different types - only entity specific fields should be updated
-# - entities with different mixins
-# - which prevailes - defaults or mixins? Check order
+def test_list_of_mixins_in_correct_order(project_directory):
+    with project_directory("mixins_list_applied_in_order") as project_dir:
+        definition = DefinitionManager(project_dir).project_definition
+
+    assert definition.entities["function1"].stage == "foo"
+    assert definition.entities["function2"].stage == "baz"
+    assert definition.entities["streamlit1"].stage == "bar"
 
 
 def _assert_entities_are_equal(

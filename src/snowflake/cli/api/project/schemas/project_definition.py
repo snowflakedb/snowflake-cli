@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
@@ -123,15 +123,11 @@ class DefinitionV20(_ProjectDefinitionBase):
         """
         if "defaults" in data and "entities" in data:
             for key, entity in data["entities"].items():
-                entity_type = entity["type"]
-                if entity_type not in v2_entity_model_types_map:
+                entity_fields = get_allowed_fields_for_entity(entity)
+                if not entity_fields:
                     continue
-                entity_model = v2_entity_model_types_map[entity_type]
                 for default_key, default_value in data["defaults"].items():
-                    if (
-                        default_key in entity_model.model_fields
-                        and default_key not in entity
-                    ):
+                    if default_key in entity_fields and default_key not in entity:
                         entity[default_key] = default_value
         return data
 
@@ -206,12 +202,17 @@ class DefinitionV20(_ProjectDefinitionBase):
         Applies mixins to those entities, whose meta field contains the mixin name.
         """
         if "mixins" in data and "entities" in data:
-            for name, mixin in data.get("mixins", {}).items():
-                for entity in data["entities"].values():
-                    if entity.get("meta", {}).get("use_mixin") == name:
-                        for key in mixin.keys():
-                            if key in entity.keys():
-                                entity[key] = mixin[key]
+            for entity in data["entities"].values():
+                entity_mixins = entity_mixins_to_list(
+                    entity.get("meta", {}).get("use_mixins")
+                )
+                entity_fields = get_allowed_fields_for_entity(entity)
+                if entity_fields and entity_mixins:
+                    for mixin_name in entity_mixins:
+                        if mixin_name in data["mixins"]:
+                            for key, value in data["mixins"][mixin_name].items():
+                                if key in entity_fields:
+                                    entity[key] = value
         return data
 
     def get_entities_by_type(self, entity_type: str):
@@ -242,3 +243,26 @@ def get_version_map():
     if FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled():
         version_map["2"] = DefinitionV20
     return version_map
+
+
+def entity_mixins_to_list(entity_mixins: Optional[str | List[str]]) -> List[str]:
+    """
+    Convert an optional string or a list of strings to a list of strings.
+    """
+    if entity_mixins is None:
+        return []
+    if isinstance(entity_mixins, str):
+        return [entity_mixins]
+    return entity_mixins
+
+
+def get_allowed_fields_for_entity(entity: Dict[str, Any]) -> List[str]:
+    """
+    Get the allowed fields for the given entity.
+    """
+    entity_type = entity.get("type")
+    if entity_type not in v2_entity_model_types_map:
+        return []
+
+    entity_model = v2_entity_model_types_map[entity_type]
+    return entity_model.model_fields

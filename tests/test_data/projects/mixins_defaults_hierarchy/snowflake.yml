@@ -6,7 +6,7 @@ entities:
     handler: app.hello
     identifier: name
     meta:
-      use_mixin: my_mixin
+      use_mixins: my_mixin
     returns: string
     signature:
     - name: name
@@ -15,7 +15,7 @@ entities:
   function2:
     artifacts:
     - src
-    handler: app.hello
+    handler: app.hello2
     identifier: name
     returns: string
     signature:

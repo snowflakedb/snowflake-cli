@@ -6,7 +6,9 @@ entities:
     handler: app.hello
     identifier: name
     meta:
-      use_mixins: my_mixin
+      use_mixins:
+        - second_mixin
+        - first_mixin
     returns: string
     signature:
     - name: name
@@ -18,6 +20,9 @@ entities:
     handler: app.hello
     identifier: name
     returns: string
+    meta:
+        use_mixins:
+            - third_mixin
     signature:
     - name: name
       type: string
@@ -35,11 +40,19 @@ entities:
     title: My Fancy Streamlit
     type: streamlit
     meta:
-        use_mixins: my_mixin
-defaults:
-    stage: baz
+        use_mixins:
+          - first_mixin
+          - second_mixin
 mixins:
-  my_mixin:
+  first_mixin:
     stage: foo
+    main_file: streamlit_app.py
+    pages_dir: non_existent_pages_dir
+  second_mixin:
+    stage: bar
+    main_file: streamlit_app.py
+    pages_dir: pages
+  third_mixin:
+    stage: baz
     main_file: streamlit_app.py
     pages_dir: pages
