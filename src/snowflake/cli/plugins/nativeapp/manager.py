@@ -577,7 +577,10 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
     def _expand_script_templates(
-        self, env: jinja2.Environment, jinja_context: dict[str, Any], scripts: List[str]
+        self,
+        env: jinja2.Environment,
+        jinja_context: dict[str, Any],
+        scripts: List[Path],
     ) -> List[str]:
         """
         Input:
@@ -591,7 +594,7 @@ class NativeAppManager(SqlExecutionMixin):
         scripts_contents = []
         for relpath in scripts:
             try:
-                template = env.get_template(relpath)
+                template = env.get_template(relpath.as_posix())
                 result = template.render(**jinja_context)
                 scripts_contents.append(result)
 
@@ -623,8 +626,9 @@ class NativeAppManager(SqlExecutionMixin):
             undefined=jinja2.StrictUndefined,
         )
 
+        package_scripts_paths = [Path(script) for script in self.package_scripts]
         queued_queries = self._expand_script_templates(
-            env, dict(package_name=self.package_name), self.package_scripts
+            env, dict(package_name=self.package_name), package_scripts_paths
         )
 
         # once we're sure all the templates expanded correctly, execute all of them
@@ -672,7 +676,7 @@ class NativeAppManager(SqlExecutionMixin):
             sql_scripts_paths = []
             for hook in post_deploy_hooks:
                 if hook.sql_script:
-                    sql_scripts_paths.append(hook.sql_script)
+                    sql_scripts_paths.append(Path(hook.sql_script))
                 else:
                     raise ValueError(
                         f"Unsupported {deployed_object_type} post-deploy hook type: {hook}"
