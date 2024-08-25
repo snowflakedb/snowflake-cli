@@ -26,30 +26,24 @@ def test_nativeapp_open(
     mock_typer_launch,
     runner,
     test_project,
-    project_directory,
+    nativeapp_project_directory,
     default_username,
     resource_suffix,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{default_username}{resource_suffix}"
 
-    with project_directory(test_project):
+    with nativeapp_project_directory(test_project):
         result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
-        try:
-            result = runner.invoke_with_connection_json(["app", "open"])
-            assert result.exit_code == 0
-            assert "Snowflake Native App opened in browser." in result.output
 
-            mock_call = mock_typer_launch.call_args_list[0].args[0]
-            assert re.match(
-                rf"https://app.snowflake.com/.*#/apps/application/{app_name}",
-                mock_call,
-                re.IGNORECASE,
-            )
+        result = runner.invoke_with_connection_json(["app", "open"])
+        assert result.exit_code == 0
+        assert "Snowflake Native App opened in browser." in result.output
 
-        finally:
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force", "--cascade"]
-            )
-            assert result.exit_code == 0
+        mock_call = mock_typer_launch.call_args_list[0].args[0]
+        assert re.match(
+            rf"https://app.snowflake.com/.*#/apps/application/{app_name}",
+            mock_call,
+            re.IGNORECASE,
+        )

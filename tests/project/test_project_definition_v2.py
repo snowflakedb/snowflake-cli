@@ -385,6 +385,32 @@ def test_v1_to_v2_conversion(
             _assert_entities_are_equal(v1_function, v2_function)
 
 
+@pytest.mark.parametrize(
+    "project_name,stage1,stage2",
+    [("mixins_basic", "foo", "bar"), ("mixins_defaults_hierarchy", "foo", "baz")],
+)
+def test_mixins(project_directory, project_name, stage1, stage2):
+    with project_directory(project_name) as project_dir:
+        definition = DefinitionManager(project_dir).project_definition
+
+    assert definition.entities["function1"].stage == stage1
+    assert definition.entities["function2"].stage == stage2
+
+
+def test_mixins_for_different_entities(project_directory):
+    with project_directory("mixins_different_entities") as project_dir:
+        definition = DefinitionManager(project_dir).project_definition
+
+    assert definition.entities["function1"].stage == "foo"
+    assert definition.entities["streamlit1"].main_file == "streamlit_app.py"
+
+
+# TODO: add tests for the following:
+# - entities of different types - only entity specific fields should be updated
+# - entities with different mixins
+# - which prevailes - defaults or mixins? Check order
+
+
 def _assert_entities_are_equal(
     v1_entity: _CallableBase, v2_entity: SnowparkEntityModel
 ):

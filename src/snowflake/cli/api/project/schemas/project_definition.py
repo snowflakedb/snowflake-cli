@@ -194,6 +194,26 @@ class DefinitionV20(_ProjectDefinitionBase):
         default=None,
     )
 
+    mixins: Optional[Dict[str, Dict]] = Field(
+        title="Mixins to apply to entities",
+        default=None,
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def apply_mixins(cls, data: Dict) -> Dict:
+        """
+        Applies mixins to those entities, whose meta field contains the mixin name.
+        """
+        if "mixins" in data and "entities" in data:
+            for name, mixin in data.get("mixins", {}).items():
+                for entity in data["entities"].values():
+                    if entity.get("meta", {}).get("use_mixin") == name:
+                        for key in mixin.keys():
+                            if key in entity.keys():
+                                entity[key] = mixin[key]
+        return data
+
     def get_entities_by_type(self, entity_type: str):
         return {i: e for i, e in self.entities.items() if e.get_type() == entity_type}
 
