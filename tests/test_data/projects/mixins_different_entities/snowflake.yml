@@ -1,0 +1,45 @@
+definition_version: '2'
+entities:
+  function1:
+    artifacts:
+    - src
+    handler: app.hello
+    identifier: name
+    meta:
+      use_mixins: my_mixin
+    returns: string
+    signature:
+    - name: name
+      type: string
+    type: function
+  function2:
+    artifacts:
+    - src
+    handler: app.hello
+    identifier: name
+    returns: string
+    signature:
+    - name: name
+      type: string
+    type: function
+  streamlit1:
+    artifacts:
+    - streamlit_app.py
+    - environment.yml
+    - pages
+    identifier:
+      name: test_streamlit
+    pages_dir: non_existent_dir
+    query_warehouse: test_warehouse
+    stage: streamlit
+    title: My Fancy Streamlit
+    type: streamlit
+    meta:
+        use_mixins: my_mixin
+defaults:
+    stage: baz
+mixins:
+  my_mixin:
+    stage: foo
+    main_file: streamlit_app.py
+    pages_dir: pages

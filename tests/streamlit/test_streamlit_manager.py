@@ -80,6 +80,6 @@ def test_deploy_streamlit_with_api_integrations(
         QUERY_WAREHOUSE = My_WH
         TITLE = 'MyStreamlit'
         external_access_integrations=(MY_INTERGATION, OTHER)
-        secrets = ('my_secret' = SecretOfTheSecrets, 'other' = other_secret)"""
+        secrets=('my_secret'=SecretOfTheSecrets, 'other'=other_secret)"""
         )
     )
