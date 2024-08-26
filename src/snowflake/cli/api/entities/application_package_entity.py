@@ -67,17 +67,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         compiler.compile_artifacts()
         return bundle_map
 
-    def action_validate(self, ctx: ActionContext):
-        model = self._entity_model
-        model.artifacts
-        pass
-
     def action_deploy(
         self,
         ctx: ActionContext,
         prune: bool,
         recursive: bool,
         paths: List[Path],
+        validate: bool,
     ):
         model = self._entity_model
         package_name = model.fqn.identifier
@@ -116,7 +112,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
 
         # TODO Execute post-deploy hooks
-        # TODO Validate
+
+        if validate:
+            self.validate_setup_script(
+                console=ctx.console,
+                package_name=package_name,
+                package_role=package_role,
+                stage_fqn=stage_fqn,
+                use_scratch_stage=False,
+                scratch_stage_fqn="",
+                deploy_to_scratch_stage_fn=lambda *args: None,
+            )
 
     @staticmethod
     def get_existing_app_pkg_info(

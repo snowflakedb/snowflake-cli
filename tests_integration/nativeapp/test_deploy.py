@@ -126,7 +126,7 @@ def test_nativeapp_deploy(
             "napp_init_v2",
         ],
         [
-            "ws deploy --entity-id=pkg --prune",
+            "ws deploy --entity-id=pkg --prune --no-validate",
             ["stage/manifest.yml"],
             ["stage/README.md"],
             "napp_init_v2",
@@ -145,7 +145,7 @@ def test_nativeapp_deploy(
             "napp_init_v2",
         ],
         [
-            "ws deploy --entity-id=pkg",
+            "ws deploy --entity-id=pkg --no-validate",
             ["stage/manifest.yml"],
             ["stage/README.md"],
             "napp_init_v2",
@@ -217,7 +217,7 @@ def test_nativeapp_deploy_prune(
     [
         ["app deploy --no-validate", "napp_init_v1"],
         ["app deploy --no-validate", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg --no-validate", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_files(
@@ -263,7 +263,7 @@ def test_nativeapp_deploy_files(
     [
         ["app deploy --no-validate", "napp_init_v1"],
         ["app deploy --no-validate", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg --no-validate", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_nested_directories(
@@ -306,7 +306,7 @@ def test_nativeapp_deploy_nested_directories(
     [
         ["app deploy --no-validate", "napp_init_v1"],
         ["app deploy --no-validate", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg --no-validate", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_directory(
@@ -347,7 +347,7 @@ def test_nativeapp_deploy_directory(
     [
         ["app deploy --no-validate", "napp_init_v1"],
         ["app deploy --no-validate", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg --no-validate", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_directory_no_recursive(
@@ -370,7 +370,7 @@ def test_nativeapp_deploy_directory_no_recursive(
     [
         ["app deploy --no-validate", "napp_init_v1"],
         ["app deploy --no-validate", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg --no-validate", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_unknown_path(
@@ -393,7 +393,7 @@ def test_nativeapp_deploy_unknown_path(
     [
         ["app deploy --no-validate", "napp_init_v1"],
         ["app deploy --no-validate", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg --no-validate", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_path_with_no_mapping(
@@ -564,3 +564,28 @@ def test_nativeapp_deploy_dot(
         assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
         assert contains_row_with(stage_files.json, {"name": "stage/setup_script.sql"})
         assert contains_row_with(stage_files.json, {"name": "stage/README.md"})
+
+
+@pytest.mark.integration
+@enable_definition_v2_feature_flag
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app deploy", "napp_init_v1"],
+        ["app deploy", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+    ],
+)
+def test_nativeapp_deploy_validate_failing(
+    command, test_project, nativeapp_project_directory, runner
+):
+    with nativeapp_project_directory(test_project):
+        # Create invalid SQL file
+        Path("app/setup_script.sql").write_text("Lorem ipsum dolor sit amet")
+
+        # validate the app's setup script, this will fail
+        # because we include an empty file
+        result = runner.invoke_with_connection(split(command))
+        assert result.exit_code == 1, result.output
+        assert "Snowflake Native App setup script failed validation." in result.output
+        assert "syntax error" in result.output

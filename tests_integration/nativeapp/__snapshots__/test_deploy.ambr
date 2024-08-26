@@ -39,6 +39,7 @@
     added:    app/manifest.yml -> manifest.yml
     added:    app/setup_script.sql -> setup_script.sql
   Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Validating Snowflake Native App setup script.
   Deployed successfully.
   
   '''
@@ -83,6 +84,7 @@
     added:    app/manifest.yml -> manifest.yml
     added:    app/setup_script.sql -> setup_script.sql
   Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Validating Snowflake Native App setup script.
   Deployed successfully.
   
   '''
@@ -113,7 +115,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_files[ws deploy --entity-id=pkg-napp_init_v2]
+# name: test_nativeapp_deploy_files[ws deploy --entity-id=pkg --no-validate-napp_init_v2]
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
@@ -166,6 +168,7 @@
     added:    app/manifest.yml -> manifest.yml
     added:    app/setup_script.sql -> setup_script.sql
   Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Validating Snowflake Native App setup script.
   Deployed successfully.
   
   '''
@@ -194,7 +197,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_nested_directories[ws deploy --entity-id=pkg-napp_init_v2]
+# name: test_nativeapp_deploy_nested_directories[ws deploy --entity-id=pkg --no-validate-napp_init_v2]
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
@@ -287,11 +290,12 @@
   
   Use the --prune flag to delete them from the stage.
   Your stage is up-to-date with your local deploy root.
+  Validating Snowflake Native App setup script.
   Deployed successfully.
   
   '''
 # ---
-# name: test_nativeapp_deploy_prune[ws deploy --entity-id=pkg --prune-contains2-not_contains2-napp_init_v2]
+# name: test_nativeapp_deploy_prune[ws deploy --entity-id=pkg --no-validate-contains5-not_contains5-napp_init_v2]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
   Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
@@ -302,7 +306,7 @@
   
   '''
 # ---
-# name: test_nativeapp_deploy_prune[ws deploy --entity-id=pkg-contains5-not_contains5-napp_init_v2]
+# name: test_nativeapp_deploy_prune[ws deploy --entity-id=pkg --prune --no-validate-contains2-not_contains2-napp_init_v2]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
   Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
