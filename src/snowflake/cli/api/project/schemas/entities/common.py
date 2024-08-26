@@ -148,5 +148,5 @@ class ExternalAccessBaseModel:
     def get_secrets_sql(self) -> str | None:
         if not self.secrets:
             return None
-        secrets = ", ".join(f"'{key}' = {value}" for key, value in self.secrets.items())
-        return f"secrets = ({secrets})"
+        secrets = ", ".join(f"'{key}'={value}" for key, value in self.secrets.items())
+        return f"secrets=({secrets})"
