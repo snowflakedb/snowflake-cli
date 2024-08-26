@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
@@ -331,6 +330,17 @@ def test_rendering_of_sql(mock_execute_query, query, runner):
     mock_execute_query.assert_called_once_with(
         "select foo.bar", cursor_class=VerboseCursor
     )
+
+
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
+def test_old_template_syntax_causes_warning(mock_execute_query, runner):
+    result = runner.invoke(["sql", "-q", "select &{ aaa }", "-D", "aaa=foo"])
+    assert result.exit_code == 0
+    assert (
+        "Warning: &{ ... } syntax is deprecated. Use <% ... %> syntax instead."
+        in result.output
+    )
+    mock_execute_query.assert_called_once_with("select foo", cursor_class=VerboseCursor)
 
 
 @mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")

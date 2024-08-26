@@ -106,11 +106,6 @@ def jinja_render_from_str(template_content: str, data: Dict[str, Any]) -> str:
     return _get_jinja_env().from_string(template_content).render(data)
 
 
-def path_to_jinja_pathlike_str(path: Path) -> str:
-    # jinja2 template loader user '/' as path separator (even on Windows)
-    return "/".join(path.parts)
-
-
 def jinja_render_from_file(
     template_path: Path, data: Dict[str, Any], output_file_path: Optional[Path] = None
 ) -> Optional[str]:
@@ -126,9 +121,7 @@ def jinja_render_from_file(
         None if file path is provided, else returns the rendered string.
     """
     env = _get_jinja_env(
-        loader=loaders.FileSystemLoader(
-            path_to_jinja_pathlike_str(template_path.parent)
-        )
+        loader=loaders.FileSystemLoader(template_path.parent.as_posix())
     )
     loaded_template = env.get_template(template_path.name)
     rendered_result = loaded_template.render(**data)

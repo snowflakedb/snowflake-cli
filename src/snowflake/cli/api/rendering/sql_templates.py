@@ -19,6 +19,7 @@ from typing import Dict
 from click import ClickException
 from jinja2 import Environment, StrictUndefined, loaders, meta
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.rendering.jinja import (
     CONTEXT_KEY,
@@ -65,6 +66,10 @@ def choose_sql_jinja_env_based_on_template_syntax(template_content: str) -> Envi
             f" and {_SQL_TEMPLATE_START} ... {_SQL_TEMPLATE_END} syntax."
         )
     if has_old_syntax:
+        cli_console.warning(
+            f"Warning: {_OLD_SQL_TEMPLATE_START} ... {_OLD_SQL_TEMPLATE_END} syntax is deprecated."
+            f" Use {_SQL_TEMPLATE_START} ... {_SQL_TEMPLATE_END} syntax instead."
+        )
         return old_syntax_env
     return new_syntax_env
 

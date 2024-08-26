@@ -68,7 +68,6 @@ from snowflake.cli._plugins.stage.diff import (
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
@@ -90,7 +89,7 @@ from snowflake.cli.api.rendering.jinja import (
 from snowflake.cli.api.rendering.sql_templates import (
     snowflake_sql_jinja_render,
 )
-from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import DictCursor, ProgrammingError
 
@@ -600,7 +599,7 @@ class NativeAppManager(SqlExecutionMixin):
             script_full_path = SecurePath(self.project_root) / relpath
             try:
                 template_content = script_full_path.read_text(
-                    file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
+                    file_size_limit_mb=UNLIMITED
                 )
                 result = render_from_str(template_content, jinja_context)
                 scripts_contents.append(result)
