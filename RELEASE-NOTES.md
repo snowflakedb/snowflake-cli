@@ -28,7 +28,6 @@
      every Snowpark stage specified in project definition.
   * The changes are compatible with V1 projects definition though the result state (file layout) is different.
   * `snow snowpark package` commands no longer fallback to Anaconda Channel metadata when fetching available packages info fails.
-* `ENABLE_PROJECT_DEFINITION_V2` feature flag is removed. Project definition V2 is always enabled.
 
 ## Deprecations
 
