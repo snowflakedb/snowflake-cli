@@ -201,18 +201,23 @@ class DefinitionV20(_ProjectDefinitionBase):
         """
         Applies mixins to those entities, whose meta field contains the mixin name.
         """
-        if "mixins" in data and "entities" in data:
-            for entity in data["entities"].values():
-                entity_mixins = entity_mixins_to_list(
-                    entity.get("meta", {}).get("use_mixins")
-                )
-                entity_fields = get_allowed_fields_for_entity(entity)
-                if entity_fields and entity_mixins:
-                    for mixin_name in entity_mixins:
-                        if mixin_name in data["mixins"]:
-                            for key, value in data["mixins"][mixin_name].items():
-                                if key in entity_fields:
-                                    entity[key] = value
+        if "mixins" not in data or "entities" not in data:
+            return data
+
+        for entity in data["entities"].values():
+            entity_mixins = entity_mixins_to_list(
+                entity.get("meta", {}).get("use_mixins")
+            )
+
+            entity_fields = get_allowed_fields_for_entity(entity)
+            if entity_fields and entity_mixins:
+                for mixin_name in entity_mixins:
+                    if mixin_name in data["mixins"]:
+                        for key, value in data["mixins"][mixin_name].items():
+                            if key in entity_fields:
+                                entity[key] = value
+                    else:
+                        raise ValueError(f"Mixin {mixin_name} not found in mixins")
         return data
 
     def get_entities_by_type(self, entity_type: str):

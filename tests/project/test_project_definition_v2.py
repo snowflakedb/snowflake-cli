@@ -385,6 +385,9 @@ def test_v1_to_v2_conversion(
             _assert_entities_are_equal(v1_function, v2_function)
 
 
+# TODO:
+# 1. rewrite projects to have one big definition covering all complex positive cases
+# 2. Add negative case - entity uses non-existent mixin
 @pytest.mark.parametrize(
     "project_name,stage1,stage2",
     [("mixins_basic", "foo", "bar"), ("mixins_defaults_hierarchy", "foo", "baz")],
