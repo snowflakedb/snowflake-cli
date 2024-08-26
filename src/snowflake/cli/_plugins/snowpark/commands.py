@@ -463,12 +463,18 @@ def migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
         "entities": {},
     }
 
-    for entity in [*pd.snowpark.procedures, *pd.snowpark.functions]:
+    for index, entity in enumerate([*pd.snowpark.procedures, *pd.snowpark.functions]):
         identifier = {"name": entity.name}
         if entity.database is not None:
             identifier["database"] = entity.database
         if entity.schema_name is not None:
             identifier["schema"] = entity.schema_name
+
+        if entity.name.startswith("<!") and entity.name.endswith("!>"):
+            entity_name = f"snowpark_entity_{index}"
+        else:
+            entity_name = entity.name
+
         v2_entity = {
             "type": "function" if isinstance(entity, FunctionSchema) else "procedure",
             "stage": pd.snowpark.stage_name,
@@ -485,7 +491,7 @@ def migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
         if isinstance(entity, ProcedureSchema):
             v2_entity["execute_as_caller"] = entity.execute_as_caller
 
-        data["entities"][entity.name] = v2_entity
+        data["entities"][entity_name] = v2_entity
 
     return ProjectDefinitionV2(**data)
 

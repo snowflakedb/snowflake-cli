@@ -138,7 +138,7 @@ class DefinitionManager:
 
     @functools.cached_property
     def unrendered_project_definition(self) -> ProjectDefinition:
-        return self._raw_project_data().project_definition
+        return self._raw_project_data.project_definition
 
     @functools.cached_property
     def template_context(self) -> Context:

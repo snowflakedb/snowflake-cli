@@ -204,10 +204,15 @@ def migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
     if pd.streamlit.database:
         identifier["database"] = pd.streamlit.database
 
+    if pd.streamlit.name.startswith("<!") and pd.streamlit.name.endswith("!>"):
+        streamlit_name = "streamlit_entity_1"
+    else:
+        streamlit_name = pd.streamlit.name
+
     data = {
         "definition_version": "2",
         "entities": {
-            pd.streamlit.name: {
+            streamlit_name: {
                 "type": "streamlit",
                 "identifier": identifier,
                 "title": pd.streamlit.title,
