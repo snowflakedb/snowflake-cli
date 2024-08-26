@@ -63,7 +63,11 @@ def test_error_missing_template_yml(runner, test_projects_path, temp_dir):
         ]
     )
     assert result.exit_code == 1
-    assert "Template does not have template.yml file." in result.output
+    assert (
+        "File template.yml not found. Check whether --template and --template-source"
+        in result.output
+    )
+    assert "arguments are correct." in result.output
     assert not Path(project_name).exists()
 
 
