@@ -8,7 +8,7 @@
   entities:
     hello_function:
       artifacts:
-      - app
+      - <% ctx.env.project_source %>
       external_access_integrations: []
       handler: functions.hello_function
       identifier:
@@ -23,7 +23,7 @@
       type: function
     hello_procedure:
       artifacts:
-      - app
+      - <% ctx.env.project_source %>
       execute_as_caller: false
       external_access_integrations: []
       handler: procedures.hello_procedure
@@ -39,7 +39,7 @@
       type: procedure
     test_procedure:
       artifacts:
-      - app
+      - <% ctx.env.project_source %>
       execute_as_caller: false
       external_access_integrations: []
       handler: procedures.test_procedure
@@ -60,7 +60,7 @@
   snowpark:
     project_name: "<! project_name | to_snowflake_identifier !>"
     stage_name: "<! stage | to_snowflake_identifier !>"
-    src: "app/"
+    src: <% ctx.env.project_source %>
     functions:
       - name: hello_function
         handler: "functions.hello_function"
@@ -98,6 +98,7 @@
       pages_dir: pages
       query_warehouse: <! query_warehouse | to_snowflake_identifier !>
       stage: <! stage | to_snowflake_identifier !>
+      title: <% ctx.env.streamlit_title %>
       type: streamlit
   
   '''
@@ -112,6 +113,7 @@
     main_file: streamlit_app.py
     env_file: environment.yml
     pages_dir: pages/
+    title: <% ctx.env.streamlit_title %>
     additional_source_files:
       - common/hello.py
   

@@ -2,7 +2,7 @@ definition_version: "1.1"
 snowpark:
   project_name: "<! project_name | to_snowflake_identifier !>"
   stage_name: "<! stage | to_snowflake_identifier !>"
-  src: "app/"
+  src: <% ctx.env.project_source %>
   functions:
     - name: hello_function
       handler: "functions.hello_function"

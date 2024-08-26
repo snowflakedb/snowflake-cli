@@ -25,6 +25,7 @@ from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.secure_path import SecurePath
 
 ws = SnowTyper(
@@ -34,13 +35,11 @@ ws = SnowTyper(
 
 
 @ws.command()
-@with_project_definition()
 def migrate(
     **options,
 ):
     """Migrates the Snowpark and Streamlit project definition files form V1 to V2."""
-    cli_context = get_cli_context()
-    pd = cli_context.project_definition
+    pd = DefinitionManager().unrendered_project_definition
 
     if pd.meets_version_requirement("2"):
         return MessageResult("Project definition is already at version 2.")

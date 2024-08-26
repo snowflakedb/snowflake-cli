@@ -6,5 +6,6 @@ streamlit:
   main_file: streamlit_app.py
   env_file: environment.yml
   pages_dir: pages/
+  title: <% ctx.env.streamlit_title %>
   additional_source_files:
     - common/hello.py

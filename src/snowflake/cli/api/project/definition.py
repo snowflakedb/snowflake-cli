@@ -30,7 +30,10 @@ from snowflake.cli.api.project.util import (
     to_identifier,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.api.utils.definition_rendering import render_definition_template
+from snowflake.cli.api.utils.definition_rendering import (
+    raw_project_properties,
+    render_definition_template,
+)
 from snowflake.cli.api.utils.dict_utils import deep_merge_dicts
 from snowflake.cli.api.utils.types import Context, Definition
 
@@ -58,7 +61,9 @@ def _get_merged_definitions(paths: List[Path]) -> Optional[Definition]:
 
 
 def load_project(
-    paths: List[Path], context_overrides: Optional[Context] = None
+    paths: List[Path],
+    context_overrides: Optional[Context] = None,
+    render_env_values: bool = True,
 ) -> ProjectProperties:
     """
     Loads project definition, optionally overriding values. Definition values
@@ -66,7 +71,10 @@ def load_project(
     Templating is also applied after the merging process.
     """
     merged_definitions = _get_merged_definitions(paths)
-    return render_definition_template(merged_definitions, context_overrides or {})
+    if render_env_values:
+        return render_definition_template(merged_definitions, context_overrides or {})
+    else:
+        return raw_project_properties(merged_definitions)
 
 
 def default_app_package(project_name: str):
