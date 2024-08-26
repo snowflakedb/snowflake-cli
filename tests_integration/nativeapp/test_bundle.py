@@ -15,6 +15,7 @@
 import os
 import os.path
 import yaml
+from shlex import split
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import enable_definition_v2_feature_flag
@@ -23,13 +24,27 @@ from tests_integration.testing_utils import (
 )
 
 
-@pytest.fixture(scope="function", params=["napp_init_v1", "napp_init_v2"])
+@pytest.fixture(
+    scope="function",
+    params=[
+        ["app bundle", "napp_init_v1"],
+        ["app bundle", "napp_init_v2"],
+        ["ws bundle --entity-id=pkg", "napp_init_v2"],
+    ],
+)
 def template_setup(runner, nativeapp_project_directory, request):
-    test_project = request.param
+    command, test_project = request.param
     with enable_definition_v2_feature_flag:
         with nativeapp_project_directory(test_project) as project_root:
             # Vanilla bundle on the unmodified template
-            result = runner.invoke_json(["app", "bundle"])
+            if command.startswith("ws"):
+                execute_bundle_command = lambda: runner.invoke_with_connection(
+                    split(command)
+                )
+            else:
+                execute_bundle_command = lambda: runner.invoke_json(split(command))
+            result = execute_bundle_command()
+
             assert result.exit_code == 0
 
             # The newly created deploy_root is explicitly deleted here, as bundle should take care of it.
@@ -39,14 +54,14 @@ def template_setup(runner, nativeapp_project_directory, request):
             assert Path(deploy_root, "setup_script.sql").is_file()
             assert Path(deploy_root, "README.md").is_file()
 
-            yield project_root, runner, test_project
+            yield project_root, execute_bundle_command, test_project
 
 
 def override_snowflake_yml_artifacts(
     definition_version, artifacts_section, deploy_root=Path("output", "deploy")
 ):
     with open("snowflake.yml", "w") as f:
-        if definition_version == "v2":
+        if definition_version.endswith("v2"):
             file_content = yaml.dump(
                 {
                     "definition_version": "2",
@@ -80,7 +95,7 @@ def override_snowflake_yml_artifacts(
 def test_nativeapp_bundle_does_explicit_copy(
     template_setup,
 ):
-    project_root, runner, definition_version = template_setup
+    project_root, execute_bundle_command, definition_version = template_setup
 
     override_snowflake_yml_artifacts(
         definition_version,
@@ -90,7 +105,7 @@ def test_nativeapp_bundle_does_explicit_copy(
         ],
     )
 
-    result = runner.invoke_json(["app", "bundle"])
+    result = execute_bundle_command()
     assert result.exit_code == 0
     assert not os.path.exists("app/snowflake.yml")
     app_path = Path("output", "deploy", "app")
@@ -119,7 +134,7 @@ def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
     template_setup,
 ):
 
-    project_root, runner, definition_version = template_setup
+    project_root, execute_bundle_command, definition_version = template_setup
     # Delete deploy_root since we test requirement of deploy_root being a directory
     shutil.rmtree(Path(project_root, "output", "deploy"))
 
@@ -130,7 +145,7 @@ def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
 
     assert deploy_root_as_file.is_file()
 
-    result = runner.invoke_json(["app", "bundle"])
+    result = execute_bundle_command()
 
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
@@ -155,7 +170,7 @@ def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
         deploy_root=deploy_root,
     )
 
-    result = runner.invoke_json(["app", "bundle"])
+    result = execute_bundle_command()
 
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
@@ -166,12 +181,12 @@ def test_nativeapp_bundle_throws_error_due_to_project_root_deploy_root_mismatch(
 # Tests restrictions on the src spec that it must be a glob that returns matches
 @pytest.mark.integration
 def test_nativeapp_bundle_throws_error_on_incorrect_src_glob(template_setup):
-    project_root, runner, definition_version = template_setup
+    project_root, execute_bundle_command, definition_version = template_setup
 
     # incorrect glob
     override_snowflake_yml_artifacts(definition_version, artifacts_section=["app/?"])
 
-    result = runner.invoke_json(["app", "bundle"])
+    result = execute_bundle_command()
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
         result,
@@ -182,7 +197,7 @@ def test_nativeapp_bundle_throws_error_on_incorrect_src_glob(template_setup):
 # Tests restrictions on the src spec that it must be relative to project root
 @pytest.mark.integration
 def test_nativeapp_bundle_throws_error_on_bad_src(template_setup):
-    project_root, runner, definition_version = template_setup
+    project_root, execute_bundle_command, definition_version = template_setup
 
     # absolute path
     src_path = Path(project_root, "app").absolute()
@@ -190,7 +205,7 @@ def test_nativeapp_bundle_throws_error_on_bad_src(template_setup):
         definition_version, artifacts_section=[f"{src_path}"]
     )
 
-    result = runner.invoke_json(["app", "bundle"])
+    result = execute_bundle_command()
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
         result, "Source path must be a relative path"
@@ -200,13 +215,13 @@ def test_nativeapp_bundle_throws_error_on_bad_src(template_setup):
 # Tests restrictions on the dest spec: It must be within the deploy root, and must be a relative path
 @pytest.mark.integration
 def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
-    project_root, runner, definition_version = template_setup
+    project_root, execute_bundle_command, definition_version = template_setup
 
     override_snowflake_yml_artifacts(
         definition_version, artifacts_section=[{"src": "app/*", "dest": "/"}]
     )
 
-    result = runner.invoke_json(["app", "bundle"])
+    result = execute_bundle_command()
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
         result, "The specified destination path is outside of the deploy root"
@@ -224,7 +239,7 @@ def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
         ],
     )
 
-    result = runner.invoke_json(["app", "bundle"])
+    result = execute_bundle_command()
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
         result, "Destination path must be a relative path"
@@ -234,7 +249,7 @@ def test_nativeapp_bundle_throws_error_on_bad_dest(template_setup):
 # Tests restriction on mapping multiple files to the same destination file
 @pytest.mark.integration
 def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup):
-    project_root, runner, definition_version = template_setup
+    project_root, execute_bundle_command, definition_version = template_setup
 
     override_snowflake_yml_artifacts(
         definition_version,
@@ -244,7 +259,7 @@ def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup)
         ],
     )
 
-    result = runner.invoke_json(["app", "bundle"])
+    result = execute_bundle_command()
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
         result,
@@ -255,14 +270,14 @@ def test_nativeapp_bundle_throws_error_on_too_many_files_to_dest(template_setup)
 # Tests handling of no artifacts
 @pytest.mark.integration
 def test_nativeapp_bundle_throws_error_on_no_artifacts(template_setup):
-    _, runner, definition_version = template_setup
+    _, execute_bundle_command, definition_version = template_setup
 
     override_snowflake_yml_artifacts(
         definition_version,
         artifacts_section=[],
     )
 
-    result = runner.invoke_json(["app", "bundle"])
+    result = execute_bundle_command()
     assert result.exit_code == 1
     assert_that_result_failed_with_message_containing(
         result,
@@ -273,10 +288,10 @@ def test_nativeapp_bundle_throws_error_on_no_artifacts(template_setup):
 # Tests that bundle wipes out any existing deploy root to recreate it from scratch on every run
 @pytest.mark.integration
 def test_nativeapp_bundle_deletes_existing_deploy_root(template_setup):
-    project_root, runner, definition_version = template_setup
+    project_root, execute_bundle_command, definition_version = template_setup
 
     existing_deploy_root_dest = Path(project_root, "output", "deploy", "dummy.txt")
     existing_deploy_root_dest.mkdir(parents=True, exist_ok=False)
-    result = runner.invoke_json(["app", "bundle"])
+    result = execute_bundle_command()
     assert result.exit_code == 0
     assert not existing_deploy_root_dest.exists()

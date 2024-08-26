@@ -24,11 +24,13 @@ from snowflake.cli.api.entities.utils import (
     ensure_correct_owner,
     generic_sql_error_handler,
     render_script_templates,
+    sync_deploy_root_with_stage,
 )
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
     ApplicationPackageEntityModel,
 )
+from snowflake.cli.api.project.util import extract_schema
 from snowflake.cli.api.rendering.jinja import (
     jinja_render_from_str,
 )
@@ -56,6 +58,52 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         compiler = NativeAppCompiler(bundle_context)
         compiler.compile_artifacts()
         return bundle_map
+
+    def action_deploy(
+        self,
+        ctx: ActionContext,
+        prune: bool,
+        recursive: bool,
+        paths: List[Path],
+    ):
+        model = self._entity_model
+        package_name = model.fqn.identifier
+        if model.meta and model.meta.role:
+            package_role = model.meta.role
+        else:
+            package_role = ctx.default_role
+
+        # 1. Create a bundle
+        bundle_map = self.action_bundle(ctx)
+
+        # 2. Create an empty application package, if none exists
+        self.create_app_package(
+            console=ctx.console,
+            package_name=package_name,
+            package_role=package_role,
+            package_distribution=model.distribution,
+        )
+
+        with get_sql_executor().use_role(package_role):
+            # 3. Upload files from deploy root local folder to the above stage
+            stage_fqn = f"{package_name}.{model.stage}"
+            stage_schema = extract_schema(stage_fqn)
+            sync_deploy_root_with_stage(
+                console=ctx.console,
+                deploy_root=Path(model.deploy_root),
+                package_name=package_name,
+                stage_schema=stage_schema,
+                bundle_map=bundle_map,
+                role=package_role,
+                prune=prune,
+                recursive=recursive,
+                stage_fqn=stage_fqn,
+                local_paths_to_sync=paths,
+                print_diff=True,
+            )
+
+        # TODO Execute post-deploy hooks
+        # TODO Validate
 
     @staticmethod
     def get_existing_app_pkg_info(

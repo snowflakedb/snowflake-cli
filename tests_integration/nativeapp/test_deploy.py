@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-import uuid
+from shlex import split
 
 from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.nativeapp.utils import touch
@@ -46,8 +46,16 @@ def sanitize_deploy_output(default_username, resource_suffix):
 # Tests a simple flow of executing "snow app deploy", verifying that an application package was created, and an application was not
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app deploy", "napp_init_v1"],
+        ["app deploy", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_deploy(
+    command,
     test_project,
     nativeapp_project_directory,
     runner,
@@ -60,7 +68,7 @@ def test_nativeapp_deploy(
 ):
     project_name = "myapp"
     with nativeapp_project_directory(test_project):
-        result = runner.invoke_with_connection(["app", "deploy"])
+        result = runner.invoke_with_connection(split(command))
         assert result.exit_code == 0
         assert sanitize_deploy_output(result.output) == snapshot
 
@@ -94,7 +102,7 @@ def test_nativeapp_deploy(
         )
 
         # re-deploying should be a no-op; make sure we don't issue any PUT commands
-        result = runner.invoke_with_connection_json(["app", "deploy", "--debug"])
+        result = runner.invoke_with_connection([*split(command), "--debug"])
         assert result.exit_code == 0
         assert "Successfully uploaded chunk 0 of file" not in result.output
 
@@ -102,21 +110,67 @@ def test_nativeapp_deploy(
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
-    "command,contains,not_contains",
+    "command,contains,not_contains,test_project",
     [
         # deploy --prune removes remote-only files
         [
             "app deploy --prune --no-validate",
             ["stage/manifest.yml"],
             ["stage/README.md"],
+            "napp_init_v1",
+        ],
+        [
+            "app deploy --prune --no-validate",
+            ["stage/manifest.yml"],
+            ["stage/README.md"],
+            "napp_init_v2",
+        ],
+        [
+            "ws deploy --entity-id=pkg --prune",
+            ["stage/manifest.yml"],
+            ["stage/README.md"],
+            "napp_init_v2",
         ],
         # deploy removes remote-only files (--prune is the default value)
-        ["app deploy --no-validate", ["stage/manifest.yml"], ["stage/README.md"]],
+        [
+            "app deploy --no-validate",
+            ["stage/manifest.yml"],
+            ["stage/README.md"],
+            "napp_init_v1",
+        ],
+        [
+            "app deploy --no-validate",
+            ["stage/manifest.yml"],
+            ["stage/README.md"],
+            "napp_init_v2",
+        ],
+        [
+            "ws deploy --entity-id=pkg",
+            ["stage/manifest.yml"],
+            ["stage/README.md"],
+            "napp_init_v2",
+        ],
         # deploy --no-prune does not delete remote-only files
-        ["app deploy --no-prune", ["stage/README.md"], []],
+        [
+            "app deploy --no-prune",
+            ["stage/README.md"],
+            [],
+            "napp_init_v1",
+        ],
+        [
+            "app deploy --no-prune",
+            ["stage/README.md"],
+            [],
+            "napp_init_v2",
+        ],
+        [
+            "ws deploy --entity-id=pkg --no-prune",
+            ["stage/README.md"],
+            [],
+            "napp_init_v2",
+        ],
     ],
 )
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_deploy_prune(
     command,
     contains,
@@ -139,7 +193,7 @@ def test_nativeapp_deploy_prune(
         os.remove(os.path.join("app", "README.md"))
 
         # deploy
-        result = runner.invoke_with_connection(command.split())
+        result = runner.invoke_with_connection(split(command))
         assert result.exit_code == 0
         assert sanitize_deploy_output(result.output) == snapshot
 
@@ -158,8 +212,16 @@ def test_nativeapp_deploy_prune(
 # Tests a simple flow of executing "snow app deploy [files]", verifying that only the specified files are synced to the stage
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app deploy --no-validate", "napp_init_v1"],
+        ["app deploy --no-validate", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_deploy_files(
+    command,
     test_project,
     nativeapp_project_directory,
     runner,
@@ -174,11 +236,9 @@ def test_nativeapp_deploy_files(
         # sync only two specific files to stage
         result = runner.invoke_with_connection(
             [
-                "app",
-                "deploy",
+                *split(command),
                 "app/manifest.yml",
                 "app/setup_script.sql",
-                "--no-validate",
             ]
         )
         assert result.exit_code == 0
@@ -198,8 +258,16 @@ def test_nativeapp_deploy_files(
 # Tests that files inside of a symlinked directory are deployed
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app deploy --no-validate", "napp_init_v1"],
+        ["app deploy --no-validate", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_deploy_nested_directories(
+    command,
     test_project,
     nativeapp_project_directory,
     runner,
@@ -215,7 +283,7 @@ def test_nativeapp_deploy_nested_directories(
         touch("app/nested/dir/file.txt")
 
         result = runner.invoke_with_connection(
-            ["app", "deploy", "app/nested/dir/file.txt", "--no-validate"]
+            [*split(command), "app/nested/dir/file.txt"]
         )
         assert result.exit_code == 0
         assert sanitize_deploy_output(result.output) == snapshot
@@ -233,8 +301,16 @@ def test_nativeapp_deploy_nested_directories(
 # Tests that deploying a directory recursively syncs all of its contents
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app deploy --no-validate", "napp_init_v1"],
+        ["app deploy --no-validate", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_deploy_directory(
+    command,
     test_project,
     nativeapp_project_directory,
     runner,
@@ -246,15 +322,13 @@ def test_nativeapp_deploy_directory(
     with nativeapp_project_directory(test_project):
         touch("app/dir/file.txt")
         result = runner.invoke_with_connection(
-            ["app", "deploy", "app/dir", "--no-recursive", "--no-validate"]
+            [*split(command), "app/dir", "--no-recursive"]
         )
         assert_that_result_failed_with_message_containing(
             result, "Add the -r flag to deploy directories."
         )
 
-        result = runner.invoke_with_connection(
-            ["app", "deploy", "app/dir", "-r", "--no-validate"]
-        )
+        result = runner.invoke_with_connection([*split(command), "app/dir", "-r"])
         assert result.exit_code == 0
 
         package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
@@ -268,33 +342,45 @@ def test_nativeapp_deploy_directory(
 # Tests that deploying a directory without specifying -r returns an error
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app deploy --no-validate", "napp_init_v1"],
+        ["app deploy --no-validate", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_deploy_directory_no_recursive(
+    command,
     test_project,
     nativeapp_project_directory,
     runner,
 ):
     with nativeapp_project_directory(test_project):
         touch("app/nested/dir/file.txt")
-        result = runner.invoke_with_connection_json(
-            ["app", "deploy", "app/nested", "--no-validate"]
-        )
+        result = runner.invoke_with_connection_json([*split(command), "app/nested"])
         assert result.exit_code == 1, result.output
 
 
 # Tests that specifying an unknown path to deploy results in an error
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app deploy --no-validate", "napp_init_v1"],
+        ["app deploy --no-validate", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_deploy_unknown_path(
+    command,
     test_project,
     nativeapp_project_directory,
     runner,
 ):
     with nativeapp_project_directory(test_project):
-        result = runner.invoke_with_connection_json(
-            ["app", "deploy", "does_not_exist", "--no-validate"]
-        )
+        result = runner.invoke_with_connection_json([*split(command), "does_not_exist"])
         assert result.exit_code == 1
         assert "The following path does not exist:" in result.output
 
@@ -302,16 +388,22 @@ def test_nativeapp_deploy_unknown_path(
 # Tests that specifying a path with no deploy artifact results in an error
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app deploy --no-validate", "napp_init_v1"],
+        ["app deploy --no-validate", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_deploy_path_with_no_mapping(
+    command,
     test_project,
     nativeapp_project_directory,
     runner,
 ):
     with nativeapp_project_directory(test_project):
-        result = runner.invoke_with_connection_json(
-            ["app", "deploy", "snowflake.yml", "--no-validate"]
-        )
+        result = runner.invoke_with_connection_json([*split(command), "snowflake.yml"])
         assert result.exit_code == 1
         assert "No artifact found for" in result.output
 
@@ -319,8 +411,16 @@ def test_nativeapp_deploy_path_with_no_mapping(
 # Tests that specifying a path and pruning result in an error
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app deploy", "napp_init_v1"],
+        ["app deploy", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
+    command,
     test_project,
     nativeapp_project_directory,
     runner,
@@ -328,7 +428,7 @@ def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
     with nativeapp_project_directory(test_project):
         os.unlink("app/README.md")
         result = runner.invoke_with_connection_json(
-            ["app", "deploy", "app/README.md", "--prune"]
+            [*split(command), "app/README.md", "--prune"]
         )
 
         assert_that_result_is_usage_error(
@@ -341,9 +441,15 @@ def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
-    "test_project", ["napp_deploy_prefix_matches_v1", "napp_deploy_prefix_matches_v2"]
+    "command,test_project",
+    [
+        ["app deploy", "napp_deploy_prefix_matches_v1"],
+        ["app deploy", "napp_deploy_prefix_matches_v2"],
+        ["ws deploy --entity-id=pkg", "napp_deploy_prefix_matches_v2"],
+    ],
 )
 def test_nativeapp_deploy_looks_for_prefix_matches(
+    command,
     test_project,
     nativeapp_project_directory,
     runner,
@@ -354,9 +460,8 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
     sanitize_deploy_output,
 ):
     project_name = "myapp"
-
     with nativeapp_project_directory(test_project):
-        result = runner.invoke_with_connection(["app", "deploy", "-r", "app"])
+        result = runner.invoke_with_connection([*split(command), "-r", "app"])
         assert result.exit_code == 0
         assert sanitize_deploy_output(result.output) == snapshot
 
@@ -374,7 +479,7 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
         )
 
         result = runner.invoke_with_connection(
-            ["app", "deploy", "-r", "lib/parent/child/c"]
+            [*split(command), "-r", "lib/parent/child/c"]
         )
         assert result.exit_code == 0
         stage_files = runner.invoke_with_connection_json(
@@ -391,7 +496,7 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
         )
 
         result = runner.invoke_with_connection(
-            ["app", "deploy", "lib/parent/child/a.py"]
+            [*split(command), "lib/parent/child/a.py"]
         )
         assert result.exit_code == 0
         stage_files = runner.invoke_with_connection_json(
@@ -407,7 +512,7 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
             stage_files.json, {"name": "stage/parent-lib/child/b.py"}
         )
 
-        result = runner.invoke_with_connection(["app", "deploy", "lib", "-r"])
+        result = runner.invoke_with_connection([*split(command), "lib", "-r"])
         assert result.exit_code == 0
         stage_files = runner.invoke_with_connection_json(
             ["stage", "list-files", f"{package_name}.{stage_name}"]
@@ -426,8 +531,16 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
 # Tests that snow app deploy -r . deploys all changes
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app deploy", "napp_init_v1"],
+        ["app deploy", "napp_init_v2"],
+        ["ws deploy --entity-id=pkg", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_deploy_dot(
+    command,
     test_project,
     nativeapp_project_directory,
     runner,
@@ -439,7 +552,7 @@ def test_nativeapp_deploy_dot(
 ):
     project_name = "myapp"
     with nativeapp_project_directory(test_project):
-        result = runner.invoke_with_connection(["app", "deploy", "-r", "."])
+        result = runner.invoke_with_connection([*split(command), "-r", "."])
         assert result.exit_code == 0
         assert sanitize_deploy_output(result.output) == snapshot
 

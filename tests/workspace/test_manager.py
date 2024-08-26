@@ -22,6 +22,7 @@ from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 
+from tests.nativeapp.patch_utils import mock_connection
 from tests.testing_utils.files_and_dirs import create_named_file
 from tests.workspace.utils import (
     APP_PACKAGE_ENTITY,
@@ -30,7 +31,8 @@ from tests.workspace.utils import (
 )
 
 
-def _get_ws_manager(pdf_content=MOCK_SNOWFLAKE_YML_FILE):
+@mock_connection()
+def _get_ws_manager(mock_connection, pdf_content=MOCK_SNOWFLAKE_YML_FILE):
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
