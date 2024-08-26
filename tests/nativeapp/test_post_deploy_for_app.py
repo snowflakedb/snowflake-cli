@@ -148,7 +148,10 @@ def test_missing_sql_script(
         with pytest.raises(MissingScriptError) as err:
             processor.execute_app_post_deploy_hooks()
 
-        assert err.value.message == 'Script "scripts/missing.sql" does not exist'
+        assert (
+            err.value.message
+            == f'Script "{project_dir}/scripts/missing.sql" does not exist'
+        )
 
 
 @mock.patch(RUN_PROCESSOR_APP_POST_DEPLOY_HOOKS, new_callable=mock.PropertyMock)

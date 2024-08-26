@@ -621,12 +621,14 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
         env = jinja2.Environment(
-            loader=jinja2.loaders.FileSystemLoader(self.project_root),
+            loader=jinja2.FileSystemLoader(searchpath="/"),
             keep_trailing_newline=True,
             undefined=jinja2.StrictUndefined,
         )
 
-        package_scripts_paths = [Path(script) for script in self.package_scripts]
+        package_scripts_paths = [
+            Path(self.project_root) / script for script in self.package_scripts
+        ]
         queued_queries = self._expand_script_templates(
             env, dict(package_name=self.package_name), package_scripts_paths
         )
@@ -676,14 +678,14 @@ class NativeAppManager(SqlExecutionMixin):
             sql_scripts_paths = []
             for hook in post_deploy_hooks:
                 if hook.sql_script:
-                    sql_scripts_paths.append(Path(hook.sql_script))
+                    sql_scripts_paths.append(self.project_root / hook.sql_script)
                 else:
                     raise ValueError(
                         f"Unsupported {deployed_object_type} post-deploy hook type: {hook}"
                     )
 
             env = get_sql_cli_jinja_env(
-                loader=jinja2.loaders.FileSystemLoader(self.project_root)
+                loader=jinja2.loaders.FileSystemLoader(searchpath="/")
             )
             scripts_content_list = self._expand_script_templates(
                 env, cli_context.template_context, sql_scripts_paths

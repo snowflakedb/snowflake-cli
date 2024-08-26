@@ -125,7 +125,7 @@ def test_package_post_deploy_scripts_with_non_existing_scripts(
 
         assert (
             err.value.message
-            == 'Script "scripts/package_missing_script.sql" does not exist'
+            == f'Script "{project_dir}/scripts/package_missing_script.sql" does not exist'
         )
 
 
