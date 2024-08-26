@@ -52,7 +52,7 @@ def test_missing_template_yml(runner, temporary_working_directory):
     assert result.exit_code == 1
     assert "Error" in result.output
     assert (
-        "File template.yml not found. Check whether --template and --template_source"
+        "File template.yml not found. Check whether --template and --template-source"
         in result.output
     )
     assert "arguments are correct" in result.output

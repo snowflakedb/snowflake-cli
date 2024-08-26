@@ -68,7 +68,8 @@ TemplateOption = typer.Option(
     show_default=False,
 )
 SourceOption = typer.Option(
-    default=DEFAULT_SOURCE,
+    DEFAULT_SOURCE,
+    "--template-source",
     help=f"local path to template directory or URL to git repository with templates.",
 )
 VariablesOption = variables_option(
@@ -203,9 +204,7 @@ def init(
     is_remote = any(
         template_source.startswith(prefix) for prefix in ["git@", "http://", "https://"]  # type: ignore
     )
-    args_error_msg = (
-        "Check whether --template and --template_source arguments are correct."
-    )
+    args_error_msg = f"Check whether {TemplateOption.param_decls[0]} and {SourceOption.param_decls[0]} arguments are correct."
 
     # copy/download template into tmpdir, so it is going to be removed in case command ends with an error
     with SecurePath.temporary_directory() as tmpdir:
