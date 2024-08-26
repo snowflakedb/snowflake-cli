@@ -30,10 +30,8 @@ from snowflake.cli.api.exceptions import MissingConfiguration
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
 from tests_common import IS_WINDOWS
 
-if IS_WINDOWS:
-    pytest.skip("Does not work on Windows", allow_module_level=True)
 
-
+@pytest.mark.skipif(condition=IS_WINDOWS, reason="Does not work on Windows")
 def test_empty_config_file_is_created_if_not_present():
     with TemporaryDirectory() as tmp_dir:
         config_file = Path(tmp_dir) / "sub" / "config.toml"
@@ -142,6 +140,7 @@ def test_get_all_connections(test_snowcli_config):
 
 @mock.patch("snowflake.cli.api.config.CONFIG_MANAGER")
 @mock.patch("snowflake.cli.api.config.get_config_section")
+@pytest.mark.skipif(condition=IS_WINDOWS, reason="Does not work on Windows")
 def test_create_default_config_if_not_exists_with_proper_permissions(
     mock_get_config_section,
     mock_config_manager,
@@ -255,6 +254,7 @@ parametrize_chmod = pytest.mark.parametrize(
 
 
 @parametrize_chmod
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
 def test_too_wide_permissions_on_default_config_file_causes_error(
     snowflake_home: Path, chmod
 ):
@@ -282,6 +282,7 @@ def test_too_wide_permissions_on_default_config_file_causes_error(
         0o604,
     ],
 )
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
 def test_too_wide_permissions_on_custom_config_file_causes_warning(
     snowflake_home: Path, chmod
 ):
@@ -293,6 +294,7 @@ def test_too_wide_permissions_on_custom_config_file_causes_warning(
 
 
 @parametrize_chmod
+@pytest.mark.skipif(condition=IS_WINDOWS, reason="Unix-based permission system test")
 def test_too_wide_permissions_on_default_connections_file_causes_error(
     snowflake_home: Path, chmod
 ):
@@ -323,6 +325,7 @@ def test_no_error_when_init_from_non_default_config(
 @pytest.mark.parametrize(
     "content", ["[corrupted", "[connections.foo]\n[connections.foo]"]
 )
+@pytest.mark.skipif(condition=IS_WINDOWS, reason="Does not work on Windows")
 def test_corrupted_config_raises_human_friendly_error(
     snowflake_home, runner, content, os_agnostic_snapshot
 ):
