@@ -13,18 +13,37 @@
 # limitations under the License.
 
 import os
+import subprocess
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from snowflake.cli.api.secure_utils import windows_get_not_whitelisted_users_with_access
 
+from tests_common import IS_WINDOWS
 from tests_e2e.conftest import subprocess_run
+
+
+def _restrict_file_permissions_unix(path: Path) -> None:
+    path.chmod(0o700)
+
+
+def _restrict_file_permissions_windows(path: Path):
+    for user in windows_get_not_whitelisted_users_with_access(path):
+        subprocess.run(["icacls", str(path), "/DENY", f"{user}:F"])
+
+
+def _restrict_file_permissions(file_path: Path):
+    if IS_WINDOWS:
+        _restrict_file_permissions_windows(file_path)
+    else:
+        _restrict_file_permissions_unix(file_path)
 
 
 @pytest.mark.e2e
 def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
     config_path = test_root_path / "config" / "config.toml"
-    os.chmod(config_path, 0o700)
+    _restrict_file_permissions(config_path)
 
     traceback_msg = "Traceback (most recent call last)"
     result = subprocess_run(
