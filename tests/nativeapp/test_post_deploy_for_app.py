@@ -168,7 +168,7 @@ def test_invalid_hook_type(
 
         with pytest.raises(ValueError) as err:
             processor.execute_app_post_deploy_hooks()
-        assert "Unsupported application post-deploy hook type" in str(err)
+        assert "Unsupported application post_deploy hook type" in str(err)
 
 
 @pytest.mark.parametrize(
