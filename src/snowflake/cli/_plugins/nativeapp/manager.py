@@ -392,7 +392,7 @@ class NativeAppManager(SqlExecutionMixin):
                 print_diff=False,
             )
 
-        return ApplicationPackageEntity.validate(
+        return ApplicationPackageEntity.validate_setup_script(
             console=cc,
             package_name=self.package_name,
             package_role=self.package_role,

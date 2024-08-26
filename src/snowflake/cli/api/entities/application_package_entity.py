@@ -321,7 +321,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
 
     @classmethod
-    def validate(
+    def validate_setup_script(
         cls,
         console: AbstractConsole,
         package_name: str,
