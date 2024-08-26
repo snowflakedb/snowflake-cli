@@ -43,6 +43,7 @@ from tests.nativeapp.utils import (
     NATIVEAPP_MANAGER_EXECUTE,
     NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION,
     NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME,
+    SQL_EXECUTOR_EXECUTE,
     TEARDOWN_MODULE,
     TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT,
     TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO,
@@ -747,6 +748,7 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
 
 # Test drop_package when there is no distribution mismatch AND distribution = internal AND special comment is True AND name is quoted
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
 @pytest.mark.parametrize(
     "auto_yes_param, special_comment",  # auto_yes should have no effect on the test
@@ -759,13 +761,20 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
 )
 def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop(
     mock_get_distribution,
-    mock_execute,
+    mock_execute_sql,
+    mock_execute_na,
     auto_yes_param,
     special_comment,
     temp_dir,
     mock_cursor,
 ):
     mock_get_distribution.return_value = "internal"
+
+    # We are mocking _execute_query on both NativeAppManager and SqlExecutor. Attaching both to a single mock to verify the order of calls.
+    # The first 4 calls are expected to be on SqlExecutor, and the rest on NativeAppManager.
+    mock_execute = mock.MagicMock()
+    mock_execute.attach_mock(mock_execute_na, "execute_na")
+    mock_execute.attach_mock(mock_execute_sql, "execute_sql")
 
     side_effects, expected = mock_execute_helper(
         [
@@ -816,7 +825,9 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
             (None, mock.call("use role old_role")),
         ]
     )
-    mock_execute.side_effect = side_effects
+
+    mock_execute_sql.side_effect = side_effects[::3]
+    mock_execute_na.side_effect = side_effects[4::]
 
     current_working_directory = os.getcwd()
     create_named_file(

@@ -35,6 +35,8 @@ from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (
     NATIVEAPP_MANAGER_EXECUTE,
     NATIVEAPP_MANAGER_EXECUTE_QUERIES,
+    SQL_EXECUTOR_EXECUTE,
+    SQL_EXECUTOR_EXECUTE_QUERIES,
 )
 from tests.testing_utils.fixtures import MockConnectionCtx
 
@@ -47,8 +49,8 @@ def _get_na_manager(working_dir):
     )
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
     "project_definition_files, expected_calls",
@@ -141,8 +143,8 @@ def test_package_scripts_without_conn_info_throws_error(
 
 
 # Without connection warehouse, with PDF warehouse
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
     "project_definition_files", ["napp_project_with_pkg_warehouse"], indirect=True
@@ -194,8 +196,10 @@ def test_package_scripts_without_conn_info_succeeds(
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
+@mock_connection()
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
-def test_missing_package_script(mock_execute, project_definition_files):
+def test_missing_package_script(mock_conn, mock_execute, project_definition_files):
+    mock_conn.return_value = MockConnectionCtx()
     working_dir: Path = project_definition_files[0].parent
     native_app_manager = _get_na_manager(str(working_dir))
     with pytest.raises(MissingScriptError):
@@ -207,8 +211,10 @@ def test_missing_package_script(mock_execute, project_definition_files):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
+@mock_connection()
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
-def test_invalid_package_script(mock_execute, project_definition_files):
+def test_invalid_package_script(mock_conn, mock_execute, project_definition_files):
+    mock_conn.return_value = MockConnectionCtx()
     working_dir: Path = project_definition_files[0].parent
     native_app_manager = _get_na_manager(str(working_dir))
     with pytest.raises(InvalidScriptError):
@@ -222,8 +228,12 @@ def test_invalid_package_script(mock_execute, project_definition_files):
 
 
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
+@mock_connection()
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
-def test_undefined_var_package_script(mock_execute, project_definition_files):
+def test_undefined_var_package_script(
+    mock_conn, mock_execute, project_definition_files
+):
+    mock_conn.return_value = MockConnectionCtx()
     working_dir: Path = project_definition_files[0].parent
     native_app_manager = _get_na_manager(str(working_dir))
     with pytest.raises(InvalidScriptError):
@@ -235,8 +245,8 @@ def test_undefined_var_package_script(mock_execute, project_definition_files):
     assert mock_execute.mock_calls == []
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_package_scripts_w_missing_warehouse_exception(
@@ -267,7 +277,7 @@ def test_package_scripts_w_missing_warehouse_exception(
     assert "Please provide a warehouse for the active session role" in err.value.msg
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_package_scripts_w_warehouse_access_exception(
