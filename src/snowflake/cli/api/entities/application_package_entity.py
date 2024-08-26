@@ -1,7 +1,8 @@
+import json
 from contextlib import contextmanager
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
@@ -16,7 +17,10 @@ from snowflake.cli._plugins.nativeapp.constants import (
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
+    ApplicationPackageDoesNotExistError,
+    SetupScriptFailedValidation,
 )
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.action_context import ActionContext
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
@@ -25,6 +29,10 @@ from snowflake.cli.api.entities.utils import (
     generic_sql_error_handler,
     render_script_templates,
     sync_deploy_root_with_stage,
+    validation_item_to_str,
+)
+from snowflake.cli.api.errno import (
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
 )
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
@@ -58,6 +66,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         compiler = NativeAppCompiler(bundle_context)
         compiler.compile_artifacts()
         return bundle_map
+
+    def action_validate(self, ctx: ActionContext):
+        model = self._entity_model
+        model.artifacts
+        pass
 
     def action_deploy(
         self,
@@ -306,3 +319,76 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 """
                 )
             )
+
+    @classmethod
+    def validate(
+        cls,
+        console: AbstractConsole,
+        package_name: str,
+        package_role: str,
+        stage_fqn: str,
+        use_scratch_stage: bool,
+        scratch_stage_fqn: str,
+        deploy_to_scratch_stage_fn: Callable,
+    ):
+        """Validates Native App setup script SQL."""
+        with console.phase(f"Validating Snowflake Native App setup script."):
+            validation_result = cls.get_validation_result(
+                console=console,
+                package_name=package_name,
+                package_role=package_role,
+                stage_fqn=stage_fqn,
+                use_scratch_stage=use_scratch_stage,
+                scratch_stage_fqn=scratch_stage_fqn,
+                deploy_to_scratch_stage_fn=deploy_to_scratch_stage_fn,
+            )
+
+            # First print warnings, regardless of the outcome of validation
+            for warning in validation_result.get("warnings", []):
+                console.warning(validation_item_to_str(warning))
+
+            # Then print errors
+            for error in validation_result.get("errors", []):
+                # Print them as warnings for now since we're going to be
+                # revamping CLI output soon
+                console.warning(validation_item_to_str(error))
+
+            # Then raise an exception if validation failed
+            if validation_result["status"] == "FAIL":
+                raise SetupScriptFailedValidation()
+
+    @staticmethod
+    def get_validation_result(
+        console: AbstractConsole,
+        package_name: str,
+        package_role: str,
+        stage_fqn: str,
+        use_scratch_stage: bool,
+        scratch_stage_fqn: str,
+        deploy_to_scratch_stage_fn: Callable,
+    ):
+        """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
+        if use_scratch_stage:
+            stage_fqn = scratch_stage_fqn
+            deploy_to_scratch_stage_fn()
+        prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
+        sql_executor = get_sql_executor()
+        try:
+            cursor = sql_executor.execute_query(
+                f"call system$validate_native_app_setup('{prefixed_stage_fqn}')"
+            )
+        except ProgrammingError as err:
+            if err.errno == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
+                raise ApplicationPackageDoesNotExistError(package_name)
+            generic_sql_error_handler(err)
+        else:
+            if not cursor.rowcount:
+                raise SnowflakeSQLExecutionError()
+            return json.loads(cursor.fetchone()[0])
+        finally:
+            if use_scratch_stage:
+                console.step(f"Dropping stage {scratch_stage_fqn}.")
+                with sql_executor.use_role(package_role):
+                    sql_executor.execute_query(
+                        f"drop stage if exists {scratch_stage_fqn}"
+                    )

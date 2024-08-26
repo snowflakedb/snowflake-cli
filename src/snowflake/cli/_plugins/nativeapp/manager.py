@@ -39,7 +39,6 @@ from snowflake.cli._plugins.nativeapp.constants import (
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
     NoEventTableForAccount,
-    SetupScriptFailedValidation,
 )
 from snowflake.cli._plugins.nativeapp.project_model import (
     NativeAppProjectModel,
@@ -382,23 +381,26 @@ class NativeAppManager(SqlExecutionMixin):
         return diff
 
     def validate(self, use_scratch_stage: bool = False):
-        """Validates Native App setup script SQL."""
-        with cc.phase(f"Validating Snowflake Native App setup script."):
-            validation_result = self.get_validation_result(use_scratch_stage)
+        def deploy_to_scratch_stage_fn():
+            bundle_map = self.build_bundle()
+            self.deploy(
+                bundle_map=bundle_map,
+                prune=True,
+                recursive=True,
+                stage_fqn=self.scratch_stage_fqn,
+                validate=False,
+                print_diff=False,
+            )
 
-            # First print warnings, regardless of the outcome of validation
-            for warning in validation_result.get("warnings", []):
-                cc.warning(_validation_item_to_str(warning))
-
-            # Then print errors
-            for error in validation_result.get("errors", []):
-                # Print them as warnings for now since we're going to be
-                # revamping CLI output soon
-                cc.warning(_validation_item_to_str(error))
-
-            # Then raise an exception if validation failed
-            if validation_result["status"] == "FAIL":
-                raise SetupScriptFailedValidation()
+        return ApplicationPackageEntity.validate(
+            console=cc,
+            package_name=self.package_name,
+            package_role=self.package_role,
+            stage_fqn=self.stage_fqn,
+            use_scratch_stage=use_scratch_stage,
+            scratch_stage_fqn=self.scratch_stage_fqn,
+            deploy_to_scratch_stage_fn=deploy_to_scratch_stage_fn,
+        )
 
     def get_validation_result(self, use_scratch_stage: bool):
         """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
