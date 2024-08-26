@@ -142,7 +142,9 @@ def deploy(
 
     snowpark_entities = get_snowpark_entities(pd)
     project_name = (
-        pd.defaults.project_name if pd.defaults and pd.defaults.project_name else ""
+        pd.mixins.get("snowpark_common", {}).get("project_name", "")
+        if pd.mixins
+        else ""
     )
     project_paths = SnowparkProjectPaths(
         project_root=cli_context.project_root, project_name=project_name
@@ -456,11 +458,13 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
 
     data: dict = {
         "definition_version": "2",
-        "defaults": {
-            "stage": pd.snowpark.stage_name,
-            "project_name": pd.snowpark.project_name,
-        },
         "entities": {},
+        "mixins": {
+            "snowpark_common": {
+                "stage": pd.snowpark.stage_name,
+                "project_name": pd.snowpark.project_name,
+            }
+        },
     }
 
     for entity in [*pd.snowpark.procedures, *pd.snowpark.functions]:
@@ -481,6 +485,9 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
             "secrets": entity.secrets,
             "imports": entity.imports,
             "identifier": identifier,
+            "meta": {
+                "use_mixins": "snowpark_common",
+            },
         }
         if isinstance(entity, ProcedureSchema):
             v2_entity["execute_as_caller"] = entity.execute_as_caller

@@ -188,7 +188,7 @@ from tests.testing_utils.mock_config import mock_config_key
         ],
         [
             {
-                "defaults": {"stage": "dev", "project_name": "my_project"},
+                "defaults": {"stage": "dev"},
                 "entities": {
                     "procedure1": {
                         "type": "procedure",
@@ -206,7 +206,7 @@ from tests.testing_utils.mock_config import mock_config_key
         ],
         [
             {
-                "defaults": {"stage": "dev", "project_name": "my_project"},
+                "defaults": {"stage": "dev"},
                 "entities": {
                     "procedure1": {
                         "type": "procedure",
@@ -363,7 +363,8 @@ def test_v1_to_v2_conversion(
         definition_v2 = _migrate_v1_snowpark_to_v2(definition_v1)
         assert definition_v2.definition_version == "2"
         assert (
-            definition_v1.snowpark.project_name == definition_v2.defaults.project_name
+            definition_v1.snowpark.project_name
+            == definition_v2.mixins["snowpark_common"]["project_name"]
         )
         assert len(definition_v1.snowpark.procedures) == len(
             definition_v2.get_entities_by_type("procedure")
