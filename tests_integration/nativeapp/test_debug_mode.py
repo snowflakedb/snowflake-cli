@@ -90,6 +90,7 @@ def test_nativeapp_controlled_debug_mode(
     snowflake_session,
     default_username,
     resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
@@ -110,7 +111,7 @@ def test_nativeapp_controlled_debug_mode(
         result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
 
-        try:
+        with nativeapp_teardown():
             # debug mode should be true by default on first app deploy,
             # because snowflake.yml doesn't set it explicitly either way ("uncontrolled")
             assert is_debug_mode(snowflake_session, app_name)
@@ -135,12 +136,3 @@ def test_nativeapp_controlled_debug_mode(
             result = runner.invoke_with_connection_json(["app", "run"])
             assert result.exit_code == 0
             assert is_debug_mode(snowflake_session, app_name)
-
-            # make sure we always delete the app
-            result = runner.invoke_with_connection_json(["app", "teardown"])
-            assert result.exit_code == 0
-
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
-            assert result.exit_code == 0

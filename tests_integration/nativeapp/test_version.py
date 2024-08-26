@@ -35,6 +35,7 @@ def test_nativeapp_version_create_and_drop(
     snowflake_session,
     default_username,
     resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
@@ -45,7 +46,7 @@ def test_nativeapp_version_create_and_drop(
         )
         assert result_create.exit_code == 0
 
-        try:
+        with nativeapp_teardown():
             # package exist
             package_name = (
                 f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
@@ -73,22 +74,6 @@ def test_nativeapp_version_create_and_drop(
             actual = runner.invoke_with_connection_json(["app", "version", "list"])
             assert len(actual.json) == 0
 
-            # make sure we always delete the package
-            result = runner.invoke_with_connection_json(["app", "teardown"])
-            assert result.exit_code == 0
-
-            expect = snowflake_session.execute_string(
-                f"show application packages like '{package_name}'"
-            )
-            assert not_contains_row_with(
-                row_from_snowflake_session(expect), {"name": package_name}
-            )
-
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
-            assert result.exit_code == 0
-
 
 # Tests upgrading an app from an existing loose files installation to versioned installation.
 @pytest.mark.integration
@@ -101,6 +86,7 @@ def test_nativeapp_upgrade(
     snowflake_session,
     default_username,
     resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
@@ -111,7 +97,7 @@ def test_nativeapp_upgrade(
             ["app", "version", "create", "v1", "--force", "--skip-git-check"]
         )
 
-        try:
+        with nativeapp_teardown():
             # package exist
             package_name = (
                 f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
@@ -139,15 +125,6 @@ def test_nativeapp_upgrade(
                 ["app", "version", "drop", "v1", "--force"]
             )
 
-            # make sure we always delete the package
-            result = runner.invoke_with_connection_json(["app", "teardown"])
-            assert result.exit_code == 0
-
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
-            assert result.exit_code == 0
-
 
 # Make sure we can create 3+ patches on the same version
 @pytest.mark.integration
@@ -158,12 +135,13 @@ def test_nativeapp_version_create_3_patches(
     snowflake_session,
     default_username,
     resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
-        try:
+        with nativeapp_teardown():
             package_name = (
                 f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
             )
@@ -195,22 +173,6 @@ def test_nativeapp_version_create_3_patches(
             actual = runner.invoke_with_connection_json(["app", "version", "list"])
             assert len(actual.json) == 0
 
-            # make sure we always delete the package
-            result = runner.invoke_with_connection_json(["app", "teardown"])
-            assert result.exit_code == 0
-
-            expect = snowflake_session.execute_string(
-                f"show application packages like '{package_name}'"
-            )
-            assert not_contains_row_with(
-                row_from_snowflake_session(expect), {"name": package_name}
-            )
-
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
-            assert result.exit_code == 0
-
 
 @pytest.mark.integration
 @enable_definition_v2_feature_flag
@@ -222,12 +184,13 @@ def test_nativeapp_version_create_patch_is_integer(
     snowflake_session,
     default_username,
     resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
-        try:
+        with nativeapp_teardown():
             package_name = (
                 f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
             )
@@ -282,21 +245,6 @@ def test_nativeapp_version_create_patch_is_integer(
             actual = runner.invoke_with_connection_json(["app", "version", "list"])
             assert len(actual.json) == 0
 
-            # make sure we always delete the package
-            result = runner.invoke_with_connection_json(["app", "teardown"])
-            assert result.exit_code == 0
-
-            expect = snowflake_session.execute_string(
-                f"show application packages like '{package_name}'"
-            )
-            assert not_contains_row_with(
-                row_from_snowflake_session(expect), {"name": package_name}
-            )
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
-            assert result.exit_code == 0
-
 
 # Tests creating a version for a package that was not created by the CLI
 # (doesn't have the magic CLI comment)
@@ -310,6 +258,7 @@ def test_nativeapp_version_create_package_no_magic_comment(
     snowflake_session,
     default_username,
     resource_suffix,
+    nativeapp_teardown,
     snapshot,
     project_definition_files: List[Path],
 ):
@@ -319,7 +268,7 @@ def test_nativeapp_version_create_package_no_magic_comment(
         result_create_abort = runner.invoke_with_connection_json(["app", "deploy"])
         assert result_create_abort.exit_code == 0
 
-        try:
+        with nativeapp_teardown():
             # package exist
             package_name = (
                 f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
@@ -384,7 +333,3 @@ def test_nativeapp_version_create_package_no_magic_comment(
                 # Remove date field
                 row.pop("created_on", None)
             assert actual.json == snapshot
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
-            assert result.exit_code == 0

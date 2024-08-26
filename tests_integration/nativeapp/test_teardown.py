@@ -45,7 +45,7 @@ def test_nativeapp_teardown_cascade(
     expected_error,
     orphan_app,
     test_project,
-    project_directory,
+    nativeapp_project_directory,
     runner,
     snowflake_session,
     default_username,
@@ -55,7 +55,7 @@ def test_nativeapp_teardown_cascade(
     app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
     db_name = f"{project_name}_db_{default_username}{resource_suffix}".upper()
 
-    with project_directory(test_project):
+    with nativeapp_project_directory(test_project):
         # Replacing the static DB name with a unique one to avoid collisions between tests
         with open("app/setup_script.sql", "r") as file:
             setup_script_content = file.read()
@@ -67,78 +67,68 @@ def test_nativeapp_teardown_cascade(
 
         result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
-        try:
-            # Grant permission to create databases
-            snowflake_session.execute_string(
-                f"grant create database on account to application {app_name}",
+        # Grant permission to create databases
+        snowflake_session.execute_string(
+            f"grant create database on account to application {app_name}",
+        )
+
+        # Create the database
+        snowflake_session.execute_string("use warehouse xsmall")
+        snowflake_session.execute_string(
+            f"call {app_name}.core.create_db()",
+        )
+
+        # Verify the database is owned by the app
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(f"show databases like '{db_name}'")
+            ),
+            dict(name=db_name, owner=app_name),
+        )
+
+        if orphan_app:
+            # orphan the app by dropping the application package,
+            # this causes future `show objects owned by application` queries to fail
+            # and `snow app teardown` needs to be resilient against this
+            package_name = (
+                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
             )
-
-            # Create the database
-            snowflake_session.execute_string("use warehouse xsmall")
-            snowflake_session.execute_string(
-                f"call {app_name}.core.create_db()",
-            )
-
-            # Verify the database is owned by the app
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(f"show databases like '{db_name}'")
-                ),
-                dict(name=db_name, owner=app_name),
-            )
-
-            if orphan_app:
-                # orphan the app by dropping the application package,
-                # this causes future `show objects owned by application` queries to fail
-                # and `snow app teardown` needs to be resilient against this
-                package_name = (
-                    f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
-                )
-                snowflake_session.execute_string(
-                    f"drop application package {package_name}"
-                )
-                assert not_contains_row_with(
-                    row_from_snowflake_session(
-                        snowflake_session.execute_string(
-                            f"show application packages like '{package_name}'",
-                        )
-                    ),
-                    dict(name=package_name),
-                )
-
-            # Run the teardown command
-            result = runner.invoke_with_connection_json(command.split())
-            if expected_error is not None:
-                assert result.exit_code == 1
-                assert expected_error in result.output
-                return
-
-            assert result.exit_code == 0
-
-            # Verify the database is dropped
-            assert not_contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(f"show databases like '{db_name}'")
-                ),
-                dict(name=db_name, owner=app_name),
-            )
-
-            # Verify the app is dropped
+            snowflake_session.execute_string(f"drop application package {package_name}")
             assert not_contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
-                        f"show applications like '{app_name}'",
+                        f"show application packages like '{package_name}'",
                     )
                 ),
-                dict(name=app_name),
+                dict(name=package_name),
             )
 
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force", "--cascade"]
-            )
-            assert result.exit_code == 0
+        # Run the teardown command
+        result = runner.invoke_with_connection_json(command.split())
+        if expected_error is not None:
+            assert result.exit_code == 1
+            assert expected_error in result.output
+            return
+
+        assert result.exit_code == 0
+
+        # Verify the database is dropped
+        assert not_contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(f"show databases like '{db_name}'")
+            ),
+            dict(name=db_name, owner=app_name),
+        )
+
+        # Verify the app is dropped
+        assert not_contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show applications like '{app_name}'",
+                )
+            ),
+            dict(name=app_name),
+        )
 
 
 @pytest.mark.integration
@@ -151,32 +141,25 @@ def test_nativeapp_teardown_unowned_app(
     resource_suffix,
     force,
     test_project,
-    project_directory,
+    nativeapp_project_directory,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{default_username}{resource_suffix}"
 
-    with project_directory(test_project):
+    with nativeapp_project_directory(test_project):
         result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
-        try:
-            result = runner.invoke_with_connection_json(
-                ["sql", "-q", f"alter application {app_name} set comment = 'foo'"]
-            )
-            assert result.exit_code == 0
+        result = runner.invoke_with_connection_json(
+            ["sql", "-q", f"alter application {app_name} set comment = 'foo'"]
+        )
+        assert result.exit_code == 0
 
-            if force:
-                result = runner.invoke_with_connection_json(
-                    ["app", "teardown", "--force"]
-                )
-                assert result.exit_code == 0
-            else:
-                result = runner.invoke_with_connection_json(["app", "teardown"])
-                assert result.exit_code == 1
-
-        finally:
+        if force:
             result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
             assert result.exit_code == 0
+        else:
+            result = runner.invoke_with_connection_json(["app", "teardown"])
+            assert result.exit_code == 1
 
 
 @pytest.mark.integration
@@ -189,47 +172,42 @@ def test_nativeapp_teardown_pkg_versions(
     resource_suffix,
     default_release_directive,
     test_project,
-    project_directory,
+    nativeapp_project_directory,
 ):
     project_name = "myapp"
     pkg_name = f"{project_name}_pkg_{default_username}{resource_suffix}"
 
-    with project_directory(test_project):
+    with nativeapp_project_directory(test_project):
         result = runner.invoke_with_connection(["app", "version", "create", "v1"])
         assert result.exit_code == 0
 
-        try:
-            # when setting a release directive, we will not have the ability to drop the version later
-            if default_release_directive:
-                result = runner.invoke_with_connection(
-                    [
-                        "sql",
-                        "-q",
-                        f"alter application package {pkg_name} set default release directive version = v1 patch = 0",
-                    ]
-                )
-                assert result.exit_code == 0
-
-            # try to teardown; fail because we have a version
-            result = runner.invoke_with_connection(["app", "teardown"])
-            assert result.exit_code == 1
-            assert f"Drop versions first, or use --force to override." in result.output
-
-            teardown_args = []
-            if not default_release_directive:
-                # if we didn't set a release directive, we can drop the version and try again
-                result = runner.invoke_with_connection(
-                    ["app", "version", "drop", "v1", "--force"]
-                )
-                assert result.exit_code == 0
-            else:
-                # if we did set a release directive, we need --force for teardown to work
-                teardown_args = ["--force"]
-
-            # either way, we can now tear down the application package
-            result = runner.invoke_with_connection(["app", "teardown"] + teardown_args)
+        # when setting a release directive, we will not have the ability to drop the version later
+        if default_release_directive:
+            result = runner.invoke_with_connection(
+                [
+                    "sql",
+                    "-q",
+                    f"alter application package {pkg_name} set default release directive version = v1 patch = 0",
+                ]
+            )
             assert result.exit_code == 0
 
-        finally:
-            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
+        # try to teardown; fail because we have a version
+        result = runner.invoke_with_connection(["app", "teardown"])
+        assert result.exit_code == 1
+        assert f"Drop versions first, or use --force to override." in result.output
+
+        teardown_args = []
+        if not default_release_directive:
+            # if we didn't set a release directive, we can drop the version and try again
+            result = runner.invoke_with_connection(
+                ["app", "version", "drop", "v1", "--force"]
+            )
             assert result.exit_code == 0
+        else:
+            # if we did set a release directive, we need --force for teardown to work
+            teardown_args = ["--force"]
+
+        # either way, we can now tear down the application package
+        result = runner.invoke_with_connection(["app", "teardown"] + teardown_args)
+        assert result.exit_code == 0
