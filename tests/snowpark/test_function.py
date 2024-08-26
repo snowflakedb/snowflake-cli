@@ -113,8 +113,8 @@ def test_deploy_function_with_external_access(
             imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.py')
             handler='app.func1_handler'
             packages=()
-            external_access_integrations=(external_1,external_2)
-            secrets=('cred'=cred_name,'other'=other_name)
+            external_access_integrations=(external_1, external_2)
+            secrets=('cred'=cred_name, 'other'=other_name)
             """
         ).strip(),
     ]
