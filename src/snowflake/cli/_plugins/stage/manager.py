@@ -73,6 +73,10 @@ class StagePathParts:
     def path(self) -> str:
         raise NotImplementedError
 
+    @property
+    def full_path(self) -> str:
+        raise NotImplementedError
+
     def add_stage_prefix(self, file_path: str) -> str:
         raise NotImplementedError
 
@@ -112,18 +116,17 @@ class DefaultStagePathParts(StagePathParts):
         self.directory = self.get_directory(stage_path)
         self.stage = StageManager.get_stage_from_path(stage_path)
         stage_name = self.stage.split(".")[-1]
-        if stage_name.startswith("@"):
-            stage_name = stage_name[1:]
+        stage_name = stage_name[1:] if stage_name.startswith("@") else stage_name
         self.stage_name = stage_name
         self.is_directory = True if stage_path.endswith("/") else False
 
     @property
     def path(self) -> str:
-        return (
-            f"{self.stage_name}{self.directory}"
-            if self.stage_name.endswith("/")
-            else f"{self.stage_name}/{self.directory}"
-        )
+        return f"{self.stage_name.rstrip('/')}/{self.directory}"
+
+    @property
+    def full_path(self) -> str:
+        return f"{self.stage.rstrip('/')}/{self.directory}"
 
     def add_stage_prefix(self, file_path: str) -> str:
         stage = Path(self.stage).parts[0]
@@ -153,6 +156,10 @@ class UserStagePathParts(StagePathParts):
     @property
     def path(self) -> str:
         return f"{self.directory}"
+
+    @property
+    def full_path(self) -> str:
+        return f"{self.stage}/{self.directory}"
 
     def add_stage_prefix(self, file_path: str) -> str:
         return f"{self.stage}/{file_path}"
@@ -320,9 +327,14 @@ class StageManager(SqlExecutionMixin):
     ):
         stage_path_parts = self._stage_path_part_factory(stage_path)
         all_files_list = self._get_files_list_from_stage(stage_path_parts)
+        all_files_with_stage_name_prefix = [
+            stage_path_parts.add_stage_prefix(file) for file in all_files_list
+        ]
 
         # filter files from stage if match stage_path pattern
-        filtered_file_list = self._filter_files_list(stage_path_parts, all_files_list)
+        filtered_file_list = self._filter_files_list(
+            stage_path_parts, all_files_with_stage_name_prefix
+        )
 
         if not filtered_file_list:
             raise ClickException(f"No files matched pattern '{stage_path}'")
@@ -343,7 +355,7 @@ class StageManager(SqlExecutionMixin):
             )
 
         for file_path in sorted_file_path_list:
-            file_stage_path = stage_path_parts.add_stage_prefix(file_path)
+            file_stage_path = self.get_standard_stage_prefix(file_path)
             if file_path.endswith(".py"):
                 result = self._execute_python(
                     file_stage_path=file_stage_path,
@@ -378,13 +390,11 @@ class StageManager(SqlExecutionMixin):
         if not stage_path_parts.directory:
             return self._filter_supported_files(files_on_stage)
 
-        stage_path = stage_path_parts.path.lower()
+        stage_path = stage_path_parts.full_path
 
         # Exact file path was provided if stage_path in file list
-        for file in files_on_stage:
-            if file.lower() != stage_path:
-                continue
-            filtered_files = self._filter_supported_files([file])
+        if stage_path in files_on_stage:
+            filtered_files = self._filter_supported_files([stage_path])
             if filtered_files:
                 return filtered_files
             else:

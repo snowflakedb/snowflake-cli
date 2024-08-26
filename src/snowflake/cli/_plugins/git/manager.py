@@ -41,11 +41,11 @@ class GitStagePathParts(StagePathParts):
 
     @property
     def path(self) -> str:
-        return (
-            f"{self.stage_name}{self.directory}"
-            if self.stage_name.endswith("/")
-            else f"{self.stage_name}/{self.directory}"
-        )
+        return f"{self.stage_name.rstrip('/')}/{self.directory}"
+
+    @property
+    def full_path(self) -> str:
+        return f"{self.stage.rstrip('/')}/{self.directory}"
 
     def add_stage_prefix(self, file_path: str) -> str:
         stage = Path(self.stage).parts[0]

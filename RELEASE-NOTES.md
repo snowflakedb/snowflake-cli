@@ -25,7 +25,7 @@
 
 ## Fixes and improvements
 * Duplicated keys in `snowflake.yml` are now detected and reported.
-
+* Fixed git execute not working with upper case in directory name.
 
 # v3.0.0
 ## Backward incompatibility
