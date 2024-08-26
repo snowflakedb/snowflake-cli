@@ -63,7 +63,7 @@ def _get_merged_definitions(paths: List[Path]) -> Optional[Definition]:
 def load_project(
     paths: List[Path],
     context_overrides: Optional[Context] = None,
-    render_env_values: bool = True,
+    render_templates: bool = True,
 ) -> ProjectProperties:
     """
     Loads project definition, optionally overriding values. Definition values
@@ -71,7 +71,7 @@ def load_project(
     Templating is also applied after the merging process.
     """
     merged_definitions = _get_merged_definitions(paths)
-    if render_env_values:
+    if render_templates:
         return render_definition_template(merged_definitions, context_overrides or {})
     else:
         return raw_project_properties(merged_definitions)

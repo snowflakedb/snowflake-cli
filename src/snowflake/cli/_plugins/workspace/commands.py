@@ -56,7 +56,7 @@ def migrate(
     SecurePath("snowflake.yml").rename("snowflake_V1.yml")
     with open("snowflake.yml", "w") as file:
         yaml.dump(
-            pd_v2.model_dump(exclude_unset=True, exclude_none=True, mode="json"), file
+            pd_v2.model_dump(exclude_unset=True, exclude_none=True, mode="json", by_alias=True), file
         )
     return MessageResult("Project definition migrated to version 2.")
 
