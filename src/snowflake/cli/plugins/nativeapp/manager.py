@@ -45,6 +45,7 @@ from snowflake.cli.api.project.util import (
 from snowflake.cli.api.rendering.sql_templates import (
     get_sql_cli_jinja_env,
 )
+from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.plugins.connection.util import make_snowsight_url
 from snowflake.cli.plugins.nativeapp.artifacts import (
@@ -580,7 +581,7 @@ class NativeAppManager(SqlExecutionMixin):
         self,
         env: jinja2.Environment,
         jinja_context: dict[str, Any],
-        scripts: List[Path],
+        scripts: List[str],
     ) -> List[str]:
         """
         Input:
@@ -592,20 +593,22 @@ class NativeAppManager(SqlExecutionMixin):
         Size of the return list is the same as the size of the input scripts list.
         """
         scripts_contents = []
-        for relpath in scripts:
+        for script in scripts:
+            full_path = SecurePath(self.project_root) / script
             try:
-                template = env.get_template(relpath.as_posix())
+                template_content = full_path.read_text(file_size_limit_mb=UNLIMITED)
+                template = env.from_string(template_content)
                 result = template.render(**jinja_context)
                 scripts_contents.append(result)
 
-            except jinja2.TemplateNotFound as e:
-                raise MissingScriptError(e.name) from e
+            except FileNotFoundError as e:
+                raise MissingScriptError(script) from e
 
             except jinja2.TemplateSyntaxError as e:
-                raise InvalidScriptError(e.name, e, e.lineno) from e
+                raise InvalidScriptError(script, e, e.lineno) from e
 
             except jinja2.UndefinedError as e:
-                raise InvalidScriptError(relpath, e) from e
+                raise InvalidScriptError(script, e) from e
 
         return scripts_contents
 
@@ -621,16 +624,13 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
         env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(searchpath="/"),
+            loader=jinja2.BaseLoader(),
             keep_trailing_newline=True,
             undefined=jinja2.StrictUndefined,
         )
 
-        package_scripts_paths = [
-            Path(self.project_root) / script for script in self.package_scripts
-        ]
         queued_queries = self._expand_script_templates(
-            env, dict(package_name=self.package_name), package_scripts_paths
+            env, dict(package_name=self.package_name), self.package_scripts
         )
 
         # once we're sure all the templates expanded correctly, execute all of them
@@ -674,19 +674,17 @@ class NativeAppManager(SqlExecutionMixin):
         if not post_deploy_hooks:
             return
 
-        with cc.phase(f"Executing {deployed_object_type} post-deploy actions"):
+        with cc.phase(f"Executing {deployed_object_type} post_deploy actions"):
             sql_scripts_paths = []
             for hook in post_deploy_hooks:
                 if hook.sql_script:
-                    sql_scripts_paths.append(self.project_root / hook.sql_script)
+                    sql_scripts_paths.append(hook.sql_script)
                 else:
                     raise ValueError(
-                        f"Unsupported {deployed_object_type} post-deploy hook type: {hook}"
+                        f"Unsupported {deployed_object_type} post_deploy hook type: {hook}"
                     )
 
-            env = get_sql_cli_jinja_env(
-                loader=jinja2.loaders.FileSystemLoader(searchpath="/")
-            )
+            env = get_sql_cli_jinja_env()
             scripts_content_list = self._expand_script_templates(
                 env, cli_context.template_context, sql_scripts_paths
             )
