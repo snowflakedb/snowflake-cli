@@ -50,6 +50,22 @@ log = logging.getLogger(__name__)
 
 
 def safe_set(d: dict, *keys: str, **kwargs) -> None:
+    """
+    Sets a value in a nested dictionary structure, creating intermediate dictionaries as needed.
+    Sample usage:
+
+      d = {}
+      safe_set(d, "a", "b", "c", value=42)
+
+    d is now:
+      {
+        "a": {
+          "b": {
+            "c": 42
+          }
+        }
+      }
+    """
     curr = d
     for k in keys[:-1]:
         curr = curr.setdefault(k, {})
