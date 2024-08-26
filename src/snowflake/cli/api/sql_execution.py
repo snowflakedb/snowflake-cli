@@ -40,7 +40,7 @@ from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
 
-class SqlExecutionMixin:
+class SqlExecutor:
     def __init__(self, connection: SnowflakeConnection | None = None):
         self._snowpark_session = None
         self._connection = connection
@@ -50,16 +50,6 @@ class SqlExecutionMixin:
         if self._connection:
             return self._connection
         return get_cli_context().connection
-
-    @property
-    def snowpark_session(self):
-        if not self._snowpark_session:
-            from snowflake.snowpark.session import Session
-
-            self._snowpark_session = Session.builder.configs(
-                {"connection": self._conn}
-            ).create()
-        return self._snowpark_session
 
     @cached_property
     def _log(self):
@@ -91,6 +81,12 @@ class SqlExecutionMixin:
 
     def _execute_queries(self, queries: str, **kwargs):
         return list(self._execute_string(dedent(queries), **kwargs))
+
+    def execute_query(self, query: str, **kwargs):
+        return self._execute_query(query, **kwargs)
+
+    def execute_queries(self, queries: str, **kwargs):
+        return self._execute_queries(queries, **kwargs)
 
     def use(self, object_type: ObjectType, name: str):
         try:
@@ -256,6 +252,22 @@ class SqlExecutionMixin:
             lambda row: row[name_col] == unquote_identifier(unqualified_name),
         )
         return show_obj_row
+
+
+class SqlExecutionMixin(SqlExecutor):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._snowpark_session = None
+
+    @property
+    def snowpark_session(self):
+        if not self._snowpark_session:
+            from snowflake.snowpark.session import Session
+
+            self._snowpark_session = Session.builder.configs(
+                {"connection": self._conn}
+            ).create()
+        return self._snowpark_session
 
 
 class VerboseCursor(SnowflakeCursor):

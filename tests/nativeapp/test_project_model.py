@@ -27,7 +27,7 @@ from snowflake.cli._plugins.nativeapp.project_model import (
     NativeAppProjectModel,
 )
 from snowflake.cli.api.project.definition import load_project
-from snowflake.cli.api.project.schemas.native_app.application import SqlScriptHookType
+from snowflake.cli.api.project.schemas.entities.common import SqlScriptHookType
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,

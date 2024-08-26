@@ -17,19 +17,12 @@ from __future__ import annotations
 from typing import List, Optional
 
 from pydantic import Field, field_validator
+from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
 )
 from snowflake.cli.api.project.util import append_test_resource_suffix
-
-
-class SqlScriptHookType(UpdatableModel):
-    sql_script: str = Field(title="SQL file path relative to the project root")
-
-
-# Currently sql_script is the only supported hook type. Change to a Union once other hook types are added
-PostDeployHook = SqlScriptHookType
 
 
 class Application(UpdatableModel):
