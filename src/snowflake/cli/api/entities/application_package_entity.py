@@ -3,7 +3,6 @@ from pathlib import Path
 from textwrap import dedent
 from typing import List, Optional
 
-import jinja2
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
@@ -23,12 +22,15 @@ from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     ensure_correct_owner,
-    expand_script_templates,
     generic_sql_error_handler,
+    render_script_templates,
 )
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
     ApplicationPackageEntityModel,
+)
+from snowflake.cli.api.rendering.jinja import (
+    jinja_render_from_str,
 )
 from snowflake.connector import ProgrammingError
 
@@ -174,14 +176,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
             )
 
-        env = jinja2.Environment(
-            loader=jinja2.loaders.FileSystemLoader(project_root),
-            keep_trailing_newline=True,
-            undefined=jinja2.StrictUndefined,
-        )
-
-        queued_queries = expand_script_templates(
-            env, dict(package_name=package_name), package_scripts
+        queued_queries = render_script_templates(
+            project_root,
+            jinja_render_from_str,
+            dict(package_name=package_name),
+            package_scripts,
         )
 
         # once we're sure all the templates expanded correctly, execute all of them

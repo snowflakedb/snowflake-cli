@@ -34,6 +34,7 @@
 * Added `snow spcs service execute-job` command, which supports creating and executing a job service in the current schema.
 * Added `snow app events` command to fetch logs and traces from local and customer app installations.
 * Added support for external access (api integrations and secrets) in Streamlit.
+* Added support for `<% ... %>` syntax in SQL templating.
 * Support multiple Streamlit application in single snowflake.yml project definition file.
 
 ## Fixes and improvements

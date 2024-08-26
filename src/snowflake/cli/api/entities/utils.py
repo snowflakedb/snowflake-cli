@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, List, NoReturn, Optional
+from typing import Any, Callable, Dict, List, NoReturn, Optional
 
 import jinja2
 from click import ClickException
@@ -25,7 +25,6 @@ from snowflake.cli._plugins.stage.diff import (
     to_stage_path,
 )
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.errno import (
@@ -35,8 +34,9 @@ from snowflake.cli.api.errno import (
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.rendering.sql_templates import (
-    get_sql_cli_jinja_env,
+    snowflake_sql_jinja_render,
 )
+from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector import ProgrammingError
 
 
@@ -270,11 +270,11 @@ def execute_post_deploy_hooks(
                     f"Unsupported {deployed_object_type} post-deploy hook type: {hook}"
                 )
 
-        env = get_sql_cli_jinja_env(
-            loader=jinja2.loaders.FileSystemLoader(project_root)
-        )
-        scripts_content_list = expand_script_templates(
-            env, get_cli_context().template_context, sql_scripts_paths
+        scripts_content_list = render_script_templates(
+            project_root,
+            snowflake_sql_jinja_render,
+            {},
+            sql_scripts_paths,
         )
 
         for index, sql_script_path in enumerate(sql_scripts_paths):
@@ -285,34 +285,36 @@ def execute_post_deploy_hooks(
             )
 
 
-def expand_script_templates(
-    env: jinja2.Environment,
+def render_script_templates(
+    project_root: Path,
+    render_from_str: Callable[[str, Dict[str, Any]], str],
     jinja_context: dict[str, Any],
     scripts: List[str],
 ) -> List[str]:
     """
     Input:
-    - env: Jinja2 environment
+    - render_from_str: function which renders a jinja template from a string and jinja context
     - jinja_context: a dictionary with the jinja context
-    - scripts: list of scripts that need to be expanded with Jinja
+    - scripts: list of script paths relative to the project root
     Returns:
-    - List of expanded scripts content.
+    - List of rendered scripts content.
     Size of the return list is the same as the size of the input scripts list.
     """
     scripts_contents = []
     for relpath in scripts:
+        script_full_path = SecurePath(project_root) / relpath
         try:
-            template = env.get_template(relpath)
-            result = template.render(**jinja_context)
+            template_content = script_full_path.read_text(file_size_limit_mb=UNLIMITED)
+            result = render_from_str(template_content, jinja_context)
             scripts_contents.append(result)
 
         except jinja2.TemplateNotFound as e:
             raise MissingScriptError(e.name) from e
 
-        except jinja2.TemplateSyntaxError as e:
-            raise InvalidScriptError(e.name, e, e.lineno) from e
+        except FileNotFoundError as e:
+            raise MissingScriptError(relpath) from e
 
         except jinja2.UndefinedError as e:
-            raise InvalidScriptError(relpath, e) from e
+            raise InvalidScriptError(relpath, e, e.lineno) from e  # type: ignore[attr-defined]
 
     return scripts_contents
