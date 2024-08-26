@@ -293,11 +293,12 @@ def render_script_templates(
 ) -> List[str]:
     """
     Input:
+    - project_root: path to project root
     - render_from_str: function which renders a jinja template from a string and jinja context
     - jinja_context: a dictionary with the jinja context
     - scripts: list of script paths relative to the project root
     Returns:
-    - List of rendered scripts content.
+    - List of rendered scripts content
     Size of the return list is the same as the size of the input scripts list.
     """
     scripts_contents = []
@@ -308,13 +309,13 @@ def render_script_templates(
             result = render_from_str(template_content, jinja_context)
             scripts_contents.append(result)
 
-        except jinja2.TemplateNotFound as e:
-            raise MissingScriptError(e.name) from e
-
         except FileNotFoundError as e:
             raise MissingScriptError(relpath) from e
 
+        except jinja2.TemplateSyntaxError as e:
+            raise InvalidScriptError(relpath, e, e.lineno) from e
+
         except jinja2.UndefinedError as e:
-            raise InvalidScriptError(relpath, e, e.lineno) from e  # type: ignore[attr-defined]
+            raise InvalidScriptError(relpath, e) from e
 
     return scripts_contents
