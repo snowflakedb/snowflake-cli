@@ -17,7 +17,7 @@ from __future__ import annotations
 from abc import ABC
 from typing import Generic, List, Optional, TypeVar, Union
 
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, field_validator
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.identifier_model import Identifier
 from snowflake.cli.api.project.schemas.native_app.application import (
@@ -41,6 +41,19 @@ class MetaField(UpdatableModel):
         title="Actions that will be executed after the application object is created/upgraded",
         default=None,
     )
+    use_mixins: Optional[List[str]] = Field(
+        title="Name of the mixin used to fill the entity fields",
+        default=None,
+    )
+
+    @field_validator("use_mixins", mode="before")
+    @classmethod
+    def ensure_use_mixins_is_a_list(
+        cls, mixins: Optional[str | List[str]]
+    ) -> Optional[List[str]]:
+        if isinstance(mixins, str):
+            return [mixins]
+        return mixins
 
 
 class DefaultsField(UpdatableModel):
