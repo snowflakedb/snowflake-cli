@@ -29,10 +29,25 @@ class SchemaValidationError(ClickException):
     def __init__(self, error: ValidationError):
         errors = error.errors()
         message = f"During evaluation of {error.title} in project definition following errors were encountered:\n"
+
+        def calculate_location(e):
+            if e["loc"] is None:
+                return None
+
+            # show numbers as list indexes and strings as dictionary keys. Example: key1[0].key2
+            result = "".join(
+                f"[{item}]" if isinstance(item, int) else f".{item}"
+                for item in e["loc"]
+            )
+
+            # remove leading dot from the string if any:
+            return result[1:] if result.startswith(".") else result
+
         message += "\n".join(
             [
                 self.message_templates.get(e["type"], self.generic_message).format(
-                    **e, location=".".join(e["loc"]) if e["loc"] is not None else None
+                    **e,
+                    location=calculate_location(e),
                 )
                 for e in errors
             ]
