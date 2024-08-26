@@ -132,13 +132,13 @@ def _fetch_remote_template(
     return template_root
 
 
-def _read_template_metadata(template_root: SecurePath) -> Template:
+def _read_template_metadata(template_root: SecurePath, args_error_msg: str) -> Template:
     """Parse template.yml file."""
     template_metadata_path = template_root / TEMPLATE_METADATA_FILE_NAME
     log.debug("Reading template metadata from %s", template_metadata_path.path)
     if not template_metadata_path.exists():
         raise InvalidTemplate(
-            f"Template does not have {TEMPLATE_METADATA_FILE_NAME} file."
+            f"File {TEMPLATE_METADATA_FILE_NAME} not found. {args_error_msg}"
         )
     with template_metadata_path.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
         yaml_contents = yaml.safe_load(fd) or {}
@@ -203,6 +203,9 @@ def init(
     is_remote = any(
         template_source.startswith(prefix) for prefix in ["git@", "http://", "https://"]  # type: ignore
     )
+    args_error_msg = (
+        "Check whether --template and --template_source arguments are correct."
+    )
 
     # copy/download template into tmpdir, so it is going to be removed in case command ends with an error
     with SecurePath.temporary_directory() as tmpdir:
@@ -217,7 +220,9 @@ def init(
                 destination=tmpdir,
             )
 
-        template_metadata = _read_template_metadata(template_root)
+        template_metadata = _read_template_metadata(
+            template_root, args_error_msg=args_error_msg
+        )
         if template_metadata.minimum_cli_version:
             _validate_cli_version(template_metadata.minimum_cli_version)
 
