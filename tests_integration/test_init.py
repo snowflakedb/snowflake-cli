@@ -51,7 +51,11 @@ def test_missing_template_yml(runner, temporary_working_directory):
     result = runner.invoke(["init", path, "--template-source", url])
     assert result.exit_code == 1
     assert "Error" in result.output
-    assert f"Template does not have template.yml file." in result.output
+    assert (
+        "File template.yml not found. Check whether --template and --template_source"
+        in result.output
+    )
+    assert "arguments are correct" in result.output
 
 
 @pytest.mark.integration
