@@ -1,7 +1,15 @@
 import os
+from importlib import import_module
 from urllib.request import urlretrieve
 
-import certifi
+try:
+    certifi = import_module("certifi")
+except ImportError:
+    import pip
+
+    pip.main(["install", "--upgrade", "certifi"])
+    certifi = import_module("certifi")
+
 
 os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
 os.environ["SSL_CERT_FILE"] = certifi.where()
