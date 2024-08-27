@@ -13,13 +13,9 @@
 # limitations under the License.
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import (
-    enable_definition_v2_feature_flag,
-)
 
 
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_validate(test_project, nativeapp_project_directory, runner):
     with nativeapp_project_directory(test_project):
@@ -30,7 +26,6 @@ def test_nativeapp_validate(test_project, nativeapp_project_directory, runner):
 
 
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_validate_failing(test_project, nativeapp_project_directory, runner):
     with nativeapp_project_directory(test_project):

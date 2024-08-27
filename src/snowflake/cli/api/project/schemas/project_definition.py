@@ -19,7 +19,6 @@ from typing import Any, Dict, List, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.application_entity_model import (
     ApplicationEntityModel,
@@ -244,9 +243,7 @@ ProjectDefinition = Union[ProjectDefinitionV1, ProjectDefinitionV2]
 
 
 def get_version_map():
-    version_map = {"1": DefinitionV10, "1.1": DefinitionV11}
-    if FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled():
-        version_map["2"] = DefinitionV20
+    version_map = {"1": DefinitionV10, "1.1": DefinitionV11, "2": DefinitionV20}
     return version_map
 
 
