@@ -3,7 +3,6 @@
 import pytest
 
 from tests_integration.test_utils import (
-    enable_definition_v2_feature_flag,
     row_from_snowflake_session,
 )
 from tests_integration.testing_utils.working_directory_utils import (
@@ -63,7 +62,6 @@ def verify_pkg_post_deploy_log(snowflake_session, pkg_name, expected_rows):
 
 
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "test_project",
     ["napp_application_post_deploy_v1", "napp_application_post_deploy_v2"],

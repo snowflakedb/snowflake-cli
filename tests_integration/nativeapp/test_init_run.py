@@ -22,13 +22,11 @@ from tests_integration.test_utils import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
-    enable_definition_v2_feature_flag,
 )
 
 
 # Tests a simple flow of initiating a new project, executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_init_run_without_modifications(
     test_project,
@@ -66,7 +64,6 @@ def test_nativeapp_init_run_without_modifications(
 
 # Tests a simple flow of an existing project, but executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "project_definition_files", ["integration", "integration_v2"], indirect=True
 )
@@ -129,7 +126,6 @@ def test_nativeapp_run_existing(
 
 # Tests a simple flow of initiating a project, executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_init_run_handles_spaces(
     test_project,
@@ -167,7 +163,6 @@ def test_nativeapp_init_run_handles_spaces(
 
 # Tests a simple flow of an existing project, but executing snow app run and teardown, all with distribution=external
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "project_definition_files",
     ["integration_external", "integration_external_v2"],
@@ -245,7 +240,6 @@ def test_nativeapp_run_existing_w_external(
 
 # Verifies that running "app run" after "app deploy" upgrades the app
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_run_after_deploy(
     test_project, nativeapp_project_directory, runner, default_username, resource_suffix
@@ -318,7 +312,6 @@ def test_nativeapp_init_from_repo_with_single_template(
 
 # Tests running an app whose package was dropped externally (requires dropping and recreating the app)
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "project_definition_files", ["integration", "integration_v2"], indirect=True
 )
@@ -425,7 +418,6 @@ def test_nativeapp_run_orphan(
 # run configurations as long as we pass the --force flag to "app run"
 # TODO: add back all parameterizations and implement --force for "app teardown"
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 @pytest.mark.parametrize(
     "run_args_from, run_args_to",
