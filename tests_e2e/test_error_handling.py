@@ -31,6 +31,7 @@ def _restrict_file_permissions_unix(path: Path) -> None:
 def _restrict_file_permissions_windows(path: Path):
     for user in windows_get_not_whitelisted_users_with_access(path):
         subprocess.run(["icacls", str(path), "/DENY", f"{user}:F"])
+    subprocess.run(["icacls", str(path), "/GRANT", f"{os.getlogin()}:F"])
 
 
 def _restrict_file_permissions(file_path: Path):
