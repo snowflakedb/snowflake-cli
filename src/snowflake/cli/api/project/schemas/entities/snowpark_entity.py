@@ -64,9 +64,11 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel):
     stage: str = Field(title="Stage in which artifacts will be stored")
     artifacts: List[Union[PathMapping, str]] = Field(title="List of required sources")
 
-    def get_artifacts(self) -> List[PathMapping]:
+    @field_validator("artifacts")
+    @classmethod
+    def _convert_artifacts(cls, artifacts: Union[dict, str]):
         _artifacts = []
-        for artefact in self.artifacts:
+        for artefact in artifacts:
             if isinstance(artefact, PathMapping):
                 _artifacts.append(artefact)
             else:

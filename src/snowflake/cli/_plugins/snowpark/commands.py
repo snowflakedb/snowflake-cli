@@ -191,7 +191,7 @@ def validate_all_artifacts_exists(
     project_paths: SnowparkProjectPaths, snowpark_entities: SnowparkEntities
 ):
     for key, entity in snowpark_entities.items():
-        for artefact in entity.get_artifacts():
+        for artefact in entity.artifacts:
             path = project_paths.get_artefact_dto(artefact).post_build_path
             if not path.exists():
                 raise UsageError(
@@ -221,7 +221,7 @@ def build_artifacts_mappings(
     for entity_id, entity in snowpark_entities.items():
         stage = entity.stage
         required_artifacts = set()
-        for artefact in entity.get_artifacts():
+        for artefact in entity.artifacts:
             artefact_dto = project_paths.get_artefact_dto(artefact)
             required_artifacts.add(artefact_dto)
             entities_to_imports_map[entity_id].add(artefact_dto.import_path(stage))
@@ -376,7 +376,7 @@ def build(
 
     artifacts = set()
     for entity in get_snowpark_entities(pd).values():
-        artifacts.update(entity.get_artifacts())
+        artifacts.update(entity.artifacts)
 
     with cli_console.phase("Preparing artifacts for source code"):
         for artefact in artifacts:
