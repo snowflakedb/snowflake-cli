@@ -71,7 +71,7 @@ def test_snowpark_flow(
 
         expected_files = [
             f"{STAGE_NAME}/my_snowpark_project/app.zip",
-            f"{STAGE_NAME}/my_snowpark_project/dependencies.zip",
+            f"{STAGE_NAME}/dependencies.zip",
         ]
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
@@ -959,15 +959,15 @@ def test_snowpark_flow_v2(
         )
 
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-            "stage_a/my_project/app_1.zip",
-            "stage_a/my_project/dependencies.zip",
+            "stage_a/app_1.zip",
+            "stage_a/dependencies.zip",
             stage_name="stage_a",
         )
 
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-            f"{STAGE_NAME}/my_project/app_2.zip",
-            f"{STAGE_NAME}/my_project/c.py",
-            f"{STAGE_NAME}/my_project/dependencies.zip",
+            f"{STAGE_NAME}/app_2.zip",
+            f"{STAGE_NAME}/c.py",
+            f"{STAGE_NAME}/dependencies.zip",
             stage_name=STAGE_NAME,
         )
 
