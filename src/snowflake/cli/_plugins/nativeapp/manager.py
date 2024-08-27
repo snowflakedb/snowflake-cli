@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import json
 import time
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
@@ -37,7 +36,6 @@ from snowflake.cli._plugins.nativeapp.constants import (
     NAME_COL,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
-    ApplicationPackageDoesNotExistError,
     NoEventTableForAccount,
 )
 from snowflake.cli._plugins.nativeapp.project_model import (
@@ -46,7 +44,6 @@ from snowflake.cli._plugins.nativeapp.project_model import (
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
 )
-from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.application_package_entity import (
     ApplicationPackageEntity,
@@ -56,10 +53,6 @@ from snowflake.cli.api.entities.utils import (
     generic_sql_error_handler,
     sync_deploy_root_with_stage,
 )
-from snowflake.cli.api.errno import (
-    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
-)
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
@@ -380,18 +373,18 @@ class NativeAppManager(SqlExecutionMixin):
 
         return diff
 
-    def validate(self, use_scratch_stage: bool = False):
-        def deploy_to_scratch_stage_fn():
-            bundle_map = self.build_bundle()
-            self.deploy(
-                bundle_map=bundle_map,
-                prune=True,
-                recursive=True,
-                stage_fqn=self.scratch_stage_fqn,
-                validate=False,
-                print_diff=False,
-            )
+    def deploy_to_scratch_stage_fn(self):
+        bundle_map = self.build_bundle()
+        self.deploy(
+            bundle_map=bundle_map,
+            prune=True,
+            recursive=True,
+            stage_fqn=self.scratch_stage_fqn,
+            validate=False,
+            print_diff=False,
+        )
 
+    def validate(self, use_scratch_stage: bool = False):
         return ApplicationPackageEntity.validate_setup_script(
             console=cc,
             package_name=self.package_name,
@@ -399,43 +392,19 @@ class NativeAppManager(SqlExecutionMixin):
             stage_fqn=self.stage_fqn,
             use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=self.scratch_stage_fqn,
-            deploy_to_scratch_stage_fn=deploy_to_scratch_stage_fn,
+            deploy_to_scratch_stage_fn=self.deploy_to_scratch_stage_fn,
         )
 
     def get_validation_result(self, use_scratch_stage: bool):
-        """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
-        stage_fqn = self.stage_fqn
-        if use_scratch_stage:
-            stage_fqn = self.scratch_stage_fqn
-            bundle_map = self.build_bundle()
-            self.deploy(
-                bundle_map=bundle_map,
-                prune=True,
-                recursive=True,
-                stage_fqn=stage_fqn,
-                validate=False,
-                print_diff=False,
-            )
-        prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
-        try:
-            cursor = self._execute_query(
-                f"call system$validate_native_app_setup('{prefixed_stage_fqn}')"
-            )
-        except ProgrammingError as err:
-            if err.errno == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
-                raise ApplicationPackageDoesNotExistError(self.package_name)
-            generic_sql_error_handler(err)
-        else:
-            if not cursor.rowcount:
-                raise SnowflakeSQLExecutionError()
-            return json.loads(cursor.fetchone()[0])
-        finally:
-            if use_scratch_stage:
-                cc.step(f"Dropping stage {self.scratch_stage_fqn}.")
-                with self.use_role(self.package_role):
-                    self._execute_query(
-                        f"drop stage if exists {self.scratch_stage_fqn}"
-                    )
+        return ApplicationPackageEntity.get_validation_result(
+            console=cc,
+            package_name=self.package_name,
+            package_role=self.package_role,
+            stage_fqn=self.stage_fqn,
+            use_scratch_stage=use_scratch_stage,
+            scratch_stage_fqn=self.scratch_stage_fqn,
+            deploy_to_scratch_stage_fn=self.deploy_to_scratch_stage_fn,
+        )
 
     def get_events(  # type: ignore [return]
         self,

@@ -1258,7 +1258,7 @@ def test_validate_failing_drops_scratch_stage(
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
