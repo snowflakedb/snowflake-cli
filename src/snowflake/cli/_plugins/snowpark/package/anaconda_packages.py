@@ -18,12 +18,9 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, List, Set
 
-import requests
-from click import ClickException
 from packaging.requirements import InvalidRequirement
 from packaging.requirements import Requirement as PkgRequirement
 from packaging.version import InvalidVersion, parse
-from requests import HTTPError
 from snowflake.cli._plugins.snowpark.models import Requirement
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.secure_path import SecurePath
@@ -170,23 +167,13 @@ class AnacondaPackagesManager(SqlExecutionMixin):
         "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
     )
 
-    # TODO in v3.0: Keep only SQL query, remove fallback to JSON with channel's metadata
     def find_packages_available_in_snowflake_anaconda(self) -> AnacondaPackages:
         """
         Finds python packages available in Snowflake to use in functions and stored procedures.
         It tries to get the list of packages using SQL query
         but if the try fails then the fallback is to parse JSON containing info about Snowflake's Anaconda channel.
         """
-        try:
-            packages = self._query_snowflake_for_available_packages()
-        except Exception as ex:
-            log.warning(
-                "Cannot fetch available packages information from Snowflake. "
-                "Please check your connection configuration. "
-                "Fallback to Anaconda channel metadata."
-            )
-            log.debug("Available packages query failure: %s", ex.__str__(), exc_info=ex)
-            packages = self._get_available_packages_from_anaconda_channel_info()
+        packages = self._query_snowflake_for_available_packages()
         return AnacondaPackages(packages)
 
     def _query_snowflake_for_available_packages(self) -> dict[str, AvailablePackage]:
@@ -210,24 +197,3 @@ class AnacondaPackagesManager(SqlExecutionMixin):
                     snowflake_name=package_name, versions={version}
                 )
         return packages
-
-    def _get_available_packages_from_anaconda_channel_info(
-        self,
-    ) -> dict[str, AvailablePackage]:
-        try:
-            response = requests.get(self._snowflake_channel_url)
-            response.raise_for_status()
-            packages = {}
-            for key, package in response.json()["packages"].items():
-                if not (version := package.get("version")):
-                    continue
-                package_name = package.get("name", key)
-                standardized_name = Requirement.standardize_name(package_name)
-                packages[standardized_name] = AvailablePackage(
-                    snowflake_name=package_name, versions={version}
-                )
-            return packages
-        except HTTPError as err:
-            raise ClickException(
-                f"Accessing Snowflake Anaconda channel failed. Reason {err}"
-            )

@@ -29,8 +29,6 @@ from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV20,
 )
 
-from tests.testing_utils.mock_config import mock_config_key
-
 
 @pytest.mark.parametrize(
     "pdfv2_input, expected_pdfv1, expected_error",
@@ -158,17 +156,16 @@ from tests.testing_utils.mock_config import mock_config_key
     ],
 )
 def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
-    with mock_config_key("enable_project_definition_v2", True):
-        pdfv2 = DefinitionV20(**pdfv2_input)
-        if expected_error:
-            with pytest.raises(ClickException, match=expected_error) as err:
-                _pdf_v2_to_v1(pdfv2)
-        else:
-            pdfv1_actual = vars(_pdf_v2_to_v1(pdfv2))
-            pdfv1_expected = vars(DefinitionV11(**expected_pdfv1))
+    pdfv2 = DefinitionV20(**pdfv2_input)
+    if expected_error:
+        with pytest.raises(ClickException, match=expected_error) as err:
+            _pdf_v2_to_v1(pdfv2)
+    else:
+        pdfv1_actual = vars(_pdf_v2_to_v1(pdfv2))
+        pdfv1_expected = vars(DefinitionV11(**expected_pdfv1))
 
-            # Assert that the expected dict is a subset of the actual dict
-            assert {**pdfv1_actual, **pdfv1_expected} == pdfv1_actual
+        # Assert that the expected dict is a subset of the actual dict
+        assert {**pdfv1_actual, **pdfv1_expected} == pdfv1_actual
 
 
 def test_decorator_error_when_no_project_exists():
@@ -242,12 +239,11 @@ def test_decorator_error_when_no_project_exists():
     ],
 )
 def test_project_name(pdfv2_input, expected_project_name):
-    with mock_config_key("enable_project_definition_v2", True):
-        pdfv2 = DefinitionV20(**pdfv2_input)
-        pdfv1 = _pdf_v2_to_v1(pdfv2)
+    pdfv2 = DefinitionV20(**pdfv2_input)
+    pdfv1 = _pdf_v2_to_v1(pdfv2)
 
-        # Assert that the expected dict is a subset of the actual dict
-        assert pdfv1.native_app.name == expected_project_name
+    # Assert that the expected dict is a subset of the actual dict
+    assert pdfv1.native_app.name == expected_project_name
 
 
 @mock.patch(

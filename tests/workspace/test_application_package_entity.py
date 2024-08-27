@@ -31,6 +31,7 @@ from snowflake.cli.api.project.schemas.entities.application_package_entity_model
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.utils import (
+    APP_PACKAGE_ENTITY,
     APPLICATION_PACKAGE_ENTITY_MODULE,
     SQL_EXECUTOR_EXECUTE,
     mock_execute_helper,
@@ -65,8 +66,9 @@ def test_bundle(project_directory):
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(f"{APP_PACKAGE_ENTITY}.validate_setup_script")
 @mock.patch(f"{APPLICATION_PACKAGE_ENTITY_MODULE}.sync_deploy_root_with_stage")
-def test_deploy(mock_sync, mock_execute, project_directory, mock_cursor):
+def test_deploy(mock_sync, mock_validate, mock_execute, project_directory, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -121,7 +123,9 @@ def test_deploy(mock_sync, mock_execute, project_directory, mock_cursor):
 
     app_pkg, bundle_ctx, mock_console = _get_app_pkg_entity(project_directory)
 
-    app_pkg.action_deploy(bundle_ctx, prune=False, recursive=False, paths=["a/b", "c"])
+    app_pkg.action_deploy(
+        bundle_ctx, prune=False, recursive=False, paths=["a/b", "c"], validate=True
+    )
 
     mock_sync.assert_called_once_with(
         console=mock_console,
@@ -136,4 +140,5 @@ def test_deploy(mock_sync, mock_execute, project_directory, mock_cursor):
         local_paths_to_sync=["a/b", "c"],
         print_diff=True,
     )
+    mock_validate.assert_called_once()
     assert mock_execute.mock_calls == expected

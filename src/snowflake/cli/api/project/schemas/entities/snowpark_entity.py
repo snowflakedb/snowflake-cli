@@ -24,7 +24,23 @@ from snowflake.cli.api.project.schemas.entities.common import (
     ExternalAccessBaseModel,
 )
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
-from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
+from snowflake.cli.api.project.schemas.updatable_model import (
+    DiscriminatorField,
+    UpdatableModel,
+)
+
+
+class PathMapping(UpdatableModel):
+    class Config:
+        frozen = True
+
+    src: Path = Field(title="Source path (relative to project root)", default=None)
+
+    dest: Optional[str] = Field(
+        title="Destination path on stage",
+        description="Paths are relative to stage root; paths ending with a slash indicate that the destination is a directory which source files should be copied into.",
+        default=None,
+    )
 
 
 class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel):
@@ -46,7 +62,18 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel):
         default=[],
     )
     stage: str = Field(title="Stage in which artifacts will be stored")
-    artifacts: List[Path] = Field(title="List of required sources")
+    artifacts: List[Union[PathMapping, str]] = Field(title="List of required sources")
+
+    @field_validator("artifacts")
+    @classmethod
+    def _convert_artifacts(cls, artifacts: Union[dict, str]):
+        _artifacts = []
+        for artefact in artifacts:
+            if isinstance(artefact, PathMapping):
+                _artifacts.append(artefact)
+            else:
+                _artifacts.append(PathMapping(src=artefact))
+        return _artifacts
 
     @field_validator("runtime")
     @classmethod

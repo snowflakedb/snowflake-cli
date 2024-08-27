@@ -18,7 +18,6 @@ import yaml
 from shlex import split
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import enable_definition_v2_feature_flag
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
 )
@@ -34,27 +33,26 @@ from tests_integration.testing_utils import (
 )
 def template_setup(runner, nativeapp_project_directory, request):
     command, test_project = request.param
-    with enable_definition_v2_feature_flag:
-        with nativeapp_project_directory(test_project) as project_root:
-            # Vanilla bundle on the unmodified template
-            if command.startswith("ws"):
-                execute_bundle_command = lambda: runner.invoke_with_connection(
-                    split(command)
-                )
-            else:
-                execute_bundle_command = lambda: runner.invoke_json(split(command))
-            result = execute_bundle_command()
+    with nativeapp_project_directory(test_project) as project_root:
+        # Vanilla bundle on the unmodified template
+        if command.startswith("ws"):
+            execute_bundle_command = lambda: runner.invoke_with_connection(
+                split(command)
+            )
+        else:
+            execute_bundle_command = lambda: runner.invoke_json(split(command))
 
-            assert result.exit_code == 0
+        result = execute_bundle_command()
+        assert result.exit_code == 0
 
-            # The newly created deploy_root is explicitly deleted here, as bundle should take care of it.
+        # The newly created deploy_root is explicitly deleted here, as bundle should take care of it.
 
-            deploy_root = Path(project_root, "output", "deploy")
-            assert Path(deploy_root, "manifest.yml").is_file()
-            assert Path(deploy_root, "setup_script.sql").is_file()
-            assert Path(deploy_root, "README.md").is_file()
+        deploy_root = Path(project_root, "output", "deploy")
+        assert Path(deploy_root, "manifest.yml").is_file()
+        assert Path(deploy_root, "setup_script.sql").is_file()
+        assert Path(deploy_root, "README.md").is_file()
 
-            yield project_root, execute_bundle_command, test_project
+        yield project_root, execute_bundle_command, test_project
 
 
 def override_snowflake_yml_artifacts(
