@@ -22,16 +22,14 @@ from snowflake.cli._plugins.nativeapp.exceptions import MissingScriptError
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
-from snowflake.cli.api.project.schemas.native_app.application import (
-    PostDeployHook,
-)
+from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 
 from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (
     CLI_GLOBAL_TEMPLATE_CONTEXT,
-    NATIVEAPP_MANAGER_EXECUTE,
-    NATIVEAPP_MANAGER_EXECUTE_QUERIES,
     RUN_PROCESSOR_APP_POST_DEPLOY_HOOKS,
+    SQL_EXECUTOR_EXECUTE,
+    SQL_EXECUTOR_EXECUTE_QUERIES,
 )
 from tests.testing_utils.fixtures import MockConnectionCtx
 
@@ -47,8 +45,8 @@ def _get_run_processor(working_dir):
     )
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
@@ -88,8 +86,8 @@ def test_sql_scripts(
         ]
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock_connection()
 @mock.patch(MOCK_CONNECTION_DB, new_callable=mock.PropertyMock)

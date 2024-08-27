@@ -41,12 +41,14 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
-    _get_stage_paths_to_sync,
-    ensure_correct_owner,
 )
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePath,
+)
+from snowflake.cli.api.entities.utils import (
+    _get_stage_paths_to_sync,
+    ensure_correct_owner,
 )
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.project.definition_manager import DefinitionManager
@@ -58,13 +60,15 @@ from tests.nativeapp.patch_utils import (
     mock_get_app_pkg_distribution_in_sf,
 )
 from tests.nativeapp.utils import (
+    APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
+    APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
+    ENTITIES_UTILS_MODULE,
     NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE,
     NATIVEAPP_MANAGER_BUILD_BUNDLE,
     NATIVEAPP_MANAGER_DEPLOY,
     NATIVEAPP_MANAGER_EXECUTE,
-    NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO,
-    NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME,
     NATIVEAPP_MODULE,
+    SQL_EXECUTOR_EXECUTE,
     mock_execute_helper,
     mock_snowflake_yml_file,
     quoted_override_yml_file,
@@ -95,9 +99,9 @@ def _get_na_manager(working_dir: Optional[str] = None):
     )
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(f"{NATIVEAPP_MODULE}.compute_stage_diff")
-@mock.patch(f"{NATIVEAPP_MODULE}.sync_local_diff_with_stage")
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
 def test_sync_deploy_root_with_stage(
     mock_local_diff_with_stage,
     mock_compute_stage_diff,
@@ -151,9 +155,9 @@ def test_sync_deploy_root_with_stage(
     )
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(f"{NATIVEAPP_MODULE}.sync_local_diff_with_stage")
-@mock.patch(f"{NATIVEAPP_MODULE}.compute_stage_diff")
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "prune,only_on_stage_files,expected_warn",
@@ -208,7 +212,7 @@ Use the --prune flag to delete them from the stage."""
         mock_warning.assert_not_called()
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_cursor):
 
     side_effects, expected = mock_execute_helper(
@@ -247,7 +251,7 @@ def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_curs
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     mock_execute, temp_dir, mock_cursor
 ):
@@ -285,7 +289,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
     mock_execute, temp_dir, mock_cursor
 ):
@@ -317,7 +321,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     mock_execute, temp_dir, mock_cursor
 ):
@@ -506,7 +510,7 @@ def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_c
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_pkg_info_app_pkg_exists(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
@@ -551,7 +555,7 @@ def test_get_existing_app_pkg_info_app_pkg_exists(mock_execute, temp_dir, mock_c
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
     mock_execute, temp_dir, mock_cursor
 ):
@@ -729,8 +733,8 @@ def test_is_correct_owner_bad_owner():
 
 
 # Test create_app_package() with no existing package available
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO, return_value=None)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO, return_value=None)
 def test_create_app_pkg_no_existing_package(
     mock_get_existing_app_pkg_info, mock_execute, temp_dir, mock_cursor
 ):
@@ -772,7 +776,7 @@ def test_create_app_pkg_no_existing_package(
 
 
 # Test create_app_package() with incorrect owner
-@mock.patch(NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 def test_create_app_pkg_incorrect_owner(mock_get_existing_app_pkg_info, temp_dir):
     mock_get_existing_app_pkg_info.return_value = {
         "name": "APP_PKG",
@@ -794,9 +798,9 @@ def test_create_app_pkg_incorrect_owner(mock_get_existing_app_pkg_info, temp_dir
 
 
 # Test create_app_package() with distribution external AND variable mismatch
-@mock.patch(NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
@@ -835,9 +839,9 @@ def test_create_app_pkg_external_distribution(
 
 
 # Test create_app_package() with distribution internal AND variable mismatch AND special comment is True
-@mock.patch(NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same, special_comment",
@@ -882,9 +886,9 @@ def test_create_app_pkg_internal_distribution_special_comment(
 
 
 # Test create_app_package() with distribution internal AND variable mismatch AND special comment is False
-@mock.patch(NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
