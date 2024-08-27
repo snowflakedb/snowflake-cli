@@ -341,7 +341,6 @@ def test_nativeapp_project_templating_bundle_deploy_successful(
 
 
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "test_project", ["napp_templating_processors_v1", "napp_templating_processors_v2"]
 )
@@ -390,7 +389,6 @@ def test_nativeapp_templating_processor_with_run(
 
 
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "test_project", ["napp_templating_processors_v1", "napp_templating_processors_v2"]
 )
