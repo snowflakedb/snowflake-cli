@@ -1,0 +1,260 @@
+# serializer version: 1
+# name: test_if_template_is_not_rendered_during_migration_with_option_checked[snowpark_templated_v1]
+  '''
+  definition_version: '2'
+  entities:
+    hello_function:
+      artifacts:
+      - dest: <! project_name | to_snowflake_identifier !>
+        src: <% ctx.env.project_source %>
+      external_access_integrations: []
+      handler: functions.hello_function
+      identifier:
+        name: hello_function
+      imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
+      returns: string
+      secrets: {}
+      signature:
+      - name: name
+        type: string
+      stage: <! stage | to_snowflake_identifier !>
+      type: function
+    hello_procedure:
+      artifacts:
+      - dest: <! project_name | to_snowflake_identifier !>
+        src: <% ctx.env.project_source %>
+      execute_as_caller: false
+      external_access_integrations: []
+      handler: procedures.hello_procedure
+      identifier:
+        name: hello_procedure
+      imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
+      returns: string
+      secrets: {}
+      signature:
+      - name: name
+        type: string
+      stage: <! stage | to_snowflake_identifier !>
+      type: procedure
+    test_procedure:
+      artifacts:
+      - dest: <! project_name | to_snowflake_identifier !>
+        src: <% ctx.env.project_source %>
+      execute_as_caller: false
+      external_access_integrations: []
+      handler: procedures.test_procedure
+      identifier:
+        name: test_procedure
+      imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
+      returns: string
+      secrets: {}
+      signature: ''
+      stage: <! stage | to_snowflake_identifier !>
+      type: procedure
+  env:
+    project_source: app/
+  mixins:
+    snowpark_shared:
+      artifacts:
+      - dest: <! project_name | to_snowflake_identifier !>
+        src: <% ctx.env.project_source %>
+      stage: <! stage | to_snowflake_identifier !>
+  
+  '''
+# ---
+# name: test_if_template_is_not_rendered_during_migration_with_option_checked[snowpark_templated_v1].1
+  '''
+  definition_version: "1.1"
+  snowpark:
+    project_name: "<! project_name | to_snowflake_identifier !>"
+    stage_name: "<! stage | to_snowflake_identifier !>"
+    src: <% ctx.env.project_source %>
+    functions:
+      - name: hello_function
+        handler: "functions.hello_function"
+        signature:
+          - name: "name"
+            type: "string"
+        returns: string
+    procedures:
+      - name: hello_procedure
+        handler: "procedures.hello_procedure"
+        signature:
+          - name: "name"
+            type: "string"
+        returns: string
+      - name: test_procedure
+        handler: "procedures.test_procedure"
+        signature: ""
+        returns: string
+  env:
+    project_source: "app/"
+  
+  '''
+# ---
+# name: test_if_template_is_not_rendered_during_migration_with_option_checked[streamlit_templated_v1]
+  '''
+  definition_version: '2'
+  entities:
+    <! name | to_snowflake_identifier !>:
+      artifacts:
+      - streamlit_app.py
+      - environment.yml
+      - pages
+      - common/hello.py
+      identifier:
+        name: <! name | to_snowflake_identifier !>
+      main_file: streamlit_app.py
+      pages_dir: pages
+      query_warehouse: <! query_warehouse | to_snowflake_identifier !>
+      stage: <! stage | to_snowflake_identifier !>
+      title: <% ctx.env.streamlit_title %>
+      type: streamlit
+  env:
+    streamlit_title: My Fancy Streamlit
+  
+  '''
+# ---
+# name: test_if_template_is_not_rendered_during_migration_with_option_checked[streamlit_templated_v1].1
+  '''
+  definition_version: "1.1"
+  streamlit:
+    name: <! name | to_snowflake_identifier !>
+    stage: <! stage | to_snowflake_identifier !>
+    query_warehouse: <! query_warehouse | to_snowflake_identifier !>
+    main_file: streamlit_app.py
+    env_file: environment.yml
+    pages_dir: pages/
+    title: <% ctx.env.streamlit_title %>
+    additional_source_files:
+      - common/hello.py
+  env:
+    streamlit_title: "My Fancy Streamlit"
+  
+  '''
+# ---
+# name: test_migration_v1_to_v2[migration_snowpark_V1_to_V2]
+  '''
+  definition_version: '2'
+  entities:
+    func1:
+      artifacts:
+      - dest: my_snowpark_project
+        src: app
+      external_access_integrations: []
+      handler: app.func1_handler
+      identifier:
+        name: func1
+      imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
+      returns: string
+      runtime: '3.10'
+      secrets: {}
+      signature:
+      - default: default value
+        name: a
+        type: string
+      - name: b
+        type: variant
+      stage: dev_deployment
+      type: function
+    procedureName:
+      artifacts:
+      - dest: my_snowpark_project
+        src: app
+      execute_as_caller: false
+      external_access_integrations: []
+      handler: hello
+      identifier:
+        name: procedureName
+      imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
+      returns: string
+      secrets: {}
+      signature:
+      - name: name
+        type: string
+      stage: dev_deployment
+      type: procedure
+  mixins:
+    snowpark_shared:
+      artifacts:
+      - dest: my_snowpark_project
+        src: app/
+      stage: dev_deployment
+  
+  '''
+# ---
+# name: test_migration_v1_to_v2[migration_snowpark_V1_to_V2].1
+  '''
+  definition_version: 1
+  snowpark:
+    project_name: "my_snowpark_project"
+    stage_name: "dev_deployment"
+    src: "app/"
+    functions:
+      - name: func1
+        handler: "app.func1_handler"
+        signature:
+          - name: "a"
+            type: "string"
+            default: "default value"
+          - name: "b"
+            type: "variant"
+        returns: string
+        runtime: 3.10
+    procedures:
+      - name: procedureName
+        handler: "hello"
+        signature:
+          - name: "name"
+            type: "string"
+        returns: string
+  
+  '''
+# ---
+# name: test_migration_v1_to_v2[migration_streamlit_V1_to_V2]
+  '''
+  definition_version: '2'
+  entities:
+    test_streamlit:
+      artifacts:
+      - streamlit_app.py
+      - environment.yml
+      - pages
+      identifier:
+        name: test_streamlit
+      main_file: streamlit_app.py
+      pages_dir: None
+      query_warehouse: test_warehouse
+      stage: streamlit
+      title: My Fancy Streamlit
+      type: streamlit
+  
+  '''
+# ---
+# name: test_migration_v1_to_v2[migration_streamlit_V1_to_V2].1
+  '''
+  definition_version: 1
+  streamlit:
+    name: test_streamlit
+    stage: streamlit
+    query_warehouse: test_warehouse
+    main_file: "streamlit_app.py"
+    title: "My Fancy Streamlit"
+  
+  '''
+# ---

@@ -14,7 +14,7 @@
 from pathlib import Path
 
 import pytest
-from snowflake.cli._plugins.snowpark.commands import _migrate_v1_snowpark_to_v2
+from snowflake.cli._plugins.snowpark.commands import migrate_v1_snowpark_to_v2
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.entities import (
@@ -372,7 +372,7 @@ def test_v1_to_v2_conversion(
 
     with project_directory(project_name) as project_dir:
         definition_v1 = DefinitionManager(project_dir).project_definition
-        definition_v2 = _migrate_v1_snowpark_to_v2(definition_v1)
+        definition_v2 = migrate_v1_snowpark_to_v2(definition_v1)
         assert definition_v2.definition_version == "2"
         assert (
             definition_v1.snowpark.project_name

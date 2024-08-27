@@ -36,6 +36,7 @@
 * Added support for external access (api integrations and secrets) in Streamlit.
 * Added support for `<% ... %>` syntax in SQL templating.
 * Support multiple Streamlit application in single snowflake.yml project definition file.
+* Added `snow ws migrate` command to migrate `snowflake.yml` file from V1 to V2.
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command.

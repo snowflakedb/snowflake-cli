@@ -764,44 +764,6 @@
     'streamlit': None,
   })
 # ---
-# name: test_fields_are_parsed_correctly[snowpark_procedures_coverage]
-  dict({
-    'definition_version': '1',
-    'native_app': None,
-    'snowpark': dict({
-      'functions': list([
-      ]),
-      'procedures': list([
-        dict({
-          'database': None,
-          'execute_as_caller': False,
-          'external_access_integrations': list([
-          ]),
-          'handler': 'foo.func',
-          'imports': list([
-          ]),
-          'name': 'foo',
-          'returns': 'variant',
-          'runtime': None,
-          'schema_name': None,
-          'secrets': dict({
-          }),
-          'signature': list([
-            dict({
-              'arg_type': 'string',
-              'default': None,
-              'name': 'name',
-            }),
-          ]),
-        }),
-      ]),
-      'project_name': 'my_snowpark_project',
-      'src': 'app/',
-      'stage_name': 'dev_deployment',
-    }),
-    'streamlit': None,
-  })
-# ---
 # name: test_fields_are_parsed_correctly[streamlit_full_definition]
   dict({
     'definition_version': '1',

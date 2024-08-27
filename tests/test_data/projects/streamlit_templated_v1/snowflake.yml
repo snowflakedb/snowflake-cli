@@ -1,0 +1,13 @@
+definition_version: "1.1"
+streamlit:
+  name: <! name | to_snowflake_identifier !>
+  stage: <! stage | to_snowflake_identifier !>
+  query_warehouse: <! query_warehouse | to_snowflake_identifier !>
+  main_file: streamlit_app.py
+  env_file: environment.yml
+  pages_dir: pages/
+  title: <% ctx.env.streamlit_title %>
+  additional_source_files:
+    - common/hello.py
+env:
+  streamlit_title: "My Fancy Streamlit"
