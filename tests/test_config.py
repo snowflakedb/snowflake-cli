@@ -139,7 +139,6 @@ def test_get_all_connections(test_snowcli_config):
 
 @mock.patch("snowflake.cli.api.config.CONFIG_MANAGER")
 @mock.patch("snowflake.cli.api.config.get_config_section")
-@pytest.mark.skipif(condition=IS_WINDOWS, reason="Does not work on Windows")
 def test_create_default_config_if_not_exists_with_proper_permissions(
     mock_get_config_section,
     mock_config_manager,
@@ -250,6 +249,18 @@ parametrize_chmod = pytest.mark.parametrize(
         0o601,
     ],
 )
+parametrize_icacls = pytest.mark.parametrize("permissions", ["F", "R", "RX", "M", "W"])
+
+
+def _windows_grant_permissions(permissions: str, file: Path) -> None:
+    import subprocess
+
+    result = subprocess.run(
+        ["icacls", str(file), "/GRANT", f"Everyone:{permissions}"],
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 @parametrize_chmod
@@ -260,6 +271,20 @@ def test_too_wide_permissions_on_default_config_file_causes_error(
     config_path = snowflake_home / "config.toml"
     config_path.touch()
     config_path.chmod(chmod)
+
+    with pytest.raises(ConfigFileTooWidePermissionsError) as error:
+        config_init(None)
+    assert error.value.message.__contains__("config.toml")
+
+
+@parametrize_icacls
+@pytest.mark.skipif(not IS_WINDOWS, reason="Windows permission system test")
+def test_too_wide_permissions_on_default_config_file_causes_error_windows(
+    snowflake_home: Path, permissions: str
+):
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    _windows_grant_permissions(permissions, config_path)
 
     with pytest.raises(ConfigFileTooWidePermissionsError) as error:
         config_init(None)
@@ -289,6 +314,28 @@ def test_too_wide_permissions_on_custom_config_file_causes_warning(
         config_path = Path(tmp.name)
         config_path.chmod(chmod)
         with pytest.warns(UserWarning, match="Bad owner or permissions on"):
+            config_init(config_file=config_path)
+
+
+@parametrize_icacls
+@pytest.mark.skipif(not IS_WINDOWS, reason="Windows permission system test")
+def test_too_wide_permissions_on_custom_config_file_causes_warning_windows(permissions):
+    import subprocess
+
+    with TemporaryDirectory() as tmp_dir:
+        config_path = Path(tmp_dir) / "config.toml"
+        config_path.touch()
+        result = subprocess.run(
+            ["icacls", str(config_path), "/GRANT", f"Everyone:{permissions}"],
+            text=True,
+            capture_output=True,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+
+        with pytest.warns(
+            UserWarning,
+            match=r"Unauthorized users \(.*\) have access to configuration file .*",
+        ):
             config_init(config_file=config_path)
 
 
@@ -324,15 +371,14 @@ def test_no_error_when_init_from_non_default_config(
 @pytest.mark.parametrize(
     "content", ["[corrupted", "[connections.foo]\n[connections.foo]"]
 )
-@pytest.mark.skipif(condition=IS_WINDOWS, reason="Does not work on Windows")
 def test_corrupted_config_raises_human_friendly_error(
     snowflake_home, runner, content, os_agnostic_snapshot
 ):
-    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
-        tmp_file.write(content)
-        tmp_file.flush()
+    with TemporaryDirectory() as tmpdir:
+        config = Path(tmpdir) / "corrupted_config.toml"
+        config.write_text(content)
         result = runner.invoke_with_config_file(
-            tmp_file.name,
+            config,
             ["sql", "-q", "foo"],
         )
 
