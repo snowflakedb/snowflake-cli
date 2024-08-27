@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import copy
+import re
 from typing import Dict, Optional
 
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
@@ -34,7 +36,7 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import (
 )
 
 SNOWPARK_PROCESSOR = "snowpark"
-NA_SETUP_PROCESSOR = "native-app-setup"
+NA_SETUP_PROCESSOR = "native app setup"
 
 _REGISTERED_PROCESSORS_BY_NAME = {
     SNOWPARK_PROCESSOR: SnowparkAnnotationProcessor,
@@ -110,7 +112,15 @@ class NativeAppCompiler:
             # No registered processor with the specified name
             return None
 
-        current_processor = processor_factory(self._bundle_ctx)
+        processor_ctx = copy.copy(self._bundle_ctx)
+        processor_subdirectory = re.sub(r"[^a-zA-Z0-9_$]", "_", processor_name)
+        processor_ctx.bundle_root = (
+            self._bundle_ctx.bundle_root / processor_subdirectory
+        )
+        processor_ctx.generated_root = (
+            self._bundle_ctx.generated_root / processor_subdirectory
+        )
+        current_processor = processor_factory(processor_ctx)
         self.cached_processors[processor_name] = current_processor
 
         return current_processor
