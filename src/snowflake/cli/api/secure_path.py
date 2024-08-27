@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 from snowflake.cli.api.exceptions import DirectoryIsNotEmptyError, FileTooLargeError
+from snowflake.cli.api.secure_utils import restrict_file_permissions
 
 log = logging.getLogger(__name__)
 
@@ -97,28 +98,11 @@ class SecurePath:
         """A string representing the final path component."""
         return self._path.name
 
-    def chmod(self, permissions_mask: int) -> None:
-        """
-        Change the file mode and permissions, like os.chmod().
-        """
-        log.info(
-            "Update permissions of file %s to %s", self._path, oct(permissions_mask)
-        )
-        self._path.chmod(permissions_mask)
-
     def restrict_permissions(self) -> None:
         """
         Restrict file/directory permissions to owner-only.
         """
-        import stat
-
-        owner_permissions = (
-            # https://docs.python.org/3/library/stat.html
-            stat.S_IRUSR  # readable by owner
-            | stat.S_IWUSR  # writeable by owner
-            | stat.S_IXUSR  # executable by owner
-        )
-        self.chmod(self._path.stat().st_mode & owner_permissions)
+        restrict_file_permissions(self._path)
 
     def touch(self, permissions_mask: int = 0o600, exist_ok: bool = True) -> None:
         """

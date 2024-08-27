@@ -31,7 +31,6 @@ from tests.testing_utils.files_and_dirs import assert_file_permissions_are_stric
 from tests_common import IS_WINDOWS
 
 
-@pytest.mark.skipif(condition=IS_WINDOWS, reason="Does not work on Windows")
 def test_empty_config_file_is_created_if_not_present():
     with TemporaryDirectory() as tmp_dir:
         config_file = Path(tmp_dir) / "sub" / "config.toml"

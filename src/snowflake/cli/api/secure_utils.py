@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import stat
 from pathlib import Path
 from typing import List
 
 from snowflake.connector.compat import IS_WINDOWS
+
+log = logging.getLogger(__name__)
 
 
 def _get_windows_whitelisted_users():
@@ -81,3 +84,30 @@ def file_permissions_are_strict(file_path: Path) -> bool:
     if IS_WINDOWS:
         return _windows_file_permissions_are_strict(file_path)
     return _unix_file_permissions_are_strict(file_path)
+
+
+def _unix_restrict_file_permissions(path: Path) -> None:
+    owner_permissions = (
+        # https://docs.python.org/3/library/stat.html
+        stat.S_IRUSR  # readable by owner
+        | stat.S_IWUSR  # writeable by owner
+        | stat.S_IXUSR  # executable by owner
+    )
+    target_permissions = path.stat().st_mode & owner_permissions
+    log.info("Update permissions of file %s to %s", path, oct(target_permissions))
+    path.chmod(target_permissions)
+
+
+def _windows_restrict_file_permissions(path: Path) -> None:
+    import subprocess
+
+    for user in windows_get_not_whitelisted_users_with_access(path):
+        log.info("Removing permissions of user %s from file %s", user, path)
+        subprocess.run(["icacls", str(path), "/DENY", f"{user}:F"])
+
+
+def restrict_file_permissions(file_path: Path) -> None:
+    if IS_WINDOWS:
+        _windows_restrict_file_permissions(file_path)
+    else:
+        _unix_restrict_file_permissions(file_path)
