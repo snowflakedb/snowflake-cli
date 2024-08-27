@@ -176,8 +176,9 @@ def test_templating_with_sql_both_old_and_new_syntax():
         with pytest.raises(InvalidTemplate) as e:
             templating_processor.process(setup_result.artifact_to_process, None)
 
-        assert "The SQL query mixes &{ ... } syntax and <% ... %> syntax." in str(
-            e.value
+        assert (
+            "The SQL query in src/test_sql.sql mixes &{ ... } syntax and <% ... %> syntax."
+            in str(e.value)
         )
         assert setup_result.output_files[0].is_symlink()
         assert setup_result.output_files[0].read_text() == file_contents[0]
