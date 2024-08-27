@@ -25,7 +25,7 @@ from tests_e2e.conftest import subprocess_run
 
 
 def _restrict_file_permissions_unix(path: Path) -> None:
-    path.chmod(0o700)
+    path.chmod(0o600)
 
 
 def _restrict_file_permissions_windows(path: Path):
@@ -87,7 +87,7 @@ def test_corrupted_config_in_default_location(
 ):
     default_config = Path(temp_dir) / "config.toml"
     default_config.write_text("[connections.demo]\n[connections.demo]")
-    default_config.chmod(0o600)
+    _restrict_file_permissions(default_config)
     # corrupted config should produce human-friendly error
     result_err = subprocess_run(
         [snowcli, "connection", "list"],
@@ -129,7 +129,7 @@ def test_initial_log_with_loaded_external_plugins_in_custom_log_path(
             )
         )
         config.flush()
-    default_config.chmod(0o600)
+    _restrict_file_permissions(default_config)
 
     result = subprocess_run(
         [snowcli, "--help"],
@@ -169,7 +169,7 @@ def test_initial_log_with_loaded_external_plugins_in_custom_log_path_with_custom
             )
         )
         config.flush()
-    custom_config.chmod(0o600)
+    _restrict_file_permissions(custom_config)
 
     result = subprocess_run([snowcli, "--config-file", custom_config, "--help"])
 
