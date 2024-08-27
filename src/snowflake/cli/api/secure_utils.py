@@ -17,6 +17,7 @@ import stat
 from pathlib import Path
 from typing import List
 
+from snowflake.cli.api.console import cli_console
 from snowflake.connector.compat import IS_WINDOWS
 
 log = logging.getLogger(__name__)
@@ -56,8 +57,9 @@ def windows_get_not_whitelisted_users_with_access(file_path: Path) -> List[str]:
 
     import os
 
-    log.warning("OS user: %s", os.getlogin())
-    log.warning("icacls output: %s", _run_icacls(file_path))
+    cli_console.warning(f"OS user: {os.getlogin()}")
+    cli_console.warning(f"icacls output:")
+    cli_console.message(_run_icacls(file_path))
 
     users_with_access = []
     for permission in re.finditer(icacls_output_regex, _run_icacls(file_path)):
