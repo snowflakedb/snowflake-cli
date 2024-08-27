@@ -234,4 +234,4 @@ aws s3 cp $DIST_DIR \
   $SF_STAGE_BASE/mac_${MACHINE}/${REVISION}/ \
   --recursive \
   --exclude "*" \
-  --include "snowflake-cli*.pkg"
+  --include "snowflake-cli-${CLI_VERSION}*.pkg"
