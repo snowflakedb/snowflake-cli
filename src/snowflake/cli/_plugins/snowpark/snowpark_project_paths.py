@@ -43,6 +43,9 @@ class SnowparkProjectPaths:
             path=self.path_relative_to_root(artifact_path.src),
         )
 
+    def get_dependencies_artefact(self) -> Artefact:
+        return Artefact(dest=None, path=self.dependencies)
+
     @property
     def snowflake_requirements(self) -> SecurePath:
         return SecurePath(

@@ -228,7 +228,7 @@ def build_artifacts_mappings(
         stages_to_artifact_map[stage].update(required_artifacts)
 
         if project_paths.dependencies.exists():
-            deps_artefact = project_paths.get_artefact_dto(project_paths.dependencies)
+            deps_artefact = project_paths.get_dependencies_artefact()
             stages_to_artifact_map[stage].add(deps_artefact)
             entities_to_imports_map[entity_id].add(deps_artefact.import_path(stage))
     return entities_to_imports_map, stages_to_artifact_map

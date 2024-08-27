@@ -189,7 +189,12 @@ from tests.testing_utils.mock_config import mock_config_key
         ],
         [
             {
-                "defaults": {"stage": "dev", "project_name": "my_project"},
+                "mixins": {
+                    "snowpark_shared": {
+                        "stage": "dev",
+                        "artifacts": [{"src": "src", "dest": "my_project"}],
+                    }
+                },
                 "entities": {
                     "procedure1": {
                         "type": "procedure",
@@ -200,6 +205,7 @@ from tests.testing_utils.mock_config import mock_config_key
                         "runtime": "3.10",
                         "artifacts": ["src"],
                         "execute_as_caller": True,
+                        "meta": {"use_mixins": ["snowpark_shared"]},
                     }
                 },
             },
@@ -207,7 +213,12 @@ from tests.testing_utils.mock_config import mock_config_key
         ],
         [
             {
-                "defaults": {"stage": "dev", "project_name": "my_project"},
+                "mixins": {
+                    "snowpark_shared": {
+                        "stage": "dev",
+                        "artifacts": [{"src": "src", "dest": "my_project"}],
+                    }
+                },
                 "entities": {
                     "procedure1": {
                         "type": "procedure",
@@ -215,8 +226,8 @@ from tests.testing_utils.mock_config import mock_config_key
                         "returns": "string",
                         "signature": [{"name": "name", "type": "string"}],
                         "runtime": "3.10",
-                        "artifacts": ["src"],
                         "execute_as_caller": True,
+                        "meta": {"use_mixins": ["snowpark_shared"]},
                     }
                 },
             },
