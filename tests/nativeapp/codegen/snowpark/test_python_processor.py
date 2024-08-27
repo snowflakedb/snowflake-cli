@@ -405,7 +405,13 @@ def test_process_with_collected_functions(
                 project_definition=native_app_project_instance.native_app,
                 project_root=local_path,
             )
-            processor = SnowparkAnnotationProcessor(project.get_bundle_context())
+            project_context = project.get_bundle_context()
+            processor_context = copy.copy(project_context)
+            processor_context.generated_root = (
+                project_context.generated_root / "snowpark"
+            )
+            processor_context.bundle_root = project_context.bundle_root / "snowpark"
+            processor = SnowparkAnnotationProcessor(processor_context)
             processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
                 processor_mapping=processor_mapping,
@@ -465,7 +471,13 @@ def test_package_normalization(
                 project_definition=native_app_project_instance.native_app,
                 project_root=local_path,
             )
-            processor = SnowparkAnnotationProcessor(project.get_bundle_context())
+            project_context = project.get_bundle_context()
+            processor_context = copy.copy(project_context)
+            processor_context.generated_root = (
+                project_context.generated_root / "snowpark"
+            )
+            processor_context.bundle_root = project_context.bundle_root / "snowpark"
+            processor = SnowparkAnnotationProcessor(processor_context)
             processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
                 processor_mapping=processor_mapping,
