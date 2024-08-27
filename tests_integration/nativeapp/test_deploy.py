@@ -23,7 +23,6 @@ from tests_integration.test_utils import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
-    enable_definition_v2_feature_flag,
 )
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
@@ -45,7 +44,6 @@ def sanitize_deploy_output(default_username, resource_suffix):
 
 # Tests a simple flow of executing "snow app deploy", verifying that an application package was created, and an application was not
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_deploy(
     test_project,
@@ -100,7 +98,6 @@ def test_nativeapp_deploy(
 
 
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "command,contains,not_contains",
     [
@@ -157,7 +154,6 @@ def test_nativeapp_deploy_prune(
 
 # Tests a simple flow of executing "snow app deploy [files]", verifying that only the specified files are synced to the stage
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_deploy_files(
     test_project,
@@ -197,7 +193,6 @@ def test_nativeapp_deploy_files(
 
 # Tests that files inside of a symlinked directory are deployed
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_deploy_nested_directories(
     test_project,
@@ -232,7 +227,6 @@ def test_nativeapp_deploy_nested_directories(
 
 # Tests that deploying a directory recursively syncs all of its contents
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_deploy_directory(
     test_project,
@@ -267,7 +261,6 @@ def test_nativeapp_deploy_directory(
 
 # Tests that deploying a directory without specifying -r returns an error
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_deploy_directory_no_recursive(
     test_project,
@@ -284,7 +277,6 @@ def test_nativeapp_deploy_directory_no_recursive(
 
 # Tests that specifying an unknown path to deploy results in an error
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_deploy_unknown_path(
     test_project,
@@ -301,7 +293,6 @@ def test_nativeapp_deploy_unknown_path(
 
 # Tests that specifying a path with no deploy artifact results in an error
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_deploy_path_with_no_mapping(
     test_project,
@@ -318,7 +309,6 @@ def test_nativeapp_deploy_path_with_no_mapping(
 
 # Tests that specifying a path and pruning result in an error
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
     test_project,
@@ -339,7 +329,6 @@ def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
 
 # Tests that specifying a path with no direct mapping falls back to search for prefix matches
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "test_project", ["napp_deploy_prefix_matches_v1", "napp_deploy_prefix_matches_v2"]
 )
@@ -425,7 +414,6 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
 
 # Tests that snow app deploy -r . deploys all changes
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_deploy_dot(
     test_project,

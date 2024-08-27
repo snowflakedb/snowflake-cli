@@ -56,9 +56,9 @@ def test_snowpark_external_access(project_directory, _test_steps, test_database)
 
 @pytest.mark.integration
 def test_snowpark_upgrades_with_external_access(
-    project_directory, _test_steps, test_database, alter_snowflake_yml
+    project_directory, _test_steps, test_database, alter_snowflake_yml, runner
 ):
-
+    runner.invoke_with_connection(["sql", "-q", f"use database {test_database}"])
     with project_directory("snowpark") as tmp_dir:
         _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
 
