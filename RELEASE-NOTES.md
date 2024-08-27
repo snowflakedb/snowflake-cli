@@ -1,4 +1,5 @@
-<!-- Copyright (c) 2024 Snowflake Inc.
+<!-- 
+Copyright (c) 2024 Snowflake Inc.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -23,9 +24,7 @@
 
 
 # v3.0.0
- 
 
-# Unreleased version
 ## Backward incompatibility
 * Dropped support for Python below 3.10 version.
 * `snow object stage` commands are removed in favour of `snow stage`.
