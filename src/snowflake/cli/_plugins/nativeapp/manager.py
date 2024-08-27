@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
@@ -23,144 +22,56 @@ from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Callable, Dict, Generator, List, NoReturn, Optional, TypedDict
+from typing import Generator, List, Optional, TypedDict
 
-import jinja2
 from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
     build_bundle,
-    resolve_without_follow,
 )
 from snowflake.cli._plugins.nativeapp.codegen.compiler import (
     NativeAppCompiler,
 )
 from snowflake.cli._plugins.nativeapp.constants import (
-    ALLOWED_SPECIAL_COMMENTS,
-    COMMENT_COL,
-    INTERNAL_DISTRIBUTION,
     NAME_COL,
-    OWNER_COL,
-    SPECIAL_COMMENT,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
-    ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
-    InvalidScriptError,
-    MissingScriptError,
     NoEventTableForAccount,
     SetupScriptFailedValidation,
-    UnexpectedOwnerError,
 )
 from snowflake.cli._plugins.nativeapp.project_model import (
     NativeAppProjectModel,
 )
-from snowflake.cli._plugins.nativeapp.utils import verify_exists, verify_no_directories
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
-    StagePath,
-    compute_stage_diff,
-    preserve_from_diff,
-    sync_local_diff_with_stage,
-    to_stage_path,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.entities.application_package_entity import (
+    ApplicationPackageEntity,
+)
+from snowflake.cli.api.entities.utils import (
+    execute_post_deploy_hooks,
+    generic_sql_error_handler,
+    sync_deploy_root_with_stage,
+)
 from snowflake.cli.api.errno import (
-    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
-    NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
-from snowflake.cli.api.project.schemas.native_app.application import (
-    PostDeployHook,
-)
+from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     identifier_for_url,
     unquote_identifier,
 )
-from snowflake.cli.api.rendering.jinja import (
-    jinja_render_from_str,
-)
-from snowflake.cli.api.rendering.sql_templates import (
-    snowflake_sql_jinja_render,
-)
-from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import DictCursor, ProgrammingError
 
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
-
-
-def generic_sql_error_handler(
-    err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
-) -> NoReturn:
-    # Potential refactor: If moving away from Python 3.8 and 3.9 to >= 3.10, use match ... case
-    if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
-        raise ProgrammingError(
-            msg=dedent(
-                f"""\
-                Received error message '{err.msg}' while executing SQL statement.
-                '{role}' may not have access to warehouse '{warehouse}'.
-                Please grant usage privilege on warehouse to this role.
-                """
-            ),
-            errno=err.errno,
-        )
-    elif err.errno == NO_WAREHOUSE_SELECTED_IN_SESSION:
-        raise ProgrammingError(
-            msg=dedent(
-                f"""\
-                Received error message '{err.msg}' while executing SQL statement.
-                Please provide a warehouse for the active session role in your project definition file, config.toml file, or via command line.
-                """
-            ),
-            errno=err.errno,
-        )
-    elif "does not exist or not authorized" in err.msg:
-        raise ProgrammingError(
-            msg=dedent(
-                f"""\
-                Received error message '{err.msg}' while executing SQL statement.
-                Please check the name of the resource you are trying to query or the permissions of the role you are using to run the query.
-                """
-            )
-        )
-    raise err
-
-
-def ensure_correct_owner(row: dict, role: str, obj_name: str) -> None:
-    """
-    Check if an object has the right owner role
-    """
-    actual_owner = row[
-        OWNER_COL
-    ].upper()  # Because unquote_identifier() always returns uppercase str
-    if actual_owner != unquote_identifier(role):
-        raise UnexpectedOwnerError(obj_name, role, actual_owner)
-
-
-def _get_stage_paths_to_sync(
-    local_paths_to_sync: List[Path], deploy_root: Path
-) -> List[StagePath]:
-    """
-    Takes a list of paths (files and directories), returning a list of all files recursively relative to the deploy root.
-    """
-
-    stage_paths = []
-    for path in local_paths_to_sync:
-        if path.is_dir():
-            for current_dir, _dirs, files in os.walk(path):
-                for file in files:
-                    deploy_path = Path(current_dir, file).relative_to(deploy_root)
-                    stage_paths.append(to_stage_path(deploy_path))
-        else:
-            stage_paths.append(to_stage_path(path.relative_to(deploy_root)))
-    return stage_paths
 
 
 class NativeAppCommandProcessor(ABC):
@@ -229,20 +140,10 @@ class NativeAppManager(SqlExecutionMixin):
     def package_warehouse(self) -> Optional[str]:
         return self.na_project.package_warehouse
 
-    @contextmanager
     def use_package_warehouse(self):
-        if self.package_warehouse:
-            with self.use_warehouse(self.package_warehouse):
-                yield
-        else:
-            raise ClickException(
-                dedent(
-                    f"""\
-                Application package warehouse cannot be empty.
-                Please provide a value for it in your connection information or your project definition file.
-                """
-                )
-            )
+        return ApplicationPackageEntity.use_package_warehouse(
+            self.package_warehouse,
+        )
 
     @property
     def application_warehouse(self) -> Optional[str]:
@@ -301,30 +202,8 @@ class NativeAppManager(SqlExecutionMixin):
 
     @cached_property
     def get_app_pkg_distribution_in_snowflake(self) -> str:
-        """
-        Returns the 'distribution' attribute of a 'describe application package' SQL query, in lowercase.
-        """
-        with self.use_role(self.package_role):
-            try:
-                desc_cursor = self._execute_query(
-                    f"describe application package {self.package_name}"
-                )
-            except ProgrammingError as err:
-                generic_sql_error_handler(err)
-
-            if desc_cursor.rowcount is None or desc_cursor.rowcount == 0:
-                raise SnowflakeSQLExecutionError()
-            else:
-                for row in desc_cursor:
-                    if row[0].lower() == "distribution":
-                        return row[1].lower()
-        raise ProgrammingError(
-            msg=dedent(
-                f"""\
-                Could not find the 'distribution' attribute for application package {self.package_name} in the output of SQL query:
-                'describe application package {self.package_name}'
-                """
-            )
+        return ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
+            self.package_name, self.package_role
         )
 
     @cached_property
@@ -336,27 +215,13 @@ class NativeAppManager(SqlExecutionMixin):
     def verify_project_distribution(
         self, expected_distribution: Optional[str] = None
     ) -> bool:
-        """
-        Returns true if the 'distribution' attribute of an existing application package in snowflake
-        is the same as the the attribute specified in project definition file.
-        """
-        actual_distribution = (
-            expected_distribution
-            if expected_distribution
-            else self.get_app_pkg_distribution_in_snowflake
+        return ApplicationPackageEntity.verify_project_distribution(
+            console=cc,
+            package_name=self.package_name,
+            package_role=self.package_role,
+            package_distribution=self.package_distribution,
+            expected_distribution=expected_distribution,
         )
-        project_def_distribution = self.package_distribution.lower()
-        if actual_distribution != project_def_distribution:
-            cc.warning(
-                dedent(
-                    f"""\
-                    Application package {self.package_name} in your Snowflake account has distribution property {actual_distribution},
-                    which does not match the value specified in project definition file: {project_def_distribution}.
-                    """
-                )
-            )
-            return False
-        return True
 
     def build_bundle(self) -> BundleMap:
         """
@@ -377,110 +242,19 @@ class NativeAppManager(SqlExecutionMixin):
         local_paths_to_sync: List[Path] | None = None,
         print_diff: bool = True,
     ) -> DiffResult:
-        """
-        Ensures that the files on our remote stage match the artifacts we have in
-        the local filesystem.
-
-        Args:
-            bundle_map (BundleMap): The artifact mapping computed by the `build_bundle` function.
-            role (str): The name of the role to use for queries and commands.
-            prune (bool): Whether to prune artifacts from the stage that don't exist locally.
-            recursive (bool): Whether to traverse directories recursively.
-            stage_fqn (str): The name of the stage to diff against and upload to.
-            local_paths_to_sync (List[Path], optional): List of local paths to sync. Defaults to None to sync all
-             local paths. Note that providing an empty list here is equivalent to None.
-            print_diff (bool): Whether to print the diff between the local files and the remote stage. Defaults to True
-
-        Returns:
-            A `DiffResult` instance describing the changes that were performed.
-        """
-
-        # Does a stage already exist within the application package, or we need to create one?
-        # Using "if not exists" should take care of either case.
-        cc.step(
-            f"Checking if stage {stage_fqn} exists, or creating a new one if none exists."
+        return sync_deploy_root_with_stage(
+            console=cc,
+            deploy_root=self.deploy_root,
+            package_name=self.package_name,
+            stage_schema=self.stage_schema,
+            bundle_map=bundle_map,
+            role=role,
+            prune=prune,
+            recursive=recursive,
+            stage_fqn=stage_fqn,
+            local_paths_to_sync=local_paths_to_sync,
+            print_diff=print_diff,
         )
-        with self.use_role(role):
-            self._execute_query(
-                f"create schema if not exists {self.package_name}.{self.stage_schema}"
-            )
-            self._execute_query(
-                f"""
-                    create stage if not exists {stage_fqn}
-                    encryption = (TYPE = 'SNOWFLAKE_SSE')
-                    DIRECTORY = (ENABLE = TRUE)"""
-            )
-
-        # Perform a diff operation and display results to the user for informational purposes
-        if print_diff:
-            cc.step(
-                "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
-                % self.deploy_root.resolve()
-            )
-        diff: DiffResult = compute_stage_diff(self.deploy_root, stage_fqn)
-
-        if local_paths_to_sync:
-            # Deploying specific files/directories
-            resolved_paths_to_sync = [
-                resolve_without_follow(p) for p in local_paths_to_sync
-            ]
-            if not recursive:
-                verify_no_directories(resolved_paths_to_sync)
-
-            deploy_paths_to_sync = []
-            for resolved_path in resolved_paths_to_sync:
-                verify_exists(resolved_path)
-                deploy_paths = bundle_map.to_deploy_paths(resolved_path)
-                if not deploy_paths:
-                    if resolved_path.is_dir() and recursive:
-                        # No direct artifact mapping found for this path. Check to see
-                        # if there are subpaths of this directory that are matches. We
-                        # loop over sources because it's likely a much smaller list
-                        # than the project directory.
-                        for src in bundle_map.all_sources(absolute=True):
-                            if resolved_path in src.parents:
-                                # There is a source that contains this path, get its dest path(s)
-                                deploy_paths.extend(bundle_map.to_deploy_paths(src))
-
-                if not deploy_paths:
-                    raise ClickException(f"No artifact found for {resolved_path}")
-                deploy_paths_to_sync.extend(deploy_paths)
-
-            stage_paths_to_sync = _get_stage_paths_to_sync(
-                deploy_paths_to_sync, resolve_without_follow(self.deploy_root)
-            )
-            diff = preserve_from_diff(diff, stage_paths_to_sync)
-        else:
-            # Full deploy
-            if not recursive:
-                verify_no_directories(self.deploy_root.resolve().iterdir())
-
-        if not prune:
-            files_not_removed = [str(path) for path in diff.only_on_stage]
-            diff.only_on_stage = []
-
-            if len(files_not_removed) > 0:
-                files_not_removed_str = "\n".join(files_not_removed)
-                cc.warning(
-                    f"The following files exist only on the stage:\n{files_not_removed_str}\n\nUse the --prune flag to delete them from the stage."
-                )
-
-        if print_diff:
-            print_diff_to_console(diff, bundle_map)
-
-        # Upload diff-ed files to application package stage
-        if diff.has_changes():
-            cc.step(
-                "Updating the Snowflake stage from your local %s directory."
-                % self.deploy_root.resolve(),
-            )
-            sync_local_diff_with_stage(
-                role=role,
-                deploy_root_path=self.deploy_root,
-                diff_result=diff,
-                stage_fqn=stage_fqn,
-            )
-        return diff
 
     def get_existing_app_info(self) -> Optional[dict]:
         """
@@ -493,15 +267,10 @@ class NativeAppManager(SqlExecutionMixin):
             )
 
     def get_existing_app_pkg_info(self) -> Optional[dict]:
-        """
-        Check for an existing application package by the same name as in project definition, in account.
-        It executes a 'show application packages like' query and returns the result as single row, if one exists.
-        """
-
-        with self.use_role(self.package_role):
-            return self.show_specific_object(
-                "application packages", self.package_name, name_col=NAME_COL
-            )
+        return ApplicationPackageEntity.get_existing_app_pkg_info(
+            package_name=self.package_name,
+            package_role=self.package_role,
+        )
 
     def get_objects_owned_by_application(self) -> List[ApplicationOwnedObject]:
         """
@@ -537,170 +306,39 @@ class NativeAppManager(SqlExecutionMixin):
             return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
 
     def create_app_package(self) -> None:
-        """
-        Creates the application package with our up-to-date stage if none exists.
-        """
-
-        # 1. Check for existing existing application package
-        show_obj_row = self.get_existing_app_pkg_info()
-
-        if show_obj_row:
-            # 1. Check for the right owner role
-            ensure_correct_owner(
-                row=show_obj_row, role=self.package_role, obj_name=self.package_name
-            )
-
-            # 2. Check distribution of the existing application package
-            actual_distribution = self.get_app_pkg_distribution_in_snowflake
-            if not self.verify_project_distribution(actual_distribution):
-                cc.warning(
-                    f"Continuing to execute `snow app run` on application package {self.package_name} with distribution '{actual_distribution}'."
-                )
-
-            # 3. If actual_distribution is external, skip comment check
-            if actual_distribution == INTERNAL_DISTRIBUTION:
-                row_comment = show_obj_row[COMMENT_COL]
-
-                if row_comment not in ALLOWED_SPECIAL_COMMENTS:
-                    raise ApplicationPackageAlreadyExistsError(self.package_name)
-
-            return
-
-        # If no application package pre-exists, create an application package, with the specified distribution in the project definition file.
-        with self.use_role(self.package_role):
-            cc.step(f"Creating new application package {self.package_name} in account.")
-            self._execute_query(
-                dedent(
-                    f"""\
-                    create application package {self.package_name}
-                        comment = {SPECIAL_COMMENT}
-                        distribution = {self.package_distribution}
-                """
-                )
-            )
-
-    def _render_script_templates(
-        self,
-        render_from_str: Callable[[str, Dict[str, Any]], str],
-        jinja_context: dict[str, Any],
-        scripts: List[str],
-    ) -> List[str]:
-        """
-        Input:
-        - render_from_str: function which renders a jinja template from a string and jinja context
-        - jinja_context: a dictionary with the jinja context
-        - scripts: list of script paths relative to the project root
-        Returns:
-        - List of rendered scripts content
-        Size of the return list is the same as the size of the input scripts list.
-        """
-        scripts_contents = []
-        for relpath in scripts:
-            script_full_path = SecurePath(self.project_root) / relpath
-            try:
-                template_content = script_full_path.read_text(
-                    file_size_limit_mb=UNLIMITED
-                )
-                result = render_from_str(template_content, jinja_context)
-                scripts_contents.append(result)
-
-            except FileNotFoundError as e:
-                raise MissingScriptError(relpath) from e
-
-            except jinja2.TemplateSyntaxError as e:
-                raise InvalidScriptError(relpath, e, e.lineno) from e
-
-            except jinja2.UndefinedError as e:
-                raise InvalidScriptError(relpath, e) from e
-
-        return scripts_contents
-
-    def _apply_package_scripts(self) -> None:
-        """
-        Assuming the application package exists and we are using the correct role,
-        applies all package scripts in-order to the application package.
-        """
-
-        if self.package_scripts:
-            cc.warning(
-                "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
-            )
-
-        queued_queries = self._render_script_templates(
-            jinja_render_from_str,
-            dict(package_name=self.package_name),
-            self.package_scripts,
+        return ApplicationPackageEntity.create_app_package(
+            console=cc,
+            package_name=self.package_name,
+            package_role=self.package_role,
+            package_distribution=self.package_distribution,
         )
 
-        # once we're sure all the templates expanded correctly, execute all of them
-        with self.use_package_warehouse():
-            try:
-                for i, queries in enumerate(queued_queries):
-                    cc.step(f"Applying package script: {self.package_scripts[i]}")
-                    self._execute_queries(queries)
-            except ProgrammingError as err:
-                generic_sql_error_handler(
-                    err, role=self.package_role, warehouse=self.package_warehouse
-                )
-
-    def _execute_sql_script(
-        self, script_content: str, database_name: Optional[str] = None
-    ) -> None:
-        """
-        Executing the provided SQL script content.
-        This assumes that a relevant warehouse is already active.
-        If database_name is passed in, it will be used first.
-        """
-        try:
-            if database_name is not None:
-                self._execute_query(f"use database {database_name}")
-
-            self._execute_queries(script_content)
-        except ProgrammingError as err:
-            generic_sql_error_handler(err)
-
-    def _execute_post_deploy_hooks(
-        self,
-        post_deploy_hooks: Optional[List[PostDeployHook]],
-        deployed_object_type: str,
-        database_name: str,
-    ) -> None:
-        """
-        Executes post-deploy hooks for the given object type.
-        While executing SQL post deploy hooks, it first switches to the database provided in the input.
-        All post deploy scripts templates will first be expanded using the global template context.
-        """
-        if not post_deploy_hooks:
-            return
-
-        with cc.phase(f"Executing {deployed_object_type} post-deploy actions"):
-            sql_scripts_paths = []
-            for hook in post_deploy_hooks:
-                if hook.sql_script:
-                    sql_scripts_paths.append(hook.sql_script)
-                else:
-                    raise ValueError(
-                        f"Unsupported {deployed_object_type} post-deploy hook type: {hook}"
-                    )
-
-            scripts_content_list = self._render_script_templates(
-                snowflake_sql_jinja_render,
-                {},
-                sql_scripts_paths,
-            )
-
-            for index, sql_script_path in enumerate(sql_scripts_paths):
-                cc.step(f"Executing SQL script: {sql_script_path}")
-                self._execute_sql_script(scripts_content_list[index], database_name)
+    def _apply_package_scripts(self) -> None:
+        return ApplicationPackageEntity.apply_package_scripts(
+            console=cc,
+            package_scripts=self.package_scripts,
+            package_warehouse=self.package_warehouse,
+            project_root=self.project_root,
+            package_role=self.package_role,
+            package_name=self.package_name,
+        )
 
     def execute_package_post_deploy_hooks(self) -> None:
-        self._execute_post_deploy_hooks(
-            self.package_post_deploy_hooks, "application package", self.package_name
+        execute_post_deploy_hooks(
+            console=cc,
+            project_root=self.project_root,
+            post_deploy_hooks=self.package_post_deploy_hooks,
+            deployed_object_type="application package",
+            database_name=self.package_name,
         )
 
     def execute_app_post_deploy_hooks(self) -> None:
-        self._execute_post_deploy_hooks(
-            self.app_post_deploy_hooks, "application", self.app_name
+        execute_post_deploy_hooks(
+            console=cc,
+            project_root=self.project_root,
+            post_deploy_hooks=self.app_post_deploy_hooks,
+            deployed_object_type="application",
+            database_name=self.app_name,
         )
 
     def deploy(
@@ -797,7 +435,7 @@ class NativeAppManager(SqlExecutionMixin):
                         f"drop stage if exists {self.scratch_stage_fqn}"
                     )
 
-    def get_events(
+    def get_events(  # type: ignore [return]
         self,
         since: str | datetime | None = None,
         until: str | datetime | None = None,

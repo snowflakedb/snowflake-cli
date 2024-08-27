@@ -20,13 +20,18 @@ from typing import Generic, List, Optional, TypeVar, Union
 from pydantic import Field, PrivateAttr, field_validator
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.identifier_model import Identifier
-from snowflake.cli.api.project.schemas.native_app.application import (
-    PostDeployHook,
-)
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
 )
+
+
+class SqlScriptHookType(UpdatableModel):
+    sql_script: str = Field(title="SQL file path relative to the project root")
+
+
+# Currently sql_script is the only supported hook type. Change to a Union once other hook types are added
+PostDeployHook = SqlScriptHookType
 
 
 class MetaField(UpdatableModel):
@@ -65,11 +70,6 @@ class DefaultsField(UpdatableModel):
     stage: Optional[str] = Field(
         title="Stage.",
         default=None,
-    )
-
-    project_name: Optional[str] = Field(
-        title="Name of the project.",
-        default="my_project",
     )
 
 

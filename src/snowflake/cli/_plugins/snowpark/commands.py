@@ -141,11 +141,8 @@ def deploy(
     pd = _get_v2_project_definition(cli_context)
 
     snowpark_entities = get_snowpark_entities(pd)
-    project_name = (
-        pd.defaults.project_name if pd.defaults and pd.defaults.project_name else ""
-    )
     project_paths = SnowparkProjectPaths(
-        project_root=cli_context.project_root, project_name=project_name
+        project_root=cli_context.project_root,
     )
 
     with cli_console.phase("Performing initial validation"):
@@ -231,7 +228,7 @@ def build_artifacts_mappings(
         stages_to_artifact_map[stage].update(required_artifacts)
 
         if project_paths.dependencies.exists():
-            deps_artefact = project_paths.get_artefact_dto(project_paths.dependencies)
+            deps_artefact = project_paths.get_dependencies_artefact()
             stages_to_artifact_map[stage].add(deps_artefact)
             entities_to_imports_map[entity_id].add(deps_artefact.import_path(stage))
     return entities_to_imports_map, stages_to_artifact_map
@@ -324,7 +321,7 @@ def build(
     pd = _get_v2_project_definition(cli_context)
 
     project_paths = SnowparkProjectPaths(
-        project_root=cli_context.project_root, project_name=None
+        project_root=cli_context.project_root,
     )
 
     anaconda_packages_manager = AnacondaPackagesManager()
@@ -454,11 +451,18 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
             project_type="snowpark", project_root=get_cli_context().project_root
         )
 
+    artifact_mapping = {"src": pd.snowpark.src}
+    if pd.snowpark.project_name:
+        artifact_mapping["dest"] = pd.snowpark.project_name
+
+    snowpark_shared_mixin = "snowpark_shared"
     data: dict = {
         "definition_version": "2",
-        "defaults": {
-            "stage": pd.snowpark.stage_name,
-            "project_name": pd.snowpark.project_name,
+        "mixins": {
+            snowpark_shared_mixin: {
+                "stage": pd.snowpark.stage_name,
+                "artifacts": [artifact_mapping],
+            }
         },
         "entities": {},
     }
@@ -472,7 +476,6 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
         v2_entity = {
             "type": "function" if isinstance(entity, FunctionSchema) else "procedure",
             "stage": pd.snowpark.stage_name,
-            "artifacts": [pd.snowpark.src],
             "handler": entity.handler,
             "returns": entity.returns,
             "signature": entity.signature,
@@ -481,6 +484,7 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
             "secrets": entity.secrets,
             "imports": entity.imports,
             "identifier": identifier,
+            "meta": {"use_mixins": [snowpark_shared_mixin]},
         }
         if isinstance(entity, ProcedureSchema):
             v2_entity["execute_as_caller"] = entity.execute_as_caller

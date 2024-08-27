@@ -32,12 +32,12 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppCommandProcessor,
     NativeAppManager,
-    ensure_correct_owner,
 )
 from snowflake.cli._plugins.nativeapp.utils import (
     needs_confirmation,
 )
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.entities.utils import ensure_correct_owner
 from snowflake.cli.api.errno import APPLICATION_NO_LONGER_AVAILABLE
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.connector import ProgrammingError

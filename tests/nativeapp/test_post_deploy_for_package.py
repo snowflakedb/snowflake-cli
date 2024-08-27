@@ -27,14 +27,14 @@ from snowflake.connector import ProgrammingError
 from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (
     CLI_GLOBAL_TEMPLATE_CONTEXT,
-    NATIVEAPP_MANAGER_EXECUTE,
-    NATIVEAPP_MANAGER_EXECUTE_QUERIES,
+    SQL_EXECUTOR_EXECUTE,
+    SQL_EXECUTOR_EXECUTE_QUERIES,
 )
 from tests.testing_utils.fixtures import MockConnectionCtx
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
@@ -76,8 +76,8 @@ def test_package_post_deploy_scripts(
         ]
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
@@ -129,7 +129,7 @@ def test_package_post_deploy_scripts_with_non_existing_scripts(
         )
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
