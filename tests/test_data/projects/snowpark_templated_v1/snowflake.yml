@@ -1,0 +1,25 @@
+definition_version: "1.1"
+snowpark:
+  project_name: "<! project_name | to_snowflake_identifier !>"
+  stage_name: "<! stage | to_snowflake_identifier !>"
+  src: <% ctx.env.project_source %>
+  functions:
+    - name: hello_function
+      handler: "functions.hello_function"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+  procedures:
+    - name: hello_procedure
+      handler: "procedures.hello_procedure"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+    - name: test_procedure
+      handler: "procedures.test_procedure"
+      signature: ""
+      returns: string
+env:
+  project_source: "app/"
