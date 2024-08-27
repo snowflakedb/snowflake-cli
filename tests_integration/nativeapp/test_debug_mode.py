@@ -19,7 +19,8 @@ from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.errors import ProgrammingError
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import pushd, enable_definition_v2_feature_flag
+
+from tests_integration.test_utils import pushd
 
 
 class ApplicationNotFoundError(Exception):
@@ -81,7 +82,6 @@ def set_yml_application_debug(snowflake_yml: Path, debug: Optional[bool]):
 # Tests that debug mode is enabled by default on create, but not changed
 # on upgrade without an explicit setting in snowflake.yml
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "project_definition_files", ["integration", "integration_v2"], indirect=True
 )

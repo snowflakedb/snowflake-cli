@@ -52,5 +52,3 @@ class FeatureFlag(FeatureFlagMixin):
     ENABLE_STREAMLIT_VERSIONED_STAGE = BooleanFlag(
         "ENABLE_STREAMLIT_VERSIONED_STAGE", False
     )
-    # TODO: remove in 3.0
-    ENABLE_PROJECT_DEFINITION_V2 = BooleanFlag("ENABLE_PROJECT_DEFINITION_V2", True)

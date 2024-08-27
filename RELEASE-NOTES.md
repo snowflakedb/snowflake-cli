@@ -16,6 +16,16 @@
 
 # Unreleased version
 ## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v3.0.0
+## Backward incompatibility
 * Dropped support for Python below 3.10 version.
 * `snow object stage` commands are removed in favour of `snow stage`.
 * `snow snowpark init` and `snow streamlit init` commands are removed in favor of `snow init` command.
@@ -27,6 +37,7 @@
   * `snow snowpark deploy` uploads all artifacts created during build step. Dependencies zip is upload once to
      every Snowpark stage specified in project definition.
   * The changes are compatible with V1 projects definition though the result state (file layout) is different.
+  * `snow snowpark package` commands no longer fallback to Anaconda Channel metadata when fetching available packages info fails.
 
 ## Deprecations
 
@@ -36,6 +47,7 @@
 * Added support for external access (api integrations and secrets) in Streamlit.
 * Added support for `<% ... %>` syntax in SQL templating.
 * Support multiple Streamlit application in single snowflake.yml project definition file.
+* Added `snow ws migrate` command to migrate `snowflake.yml` file from V1 to V2.
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command.

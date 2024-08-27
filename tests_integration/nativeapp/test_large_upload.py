@@ -23,8 +23,7 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
 from snowflake.cli._plugins.stage.md5 import parse_multipart_md5sum
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import pushd, enable_definition_v2_feature_flag
-
+from tests_integration.test_utils import pushd
 
 THRESHOLD_BYTES: int | None = None  # if set, passes this option with PUT
 TEMP_FILE_SIZE_BYTES = 200 * 1024 * 1024
@@ -34,7 +33,6 @@ TEMP_FILE_SIZE_BYTES = 200 * 1024 * 1024
     reason="Requires AWS + python connector to support threshold=<number>"
 )
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "project_definition_files", ["integration", "integration_v2"], indirect=True
 )

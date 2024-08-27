@@ -71,7 +71,7 @@ def test_snowpark_flow(
 
         expected_files = [
             f"{STAGE_NAME}/my_snowpark_project/app.zip",
-            f"{STAGE_NAME}/my_snowpark_project/dependencies.zip",
+            f"{STAGE_NAME}/dependencies.zip",
         ]
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
@@ -373,7 +373,7 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
     runner, _test_steps, project_directory, alter_snowflake_yml, test_database
 ):
     with project_directory("snowpark_with_single_requirements_having_no_other_deps"):
-        result = runner.invoke_json(["snowpark", "build"])
+        result = runner.invoke_with_connection_json(["snowpark", "build"])
         assert result.exit_code == 0
 
         assert (
@@ -402,7 +402,7 @@ def test_snowpark_with_single_requirement_having_transient_deps(
     runner, _test_steps, project_directory, alter_snowflake_yml, test_database
 ):
     with project_directory("snowpark_with_single_requirements_having_transient_deps"):
-        result = runner.invoke_json(["snowpark", "build"])
+        result = runner.invoke_with_connection_json(["snowpark", "build"])
         assert result.exit_code == 0
 
         files = ZipFile("dependencies.zip").namelist()
@@ -435,7 +435,9 @@ def test_snowpark_commands_executed_outside_project_dir(
         "snowpark_with_single_requirements_having_transient_deps",
         subpath=project_subpath,
     ):
-        result = runner.invoke_json(["snowpark", "build", "--project", project_subpath])
+        result = runner.invoke_with_connection_json(
+            ["snowpark", "build", "--project", project_subpath]
+        )
         assert result.exit_code == 0
 
         files = ZipFile(Path(project_subpath) / "dependencies.zip").namelist()
@@ -808,7 +810,7 @@ def test_build_shared_libraries_error(
 
 @pytest.mark.integration
 def test_dependency_search_optimization(
-    runner, project_directory, alter_requirements_txt
+    runner, project_directory, alter_requirements_txt, test_database
 ):
     with project_directory("snowpark") as tmp_dir:
         alter_requirements_txt(tmp_dir / "requirements.txt", ["july"])
@@ -959,15 +961,15 @@ def test_snowpark_flow_v2(
         )
 
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-            "stage_a/my_project/app_1.zip",
-            "stage_a/my_project/dependencies.zip",
+            "stage_a/app_1.zip",
+            "stage_a/dependencies.zip",
             stage_name="stage_a",
         )
 
         _test_steps.assert_that_only_these_files_are_staged_in_test_db(
-            f"{STAGE_NAME}/my_project/app_2.zip",
-            f"{STAGE_NAME}/my_project/c.py",
-            f"{STAGE_NAME}/my_project/dependencies.zip",
+            f"{STAGE_NAME}/app_2.zip",
+            f"{STAGE_NAME}/c.py",
+            f"{STAGE_NAME}/dependencies.zip",
             stage_name=STAGE_NAME,
         )
 

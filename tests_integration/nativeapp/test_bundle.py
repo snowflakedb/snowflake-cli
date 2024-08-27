@@ -17,7 +17,6 @@ import os.path
 import yaml
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import enable_definition_v2_feature_flag
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
 )
@@ -26,20 +25,19 @@ from tests_integration.testing_utils import (
 @pytest.fixture(scope="function", params=["napp_init_v1", "napp_init_v2"])
 def template_setup(runner, nativeapp_project_directory, request):
     test_project = request.param
-    with enable_definition_v2_feature_flag:
-        with nativeapp_project_directory(test_project) as project_root:
-            # Vanilla bundle on the unmodified template
-            result = runner.invoke_json(["app", "bundle"])
-            assert result.exit_code == 0
+    with nativeapp_project_directory(test_project) as project_root:
+        # Vanilla bundle on the unmodified template
+        result = runner.invoke_json(["app", "bundle"])
+        assert result.exit_code == 0
 
-            # The newly created deploy_root is explicitly deleted here, as bundle should take care of it.
+        # The newly created deploy_root is explicitly deleted here, as bundle should take care of it.
 
-            deploy_root = Path(project_root, "output", "deploy")
-            assert Path(deploy_root, "manifest.yml").is_file()
-            assert Path(deploy_root, "setup_script.sql").is_file()
-            assert Path(deploy_root, "README.md").is_file()
+        deploy_root = Path(project_root, "output", "deploy")
+        assert Path(deploy_root, "manifest.yml").is_file()
+        assert Path(deploy_root, "setup_script.sql").is_file()
+        assert Path(deploy_root, "README.md").is_file()
 
-            yield project_root, runner, test_project
+        yield project_root, runner, test_project
 
 
 def override_snowflake_yml_artifacts(
