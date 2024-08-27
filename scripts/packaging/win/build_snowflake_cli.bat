@@ -7,10 +7,7 @@ echo %PATH%
 
 
 
-@ECHO OFF
-@SET CLI_VERSION =
-FOR /F %%I IN ("C:\Program Files\Python310\python.exe -m hatch version") DO @SET "CLI_VERSION=%%I"
-@ECHO ON
+FOR /F "delims=" %%I IN ("C:\Program Files\Python310\python.exe -m hatch version") DO CLI_VERSION=%%I
 
 echo %CLI_VERSION%
 
