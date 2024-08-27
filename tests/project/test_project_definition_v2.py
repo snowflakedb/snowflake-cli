@@ -32,8 +32,6 @@ from snowflake.cli.api.project.schemas.project_definition import (
 )
 from snowflake.cli.api.project.schemas.snowpark.callable import _CallableBase
 
-from tests.testing_utils.mock_config import mock_config_key
-
 
 @pytest.mark.parametrize(
     "definition_input,expected_error",
@@ -246,18 +244,17 @@ from tests.testing_utils.mock_config import mock_config_key
 )
 def test_project_definition_v2_schema(definition_input, expected_error):
     definition_input["definition_version"] = "2"
-    with mock_config_key("enable_project_definition_v2", True):
-        try:
-            DefinitionV20(**definition_input)
-        except SchemaValidationError as err:
-            if expected_error:
-                if type(expected_error) == str:
-                    assert expected_error in str(err)
-                else:
-                    for err_msg in expected_error:
-                        assert err_msg in str(err)
+    try:
+        DefinitionV20(**definition_input)
+    except SchemaValidationError as err:
+        if expected_error:
+            if type(expected_error) == str:
+                assert expected_error in str(err)
             else:
-                raise err
+                for err_msg in expected_error:
+                    assert err_msg in str(err)
+        else:
+            raise err
 
 
 def test_identifiers():
@@ -315,9 +312,8 @@ def test_defaults_are_applied():
         },
         "defaults": {"stage": "default_stage"},
     }
-    with mock_config_key("enable_project_definition_v2", True):
-        project = DefinitionV20(**definition_input)
-        assert project.entities["pkg"].stage == "default_stage"
+    project = DefinitionV20(**definition_input)
+    assert project.entities["pkg"].stage == "default_stage"
 
 
 def test_defaults_do_not_override_values():
@@ -334,9 +330,8 @@ def test_defaults_do_not_override_values():
         },
         "defaults": {"stage": "default_stage"},
     }
-    with mock_config_key("enable_project_definition_v2", True):
-        project = DefinitionV20(**definition_input)
-        assert project.entities["pkg"].stage == "pkg_stage"
+    project = DefinitionV20(**definition_input)
+    assert project.entities["pkg"].stage == "pkg_stage"
 
 
 # Verify that each entity model type has the correct "type" field

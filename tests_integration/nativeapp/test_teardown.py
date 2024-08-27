@@ -18,12 +18,10 @@ from tests_integration.test_utils import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
-    enable_definition_v2_feature_flag,
 )
 
 
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "command,expected_error",
     [
@@ -132,7 +130,6 @@ def test_nativeapp_teardown_cascade(
 
 
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_teardown_unowned_app(
@@ -163,7 +160,6 @@ def test_nativeapp_teardown_unowned_app(
 
 
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("default_release_directive", [True, False])
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_teardown_pkg_versions(

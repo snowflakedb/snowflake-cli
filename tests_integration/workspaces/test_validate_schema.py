@@ -13,11 +13,9 @@
 # limitations under the License.
 
 import pytest
-from tests_integration.test_utils import enable_definition_v2_feature_flag
 
 
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 def test_validate_project_definition_v2(runner, project_directory):
     with project_directory("project_definition_v2"):
         result = runner.invoke_with_connection_json(["ws", "validate"])
