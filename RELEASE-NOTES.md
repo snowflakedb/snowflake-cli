@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* Added templating of arbitrary files for Native Apps through `templating` processor.
 
 ## Fixes and improvements
 

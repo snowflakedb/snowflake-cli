@@ -62,10 +62,15 @@ class TemplatingProcessor(ArtifactProcessor):
             absolute=True,
             expand_directories=True,
         ):
-
+            if src.is_dir():
+                continue
             with self.edit_file(dest) as f:
+                file_name = src.relative_to(self._bundle_ctx.project_root)
+
                 jinja_env = (
-                    choose_sql_jinja_env_based_on_template_syntax(f.contents)
+                    choose_sql_jinja_env_based_on_template_syntax(
+                        f.contents, reference_name=file_name
+                    )
                     if dest.name.lower().endswith(".sql")
                     else get_client_side_jinja_env()
                 )
@@ -79,10 +84,10 @@ class TemplatingProcessor(ArtifactProcessor):
                 # instead of the destination file path to make it easier for the user
                 # to identify the file that has the error, and edit the correct file.
                 except jinja2.TemplateSyntaxError as e:
-                    raise InvalidTemplateInFileError(src, e, e.lineno) from e
+                    raise InvalidTemplateInFileError(file_name, e, e.lineno) from e
 
                 except jinja2.UndefinedError as e:
-                    raise InvalidTemplateInFileError(src, e) from e
+                    raise InvalidTemplateInFileError(file_name, e) from e
 
                 if expanded_template != f.contents:
                     f.edited_contents = expanded_template
