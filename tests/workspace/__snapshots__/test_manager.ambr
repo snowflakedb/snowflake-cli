@@ -119,6 +119,8 @@
       stage: <! stage | to_snowflake_identifier !>
       title: <% ctx.env.streamlit_title %>
       type: streamlit
+  env:
+    streamlit_title: My Fancy Streamlit
   
   '''
 # ---
@@ -142,19 +144,20 @@
 # ---
 # name: test_migration_v1_to_v2[migration_snowpark_V1_to_V2]
   '''
-  defaults:
-    project_name: my_snowpark_project
-    stage: dev_deployment
   definition_version: '2'
   entities:
     func1:
       artifacts:
-      - app
+      - dest: my_snowpark_project
+        src: app
       external_access_integrations: []
       handler: app.func1_handler
       identifier:
         name: func1
       imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
       returns: string
       runtime: '3.10'
       secrets: {}
@@ -168,13 +171,17 @@
       type: function
     procedureName:
       artifacts:
-      - app
+      - dest: my_snowpark_project
+        src: app
       execute_as_caller: false
       external_access_integrations: []
       handler: hello
       identifier:
         name: procedureName
       imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
       returns: string
       secrets: {}
       signature:
@@ -182,6 +189,12 @@
         type: string
       stage: dev_deployment
       type: procedure
+  mixins:
+    snowpark_shared:
+      artifacts:
+      - dest: my_snowpark_project
+        src: app/
+      stage: dev_deployment
   
   '''
 # ---

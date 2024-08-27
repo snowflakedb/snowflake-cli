@@ -497,8 +497,8 @@ def migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
 
         data["entities"][entity_name] = v2_entity
 
-        if pd.env:
-            data["env"] = {k: v for k, v in pd.env.items()}
+    if hasattr(pd, "env") and pd.env:
+        data["env"] = {k: v for k, v in pd.env.items()}
 
     return ProjectDefinitionV2(**data)
 

@@ -135,8 +135,6 @@ def test_if_template_raises_error_during_migrations(
     runner, project_directory, project_directory_name, os_agnostic_snapshot
 ):
     with project_directory(project_directory_name):
-        with pytest.raises(ValueError) as e:
-            result = runner.invoke(["ws", "migrate"])
-
-            assert result.exit_code == 1
-            assert "Project definition contains templates" in e.value
+        result = runner.invoke(["ws", "migrate"])
+        assert result.exit_code == 1
+        assert "Project definition contains templates" in result.output

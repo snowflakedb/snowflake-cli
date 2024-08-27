@@ -224,6 +224,8 @@ def migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
             }
         },
     }
+    if hasattr(pd, "env") and pd.env:
+        data["env"] = {k: v for k, v in pd.env.items()}
     return ProjectDefinitionV2(**data)
 
 
