@@ -54,6 +54,11 @@ def windows_get_not_whitelisted_users_with_access(file_path: Path) -> List[str]:
     icacls_output_regex = r".*\\(?P<user>.*):(?P<permissions>[(A-Z),]+)"
     whitelisted_users = _get_windows_whitelisted_users()
 
+    import os
+
+    log.warning("OS user: %s", os.getlogin())
+    log.warning("icacls output: %s", _run_icacls(file_path))
+
     users_with_access = []
     for permission in re.finditer(icacls_output_regex, _run_icacls(file_path)):
         if (permission.group("user") not in whitelisted_users) and (
