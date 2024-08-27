@@ -470,7 +470,7 @@ def migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
         if entity.schema_name is not None:
             identifier["schema"] = entity.schema_name
 
-        if entity.name.startswith("<!") and entity.name.endswith("!>"):
+        if entity.name.startswith("<%") and entity.name.endswith("%>"):
             entity_name = f"snowpark_entity_{index}"
         else:
             entity_name = entity.name

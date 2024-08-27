@@ -204,7 +204,7 @@ def migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
     if pd.streamlit.database:
         identifier["database"] = pd.streamlit.database
 
-    if pd.streamlit.name.startswith("<!") and pd.streamlit.name.endswith("!>"):
+    if pd.streamlit.name.startswith("<%") and pd.streamlit.name.endswith("%>"):
         streamlit_name = "streamlit_entity_1"
     else:
         streamlit_name = pd.streamlit.name
