@@ -52,7 +52,7 @@ def migrate(
 
     if "<% ctx." in str(pd):
         if not accept_templates:
-            raise ValueError(
+            raise ClickException(
                 "Project definition contains templates. They may not be migrated correctly, and require manual migration."
                 "You can try again with --accept-templates  option, to attempt automatic migration."
             )
