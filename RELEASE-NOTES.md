@@ -16,6 +16,16 @@
 
 # Unreleased version
 ## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v3.0.0
+## Backward incompatibility
 * Dropped support for Python below 3.10 version.
 * `snow object stage` commands are removed in favour of `snow stage`.
 * `snow snowpark init` and `snow streamlit init` commands are removed in favor of `snow init` command.
