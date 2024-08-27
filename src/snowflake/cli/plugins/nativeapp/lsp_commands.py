@@ -14,9 +14,10 @@
 from __future__ import annotations
 
 from pygls.server import LanguageServer
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.lsp.utils import lsp_plugin, server_command
+from snowflake.cli.plugins.lsp.server import lsp_plugin
 from snowflake.cli.plugins.nativeapp.manager import NativeAppManager
 from snowflake.connector import SnowflakeConnection
 
@@ -28,15 +29,21 @@ from snowflake.connector import SnowflakeConnection
     },
 )
 def nade_lsp_plugin(server: LanguageServer):
-    @server_command(server, "openApplication")
-    def open_app(connection: SnowflakeConnection, project_path: str):
-        dm = DefinitionManager(project_path)
+    # FIXME: can't parametrize iter_lsp_plugins() if this is top-level ?
+    from snowflake.cli.plugins.lsp.interface import workspace_command
+
+    @workspace_command(server, "openApplication")
+    def open_app() -> MessageResult:
+
+        ctx = get_cli_context()
+
+        dm = DefinitionManager(ctx.project_root)
         project_definition = getattr(dm.project_definition, "native_app", None)
         project_root = dm.project_root
         manager = NativeAppManager(
             project_definition=project_definition,
             project_root=project_root,
-            connection=connection,
+            connection=ctx.connection,
         )
         if manager.get_existing_app_info():
             url = manager.get_snowsight_url()

@@ -18,8 +18,8 @@ import logging
 
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.output.types import CommandResult, MessageResult
-from snowflake.cli.plugins.lsp.utils import (
-    load_lsp_plugins,
+from snowflake.cli.plugins.lsp.server import (
+    start_lsp_server,
 )
 
 app = SnowTyper(name="lsp", help="Manages a Snowflake LSP server.", hidden=True)
@@ -34,5 +34,5 @@ def lsp_start(
     """
     Starts the LSP language server in the foreground.
     """
-    load_lsp_plugins()
+    start_lsp_server()
     return MessageResult(f"LSP server process ended.")

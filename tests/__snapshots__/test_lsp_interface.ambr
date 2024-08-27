@@ -1,0 +1,10 @@
+# serializer version: 1
+# name: test_command_signatures[nativeapp]
+  dict({
+    'openApplication': dict({
+      'connection': <class 'snowflake.connector.connection.SnowflakeConnection'>,
+      'project_path': <class 'str'>,
+      'return': <class 'snowflake.cli.api.output.types.MessageResult'>,
+    }),
+  })
+# ---

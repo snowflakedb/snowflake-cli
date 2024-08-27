@@ -17,7 +17,12 @@ from __future__ import annotations
 import re
 import warnings
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Iterator, Self, Dict, Any
+from pydantic import TypeAdapter, ValidationError
+from typing_extensions import TypedDict, NotRequired
+
+from contextvars import ContextVar
+from contextlib import contextmanager
 
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.cli.api.output.formats import OutputFormat
@@ -255,6 +260,22 @@ class _CliGlobalContextManager:
     def reset(self):
         self.__init__()
 
+    def clone(self) -> Self:
+        # TODO: there must be a better way to implement this...
+        x = _CliGlobalContextManager()
+        x._enable_tracebacks = self._enable_tracebacks
+        x._output_format = self._output_format
+        x._verbose = self._verbose
+        x._experimental = self._experimental
+        x._project_definition = self._project_definition
+        x._project_root = self._project_root
+        x._project_path_arg = self._project_path_arg
+        x._project_env_overrides_args = self._project_env_overrides_args
+        x._typer_pre_execute_commands = self._typer_pre_execute_commands
+        x._template_context = self._template_context
+        x._silent = self._silent
+        return x
+
     @property
     def enable_tracebacks(self) -> bool:
         return self._enable_tracebacks
@@ -397,19 +418,66 @@ class _CliGlobalContextAccess:
         return self._manager.output_format == OutputFormat.JSON
 
 
-_CLI_CONTEXT_MANAGER: _CliGlobalContextManager | None = None
-_CLI_CONTEXT: _CliGlobalContextAccess | None = None
+_CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager | None] = ContextVar('cli_context', default=None)
 
 
 def get_cli_context_manager() -> _CliGlobalContextManager:
     global _CLI_CONTEXT_MANAGER
-    if _CLI_CONTEXT_MANAGER is None:
-        _CLI_CONTEXT_MANAGER = _CliGlobalContextManager()
-    return _CLI_CONTEXT_MANAGER
+    if _CLI_CONTEXT_MANAGER.get() is None:
+        _CLI_CONTEXT_MANAGER.set(_CliGlobalContextManager())
+    return _CLI_CONTEXT_MANAGER.get()
 
 
 def get_cli_context() -> _CliGlobalContextAccess:
-    global _CLI_CONTEXT
-    if _CLI_CONTEXT is None:
-        _CLI_CONTEXT = _CliGlobalContextAccess(get_cli_context_manager())
-    return _CLI_CONTEXT
+    return _CliGlobalContextAccess(get_cli_context_manager())
+
+
+ConnectionArgs = Dict[str, Any]  # FIXME: type the connection dict; see _ConnectionContext
+
+
+class CliContextArguments(TypedDict):
+    """
+    The arguments that can be passed to a workspace command.
+
+    """
+    connection: NotRequired[ConnectionArgs]  
+    project_path: NotRequired[str]
+    env: NotRequired[Dict[str, str]]
+
+
+@contextmanager
+def fork_cli_context(
+    **args: CliContextArguments,
+) -> Iterator[_CliGlobalContextAccess]:
+    original_ctx = get_cli_context_manager()
+    new_manager =  get_cli_context_manager().clone()
+
+    # if connection arguments are supplied, we have a new connection to make (maybe)
+    if overrides := args["connection"]:
+        connection_args = dict()
+
+        # combine existing + overrides
+        if original_ctx.connection_context:
+            connection_args.update(original_ctx.connection_context._collect_not_empty_connection_attributes().items())
+        connection_args.update(overrides)
+
+        # create a new connection context from the args
+        for (key, value) in connection_args.items():
+            if hasattr(_ConnectionContext, key) and isinstance(getattr(_ConnectionContext, key), property):
+                setattr(new_manager.connection_context, f"_{key}", value)
+            else:
+                raise ValueError(f"Unknown connection argument key: {key}")
+
+        # loads the memoized connection, if it exists (keyed by args)
+        # FIXME: circular logic
+        new_manager.connection_context._cached_connection = None # open_and_memoize(connection_args)
+
+
+    # apply project path + env vars
+    # new_manager.set_project_path_arg
+
+    global _CLI_CONTEXT_MANAGER
+    token = _CLI_CONTEXT_MANAGER.set(new_manager)
+    yield _CliGlobalContextAccess(new_manager)
+    _CLI_CONTEXT_MANAGER.reset(token)
+    

@@ -16,14 +16,14 @@ import asyncio
 import pathlib
 import subprocess
 import sys
-from typing import Optional, AsyncIterator
+from typing import Iterator, Optional, AsyncIterator
 import pytest
 from pygls.lsp.client import BaseLanguageClient
 from lsprotocol import types
 import pytest_asyncio
 from snowflake.connector import SnowflakeConnection
 
-from snowflake.cli.plugins.lsp.utils import ConnectionParams
+from snowflake.cli.plugins.lsp.interface import CommandArguments
 
 START_ARGS = ["snow", "lsp", "start"]
 
@@ -53,12 +53,7 @@ async def lsp_client():
 
 
 @pytest.fixture
-def lsp_connection_params(snowflake_session: SnowflakeConnection) -> ConnectionParams:
-
-    # without this, we don't have an actual connection...
-    # but it doesn't seem to like my local connection credentials
-    # I get snowflake.connector.errors.DatabaseError: 250001 (08001): Failed to connect to DB: na_provider_consumer_qa6.qa6.us-west-2.aws.snowflakecomputing.com:443. User needs to select a sign in option
-    snowflake_session.connect()
+def lsp_connection_params(snowflake_session: SnowflakeConnection) -> Iterator[CommandArguments]:
 
     # Grab the connection! And the tokens are on the connection.rest object. Alarmingly which might get removed in the future?
     # maybe we should save the master/session on the connection object itself rather than in SnowflakeRestful.
@@ -69,11 +64,15 @@ def lsp_connection_params(snowflake_session: SnowflakeConnection) -> ConnectionP
     if not connection.rest._master_token:
         pytest.exit("Cannot continue without master token")
 
-    return ConnectionParams(
-        session_token=connection.rest._token,
-        master_token=connection.rest._master_token,
-        account=connection.account,
-        connection_name="",
+    yield CommandArguments(
+        connection=dict(
+            temporary_connection=True,
+            session_token=connection.rest._token,
+            master_token=connection.rest._master_token,
+            account=connection.account,
+            host=connection.host,
+            protocol=connection._protocol,
+        ),
     )
 
 
@@ -87,14 +86,12 @@ async def test_lsp_client_and_server(
 
     PROJECT_PATH = ".."  # TODO: use a test project directory
 
-    params: ConnectionParams = {
+    params: CommandArguments = {
         **lsp_connection_params,
-        "params": {
-            "project_path": PROJECT_PATH,
-        },
+        "project_path": PROJECT_PATH,
     }
 
     response = await lsp_client.workspace_execute_command_async(
-        types.ExecuteCommandParams("bundleApplication", [params])
+        types.ExecuteCommandParams("openApplication", [params])
     )
     assert response["_message"] == "https://..."  # TODO: valid URL
