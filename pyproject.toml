@@ -85,6 +85,7 @@ exclude = ["/.github"]
 packages = ["src/snowflake"]
 
 [tool.hatch.envs.default]
+python = "3.10"
 features = ["development"]
 
 [tool.hatch.envs.default.scripts]

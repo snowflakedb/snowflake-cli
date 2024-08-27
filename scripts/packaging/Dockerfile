@@ -25,18 +25,20 @@ RUN apt install -y ruby\
   liblzma-dev
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y tk-dev
 
+RUN gem install dotenv -v 2.8.1
+RUN gem install fpm
+
 RUN curl https://pyenv.run | bash
-RUN echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.profile
-RUN echo 'export PATH=$PYENV_ROOT/bin:$PATH' >> ~/.profile
-RUN echo 'eval "$(pyenv init -)"' >> ~/.profile
+RUN echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
+RUN echo 'export PATH=$PYENV_ROOT/bin:$PATH' >> ~/.bashrc
 RUN echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 
 ENV PYENV_ROOT=$HOME/.pyenv
 ENV PATH=$PYENV_ROOT/bin:$PATH
 RUN eval "$(pyenv init -)"
 RUN pyenv install 3.10
-RUN pyenv global 3.10 && pyenv exec pip install -U pip uv hatch
-RUN gem install dotenv -v 2.8.1
-RUN gem install fpm
+RUN pyenv global 3.10
+RUN pyenv versions
+RUN pyenv exec pip install -U pip uv hatch
 
 WORKDIR /snowflake-cli
