@@ -33,6 +33,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV20,
 )
 from snowflake.cli.api.project.schemas.snowpark.callable import _CallableBase
+from snowflake.cli.api.utils.definition_rendering import render_definition_template
 
 
 @pytest.mark.parametrize(
@@ -40,7 +41,7 @@ from snowflake.cli.api.project.schemas.snowpark.callable import _CallableBase
     [
         [{}, "Your project definition is missing the following field: 'entities'"],
         [{"entities": {}}, None],
-        [{"entities": {}, "defaults": {}, "env": {}}, None],
+        [{"entities": {}, "mixins": {}, "env": {}}, None],
         [
             {"entities": {}, "extra": "field"},
             "You provided field 'extra' with value 'field' that is not supported in given version",
@@ -172,13 +173,13 @@ from snowflake.cli.api.project.schemas.snowpark.callable import _CallableBase
         # Snowpark fields
         [
             {
-                "defaults": {"stage": "dev"},
                 "entities": {
                     "function1": {
                         "type": "function",
                         "identifier": "name",
                         "handler": "app.hello",
                         "returns": "string",
+                        "stage": "dev",
                         "signature": [{"name": "name", "type": "string"}],
                         "runtime": "3.10",
                         "artifacts": ["src"],
@@ -301,39 +302,39 @@ def test_identifiers():
     assert entities["D"].entity_id == "D"
 
 
-def test_defaults_are_applied():
-    definition_input = {
-        "definition_version": "2",
-        "entities": {
-            "pkg": {
-                "type": "application package",
-                "identifier": "",
-                "artifacts": [],
-                "manifest": "",
-            }
-        },
-        "defaults": {"stage": "default_stage"},
-    }
-    project = DefinitionV20(**definition_input)
-    assert project.entities["pkg"].stage == "default_stage"
+# def test_defaults_are_applied():
+#     definition_input = {
+#         "definition_version": "2",
+#         "entities": {
+#             "pkg": {
+#                 "type": "application package",
+#                 "identifier": "",
+#                 "artifacts": [],
+#                 "manifest": "",
+#             }
+#         },
+#         "defaults": {"stage": "default_stage"},
+#     }
+#     project = DefinitionV20(**definition_input)
+#     assert project.entities["pkg"].stage == "default_stage"
 
 
-def test_defaults_do_not_override_values():
-    definition_input = {
-        "definition_version": "2",
-        "entities": {
-            "pkg": {
-                "type": "application package",
-                "identifier": "",
-                "artifacts": [],
-                "manifest": "",
-                "stage": "pkg_stage",
-            }
-        },
-        "defaults": {"stage": "default_stage"},
-    }
-    project = DefinitionV20(**definition_input)
-    assert project.entities["pkg"].stage == "pkg_stage"
+# def test_defaults_do_not_override_values():
+#     definition_input = {
+#         "definition_version": "2",
+#         "entities": {
+#             "pkg": {
+#                 "type": "application package",
+#                 "identifier": "",
+#                 "artifacts": [],
+#                 "manifest": "",
+#                 "stage": "pkg_stage",
+#             }
+#         },
+#         "defaults": {"stage": "default_stage"},
+#     }
+#     project = DefinitionV20(**definition_input)
+#     assert project.entities["pkg"].stage == "pkg_stage"
 
 
 # Verify that each entity model type has the correct "type" field
@@ -418,12 +419,12 @@ def test_mixins(project_directory, project_name, stage1, stage2):
     assert definition.entities["function1"].handler == "app.hello"
 
 
-def test_mixins_for_different_entities(project_directory):
+def test_using_mixing_with_unknown_entity_property_fails(project_directory):
     with project_directory("mixins_different_entities") as project_dir:
-        definition = DefinitionManager(project_dir).project_definition
+        with pytest.raises(SchemaValidationError) as err:
+            _ = DefinitionManager(project_dir).project_definition
 
-    assert definition.entities["function1"].stage == "foo"
-    assert definition.entities["streamlit1"].main_file == "streamlit_app.py"
+    assert "Unsupported key 'main_file' for entity of type function" in str(err)
 
 
 def test_list_of_mixins_in_correct_order(project_directory):
@@ -445,3 +446,98 @@ def _assert_entities_are_equal(
     assert v1_entity.returns == v2_entity.returns
     assert v1_entity.signature == v2_entity.signature
     assert v1_entity.runtime == v2_entity.runtime
+
+
+def test_mixin_with_unknwon_entity_key_raises_error():
+    definition_input = {
+        "definition_version": "2",
+        "entities": {
+            "func": {
+                "type": "function",
+                "identifier": "my_func",
+                "handler": "foo",
+                "returns": "string",
+                "signature": "",
+                "artifacts": [],
+                "stage": "bar",
+                "meta": {"use_mixins": ["schema_mixin"]},
+            }
+        },
+        "mixins": {"schema_mixin": {"unknown_key": "NA"}},
+    }
+    with pytest.raises(SchemaValidationError) as err:
+        DefinitionV20(**definition_input)
+
+    assert "Unsupported key 'unknown_key' for entity of type function" in str(err)
+
+
+def test_mixin_values_are_properly_applied_to_entity():
+    common = {
+        "type": "function",
+        "handler": "foo",
+        "returns": "string",
+        "signature": "",
+        "artifacts": [],
+        "stage": "bar",
+        "secrets": {"secret_a": "secret_a_value"},
+        "external_access_integrations": ["integration_1"],
+    }
+    definition_input = {
+        "definition_version": "2",
+        "entities": {
+            "func": {
+                "identifier": {"name": "my_func"},
+                **common,
+                "meta": {"use_mixins": ["schema_mixin"]},
+            },
+            "func_a": {
+                "identifier": {"name": "<% ctx.env.USER %>"},
+                **common,
+                "meta": {"use_mixins": ["schema_mixin"]},
+            },
+        },
+        "mixins": {
+            "schema_mixin": {
+                "identifier": {"schema": "MIXIN"},
+                "secrets": {"secret_b": "secret_b_value"},
+                "external_access_integrations": ["integration_2"],
+            }
+        },
+    }
+    project = render_definition_template(definition_input, {}).project_definition
+    func_entity = project.entities["func"]
+    assert func_entity.fqn.identifier == "MIXIN.my_func"
+    assert func_entity.secrets == {
+        "secret_a": "secret_a_value",
+        "secret_b": "secret_b_value",
+    }
+    assert func_entity.external_access_integrations == [
+        "integration_1",
+        "integration_2",
+    ]
+
+
+def test_mixins_values_have_to_be_type_compatible_with_entities():
+    definition_input = {
+        "definition_version": "2",
+        "entities": {
+            "func": {
+                "identifier": "my_func",
+                "type": "function",
+                "handler": "foo",
+                "returns": "string",
+                "signature": "",
+                "artifacts": [],
+                "stage": "bar",
+                "meta": {"use_mixins": ["schema_mixin"]},
+            },
+        },
+        "mixins": {"schema_mixin": {"identifier": {"schema": "MIXIN"}}},
+    }
+    with pytest.raises(SchemaValidationError) as err:
+        _ = render_definition_template(definition_input, {}).project_definition
+
+    assert (
+        "Mixin schema_mixin has property identifier of type 'dict' while entity func expects value of type 'str'"
+        in str(err)
+    )

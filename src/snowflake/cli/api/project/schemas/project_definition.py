@@ -24,7 +24,6 @@ from snowflake.cli.api.project.schemas.entities.application_entity_model import 
     ApplicationEntityModel,
 )
 from snowflake.cli.api.project.schemas.entities.common import (
-    DefaultsField,
     TargetField,
 )
 from snowflake.cli.api.project.schemas.entities.entities import (
@@ -114,31 +113,12 @@ class DefinitionV11(DefinitionV10):
 class DefinitionV20(_ProjectDefinitionBase):
     entities: Dict[str, AnnotatedEntity] = Field(title="Entity definitions.")
 
-    @model_validator(mode="before")
-    @classmethod
-    def apply_defaults(cls, data: Dict) -> Dict:
-        """
-        Applies default values that exist on the model but not specified in yml
-        """
-        if "defaults" in data and "entities" in data:
-            for key, entity in data["entities"].items():
-                entity_fields = get_allowed_fields_for_entity(entity)
-                if not entity_fields:
-                    continue
-                for default_key, default_value in data["defaults"].items():
-                    if default_key in entity_fields and default_key not in entity:
-                        entity[default_key] = default_value
-        return data
-
-    @field_validator("entities", mode="after")
-    @classmethod
-    def validate_entities_identifiers(
-        cls, entities: Dict[str, EntityModel]
-    ) -> Dict[str, EntityModel]:
-        for key, entity in entities.items():
+    @model_validator(mode="after")
+    def validate_entities_identifiers(self):
+        for key, entity in self.entities.items():
             entity.set_entity_id(key)
             entity.validate_identifier()
-        return entities
+        return self
 
     @field_validator("entities", mode="after")
     @classmethod
@@ -179,11 +159,6 @@ class DefinitionV20(_ProjectDefinitionBase):
                 f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
             )
 
-    defaults: Optional[DefaultsField] = Field(
-        title="Default key/value entity values that are merged recursively for each entity.",
-        default=None,
-    )
-
     env: Optional[Dict[str, Union[str, int, bool]]] = Field(
         title="Default environment specification for this project.",
         default=None,
@@ -203,21 +178,59 @@ class DefinitionV20(_ProjectDefinitionBase):
         if "mixins" not in data or "entities" not in data:
             return data
 
-        for entity in data["entities"].values():
+        for entity_name, entity in data["entities"].items():
             entity_mixins = entity_mixins_to_list(
                 entity.get("meta", {}).get("use_mixins")
             )
 
             entity_fields = get_allowed_fields_for_entity(entity)
-            if entity_fields and entity_mixins:
-                for mixin_name in entity_mixins:
-                    if mixin_name in data["mixins"]:
-                        for key, value in data["mixins"][mixin_name].items():
-                            if key in entity_fields:
-                                entity[key] = value
-                    else:
-                        raise ValueError(f"Mixin {mixin_name} not found in mixins")
+            if not (entity_fields and entity_mixins):
+                continue
+
+            for mixin_name in entity_mixins:
+                if mixin_name not in data["mixins"]:
+                    raise ValueError(f"Mixin {mixin_name} not found in mixins")
+
+                cls._merge_mixin_with_entity(
+                    entity_name, entity, entity_fields, mixin_name, data["mixins"]
+                )
         return data
+
+    @staticmethod
+    def _merge_mixin_with_entity(
+        entity_name: str,
+        entity: dict,
+        entity_fields: list[str],
+        mixin_name: str,
+        mixins: dict,
+    ):
+        mixin = mixins[mixin_name]
+        for key, mixin_value in mixin.items():
+            if key not in entity_fields:
+                raise ValueError(
+                    f"Unsupported key '{key}' for entity of type {entity['type']} "
+                )
+
+            if key not in entity:
+                entity[key] = mixin_value
+                continue
+
+            entity_value = entity[key]
+
+            merger = {
+                dict: lambda data, new_data: {**data, **new_data},
+                list: lambda data, new_data: _unique_extend(data, new_data),
+                str: lambda _, new_data: new_data,
+            }
+            for type_, merge_func in merger.items():
+                if isinstance(mixin_value, type_):
+                    if not isinstance(entity_value, type_):
+                        raise ValueError(
+                            f"Mixin {mixin_name} has property {key} of type '{type_.__name__}' "
+                            f"while entity {entity_name} expects value of type '{type(entity_value).__name__}'"
+                        )
+                    entity[key] = merge_func(entity_value, mixin_value)
+                    break
 
     def get_entities_by_type(self, entity_type: str):
         return {i: e for i, e in self.entities.items() if e.get_type() == entity_type}
@@ -268,3 +281,10 @@ def get_allowed_fields_for_entity(entity: Dict[str, Any]) -> List[str]:
 
     entity_model = v2_entity_model_types_map[entity_type]
     return entity_model.model_fields
+
+
+def _unique_extend(list_a: List, list_b: List) -> List:
+    for item in list_b:
+        if item not in list_a:
+            list_a.append(item)
+    return list_a

@@ -19,6 +19,7 @@ entities:
       role: my_role
       post_deploy:
       - sql_script: scripts/post_pkg_deploy.sql
+      use_mixins: ["defaults"]
   app:
     type: application
     identifier: my_app_<% ctx.env.foo %>
@@ -29,10 +30,12 @@ entities:
       role: my_role
       post_deploy:
         - sql_script: scripts/post_app_deploy.sql
+      use_mixins: ["defaults"]
 
-defaults:
-  schema: default_schema
-  stage: default_stage
+mixins:
+  defaults:
+    schema: default_schema
+    stage: default_stage
 
 env:
   foo: bar
