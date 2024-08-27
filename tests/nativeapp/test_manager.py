@@ -40,7 +40,6 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 )
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppManager,
-    SnowflakeSQLExecutionError,
 )
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
@@ -51,6 +50,7 @@ from snowflake.cli.api.entities.utils import (
     ensure_correct_owner,
 )
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
