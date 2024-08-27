@@ -386,3 +386,10 @@ def render_definition_template(
         default_env=project_context[CONTEXT_KEY].get("env"), override_env=override_env
     )
     return ProjectProperties(project_definition, project_context)
+
+
+def raw_project_properties(definition: Definition) -> ProjectProperties:
+    """
+    Returns the raw project definition data without any templating.
+    """
+    return ProjectProperties(build_project_definition(**definition), {})

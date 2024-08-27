@@ -139,7 +139,7 @@ def streamlit_deploy(
             raise NoProjectDefinitionError(
                 project_type="streamlit", project_root=cli_context.project_root
             )
-        pd = _migrate_v1_streamlit_to_v2(pd)
+        pd = migrate_v1_streamlit_to_v2(pd)
 
     streamlits: Dict[str, StreamlitEntityModel] = pd.get_entities_by_type(
         entity_type="streamlit"
@@ -171,7 +171,7 @@ def streamlit_deploy(
     return MessageResult(f"Streamlit successfully deployed and available under {url}")
 
 
-def _migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
+def migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
     default_env_file = "environment.yml"
     default_pages_dir = "pages"
 
@@ -204,10 +204,15 @@ def _migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
     if pd.streamlit.database:
         identifier["database"] = pd.streamlit.database
 
+    if pd.streamlit.name.startswith("<%") and pd.streamlit.name.endswith("%>"):
+        streamlit_name = "streamlit_entity_1"
+    else:
+        streamlit_name = pd.streamlit.name
+
     data = {
         "definition_version": "2",
         "entities": {
-            pd.streamlit.name: {
+            streamlit_name: {
                 "type": "streamlit",
                 "identifier": identifier,
                 "title": pd.streamlit.title,
@@ -219,6 +224,8 @@ def _migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
             }
         },
     }
+    if hasattr(pd, "env") and pd.env:
+        data["env"] = {k: v for k, v in pd.env.items()}
     return ProjectDefinitionV2(**data)
 
 

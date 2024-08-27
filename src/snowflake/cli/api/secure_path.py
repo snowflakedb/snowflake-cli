@@ -333,6 +333,9 @@ class SecurePath:
         ):
             raise FileTooLargeError(self._path.resolve(), size_limit_in_mb)
 
+    def rename(self, new_name: Union[str | Path]):
+        self._path.rename(new_name)
+
 
 def _raise_file_exists_error(path: Path):
     raise FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), path)

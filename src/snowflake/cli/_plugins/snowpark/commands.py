@@ -445,7 +445,7 @@ def describe(
     )
 
 
-def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
+def migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
     if not pd.snowpark:
         raise NoProjectDefinitionError(
             project_type="snowpark", project_root=get_cli_context().project_root
@@ -467,12 +467,18 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
         "entities": {},
     }
 
-    for entity in [*pd.snowpark.procedures, *pd.snowpark.functions]:
+    for index, entity in enumerate([*pd.snowpark.procedures, *pd.snowpark.functions]):
         identifier = {"name": entity.name}
         if entity.database is not None:
             identifier["database"] = entity.database
         if entity.schema_name is not None:
             identifier["schema"] = entity.schema_name
+
+        if entity.name.startswith("<%") and entity.name.endswith("%>"):
+            entity_name = f"snowpark_entity_{index}"
+        else:
+            entity_name = entity.name
+
         v2_entity = {
             "type": "function" if isinstance(entity, FunctionSchema) else "procedure",
             "stage": pd.snowpark.stage_name,
@@ -489,7 +495,10 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
         if isinstance(entity, ProcedureSchema):
             v2_entity["execute_as_caller"] = entity.execute_as_caller
 
-        data["entities"][entity.name] = v2_entity
+        data["entities"][entity_name] = v2_entity
+
+    if hasattr(pd, "env") and pd.env:
+        data["env"] = {k: v for k, v in pd.env.items()}
 
     return ProjectDefinitionV2(**data)
 
@@ -497,5 +506,5 @@ def _migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
 def _get_v2_project_definition(cli_context) -> ProjectDefinitionV2:
     pd = cli_context.project_definition
     if not pd.meets_version_requirement("2"):
-        pd = _migrate_v1_snowpark_to_v2(pd)
+        pd = migrate_v1_snowpark_to_v2(pd)
     return pd
