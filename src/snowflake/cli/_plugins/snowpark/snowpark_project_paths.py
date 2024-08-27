@@ -14,12 +14,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from snowflake.cli._plugins.snowpark.zipper import zip_dir
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEPLOYMENT_STAGE
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.entities.snowpark_entity import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 
 
@@ -30,18 +31,20 @@ class SnowparkProjectPaths:
     """
 
     project_root: Path
-    project_name: str | None = None
 
     def path_relative_to_root(self, artifact_path: Path) -> Path:
         if artifact_path.is_absolute():
             return artifact_path
         return (self.project_root / artifact_path).resolve()
 
-    def get_artefact_dto(self, artifact_path: Path) -> Artefact:
+    def get_artefact_dto(self, artifact_path: PathMapping) -> Artefact:
         return Artefact(
-            project_name=self.project_name,
-            path=self.path_relative_to_root(artifact_path),
+            dest=artifact_path.dest,
+            path=self.path_relative_to_root(artifact_path.src),
         )
+
+    def get_dependencies_artefact(self) -> Artefact:
+        return Artefact(dest=None, path=self.dependencies)
 
     @property
     def snowflake_requirements(self) -> SecurePath:
@@ -63,7 +66,7 @@ class Artefact:
     """Helper for getting paths related to given artefact."""
 
     path: Path
-    project_name: str | None = None
+    dest: str | None = None
 
     @property
     def _artefact_name(self) -> str:
@@ -86,10 +89,10 @@ class Artefact:
         if isinstance(stage, str):
             stage = FQN.from_stage(stage).using_context()
 
-        artifact_stage_directory = f"@{stage}/"
-        if self.project_name:
-            artifact_stage_directory += f"{self.project_name}/"
-        return artifact_stage_directory
+        stage_path = PurePosixPath(f"@{stage}")
+        if self.dest:
+            stage_path = stage_path / self.dest
+        return str(stage_path) + "/"
 
     def import_path(self, stage: FQN | str | None) -> str:
         """Path for UDF/sproc imports clause."""

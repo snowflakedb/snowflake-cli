@@ -24,6 +24,7 @@ from snowflake.cli.api.project.schemas.entities.entities import (
     v2_entity_model_types_map,
 )
 from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
+    PathMapping,
     SnowparkEntityModel,
 )
 from snowflake.cli.api.project.schemas.project_definition import (
@@ -188,7 +189,12 @@ from tests.testing_utils.mock_config import mock_config_key
         ],
         [
             {
-                "defaults": {"stage": "dev", "project_name": "my_project"},
+                "mixins": {
+                    "snowpark_shared": {
+                        "stage": "dev",
+                        "artifacts": [{"src": "src", "dest": "my_project"}],
+                    }
+                },
                 "entities": {
                     "procedure1": {
                         "type": "procedure",
@@ -199,6 +205,7 @@ from tests.testing_utils.mock_config import mock_config_key
                         "runtime": "3.10",
                         "artifacts": ["src"],
                         "execute_as_caller": True,
+                        "meta": {"use_mixins": ["snowpark_shared"]},
                     }
                 },
             },
@@ -206,7 +213,12 @@ from tests.testing_utils.mock_config import mock_config_key
         ],
         [
             {
-                "defaults": {"stage": "dev", "project_name": "my_project"},
+                "mixins": {
+                    "snowpark_shared": {
+                        "stage": "dev",
+                        "artifacts": [{"src": "src", "dest": "my_project"}],
+                    }
+                },
                 "entities": {
                     "procedure1": {
                         "type": "procedure",
@@ -214,8 +226,8 @@ from tests.testing_utils.mock_config import mock_config_key
                         "returns": "string",
                         "signature": [{"name": "name", "type": "string"}],
                         "runtime": "3.10",
-                        "artifacts": ["src"],
                         "execute_as_caller": True,
+                        "meta": {"use_mixins": ["snowpark_shared"]},
                     }
                 },
             },
@@ -363,7 +375,8 @@ def test_v1_to_v2_conversion(
         definition_v2 = migrate_v1_snowpark_to_v2(definition_v1)
         assert definition_v2.definition_version == "2"
         assert (
-            definition_v1.snowpark.project_name == definition_v2.defaults.project_name
+            definition_v1.snowpark.project_name
+            == definition_v2.mixins["snowpark_shared"]["artifacts"][0]["dest"]
         )
         assert len(definition_v1.snowpark.procedures) == len(
             definition_v2.get_entities_by_type("procedure")
@@ -372,16 +385,22 @@ def test_v1_to_v2_conversion(
             definition_v2.get_entities_by_type("function")
         )
 
+        artifact = PathMapping(
+            src=Path(definition_v1.snowpark.src),
+            dest=definition_v1.snowpark.project_name,
+        )
         for v1_procedure in definition_v1.snowpark.procedures:
             v2_procedure = definition_v2.entities.get(v1_procedure.name)
             assert v2_procedure
-            assert v2_procedure.artifacts == [Path(definition_v1.snowpark.src)]
+            assert v2_procedure.artifacts == [artifact]
+            assert "snowpark_shared" in v2_procedure.meta.use_mixins
             _assert_entities_are_equal(v1_procedure, v2_procedure)
 
         for v1_function in definition_v1.snowpark.functions:
             v2_function = definition_v2.entities.get(v1_function.name)
             assert v2_function
-            assert v2_function.artifacts == [Path(definition_v1.snowpark.src)]
+            assert v2_function.artifacts == [artifact]
+            assert "snowpark_shared" in v2_function.meta.use_mixins
             _assert_entities_are_equal(v1_function, v2_function)
 
 
