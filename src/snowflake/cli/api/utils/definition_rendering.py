@@ -28,7 +28,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
 from snowflake.cli.api.project.schemas.updatable_model import context
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY, FUNCTION_KEY
 from snowflake.cli.api.rendering.project_definition_templates import (
-    get_project_definition_cli_jinja_env,
+    get_client_side_jinja_env,
 )
 from snowflake.cli.api.utils.dict_utils import deep_merge_dicts, traverse
 from snowflake.cli.api.utils.graph import Graph, Node
@@ -318,7 +318,7 @@ def render_definition_template(
     if definition is None:
         return ProjectProperties(None, {CONTEXT_KEY: {"env": environment_overrides}})
 
-    template_env = TemplatedEnvironment(get_project_definition_cli_jinja_env())
+    template_env = TemplatedEnvironment(get_client_side_jinja_env())
 
     if "definition_version" not in definition or Version(
         definition["definition_version"]

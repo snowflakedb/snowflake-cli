@@ -1,0 +1,1 @@
+/Users/melnacouzi/snowflakedb/snowflake-cli/tests_integration/test_data/projects/napp_templating_processors_v2/app/README.md

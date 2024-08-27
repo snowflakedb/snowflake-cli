@@ -11,7 +11,7 @@ from snowflake.cli._plugins.nativeapp.artifacts import (
 )
 from snowflake.cli._plugins.nativeapp.constants import OWNER_COL
 from snowflake.cli._plugins.nativeapp.exceptions import (
-    InvalidScriptError,
+    InvalidTemplateInFileError,
     MissingScriptError,
     UnexpectedOwnerError,
 )
@@ -313,9 +313,9 @@ def render_script_templates(
             raise MissingScriptError(relpath) from e
 
         except jinja2.TemplateSyntaxError as e:
-            raise InvalidScriptError(relpath, e, e.lineno) from e
+            raise InvalidTemplateInFileError(relpath, e, e.lineno) from e
 
         except jinja2.UndefinedError as e:
-            raise InvalidScriptError(relpath, e) from e
+            raise InvalidTemplateInFileError(relpath, e) from e
 
     return scripts_contents

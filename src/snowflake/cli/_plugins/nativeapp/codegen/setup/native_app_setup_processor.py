@@ -62,7 +62,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
 
         self._create_or_update_sandbox()
 
-        cc.phase("Processing Python setup files")
+        cc.step("Processing Python setup files")
 
         files_to_process = []
         for src_file, dest_file in bundle_map.all_mappings(
@@ -73,8 +73,8 @@ class NativeAppSetupProcessor(ArtifactProcessor):
             )
             files_to_process.append(src_file)
 
-        sql_files_mapping = self._execute_in_sandbox(files_to_process)
-        self._generate_setup_sql(sql_files_mapping)
+            sql_files_mapping = self._execute_in_sandbox(files_to_process)
+            self._generate_setup_sql(sql_files_mapping)
 
     def _execute_in_sandbox(self, py_files: List[Path]) -> dict:
         file_count = len(py_files)

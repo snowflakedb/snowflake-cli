@@ -19,7 +19,7 @@ from unittest import mock
 import pytest
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.exceptions import (
-    InvalidScriptError,
+    InvalidTemplateInFileError,
     MissingScriptError,
 )
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
@@ -217,7 +217,7 @@ def test_invalid_package_script(mock_conn, mock_execute, project_definition_file
     mock_conn.return_value = MockConnectionCtx()
     working_dir: Path = project_definition_files[0].parent
     native_app_manager = _get_na_manager(str(working_dir))
-    with pytest.raises(InvalidScriptError):
+    with pytest.raises(InvalidTemplateInFileError):
         second_file = working_dir / "002-shared.sql"
         second_file.unlink()
         second_file.write_text("select * from {{ package_name")
@@ -236,7 +236,7 @@ def test_undefined_var_package_script(
     mock_conn.return_value = MockConnectionCtx()
     working_dir: Path = project_definition_files[0].parent
     native_app_manager = _get_na_manager(str(working_dir))
-    with pytest.raises(InvalidScriptError):
+    with pytest.raises(InvalidTemplateInFileError):
         second_file = working_dir / "001-shared.sql"
         second_file.unlink()
         second_file.write_text("select * from {{ abc }}")
