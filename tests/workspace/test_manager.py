@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from unittest import mock
@@ -111,12 +112,31 @@ def test_migration_already_v2(runner, project_directory, project_directory_name)
 @pytest.mark.parametrize(
     "project_directory_name", ["snowpark_templated_v1", "streamlit_templated_v1"]
 )
-def test_if_template_is_not_rendered_during_migration(
-    runner, project_directory, project_directory_name, os_agnostic_snapshot
+def test_if_template_is_not_rendered_during_migration_with_option_checked(
+    runner, project_directory, project_directory_name, os_agnostic_snapshot, caplog
 ):
     with project_directory(project_directory_name):
-        result = runner.invoke(["ws", "migrate"])
+        with caplog.at_level(logging.WARNING):
+            result = runner.invoke(["ws", "migrate", "--accept-templates"])
 
     assert result.exit_code == 0
     assert Path("snowflake.yml").read_text() == os_agnostic_snapshot
     assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
+    assert (
+        "Your V1 definition contains templates. We cannot guarantee the correctness of the migration."
+        in caplog.text
+    )
+
+
+@pytest.mark.parametrize(
+    "project_directory_name", ["snowpark_templated_v1", "streamlit_templated_v1"]
+)
+def test_if_template_raises_error_during_migrations(
+    runner, project_directory, project_directory_name, os_agnostic_snapshot
+):
+    with project_directory(project_directory_name):
+        with pytest.raises(ValueError) as e:
+            result = runner.invoke(["ws", "migrate"])
+
+            assert result.exit_code == 1
+            assert "Project definition contains templates" in e.value

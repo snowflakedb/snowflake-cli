@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import typer
 import yaml
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
@@ -32,10 +34,14 @@ ws = SnowTyper(
     name="ws",
     help="Deploy and interact with snowflake.yml-based entities.",
 )
+log = logging.getLogger(__name__)
 
 
 @ws.command()
 def migrate(
+    accept_templates: bool = typer.Option(
+        False, "-t", "--accept-templates", help="Allows the migration of templates."
+    ),
     **options,
 ):
     """Migrates the Snowpark and Streamlit project definition files form V1 to V2."""
@@ -43,6 +49,16 @@ def migrate(
 
     if pd.meets_version_requirement("2"):
         return MessageResult("Project definition is already at version 2.")
+
+    if "<% ctx." in str(pd):
+        if not accept_templates:
+            raise ValueError(
+                "Project definition contains templates. They may not be migrated correctly, and require manual migration."
+                "You can try again with --accept-templates  option, to attempt automatic migration."
+            )
+        log.warning(
+            "Your V1 definition contains templates. We cannot guarantee the correctness of the migration."
+        )
 
     if pd.streamlit:
         pd_v2 = migrate_v1_streamlit_to_v2(pd)
@@ -56,7 +72,10 @@ def migrate(
     SecurePath("snowflake.yml").rename("snowflake_V1.yml")
     with open("snowflake.yml", "w") as file:
         yaml.dump(
-            pd_v2.model_dump(exclude_unset=True, exclude_none=True, mode="json", by_alias=True), file
+            pd_v2.model_dump(
+                exclude_unset=True, exclude_none=True, mode="json", by_alias=True
+            ),
+            file,
         )
     return MessageResult("Project definition migrated to version 2.")
 
