@@ -21,3 +21,5 @@ snowpark:
       handler: "procedures.test_procedure"
       signature: ""
       returns: string
+env:
+  project_source: "app/"

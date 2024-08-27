@@ -1,19 +1,20 @@
 # serializer version: 1
 # name: test_if_template_is_not_rendered_during_migration_with_option_checked[snowpark_templated_v1]
   '''
-  defaults:
-    project_name: <! project_name | to_snowflake_identifier !>
-    stage: <! stage | to_snowflake_identifier !>
   definition_version: '2'
   entities:
     hello_function:
       artifacts:
-      - <% ctx.env.project_source %>
+      - dest: <! project_name | to_snowflake_identifier !>
+        src: <% ctx.env.project_source %>
       external_access_integrations: []
       handler: functions.hello_function
       identifier:
         name: hello_function
       imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
       returns: string
       secrets: {}
       signature:
@@ -23,13 +24,17 @@
       type: function
     hello_procedure:
       artifacts:
-      - <% ctx.env.project_source %>
+      - dest: <! project_name | to_snowflake_identifier !>
+        src: <% ctx.env.project_source %>
       execute_as_caller: false
       external_access_integrations: []
       handler: procedures.hello_procedure
       identifier:
         name: hello_procedure
       imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
       returns: string
       secrets: {}
       signature:
@@ -39,18 +44,30 @@
       type: procedure
     test_procedure:
       artifacts:
-      - <% ctx.env.project_source %>
+      - dest: <! project_name | to_snowflake_identifier !>
+        src: <% ctx.env.project_source %>
       execute_as_caller: false
       external_access_integrations: []
       handler: procedures.test_procedure
       identifier:
         name: test_procedure
       imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
       returns: string
       secrets: {}
       signature: ''
       stage: <! stage | to_snowflake_identifier !>
       type: procedure
+  env:
+    project_source: app/
+  mixins:
+    snowpark_shared:
+      artifacts:
+      - dest: <! project_name | to_snowflake_identifier !>
+        src: <% ctx.env.project_source %>
+      stage: <! stage | to_snowflake_identifier !>
   
   '''
 # ---
@@ -79,6 +96,8 @@
         handler: "procedures.test_procedure"
         signature: ""
         returns: string
+  env:
+    project_source: "app/"
   
   '''
 # ---
@@ -116,6 +135,8 @@
     title: <% ctx.env.streamlit_title %>
     additional_source_files:
       - common/hello.py
+  env:
+    streamlit_title: "My Fancy Streamlit"
   
   '''
 # ---

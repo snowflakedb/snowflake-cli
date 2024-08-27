@@ -18,6 +18,7 @@ import logging
 
 import typer
 import yaml
+from click import ClickException
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.snowpark.commands import migrate_v1_snowpark_to_v2
 from snowflake.cli._plugins.streamlit.commands import migrate_v1_streamlit_to_v2

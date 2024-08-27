@@ -9,3 +9,5 @@ streamlit:
   title: <% ctx.env.streamlit_title %>
   additional_source_files:
     - common/hello.py
+env:
+  streamlit_title: "My Fancy Streamlit"
