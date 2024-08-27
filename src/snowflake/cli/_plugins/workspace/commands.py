@@ -23,6 +23,7 @@ import typer
 import yaml
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
+from snowflake.cli._plugins.nativeapp.common_flags import ValidateOption
 from snowflake.cli._plugins.snowpark.commands import migrate_v1_snowpark_to_v2
 from snowflake.cli._plugins.streamlit.commands import migrate_v1_streamlit_to_v2
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
@@ -145,6 +146,7 @@ def deploy(
             unspecified, the command syncs all local changes to the stage."""
         ).strip(),
     ),
+    validate: bool = ValidateOption,
     **options,
 ):
     """
@@ -174,5 +176,6 @@ def deploy(
         prune=prune,
         recursive=recursive,
         paths=paths,
+        validate=validate,
     )
     return MessageResult("Deployed successfully.")
