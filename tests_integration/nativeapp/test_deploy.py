@@ -68,6 +68,7 @@ def test_nativeapp_deploy(
     with nativeapp_project_directory(test_project):
         result = runner.invoke_with_connection(split(command))
         assert result.exit_code == 0
+        assert "Validating Snowflake Native App setup script." in result.output
         assert sanitize_deploy_output(result.output) == snapshot
 
         # package exist
