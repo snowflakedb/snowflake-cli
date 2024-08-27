@@ -12,5 +12,5 @@ echo %CLI_VERSION%
 
 @echo off
 set CONTENTSDIR="snowflake-cli-%CLI_VERSION%"
-set ENTRYPOINT=src\\snowflake-cli\\_app\\__main__.py
+set ENTRYPOINT=src\\snowflake\\cli\\_app\\__main__.py
 "C:\Program Files\Python310\python.exe" -m hatch -e packaging run pyinstaller --name snow --onedir --clean --noconfirm --noconsole --contents-directory=%CONTENTSDIR% %ENTRYPOINT%
