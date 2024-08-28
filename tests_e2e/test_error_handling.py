@@ -19,6 +19,7 @@ from textwrap import dedent
 
 import pytest
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.secure_utils import windows_get_not_whitelisted_users_with_access
 
 from tests_common import IS_WINDOWS
@@ -55,20 +56,26 @@ def _restrict_file_permissions(file_path: Path):
         _restrict_file_permissions_unix(file_path)
 
 
+@pytest.fixture()
+def config_file(test_root_path, temp_dir):
+    config_file_path = SecurePath(test_root_path) / "config" / "config.toml"
+    target_file_path = Path(temp_dir) / "config.toml"
+    config_file_path.copy(target_file_path)
+    yield target_file_path
+
+
 @pytest.mark.e2e
-def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
-    config_path = test_root_path / "config" / "config.toml"
-    grant_permissions_on_windows(config_path)
-    _restrict_file_permissions(config_path)
-    cli_console.message(f">> Config path: {config_path}")
-    cli_console.message(config_path.read_text())
+def test_error_traceback_disabled_without_debug(snowcli, config_file):
+    grant_permissions_on_windows(config_file)
+    cli_console.message(f">> Config path: {config_file}")
+    cli_console.message(config_file.read_text())
 
     traceback_msg = "Traceback (most recent call last)"
     result = subprocess_run(
         [
             snowcli,
             "--config-file",
-            config_path,
+            config_file,
             "sql",
             "-c",
             "integration",
@@ -85,7 +92,7 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
         [
             snowcli,
             "--config-file",
-            config_path,
+            config_file,
             "sql",
             "-c",
             "integration",
