@@ -6,7 +6,7 @@ native_app:
     - src: app/*
       dest: ./
       processors:
-        - templating
+        - templates
 
 env:
   schema: app_schema

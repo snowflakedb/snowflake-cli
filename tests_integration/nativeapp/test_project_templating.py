@@ -342,10 +342,10 @@ def test_nativeapp_project_templating_bundle_deploy_successful(
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "test_project", ["napp_templating_processors_v1", "napp_templating_processors_v2"]
+    "test_project", ["napp_templates_processors_v1", "napp_templates_processors_v2"]
 )
 @pytest.mark.parametrize("with_project_flag", [True, False])
-def test_nativeapp_templating_processor_with_run(
+def test_nativeapp_templates_processor_with_run(
     runner,
     snowflake_session,
     default_username,
@@ -390,10 +390,10 @@ def test_nativeapp_templating_processor_with_run(
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "test_project", ["napp_templating_processors_v1", "napp_templating_processors_v2"]
+    "test_project", ["napp_templates_processors_v1", "napp_templates_processors_v2"]
 )
 @pytest.mark.parametrize("with_project_flag", [True, False])
-def test_nativeapp_templating_processor_with_deploy(
+def test_nativeapp_templates_processor_with_deploy(
     runner,
     nativeapp_project_directory,
     test_project,

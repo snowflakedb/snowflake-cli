@@ -36,9 +36,9 @@ from snowflake.cli.api.rendering.sql_templates import (
 )
 
 
-class TemplatingProcessor(ArtifactProcessor):
+class TemplatesProcessor(ArtifactProcessor):
     """
-    Processor class to perform templating on all relevant artifacts (specified in the project definition file).
+    Processor class to perform template expansion on all relevant artifacts (specified in the project definition file).
     """
 
     def process(
@@ -48,9 +48,9 @@ class TemplatingProcessor(ArtifactProcessor):
         **kwargs,
     ):
         """
-        Process the artifact by executing the templating logic on it.
+        Process the artifact by executing the template expansion logic on it.
         """
-        cc.step(f"Processing artifact {artifact_to_process} with templating processor")
+        cc.step(f"Processing artifact {artifact_to_process} with templates processor")
 
         bundle_map = BundleMap(
             project_root=self._bundle_ctx.project_root,

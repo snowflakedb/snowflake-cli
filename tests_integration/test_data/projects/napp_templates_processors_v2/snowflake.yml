@@ -8,7 +8,7 @@ entities:
       - src: app/*
         dest: ./
         processors:
-          - templating
+          - templates
     manifest: app/manifest.yml
   app:
     type: application

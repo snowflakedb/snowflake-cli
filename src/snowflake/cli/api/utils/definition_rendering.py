@@ -96,7 +96,7 @@ class TemplatedEnvironment:
             )
             or current_attr_chain is not None
         ):
-            raise InvalidTemplate(f"Unexpected templating syntax in {template_value}")
+            raise InvalidTemplate(f"Unexpected template syntax in {template_value}")
 
         for child_node in ast_node.iter_child_nodes():
             all_referenced_vars.update(
@@ -353,9 +353,7 @@ def render_definition_template(
     )
 
     def on_cycle_action(node: Node[TemplateVar]):
-        raise CycleDetectedError(
-            f"Cycle detected in templating variable {node.data.key}"
-        )
+        raise CycleDetectedError(f"Cycle detected in template variable {node.data.key}")
 
     dependencies_graph.dfs(
         visit_action=lambda node: _render_graph_node(template_env, node),

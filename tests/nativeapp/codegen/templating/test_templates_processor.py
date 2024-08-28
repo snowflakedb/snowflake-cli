@@ -21,8 +21,8 @@ from unittest import mock
 
 import pytest
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
-from snowflake.cli._plugins.nativeapp.codegen.templating.templating_processor import (
-    TemplatingProcessor,
+from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor import (
+    TemplatesProcessor,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import InvalidTemplateInFileError
 from snowflake.cli.api.exceptions import InvalidTemplate
@@ -64,7 +64,7 @@ def bundle_files(
         output_files.append(deploy_file)
         deploy_file.symlink_to(src_root / file_name)
 
-    artifact_to_process = PathMapping(src="src/*", dest="./", processors=["templating"])
+    artifact_to_process = PathMapping(src="src/*", dest="./", processors=["templates"])
 
     bundle_context = BundleContext(
         package_name="test_package_name",
@@ -79,13 +79,13 @@ def bundle_files(
 
 
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, {})
-def test_templating_processor_valid_files_no_templates():
+def test_templates_processor_valid_files_no_templates():
     file_names = ["test_file.txt"]
     file_contents = ["This is a test file\n with some content"]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_names, file_contents)
-        templating_processor = TemplatingProcessor(bundle_ctx=bundle_result.bundle_ctx)
-        templating_processor.process(bundle_result.artifact_to_process, None)
+        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert bundle_result.output_files[0].is_symlink()
         assert bundle_result.output_files[0].read_text() == file_contents[0]
@@ -100,8 +100,8 @@ def test_one_file_with_template_and_one_without():
     ]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_names, file_contents)
-        templating_processor = TemplatingProcessor(bundle_ctx=bundle_result.bundle_ctx)
-        templating_processor.process(bundle_result.artifact_to_process, None)
+        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert bundle_result.output_files[0].is_symlink()
         assert bundle_result.output_files[0].read_text() == file_contents[0]
@@ -113,7 +113,7 @@ def test_one_file_with_template_and_one_without():
 
 
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, {"ctx": {"native_app": {"name": "test_app"}}})
-def test_templating_with_sql_and_non_sql_files_and_mix_syntax():
+def test_templates_with_sql_and_non_sql_files_and_mix_syntax():
     file_names = ["test_sql.sql", "test_non_sql.txt"]
     file_contents = [
         "This is a sql file with &{ ctx.native_app.name }",
@@ -121,8 +121,8 @@ def test_templating_with_sql_and_non_sql_files_and_mix_syntax():
     ]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_names, file_contents)
-        templating_processor = TemplatingProcessor(bundle_ctx=bundle_result.bundle_ctx)
-        templating_processor.process(bundle_result.artifact_to_process, None)
+        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert not bundle_result.output_files[0].is_symlink()
         assert bundle_result.output_files[0].read_text() == file_contents[0].replace(
@@ -136,14 +136,14 @@ def test_templating_with_sql_and_non_sql_files_and_mix_syntax():
 
 
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, {"ctx": {"env": {"name": "test_name"}}})
-def test_templating_with_sql_new_syntax():
+def test_templates_with_sql_new_syntax():
     file_names = ["test_sql.sql"]
     file_contents = ["This is a sql file with <% ctx.env.name %>"]
 
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_names, file_contents)
-        templating_processor = TemplatingProcessor(bundle_ctx=bundle_result.bundle_ctx)
-        templating_processor.process(bundle_result.artifact_to_process, None)
+        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert not bundle_result.output_files[0].is_symlink()
         assert bundle_result.output_files[0].read_text() == file_contents[0].replace(
@@ -152,13 +152,13 @@ def test_templating_with_sql_new_syntax():
 
 
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, {"ctx": {"env": {"name": "test_name"}}})
-def test_templating_with_sql_old_syntax():
+def test_templates_with_sql_old_syntax():
     file_names = ["test_sql.sql"]
     file_contents = ["This is a sql file with &{ ctx.env.name }"]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_names, file_contents)
-        templating_processor = TemplatingProcessor(bundle_ctx=bundle_result.bundle_ctx)
-        templating_processor.process(bundle_result.artifact_to_process, None)
+        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert not bundle_result.output_files[0].is_symlink()
         assert bundle_result.output_files[0].read_text() == file_contents[0].replace(
@@ -167,15 +167,15 @@ def test_templating_with_sql_old_syntax():
 
 
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, {"ctx": {"env": {"name": "test_name"}}})
-def test_templating_with_sql_both_old_and_new_syntax():
+def test_templates_with_sql_both_old_and_new_syntax():
     file_names = ["test_sql.sql"]
     file_contents = ["This is a sql file with &{ ctx.env.name } and <% ctx.env.name %>"]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_names, file_contents)
-        templating_processor = TemplatingProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
 
         with pytest.raises(InvalidTemplate) as e:
-            templating_processor.process(bundle_result.artifact_to_process, None)
+            templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert "mixes &{ ... } syntax and <% ... %> syntax." in str(e.value)
         assert bundle_result.output_files[0].is_symlink()
@@ -188,10 +188,10 @@ def test_file_with_syntax_error():
     file_contents = ["This is a test file with invalid <% ctx.env.TEST_VAR"]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_name, file_contents)
-        templating_processor = TemplatingProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
 
         with pytest.raises(InvalidTemplateInFileError) as e:
-            templating_processor.process(bundle_result.artifact_to_process, None)
+            templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert "does not contain a valid template" in str(e.value)
         assert bundle_result.output_files[0].is_symlink()
@@ -204,10 +204,10 @@ def test_file_with_undefined_variable():
     file_contents = ["This is a test file with invalid <% ctx.env.TEST_VAR %>"]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_name, file_contents)
-        templating_processor = TemplatingProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
 
         with pytest.raises(InvalidTemplateInFileError) as e:
-            templating_processor.process(bundle_result.artifact_to_process, None)
+            templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert "'ctx' is undefined" in str(e.value)
         assert "does not contain a valid template" in str(e.value)

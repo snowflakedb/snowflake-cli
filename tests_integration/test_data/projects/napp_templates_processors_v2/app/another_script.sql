@@ -1,4 +1,4 @@
--- This file uses old templating syntax
+-- This file uses old templates syntax
 CREATE OR REPLACE TABLE &{ ctx.env.schema_name }.&{ ctx.env.table_name } (
     name STRING
 );

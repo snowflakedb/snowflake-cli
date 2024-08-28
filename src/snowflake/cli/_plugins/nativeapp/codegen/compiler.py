@@ -30,8 +30,8 @@ from snowflake.cli._plugins.nativeapp.codegen.setup.native_app_setup_processor i
 from snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
 )
-from snowflake.cli._plugins.nativeapp.codegen.templating.templating_processor import (
-    TemplatingProcessor,
+from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor import (
+    TemplatesProcessor,
 )
 from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli.api.console import cli_console as cc
@@ -41,12 +41,12 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import (
 
 SNOWPARK_PROCESSOR = "snowpark"
 NA_SETUP_PROCESSOR = "native app setup"
-TEMPLATING_PROCESSOR = "templating"
+TEMPLATES_PROCESSOR = "templates"
 
 _REGISTERED_PROCESSORS_BY_NAME = {
     SNOWPARK_PROCESSOR: SnowparkAnnotationProcessor,
     NA_SETUP_PROCESSOR: NativeAppSetupProcessor,
-    TEMPLATING_PROCESSOR: TemplatingProcessor,
+    TEMPLATES_PROCESSOR: TemplatesProcessor,
 }
 
 
