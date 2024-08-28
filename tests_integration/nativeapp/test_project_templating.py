@@ -18,6 +18,9 @@ from tests_integration.test_utils import (
     contains_row_with,
     row_from_snowflake_session,
 )
+from tests_integration.testing_utils.working_directory_utils import (
+    WorkingDirectoryChanger,
+)
 
 
 # Tests a simple flow of native app with template reading env variables from OS
@@ -335,3 +338,86 @@ def test_nativeapp_project_templating_bundle_deploy_successful(
                 env=local_test_env,
             )
             assert result.exit_code == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "test_project", ["napp_templates_processors_v1", "napp_templates_processors_v2"]
+)
+@pytest.mark.parametrize("with_project_flag", [True, False])
+def test_nativeapp_templates_processor_with_run(
+    runner,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+    nativeapp_project_directory,
+    test_project,
+    with_project_flag,
+):
+    project_name = "myapp"
+    app_name = f"{project_name}_{default_username}{resource_suffix}"
+
+    with nativeapp_project_directory(test_project) as tmp_dir:
+        project_args = ["--project", f"{tmp_dir}"] if with_project_flag else []
+
+        if with_project_flag:
+            working_directory_changer = WorkingDirectoryChanger()
+            working_directory_changer.change_working_directory_to("app")
+        try:
+            result = runner.invoke_with_connection_json(
+                ["app", "run"] + project_args,
+                env={
+                    "schema_name": "test_schema",
+                    "table_name": "test_table",
+                    "value": "test_value",
+                },
+            )
+            assert result.exit_code == 0
+
+            result = row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"select * from {app_name}.test_schema.test_table",
+                )
+            )
+            assert result == [{"NAME": "test_value"}]
+
+        finally:
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"] + project_args
+            )
+            assert result.exit_code == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "test_project", ["napp_templates_processors_v1", "napp_templates_processors_v2"]
+)
+@pytest.mark.parametrize("with_project_flag", [True, False])
+def test_nativeapp_templates_processor_with_deploy(
+    runner,
+    nativeapp_project_directory,
+    test_project,
+    with_project_flag,
+):
+
+    with nativeapp_project_directory(test_project) as tmp_dir:
+        project_args = ["--project", f"{tmp_dir}"] if with_project_flag else []
+
+        if with_project_flag:
+            working_directory_changer = WorkingDirectoryChanger()
+            working_directory_changer.change_working_directory_to("app")
+
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy"] + project_args,
+            env={
+                "schema_name": "test_schema",
+                "table_name": "test_table",
+                "value": "test_value",
+            },
+        )
+        assert result.exit_code == 0
+
+        with open(
+            tmp_dir / "output" / "deploy" / "another_script.sql", "r", encoding="utf-8"
+        ) as f:
+            assert "test_value" in f.read()

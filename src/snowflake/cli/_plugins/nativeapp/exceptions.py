@@ -64,15 +64,15 @@ class MissingScriptError(ClickException):
         super().__init__(f'Script "{relpath}" does not exist')
 
 
-class InvalidScriptError(ClickException):
-    """A referenced script had syntax error(s)."""
+class InvalidTemplateInFileError(ClickException):
+    """A referenced templated file had syntax error(s)."""
 
     def __init__(
         self, relpath: str, err: jinja2.TemplateError, lineno: Optional[int] = None
     ):
         lineno_str = f":{lineno}" if lineno is not None else ""
         super().__init__(
-            f'Script "{relpath}{lineno_str}" does not contain a valid template: {err.message}'
+            f'File "{relpath}{lineno_str}" does not contain a valid template: {err.message}'
         )
         self.err = err
 
