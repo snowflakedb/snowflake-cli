@@ -226,12 +226,8 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             edit_setup_script_with_exec_imm_sql(
                 collected_sql_files=collected_sql_files,
                 deploy_root=bundle_map.deploy_root(),
-                generated_root=self._generated_root,
+                generated_root=self._bundle_ctx.generated_root,
             )
-
-    @property
-    def _generated_root(self):
-        return self._bundle_ctx.generated_root / "snowpark"
 
     def _normalize_imports(
         self,
@@ -366,7 +362,9 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         Generates a SQL filename for the generated root from the python file, and creates its parent directories.
         """
         relative_py_file = py_file.relative_to(self._bundle_ctx.deploy_root)
-        sql_file = Path(self._generated_root, relative_py_file.with_suffix(".sql"))
+        sql_file = Path(
+            self._bundle_ctx.generated_root, relative_py_file.with_suffix(".sql")
+        )
         if sql_file.exists():
             cc.warning(
                 f"""\

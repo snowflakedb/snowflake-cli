@@ -173,7 +173,7 @@ class SnowparkTestSteps:
             additional_files.append(Path("dependencies.zip"))
 
         current_files = set(Path(".").glob("**/*"))
-        result = self._setup.runner.invoke_json(
+        result = self._setup.runner.invoke_with_connection_json(
             ["snowpark", "build", "--format", "JSON", *args]
         )
 
