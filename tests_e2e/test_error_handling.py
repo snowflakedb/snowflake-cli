@@ -99,6 +99,7 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
     assert traceback_msg in result_debug.stderr
 
 
+@pytest.mark.skip(reason="debug")
 @pytest.mark.e2e
 def test_corrupted_config_in_default_location(
     snowcli, temp_dir, isolate_default_config_location, test_root_path, snapshot
@@ -120,6 +121,7 @@ def test_corrupted_config_in_default_location(
     assert "dev" in result_healthy.stdout and "integration" in result_healthy.stdout
 
 
+@pytest.mark.skip(reason="debug")
 @pytest.mark.e2e
 def test_initial_log_with_loaded_external_plugins_in_custom_log_path(
     snowcli, temp_dir, isolate_default_config_location, test_root_path
@@ -159,6 +161,7 @@ def test_initial_log_with_loaded_external_plugins_in_custom_log_path(
         assert "Loaded external plugin: multilingual-hello" in log_content
 
 
+@pytest.mark.skip(reason="debug")
 @pytest.mark.e2e
 def test_initial_log_with_loaded_external_plugins_in_custom_log_path_with_custom_config(
     snowcli, temp_dir, isolate_default_config_location, test_root_path

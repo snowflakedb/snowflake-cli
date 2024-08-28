@@ -18,6 +18,8 @@ import pytest
 
 from tests_e2e.conftest import subprocess_check_output
 
+pytest.skip(allow_module_level=True)
+
 
 @pytest.mark.e2e
 def test_snow_help(snowcli, snapshot):

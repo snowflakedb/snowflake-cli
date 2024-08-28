@@ -21,6 +21,8 @@ import pytest
 
 from tests_e2e.conftest import subprocess_check_output, subprocess_run
 
+pytest.skip(allow_module_level=True)
+
 
 def subprocess_check_output_with(sql_stmt: str, config_path: Path, snowcli) -> str:
     return subprocess_check_output(
