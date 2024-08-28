@@ -157,6 +157,58 @@ def test_deploy_only_streamlit_file_no_stage(
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
+def test_deploy_with_empty_pages(
+    mock_connector,
+    mock_typer,
+    mock_get_account,
+    mock_cursor,
+    runner,
+    mock_ctx,
+    project_directory,
+):
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
+                {"CURRENT_ACCOUNT_NAME()": "my_account"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
+    mock_connector.return_value = ctx
+    mock_get_account.return_value = "my_account"
+
+    with project_directory("streamlit_empty_pages") as directory:
+        (directory / "pages").mkdir(parents=True, exist_ok=True)
+        result = runner.invoke(["streamlit", "deploy"])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
+        _put_query(
+            "streamlit_app.py", "@MockDatabase.MockSchema.streamlit/test_streamlit"
+        ),
+        _put_query(
+            "environment.yml", "@MockDatabase.MockSchema.streamlit/test_streamlit"
+        ),
+        dedent(
+            f"""
+            CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
+            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
+            MAIN_FILE = 'streamlit_app.py'
+            QUERY_WAREHOUSE = test_warehouse
+            """
+        ).strip(),
+        "select system$get_snowsight_host()",
+        REGIONLESS_QUERY,
+    ]
+    assert "Skipping empty directory: pages" in result.output
+
+
+@mock.patch("snowflake.cli._plugins.connection.util.get_account")
+@mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
+@mock.patch("snowflake.connector.connect")
 def test_deploy_only_streamlit_file_replace(
     mock_connector,
     mock_typer,
