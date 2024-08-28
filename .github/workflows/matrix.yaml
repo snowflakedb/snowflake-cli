@@ -12,8 +12,8 @@ jobs:
   define-matrix:
     runs-on: ubuntu-latest
     outputs:
-      os:  ${{ steps.os.outputs.os }}
-      python:  ${{ steps.python.outputs.python }}
+      os: ${{ steps.os.outputs.os }}
+      python: ${{ steps.python.outputs.python }}
     steps:
       - name: Define OS versions
         id: os
@@ -21,7 +21,7 @@ jobs:
           if [ "${{ github.event_name }}" = "schedule" ]; then
             echo 'os=["windows-latest", "ubuntu-latest", "macos-latest"]' >> "$GITHUB_OUTPUT"
           else
-            echo 'os=["windows-latest", "ubuntu-latest"]' >> "$GITHUB_OUTPUT"
+            echo 'os=["windows-latest"]' >> "$GITHUB_OUTPUT"
           fi
       - name: Define python versions
         id: python
