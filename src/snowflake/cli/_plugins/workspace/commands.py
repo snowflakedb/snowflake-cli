@@ -45,7 +45,7 @@ def migrate(
     ),
     **options,
 ):
-    """Migrates the Snowpark and Streamlit project definition files form V1 to V2."""
+    """Migrates the Snowpark and Streamlit project definition files from V1 to V2."""
     pd = DefinitionManager().unrendered_project_definition
 
     if pd.meets_version_requirement("2"):

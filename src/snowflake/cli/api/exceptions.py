@@ -19,6 +19,7 @@ from typing import Optional
 
 from click.exceptions import ClickException, UsageError
 from snowflake.cli.api.constants import ObjectType
+from snowflake.connector.compat import IS_WINDOWS
 
 
 class EnvironmentVariableNotFoundError(ClickException):
@@ -140,9 +141,18 @@ class DirectoryIsNotEmptyError(ClickException):
 
 class ConfigFileTooWidePermissionsError(ClickException):
     def __init__(self, path: Path):
-        super().__init__(
-            f'Configuration file {path} has too wide permissions, run `chmod 0600 "{path}"`'
+        change_permissons_command = (
+            f'icacls "{path}" /deny <USER_ID>:F'
+            if IS_WINDOWS
+            else f'chmod 0600 "{path}"'
         )
+        msg = f"Configuration file {path} has too wide permissions, run `{change_permissons_command}`."
+        if IS_WINDOWS:
+            msg += (
+                f'\nTo check which users have access to the file run `icacls "{path}"`.'
+                "Run the above command for all users except you and administrators."
+            )
+        super().__init__(msg)
 
 
 class DatabaseNotProvidedError(ClickException):
