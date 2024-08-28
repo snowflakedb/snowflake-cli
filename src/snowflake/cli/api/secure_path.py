@@ -24,7 +24,12 @@ from pathlib import Path
 from typing import Optional, Union
 
 from snowflake.cli.api.exceptions import DirectoryIsNotEmptyError, FileTooLargeError
-from snowflake.cli.api.secure_utils import restrict_file_permissions
+from snowflake.cli.api.secure_utils import (
+    chmod as secure_chmod,
+)
+from snowflake.cli.api.secure_utils import (
+    restrict_file_permissions,
+)
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +52,12 @@ class SecurePath:
         Returns itself in pathlib.Path format
         """
         return self._path
+
+    def chmod(self, permissions_mask: int) -> None:
+        """
+        Change the file mode and permissions, like os.chmod().
+        """
+        secure_chmod(self._path, permissions_mask)
 
     @property
     def parent(self):

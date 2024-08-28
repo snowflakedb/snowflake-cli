@@ -88,6 +88,11 @@ def file_permissions_are_strict(file_path: Path) -> bool:
     return _unix_file_permissions_are_strict(file_path)
 
 
+def chmod(path: Path, permissions_mask: int) -> None:
+    log.info("Update permissions of file %s to %s", path, oct(permissions_mask))
+    path.chmod(permissions_mask)
+
+
 def _unix_restrict_file_permissions(path: Path) -> None:
     owner_permissions = (
         # https://docs.python.org/3/library/stat.html
@@ -95,9 +100,7 @@ def _unix_restrict_file_permissions(path: Path) -> None:
         | stat.S_IWUSR  # writeable by owner
         | stat.S_IXUSR  # executable by owner
     )
-    target_permissions = path.stat().st_mode & owner_permissions
-    log.info("Update permissions of file %s to %s", path, oct(target_permissions))
-    path.chmod(target_permissions)
+    chmod(path, path.stat().st_mode & owner_permissions)
 
 
 def _windows_restrict_file_permissions(path: Path) -> None:

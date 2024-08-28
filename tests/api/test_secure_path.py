@@ -70,7 +70,7 @@ def _read_logs(logs_path: Path) -> str:
 def _assert_count_matching_logs(
     save_logs, expected_count, log_prefix, filename, log_suffix=""
 ):
-    regex = rf"INFO \[snowflake\.cli\.api\.secure_path\] {log_prefix} \S+{filename}{log_suffix}"
+    regex = rf"INFO \[snowflake\.cli\.api\.secure_(path|utils)\] {log_prefix} \S+{filename}{log_suffix}"
     logs = _read_logs(save_logs).splitlines()
     count = sum(1 for line in logs if re.search(regex, line) is not None)
     assert count == expected_count
