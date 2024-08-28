@@ -25,6 +25,7 @@ from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
 )
+from snowflake.cli._plugins.snowpark.common import is_name_a_templated_one
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
@@ -204,8 +205,8 @@ def migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
     if pd.streamlit.database:
         identifier["database"] = pd.streamlit.database
 
-    if pd.streamlit.name.startswith("<%") and pd.streamlit.name.endswith("%>"):
-        streamlit_name = "streamlit_entity_1"
+    if is_name_a_templated_one(pd.streamlit.name):
+        streamlit_name = "streamlit_entity_1"  # we don't care about numbering, as only 1 streamlit is allowed in V1
     else:
         streamlit_name = pd.streamlit.name
 
