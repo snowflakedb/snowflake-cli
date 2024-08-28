@@ -51,7 +51,7 @@
   | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
   |                          current working directory.                          |
   | --env              TEXT  String in format of key=value. Overrides variables  |
-  |                          from env section used for templating.               |
+  |                          from env section used for templates.                |
   | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -113,7 +113,7 @@
   |                                          working directory.                  |
   | --env                              TEXT  String in format of key=value.      |
   |                                          Overrides variables from env        |
-  |                                          section used for templating.        |
+  |                                          section used for templates.         |
   | --help       -h                          Show this message and exit.         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -185,7 +185,7 @@
   | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
   |                          current working directory.                          |
   | --env              TEXT  String in format of key=value. Overrides variables  |
-  |                          from env section used for templating.               |
+  |                          from env section used for templates.                |
   | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -308,7 +308,7 @@
   |                                                     key=value. Overrides     |
   |                                                     variables from env       |
   |                                                     section used for         |
-  |                                                     templating.              |
+  |                                                     templates.               |
   | --help               -h                             Show this message and    |
   |                                                     exit.                    |
   +------------------------------------------------------------------------------+
@@ -467,7 +467,7 @@
   | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
   |                          current working directory.                          |
   | --env              TEXT  String in format of key=value. Overrides variables  |
-  |                          from env section used for templating.               |
+  |                          from env section used for templates.                |
   | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -619,7 +619,7 @@
   |                                                        key=value. Overrides  |
   |                                                        variables from env    |
   |                                                        section used for      |
-  |                                                        templating.           |
+  |                                                        templates.            |
   | --help                -h                               Show this message and |
   |                                                        exit.                 |
   +------------------------------------------------------------------------------+
@@ -715,7 +715,7 @@
   |                                              working directory.              |
   | --env                                  TEXT  String in format of key=value.  |
   |                                              Overrides variables from env    |
-  |                                              section used for templating.    |
+  |                                              section used for templates.     |
   | --help         -h                            Show this message and exit.     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -787,7 +787,7 @@
   | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
   |                          current working directory.                          |
   | --env              TEXT  String in format of key=value. Overrides variables  |
-  |                          from env section used for templating.               |
+  |                          from env section used for templates.                |
   | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -907,7 +907,7 @@
   |                                                    key=value. Overrides      |
   |                                                    variables from env        |
   |                                                    section used for          |
-  |                                                    templating.               |
+  |                                                    templates.                |
   | --help            -h                               Show this message and     |
   |                                                    exit.                     |
   +------------------------------------------------------------------------------+
@@ -1006,7 +1006,7 @@
   |                                              working directory.              |
   | --env                                  TEXT  String in format of key=value.  |
   |                                              Overrides variables from env    |
-  |                                              section used for templating.    |
+  |                                              section used for templates.     |
   | --help         -h                            Show this message and exit.     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -1078,7 +1078,7 @@
   | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
   |                          current working directory.                          |
   | --env              TEXT  String in format of key=value. Overrides variables  |
-  |                          from env section used for templating.               |
+  |                          from env section used for templates.                |
   | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -2952,7 +2952,7 @@
   |                                         directory.                           |
   | --env                             TEXT  String in format of key=value.       |
   |                                         Overrides variables from env section |
-  |                                         used for templating.                 |
+  |                                         used for templates.                  |
   | --help                    -h            Show this message and exit.          |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -3030,7 +3030,7 @@
   | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
   |                          current working directory.                          |
   | --env              TEXT  String in format of key=value. Overrides variables  |
-  |                          from env section used for templating.               |
+  |                          from env section used for templates.                |
   | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -6400,7 +6400,7 @@
   | --project   -p      TEXT  Path where Snowflake project resides. Defaults to  |
   |                           current working directory.                         |
   | --env               TEXT  String in format of key=value. Overrides variables |
-  |                           from env section used for templating.              |
+  |                           from env section used for templates.               |
   | --help      -h            Show this message and exit.                        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -7217,7 +7217,7 @@
   | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
   |                          current working directory.                          |
   | --env              TEXT  String in format of key=value. Overrides variables  |
-  |                          from env section used for templating.               |
+  |                          from env section used for templates.                |
   | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
