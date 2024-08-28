@@ -19,81 +19,84 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional
 
+from snowflake.cli.api.config import ConnectionConfig
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.compat import IS_WINDOWS
 
+
 if TYPE_CHECKING:
     from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+
+SET_PREFIX = 'set_'
 
 schema_pattern = re.compile(r".+\..+")
 
 
 class _ConnectionContext:
-    def __init__(self):
-        self._cached_connection: Optional[SnowflakeConnection] = None
+    """
+    A wrapper around ConnectionConfig that contains additional CLI-specific
+    values we need to pass to connect_to_snowflake.
+    Maintains its own cached connection.
+    """
+    _cached_connection: Optional[SnowflakeConnection] = None
+    _config: ConnectionConfig = ConnectionConfig()
 
-        self._connection_name: Optional[str] = None
-        self._account: Optional[str] = None
-        self._database: Optional[str] = None
-        self._role: Optional[str] = None
-        self._schema: Optional[str] = None
-        self._user: Optional[str] = None
-        self._password: Optional[str] = None
-        self._authenticator: Optional[str] = None
-        self._private_key_path: Optional[str] = None
-        self._warehouse: Optional[str] = None
-        self._mfa_passcode: Optional[str] = None
-        self._enable_diag: Optional[bool] = False
-        self._diag_log_path: Optional[Path] = None
-        self._diag_allowlist_path: Optional[Path] = None
-        self._temporary_connection: bool = False
-        self._session_token: Optional[str] = None
-        self._master_token: Optional[str] = None
-        self._token_file_path: Optional[Path] = None
+    connection_name: Optional[str] = None
+    temporary_connection: bool = False
+    mfa_passcode: Optional[str] = None
+    enable_diag: bool = False
+    diag_log_path: Optional[Path] = None
+    diag_allowlist_path: Optional[Path] = None
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def _is_own_attr(cls, key: str) -> bool:
+        """
+        Is this an attribute that we store on this object directly
+        and will pass to connect_to_snowflake, or does it live inside
+        of our ConnectionConfig?
+        """
+        return key in cls.__dict__ and not isinstance(getattr(cls, key), Callable)
+
+    def __getattr__(self, key: str):
+        """
+        Delegation to ConnectionConfig and automatic creation of missing
+        set_* methods for both local attrs and configuration values.
+        """
+        if key.startswith(SET_PREFIX):
+            # defines dynamic setters for all attrs/config that don't have explicit setters.
+            # this allows us to call e.g. _ConnectionCotext.set_connection_name(name)
+            attr_key = key[len(SET_PREFIX):]
+            def setter(value):
+                setattr(self, attr_key, value)
+            return setter
+        
+        elif hasattr(self._config, key):
+            # delegate to ConnectionConfig
+            return getattr(self._config, key)
+
+        return super().__getattr__(key)
 
     def __setattr__(self, key, value):
         """
+        Sets the given attribute in either the ConnectionConfig or locally.
         We invalidate connection cache every time connection attributes change.
         """
-        super().__setattr__(key, value)
+        if self._is_own_attr(key):
+            super().__setattr__(key, value)
+        else:
+            setattr(self._config, key, value)
+
         if key != "_cached_connection":
+            # FIXME: should we close the connection here?
             self._cached_connection = None
 
-    @property
-    def connection_name(self) -> Optional[str]:
-        return self._connection_name
-
-    def set_connection_name(self, value: Optional[str]):
-        self._connection_name = value
-
-    @property
-    def account(self) -> Optional[str]:
-        return self._account
-
-    def set_account(self, value: Optional[str]):
-        self._account = value
-
-    @property
-    def database(self) -> Optional[str]:
-        return self._database
-
-    def set_database(self, value: Optional[str]):
-        self._database = value
-
-    @property
-    def role(self) -> Optional[str]:
-        return self._role
-
-    def set_role(self, value: Optional[str]):
-        self._role = value
-
-    @property
-    def schema(self) -> Optional[str]:
-        return self._schema
-
     def set_schema(self, value: Optional[str]):
+        # overrides the dynamic setters registered above
         if (
             value
             and not (value.startswith('"') and value.endswith('"'))
@@ -101,122 +104,15 @@ class _ConnectionContext:
             and schema_pattern.match(value)
         ):
             raise InvalidSchemaError(value)
-        self._schema = value
-
-    @property
-    def user(self) -> Optional[str]:
-        return self._user
-
-    def set_user(self, value: Optional[str]):
-        self._user = value
-
-    @property
-    def password(self) -> Optional[str]:
-        return self._password
-
-    def set_password(self, value: Optional[str]):
-        self._password = value
-
-    @property
-    def authenticator(self) -> Optional[str]:
-        return self._authenticator
-
-    def set_authenticator(self, value: Optional[str]):
-        self._authenticator = value
-
-    @property
-    def private_key_path(self) -> Optional[str]:
-        return self._private_key_path
-
-    def set_private_key_path(self, value: Optional[str]):
-        self._private_key_path = value
-
-    @property
-    def warehouse(self) -> Optional[str]:
-        return self._warehouse
-
-    def set_warehouse(self, value: Optional[str]):
-        self._warehouse = value
-
-    @property
-    def mfa_passcode(self) -> Optional[str]:
-        return self._mfa_passcode
-
-    def set_mfa_passcode(self, value: Optional[str]):
-        self._mfa_passcode = value
-
-    @property
-    def enable_diag(self) -> Optional[bool]:
-        return self._enable_diag
-
-    def set_enable_diag(self, value: Optional[bool]):
-        self._enable_diag = value
-
-    @property
-    def diag_log_path(self) -> Optional[Path]:
-        return self._diag_log_path
-
-    def set_diag_log_path(self, value: Optional[Path]):
-        self._diag_log_path = value
-
-    @property
-    def diag_allowlist_path(self) -> Optional[Path]:
-        return self._diag_allowlist_path
-
-    def set_diag_allowlist_path(self, value: Optional[Path]):
-        self._diag_allowlist_path = value
-
-    @property
-    def temporary_connection(self) -> bool:
-        return self._temporary_connection
-
-    def set_temporary_connection(self, value: bool):
-        self._temporary_connection = value
-
-    @property
-    def session_token(self) -> Optional[str]:
-        return self._session_token
-
-    def set_session_token(self, value: Optional[str]):
-        self._session_token = value
-
-    @property
-    def master_token(self) -> Optional[str]:
-        return self._master_token
-
-    def set_master_token(self, value: Optional[str]):
-        self._master_token = value
-
-    @property
-    def token_file_path(self) -> Optional[Path]:
-        return self._token_file_path
-
-    def set_token_file_path(self, value: Optional[Path]):
-        self._token_file_path = value
+        self.schema = value
 
     @property
     def connection(self) -> SnowflakeConnection:
         if not self._cached_connection:
-            self._cached_connection = self._build_connection()
+            self._cached_connection = self._connect()
         return self._cached_connection
 
-    def _collect_not_empty_connection_attributes(self):
-        return {
-            "account": self.account,
-            "user": self.user,
-            "password": self.password,
-            "authenticator": self.authenticator,
-            "private_key_path": self.private_key_path,
-            "database": self.database,
-            "schema": self.schema,
-            "role": self.role,
-            "warehouse": self.warehouse,
-            "session_token": self.session_token,
-            "master_token": self.master_token,
-            "token_file_path": self.token_file_path,
-        }
-
-    def _build_connection(self):
+    def _connect(self):
         from snowflake.cli._app.snow_connector import connect_to_snowflake
 
         # Ignore warnings about bad owner or permissions on Windows
@@ -230,12 +126,12 @@ class _ConnectionContext:
 
         return connect_to_snowflake(
             temporary_connection=self.temporary_connection,
-            mfa_passcode=self._mfa_passcode,
-            enable_diag=self._enable_diag,
-            diag_log_path=self._diag_log_path,
-            diag_allowlist_path=self._diag_allowlist_path,
+            mfa_passcode=self.mfa_passcode,
+            enable_diag=self.enable_diag,
+            diag_log_path=self.diag_log_path,
+            diag_allowlist_path=self.diag_allowlist_path,
             connection_name=self.connection_name,
-            **self._collect_not_empty_connection_attributes(),
+            **self._config.to_dict_of_all_non_empty_values(),
         )
 
 
