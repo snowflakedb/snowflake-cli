@@ -1,0 +1,13 @@
+definition_version: 1.1
+native_app:
+  name: myapp
+
+  artifacts:
+    - src: app/*
+      dest: ./
+      processors:
+        - templates
+
+env:
+  schema: app_schema
+  pkg_schema: pkg_schema
