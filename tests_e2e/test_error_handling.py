@@ -18,10 +18,24 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.secure_utils import windows_get_not_whitelisted_users_with_access
 
 from tests_common import IS_WINDOWS
 from tests_e2e.conftest import subprocess_run
+
+
+def grant_permissions_on_windows(path: Path) -> None:
+    if not IS_WINDOWS:
+        return
+    import subprocess
+
+    user = os.getlogin()
+    cli_console.message(f">> granting permissions on {path} to user {user}")
+    result = subprocess.run(
+        ["icacls", str(path), "/grant", f"{user}:F"], capture_output=True, text=True
+    )
+    cli_console.message(result.stdout)
 
 
 def _restrict_file_permissions_unix(path: Path) -> None:
@@ -44,7 +58,9 @@ def _restrict_file_permissions(file_path: Path):
 @pytest.mark.e2e
 def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
     config_path = test_root_path / "config" / "config.toml"
+    grant_permissions_on_windows(config_path)
     _restrict_file_permissions(config_path)
+    cli_console.message(">> Config path", config_path)
 
     traceback_msg = "Traceback (most recent call last)"
     result = subprocess_run(
