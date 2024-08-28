@@ -17,12 +17,14 @@ from __future__ import annotations
 from typing import Tuple
 
 import pytest
-from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.plugins.snowpark.common import (
+from snowflake.cli._plugins.snowpark.common import (
+    _check_if_replace_is_required,
     _convert_resource_details_to_dict,
     _snowflake_dependencies_differ,
     _sql_to_python_return_type_mapper,
-    check_if_replace_is_required,
+)
+from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
+    ProcedureEntityModel,
 )
 
 
@@ -80,35 +82,86 @@ def test_sql_to_python_return_type_mapper(argument: Tuple[str, str]):
     [
         ({}, False),
         ({"handler": "app.another_procedure"}, True),
-        ({"return_type": "variant"}, True),
-        ({"snowflake_dependencies": ["snowflake-snowpark-python", "pandas"]}, True),
+        ({"returns": "variant"}, True),
         ({"external_access_integrations": ["My_Integration"]}, True),
         ({"imports": ["@FOO.BAR.BAZ/some_project/some_package.zip"]}, True),
         ({"imports": ["@FOO.BAR.BAZ/my_snowpark_project/app.zip"]}, False),
-        (
-            {"stage_artifact_file": "@FOO.BAR.BAZ/my_snowpark_project/another_app.zip"},
-            True,
-        ),
-        ({"runtime_ver": "3.9"}, True),
+        ({"runtime": "3.9"}, True),
         ({"execute_as_caller": False}, True),
     ],
 )
-def test_check_if_replace_is_required(mock_procedure_description, arguments, expected):
-    replace_arguments = {
+def test_check_if_replace_is_required_entity_changes(
+    mock_procedure_description, arguments, expected
+):
+    entity_spec = {
+        "type": "procedure",
         "handler": "app.hello_procedure",
-        "return_type": "string",
-        "snowflake_dependencies": ["snowflake-snowpark-python", "pytest<9.0.0,>=7.0.0"],
+        "signature": "(NAME VARCHAR)",
+        "artifacts": [],
+        "stage": "foo",
+        "returns": "string",
         "external_access_integrations": [],
         "imports": [],
-        "stage_artifact_file": "@FOO.BAR.BAZ/my_snowpark_project/app.zip",
-        "runtime_ver": "3.8",
+        "runtime": "3.10",
         "execute_as_caller": True,
     }
-    replace_arguments.update(arguments)
+    entity_spec.update(arguments)
+
+    entity = ProcedureEntityModel(**entity_spec)
 
     assert (
-        check_if_replace_is_required(
-            ObjectType.PROCEDURE, mock_procedure_description, **replace_arguments
+        _check_if_replace_is_required(
+            entity=entity,
+            current_state=mock_procedure_description,
+            snowflake_dependencies=[
+                "snowflake-snowpark-python",
+                "pytest<9.0.0,>=7.0.0",
+            ],
+            stage_artifact_files={"@FOO.BAR.BAZ/my_snowpark_project/app.zip"},
+        )
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    "arguments, expected",
+    [
+        ({"snowflake_dependencies": ["snowflake-snowpark-python", "pandas"]}, True),
+        (
+            {
+                "stage_artifact_files": [
+                    "@FOO.BAR.BAZ/my_snowpark_project/another_app.zip"
+                ]
+            },
+            True,
+        ),
+    ],
+)
+def test_check_if_replace_is_required_file_changes(
+    mock_procedure_description, arguments, expected
+):
+    entity_spec = {
+        "type": "procedure",
+        "handler": "app.hello_procedure",
+        "signature": "(NAME VARCHAR)",
+        "artifacts": [],
+        "stage": "foo",
+        "returns": "string",
+        "external_access_integrations": [],
+        "imports": [],
+        "runtime": "3.10",
+        "execute_as_caller": True,
+    }
+    entity = ProcedureEntityModel(**entity_spec)
+
+    kwargs = {
+        "snowflake_dependencies": ["snowflake-snowpark-python", "pytest<9.0.0,>=7.0.0"],
+        "stage_artifact_files": {"@FOO.BAR.BAZ/my_snowpark_project/app.zip"},
+    }
+    kwargs.update(arguments)
+    assert (
+        _check_if_replace_is_required(
+            entity=entity, current_state=mock_procedure_description, **kwargs
         )
         == expected
     )

@@ -1,0 +1,12 @@
+definition_version: 2
+entities:
+  my_streamlit:
+    type: "streamlit"
+    identifier:
+      name: test_streamlit_deploy_snowcli
+    title: "My Fancy Streamlit"
+    stage: streamlit
+    query_warehouse: xsmall
+    main_file: streamlit_app.py
+    artifacts:
+      - streamlit_app.py

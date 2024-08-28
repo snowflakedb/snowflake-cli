@@ -18,17 +18,19 @@ import re
 import warnings
 from pathlib import Path
 from typing import Callable, Optional, Iterator, Self, Dict, Any
-from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypedDict, NotRequired
 
 from contextvars import ContextVar
 from contextlib import contextmanager
+from typing import TYPE_CHECKING, Callable, Optional
 
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.cli.api.output.formats import OutputFormat
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.compat import IS_WINDOWS
+
+if TYPE_CHECKING:
+    from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 
 schema_pattern = re.compile(r".+\..+")
 
@@ -220,7 +222,7 @@ class _ConnectionContext:
         }
 
     def _build_connection(self):
-        from snowflake.cli.app.snow_connector import connect_to_snowflake
+        from snowflake.cli._app.snow_connector import connect_to_snowflake
 
         # Ignore warnings about bad owner or permissions on Windows
         # Telemetry omit our warning filter from config.py
@@ -399,8 +401,8 @@ class _CliGlobalContextAccess:
         return self._manager.project_definition
 
     @property
-    def project_root(self):
-        return self._manager.project_root
+    def project_root(self) -> Path:
+        return Path(self._manager.project_root)
 
     @property
     def template_context(self) -> dict:

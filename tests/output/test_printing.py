@@ -18,6 +18,7 @@ from textwrap import dedent
 from typing import NamedTuple
 
 import pytest
+from snowflake.cli._app.printing import print_result
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -28,7 +29,6 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
     StreamResult,
 )
-from snowflake.cli.app.printing import print_result
 
 from tests.testing_utils.conversion import get_output, get_output_as_json
 

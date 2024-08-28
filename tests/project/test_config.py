@@ -14,24 +14,18 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 from unittest import mock
-from unittest.mock import PropertyMock
 
 import pytest
-from snowflake.cli.api.feature_flags import FeatureFlag
-from snowflake.cli.api.project.definition import (
-    generate_local_override_yml,
-    load_project,
-)
+from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
-
-from tests.testing_utils.mock_config import mock_config_key
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
@@ -46,6 +40,7 @@ def test_napp_project_1(project_definition_files):
 
 
 @pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
+@mock.patch.dict(os.environ, {"USER": "jsmith"})
 def test_na_minimal_project(project_definition_files: List[Path]):
     project = load_project(project_definition_files).project_definition
     assert project.native_app.name == "minimal"
@@ -53,31 +48,6 @@ def test_na_minimal_project(project_definition_files: List[Path]):
         PathMapping(src="setup.sql"),
         PathMapping(src="README.md"),
     ]
-
-    from os import getenv as original_getenv
-
-    def mock_getenv(key: str, default: Optional[str] = None) -> Optional[str]:
-        if key.lower() == "user":
-            return "jsmith"
-        return original_getenv(key, default)
-
-    with mock.patch(
-        "snowflake.cli.api.cli_global_context._CliGlobalContextAccess.connection",
-        new_callable=PropertyMock,
-    ) as connection:
-        connection.return_value.role = "resolved_role"
-        connection.return_value.warehouse = "resolved_warehouse"
-        with mock.patch("os.getenv", side_effect=mock_getenv):
-            # TODO: probably a better way of going about this is to not generate
-            # a definition structure for these values but directly return defaults
-            # in "getter" functions (higher-level data structures).
-            local = generate_local_override_yml(project)
-            assert local.native_app.application.name == "minimal_jsmith"
-            assert local.native_app.application.role == "resolved_role"
-            assert local.native_app.application.warehouse == "resolved_warehouse"
-            assert local.native_app.application.debug == True
-            assert local.native_app.package.name == "minimal_pkg_jsmith"
-            assert local.native_app.package.role == "resolved_role"
 
 
 @pytest.mark.parametrize("project_definition_files", ["underspecified"], indirect=True)
@@ -131,7 +101,6 @@ def test_does_not_accept_unknown_fields(project_definition_files):
         "snowpark_procedure_fully_qualified_name",
         "snowpark_procedure_secrets_without_external_access",
         "snowpark_procedures",
-        "snowpark_procedures_coverage",
         "streamlit_full_definition",
     ],
     indirect=True,
@@ -155,17 +124,3 @@ def test_schema_is_validated_for_version(data):
         build_project_definition(**data)
 
     assert "is not supported in given version" in str(err.value)
-
-
-def test_project_definition_v2_is_disabled():
-    assert FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled() == False
-    with pytest.raises(SchemaValidationError) as err:
-        build_project_definition(**{"definition_version": "2", "entities": {}})
-    assert "Version 2 is not supported" in str(err.value)
-
-
-def test_project_definition_v2_is_enabled_with_feature_flag():
-    with mock_config_key("enable_project_definition_v2", True):
-        assert FeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled() == False
-        assert FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled() == True
-        build_project_definition(**{"definition_version": "2", "entities": {}})

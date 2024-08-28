@@ -1,0 +1,28 @@
+definition_version: '2'
+entities:
+  function1:
+    artifacts:
+    - src
+    handler: app.hello
+    identifier: name
+    meta:
+      use_mixins: my_mixin
+    returns: string
+    signature:
+    - name: name
+      type: string
+    type: function
+  function2:
+    artifacts:
+    - src
+    handler: app.hello
+    identifier: name
+    returns: string
+    signature:
+    - name: name
+      type: string
+    stage: bar
+    type: function
+mixins:
+  my_mixin:
+    stage: foo

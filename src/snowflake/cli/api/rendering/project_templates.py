@@ -28,8 +28,10 @@ from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.rendering.jinja import IgnoreAttrEnvironment, env_bootstrap
 from snowflake.cli.api.secure_path import SecurePath
 
-_PROJECT_TEMPLATE_START = "<!"
-_PROJECT_TEMPLATE_END = "!>"
+_VARIABLE_TEMPLATE_START = "<!"
+_VARIABLE_TEMPLATE_END = "!>"
+_BLOCK_TEMPLATE_START = "<!!"
+_BLOCK_TEMPLATE_END = "!!>"
 
 
 def to_snowflake_identifier(value: Optional[str]) -> Optional[str]:
@@ -60,15 +62,14 @@ PROJECT_TEMPLATE_FILTERS = [to_snowflake_identifier]
 
 
 def get_template_cli_jinja_env(template_root: SecurePath) -> Environment:
-    _random_block = "___very___unique___block___to___disable___logic___blocks___"
     env = env_bootstrap(
         IgnoreAttrEnvironment(
             loader=loaders.FileSystemLoader(searchpath=template_root.path),
             keep_trailing_newline=True,
-            variable_start_string=_PROJECT_TEMPLATE_START,
-            variable_end_string=_PROJECT_TEMPLATE_END,
-            block_start_string=_random_block,
-            block_end_string=_random_block,
+            variable_start_string=_VARIABLE_TEMPLATE_START,
+            variable_end_string=_VARIABLE_TEMPLATE_END,
+            block_start_string=_BLOCK_TEMPLATE_START,
+            block_end_string=_BLOCK_TEMPLATE_END,
             undefined=StrictUndefined,
         )
     )

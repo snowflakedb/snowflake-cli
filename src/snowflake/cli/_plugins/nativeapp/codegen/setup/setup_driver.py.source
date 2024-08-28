@@ -1,0 +1,59 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import contextlib
+import os
+import sys
+from pathlib import Path
+
+import snowflake.app.context as ctx
+from snowflake.app.sql import SQLGenerator
+
+ctx.configure("project_path", os.environ.get("_SNOWFLAKE_CLI_PROJECT_PATH", None))
+ctx.configure("manifest_path", os.environ.get("_SNOWFLAKE_CLI_MANIFEST_PATH", None))
+ctx.configure("current_app_name", os.environ.get("_SNOWFLAKE_CLI_APP_NAME", None))
+ctx.configure("enable_sql_generation", True)
+
+__snowflake_internal_py_files = os.environ["_SNOWFLAKE_CLI_SETUP_FILES"].split(
+    os.pathsep
+)
+__snowflake_internal_sql_dest_dir = os.environ["_SNOWFLAKE_CLI_SQL_DEST_DIR"]
+
+try:
+    import importlib
+
+    with contextlib.redirect_stdout(None):
+        with contextlib.redirect_stderr(None):
+            for __snowflake_internal_py_file in __snowflake_internal_py_files:
+                __snowflake_internal_spec = importlib.util.spec_from_file_location(
+                    "<string>", __snowflake_internal_py_file
+                )
+                __snowflake_internal_module = importlib.util.module_from_spec(
+                    __snowflake_internal_spec
+                )
+                __snowflake_internal_spec.loader.exec_module(
+                    __snowflake_internal_module
+                )
+except Exception as exc:  # Catch any error
+    print("An exception occurred while executing file: ", exc, file=sys.stderr)
+    sys.exit(1)
+
+
+import json
+
+output_dir = Path(__snowflake_internal_sql_dest_dir)
+output_dir.mkdir(exist_ok=True, parents=True)
+path_mappings = SQLGenerator(dest_dir=output_dir).generate()
+
+print(json.dumps(path_mappings, default=str))

@@ -15,7 +15,7 @@
 from unittest import mock
 from unittest.mock import PropertyMock
 
-from tests.nativeapp.utils import NATIVEAPP_MANAGER_APP_PKG_DISTRIBUTION_IN_SF
+from tests.nativeapp.utils import APP_PACKAGE_ENTITY_DISTRIBUTION_IN_SF
 
 
 def mock_connection():
@@ -27,12 +27,11 @@ def mock_connection():
 
 def mock_get_app_pkg_distribution_in_sf():
     return mock.patch(
-        NATIVEAPP_MANAGER_APP_PKG_DISTRIBUTION_IN_SF,
-        new_callable=PropertyMock,
+        APP_PACKAGE_ENTITY_DISTRIBUTION_IN_SF,
     )
 
 
 def mock_is_interactive_mode():
     return mock.patch(
-        "snowflake.cli.plugins.nativeapp.utils.is_user_in_interactive_mode"
+        "snowflake.cli._plugins.nativeapp.utils.is_user_in_interactive_mode"
     )

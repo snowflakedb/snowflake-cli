@@ -1,4 +1,47 @@
 # serializer version: 1
+# name: test_if_whitespaces_are_stripped_from_connection_name
+  '''
+  [connections.whitespaceTest]
+  account = "accName"
+  user = "userName"
+  password = "123"
+  host = "baz"
+  region = "Kaszuby"
+  port = "12345"
+  database = "foo"
+  schema = "bar"
+  warehouse = "some warehouse"
+  role = "some role"
+  authenticator = " foo   "
+  private_key_path = ""
+  
+  '''
+# ---
+# name: test_if_whitespaces_are_stripped_from_connection_name.1
+  '''
+  [
+      {
+          "connection_name": "whitespaceTest",
+          "parameters": {
+              "account": "accName",
+              "user": "userName",
+              "password": "****",
+              "host": "baz",
+              "region": "Kaszuby",
+              "port": "12345",
+              "database": "foo",
+              "schema": "bar",
+              "warehouse": "some warehouse",
+              "role": "some role",
+              "authenticator": " foo   ",
+              "private_key_path": ""
+          },
+          "is_default": false
+      }
+  ]
+  
+  '''
+# ---
 # name: test_new_connection_add_prompt_handles_default_values
   '''
   [connections.connName]

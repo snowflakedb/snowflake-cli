@@ -1,0 +1,41 @@
+# serializer version: 1
+# name: test_artifacts_must_exists
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | During evaluation of DefinitionV20 in project definition following errors    |
+  | were encountered:                                                            |
+  | For field entities.my_streamlit.streamlit you provided '{'artifacts':        |
+  | ['streamlit_app.py', 'foo_bar.py', 'pages/', 'environment.yml'],             |
+  | 'identifier': 'test_streamlit_deploy_snowcli', 'main_file':                  |
+  | 'streamlit_app.py', 'query_warehouse': 'xsmall', 'stage': 'streamlit',       |
+  | 'title': 'My Fancy Streamlit', 'type': 'streamlit'}'. This caused: Value     |
+  | error, Specified artifact foo_bar.py does not exist locally.                 |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_main_file_must_be_in_artifacts
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | During evaluation of DefinitionV20 in project definition following errors    |
+  | were encountered:                                                            |
+  | For field entities.my_streamlit.streamlit you provided '{'artifacts':        |
+  | ['streamlit_app.py', 'utils/utils.py', 'pages/', 'environment.yml'],         |
+  | 'identifier': 'test_streamlit_deploy_snowcli', 'main_file': 'foo_bar.py',    |
+  | 'query_warehouse': 'xsmall', 'stage': 'streamlit', 'title': 'My Fancy        |
+  | Streamlit', 'type': 'streamlit'}'. This caused: Value error, Specified main  |
+  | file foo_bar.py is not included in artifacts.                                |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_multiple_streamlit_raise_error_if_multiple_entities
+  '''
+  Usage: default streamlit deploy [OPTIONS] [ENTITY_ID]
+  Try 'default streamlit deploy --help' for help.
+  +- Error ----------------------------------------------------------------------+
+  | Multiple Streamlit apps found. Please provide entity id for the operation.   |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---

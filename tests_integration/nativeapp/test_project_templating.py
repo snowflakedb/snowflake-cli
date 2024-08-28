@@ -12,24 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import uuid
-
-from snowflake.cli.api.project.util import generate_user_env
-
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
     pushd,
     contains_row_with,
     row_from_snowflake_session,
-    enable_definition_v2_feature_flag,
+)
+from tests_integration.testing_utils.working_directory_utils import (
+    WorkingDirectoryChanger,
 )
 
-USER_NAME = f"user_{uuid.uuid4().hex}"
-DEFAULT_TEST_ENV = generate_user_env(USER_NAME)
 
 # Tests a simple flow of native app with template reading env variables from OS
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "project_definition_files",
     ["integration_templated", "integration_templated_v2"],
@@ -38,15 +33,16 @@ DEFAULT_TEST_ENV = generate_user_env(USER_NAME)
 def test_nativeapp_project_templating_use_env_from_os(
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
 
     test_ci_env = "prod"
-    local_test_env = dict(DEFAULT_TEST_ENV)
-    local_test_env["INTERMEDIATE_CI_ENV"] = test_ci_env
-    local_test_env["APP_DIR"] = "app"
+    local_test_env = {"INTERMEDIATE_CI_ENV": test_ci_env, "APP_DIR": "app"}
 
     with pushd(project_dir):
         result = runner.invoke_with_connection_json(
@@ -55,10 +51,10 @@ def test_nativeapp_project_templating_use_env_from_os(
         )
         assert result.exit_code == 0
 
-        try:
+        with nativeapp_teardown(env=local_test_env):
             # app + package exist
-            package_name = f"{project_name}_{test_ci_env}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{test_ci_env}_{USER_NAME}".upper()
+            package_name = f"{project_name}_{test_ci_env}_pkg_{default_username}{resource_suffix}".upper()
+            app_name = f"{project_name}_{test_ci_env}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -95,25 +91,9 @@ def test_nativeapp_project_templating_use_env_from_os(
                 {"ECHO": test_string},
             )
 
-            # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-
 
 # Tests a simple flow of native app with template reading env variables from OS through an intermediate var
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "project_definition_files",
     ["integration_templated", "integration_templated_v2"],
@@ -122,15 +102,16 @@ def test_nativeapp_project_templating_use_env_from_os(
 def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
 
     test_ci_env = "prod"
-    local_test_env = dict(DEFAULT_TEST_ENV)
-    local_test_env["CI_ENV"] = test_ci_env
-    local_test_env["APP_DIR"] = "app"
+    local_test_env = {"CI_ENV": test_ci_env, "APP_DIR": "app"}
 
     with pushd(project_dir):
         result = runner.invoke_with_connection_json(
@@ -139,10 +120,10 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
         )
         assert result.exit_code == 0
 
-        try:
+        with nativeapp_teardown(env=local_test_env):
             # app + package exist
-            package_name = f"{project_name}_{test_ci_env}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{test_ci_env}_{USER_NAME}".upper()
+            package_name = f"{project_name}_{test_ci_env}_pkg_{default_username}{resource_suffix}".upper()
+            app_name = f"{project_name}_{test_ci_env}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -179,25 +160,9 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
                 {"ECHO": test_string},
             )
 
-            # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-
 
 # Tests a simple flow of native app with template reading default env values from project definition file
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "project_definition_files",
     ["integration_templated", "integration_templated_v2"],
@@ -206,14 +171,16 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
 def test_nativeapp_project_templating_use_default_env_from_project(
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
 
     default_ci_env = "dev"
-    local_test_env = dict(DEFAULT_TEST_ENV)
-    local_test_env["APP_DIR"] = "app"
+    local_test_env = {"APP_DIR": "app"}
 
     with pushd(project_dir):
         result = runner.invoke_with_connection_json(
@@ -222,10 +189,10 @@ def test_nativeapp_project_templating_use_default_env_from_project(
         )
         assert result.exit_code == 0
 
-        try:
+        with nativeapp_teardown(env=local_test_env):
             # app + package exist
-            package_name = f"{project_name}_{default_ci_env}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{default_ci_env}_{USER_NAME}".upper()
+            package_name = f"{project_name}_{default_ci_env}_pkg_{default_username}{resource_suffix}".upper()
+            app_name = f"{project_name}_{default_ci_env}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -262,25 +229,9 @@ def test_nativeapp_project_templating_use_default_env_from_project(
                 {"ECHO": test_string},
             )
 
-            # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-
 
 # Tests a native app with --env parameter through command line overwriting values from os env and project definition filetemplate reading env var
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "project_definition_files",
     ["integration_templated", "integration_templated_v2"],
@@ -289,12 +240,15 @@ def test_nativeapp_project_templating_use_default_env_from_project(
 def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
 
-    local_test_env = dict(DEFAULT_TEST_ENV)
+    local_test_env = {}
     expected_value = "value_from_cli"
     local_test_env["CI_ENV"] = "value_from_os_env"
     local_test_env["APP_DIR"] = "app"
@@ -306,10 +260,10 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
         )
         assert result.exit_code == 0
 
-        try:
+        with nativeapp_teardown(env=local_test_env):
             # app + package exist
-            package_name = f"{project_name}_{expected_value}_pkg_{USER_NAME}".upper()
-            app_name = f"{project_name}_{expected_value}_{USER_NAME}".upper()
+            package_name = f"{project_name}_{expected_value}_pkg_{default_username}{resource_suffix}".upper()
+            app_name = f"{project_name}_{expected_value}_{default_username}{resource_suffix}".upper()
             assert contains_row_with(
                 row_from_snowflake_session(
                     snowflake_session.execute_string(
@@ -353,18 +307,9 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
             )
             assert result.exit_code == 0
 
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--env", f"CI_ENV={expected_value}", "--force"],
-                env=local_test_env,
-            )
-            assert result.exit_code == 0
-
 
 # Tests that other native app commands still succeed with templating
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "project_definition_files",
     ["integration_templated", "integration_templated_v2"],
@@ -372,24 +317,107 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
 )
 def test_nativeapp_project_templating_bundle_deploy_successful(
     runner,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_dir = project_definition_files[0].parent
 
     test_ci_env = "prod"
-    local_test_env = dict(DEFAULT_TEST_ENV)
-    local_test_env["CI_ENV"] = test_ci_env
-    local_test_env["APP_DIR"] = "app"
+    local_test_env = {"CI_ENV": test_ci_env, "APP_DIR": "app"}
 
     with pushd(project_dir):
-        result = runner.invoke_json(
-            ["app", "bundle"],
-            env=local_test_env,
+        with nativeapp_teardown(env=local_test_env):
+            result = runner.invoke_json(
+                ["app", "bundle"],
+                env=local_test_env,
+            )
+            assert result.exit_code == 0
+
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy"],
+                env=local_test_env,
+            )
+            assert result.exit_code == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "test_project", ["napp_templates_processors_v1", "napp_templates_processors_v2"]
+)
+@pytest.mark.parametrize("with_project_flag", [True, False])
+def test_nativeapp_templates_processor_with_run(
+    runner,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+    nativeapp_project_directory,
+    test_project,
+    with_project_flag,
+):
+    project_name = "myapp"
+    app_name = f"{project_name}_{default_username}{resource_suffix}"
+
+    with nativeapp_project_directory(test_project) as tmp_dir:
+        project_args = ["--project", f"{tmp_dir}"] if with_project_flag else []
+
+        if with_project_flag:
+            working_directory_changer = WorkingDirectoryChanger()
+            working_directory_changer.change_working_directory_to("app")
+        try:
+            result = runner.invoke_with_connection_json(
+                ["app", "run"] + project_args,
+                env={
+                    "schema_name": "test_schema",
+                    "table_name": "test_table",
+                    "value": "test_value",
+                },
+            )
+            assert result.exit_code == 0
+
+            result = row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"select * from {app_name}.test_schema.test_table",
+                )
+            )
+            assert result == [{"NAME": "test_value"}]
+
+        finally:
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--force"] + project_args
+            )
+            assert result.exit_code == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "test_project", ["napp_templates_processors_v1", "napp_templates_processors_v2"]
+)
+@pytest.mark.parametrize("with_project_flag", [True, False])
+def test_nativeapp_templates_processor_with_deploy(
+    runner,
+    nativeapp_project_directory,
+    test_project,
+    with_project_flag,
+):
+
+    with nativeapp_project_directory(test_project) as tmp_dir:
+        project_args = ["--project", f"{tmp_dir}"] if with_project_flag else []
+
+        if with_project_flag:
+            working_directory_changer = WorkingDirectoryChanger()
+            working_directory_changer.change_working_directory_to("app")
+
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy"] + project_args,
+            env={
+                "schema_name": "test_schema",
+                "table_name": "test_table",
+                "value": "test_value",
+            },
         )
         assert result.exit_code == 0
 
-        result = runner.invoke_with_connection_json(
-            ["app", "deploy"],
-            env=local_test_env,
-        )
-        assert result.exit_code == 0
+        with open(
+            tmp_dir / "output" / "deploy" / "another_script.sql", "r", encoding="utf-8"
+        ) as f:
+            assert "test_value" in f.read()

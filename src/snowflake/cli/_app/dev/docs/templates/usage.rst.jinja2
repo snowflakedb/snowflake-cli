@@ -1,0 +1,67 @@
+{{ help | replace("`", "``") | replace("\n", " ") }}
+
+Syntax
+===============================================================================
+
+.. code-block:: console
+
+  snow {% for part in path %}{{ part }}{{ " " if not loop.last }}{% endfor %}
+{%- for param in arguments if not param.hidden %}
+    <{{ param.name }}>
+{%- endfor %}
+{%- for param in options if not param.hidden %}
+    {{ (param.opts | get_main_option) }}{% if not param.is_flag %} <{{ param.name }}>{% endif %}
+    {%- if param.type.name == "boolean" and param.secondary_opts|length > 0  %} {{ "/ " }}{{ param.secondary_opts[0] }}{% endif %}
+{%- endfor %}
+
+Arguments
+===============================================================================
+
+{%- if arguments %}
+{% for param in arguments %}
+:samp:`{{ '{' }}
+    {%- if param.required -%}
+        {{ param.make_metavar().lower() }}
+    {%- else -%}
+        {{ param.make_metavar().replace("[", "").replace("]", "").lower() }}
+    {%- endif -%}
+    {{ '}' }}`
+{% if param.help %}{{ "  " + param.help | replace("`", "``") | replace("\n", " ") }}{% if param.help[-1] != '.' %}.{% endif %}{% if param.default %} Default: {{ param.default }}.{% endif %}{% else %}  TBD{% endif %}
+{% endfor %}
+{% else %}
+
+None
+
+{% endif -%}
+
+Options
+===============================================================================
+
+{%- if options %}
+{% for param in options if not param.hidden %}
+:samp:`{% if param.type.name == "boolean" %}
+        {%- for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %}{% if param.secondary_opts|length > 0  %} {{ "/ " }}{{ param.secondary_opts[0] }}{% endif %}
+    {%- else %}
+        {%- for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %}
+    {%- endif %}
+    {%- if not param.is_flag %}
+        {%- if param.type.name != "choice" %}{{ ' {' }}{% else %} {% endif %}{{ param.make_metavar() }}{% if param.type.name != "choice" %}{{ '}' }}
+        {%- endif %}
+    {%- endif %}`
+{% if param.help %}{{ "  " + param.help | replace("`", "``") | replace("\n", " ") }}{% if param.help[-1] != '.' %}.{% endif %}{% if param.default is not none %} Default: {{ param.default }}.{% endif %}{% else %}  TBD{% endif %}
+{% endfor -%}
+{% else %}
+
+None
+
+{% endif -%}
+
+{%- if additional_sections %}
+..
+{%- for section in additional_sections %}
+  {{ section.title }}
+  ===============================================================================
+
+  {{ section.content | indent(2) }}
+{% endfor %}
+{% endif %}

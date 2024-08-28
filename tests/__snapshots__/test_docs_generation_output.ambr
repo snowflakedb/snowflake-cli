@@ -1,9 +1,7 @@
 # serializer version: 1
 # name: test_flags_have_default_values
   '''
-  Given a prompt, the command generates a response using your choice of language model.
-  In the simplest use case, the prompt is a single string.
-  You may also provide a JSON file with conversation history including multiple prompts and responses for interactive chat-style usage.
+  Given a prompt, the command generates a response using your choice of language model. In the simplest use case, the prompt is a single string. You may also provide a JSON file with conversation history including multiple prompts and responses for interactive chat-style usage.
   
   Syntax
   ===============================================================================
@@ -109,7 +107,6 @@
   
   :samp:`--silent`
     Turns off intermediate output to console. Default: False.
-  
   
   '''
 # ---

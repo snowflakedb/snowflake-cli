@@ -21,12 +21,11 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.project.schemas.native_app.path_mapping import ProcessorMapping
-from snowflake.cli.plugins.nativeapp.codegen.sandbox import (
+from snowflake.cli._plugins.nativeapp.codegen.sandbox import (
     ExecutionEnvironmentType,
     SandboxExecutionError,
 )
-from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
+from snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
     _determine_virtual_env,
     _execute_in_sandbox,
@@ -34,6 +33,7 @@ from snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor import (
     generate_create_sql_ddl_statement,
     generate_grant_sql_ddl_statements,
 )
+from snowflake.cli.api.project.schemas.native_app.path_mapping import ProcessorMapping
 
 from tests.nativeapp.utils import assert_dir_snapshot, create_native_app_project_model
 from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
@@ -99,7 +99,7 @@ def test_determine_virtual_env(input_param, expected):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor.execute_script_in_sandbox"
+    "snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor.execute_script_in_sandbox"
 )
 def test_execute_in_sandbox_full_entity(mock_sandbox):
     mock_completed_process = mock.MagicMock(spec=subprocess.CompletedProcess)
@@ -115,7 +115,7 @@ def test_execute_in_sandbox_full_entity(mock_sandbox):
 
 
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor.execute_script_in_sandbox"
+    "snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor.execute_script_in_sandbox"
 )
 def test_execute_in_sandbox_all_possible_none_cases(mock_sandbox):
     mock_completed_process = mock.MagicMock(spec=subprocess.CompletedProcess)
@@ -338,7 +338,7 @@ minimal_dir_structure = {
 
 
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor._execute_in_sandbox",
+    "snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor._execute_in_sandbox",
 )
 def test_process_no_collected_functions(
     mock_sandbox, native_app_project_instance, os_agnostic_snapshot
@@ -366,7 +366,7 @@ def test_process_no_collected_functions(
 
 
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor._execute_in_sandbox",
+    "snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor._execute_in_sandbox",
 )
 def test_process_with_collected_functions(
     mock_sandbox,
@@ -405,7 +405,13 @@ def test_process_with_collected_functions(
                 project_definition=native_app_project_instance.native_app,
                 project_root=local_path,
             )
-            processor = SnowparkAnnotationProcessor(project.get_bundle_context())
+            project_context = project.get_bundle_context()
+            processor_context = copy.copy(project_context)
+            processor_context.generated_root = (
+                project_context.generated_root / "snowpark"
+            )
+            processor_context.bundle_root = project_context.bundle_root / "snowpark"
+            processor = SnowparkAnnotationProcessor(processor_context)
             processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
                 processor_mapping=processor_mapping,
@@ -437,7 +443,7 @@ def test_process_with_collected_functions(
     ],
 )
 @mock.patch(
-    "snowflake.cli.plugins.nativeapp.codegen.snowpark.python_processor._execute_in_sandbox",
+    "snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor._execute_in_sandbox",
 )
 def test_package_normalization(
     mock_sandbox,
@@ -465,7 +471,13 @@ def test_package_normalization(
                 project_definition=native_app_project_instance.native_app,
                 project_root=local_path,
             )
-            processor = SnowparkAnnotationProcessor(project.get_bundle_context())
+            project_context = project.get_bundle_context()
+            processor_context = copy.copy(project_context)
+            processor_context.generated_root = (
+                project_context.generated_root / "snowpark"
+            )
+            processor_context.bundle_root = project_context.bundle_root / "snowpark"
+            processor = SnowparkAnnotationProcessor(processor_context)
             processor.process(
                 artifact_to_process=native_app_project_instance.native_app.artifacts[0],
                 processor_mapping=processor_mapping,

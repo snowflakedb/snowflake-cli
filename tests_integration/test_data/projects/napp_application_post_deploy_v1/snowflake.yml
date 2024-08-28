@@ -8,8 +8,13 @@ native_app:
 
   application:
     post_deploy:
-      - sql_script: scripts/post_deploy1.sql
-      - sql_script: scripts/post_deploy2.sql
+      - sql_script: scripts/app_post_deploy1.sql
+      - sql_script: scripts/app_post_deploy2.sql
+  package:
+    post_deploy:
+      - sql_script: scripts/package_post_deploy1.sql
+      - sql_script: scripts/package_post_deploy2.sql
 
 env:
-  schema: public
+  schema: app_schema
+  pkg_schema: pkg_schema

@@ -19,6 +19,7 @@
       'package': dict({
         'distribution': 'internal',
         'name': None,
+        'post_deploy': None,
         'role': None,
         'scripts': list([
           'package/001-shared.sql',
@@ -53,6 +54,7 @@
       'package': dict({
         'distribution': 'external',
         'name': None,
+        'post_deploy': None,
         'role': None,
         'scripts': list([
           'package/001-shared.sql',
@@ -136,6 +138,7 @@
       'package': dict({
         'distribution': 'internal',
         'name': 'myapp_pkg_polly',
+        'post_deploy': None,
         'role': 'accountadmin',
         'scripts': list([
           '001-shared.sql',
@@ -188,6 +191,7 @@
       'package': dict({
         'distribution': 'internal',
         'name': 'myapp_pkg_polly',
+        'post_deploy': None,
         'role': 'accountadmin',
         'scripts': list([
           '001-shared.sql',
@@ -242,7 +246,7 @@
       'procedures': list([
       ]),
       'project_name': 'my_snowpark_project',
-      'src': 'app/',
+      'src': 'app.py',
       'stage_name': 'dev_deployment',
     }),
     'streamlit': None,
@@ -428,7 +432,7 @@
       'procedures': list([
       ]),
       'project_name': 'my_snowpark_project',
-      'src': 'app/',
+      'src': 'app.py',
       'stage_name': 'dev_deployment',
     }),
     'streamlit': None,
@@ -470,7 +474,7 @@
       'procedures': list([
       ]),
       'project_name': 'my_snowpark_project',
-      'src': 'app/',
+      'src': 'app.py',
       'stage_name': 'dev_deployment',
     }),
     'streamlit': None,
@@ -512,7 +516,7 @@
         }),
       ]),
       'project_name': 'my_snowpark_project',
-      'src': 'app/',
+      'src': 'app.py',
       'stage_name': 'dev_deployment',
     }),
     'streamlit': None,
@@ -700,7 +704,7 @@
         }),
       ]),
       'project_name': 'my_snowpark_project',
-      'src': 'app/',
+      'src': 'app.py',
       'stage_name': 'dev_deployment',
     }),
     'streamlit': None,
@@ -754,45 +758,7 @@
         }),
       ]),
       'project_name': 'my_snowpark_project',
-      'src': 'app/',
-      'stage_name': 'dev_deployment',
-    }),
-    'streamlit': None,
-  })
-# ---
-# name: test_fields_are_parsed_correctly[snowpark_procedures_coverage]
-  dict({
-    'definition_version': '1',
-    'native_app': None,
-    'snowpark': dict({
-      'functions': list([
-      ]),
-      'procedures': list([
-        dict({
-          'database': None,
-          'execute_as_caller': False,
-          'external_access_integrations': list([
-          ]),
-          'handler': 'foo.func',
-          'imports': list([
-          ]),
-          'name': 'foo',
-          'returns': 'variant',
-          'runtime': None,
-          'schema_name': None,
-          'secrets': dict({
-          }),
-          'signature': list([
-            dict({
-              'arg_type': 'string',
-              'default': None,
-              'name': 'name',
-            }),
-          ]),
-        }),
-      ]),
-      'project_name': 'my_snowpark_project',
-      'src': 'app/',
+      'src': 'app.py',
       'stage_name': 'dev_deployment',
     }),
     'streamlit': None,

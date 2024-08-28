@@ -11,25 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import identifier_to_show_like_pattern
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
-from snowflake.cli.plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_query(mock_execute, runner, mock_cursor):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
 
@@ -39,7 +38,7 @@ def test_sql_execute_query(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with("query", cursor_class=VerboseCursor)
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_file(mock_execute, runner, mock_cursor, named_temporary_file):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from file"
@@ -52,7 +51,7 @@ def test_sql_execute_file(mock_execute, runner, mock_cursor, named_temporary_fil
     mock_execute.assert_called_once_with(query, cursor_class=VerboseCursor)
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_multiple_file(mock_execute, runner, mock_cursor):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from file"
@@ -74,7 +73,7 @@ def test_sql_execute_multiple_file(mock_execute, runner, mock_cursor):
     )
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_string")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from input"
@@ -91,23 +90,34 @@ def test_sql_help_if_no_query_file_or_stdin(runner, os_agnostic_snapshot):
     assert result.output == os_agnostic_snapshot
 
 
-@pytest.mark.parametrize("inputs", [("-i", "-q", "foo"), ("-i",), ("-q", "foo")])
-def test_sql_fails_if_other_inputs_and_file_provided(runner, inputs):
+def test_sql_fails_if_query_and_stdin_and_file_provided(runner):
     with NamedTemporaryFile("r") as tmp_file:
-        result = runner.invoke(["sql", *inputs, "-f", tmp_file.name])
+        result = runner.invoke(["sql", "-i", "-q", "foo", "-f", tmp_file.name])
         assert_that_result_is_usage_error(
-            result, "Multiple input sources specified. Please specify only one. "
+            result,
+            f"Parameters '--query' and '--stdin' are incompatible and cannot be used simultaneously.",
+        )
+
+
+@pytest.mark.parametrize("inputs", [(("-i",), "stdin"), (("-q", "foo"), "query")])
+def test_sql_fails_if_other_input_and_file_provided(runner, inputs):
+    with NamedTemporaryFile("r") as tmp_file:
+        result = runner.invoke(["sql", *(inputs[0]), "-f", tmp_file.name])
+        assert_that_result_is_usage_error(
+            result,
+            f"Parameters '--filename' and '--{inputs[1]}' are incompatible and cannot be used simultaneously.",
         )
 
 
 def test_sql_fails_if_query_and_stdin_provided(runner):
     result = runner.invoke(["sql", "-q", "fooo", "-i"])
     assert_that_result_is_usage_error(
-        result, "Multiple input sources specified. Please specify only one. "
+        result,
+        "Parameters '--stdin' and '--query' are incompatible and cannot be used simultaneously. ",
     )
 
 
-@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
     mock_conn.return_value.execute_string.return_value = [mock_cursor(["row"], [])]
 
@@ -161,7 +171,7 @@ def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
     )
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
 def test_show_specific_object(mock_execute, mock_cursor):
     mock_columns = ["id", "created_on"]
     mock_row_dict = {c: r for c, r in zip(mock_columns, ["EXAMPLE_ID", "dummy"])}
@@ -176,7 +186,7 @@ def test_show_specific_object(mock_execute, mock_cursor):
     assert result == mock_row_dict
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
 def test_show_specific_object_in_clause(mock_execute, mock_cursor):
     mock_columns = ["name", "created_on"]
     mock_row_dict = {c: r for c, r in zip(mock_columns, ["AbcDef", "dummy"])}
@@ -191,7 +201,7 @@ def test_show_specific_object_in_clause(mock_execute, mock_cursor):
     assert result == mock_row_dict
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
 def test_show_specific_object_no_match(mock_execute, mock_cursor):
     mock_columns = ["id", "created_on"]
     mock_row_dict = {c: r for c, r in zip(mock_columns, ["OTHER_ID", "dummy"])}
@@ -206,7 +216,7 @@ def test_show_specific_object_no_match(mock_execute, mock_cursor):
     assert result is None
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
 def test_show_specific_object_sql_execution_error(mock_execute):
     cursor = mock.Mock(spec=DictCursor)
     cursor.rowcount = None
@@ -237,7 +247,7 @@ def test_qualified_name_to_in_clause(fqn, expected_in_clause):
     )
 
 
-@mock.patch("snowflake.cli.plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
 @mock.patch(
     "snowflake.cli.api.sql_execution.SqlExecutionMixin._qualified_name_to_in_clause"
 )
@@ -310,9 +320,10 @@ def test_use_command(mock_execute_query, _object):
         "select &{ aaa }.&{ bbb }",
         "select &aaa.&bbb",
         "select &aaa.&{ bbb }",
+        "select <% aaa %>.<% bbb %>",
     ],
 )
-@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_rendering_of_sql(mock_execute_query, query, runner):
     result = runner.invoke(["sql", "-q", query, "-D", "aaa=foo", "-D", "bbb=bar"])
     assert result.exit_code == 0, result.output
@@ -321,7 +332,29 @@ def test_rendering_of_sql(mock_execute_query, query, runner):
     )
 
 
-@pytest.mark.parametrize("query", ["select &{ foo }", "select &foo"])
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
+def test_old_template_syntax_causes_warning(mock_execute_query, runner):
+    result = runner.invoke(["sql", "-q", "select &{ aaa }", "-D", "aaa=foo"])
+    assert result.exit_code == 0
+    assert (
+        "Warning: &{ ... } syntax is deprecated. Use <% ... %> syntax instead."
+        in result.output
+    )
+    mock_execute_query.assert_called_once_with("select foo", cursor_class=VerboseCursor)
+
+
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
+def test_mixed_template_syntax_error(mock_execute_query, runner):
+    result = runner.invoke(
+        ["sql", "-q", "select <% aaa %>.&{ bbb }", "-D", "aaa=foo", "-D", "bbb=bar"]
+    )
+    assert result.exit_code == 1
+    assert "The SQL query mixes &{ ... } syntax and <% ... %> syntax." in result.output
+
+
+@pytest.mark.parametrize(
+    "query", ["select &{ foo }", "select &foo", "select <% foo %>"]
+)
 def test_execution_fails_if_unknown_variable(runner, query):
     result = runner.invoke(["sql", "-q", query, "-D", "bbb=1"])
     assert "SQL template rendering error: 'foo' is undefined" in result.output
@@ -345,12 +378,15 @@ def test_snowsql_compatibility(text, expected):
     assert transpile_snowsql_templates(text) == expected
 
 
-@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+@pytest.mark.parametrize("template_start,template_end", [("&{", "}"), ("<%", "%>")])
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_uses_variables_from_snowflake_yml(
-    mock_execute_query, project_directory, runner
+    mock_execute_query, project_directory, runner, template_start, template_end
 ):
     with project_directory("sql_templating"):
-        result = runner.invoke(["sql", "-q", "select &{ ctx.env.sf_var }"])
+        result = runner.invoke(
+            ["sql", "-q", f"select {template_start} ctx.env.sf_var {template_end}"]
+        )
 
     assert result.exit_code == 0
     mock_execute_query.assert_called_once_with(
@@ -358,12 +394,19 @@ def test_uses_variables_from_snowflake_yml(
     )
 
 
-@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+@pytest.mark.parametrize("template_start,template_end", [("&{", "}"), ("<%", "%>")])
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_uses_variables_from_snowflake_local_yml(
-    mock_execute_query, project_directory, runner
+    mock_execute_query, project_directory, runner, template_start, template_end
 ):
     with project_directory("sql_templating"):
-        result = runner.invoke(["sql", "-q", "select &{ ctx.env.sf_var_override }"])
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                f"select {template_start} ctx.env.sf_var_override {template_end}",
+            ]
+        )
 
     assert result.exit_code == 0
     mock_execute_query.assert_called_once_with(
@@ -371,16 +414,17 @@ def test_uses_variables_from_snowflake_local_yml(
     )
 
 
-@mock.patch("snowflake.cli.plugins.sql.commands.SqlManager._execute_string")
+@pytest.mark.parametrize("template_start,template_end", [("&{", "}"), ("<%", "%>")])
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_uses_variables_from_cli_are_added_outside_context(
-    mock_execute_query, project_directory, runner
+    mock_execute_query, project_directory, runner, template_start, template_end
 ):
     with project_directory("sql_templating"):
         result = runner.invoke(
             [
                 "sql",
                 "-q",
-                "select &{ ctx.env.sf_var } &{ other }",
+                f"select {template_start} ctx.env.sf_var {template_end} {template_start} other {template_end}",
                 "-D",
                 "other=other_value",
             ]

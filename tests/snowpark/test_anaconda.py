@@ -12,22 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-from unittest import mock
-from unittest.mock import MagicMock, patch
 
 import pytest
-from snowflake.cli.plugins.snowpark.models import Requirement
-from snowflake.cli.plugins.snowpark.package.anaconda_packages import (
+from snowflake.cli._plugins.snowpark.models import Requirement
+from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AnacondaPackagesManager,
     AvailablePackage,
 )
-from snowflake.connector import Error as ConnectorError
 
 from tests.snowpark.mocks import mock_available_packages_sql_result  # noqa: F401
-from tests.test_data import test_data
-from tests.testing_utils.fixtures import TEST_DIR
 
 ANACONDA_PACKAGES = AnacondaPackages(
     packages={
@@ -142,71 +136,3 @@ def test_anaconda_packages_from_sql_query(mock_available_packages_sql_result):
         Requirement.parse_line("snowflake.core")
     )
     assert anaconda_packages.is_package_available(Requirement.parse_line("snowflake"))
-
-
-@mock.patch("requests.get")
-@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
-def test_filter_anaconda_packages_from_fallback_to_channel_data(mock_connect, mock_get):
-    mock_connect.side_effect = ConnectorError("test error")
-
-    mock_response = mock.Mock()
-    mock_response.status_code = 200
-    # load the contents of the local json file under test_data/anaconda_channel_data.json
-    with open(TEST_DIR / "test_data/anaconda_channel_data.json") as fh:
-        mock_response.json.return_value = json.load(fh)
-
-    mock_get.return_value = mock_response
-    anaconda_packages_manager = AnacondaPackagesManager()
-    anaconda_packages = (
-        anaconda_packages_manager.find_packages_available_in_snowflake_anaconda()
-    )
-
-    packages = [
-        Requirement.parse("pandas==1.4.4"),
-        Requirement.parse("FuelSDK>=0.9.3"),
-        Requirement.parse("Pamela==1.0.1"),
-    ]
-    split_requirements = anaconda_packages.filter_available_packages(packages=packages)
-    assert len(split_requirements.in_snowflake) == 1
-    assert len(split_requirements.unavailable) == 2
-    assert split_requirements.in_snowflake[0].name == "pandas"
-    assert split_requirements.in_snowflake[0].specifier is True
-    assert split_requirements.in_snowflake[0].specs == [("==", "1.4.4")]
-    assert split_requirements.unavailable[0].name == "fuelsdk"
-    assert split_requirements.unavailable[0].specifier is True
-    assert split_requirements.unavailable[0].specs == [(">=", "0.9.3")]
-    assert split_requirements.unavailable[1].name == "pamela"
-    assert split_requirements.unavailable[1].specs == [("==", "1.0.1")]
-
-    assert anaconda_packages.is_package_available(Requirement.parse_line("pamela"))
-    assert anaconda_packages.is_package_available(
-        Requirement.parse_line("pandas==1.4.4")
-    )
-
-
-@patch("snowflake.cli.plugins.snowpark.package.anaconda_packages.requests")
-@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
-def test_anaconda_packages_from_fallback_to_channel_data(mock_connect, mock_requests):
-    mock_connect.side_effect = ConnectorError("test error")
-
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = test_data.anaconda_response
-    mock_requests.get.return_value = mock_response
-
-    anaconda_packages_manager = AnacondaPackagesManager()
-    anaconda_packages = (
-        anaconda_packages_manager.find_packages_available_in_snowflake_anaconda()
-    )
-
-    assert anaconda_packages.is_package_available(Requirement.parse_line("streamlit"))
-
-    anaconda_packages = anaconda_packages.filter_available_packages(test_data.packages)
-    assert (
-        Requirement.parse_line("snowflake-connector-python")
-        in anaconda_packages.in_snowflake
-    )
-    assert (
-        Requirement.parse_line("my-totally-awesome-package")
-        in anaconda_packages.unavailable
-    )

@@ -1,6 +1,8 @@
 # serializer version: 1
 # name: test_deploy_procedure_fails_if_integration_does_not_exists
   '''
+  Performing initial validation
+  Checking remote state
   +- Error ----------------------------------------------------------------------+
   | Following external access integration does not exists in Snowflake:          |
   | external_2                                                                   |
@@ -10,53 +12,42 @@
 # ---
 # name: test_deploy_procedure_fails_if_object_exists_and_no_replace
   '''
+  Performing initial validation
+  Checking remote state
   +- Error ----------------------------------------------------------------------+
   | Following objects already exists. Consider using --replace.                  |
-  | procedure: MockDatabase.MockSchema.procedureName(string)                     |
-  | procedure: MockDatabase.MockSchema.test()                                    |
+  | procedure: procedureName                                                     |
+  | procedure: test                                                              |
   +------------------------------------------------------------------------------+
   
   '''
 # ---
 # name: test_deploy_procedure_fully_qualified_name[database error]
   '''
+  Performing initial validation
+  Checking remote state
   +- Error ----------------------------------------------------------------------+
-  | database of procedure custom_database.custom_schema.fqn_procedure_error is   |
-  | redefined in its name                                                        |
+  | Database provided but name                                                   |
+  | 'custom_database.custom_schema.fqn_procedure_error' is fully qualified name. |
   +------------------------------------------------------------------------------+
   
   '''
 # ---
-# name: test_deploy_procedure_fully_qualified_name[ok]
+# name: test_deploy_procedure_fully_qualified_name_duplicated_schema[schema error]
   '''
-  +------------------------------------------------------------------------------+
-  | object                                                 | type      | status  |
-  |--------------------------------------------------------+-----------+---------|
-  | custom_db.custom_schema.fqn_procedure(name string)     | procedure | created |
-  | MockDatabase.custom_schema.fqn_procedure_only_schema(n | procedure | created |
-  | ame string)                                            |           |         |
-  | MockDatabase.custom_schema.schema_procedure(name       | procedure | created |
-  | string)                                                |           |         |
-  | custom_db.MockSchema.database_procedure(name string)   | procedure | created |
-  | custom_db.custom_schema.database_procedure(name        | procedure | created |
-  | string)                                                |           |         |
-  | custom_database.custom_schema.fqn_procedure3(name      | procedure | created |
-  | string)                                                |           |         |
-  +------------------------------------------------------------------------------+
-  
-  '''
-# ---
-# name: test_deploy_procedure_fully_qualified_name[schema error]
-  '''
+  Performing initial validation
+  Checking remote state
   +- Error ----------------------------------------------------------------------+
-  | schema of procedure custom_schema.fqn_procedure_error is redefined in its    |
-  | name                                                                         |
+  | Schema provided but name 'custom_schema.fqn_procedure_error' is fully        |
+  | qualified name.                                                              |
   +------------------------------------------------------------------------------+
   
   '''
 # ---
 # name: test_deploy_procedure_secrets_without_external_access
   '''
+  Performing initial validation
+  Checking remote state
   +- Error ----------------------------------------------------------------------+
   | procedureName defined with secrets but without external integration.         |
   +------------------------------------------------------------------------------+

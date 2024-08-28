@@ -18,7 +18,7 @@
 create or replace procedure ext_code_schema.py_echo_proc(STR string)
   RETURNS STRING
   LANGUAGE PYTHON
-  RUNTIME_VERSION='3.8'
+  RUNTIME_VERSION='3.10'
   PACKAGES = ('snowflake-snowpark-python')
   HANDLER = 'echo.echo_proc'
   IMPORTS = ('/user_gen/echo.py');

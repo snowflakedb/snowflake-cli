@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 from zipfile import ZipFile
 
-from snowflake.cli.plugins.snowpark.zipper import add_file_to_existing_zip, zip_dir
+from snowflake.cli._plugins.snowpark.zipper import add_file_to_existing_zip, zip_dir
 
 
 def test_zip_current_dir(temp_dir):

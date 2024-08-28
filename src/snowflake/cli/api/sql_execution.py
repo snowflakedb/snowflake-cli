@@ -35,28 +35,21 @@ from snowflake.cli.api.project.util import (
     unquote_identifier,
 )
 from snowflake.cli.api.utils.cursor import find_first_row
+from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
 
-class SqlExecutionMixin:
-    def __init__(self, connection=None):
+class SqlExecutor:
+    def __init__(self, connection: SnowflakeConnection | None = None):
         self._snowpark_session = None
         self._connection = connection
 
     @property
-    def _conn(self):
-        return self._connection if self._connection else get_cli_context().connection
-
-    @property
-    def snowpark_session(self):
-        if not self._snowpark_session:
-            from snowflake.snowpark.session import Session
-
-            self._snowpark_session = Session.builder.configs(
-                {"connection": self._conn}
-            ).create()
-        return self._snowpark_session
+    def _conn(self) -> SnowflakeConnection:
+        if self._connection:
+            return self._connection
+        return get_cli_context().connection
 
     @cached_property
     def _log(self):
@@ -88,6 +81,12 @@ class SqlExecutionMixin:
 
     def _execute_queries(self, queries: str, **kwargs):
         return list(self._execute_string(dedent(queries), **kwargs))
+
+    def execute_query(self, query: str, **kwargs):
+        return self._execute_query(query, **kwargs)
+
+    def execute_queries(self, queries: str, **kwargs):
+        return self._execute_queries(queries, **kwargs)
 
     def use(self, object_type: ObjectType, name: str):
         try:
@@ -148,11 +147,11 @@ class SqlExecutionMixin:
                 self.use(object_type=ObjectType.WAREHOUSE, name=prev_wh)
 
     def create_password_secret(
-        self, name: str, username: str, password: str
+        self, name: FQN, username: str, password: str
     ) -> SnowflakeCursor:
         return self._execute_query(
             f"""
-            create secret {name}
+            create secret {name.sql_identifier}
             type = password
             username = '{username}'
             password = '{password}'
@@ -160,11 +159,11 @@ class SqlExecutionMixin:
         )
 
     def create_api_integration(
-        self, name: str, api_provider: str, allowed_prefix: str, secret: Optional[str]
+        self, name: FQN, api_provider: str, allowed_prefix: str, secret: Optional[str]
     ) -> SnowflakeCursor:
         return self._execute_query(
             f"""
-            create api integration {name}
+            create api integration {name.sql_identifier}
             api_provider = {api_provider}
             api_allowed_prefixes = ('{allowed_prefix}')
             allowed_authentication_secrets = ({secret if secret else ''})
@@ -253,6 +252,22 @@ class SqlExecutionMixin:
             lambda row: row[name_col] == unquote_identifier(unqualified_name),
         )
         return show_obj_row
+
+
+class SqlExecutionMixin(SqlExecutor):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._snowpark_session = None
+
+    @property
+    def snowpark_session(self):
+        if not self._snowpark_session:
+            from snowflake.snowpark.session import Session
+
+            self._snowpark_session = Session.builder.configs(
+                {"connection": self._conn}
+            ).create()
+        return self._snowpark_session
 
 
 class VerboseCursor(SnowflakeCursor):

@@ -19,9 +19,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Union
 
 import pytest
-from snowflake.cli.api.project.definition import load_project
-from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
-from snowflake.cli.plugins.nativeapp.artifacts import (
+from snowflake.cli._plugins.nativeapp.artifacts import (
     ArtifactError,
     ArtifactPredicate,
     BundleMap,
@@ -33,6 +31,8 @@ from snowflake.cli.plugins.nativeapp.artifacts import (
     resolve_without_follow,
     symlink_or_copy,
 )
+from snowflake.cli.api.project.definition import load_project
+from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 
 from tests.nativeapp.utils import (
     assert_dir_snapshot,
@@ -954,6 +954,17 @@ def test_bad_deploy_root(project_definition_files):
         with open(project_root / "deploy", "w") as handle:
             handle.write("Deploy root should not be a file...")
 
+        build_bundle(
+            project_root,
+            deploy_root=Path(project_root, "deploy"),
+            artifacts=[],
+        )
+
+
+@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
+def test_no_artifacts(project_definition_files):
+    project_root = project_definition_files[0].parent
+    with pytest.raises(ArtifactError):
         build_bundle(
             project_root,
             deploy_root=Path(project_root, "deploy"),

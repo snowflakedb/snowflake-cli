@@ -23,15 +23,17 @@ from dataclasses import dataclass
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 import pytest
 import yaml
 
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
-from snowflake.cli.app.cli_app import app_factory
+from snowflake.cli._app.cli_app import app_factory
 from typer import Typer
 from typer.testing import CliRunner
 
+from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.conftest import clean_logging_handlers_fixture  # noqa: F401
 from tests.testing_utils.fixtures import (
     alter_snowflake_yml,  # noqa: F401
@@ -47,6 +49,7 @@ pytest_plugins = [
 
 TEST_DIR = Path(__file__).parent
 DEFAULT_TEST_CONFIG = "connection_configs.toml"
+WORLD_READABLE_CONFIG = "world_readable.toml"
 
 
 @dataclass
@@ -70,6 +73,9 @@ def test_snowcli_config_provider():
     with tempfile.TemporaryDirectory() as td:
         temp_dst = Path(td) / "config"
         shutil.copytree(TEST_DIR / "config", temp_dst)
+        for config_file in temp_dst.glob("**/*.toml"):
+            if config_file.name != WORLD_READABLE_CONFIG:
+                config_file.chmod(0o600)  # Make config file private
         yield TestConfigProvider(temp_dst)
 
 
@@ -79,13 +85,21 @@ def test_root_path():
 
 
 class SnowCLIRunner(CliRunner):
-    def __init__(self, app: Typer, test_config_provider: TestConfigProvider):
+    def __init__(
+        self,
+        app: Typer,
+        test_config_provider: TestConfigProvider,
+        default_username: str,
+        resource_suffix: str,
+    ):
         super().__init__()
         self.app = app
         self._test_config_provider = test_config_provider
         self._test_config_path = self._test_config_provider.get_config_path(
             DEFAULT_TEST_CONFIG
         )
+        self._default_username = default_username
+        self._resource_suffix = resource_suffix
 
     def use_config(self, config_file_name: str) -> None:
         self._test_config_path = self._test_config_provider.get_config_path(
@@ -96,7 +110,30 @@ class SnowCLIRunner(CliRunner):
     def invoke(self, *a, **kw):
         if "catch_exceptions" not in kw:
             kw.update(catch_exceptions=False)
+        kw = self._with_env_vars(kw)
         return super().invoke(self.app, *a, **kw)
+
+    def _with_env_vars(self, kw) -> dict:
+        """
+        Add required env vars to the invocation context if necessary and return new kwargs.
+
+        Sets the USER env var to a default value if not set in the test,
+        to allow us to use <% ctx.env.USER %> in test data on Windows.
+
+        Sets the resource suffix env var unconditionally.
+        The CLI automatically appends the value of this env var to some
+        created resource identifiers, let's use this behaviour to add a unique
+        suffix to resources used in tests to allow us to run simultaneous instances.
+        """
+        env = kw.get("env", {})
+        return {
+            **kw,
+            "env": {
+                **env,
+                "USER": env.get("USER", self._default_username),
+                TEST_RESOURCE_SUFFIX_VAR: self._resource_suffix,
+            },
+        }
 
     def invoke_with_config(self, args, **kwargs) -> CommandResult:
         result = self.invoke(
@@ -132,9 +169,14 @@ class SnowCLIRunner(CliRunner):
 
 
 @pytest.fixture
-def runner(test_snowcli_config_provider):
+def runner(test_snowcli_config_provider, default_username, resource_suffix):
     app = app_factory()
-    yield SnowCLIRunner(app, test_snowcli_config_provider)
+    yield SnowCLIRunner(
+        app,
+        test_snowcli_config_provider,
+        default_username,
+        resource_suffix,
+    )
 
 
 class QueryResultJsonEncoderError(RuntimeError):
@@ -179,3 +221,22 @@ def reset_global_context_after_each_test(request):
 @pytest.fixture(autouse=True)
 def isolate_snowflake_home(snowflake_home):
     yield snowflake_home
+
+
+@pytest.fixture
+def default_username():
+    return "snowflake"
+
+
+@pytest.fixture
+def resource_suffix(request):
+    """
+    Generate a random identifier suffix that includes the current test name.
+
+    This suffix will be added to certain created resources like Native App
+    packages and applications to be able to detect tests that don't
+    clean up properly. The UUID is to avoid conflicts between concurrent runs.
+    """
+    # To generate a suffix that isn't too long or complex, we use originalname, which is the
+    # "bare" test function name, without filename, class name, or parameterization variables
+    return f"_{uuid4().hex}_{request.node.originalname}"

@@ -12,19 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import yaml
-import uuid
 from typing import Optional
 
-from snowflake.cli.api.project.util import generate_user_env
+import yaml
 from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.errors import ProgrammingError
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import pushd, enable_definition_v2_feature_flag
 
-USER_NAME = f"user_{uuid.uuid4().hex}"
-TEST_ENV = generate_user_env(USER_NAME)
+from tests_integration.test_utils import pushd
 
 
 class ApplicationNotFoundError(Exception):
@@ -61,7 +57,7 @@ def set_yml_application_debug(snowflake_yml: Path, debug: Optional[bool]):
         if "app" not in pdf["entities"]:
             pdf["entities"]["app"] = {
                 "type": "application",
-                "name": "integration_<% ctx.env.USER %>",
+                "identifier": "integration_<% ctx.env.USER %>",
                 "from": {"target": "pkg"},
             }
         if debug is None and "debug" in pdf["entities"]["app"]:
@@ -86,13 +82,15 @@ def set_yml_application_debug(snowflake_yml: Path, debug: Optional[bool]):
 # Tests that debug mode is enabled by default on create, but not changed
 # on upgrade without an explicit setting in snowflake.yml
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize(
     "project_definition_files", ["integration", "integration_v2"], indirect=True
 )
 def test_nativeapp_controlled_debug_mode(
     runner,
     snowflake_session,
+    default_username,
+    resource_suffix,
+    nativeapp_teardown,
     project_definition_files: List[Path],
 ):
     project_name = "integration"
@@ -105,35 +103,28 @@ def test_nativeapp_controlled_debug_mode(
         assert "debug:" not in snowflake_yml.read_text()
 
         # make sure the app doesn't (yet) exist
-        app_name = f"{project_name}_{USER_NAME}".upper()
+        app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
         with pytest.raises(ApplicationNotFoundError):
             is_debug_mode(snowflake_session, app_name)
 
         # deploy the application
-        result = runner.invoke_with_connection_json(
-            ["app", "run"],
-            env=TEST_ENV,
-        )
+        result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
 
-        try:
+        with nativeapp_teardown():
             # debug mode should be true by default on first app deploy,
             # because snowflake.yml doesn't set it explicitly either way ("uncontrolled")
             assert is_debug_mode(snowflake_session, app_name)
 
             # let's set debug mode to false out-of-band
             result = runner.invoke_with_connection_json(
-                ["sql", "-q", f"alter application {app_name} set debug_mode = false"],
-                env=TEST_ENV,
+                ["sql", "-q", f"alter application {app_name} set debug_mode = false"]
             )
             assert result.exit_code == 0
             assert not is_debug_mode(snowflake_session, app_name)
 
             # re-deploying the app should not change debug mode
-            result = runner.invoke_with_connection_json(
-                ["app", "run"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "run"])
             assert result.exit_code == 0
             assert not is_debug_mode(snowflake_session, app_name)
 
@@ -142,24 +133,6 @@ def test_nativeapp_controlled_debug_mode(
             assert "debug:" in snowflake_yml.read_text()
 
             # now, re-deploying the app will set debug_mode to true
-            result = runner.invoke_with_connection_json(
-                ["app", "run"],
-                env=TEST_ENV,
-            )
+            result = runner.invoke_with_connection_json(["app", "run"])
             assert result.exit_code == 0
             assert is_debug_mode(snowflake_session, app_name)
-
-            # make sure we always delete the app
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown"],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0
-
-        finally:
-            # teardown is idempotent, so we can execute it again with no ill effects
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"],
-                env=TEST_ENV,
-            )
-            assert result.exit_code == 0

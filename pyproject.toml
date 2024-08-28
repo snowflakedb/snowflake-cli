@@ -31,13 +31,13 @@ dependencies = [
   "packaging",
   "rich==13.7.1",
   "requests==2.32.3",
-  "requirements-parser==0.9.0",
+  "requirements-parser==0.10.2",
   "setuptools==70.3.0",
   'snowflake.core==0.8.0; python_version < "3.12"',
   "snowflake-connector-python[secure-local-storage]==3.12.0",
   'snowflake-snowpark-python>=1.15.0;python_version < "3.12"',
-  "tomlkit==0.13.0",
-  "typer==0.12.3",
+  "tomlkit==0.13.2",
+  "typer==0.12.4",
   "urllib3>=1.24.3,<2.3",
   "GitPython==3.1.43",
   "pip",
@@ -59,7 +59,7 @@ classifiers = [
 
 [project.optional-dependencies]
 development = [
-  "coverage==7.6.0",
+  "coverage==7.6.1",
   "pre-commit>=3.5.0",
   "pytest==8.3.2",
   "pytest-randomly==3.15.0",
@@ -71,7 +71,7 @@ development = [
 "Bug Tracker" = "https://github.com/snowflakedb/snowflake-cli/issues"
 
 [project.scripts]
-snow = "snowflake.cli.app.__main__:main"
+snow = "snowflake.cli._app.__main__:main"
 
 [tool.coverage.report]
 exclude_also = ["@(abc\\.)?abstractmethod", "@(abc\\.)?abstractproperty"]
@@ -121,8 +121,7 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
-test = ["pytest -m integration -n4 --dist=loadfile"]
-test_exp = ["pytest -m integration_experimental -n4 --dist=loadfile -s"]
+test = ["python scripts/run_tests_with_retry.py Integration -m integration -n6 --dist=worksteal"]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.10", "3.11", "3.12"]

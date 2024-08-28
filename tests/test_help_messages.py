@@ -18,10 +18,10 @@ import sys
 from typing import List
 
 import pytest
-from snowflake.cli.api.constants import PYTHON_3_12
-from snowflake.cli.app.commands_registration.command_plugins_loader import (
+from snowflake.cli._app.commands_registration.command_plugins_loader import (
     load_only_builtin_command_plugins,
 )
+from snowflake.cli.api.constants import PYTHON_3_12
 from typer.core import TyperGroup
 
 SNOW_CORTEX_SEARCH = "Performs query search using Cortex Search Services."

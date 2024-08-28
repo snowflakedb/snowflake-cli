@@ -18,18 +18,18 @@ from unittest import mock
 import pytest
 import typer
 from click import ClickException
-from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.exceptions import (
+from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
 )
-from snowflake.cli.plugins.nativeapp.policy import (
+from snowflake.cli._plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
-from snowflake.cli.plugins.nativeapp.version.version_processor import (
+from snowflake.cli._plugins.nativeapp.version.version_processor import (
     NativeAppVersionDropProcessor,
 )
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
@@ -96,13 +96,13 @@ def test_process_has_no_existing_app_pkg(mock_get_existing, policy_param, temp_d
 def test_process_no_version_from_user_no_version_in_manifest(
     mock_version_info_in_manifest,
     mock_build_bundle,
-    mock_mismatch,
+    mock_distribution,
     mock_get_existing,
     policy_param,
     temp_dir,
 ):
 
-    mock_mismatch.return_Value = "internal"
+    mock_distribution.return_value = "internal"
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -130,7 +130,7 @@ def test_process_no_version_from_user_no_version_in_manifest(
 @mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
 @mock.patch(
-    f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
 )
 @pytest.mark.parametrize(
     "policy_param, is_interactive_param, expected_code",
@@ -144,7 +144,7 @@ def test_process_drop_cannot_complete(
     mock_typer_confirm,
     mock_version_info_in_manifest,
     mock_build_bundle,
-    mock_mismatch,
+    mock_distribution,
     mock_get_existing,
     policy_param,
     is_interactive_param,
@@ -152,7 +152,7 @@ def test_process_drop_cannot_complete(
     temp_dir,
 ):
 
-    mock_mismatch.return_value = "internal"
+    mock_distribution.return_value = "internal"
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -180,7 +180,7 @@ def test_process_drop_cannot_complete(
 @mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(
-    f"snowflake.cli.plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
 @pytest.mark.parametrize(
     "policy_param, is_interactive_param",
@@ -190,12 +190,12 @@ def test_process_drop_cannot_complete(
         (ask_always_policy, True),
     ],
 )
-def test_process_drop_success(
+def test_process_drop_from_manifest(
     mock_typer_confirm,
     mock_execute,
     mock_version_info_in_manifest,
     mock_build_bundle,
-    mock_mismatch,
+    mock_distribution,
     mock_get_existing,
     policy_param,
     is_interactive_param,
@@ -203,7 +203,7 @@ def test_process_drop_success(
     mock_cursor,
 ):
 
-    mock_mismatch.return_value = "internal"
+    mock_distribution.return_value = "internal"
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -232,5 +232,74 @@ def test_process_drop_success(
     processor = _get_version_drop_processor()
     processor.process(
         version=None, policy=policy_param, is_interactive=is_interactive_param
+    )
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(
+    f"{VERSION_MODULE}.{DROP_PROCESSOR}.get_existing_app_pkg_info",
+    return_value={"owner": "package_role"},
+)
+@mock_get_app_pkg_distribution_in_sf()
+@mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+)
+@pytest.mark.parametrize(
+    "policy_param, is_interactive_param",
+    [
+        (allow_always_policy, False),
+        (ask_always_policy, True),
+        (ask_always_policy, True),
+    ],
+)
+@pytest.mark.parametrize(
+    ["version", "version_identifier"],
+    [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
+)
+def test_process_drop_specific_version(
+    mock_typer_confirm,
+    mock_execute,
+    mock_build_bundle,
+    mock_distribution,
+    mock_get_existing,
+    policy_param,
+    is_interactive_param,
+    temp_dir,
+    mock_cursor,
+    version,
+    version_identifier,
+):
+
+    mock_distribution.return_value = "internal"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role package_role")),
+            (
+                None,
+                mock.call(
+                    f"alter application package app_pkg drop version {version_identifier}"
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    processor = _get_version_drop_processor()
+    processor.process(
+        version=version, policy=policy_param, is_interactive=is_interactive_param
     )
     assert mock_execute.mock_calls == expected

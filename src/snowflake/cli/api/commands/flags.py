@@ -15,19 +15,21 @@
 from __future__ import annotations
 
 import tempfile
-from dataclasses import dataclass
-from enum import Enum
-from inspect import signature
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Optional
 
 import click
 import typer
 from click import ClickException
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
+from snowflake.cli.api.commands.common import OnErrorType
+from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.typer_pre_execute import register_pre_execute_command
+from snowflake.cli.api.commands.utils import parse_key_value_variables
+from snowflake.cli.api.config import get_all_connections
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import MissingConfiguration
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
@@ -36,111 +38,6 @@ DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
 _CONNECTION_SECTION = "Connection configuration"
 _CLI_BEHAVIOUR = "Global configuration"
-
-
-class OnErrorType(Enum):
-    BREAK = "break"
-    CONTINUE = "continue"
-
-
-class OverrideableOption:
-    """
-    Class that allows you to generate instances of typer.models.OptionInfo with some default properties while allowing
-    specific values to be overridden.
-
-    Custom parameters:
-    - mutually_exclusive (Tuple[str]|List[str]): A list of parameter names that this Option is not compatible with. If this Option has
-     a truthy value and any of the other parameters in the mutually_exclusive list has a truthy value, a
-     ClickException will be thrown. Note that mutually_exclusive can contain an option's own name but does not require
-     it.
-    """
-
-    def __init__(
-        self,
-        default: Any,
-        *param_decls: str,
-        mutually_exclusive: Optional[List[str] | Tuple[str]] = None,
-        **kwargs,
-    ):
-        self.default = default
-        self.param_decls = param_decls
-        self.mutually_exclusive = mutually_exclusive
-        self.kwargs = kwargs
-
-    def __call__(self, **kwargs) -> typer.models.OptionInfo:
-        """
-        Returns a typer.models.OptionInfo instance initialized with the specified default values along with any overrides
-        from kwargs. Note that if you are overriding param_decls, you must pass an iterable of strings, you cannot use
-        positional arguments like you can with typer.Option. Does not modify the original instance.
-        """
-        default = kwargs.get("default", self.default)
-        param_decls = kwargs.get("param_decls", self.param_decls)
-        mutually_exclusive = kwargs.get("mutually_exclusive", self.mutually_exclusive)
-        if not isinstance(param_decls, list) and not isinstance(param_decls, tuple):
-            raise TypeError("param_decls must be a list or tuple")
-        passed_kwargs = self.kwargs.copy()
-        passed_kwargs.update(kwargs)
-        if passed_kwargs.get("callback", None) or mutually_exclusive:
-            passed_kwargs["callback"] = self._callback_factory(
-                passed_kwargs.get("callback", None), mutually_exclusive
-            )
-        for non_kwarg in ["default", "param_decls", "mutually_exclusive"]:
-            passed_kwargs.pop(non_kwarg, None)
-        return typer.Option(default, *param_decls, **passed_kwargs)
-
-    class InvalidCallbackSignature(ClickException):
-        def __init__(self, callback):
-            super().__init__(
-                f"Signature {signature(callback)} is not valid for an OverrideableOption callback function. Must have at most one parameter with each of the following types: (typer.Context, typer.CallbackParam, Any Other Type)"
-            )
-
-    def _callback_factory(
-        self, callback, mutually_exclusive: Optional[List[str] | Tuple[str]]
-    ):
-        callback = callback if callback else lambda x: x
-
-        # inspect existing_callback to make sure signature is valid
-        existing_params = signature(callback).parameters
-        # at most one parameter with each type in [typer.Context, typer.CallbackParam, any other type]
-        limits = [
-            lambda x: x == typer.Context,
-            lambda x: x == typer.CallbackParam,
-            lambda x: x != typer.Context and x != typer.CallbackParam,
-        ]
-        for limit in limits:
-            if len([v for v in existing_params.values() if limit(v.annotation)]) > 1:
-                raise self.InvalidCallbackSignature(callback)
-
-        def generated_callback(ctx: typer.Context, param: typer.CallbackParam, value):
-            if mutually_exclusive:
-                for name in mutually_exclusive:
-                    if value and ctx.params.get(
-                        name, False
-                    ):  # if the current parameter is set to True and a previous parameter is also Truthy
-                        curr_opt = param.opts[0]
-                        other_opt = [x for x in ctx.command.params if x.name == name][
-                            0
-                        ].opts[0]
-                        raise click.ClickException(
-                            f"Options '{curr_opt}' and '{other_opt}' are incompatible."
-                        )
-
-            # pass args to existing callback based on its signature (this is how Typer infers callback args)
-            passed_params = {}
-            for existing_param in existing_params:
-                annotation = existing_params[existing_param].annotation
-                if annotation == typer.Context:
-                    passed_params[existing_param] = ctx
-                elif annotation == typer.CallbackParam:
-                    passed_params[existing_param] = param
-                else:
-                    passed_params[existing_param] = value
-            return callback(**passed_params)
-
-        return generated_callback
-
-
-from snowflake.cli.api.config import get_all_connections
 
 
 def _callback(provide_setter: Callable[[], Callable[[Any], Any]]):
@@ -163,7 +60,7 @@ ConnectionOption = typer.Option(
     ),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
-    autocompletion=lambda: list(get_all_connections()),
+    shell_complete=lambda _, __, ___: list(get_all_connections()),
 )
 
 TemporaryConnectionOption = typer.Option(
@@ -475,6 +372,10 @@ OnErrorOption = typer.Option(
 NoInteractiveOption = typer.Option(False, "--no-interactive", help="Disable prompting.")
 
 
+def entity_argument(entity_type: str) -> typer.Argument:
+    return typer.Argument(None, help=f"ID of {entity_type} entity.")
+
+
 def variables_option(description: str):
     return typer.Option(
         None,
@@ -539,11 +440,15 @@ def experimental_option(
     )
 
 
-def identifier_argument(sf_object: str, example: str) -> typer.Argument:
+def identifier_argument(
+    sf_object: str, example: str, callback: Callable | None = None
+) -> typer.Argument:
     return typer.Argument(
         ...,
         help=f"Identifier of the {sf_object}. For example: {example}",
         show_default=False,
+        click_type=IdentifierType(),
+        callback=callback,
     )
 
 
@@ -601,21 +506,8 @@ def project_env_overrides_option():
     return typer.Option(
         [],
         "--env",
-        help="String in format of key=value. Overrides variables from env section used for templating.",
+        help="String in format of key=value. Overrides variables from env section used for templates.",
         callback=_callback(lambda: project_env_overrides_callback),
-        show_default=False,
-    )
-
-
-def readable_file_option(param_name: str, help_str: str) -> typer.Option:
-    return typer.Option(
-        None,
-        param_name,
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        help=help_str,
         show_default=False,
     )
 
@@ -640,27 +532,8 @@ def deprecated_flag_callback_enum(msg: str):
     return _warning_callback
 
 
-@dataclass
-class Variable:
-    key: str
-    value: str
+class IdentifierType(click.ParamType):
+    name = "TEXT"
 
-    def __init__(self, key: str, value: str):
-        self.key = key
-        self.value = value
-
-
-def parse_key_value_variables(variables: Optional[List[str]]) -> List[Variable]:
-    """Util for parsing key=value input. Useful for commands accepting multiple input options."""
-    if not variables:
-        return []
-    result: List[Variable] = []
-    if not variables:
-        return result
-    for p in variables:
-        if "=" not in p:
-            raise ClickException(f"Invalid variable: '{p}'")
-
-        key, value = p.split("=", 1)
-        result.append(Variable(key.strip(), value.strip()))
-    return result
+    def convert(self, value, param, ctx):
+        return FQN.from_string(value)

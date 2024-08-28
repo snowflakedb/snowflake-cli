@@ -44,6 +44,7 @@
   | sql          Executes Snowflake query.                                       |
   | stage        Manages stages.                                                 |
   | streamlit    Manages a Streamlit app in Snowflake.                           |
+  | ws           Deploy and interact with snowflake.yml-based entities.          |
   +------------------------------------------------------------------------------+
   
   

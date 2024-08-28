@@ -15,30 +15,33 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.errors import SchemaValidationError
-from snowflake.cli.api.project.schemas.entities.application_entity import (
-    ApplicationEntity,
+from snowflake.cli.api.project.schemas.entities.application_entity_model import (
+    ApplicationEntityModel,
 )
 from snowflake.cli.api.project.schemas.entities.common import (
     DefaultsField,
     TargetField,
 )
 from snowflake.cli.api.project.schemas.entities.entities import (
-    Entity,
-    v2_entity_types_map,
+    EntityModel,
+    v2_entity_model_types_map,
 )
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
+from snowflake.cli.api.project.schemas.native_app.native_app import (
+    NativeApp,
+    NativeAppV11,
+)
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
-from snowflake.cli.api.utils.models import ProjectEnvironment
 from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
+
+AnnotatedEntity = Annotated[EntityModel, Field(discriminator="type")]
 
 
 @dataclass
@@ -99,27 +102,17 @@ class DefinitionV10(_ProjectDefinitionBase):
 
 
 class DefinitionV11(DefinitionV10):
-    env: Union[Dict[str, str], ProjectEnvironment, None] = Field(
-        title="Environment specification for this project.",
-        default=None,
-        validation_alias="env",
-        union_mode="smart",
+    native_app: Optional[NativeAppV11] = Field(
+        title="Native app definitions for the project", default=None
     )
-
-    @field_validator("env")
-    @classmethod
-    def _convert_env(
-        cls, env: Union[Dict, ProjectEnvironment, None]
-    ) -> ProjectEnvironment:
-        if isinstance(env, ProjectEnvironment):
-            return env
-        return ProjectEnvironment(default_env=(env or {}), override_env={})
+    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
+        title="Default environment specification for this project.",
+        default=None,
+    )
 
 
 class DefinitionV20(_ProjectDefinitionBase):
-    entities: Dict[str, Annotated[Entity, Field(discriminator="type")]] = Field(
-        title="Entity definitions."
-    )
+    entities: Dict[str, AnnotatedEntity] = Field(title="Entity definitions.")
 
     @model_validator(mode="before")
     @classmethod
@@ -129,68 +122,108 @@ class DefinitionV20(_ProjectDefinitionBase):
         """
         if "defaults" in data and "entities" in data:
             for key, entity in data["entities"].items():
-                entity_type = entity["type"]
-                if entity_type not in v2_entity_types_map:
+                entity_fields = get_allowed_fields_for_entity(entity)
+                if not entity_fields:
                     continue
-                entity_model = v2_entity_types_map[entity_type]
                 for default_key, default_value in data["defaults"].items():
-                    if (
-                        default_key in entity_model.model_fields
-                        and default_key not in entity
-                    ):
+                    if default_key in entity_fields and default_key not in entity:
                         entity[default_key] = default_value
         return data
 
     @field_validator("entities", mode="after")
     @classmethod
-    def validate_entities(cls, entities: Dict[str, Entity]) -> Dict[str, Entity]:
+    def validate_entities_identifiers(
+        cls, entities: Dict[str, EntityModel]
+    ) -> Dict[str, EntityModel]:
+        for key, entity in entities.items():
+            entity.set_entity_id(key)
+            entity.validate_identifier()
+        return entities
+
+    @field_validator("entities", mode="after")
+    @classmethod
+    def validate_entities(
+        cls, entities: Dict[str, AnnotatedEntity]
+    ) -> Dict[str, AnnotatedEntity]:
         for key, entity in entities.items():
             # TODO Automatically detect TargetFields to validate
-            if entity.type == ApplicationEntity.get_type():
-                if isinstance(entity.from_.target, TargetField):
-                    target_key = str(entity.from_.target)
-                    target_class = entity.from_.__class__.model_fields["target"]
-                    target_type = target_class.annotation.__args__[0]
-                    cls._validate_target_field(target_key, target_type, entities)
+            if isinstance(entity, list):
+                for e in entity:
+                    cls._validate_single_entity(e, entities)
+            else:
+                cls._validate_single_entity(entity, entities)
         return entities
 
     @classmethod
+    def _validate_single_entity(
+        cls, entity: EntityModel, entities: Dict[str, AnnotatedEntity]
+    ):
+        if entity.type == ApplicationEntityModel.get_type():
+            if isinstance(entity.from_, TargetField):
+                target_key = entity.from_.target
+                target_object = entity.from_
+                target_type = target_object.get_type()
+                cls._validate_target_field(target_key, target_type, entities)
+
+    @classmethod
     def _validate_target_field(
-        cls, target_key: str, target_type: Entity, entities: Dict[str, Entity]
+        cls, target_key: str, target_type: EntityModel, entities: Dict[str, EntityModel]
     ):
         if target_key not in entities:
             raise ValueError(f"No such target: {target_key}")
-        else:
-            # Validate the target type
-            actual_target_type = entities[target_key].__class__
-            if target_type and target_type is not actual_target_type:
-                raise ValueError(
-                    f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
-                )
+
+        # Validate the target type
+        actual_target_type = entities[target_key].__class__
+        if target_type and target_type is not actual_target_type:
+            raise ValueError(
+                f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
+            )
 
     defaults: Optional[DefaultsField] = Field(
         title="Default key/value entity values that are merged recursively for each entity.",
         default=None,
     )
 
-    env: Union[Dict[str, str], ProjectEnvironment, None] = Field(
-        title="Environment specification for this project.",
+    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
+        title="Default environment specification for this project.",
         default=None,
-        validation_alias="env",
-        union_mode="smart",
     )
 
-    @field_validator("env")
+    mixins: Optional[Dict[str, Dict]] = Field(
+        title="Mixins to apply to entities",
+        default=None,
+    )
+
+    @model_validator(mode="before")
     @classmethod
-    def _convert_env(
-        cls, env: Union[Dict, ProjectEnvironment, None]
-    ) -> ProjectEnvironment:
-        if isinstance(env, ProjectEnvironment):
-            return env
-        return ProjectEnvironment(default_env=(env or {}), override_env={})
+    def apply_mixins(cls, data: Dict) -> Dict:
+        """
+        Applies mixins to those entities, whose meta field contains the mixin name.
+        """
+        if "mixins" not in data or "entities" not in data:
+            return data
+
+        for entity in data["entities"].values():
+            entity_mixins = entity_mixins_to_list(
+                entity.get("meta", {}).get("use_mixins")
+            )
+
+            entity_fields = get_allowed_fields_for_entity(entity)
+            if entity_fields and entity_mixins:
+                for mixin_name in entity_mixins:
+                    if mixin_name in data["mixins"]:
+                        for key, value in data["mixins"][mixin_name].items():
+                            if key in entity_fields:
+                                entity[key] = value
+                    else:
+                        raise ValueError(f"Mixin {mixin_name} not found in mixins")
+        return data
+
+    def get_entities_by_type(self, entity_type: str):
+        return {i: e for i, e in self.entities.items() if e.get_type() == entity_type}
 
 
-def build_project_definition(**data):
+def build_project_definition(**data) -> ProjectDefinition:
     """
     Returns a ProjectDefinition instance with a version matching the provided definition_version value
     """
@@ -210,7 +243,28 @@ ProjectDefinition = Union[ProjectDefinitionV1, ProjectDefinitionV2]
 
 
 def get_version_map():
-    version_map = {"1": DefinitionV10, "1.1": DefinitionV11}
-    if FeatureFlag.ENABLE_PROJECT_DEFINITION_V2.is_enabled():
-        version_map["2"] = DefinitionV20
+    version_map = {"1": DefinitionV10, "1.1": DefinitionV11, "2": DefinitionV20}
     return version_map
+
+
+def entity_mixins_to_list(entity_mixins: Optional[str | List[str]]) -> List[str]:
+    """
+    Convert an optional string or a list of strings to a list of strings.
+    """
+    if entity_mixins is None:
+        return []
+    if isinstance(entity_mixins, str):
+        return [entity_mixins]
+    return entity_mixins
+
+
+def get_allowed_fields_for_entity(entity: Dict[str, Any]) -> List[str]:
+    """
+    Get the allowed fields for the given entity.
+    """
+    entity_type = entity.get("type")
+    if entity_type not in v2_entity_model_types_map:
+        return []
+
+    entity_model = v2_entity_model_types_map[entity_type]
+    return entity_model.model_fields

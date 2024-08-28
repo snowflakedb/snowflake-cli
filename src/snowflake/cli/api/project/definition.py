@@ -21,17 +21,19 @@ import yaml
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.project_definition import (
-    ProjectDefinition,
     ProjectProperties,
 )
 from snowflake.cli.api.project.util import (
     append_to_identifier,
-    clean_identifier,
     get_env_username,
+    sanitize_identifier,
     to_identifier,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.api.utils.definition_rendering import render_definition_template
+from snowflake.cli.api.utils.definition_rendering import (
+    raw_project_properties,
+    render_definition_template,
+)
 from snowflake.cli.api.utils.dict_utils import deep_merge_dicts
 from snowflake.cli.api.utils.types import Context, Definition
 
@@ -59,7 +61,9 @@ def _get_merged_definitions(paths: List[Path]) -> Optional[Definition]:
 
 
 def load_project(
-    paths: List[Path], context_overrides: Optional[Context] = None
+    paths: List[Path],
+    context_overrides: Optional[Context] = None,
+    render_templates: bool = True,
 ) -> ProjectProperties:
     """
     Loads project definition, optionally overriding values. Definition values
@@ -67,43 +71,14 @@ def load_project(
     Templating is also applied after the merging process.
     """
     merged_definitions = _get_merged_definitions(paths)
-    return render_definition_template(merged_definitions, context_overrides or {})
-
-
-def generate_local_override_yml(
-    project: ProjectDefinition,
-) -> ProjectDefinition:
-    """
-    Generates defaults for optional keys in the same YAML structure as the project
-    schema. The returned YAML object can be saved directly to a file, if desired.
-    A connection is made using global context to resolve current role and warehouse.
-    """
-    conn = get_cli_context().connection
-    user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
-    role = conn.role
-    warehouse = conn.warehouse
-
-    local: dict = {}
-    if project.native_app:
-        name = clean_identifier(project.native_app.name)
-        app_identifier = to_identifier(name)
-        user_app_identifier = append_to_identifier(app_identifier, f"_{user}")
-        package_identifier = append_to_identifier(app_identifier, f"_pkg_{user}")
-        local["native_app"] = {
-            "application": {
-                "name": user_app_identifier,
-                "role": role,
-                "debug": True,
-                "warehouse": warehouse,
-            },
-            "package": {"name": package_identifier, "role": role},
-        }
-
-    return project.update_from_dict(local)
+    if render_templates:
+        return render_definition_template(merged_definitions, context_overrides or {})
+    else:
+        return raw_project_properties(merged_definitions)
 
 
 def default_app_package(project_name: str):
-    user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
+    user = sanitize_identifier(get_env_username() or DEFAULT_USERNAME).lower()
     return append_to_identifier(to_identifier(project_name), f"_pkg_{user}")
 
 
@@ -113,5 +88,5 @@ def default_role():
 
 
 def default_application(project_name: str):
-    user = clean_identifier(get_env_username() or DEFAULT_USERNAME)
+    user = sanitize_identifier(get_env_username() or DEFAULT_USERNAME).lower()
     return append_to_identifier(to_identifier(project_name), f"_{user}")

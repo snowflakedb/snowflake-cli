@@ -9,3 +9,6 @@ native_app:
   application:
     post_deploy:
       - sql_script: scripts/missing.sql
+  package:
+    post_deploy:
+      - sql_script: scripts/package_missing_script.sql

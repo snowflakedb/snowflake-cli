@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from pathlib import Path
 
 import pytest
 
@@ -24,8 +25,7 @@ STAGE_NAME = "dev_deployment"
 def test_snowpark_external_access(project_directory, _test_steps, test_database):
 
     with project_directory("snowpark_external_access") as project_dir:
-
-        _test_steps.snowpark_build_should_zip_files()
+        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -56,11 +56,11 @@ def test_snowpark_external_access(project_directory, _test_steps, test_database)
 
 @pytest.mark.integration
 def test_snowpark_upgrades_with_external_access(
-    project_directory, _test_steps, test_database, alter_snowflake_yml
+    project_directory, _test_steps, test_database, alter_snowflake_yml, runner
 ):
-
+    runner.invoke_with_connection(["sql", "-q", f"use database {test_database}"])
     with project_directory("snowpark") as tmp_dir:
-        _test_steps.snowpark_build_should_zip_files()
+        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [

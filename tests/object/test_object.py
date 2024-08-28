@@ -11,13 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from tempfile import NamedTemporaryFile
 from unittest import mock
 
 import pytest
 from click import ClickException
+from snowflake.cli._plugins.object.commands import _scope_validate
 from snowflake.cli.api.constants import OBJECT_TO_NAMES, SUPPORTED_OBJECTS
-from snowflake.cli.plugins.object.commands import _scope_validate
+
+from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
 
 @mock.patch("snowflake.connector.connect")
@@ -133,7 +135,6 @@ def test_show_with_scope(
 def test_show_with_invalid_scope(
     mock_connector, object_type, input_scope, input_name, expected, runner
 ):
-
     result = runner.invoke(
         ["object", "list", object_type, "--in", input_scope, input_name]
     )
@@ -253,3 +254,14 @@ def test_throw_exception_because_of_missing_arguments(
     assert result.output.__contains__(
         f"Missing argument '{expect_argument_exception}'."
     )
+
+
+def test_object_create_with_multiple_json_sources(runner):
+    with NamedTemporaryFile("r") as tmp_file:
+        result = runner.invoke(
+            ["object", "create", "schema", "name=schema_name", "--json", "json_data"]
+        )
+        assert_that_result_is_usage_error(
+            result,
+            f"Parameters 'object_attributes' and '--json' are incompatible and cannot be used simultaneously.",
+        )

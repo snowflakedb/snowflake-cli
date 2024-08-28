@@ -19,17 +19,23 @@ from pathlib import Path
 from textwrap import dedent
 from typing import List, Optional, Set
 
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
-from snowflake.cli.plugins.nativeapp.project_model import (
+from snowflake.cli._plugins.nativeapp.project_model import (
     NativeAppProjectModel,
 )
+from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 
-NATIVEAPP_MODULE = "snowflake.cli.plugins.nativeapp.manager"
-TEARDOWN_MODULE = "snowflake.cli.plugins.nativeapp.teardown_processor"
+NATIVEAPP_MODULE = "snowflake.cli._plugins.nativeapp.manager"
+TEARDOWN_MODULE = "snowflake.cli._plugins.nativeapp.teardown_processor"
 TYPER_CONFIRM = "typer.confirm"
 TYPER_PROMPT = "typer.prompt"
-RUN_MODULE = "snowflake.cli.plugins.nativeapp.run_processor"
-VERSION_MODULE = "snowflake.cli.plugins.nativeapp.version.version_processor"
+RUN_MODULE = "snowflake.cli._plugins.nativeapp.run_processor"
+VERSION_MODULE = "snowflake.cli._plugins.nativeapp.version.version_processor"
+ENTITIES_COMMON_MODULE = "snowflake.cli.api.entities.common"
+ENTITIES_UTILS_MODULE = "snowflake.cli.api.entities.utils"
+
+CLI_GLOBAL_TEMPLATE_CONTEXT = (
+    "snowflake.cli.api.cli_global_context._CliGlobalContextAccess.template_context"
+)
 
 TEARDOWN_PROCESSOR = f"{TEARDOWN_MODULE}.NativeAppTeardownProcessor"
 NATIVEAPP_MANAGER = f"{NATIVEAPP_MODULE}.NativeAppManager"
@@ -65,6 +71,22 @@ RUN_PROCESSOR_GET_EXISTING_APP_INFO = f"{RUN_PROCESSOR}.get_existing_app_info"
 RUN_PROCESSOR_APP_POST_DEPLOY_HOOKS = f"{RUN_PROCESSOR}.app_post_deploy_hooks"
 
 FIND_VERSION_FROM_MANIFEST = f"{VERSION_MODULE}.find_version_info_in_manifest_file"
+
+APP_PACKAGE_ENTITY = (
+    "snowflake.cli.api.entities.application_package_entity.ApplicationPackageEntity"
+)
+APP_PACKAGE_ENTITY_DISTRIBUTION_IN_SF = (
+    f"{APP_PACKAGE_ENTITY}.get_app_pkg_distribution_in_snowflake"
+)
+APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO = (
+    f"{APP_PACKAGE_ENTITY}.get_existing_app_pkg_info"
+)
+APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME = (
+    f"{APP_PACKAGE_ENTITY}.verify_project_distribution"
+)
+
+SQL_EXECUTOR_EXECUTE = f"{ENTITIES_COMMON_MODULE}.SqlExecutor._execute_query"
+SQL_EXECUTOR_EXECUTE_QUERIES = f"{ENTITIES_COMMON_MODULE}.SqlExecutor._execute_queries"
 
 mock_snowflake_yml_file = dedent(
     """\

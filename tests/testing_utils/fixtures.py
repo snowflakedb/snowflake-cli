@@ -28,15 +28,15 @@ from unittest import mock
 
 import pytest
 import yaml
+from snowflake.cli._app.cli_app import app_factory
+from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
+    NativeAppExtensionFunction,
+)
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
 from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
-from snowflake.cli.app.cli_app import app_factory
-from snowflake.cli.plugins.nativeapp.codegen.snowpark.models import (
-    NativeAppExtensionFunction,
-)
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 from typer import Typer
@@ -274,7 +274,7 @@ def test_snowcli_config():
     test_config = TEST_DIR / "test.toml"
     with _named_temporary_file(suffix=".toml") as p:
         p.write_text(test_config.read_text())
-        p.chmod(0o777)
+        p.chmod(0o600)  # Make config file private
         yield p
 
 
@@ -442,7 +442,7 @@ def mock_procedure_description(mock_cursor):
             ("body", None),
             ("imports", "[@FOO.BAR.BAZ/my_snowpark_project/app.zip]"),
             ("handler", "app.hello_procedure"),
-            ("runtime_version", "3.8"),
+            ("runtime_version", "3.10"),
             ("packages", "['snowflake-snowpark-python','pytest<9.0.0,>=7.0.0']"),
             ("installed_packages", "['_libgcc_mutex==0.1']"),
         ],

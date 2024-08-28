@@ -20,13 +20,13 @@ from snowflake.connector.version import VERSION as DRIVER_VERSION
 
 
 @mock.patch(
-    "snowflake.cli.app.telemetry.python_version",
+    "snowflake.cli._app.telemetry.python_version",
 )
-@mock.patch("snowflake.cli.app.telemetry.platform.platform")
+@mock.patch("snowflake.cli._app.telemetry.platform.platform")
 @mock.patch("uuid.uuid4")
-@mock.patch("snowflake.cli.app.telemetry.get_time_millis")
+@mock.patch("snowflake.cli._app.telemetry.get_time_millis")
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
 @mock.patch.dict(os.environ, {"SNOWFLAKE_CLI_FEATURES_FOO": "False"})
 def test_executing_command_sends_telemetry_usage_data(
     _, mock_conn, mock_time, mock_uuid4, mock_platform, mock_version, runner
@@ -72,13 +72,13 @@ def test_executing_command_sends_telemetry_usage_data(
 
 
 @mock.patch(
-    "snowflake.cli.app.telemetry.python_version",
+    "snowflake.cli._app.telemetry.python_version",
 )
-@mock.patch("snowflake.cli.app.telemetry.platform.platform")
+@mock.patch("snowflake.cli._app.telemetry.platform.platform")
 @mock.patch("uuid.uuid4")
 @mock.patch("snowflake.connector.time_util.get_time_millis")
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
 @mock.patch.dict(os.environ, {"SNOWFLAKE_CLI_FEATURES_FOO": "False"})
 def test_executing_command_sends_telemetry_result_data(
     _, mock_conn, mock_time, mock_uuid4, mock_platform, mock_version, runner
@@ -106,7 +106,7 @@ def test_executing_command_sends_telemetry_result_data(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli.plugins.streamlit.commands.StreamlitManager")
+@mock.patch("snowflake.cli._plugins.streamlit.commands.StreamlitManager")
 def test_executing_command_sends_project_definition_in_telemetry_data(
     _, mock_conn, project_directory, runner
 ):
@@ -123,7 +123,7 @@ def test_executing_command_sends_project_definition_in_telemetry_data(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("uuid.uuid4")
-@mock.patch("snowflake.cli.plugins.streamlit.commands.StreamlitManager")
+@mock.patch("snowflake.cli._plugins.streamlit.commands.StreamlitManager")
 def test_failing_executing_command_sends_telemetry_data(
     _, mock_uuid4, mock_conn, project_directory, runner
 ):

@@ -16,16 +16,64 @@
 
 # Unreleased version
 ## Backward incompatibility
-* Dropped support for Python below 3.10 version.
-* `snow object stage` commands are removed in favour of `snow stage`.
-* `snow snowpark init` and `snow streamlit init` commands are removed in favor of `snow init` command.
-* Removed deprecated flags from `snow snowpark` commands.
 
 ## Deprecations
 
 ## New additions
+* Added templates expansion of arbitrary files for Native Apps through `templates` processor.
 
 ## Fixes and improvements
+
+
+# v3.0.0
+## Backward incompatibility
+* Dropped support for Python below 3.10 version.
+* `snow object stage` commands are removed in favour of `snow stage`.
+* `snow snowpark init` and `snow streamlit init` commands are removed in favor of `snow init` command.
+* Removed deprecated flags from `snow snowpark` commands.
+* Default Python version for Snowpark functions and procedures was bumped to 3.10 from 3.8.
+* Snowpark commands
+  * `snow snowpark build` creates a .zip file for each specified artifact that is a directory. Non-Anaconda
+    dependencies are packaged once as `dependencies.zip`.
+  * `snow snowpark deploy` uploads all artifacts created during build step. Dependencies zip is upload once to
+     every Snowpark stage specified in project definition.
+  * The changes are compatible with V1 projects definition though the result state (file layout) is different.
+  * `snow snowpark package` commands no longer fallback to Anaconda Channel metadata when fetching available packages info fails.
+
+## Deprecations
+
+## New additions
+* Added `snow spcs service execute-job` command, which supports creating and executing a job service in the current schema.
+* Added `snow app events` command to fetch logs and traces from local and customer app installations.
+* Added support for external access (api integrations and secrets) in Streamlit.
+* Added support for `<% ... %>` syntax in SQL templating.
+* Support multiple Streamlit application in single snowflake.yml project definition file.
+* Added `snow ws migrate` command to migrate `snowflake.yml` file from V1 to V2.
+
+## Fixes and improvements
+* Fixed problem with whitespaces in `snow connection add` command.
+* Added check for the correctness of token file and private key paths when addind a connection.
+* Fix the typo in spcs service name argument description. It is the identifier of the **service** instead of the **service pool**.
+* Fix error handling and improve messaging when no artifacts provided.
+* Improved error message for incompatible parameters.
+* Fixed SQL error when running `snow app version create` and `snow app version drop` with a version name that isn't a valid Snowflake unquoted identifier
+
+
+# v2.8.0
+## Backward incompatibility
+
+## Deprecations
+  * Added deprecation warning for `native_app.package.scripts` in project definition file.
+
+## New additions
+* Added support for project definition file defaults in templates.
+* Added support for `native_app.package.post_deploy` scripts in project definition file.
+  * These scripts will execute whenever a Native App Package is created or updated.
+  * Currently only supports SQL scripts: `post_deploy: [{sql_script: script.sql}]`.
+
+## Fixes and improvements
+* Fix return values of `snow snowpark list`, `describe` and `drop` commands.
+* Show warnings returned by Snowflake when `snow app run` is successful.
 
 
 # v2.7.0
@@ -52,6 +100,7 @@ but should be replaced with `snow init`
 * Updated post_deploy SQL script default database to be the application database
 * Handle `NULL` md5 values correctly when returned by stage storage backends
 * Regionless host URLs are now supported when generating Snowsight URLs
+* `snow app run` and `snow app deploy` now correctly determine modified status for large files uploaded to AWS S3
 
 # v2.6.1
 ## Backward incompatibility

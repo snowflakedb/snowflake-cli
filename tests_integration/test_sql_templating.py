@@ -18,7 +18,7 @@ import pytest
 @pytest.mark.integration
 def test_sql_env_value_from_cli_param(runner, snowflake_session):
     result = runner.invoke_with_connection_json(
-        ["sql", "-q", "select '&{ctx.env.test}'", "--env", "test=value_from_cli"]
+        ["sql", "-q", "select '<% ctx.env.test %>'", "--env", "test=value_from_cli"]
     )
 
     assert result.exit_code == 0
@@ -28,7 +28,7 @@ def test_sql_env_value_from_cli_param(runner, snowflake_session):
 @pytest.mark.integration
 def test_sql_env_value_from_cli_param_that_is_blank(runner, snowflake_session):
     result = runner.invoke_with_connection_json(
-        ["sql", "-q", "select '&{ctx.env.test}'", "--env", "test="]
+        ["sql", "-q", "select '<% ctx.env.test %>'", "--env", "test="]
     )
 
     assert result.exit_code == 0
@@ -38,7 +38,7 @@ def test_sql_env_value_from_cli_param_that_is_blank(runner, snowflake_session):
 @pytest.mark.integration
 def test_sql_undefined_env_causing_error(runner, snowflake_session):
     result = runner.invoke_with_connection_json(
-        ["sql", "-q", "select '&{ctx.env.test}'"]
+        ["sql", "-q", "select '<% ctx.env.test %>'"]
     )
 
     assert result.exit_code == 1
@@ -48,7 +48,7 @@ def test_sql_undefined_env_causing_error(runner, snowflake_session):
 @pytest.mark.integration
 def test_sql_env_value_from_os_env(runner, snowflake_session):
     result = runner.invoke_with_connection_json(
-        ["sql", "-q", "select '&{ctx.env.test}'"], env={"test": "value_from_os_env"}
+        ["sql", "-q", "select '<% ctx.env.test %>'"], env={"test": "value_from_os_env"}
     )
 
     assert result.exit_code == 0
@@ -58,7 +58,7 @@ def test_sql_env_value_from_os_env(runner, snowflake_session):
 @pytest.mark.integration
 def test_sql_env_value_from_cli_param_overriding_os_env(runner, snowflake_session):
     result = runner.invoke_with_connection_json(
-        ["sql", "-q", "select '&{ctx.env.test}'", "--env", "test=value_from_cli"],
+        ["sql", "-q", "select '<% ctx.env.test %>'", "--env", "test=value_from_cli"],
         env={"test": "value_from_os_env"},
     )
 
@@ -72,7 +72,7 @@ def test_sql_env_value_from_cli_duplicate_arg(runner, snowflake_session):
         [
             "sql",
             "-q",
-            "select '&{ctx.env.Test}'",
+            "select '<% ctx.env.Test %>'",
             "--env",
             "Test=firstArg",
             "--env",
@@ -84,13 +84,16 @@ def test_sql_env_value_from_cli_duplicate_arg(runner, snowflake_session):
     assert result.json == [{"'SECONDARG'": "secondArg"}]
 
 
+@pytest.mark.parametrize("t_start,t_end", [("&{", "}"), ("<%", "%>")])
 @pytest.mark.integration
-def test_sql_env_value_from_cli_multiple_args(runner, snowflake_session):
+def test_sql_env_value_from_cli_multiple_args(
+    runner, snowflake_session, t_start, t_end
+):
     result = runner.invoke_with_connection_json(
         [
             "sql",
             "-q",
-            "select '&{ctx.env.Test1}-&{ctx.env.Test2}'",
+            f"select '{t_start}ctx.env.Test1{t_end}-{t_start}ctx.env.Test2{t_end}'",
             "--env",
             "Test1=test1",
             "--env",

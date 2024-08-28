@@ -22,6 +22,7 @@ from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 from snowflake.cli.api.utils.models import ProjectEnvironment
+from snowflake.cli.api.utils.templating_functions import get_templating_functions
 
 from tests.nativeapp.utils import NATIVEAPP_MODULE
 
@@ -40,12 +41,14 @@ def test_resolve_variables_in_project_no_cross_variable_dependencies():
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
-                {"number": 1, "string": "foo", "boolean": True}, {}
+                default_env={"number": 1, "string": "foo", "boolean": True},
+                override_env={},
             ),
-        }
+        },
     }
 
 
@@ -62,10 +65,13 @@ def test_resolve_variables_in_project_cross_variable_dependencies():
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
-            "env": ProjectEnvironment({"A": 42, "B": "b=42", "C": "b=42 and 42"}, {}),
-        }
+            "env": ProjectEnvironment(
+                default_env={"A": 42, "B": "b=42", "C": "b=42 and 42"}, override_env={}
+            ),
+        },
     }
 
 
@@ -96,7 +102,7 @@ def test_no_resolve_and_warning_in_version_1(warning_mock):
         "ctx": {
             "definition_version": "1",
             "native_app": {"name": "test_source_<% ctx.env.A %>", "artifacts": []},
-            "env": ProjectEnvironment({}, {}),
+            "env": ProjectEnvironment(default_env={}, override_env={}),
         }
     }
     warning_mock.assert_called_once_with(
@@ -118,7 +124,7 @@ def test_partial_invalid_template_in_version_1(warning_mock):
         "ctx": {
             "definition_version": "1",
             "native_app": {"name": "test_source_<% ctx.env.A", "artifacts": []},
-            "env": ProjectEnvironment({}, {}),
+            "env": ProjectEnvironment(default_env={}, override_env={}),
         }
     }
     # we still want to warn if there was an incorrect attempt to use templating
@@ -128,7 +134,7 @@ def test_partial_invalid_template_in_version_1(warning_mock):
     )
 
 
-@mock.patch.dict(os.environ, {"A": "value"}, clear=True)
+@mock.patch.dict(os.environ, {"A": "value", "USER": "username"}, clear=True)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 def test_no_warning_in_version_1_1(warning_mock):
     definition = {
@@ -138,11 +144,25 @@ def test_no_warning_in_version_1_1(warning_mock):
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
-            "native_app": {"name": "test_source_value", "artifacts": []},
-            "env": ProjectEnvironment({}, {}),
-        }
+            "native_app": {
+                "name": "test_source_value",
+                "artifacts": [],
+                "bundle_root": "output/bundle/",
+                "deploy_root": "output/deploy/",
+                "generated_root": "__generated/",
+                "scratch_stage": "app_src.stage_snowflake_cli_scratch",
+                "source_stage": "app_src.stage",
+                "package": {
+                    "name": "test_source_value_pkg_username",
+                    "distribution": "internal",
+                },
+                "application": {"name": "test_source_value_username"},
+            },
+            "env": ProjectEnvironment(default_env={}, override_env={}),
+        },
     }
     warning_mock.assert_not_called()
 
@@ -172,16 +192,20 @@ def test_resolve_variables_in_project_cross_project_dependencies():
     }
     result = render_definition_template(definition, {}).project_context
     assert result == {
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
-            "streamlit": {"name": "my_app"},
+            "streamlit": {
+                "name": "my_app",
+                "main_file": "streamlit_app.py",
+                "query_warehouse": "streamlit",
+                "stage": "streamlit",
+            },
             "env": ProjectEnvironment(
-                {
-                    "app": "name of streamlit is my_app",
-                },
-                {},
+                default_env={"app": "name of streamlit is my_app"},
+                override_env={},
             ),
-        }
+        },
     }
 
 
@@ -207,17 +231,18 @@ def test_resolve_variables_in_project_environment_variables_precedence():
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
-                {
+                default_env={
                     "should_be_replaced_by_env": "test failed",
                     "test_variable": "new_lowercase_value and new_uppercase_value",
                     "test_variable_2": "this comes from os.environ",
                 },
-                {},
+                override_env={},
             ),
-        }
+        },
     }
     assert result["ctx"]["env"]["lowercase"] == "new_lowercase_value"
     assert result["ctx"]["env"]["UPPERCASE"] == "new_uppercase_value"
@@ -225,7 +250,11 @@ def test_resolve_variables_in_project_environment_variables_precedence():
     assert result["ctx"]["env"]["value_from_env"] == "this comes from os.environ"
 
 
-@mock.patch.dict(os.environ, {"env_var": "<% ctx.definition_version %>"}, clear=True)
+@mock.patch.dict(
+    os.environ,
+    {"env_var": "<% ctx.definition_version %>", "USER": "username"},
+    clear=True,
+)
 def test_env_variables_do_not_get_resolved():
     definition = {
         "definition_version": "1.1",
@@ -235,21 +264,33 @@ def test_env_variables_do_not_get_resolved():
         },
     }
     result = render_definition_template(definition, {}).project_context
-
     assert result == {
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "native_app": {
                 "name": "test_source_<% ctx.definition_version %>",
                 "artifacts": [],
+                "bundle_root": "output/bundle/",
+                "deploy_root": "output/deploy/",
+                "generated_root": "__generated/",
+                "scratch_stage": "app_src.stage_snowflake_cli_scratch",
+                "source_stage": "app_src.stage",
+                "package": {
+                    "name": '"test_source_<% ctx.definition_version %>_pkg_username"',
+                    "distribution": "internal",
+                },
+                "application": {
+                    "name": '"test_source_<% ctx.definition_version %>_username"'
+                },
             },
             "env": ProjectEnvironment(
-                {
+                default_env={
                     "reference_to_name": "test_source_<% ctx.definition_version %>",
                 },
-                {},
+                override_env={},
             ),
-        }
+        },
     }
 
     assert result["ctx"]["env"]["env_var"] == "<% ctx.definition_version %>"
@@ -295,7 +336,7 @@ def test_resolve_variables_error_on_cycle(definition):
     with pytest.raises(CycleDetectedError) as err:
         render_definition_template(definition, {})
 
-    assert err.value.message.startswith("Cycle detected in templating variable ")
+    assert err.value.message.startswith("Cycle detected in template variable ")
 
 
 @pytest.mark.parametrize(
@@ -335,7 +376,7 @@ def test_resolve_variables_reference_non_scalar(definition, error_var):
     )
 
 
-@mock.patch.dict(os.environ, {"blank_env": ""}, clear=True)
+@mock.patch.dict(os.environ, {"blank_env": "", "USER": "username"}, clear=True)
 def test_resolve_variables_blank_is_ok():
     definition = {
         "definition_version": "1.1",
@@ -351,16 +392,30 @@ def test_resolve_variables_blank_is_ok():
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
-            "native_app": {"name": "", "deploy_root": "", "artifacts": []},
+            "native_app": {
+                "name": "",
+                "deploy_root": "",
+                "artifacts": [],
+                "bundle_root": "output/bundle/",
+                "generated_root": "__generated/",
+                "scratch_stage": "app_src.stage_snowflake_cli_scratch",
+                "source_stage": "app_src.stage",
+                "package": {
+                    "name": "_pkg_username",
+                    "distribution": "internal",
+                },
+                "application": {"name": "_username"},
+            },
             "env": ProjectEnvironment(
-                {
+                default_env={
                     "blank_default_env": "",
                 },
-                {},
+                override_env={},
             ),
-        }
+        },
     }
 
     assert result["ctx"]["env"]["blank_env"] == ""
@@ -419,17 +474,17 @@ def test_unquoted_template_usage_in_strings_yaml(named_temporary_file):
 
     with named_temporary_file(suffix=".yml") as p:
         p.write_text(dedent(text))
-        project_definition = load_project([p]).project_definition
+        result = load_project([p])
 
-    assert project_definition.env == ProjectEnvironment(
-        {
+    assert result.project_context.get("ctx", {}).get("env", None) == ProjectEnvironment(
+        default_env={
             "block_multiline": "this is multiline string \nwith template Snowflake is great!\n",
             "flow_multiline_not_quoted": "this is multiline string with template Snowflake is great!",
             "flow_multiline_quoted": "this is multiline string with template Snowflake is great!",
             "single_line": "Snowflake is great!",
             "value": "Snowflake is great!",
         },
-        {},
+        override_env={},
     )
 
 
@@ -444,15 +499,16 @@ def test_injected_yml_in_env_should_not_be_expanded():
     result = render_definition_template(definition, {}).project_context
 
     assert result == {
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
-                {
+                default_env={
                     "test_env": "    - app/*\n    - src\n",
                 },
-                {},
+                override_env={},
             ),
-        }
+        },
     }
 
     assert result["ctx"]["env"]["var_with_yml"] == "    - app/*\n    - src\n"
@@ -478,7 +534,7 @@ def test_invalid_templating_syntax(template_value):
     with pytest.raises(InvalidTemplate) as err:
         render_definition_template(definition, {})
 
-    assert err.value.message == f"Unexpected templating syntax in {template_value}"
+    assert err.value.message == f"Unexpected template syntax in {template_value}"
 
 
 def test_invalid_type_for_env_section():
@@ -486,13 +542,10 @@ def test_invalid_type_for_env_section():
         "definition_version": "1.1",
         "env": ["test_env", "array_val1"],
     }
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(SchemaValidationError) as err:
         render_definition_template(definition, {})
 
-    assert (
-        err.value.message
-        == "env section in project definition file should be a mapping"
-    )
+    assert "Input should be a valid dictionary" in err.value.message
 
 
 def test_invalid_type_for_env_variable():
@@ -502,13 +555,10 @@ def test_invalid_type_for_env_variable():
             "test_env": ["array_val1"],
         },
     }
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(SchemaValidationError) as err:
         render_definition_template(definition, {})
 
-    assert (
-        err.value.message
-        == "Variable test_env in env section of project definition file should be a scalar"
-    )
+    assert "Input should be a valid string" in err.value.message
 
 
 @mock.patch.dict(os.environ, {"env_var_test": "value_from_os_env"}, clear=True)
@@ -525,16 +575,17 @@ def test_env_priority_from_cli_and_os_env_and_project_env():
     ).project_context
 
     assert result == {
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
-                {
+                default_env={
                     "env_var_test": "value_from_definition_file",
                     "final_value": "value_from_cli_override",
                 },
-                {"env_var_test": "value_from_cli_override"},
+                override_env={"env_var_test": "value_from_cli_override"},
             ),
-        }
+        },
     }
 
     assert result["ctx"]["env"]["env_var_test"] == "value_from_cli_override"
@@ -553,13 +604,14 @@ def test_values_env_from_only_overrides():
     ).project_context
 
     assert result == {
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
-                {"final_value": "value_from_cli_override"},
-                {"env_var_test": "value_from_cli_override"},
+                default_env={"final_value": "value_from_cli_override"},
+                override_env={"env_var_test": "value_from_cli_override"},
             ),
-        }
+        },
     }
 
     assert result["ctx"]["env"]["env_var_test"] == "value_from_cli_override"
@@ -575,13 +627,14 @@ def test_cli_env_var_blank():
     ).project_context
 
     assert result == {
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
-                {},
-                {"env_var_test": ""},
+                default_env={},
+                override_env={"env_var_test": ""},
             ),
-        }
+        },
     }
 
     assert result["ctx"]["env"]["env_var_test"] == ""
@@ -597,13 +650,14 @@ def test_cli_env_var_does_not_expand_with_templating():
     ).project_context
 
     assert result == {
+        "fn": get_templating_functions(),
         "ctx": {
             "definition_version": "1.1",
             "env": ProjectEnvironment(
-                {},
-                {"env_var_test": "<% ctx.env.something %>"},
+                default_env={},
+                override_env={"env_var_test": "<% ctx.env.something %>"},
             ),
-        }
+        },
     }
 
     assert result["ctx"]["env"]["env_var_test"] == "<% ctx.env.something %>"
@@ -622,11 +676,371 @@ def test_os_env_and_override_envs_in_version_1():
         "ctx": {
             "definition_version": "1",
             "env": ProjectEnvironment(
-                {},
-                {"override_env": "override_env_value"},
+                default_env={},
+                override_env={"override_env": "override_env_value"},
             ),
         }
     }
 
     assert result["ctx"]["env"]["override_env"] == "override_env_value"
     assert result["ctx"]["env"]["os_env_var"] == "os_env_var_value"
+
+
+@mock.patch.dict(os.environ, {"debug": "truE", "USER": "username"}, clear=True)
+def test_non_str_scalar_with_templates():
+    definition = {
+        "definition_version": "1.1",
+        "native_app": {
+            "name": "test_app",
+            "artifacts": [],
+            "application": {"debug": "<% ctx.env.debug %>"},
+        },
+    }
+
+    result = render_definition_template(definition, {}).project_context
+
+    assert result == {
+        "fn": get_templating_functions(),
+        "ctx": {
+            "definition_version": "1.1",
+            "native_app": {
+                "name": "test_app",
+                "artifacts": [],
+                "bundle_root": "output/bundle/",
+                "deploy_root": "output/deploy/",
+                "generated_root": "__generated/",
+                "scratch_stage": "app_src.stage_snowflake_cli_scratch",
+                "source_stage": "app_src.stage",
+                "package": {
+                    "name": "test_app_pkg_username",
+                    "distribution": "internal",
+                },
+                "application": {
+                    "name": "test_app_username",
+                    "debug": "truE",
+                },
+            },
+            "env": ProjectEnvironment(default_env={}, override_env={}),
+        },
+    }
+
+
+@mock.patch.dict(os.environ, {"USER": "username"}, clear=True)
+def test_boolean_field_with_str_with_templates():
+    definition = {
+        "definition_version": "1.1",
+        "native_app": {
+            "name": "test_app",
+            "artifacts": [],
+            "application": {
+                "name": "app_name_<% ctx.native_app.application.debug %>",
+                "debug": "truE",
+            },
+        },
+    }
+
+    result = render_definition_template(definition, {}).project_context
+
+    assert result == {
+        "fn": get_templating_functions(),
+        "ctx": {
+            "definition_version": "1.1",
+            "native_app": {
+                "name": "test_app",
+                "artifacts": [],
+                "bundle_root": "output/bundle/",
+                "deploy_root": "output/deploy/",
+                "generated_root": "__generated/",
+                "scratch_stage": "app_src.stage_snowflake_cli_scratch",
+                "source_stage": "app_src.stage",
+                "package": {
+                    "name": "test_app_pkg_username",
+                    "distribution": "internal",
+                },
+                "application": {
+                    "name": "app_name_truE",
+                    "debug": "truE",
+                },
+            },
+            "env": ProjectEnvironment(default_env={}, override_env={}),
+        },
+    }
+
+
+@mock.patch.dict(os.environ, {"debug": "invalid boolean"}, clear=True)
+def test_non_str_scalar_with_templates_with_invalid_value():
+    definition = {
+        "definition_version": "1.1",
+        "native_app": {
+            "name": "test_app",
+            "artifacts": [],
+            "application": {"debug": "<% ctx.env.debug %>"},
+        },
+    }
+
+    with pytest.raises(SchemaValidationError) as err:
+        render_definition_template(definition, {})
+
+    assert "Input should be a valid boolean" in err.value.message
+
+
+@mock.patch.dict(os.environ, {"stage": "app_src.stage", "USER": "username"}, clear=True)
+def test_field_with_custom_validation_with_templates():
+    definition = {
+        "definition_version": "1.1",
+        "native_app": {
+            "name": "test_app",
+            "artifacts": [],
+            "source_stage": "<% ctx.env.stage %>",
+        },
+    }
+
+    result = render_definition_template(definition, {}).project_context
+
+    assert result == {
+        "fn": get_templating_functions(),
+        "ctx": {
+            "definition_version": "1.1",
+            "native_app": {
+                "name": "test_app",
+                "artifacts": [],
+                "bundle_root": "output/bundle/",
+                "deploy_root": "output/deploy/",
+                "generated_root": "__generated/",
+                "scratch_stage": "app_src.stage_snowflake_cli_scratch",
+                "source_stage": "app_src.stage",
+                "package": {
+                    "name": "test_app_pkg_username",
+                    "distribution": "internal",
+                },
+                "application": {
+                    "name": "test_app_username",
+                },
+            },
+            "env": ProjectEnvironment(default_env={}, override_env={}),
+        },
+    }
+
+
+@mock.patch.dict(os.environ, {"stage": "invalid stage name"}, clear=True)
+def test_field_with_custom_validation_with_templates_and_invalid_value():
+    definition = {
+        "definition_version": "1.1",
+        "native_app": {
+            "name": "test_app",
+            "artifacts": [],
+            "source_stage": "<% ctx.env.stage %>",
+        },
+    }
+
+    with pytest.raises(SchemaValidationError) as err:
+        render_definition_template(definition, {})
+
+    assert "Incorrect value for source_stage value of native_app" in err.value.message
+
+
+@pytest.mark.parametrize(
+    "na_name, expected_app_name, expected_pkg_name",
+    [
+        # valid unquoted ID
+        ("safe_name", "safe_name_username", "safe_name_pkg_username"),
+        # valid quoted ID with unsafe char
+        ('"unsafe.name"', '"unsafe.name_username"', '"unsafe.name_pkg_username"'),
+        # valid quoted ID with safe char
+        ('"safe_name"', '"safe_name_username"', '"safe_name_pkg_username"'),
+        # valid quoted id with double quotes char
+        ('"name_""_"', '"name_""__username"', '"name_""__pkg_username"'),
+        # unquoted ID with unsafe char
+        ("unsafe.name", '"unsafe.name_username"', '"unsafe.name_pkg_username"'),
+    ],
+)
+@mock.patch.dict(os.environ, {"USER": "username"}, clear=True)
+def test_defaults_native_app_pkg_name(
+    na_name, expected_app_name: str, expected_pkg_name: str
+):
+
+    definition = {
+        "definition_version": "1.1",
+        "native_app": {"name": na_name, "artifacts": []},
+        "env": {
+            "app_reference": "<% ctx.native_app.application.name %>",
+            "pkg_reference": "<% ctx.native_app.package.name %>",
+        },
+    }
+    result = render_definition_template(definition, {})
+    project_context = result.project_context
+    project_definition = result.project_definition
+
+    assert project_definition.native_app.application.name == expected_app_name
+    assert project_definition.native_app.package.name == expected_pkg_name
+
+    env = project_context.get("ctx", {}).get("env", {})
+    assert env.get("app_reference") == expected_app_name
+    assert env.get("pkg_reference") == expected_pkg_name
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        {
+            "definition_version": "1.1",
+            "native_app": {
+                "name": "myapp",
+                "artifacts": [],
+            },
+        },
+        {
+            "definition_version": "2",
+            "entities": {
+                "myapp": {
+                    "type": "application",
+                    "identifier": "myapp_<% ctx.env.USER %>",
+                    "from": {"target": "mypackage"},
+                },
+                "mypackage": {
+                    "type": "application package",
+                    "identifier": "myapp_pkg_<% ctx.env.USER %>",
+                    "manifest": "manifest.xml",
+                    "artifacts": [],
+                },
+            },
+        },
+    ],
+    ids=["v1.1", "v2"],
+)
+@mock.patch.dict(
+    os.environ,
+    {"USER": "username", "SNOWFLAKE_CLI_TEST_RESOURCE_SUFFIX": "_suffix"},
+    clear=True,
+)
+def test_identifier_suffixing_defaults(definition):
+    project_properties = render_definition_template(definition, {})
+    project_definition = project_properties.project_definition
+    if definition["definition_version"] == "1.1":
+        # v1
+        app = project_definition.native_app.application.name
+        package = project_definition.native_app.package.name
+    else:
+        # v2+
+        app = project_definition.entities["myapp"].identifier
+        package = project_definition.entities["mypackage"].identifier
+    assert app == "myapp_username_suffix"
+    assert package == "myapp_pkg_username_suffix"
+
+
+@mock.patch.dict(
+    os.environ,
+    {"USER": "username", "SNOWFLAKE_CLI_TEST_RESOURCE_SUFFIX": "_suffix"},
+    clear=True,
+)
+def test_identifier_suffixing_quoted_defaults():
+    definition = {
+        "definition_version": "1.1",
+        "native_app": {
+            "name": "my.app",
+            "artifacts": [],
+        },
+    }
+    project_properties = render_definition_template(definition, {})
+    project_definition = project_properties.project_definition
+    app = project_definition.native_app.application.name
+    package = project_definition.native_app.package.name
+    assert app == '"my.app_username_suffix"'
+    assert package == '"my.app_pkg_username_suffix"'
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        {
+            "definition_version": "1.1",
+            "native_app": {
+                "name": "my.app",
+                "artifacts": [],
+                "package": {"name": "my.app_pkg_<% ctx.env.USER %>"},
+                "application": {"name": "my.app_<% ctx.env.USER %>"},
+            },
+        },
+        {
+            "definition_version": "2",
+            "entities": {
+                "myapp": {
+                    "type": "application",
+                    "identifier": "my.app_<% ctx.env.USER %>",
+                    "from": {"target": "mypackage"},
+                },
+                "mypackage": {
+                    "type": "application package",
+                    "identifier": "my.app_pkg_<% ctx.env.USER %>",
+                    "manifest": "manifest.xml",
+                    "artifacts": [],
+                },
+            },
+        },
+    ],
+    ids=["v1.1", "v2"],
+)
+@mock.patch.dict(
+    os.environ,
+    {"USER": "username", "SNOWFLAKE_CLI_TEST_RESOURCE_SUFFIX": "_suffix!"},
+    clear=True,
+)
+def test_identifier_suffixing_quoted_explicit(definition):
+    project_properties = render_definition_template(definition, {})
+    project_definition = project_properties.project_definition
+    if definition["definition_version"] == "1.1":
+        # v1
+        app = project_definition.native_app.application.name
+        package = project_definition.native_app.package.name
+    else:
+        # v2+
+        app = project_definition.entities["myapp"].identifier
+        package = project_definition.entities["mypackage"].identifier
+    assert app == "my.app_username_suffix!"
+    assert package == "my.app_pkg_username_suffix!"
+
+
+@mock.patch.dict(
+    os.environ,
+    {"USER": "username", "SNOWFLAKE_CLI_TEST_RESOURCE_SUFFIX": "_suffix"},
+    clear=True,
+)
+def test_identifier_suffixing_nested_refer_to_str():
+    definition = {
+        "definition_version": "1.1",
+        "native_app": {
+            "name": "myapp",
+            "artifacts": [],
+            "package": {"name": "pkg"},
+            "application": {"name": "<% ctx.native_app.package.name %>_app"},
+        },
+    }
+    project_properties = render_definition_template(definition, {})
+    project_definition = project_properties.project_definition
+    app = project_definition.native_app.application.name
+    assert app == "pkg_app_suffix"
+
+
+@pytest.mark.xfail(
+    reason="Suffix is not added twice. Validator is skipped before the render phase because the name is templated"
+)
+@mock.patch.dict(
+    os.environ,
+    {"USER": "username", "SNOWFLAKE_CLI_TEST_RESOURCE_SUFFIX": "_suffix"},
+    clear=True,
+)
+def test_identifier_suffixing_nested_refer_to_var():
+    definition = {
+        "definition_version": "1.1",
+        "native_app": {
+            "name": "myapp",
+            "artifacts": [],
+            # suffix is not appended twice since we skip validators on templated strings when we get defaults
+            "package": {"name": "pkg_<% ctx.env.USER %>"},
+            "application": {"name": "<% ctx.native_app.package.name %>_app"},
+        },
+    }
+    project_properties = render_definition_template(definition, {})
+    project_definition = project_properties.project_definition
+    app = project_definition.native_app.application.name
+    assert app == "pkg_username_suffix_app_suffix"

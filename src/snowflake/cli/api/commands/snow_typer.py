@@ -46,6 +46,7 @@ class SnowTyper(typer.Typer):
             pretty_exceptions_show_locals=False,
             no_args_is_help=True,
             add_completion=True,
+            rich_markup_mode="markdown",
         )
 
     @staticmethod
@@ -121,7 +122,7 @@ class SnowTyper(typer.Typer):
         Pay attention to make this method safe to use if performed operations are not necessary
         for executing the command in proper way.
         """
-        from snowflake.cli.app.telemetry import log_command_usage
+        from snowflake.cli._app.telemetry import log_command_usage
 
         log.debug("Executing command pre execution callback")
         run_pre_execute_commands()
@@ -130,7 +131,7 @@ class SnowTyper(typer.Typer):
     @staticmethod
     def process_result(result):
         """Command result processor"""
-        from snowflake.cli.app.printing import print_result
+        from snowflake.cli._app.printing import print_result
 
         # Because we still have commands like "logs" that do not return anything.
         # We should improve it in future.
@@ -145,7 +146,7 @@ class SnowTyper(typer.Typer):
         """
         Callback executed on command execution error.
         """
-        from snowflake.cli.app.telemetry import log_command_execution_error
+        from snowflake.cli._app.telemetry import log_command_execution_error
 
         log.debug("Executing command exception callback")
         log_command_execution_error(exception, execution)
@@ -156,7 +157,7 @@ class SnowTyper(typer.Typer):
         Callback executed after running any command callable. Pay attention to make this method safe to
         use if performed operations are not necessary for executing the command in proper way.
         """
-        from snowflake.cli.app.telemetry import flush_telemetry, log_command_result
+        from snowflake.cli._app.telemetry import flush_telemetry, log_command_result
 
         log.debug("Executing command post execution callback")
         log_command_result(execution)

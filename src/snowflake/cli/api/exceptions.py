@@ -17,8 +17,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from click.exceptions import ClickException
+from click.exceptions import ClickException, UsageError
 from snowflake.cli.api.constants import ObjectType
+from snowflake.connector.compat import IS_WINDOWS
 
 
 class EnvironmentVariableNotFoundError(ClickException):
@@ -101,9 +102,16 @@ class ObjectAlreadyExistsError(ClickException):
 
 
 class NoProjectDefinitionError(ClickException):
-    def __init__(self, project_type: str, project_file: str):
+    def __init__(self, project_type: str, project_root: str | Path):
         super().__init__(
-            f"No {project_type} project definition found in {project_file}"
+            f"No {project_type} project definition found in {project_root}"
+        )
+
+
+class InvalidProjectDefinitionVersionError(ClickException):
+    def __init__(self, expected_version: str, actual_version: str):
+        super().__init__(
+            f"This command only supports definition version {expected_version}, got {actual_version}."
         )
 
 
@@ -133,9 +141,18 @@ class DirectoryIsNotEmptyError(ClickException):
 
 class ConfigFileTooWidePermissionsError(ClickException):
     def __init__(self, path: Path):
-        super().__init__(
-            f'Configuration file {path} has too wide permissions, run `chmod 0600 "{path}"`'
+        change_permissons_command = (
+            f'icacls "{path}" /deny <USER_ID>:F'
+            if IS_WINDOWS
+            else f'chmod 0600 "{path}"'
         )
+        msg = f"Configuration file {path} has too wide permissions, run `{change_permissons_command}`."
+        if IS_WINDOWS:
+            msg += (
+                f'\nTo check which users have access to the file run `icacls "{path}"`.'
+                "Run the above command for all users except you and administrators."
+            )
+        super().__init__(msg)
 
 
 class DatabaseNotProvidedError(ClickException):
@@ -161,4 +178,13 @@ class FQNInconsistencyError(ClickException):
     def __init__(self, part: str, name: str):
         super().__init__(
             f"{part.capitalize()} provided but name '{name}' is fully qualified name."
+        )
+
+
+class IncompatibleParametersError(UsageError):
+    def __init__(self, options: list[str]):
+        options_with_quotes = [f"'{option}'" for option in options]
+        comma_separated_options = ", ".join(options_with_quotes[:-1])
+        super().__init__(
+            f"Parameters {comma_separated_options} and {options_with_quotes[-1]} are incompatible and cannot be used simultaneously."
         )

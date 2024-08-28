@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional
@@ -23,32 +24,34 @@ from unittest.mock import call
 
 import pytest
 from click import ClickException
-from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
-from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.plugins.nativeapp.artifacts import BundleMap
-from snowflake.cli.plugins.nativeapp.constants import (
+from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
+from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     NAME_COL,
     SPECIAL_COMMENT,
     SPECIAL_COMMENT_OLD,
 )
-from snowflake.cli.plugins.nativeapp.exceptions import (
+from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
     NoEventTableForAccount,
     SetupScriptFailedValidation,
     UnexpectedOwnerError,
 )
-from snowflake.cli.plugins.nativeapp.manager import (
+from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppManager,
     SnowflakeSQLExecutionError,
-    _get_stage_paths_to_sync,
-    ensure_correct_owner,
 )
-from snowflake.cli.plugins.stage.diff import (
+from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePath,
 )
+from snowflake.cli.api.entities.utils import (
+    _get_stage_paths_to_sync,
+    ensure_correct_owner,
+)
+from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -57,13 +60,15 @@ from tests.nativeapp.patch_utils import (
     mock_get_app_pkg_distribution_in_sf,
 )
 from tests.nativeapp.utils import (
+    APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
+    APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
+    ENTITIES_UTILS_MODULE,
     NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE,
     NATIVEAPP_MANAGER_BUILD_BUNDLE,
     NATIVEAPP_MANAGER_DEPLOY,
     NATIVEAPP_MANAGER_EXECUTE,
-    NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO,
-    NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME,
     NATIVEAPP_MODULE,
+    SQL_EXECUTOR_EXECUTE,
     mock_execute_helper,
     mock_snowflake_yml_file,
     quoted_override_yml_file,
@@ -94,9 +99,9 @@ def _get_na_manager(working_dir: Optional[str] = None):
     )
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(f"{NATIVEAPP_MODULE}.compute_stage_diff")
-@mock.patch(f"{NATIVEAPP_MODULE}.sync_local_diff_with_stage")
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
 def test_sync_deploy_root_with_stage(
     mock_local_diff_with_stage,
     mock_compute_stage_diff,
@@ -150,9 +155,9 @@ def test_sync_deploy_root_with_stage(
     )
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(f"{NATIVEAPP_MODULE}.sync_local_diff_with_stage")
-@mock.patch(f"{NATIVEAPP_MODULE}.compute_stage_diff")
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "prune,only_on_stage_files,expected_warn",
@@ -207,7 +212,7 @@ Use the --prune flag to delete them from the stage."""
         mock_warning.assert_not_called()
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_cursor):
 
     side_effects, expected = mock_execute_helper(
@@ -246,7 +251,7 @@ def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_curs
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     mock_execute, temp_dir, mock_cursor
 ):
@@ -284,7 +289,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
     mock_execute, temp_dir, mock_cursor
 ):
@@ -316,7 +321,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     mock_execute, temp_dir, mock_cursor
 ):
@@ -505,7 +510,7 @@ def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_c
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_pkg_info_app_pkg_exists(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
@@ -550,7 +555,7 @@ def test_get_existing_app_pkg_info_app_pkg_exists(mock_execute, temp_dir, mock_c
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
     mock_execute, temp_dir, mock_cursor
 ):
@@ -588,9 +593,9 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
 
 # With connection warehouse, with PDF warehouse
 # Without connection warehouse, with PDF warehouse
-@mock.patch("snowflake.cli.plugins.connection.util.get_context")
-@mock.patch("snowflake.cli.plugins.connection.util.get_account")
-@mock.patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
+@mock.patch("snowflake.cli._plugins.connection.util.get_context")
+@mock.patch("snowflake.cli._plugins.connection.util.get_account")
+@mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
@@ -653,9 +658,9 @@ def test_get_snowsight_url_with_pdf_warehouse(
 
 # With connection warehouse, without PDF warehouse
 # Without connection warehouse, without PDF warehouse
-@mock.patch("snowflake.cli.plugins.connection.util.get_context")
-@mock.patch("snowflake.cli.plugins.connection.util.get_account")
-@mock.patch("snowflake.cli.plugins.connection.util.get_snowsight_host")
+@mock.patch("snowflake.cli._plugins.connection.util.get_context")
+@mock.patch("snowflake.cli._plugins.connection.util.get_account")
+@mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
 @mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
@@ -728,8 +733,8 @@ def test_is_correct_owner_bad_owner():
 
 
 # Test create_app_package() with no existing package available
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO, return_value=None)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO, return_value=None)
 def test_create_app_pkg_no_existing_package(
     mock_get_existing_app_pkg_info, mock_execute, temp_dir, mock_cursor
 ):
@@ -771,7 +776,7 @@ def test_create_app_pkg_no_existing_package(
 
 
 # Test create_app_package() with incorrect owner
-@mock.patch(NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 def test_create_app_pkg_incorrect_owner(mock_get_existing_app_pkg_info, temp_dir):
     mock_get_existing_app_pkg_info.return_value = {
         "name": "APP_PKG",
@@ -793,9 +798,9 @@ def test_create_app_pkg_incorrect_owner(mock_get_existing_app_pkg_info, temp_dir
 
 
 # Test create_app_package() with distribution external AND variable mismatch
-@mock.patch(NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
@@ -834,9 +839,9 @@ def test_create_app_pkg_external_distribution(
 
 
 # Test create_app_package() with distribution internal AND variable mismatch AND special comment is True
-@mock.patch(NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same, special_comment",
@@ -881,9 +886,9 @@ def test_create_app_pkg_internal_distribution_special_comment(
 
 
 # Test create_app_package() with distribution internal AND variable mismatch AND special comment is False
-@mock.patch(NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
@@ -1358,6 +1363,7 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     [
         ("", ""),
         ("1 hour", "and timestamp >= sysdate() - interval '1 hour'"),
+        (datetime(2024, 1, 1), "and timestamp >= '2024-01-01 00:00:00'"),
     ],
 )
 @pytest.mark.parametrize(
@@ -1365,6 +1371,7 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     [
         ("", ""),
         ("20 minutes", "and timestamp <= sysdate() - interval '20 minutes'"),
+        (datetime(2024, 1, 1), "and timestamp <= '2024-01-01 00:00:00'"),
     ],
 )
 @pytest.mark.parametrize(
@@ -1384,16 +1391,45 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     ],
 )
 @pytest.mark.parametrize(
+    ["consumer_org", "consumer_account", "consumer_app_hash", "expected_app_clause"],
+    [
+        ("", "", "", f"resource_attributes:\"snow.database.name\" = 'MYAPP'"),
+        (
+            "testorg",
+            "testacc",
+            "",
+            (
+                f"resource_attributes:\"snow.application.package.name\" = 'APP_PKG' "
+                f"and resource_attributes:\"snow.application.consumer.organization\" = 'TESTORG' "
+                f"and resource_attributes:\"snow.application.consumer.name\" = 'TESTACC'"
+            ),
+        ),
+        (
+            "testorg",
+            "testacc",
+            "428cdba48b74dfbbb333d5ea2cc51a78ecc56ce2",
+            (
+                f"resource_attributes:\"snow.application.package.name\" = 'APP_PKG' "
+                f"and resource_attributes:\"snow.application.consumer.organization\" = 'TESTORG' "
+                f"and resource_attributes:\"snow.application.consumer.name\" = 'TESTACC' "
+                f"and resource_attributes:\"snow.database.hash\" = '428cdba48b74dfbbb333d5ea2cc51a78ecc56ce2'"
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize(
     ["first", "expected_first_clause"],
     [
-        (0, ""),
+        (-1, ""),
+        (0, "limit 0"),
         (10, "limit 10"),
     ],
 )
 @pytest.mark.parametrize(
     ["last", "expected_last_clause"],
     [
-        (0, ""),
+        (-1, ""),
+        (0, "limit 0"),
         (20, "limit 20"),
     ],
 )
@@ -1414,6 +1450,10 @@ def test_get_events(
     expected_until_clause,
     types,
     expected_types_clause,
+    consumer_org,
+    consumer_account,
+    consumer_app_hash,
+    expected_app_clause,
     scopes,
     expected_scopes_clause,
     first,
@@ -1427,7 +1467,7 @@ def test_get_events(
         contents=[mock_snowflake_yml_file],
     )
 
-    events = [dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")] * 100
+    events = [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")] * 100
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1438,7 +1478,7 @@ def test_get_events(
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
-                            where resource_attributes:"snow.database.name" = 'MYAPP'
+                            where ({expected_app_clause})
                             {expected_since_clause}
                             {expected_until_clause}
                             {expected_types_clause}
@@ -1459,15 +1499,18 @@ def test_get_events(
     def get_events():
         native_app_manager = _get_na_manager()
         return native_app_manager.get_events(
-            since_interval=since,
-            until_interval=until,
+            since=since,
+            until=until,
             record_types=types,
             scopes=scopes,
+            consumer_org=consumer_org,
+            consumer_account=consumer_account,
+            consumer_app_hash=consumer_app_hash,
             first=first,
             last=last,
         )
 
-    if first and last:
+    if first >= 0 and last >= 0:
         # Filtering on first and last events at the same time doesn't make sense
         with pytest.raises(ValueError):
             get_events()
@@ -1496,7 +1539,7 @@ def test_get_events_quoted_app_name(
         contents=[quoted_override_yml_file],
     )
 
-    events = [dict(TIMESTAMP="2020-01-01T00:00:00Z", VALUE="test")] * 100
+    events = [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")] * 100
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1507,7 +1550,7 @@ def test_get_events_quoted_app_name(
                         select * from (
                             select timestamp, value::varchar value
                             from db.schema.event_table
-                            where resource_attributes:"snow.database.name" = 'My Application'
+                            where (resource_attributes:"snow.database.name" = 'My Application')
                         
                         
                         
@@ -1545,3 +1588,174 @@ def test_get_events_no_event_table(mock_account_event_table, temp_dir, mock_curs
     native_app_manager = _get_na_manager()
     with pytest.raises(NoEventTableForAccount):
         native_app_manager.get_events()
+
+
+@mock.patch(
+    NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE,
+    return_value="db.schema.event_table",
+    new_callable=mock.PropertyMock,
+)
+@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cursor):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    events = [
+        [],
+        [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")] * 10,
+        [dict(TIMESTAMP=datetime(2024, 1, 2), VALUE="test")] * 10,
+    ]
+    last = 20
+    side_effects, expected = mock_execute_helper(
+        [
+            # Initial call
+            # Returns no events
+            (
+                mock_cursor(events[0], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        select * from (
+                            select timestamp, value::varchar value
+                            from db.schema.event_table
+                            where (resource_attributes:"snow.database.name" = 'MYAPP')
+                            
+                            
+                            
+                            
+                            order by timestamp desc
+                            limit {last}
+                        ) order by timestamp asc
+                        
+                        """
+                    ),
+                    cursor_class=DictCursor,
+                ),
+            ),
+            # Second call
+            # No where clause on the timestamp since previous call didn't return any events
+            # Returns some events
+            (
+                mock_cursor(events[1], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        select * from (
+                            select timestamp, value::varchar value
+                            from db.schema.event_table
+                            where (resource_attributes:"snow.database.name" = 'MYAPP')
+                            
+                            
+                            
+                            
+                            order by timestamp desc
+                            
+                        ) order by timestamp asc
+                        
+                        """
+                    ),
+                    cursor_class=DictCursor,
+                ),
+            ),
+            # Third call
+            # Where clause on the timestamp >= the last timestamp of the previous call
+            (
+                mock_cursor(events[2], []),
+                mock.call(
+                    dedent(
+                        """\
+                        select * from (
+                            select timestamp, value::varchar value
+                            from db.schema.event_table
+                            where (resource_attributes:"snow.database.name" = 'MYAPP')
+                            and timestamp >= '2024-01-01 00:00:00'
+                            
+                            
+                            
+                            order by timestamp desc
+                            
+                        ) order by timestamp asc
+                        
+                        """
+                    ),
+                    cursor_class=DictCursor,
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    native_app_manager = _get_na_manager()
+    stream = native_app_manager.stream_events(interval_seconds=0, last=last)
+    for call in events:
+        for event in call:
+            assert next(stream) == event
+    assert mock_execute.mock_calls == expected
+
+    try:
+        stream.throw(KeyboardInterrupt)
+    except StopIteration:
+        pass
+    else:
+        pytest.fail("stream_events didn't end when receiving a KeyboardInterrupt")
+
+
+@mock.patch.object(NativeAppManager, "validate")
+@mock.patch.object(NativeAppManager, "execute_package_post_deploy_hooks")
+@mock.patch.object(NativeAppManager, "sync_deploy_root_with_stage")
+@mock.patch.object(NativeAppManager, "_apply_package_scripts")
+@mock.patch.object(NativeAppManager, "create_app_package")
+@mock.patch.object(NativeAppManager, "use_role")
+@mock.patch.object(NativeAppManager, "use_package_warehouse")
+def test_deploy_with_package_post_deploy_hook(
+    mock_use_package_warehouse,
+    mock_use_role,
+    mock_create_app_package,
+    mock_apply_package_scripts,
+    mock_sync_deploy_root_with_stage,
+    mock_execute_package_post_deploy_hooks,
+    mock_validate,
+    temp_dir,
+):
+    # Setup
+    mock_diff_result = DiffResult(different=[StagePath("setup.sql")])
+    mock_sync_deploy_root_with_stage.return_value = mock_diff_result
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    # Create NativeAppManager instance
+    manager = _get_na_manager(temp_dir)
+
+    mock_bundle_map = mock.Mock(spec=BundleMap)
+    # Test with default parameters
+    result = manager.deploy(
+        bundle_map=mock_bundle_map,
+        prune=True,
+        recursive=True,
+    )
+
+    # Assertions
+    mock_create_app_package.assert_called_once()
+    mock_use_package_warehouse.assert_called_once()
+    mock_use_role.assert_called_once_with(manager.package_role)
+    mock_apply_package_scripts.assert_called_once()
+    mock_sync_deploy_root_with_stage.assert_called_once_with(
+        bundle_map=mock_bundle_map,
+        role=manager.package_role,
+        prune=True,
+        recursive=True,
+        stage_fqn=manager.stage_fqn,
+        local_paths_to_sync=None,
+        print_diff=True,
+    )
+    mock_execute_package_post_deploy_hooks.assert_called_once()
+    mock_validate.assert_called_once_with(use_scratch_stage=False)
+    assert result == mock_diff_result

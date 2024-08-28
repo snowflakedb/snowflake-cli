@@ -16,19 +16,13 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
+from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
 )
-
-
-class SqlScriptHookType(UpdatableModel):
-    sql_script: str = Field(title="SQL file path relative to the project root")
-
-
-# Currently sql_script is the only supported hook type. Change to a Union once other hook types are added
-ApplicationPostDeployHook = SqlScriptHookType
+from snowflake.cli.api.project.util import append_test_resource_suffix
 
 
 class Application(UpdatableModel):
@@ -48,7 +42,20 @@ class Application(UpdatableModel):
         title="When set, forces debug_mode on/off for the deployed application object",
         default=None,
     )
-    post_deploy: Optional[List[ApplicationPostDeployHook]] = Field(
+    post_deploy: Optional[List[PostDeployHook]] = Field(
         title="Actions that will be executed after the application object is created/upgraded",
         default=None,
+    )
+
+    @field_validator("name")
+    @classmethod
+    def append_test_resource_suffix_to_name(cls, input_value: str) -> str:
+        return append_test_resource_suffix(input_value)
+
+
+class ApplicationV11(Application):
+    # Templated defaults only supported in v1.1+
+    name: Optional[str] = Field(
+        title="Name of the application object created when you run the snow app run command",
+        default="<% fn.concat_ids(ctx.native_app.name, '_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>",
     )

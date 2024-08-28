@@ -16,11 +16,13 @@ from __future__ import annotations
 
 from typing import List, Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
+from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
 )
+from snowflake.cli.api.project.util import append_test_resource_suffix
 
 DistributionOptions = Literal["internal", "external", "INTERNAL", "EXTERNAL"]
 
@@ -44,6 +46,15 @@ class Package(UpdatableModel):
         title="Distribution of the application package created by the Snowflake CLI",
         default="internal",
     )
+    post_deploy: Optional[List[PostDeployHook]] = Field(
+        title="Actions that will be executed after the application package object is created/updated",
+        default=None,
+    )
+
+    @field_validator("name")
+    @classmethod
+    def append_test_resource_suffix_to_name(cls, input_value: str) -> str:
+        return append_test_resource_suffix(input_value)
 
     @field_validator("scripts")
     @classmethod
@@ -53,3 +64,21 @@ class Package(UpdatableModel):
                 "package.scripts field should contain unique values. Check the list for duplicates and try again"
             )
         return input_list
+
+    @model_validator(mode="after")
+    @classmethod
+    def validate_no_scripts_and_post_deploy(cls, value: Package):
+        if value.scripts and value.post_deploy:
+            raise ValueError(
+                "package.scripts and package.post_deploy fields cannot be used together. "
+                "We recommend using package.post_deploy for all post package deploy scripts"
+            )
+        return value
+
+
+class PackageV11(Package):
+    # Templated defaults only supported in v1.1+
+    name: Optional[str] = IdentifierField(
+        title="Name of the application package created when you run the snow app run command",
+        default="<% fn.concat_ids(ctx.native_app.name, '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>",
+    )
