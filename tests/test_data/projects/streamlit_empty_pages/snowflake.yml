@@ -1,0 +1,9 @@
+definition_version: 1
+streamlit:
+  name: test_streamlit
+  stage: streamlit
+  query_warehouse: test_warehouse
+  main_file: "streamlit_app.py"
+  env_file: environment.yml
+  pages_dir: pages
+  additional_source_files: []

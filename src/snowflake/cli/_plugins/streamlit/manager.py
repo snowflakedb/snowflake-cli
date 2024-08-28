@@ -57,6 +57,10 @@ class StreamlitManager(SqlExecutionMixin):
         stage_manager = StageManager()
         for file in artifacts:
             if file.is_dir():
+                if not any(file.iterdir()):
+                    cli_console.warning(f"Skipping empty directory: {file}")
+                    continue
+
                 stage_manager.put(
                     f"{file.joinpath('*')}", f"{root_location}/{file}", 4, True
                 )
