@@ -24,6 +24,7 @@ from typing import Any, Dict, Optional, Union
 
 import tomlkit
 from click import ClickException
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import (
     ConfigFileTooWidePermissionsError,
     MissingConfiguration,
@@ -176,6 +177,8 @@ def _read_config_file():
                 )
 
         try:
+            cli_console.message("MORDOOOOO")
+            cli_console.message(f"reading config under {CONFIG_MANAGER.file_path}")
             CONFIG_MANAGER.read_config()
         except ConfigSourceError as exception:
             raise ClickException(
