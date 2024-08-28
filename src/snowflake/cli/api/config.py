@@ -179,7 +179,7 @@ def _read_config_file():
             CONFIG_MANAGER.read_config()
         except ConfigSourceError as exception:
             raise ClickException(
-                f"Configuration file seems to be corrupted. {str(exception.__cause__)}"
+                f"Configuration file seems to be corrupted. [user: {os.getlogin()}]\n{str(exception.__cause__)}"
             )
 
 
