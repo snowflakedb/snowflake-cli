@@ -15,11 +15,9 @@ import re
 from unittest import mock
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import enable_definition_v2_feature_flag
 
 
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @mock.patch("typer.launch")
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_nativeapp_open(

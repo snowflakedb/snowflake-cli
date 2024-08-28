@@ -13,13 +13,12 @@
 # limitations under the License.
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import enable_definition_v2_feature_flag
+
 from tests_integration.testing_utils import assert_that_result_is_usage_error
 
 
 # Tests that snow app events with incompatible flags exits with an error
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 @pytest.mark.parametrize(
     ["flag_names", "command"],
@@ -53,7 +52,6 @@ def test_app_events_mutually_exclusive_options(
 
 # Tests that snow app events without paired flags exits with an error
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 @pytest.mark.parametrize(
     ["flag_names", "command"],
@@ -82,7 +80,6 @@ def test_app_events_paired_options(
 
 
 @pytest.mark.integration
-@enable_definition_v2_feature_flag
 @pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
 def test_app_events_reject_invalid_type(
     test_project, runner, nativeapp_project_directory
