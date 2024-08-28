@@ -60,7 +60,7 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
     config_path = test_root_path / "config" / "config.toml"
     grant_permissions_on_windows(config_path)
     _restrict_file_permissions(config_path)
-    cli_console.message(">> Config path", config_path)
+    cli_console.message(f">> Config path: {config_path}")
 
     traceback_msg = "Traceback (most recent call last)"
     result = subprocess_run(
