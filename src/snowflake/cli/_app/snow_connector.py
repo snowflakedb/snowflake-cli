@@ -27,7 +27,6 @@ from snowflake.cli._app.constants import (
 from snowflake.cli._app.telemetry import command_info
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.config import (
-    ConnectionConfig,
     get_connection_dict,
     get_default_connection_dict,
     get_default_connection_name,
@@ -84,6 +83,7 @@ def connect_to_snowflake(
         get_cli_context().connection_context.set_connection_name(
             get_default_connection_name()
         )
+
     # Apply overrides to connection details
     for key, value in overrides.items():
         # Command line override case
@@ -138,7 +138,6 @@ def connect_to_snowflake(
                 application=command_info(),
                 **connection_parameters,
             )
-
     except ForbiddenError as err:
         raise SnowflakeConnectionError(err)
     except DatabaseError as err:

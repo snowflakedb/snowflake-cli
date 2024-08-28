@@ -84,7 +84,6 @@ class ConnectionConfig:
     token_file_path: Optional[str] = None
     session_token: Optional[str] = None
     master_token: Optional[str] = None
-
     _other_settings: dict = field(default_factory=lambda: {})
 
     @classmethod

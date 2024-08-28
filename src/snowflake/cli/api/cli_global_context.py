@@ -25,11 +25,10 @@ from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.compat import IS_WINDOWS
 
-
 if TYPE_CHECKING:
     from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 
-SET_PREFIX = 'set_'
+SET_PREFIX = "set_"
 
 schema_pattern = re.compile(r".+\..+")
 
@@ -40,6 +39,7 @@ class _ConnectionContext:
     values we need to pass to connect_to_snowflake.
     Maintains its own cached connection.
     """
+
     _cached_connection: Optional[SnowflakeConnection] = None
     _config: ConnectionConfig = ConnectionConfig()
 
@@ -50,9 +50,6 @@ class _ConnectionContext:
     diag_log_path: Optional[Path] = None
     diag_allowlist_path: Optional[Path] = None
 
-    def __init__(self):
-        pass
-
     @classmethod
     def _is_own_attr(cls, key: str) -> bool:
         """
@@ -60,7 +57,7 @@ class _ConnectionContext:
         and will pass to connect_to_snowflake, or does it live inside
         of our ConnectionConfig?
         """
-        return key in cls.__dict__ and not isinstance(getattr(cls, key), Callable)
+        return key in cls.__dict__ and not callable(getattr(cls, key))
 
     def __getattr__(self, key: str):
         """
@@ -70,18 +67,20 @@ class _ConnectionContext:
         if key.startswith(SET_PREFIX):
             # defines dynamic setters for all attrs/config that don't have explicit setters.
             # this allows us to call e.g. _ConnectionCotext.set_connection_name(name)
-            attr_key = key[len(SET_PREFIX):]
+            attr_key = key[len(SET_PREFIX) :]
+
             def setter(value):
                 setattr(self, attr_key, value)
+
             return setter
-        
+
         elif hasattr(self._config, key):
             # delegate to ConnectionConfig
             return getattr(self._config, key)
 
-        return super().__getattr__(key)
+        return getattr(self, key)
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value):
         """
         Sets the given attribute in either the ConnectionConfig or locally.
         We invalidate connection cache every time connection attributes change.
