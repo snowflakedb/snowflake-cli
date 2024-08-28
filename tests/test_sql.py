@@ -160,7 +160,7 @@ def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
         user="usernameValue",
         password="passFromTest",
         authenticator=None,
-        private_key_path=None,
+        private_key_file=None,
         token_file_path=None,
         session_token=None,
         master_token=None,

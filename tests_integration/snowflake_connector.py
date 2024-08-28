@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 import uuid
 from contextlib import contextmanager
+from typing import Optional
 from unittest import mock
 
 import pytest
@@ -93,7 +94,7 @@ def snowflake_session():
         "authenticator": "SNOWFLAKE_JWT",
         "account": _get_from_env("ACCOUNT"),
         "user": _get_from_env("USER"),
-        "private_key_path": _get_from_env("PRIVATE_KEY_PATH"),
+        "private_key_file": _get_private_key_file(),
         "host": _get_from_env("HOST", allow_none=True),
         "warehouse": _get_from_env("WAREHOUSE", allow_none=True),
         "role": _get_from_env("ROLE", allow_none=True),
@@ -114,3 +115,10 @@ def _get_from_env(parameter_name: str, default=None, allow_none=False) -> str | 
             ) from None
         return default
     return env_value
+
+
+def _get_private_key_file() -> Optional[str]:
+    private_key_file = _get_from_env("PRIVATE_KEY_PATH", allow_none=True)
+    if private_key_file is not None:
+        return private_key_file
+    return _get_from_env("PRIVATE_KEY_FILE")

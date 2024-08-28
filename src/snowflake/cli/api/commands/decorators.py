@@ -235,7 +235,7 @@ GLOBAL_CONNECTION_OPTIONS = [
         default=AuthenticatorOption,
     ),
     inspect.Parameter(
-        "private_key_path",
+        "private_key_file",
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
         default=PrivateKeyPathOption,
