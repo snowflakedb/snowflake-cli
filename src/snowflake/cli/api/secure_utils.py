@@ -51,7 +51,9 @@ def windows_get_not_whitelisted_users_with_access(file_path: Path) -> List[str]:
     import re
 
     # according to https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/icacls
-    icacls_output_regex = r".*\\(?P<user>.*):(?P<permissions>[(A-Z),]+)"
+    icacls_output_regex = (
+        rf"({re.escape(str(file_path))})?.*\\(?P<user>.*):(?P<permissions>[(A-Z),]+)"
+    )
     whitelisted_users = _get_windows_whitelisted_users()
 
     users_with_access = []
