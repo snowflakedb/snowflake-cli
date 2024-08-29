@@ -506,7 +506,7 @@ def project_env_overrides_option():
     return typer.Option(
         [],
         "--env",
-        help="String in format of key=value. Overrides variables from env section used for templating.",
+        help="String in format of key=value. Overrides variables from env section used for templates.",
         callback=_callback(lambda: project_env_overrides_callback),
         show_default=False,
     )

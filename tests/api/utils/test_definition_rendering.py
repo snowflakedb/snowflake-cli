@@ -336,7 +336,7 @@ def test_resolve_variables_error_on_cycle(definition):
     with pytest.raises(CycleDetectedError) as err:
         render_definition_template(definition, {})
 
-    assert err.value.message.startswith("Cycle detected in templating variable ")
+    assert err.value.message.startswith("Cycle detected in template variable ")
 
 
 @pytest.mark.parametrize(
@@ -534,7 +534,7 @@ def test_invalid_templating_syntax(template_value):
     with pytest.raises(InvalidTemplate) as err:
         render_definition_template(definition, {})
 
-    assert err.value.message == f"Unexpected templating syntax in {template_value}"
+    assert err.value.message == f"Unexpected template syntax in {template_value}"
 
 
 def test_invalid_type_for_env_section():
