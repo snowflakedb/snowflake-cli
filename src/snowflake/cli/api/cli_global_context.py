@@ -299,11 +299,12 @@ class ConnectionCache:
 
     def __init__(self):
         self.connections = {}
+        self.cleanup_futures = {}
 
     def __getitem__(self, ctx):
         if isinstance(ctx, _ConnectionContext):
             key = repr(ctx)
-            if key not in self.cache:
+            if not self._has(key):
                 self._insert(key, ctx)
             self._touch(key)
             return self.connections[key]
@@ -311,6 +312,9 @@ class ConnectionCache:
             raise ValueError(
                 f"Expected key to be _ConnectionContext but got {repr(ctx)}"
             )
+
+    def _has(self, key: str):
+        return key in self.connections
 
     def _insert(self, key: str, ctx: _ConnectionContext):
         try:
@@ -347,6 +351,7 @@ _CONNECTION_CACHE = ConnectionCache()
 
 class _CliGlobalContextManager:
     _definition_manager: Optional[DefinitionManager]
+    _override_project_definition: Optional[ProjectDefinition]
 
     def __init__(self):
         self._connection_context = _ConnectionContext()
@@ -358,6 +363,9 @@ class _CliGlobalContextManager:
         self._project_path_arg = None
         self._project_is_optional = True
         self._project_env_overrides_args = {}
+        self._override_project_definition = (
+            None  # TODO: remove; for implicit v1 <-> v2 conversion
+        )
         self._silent: bool = False
 
     def reset(self):
@@ -414,11 +422,22 @@ class _CliGlobalContextManager:
     def project_definition(self) -> Optional[ProjectDefinition]:
         if not self._definition_manager:
             self._register_project_definition()
+
+        # TODO: remove; for implicit v1 <-> v2 conversion
+        if self._override_project_definition:
+            return self._override_project_definition
+
         return (
             self._definition_manager.project_definition
             if self._definition_manager
             else None
         )
+
+    def set_override_project_definition(
+        self, override_project_definition: ProjectDefinition
+    ):
+        # TODO: remove; for implicit v1 <-> v2 conversion
+        self._override_project_definition = override_project_definition
 
     @property
     def project_root(self) -> Optional[Path]:
@@ -489,9 +508,6 @@ class _CliGlobalContextManager:
         """
         from snowflake.cli.api.project.definition_manager import DefinitionManager
 
-        if not self.project_path_arg:
-            return
-
         dm = DefinitionManager(
             self.project_path_arg,
             {CONTEXT_KEY: {"env": self.project_env_overrides_args}},
@@ -502,6 +518,9 @@ class _CliGlobalContextManager:
             )
 
         self._definition_manager = dm
+
+        # TODO: remove; for implicit v1 <-> v2 conversion
+        self._override_project_definition = None
 
 
 class _CliGlobalContextAccess:

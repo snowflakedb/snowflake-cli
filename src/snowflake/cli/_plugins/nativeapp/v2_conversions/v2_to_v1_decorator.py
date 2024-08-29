@@ -141,14 +141,14 @@ def nativeapp_definition_v2_to_v1(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        original_pdf: DefinitionV20 = get_cli_context().project_definition
+        original_pdf: Optional[DefinitionV20] = get_cli_context().project_definition
         if not original_pdf:
             raise ValueError(
                 "Project definition could not be found. The nativeapp_definition_v2_to_v1 command decorator assumes with_project_definition() was called before it."
             )
         if original_pdf.definition_version == "2":
             pdfv1 = _pdf_v2_to_v1(original_pdf)
-            get_cli_context_manager().set_project_definition(pdfv1)
+            get_cli_context_manager().set_override_project_definition(pdfv1)
         return func(*args, **kwargs)
 
     return wrapper
