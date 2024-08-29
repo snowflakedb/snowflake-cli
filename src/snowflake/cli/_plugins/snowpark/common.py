@@ -250,3 +250,7 @@ def _compare_imports(
         }
 
     return project_imports != object_imports
+
+
+def is_name_a_templated_one(name: str) -> bool:
+    return ("<!" in name and "!>" in name) or ("<%" in name and "%>" in name)
