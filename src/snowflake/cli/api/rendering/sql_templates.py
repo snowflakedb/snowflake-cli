@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Optional
 
 from click import ClickException
 from jinja2 import Environment, StrictUndefined, loaders, meta
@@ -55,19 +55,22 @@ def _does_template_have_env_syntax(env: Environment, template_content: str) -> b
     return bool(meta.find_undeclared_variables(template))
 
 
-def choose_sql_jinja_env_based_on_template_syntax(template_content: str) -> Environment:
+def choose_sql_jinja_env_based_on_template_syntax(
+    template_content: str, reference_name: Optional[str] = None
+) -> Environment:
     old_syntax_env = _get_sql_jinja_env(_OLD_SQL_TEMPLATE_START, _OLD_SQL_TEMPLATE_END)
     new_syntax_env = _get_sql_jinja_env(_SQL_TEMPLATE_START, _SQL_TEMPLATE_END)
     has_old_syntax = _does_template_have_env_syntax(old_syntax_env, template_content)
     has_new_syntax = _does_template_have_env_syntax(new_syntax_env, template_content)
+    reference_name_str = f" in {reference_name}" if reference_name else ""
     if has_old_syntax and has_new_syntax:
         raise InvalidTemplate(
-            f"The SQL query mixes {_OLD_SQL_TEMPLATE_START} ... {_OLD_SQL_TEMPLATE_END} syntax"
+            f"The SQL query{reference_name_str} mixes {_OLD_SQL_TEMPLATE_START} ... {_OLD_SQL_TEMPLATE_END} syntax"
             f" and {_SQL_TEMPLATE_START} ... {_SQL_TEMPLATE_END} syntax."
         )
     if has_old_syntax:
         cli_console.warning(
-            f"Warning: {_OLD_SQL_TEMPLATE_START} ... {_OLD_SQL_TEMPLATE_END} syntax is deprecated."
+            f"Warning: {_OLD_SQL_TEMPLATE_START} ... {_OLD_SQL_TEMPLATE_END} syntax{reference_name_str} is deprecated."
             f" Use {_SQL_TEMPLATE_START} ... {_SQL_TEMPLATE_END} syntax instead."
         )
         return old_syntax_env

@@ -40,7 +40,7 @@ from snowflake.cli.api.project.schemas.entities.application_package_entity_model
 )
 from snowflake.cli.api.project.util import extract_schema
 from snowflake.cli.api.rendering.jinja import (
-    jinja_render_from_str,
+    get_basic_jinja_env,
 )
 from snowflake.connector import ProgrammingError
 
@@ -245,9 +245,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         queued_queries = render_script_templates(
             project_root,
-            jinja_render_from_str,
             dict(package_name=package_name),
             package_scripts,
+            get_basic_jinja_env(),
         )
 
         # once we're sure all the templates expanded correctly, execute all of them

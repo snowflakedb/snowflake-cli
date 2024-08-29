@@ -20,6 +20,7 @@ import pytest
 from pydantic import ValidationError
 from snowflake.cli._plugins.nativeapp.exceptions import MissingScriptError
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
+from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
@@ -184,3 +185,96 @@ def test_post_deploy_hook_schema(args, expected_error):
         assert expected_error in str(SchemaValidationError(err.value))
     else:
         PostDeployHook(**args)
+
+
+@pytest.mark.parametrize(
+    "template_syntax", [("<% ctx.env.test %>"), ("&{ ctx.env.test }")]
+)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
+@mock.patch.dict(os.environ, {"USER": "test_user"})
+@mock_connection()
+def test_app_post_deploy_with_template(
+    mock_conn,
+    mock_cli_ctx,
+    mock_execute_queries,
+    mock_execute_query,
+    project_directory,
+    template_syntax,
+):
+    mock_conn.return_value = MockConnectionCtx()
+    mock_cli_ctx.return_value = {"ctx": {"env": {"test": "test_value"}}}
+
+    with project_directory("napp_post_deploy") as project_dir:
+        # edit scripts/app_post_deploy1.sql to include template variables
+        with open(project_dir / "scripts" / "app_post_deploy1.sql", "w") as f:
+            f.write(
+                dedent(
+                    f"""\
+                    -- app post-deploy script (1/2)
+
+                    select '{template_syntax}';
+                    """
+                )
+            )
+        processor = _get_run_processor(str(project_dir))
+
+        processor.execute_app_post_deploy_hooks()
+
+        assert mock_execute_query.mock_calls == [
+            mock.call("use database myapp_test_user"),
+            mock.call("use database myapp_test_user"),
+        ]
+        assert mock_execute_queries.mock_calls == [
+            # Verify template variables were expanded correctly
+            mock.call(
+                dedent(
+                    """\
+                -- app post-deploy script (1/2)
+
+                select 'test_value';
+                """
+                )
+            ),
+            mock.call("-- app post-deploy script (2/2)\n"),
+        ]
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
+@mock.patch.dict(os.environ, {"USER": "test_user"})
+@mock_connection()
+def test_app_post_deploy_with_mixed_syntax_template(
+    mock_conn,
+    mock_cli_ctx,
+    mock_execute_queries,
+    mock_execute_query,
+    project_directory,
+):
+    mock_conn.return_value = MockConnectionCtx()
+    mock_cli_ctx.return_value = {"ctx": {"env": {"test": "test_value"}}}
+
+    with project_directory("napp_post_deploy") as project_dir:
+        # edit scripts/app_post_deploy1.sql to include template variables
+        with open(project_dir / "scripts" / "app_post_deploy1.sql", "w") as f:
+            f.write(
+                dedent(
+                    """\
+                    -- app post-deploy script (1/2)
+
+                    select '<% ctx.env.test %>';
+                    select '&{ ctx.env.test }';
+                    """
+                )
+            )
+        processor = _get_run_processor(str(project_dir))
+
+        with pytest.raises(InvalidTemplate) as err:
+            processor.execute_app_post_deploy_hooks()
+
+        assert (
+            "The SQL query in scripts/app_post_deploy1.sql mixes &{ ... } syntax and <% ... %> syntax."
+            == str(err.value)
+        )

@@ -22,6 +22,7 @@ from snowflake.cli._plugins.snowpark.common import (
     _convert_resource_details_to_dict,
     _snowflake_dependencies_differ,
     _sql_to_python_return_type_mapper,
+    is_name_a_templated_one,
 )
 from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
     ProcedureEntityModel,
@@ -165,3 +166,20 @@ def test_check_if_replace_is_required_file_changes(
         )
         == expected
     )
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("foo", False),
+        ("<% ctx.env.foo %>", True),
+        ("<! name | to_snowflake_identifier !>", True),
+        ("app_<% ctx.env.USERNAME %>", True),
+        ("<Unnecesarily_!_complicated!_name>", False),
+        ("<% fn.concat_ids(ctx.native_app.name, ctx.env.pkg_suffix) %>", True),
+        ("myapp_base_name_<% fn.sanitize_id(fn.get_username()) %>", True),
+        ("<myapp>", False),
+    ],
+)
+def test_is_name_is_templated_one(name: str, expected: bool):
+    assert is_name_a_templated_one(name) == expected

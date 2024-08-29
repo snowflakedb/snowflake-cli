@@ -17,21 +17,19 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from snowflake.cli.api.secure_utils import restrict_file_permissions
 
 from tests_e2e.conftest import subprocess_run
 
 
 @pytest.mark.e2e
-def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
-    config_path = test_root_path / "config" / "config.toml"
-    os.chmod(config_path, 0o700)
-
+def test_error_traceback_disabled_without_debug(snowcli, test_root_path, config_file):
     traceback_msg = "Traceback (most recent call last)"
     result = subprocess_run(
         [
             snowcli,
             "--config-file",
-            config_path,
+            config_file,
             "sql",
             "-c",
             "integration",
@@ -48,7 +46,7 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path):
         [
             snowcli,
             "--config-file",
-            config_path,
+            config_file,
             "sql",
             "-c",
             "integration",
@@ -68,7 +66,7 @@ def test_corrupted_config_in_default_location(
 ):
     default_config = Path(temp_dir) / "config.toml"
     default_config.write_text("[connections.demo]\n[connections.demo]")
-    default_config.chmod(0o600)
+    restrict_file_permissions(default_config)
     # corrupted config should produce human-friendly error
     result_err = subprocess_run(
         [snowcli, "connection", "list"],
@@ -85,15 +83,14 @@ def test_corrupted_config_in_default_location(
 
 @pytest.mark.e2e
 def test_initial_log_with_loaded_external_plugins_in_custom_log_path(
-    snowcli, temp_dir, isolate_default_config_location, test_root_path
+    snowcli, temp_dir, isolate_default_config_location
 ):
     custom_log_path = os.path.join(temp_dir, "custom", "logs")
     default_config = Path(temp_dir) / "config.toml"
     config_logs_path = custom_log_path.replace("\\", "\\\\")
-    with open(default_config, "w", newline="\n") as config:
-        config.write(
-            dedent(
-                f"""[cli.logs]
+    default_config.write_text(
+        dedent(
+            f"""[cli.logs]
             path = "{config_logs_path}"
 
             [connections.default]
@@ -107,10 +104,9 @@ def test_initial_log_with_loaded_external_plugins_in_custom_log_path(
             [cli.plugins.multilingual-hello]
             enabled = true
             """
-            )
         )
-        config.flush()
-    default_config.chmod(0o600)
+    )
+    restrict_file_permissions(default_config)
 
     result = subprocess_run(
         [snowcli, "--help"],
@@ -124,16 +120,15 @@ def test_initial_log_with_loaded_external_plugins_in_custom_log_path(
 
 @pytest.mark.e2e
 def test_initial_log_with_loaded_external_plugins_in_custom_log_path_with_custom_config(
-    snowcli, temp_dir, isolate_default_config_location, test_root_path
+    snowcli, temp_dir, isolate_default_config_location
 ):
     custom_log_path = os.path.join(temp_dir, "custom", "logs")
     custom_config = Path(temp_dir) / "custom" / "config.toml"
     custom_config.parent.mkdir()
     config_logs_path = custom_log_path.replace("\\", "\\\\")
-    with open(custom_config, "w", newline="\n") as config:
-        config.write(
-            dedent(
-                f"""[cli.logs]
+    custom_config.write_text(
+        dedent(
+            f"""[cli.logs]
             path = "{config_logs_path}"
 
             [connections.default]
@@ -147,10 +142,9 @@ def test_initial_log_with_loaded_external_plugins_in_custom_log_path_with_custom
             [cli.plugins.multilingual-hello]
             enabled = true
             """
-            )
         )
-        config.flush()
-    custom_config.chmod(0o600)
+    )
+    restrict_file_permissions(custom_config)
 
     result = subprocess_run([snowcli, "--config-file", custom_config, "--help"])
 
