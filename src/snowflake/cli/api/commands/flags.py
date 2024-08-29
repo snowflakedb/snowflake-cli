@@ -28,11 +28,8 @@ from snowflake.cli.api.commands.typer_pre_execute import register_pre_execute_co
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.config import get_all_connections
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.formats import OutputFormat
-from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
@@ -486,30 +483,12 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
     )
 
 
-def register_project_definition(is_optional: bool) -> None:
-    cli_context_manager = get_cli_context_manager()
-    project_path = cli_context_manager.project_path_arg
-    env_overrides_args = cli_context_manager.project_env_overrides_args
-
-    dm = DefinitionManager(project_path, {CONTEXT_KEY: {"env": env_overrides_args}})
-    project_definition = dm.project_definition
-    project_root = dm.project_root
-    template_context = dm.template_context
-
-    if not dm.has_definition_file and not is_optional:
-        raise MissingConfiguration(
-            "Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
-        )
-
-    cli_context_manager.set_project_definition(project_definition)
-    cli_context_manager.set_project_root(project_root)
-    cli_context_manager.set_template_context(template_context)
-
-
 def project_definition_option(is_optional: bool):
     def project_definition_callback(project_path: str) -> None:
         get_cli_context_manager().set_project_path_arg(project_path)
-        register_pre_execute_command(lambda: register_project_definition(is_optional))
+        register_pre_execute_command(
+            lambda: get_cli_context_manager().register_project_definition(is_optional)
+        )
 
     return typer.Option(
         None,

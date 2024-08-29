@@ -18,11 +18,14 @@ import asyncio
 import logging
 import re
 import warnings
+from contextvars import ContextVar
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Callable, Iterator, Optional
 
-from snowflake.cli.api.exceptions import InvalidSchemaError
+from snowflake.cli.api.exceptions import InvalidSchemaError, MissingConfiguration
 from snowflake.cli.api.output.formats import OutputFormat
+from snowflake.cli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.compat import IS_WINDOWS
 
@@ -56,6 +59,52 @@ class _ConnectionContext:
         self._session_token: Optional[str] = None
         self._master_token: Optional[str] = None
         self._token_file_path: Optional[Path] = None
+
+    def clone(self) -> _ConnectionContext:
+        ctx = _ConnectionContext()
+        ctx.set_connection_name(self.connection_name)
+        ctx.set_account(self.account)
+        ctx.set_database(self.database)
+        ctx.set_role(self.role)
+        ctx.set_schema(self.schema)
+        ctx.set_user(self.user)
+        ctx.set_password(self.password)
+        ctx.set_authenticator(self.authenticator)
+        ctx.set_private_key_path(self.private_key_path)
+        ctx.set_warehouse(self.warehouse)
+        ctx.set_mfa_passcode(self.mfa_passcode)
+        ctx.set_enable_diag(self.enable_diag)
+        ctx.set_diag_log_path(self.diag_log_path)
+        ctx.set_diag_allowlist_path(self.diag_allowlist_path)
+        ctx.set_temporary_connection(self.temporary_connection)
+        ctx.set_session_token(self.session_token)
+        ctx.set_master_token(self.master_token)
+        ctx.set_token_file_path(self.token_file_path)
+        return ctx
+
+    def update(self, **updates):
+        """
+        Given a dictionary of property (key, value) mappings, update properties
+        of this context object with equivalent names to the keys.
+
+        Raises ValueError if a non-(settable-)property is specified as a key.
+        """
+        for (key, value) in updates.items():
+            # ensure key represents a property
+            prop = getattr(type(self), key)
+            if not isinstance(prop, property):
+                raise ValueError(
+                    f"{key} is not a property of {self.__class__.__name__}"
+                )
+
+            # our properties don't have setters (fset) but they do follow a convention
+            try:
+                setter = getattr(self, f"set_{key}")
+                setter(value)
+            except AttributeError:
+                raise ValueError(
+                    f"set_{key}() does not exist on {self.__class__.__name__}"
+                )
 
     def __repr__(self):
         items = [
@@ -313,6 +362,32 @@ class _CliGlobalContextManager:
     def reset(self):
         self.__init__()
 
+    def clone(self) -> _CliGlobalContextManager:
+        mgr = _CliGlobalContextManager()
+        mgr.set_connection_context(self.connection_context.clone())
+        mgr.set_enable_tracebacks(self.enable_tracebacks)
+        mgr.set_output_format(self._output_format)
+        mgr.set_verbose(self.verbose)
+        mgr.set_experimental(self.experimental)
+        mgr.set_project_definition(self.project_definition)
+        mgr.set_project_root(self._project_root)
+        mgr.set_project_path_arg(self._project_path_arg)
+        mgr.set_project_env_overrides_args(self._project_env_overrides_args.copy())
+        for cmd in self.typer_pre_execute_commands:
+            mgr.add_typer_pre_execute_commands(cmd)
+        mgr.set_template_context(
+            self.template_context.copy() if self.template_context is not None else None
+        )
+        mgr.set_silent(self.silent)
+        return mgr
+
+    @property
+    def connection_context(self) -> _ConnectionContext:
+        return self._connection_context
+
+    def set_connection_context(self, connection_context: _ConnectionContext):
+        self._connection_context = connection_context
+
     @property
     def enable_tracebacks(self) -> bool:
         return self._enable_tracebacks
@@ -388,8 +463,11 @@ class _CliGlobalContextManager:
         self._typer_pre_execute_commands.append(typer_pre_execute_command)
 
     @property
-    def connection_context(self) -> _ConnectionContext:
-        return self._connection_context
+    def silent(self) -> bool:
+        return self._silent
+
+    def set_silent(self, value: bool):
+        self._silent = value
 
     @property
     def connection(self) -> SnowflakeConnection:
@@ -399,12 +477,27 @@ class _CliGlobalContextManager:
         """
         return _CONNECTION_CACHE[self.connection_context]
 
-    @property
-    def silent(self) -> bool:
-        return self._silent
+    def register_project_definition(self, is_optional: bool):
+        """
+        Sets project_definition, project_root, and template_context
+        based on the value of project_path_arg.
+        """
+        project_path = self.project_path_arg
+        env_overrides_args = self.project_env_overrides_args
 
-    def set_silent(self, value: bool):
-        self._silent = value
+        dm = DefinitionManager(project_path, {CONTEXT_KEY: {"env": env_overrides_args}})
+        project_definition = dm.project_definition
+        project_root = dm.project_root
+        template_context = dm.template_context
+
+        if not dm.has_definition_file and not is_optional:
+            raise MissingConfiguration(
+                "Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
+            )
+
+        self.set_project_definition(project_definition)
+        self.set_project_root(project_root)
+        self.set_template_context(template_context)
 
 
 class _CliGlobalContextAccess:
@@ -459,15 +552,38 @@ class _CliGlobalContextAccess:
         return self._manager.output_format == OutputFormat.JSON
 
 
-_CLI_CONTEXT_MANAGER: _CliGlobalContextManager | None = None
+_CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager] = ContextVar(
+    "cli_context", default=_CliGlobalContextManager()
+)
 
 
 def get_cli_context_manager() -> _CliGlobalContextManager:
-    global _CLI_CONTEXT_MANAGER
-    if _CLI_CONTEXT_MANAGER is None:
-        _CLI_CONTEXT_MANAGER = _CliGlobalContextManager()
-    return _CLI_CONTEXT_MANAGER
+    return _CLI_CONTEXT_MANAGER.get()
 
 
 def get_cli_context() -> _CliGlobalContextAccess:
     return _CliGlobalContextAccess(get_cli_context_manager())
+
+
+def fork_cli_context(
+    connection_overrides: Optional[dict],
+    project_path: Optional[str],
+    env: Optional[dict[str, str]],
+) -> Iterator[_CliGlobalContextAccess]:
+    new_manager = _CLI_CONTEXT_MANAGER.get().clone()
+    token = _CLI_CONTEXT_MANAGER.set(new_manager)
+
+    if connection_overrides:
+        new_manager.connection_context.update(**connection_overrides)
+
+    if env:
+        new_manager.project_env_overrides_args.update(env)
+
+    if project_path:
+        # XXX: should we instead register + call all pre-execute commands?
+        # how can we figure out if the project definition one was already given?
+        new_manager.set_project_path_arg(project_path)
+        new_manager.register_project_definition(is_optional=False)
+
+    yield _CliGlobalContextAccess(new_manager)
+    _CLI_CONTEXT_MANAGER.reset(token)
