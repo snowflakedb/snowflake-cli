@@ -258,6 +258,38 @@
   
   '''
 # ---
+# name: test_migration_v1_to_v2[migration_streamlit_v1_to_v2]
+  '''
+  definition_version: '2'
+  entities:
+    test_streamlit:
+      artifacts:
+      - streamlit_app.py
+      - environment.yml
+      - pages
+      identifier:
+        name: test_streamlit
+      main_file: streamlit_app.py
+      pages_dir: None
+      query_warehouse: test_warehouse
+      stage: streamlit
+      title: My Fancy Streamlit
+      type: streamlit
+  
+  '''
+# ---
+# name: test_migration_v1_to_v2[migration_streamlit_v1_to_v2].1
+  '''
+  definition_version: 1
+  streamlit:
+    name: test_streamlit
+    stage: streamlit
+    query_warehouse: test_warehouse
+    main_file: "streamlit_app.py"
+    title: "My Fancy Streamlit"
+  
+  '''
+# ---
 # name: test_migrations_with_multiple_entities
   '''
   definition_version: '2'

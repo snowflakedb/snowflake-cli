@@ -86,7 +86,7 @@ def test_bundle_of_invalid_entity_type(temp_dir):
 
 @pytest.mark.parametrize(
     "project_directory_name",
-    ["migration_streamlit_V1_to_V2", "migration_snowpark_V1_to_V2"],
+    ["migration_streamlit_v1_to_v2", "migration_snowpark_V1_to_V2"],
 )
 def test_migration_v1_to_v2(
     runner, project_directory, snapshot, project_directory_name
