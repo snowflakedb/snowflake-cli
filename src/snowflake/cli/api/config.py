@@ -30,7 +30,10 @@ from snowflake.cli.api.exceptions import (
     UnsupportedConfigSectionTypeError,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.api.secure_utils import file_permissions_are_strict
+from snowflake.cli.api.secure_utils import (
+    file_permissions_are_strict,
+    windows_get_not_whitelisted_users_with_access,
+)
 from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector.compat import IS_WINDOWS
 from snowflake.connector.config_manager import CONFIG_MANAGER
@@ -160,6 +163,18 @@ def _read_config_file():
                 message="Bad owner or permissions.*",
                 module="snowflake.connector.config_manager",
             )
+
+            if not file_permissions_are_strict(CONFIG_MANAGER.file_path):
+                users = ", ".join(
+                    windows_get_not_whitelisted_users_with_access(
+                        CONFIG_MANAGER.file_path
+                    )
+                )
+                warnings.warn(
+                    f"Unauthorized users ({users}) have access to configuration file {CONFIG_MANAGER.file_path}.\n"
+                    f'Run `icacls "{CONFIG_MANAGER.file_path}" /deny <USER_ID>:F` on those users to restrict permissions.'
+                )
+
         try:
             CONFIG_MANAGER.read_config()
         except ConfigSourceError as exception:
@@ -322,8 +337,6 @@ def _dump_config(conf_file_cache: Dict):
 
 
 def _check_default_config_files_permissions() -> None:
-    if IS_WINDOWS:
-        return
     if CONNECTIONS_FILE.exists() and not file_permissions_are_strict(CONNECTIONS_FILE):
         raise ConfigFileTooWidePermissionsError(CONNECTIONS_FILE)
     if CONFIG_FILE.exists() and not file_permissions_are_strict(CONFIG_FILE):

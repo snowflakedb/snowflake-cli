@@ -23,6 +23,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 from snowflake.cli import __about__
+from snowflake.cli.api.secure_path import SecurePath
 
 from tests_common import IS_WINDOWS
 
@@ -167,3 +168,11 @@ def project_directory(temp_dir, test_root_path):
         yield Path(temp_dir)
 
     return _temporary_project_directory
+
+
+@pytest.fixture()
+def config_file(test_root_path, temp_dir):
+    config_file_path = SecurePath(test_root_path) / "config" / "config.toml"
+    target_file_path = Path(temp_dir) / "config.toml"
+    config_file_path.copy(target_file_path)
+    yield target_file_path

@@ -40,6 +40,7 @@ from snowflake.cli._plugins.snowpark.common import (
     SnowparkObject,
     SnowparkObjectManager,
     StageToArtefactMapping,
+    is_name_a_templated_one,
 )
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
@@ -474,7 +475,7 @@ def migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
         if entity.schema_name is not None:
             identifier["schema"] = entity.schema_name
 
-        if entity.name.startswith("<%") and entity.name.endswith("%>"):
+        if is_name_a_templated_one(entity.name):
             entity_name = f"snowpark_entity_{index}"
         else:
             entity_name = entity.name

@@ -21,6 +21,7 @@ from typing import List, Optional
 from snowflake.cli._plugins.nativeapp.artifacts import resolve_without_follow
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.project.definition import (
     default_app_package,
     default_application,
@@ -34,14 +35,6 @@ from snowflake.cli.api.project.util import (
     extract_schema,
     to_identifier,
 )
-from snowflake.connector import DictCursor
-
-
-def current_role() -> str:
-    conn = get_cli_context().connection
-    *_, cursor = conn.execute_string("select current_role()", cursor_class=DictCursor)
-    role_result = cursor.fetchone()
-    return role_result["CURRENT_ROLE()"]
 
 
 class NativeAppProjectModel:
@@ -198,7 +191,7 @@ class NativeAppProjectModel:
     def _default_role(self) -> str:
         role = default_role()
         if role is None:
-            role = current_role()
+            role = get_sql_executor().current_role()
         return role
 
     @cached_property

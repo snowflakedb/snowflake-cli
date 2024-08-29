@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Callable, Dict, List, NoReturn, Optional
+from typing import Any, List, NoReturn, Optional
 
 import jinja2
 from click import ClickException
@@ -11,7 +11,7 @@ from snowflake.cli._plugins.nativeapp.artifacts import (
 )
 from snowflake.cli._plugins.nativeapp.constants import OWNER_COL
 from snowflake.cli._plugins.nativeapp.exceptions import (
-    InvalidScriptError,
+    InvalidTemplateInFileError,
     MissingScriptError,
     UnexpectedOwnerError,
 )
@@ -25,6 +25,7 @@ from snowflake.cli._plugins.stage.diff import (
     to_stage_path,
 )
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.errno import (
@@ -34,7 +35,7 @@ from snowflake.cli.api.errno import (
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.rendering.sql_templates import (
-    snowflake_sql_jinja_render,
+    choose_sql_jinja_env_based_on_template_syntax,
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector import ProgrammingError
@@ -272,8 +273,7 @@ def execute_post_deploy_hooks(
 
         scripts_content_list = render_script_templates(
             project_root,
-            snowflake_sql_jinja_render,
-            {},
+            get_cli_context().template_context,
             sql_scripts_paths,
         )
 
@@ -287,16 +287,17 @@ def execute_post_deploy_hooks(
 
 def render_script_templates(
     project_root: Path,
-    render_from_str: Callable[[str, Dict[str, Any]], str],
     jinja_context: dict[str, Any],
     scripts: List[str],
+    override_env: Optional[jinja2.Environment] = None,
 ) -> List[str]:
     """
     Input:
     - project_root: path to project root
-    - render_from_str: function which renders a jinja template from a string and jinja context
     - jinja_context: a dictionary with the jinja context
     - scripts: list of script paths relative to the project root
+    - override_env: optional jinja environment to use for rendering,
+      if not provided, the environment will be chosen based on the template syntax
     Returns:
     - List of rendered scripts content
     Size of the return list is the same as the size of the input scripts list.
@@ -306,16 +307,26 @@ def render_script_templates(
         script_full_path = SecurePath(project_root) / relpath
         try:
             template_content = script_full_path.read_text(file_size_limit_mb=UNLIMITED)
-            result = render_from_str(template_content, jinja_context)
+            env = override_env or choose_sql_jinja_env_based_on_template_syntax(
+                template_content, reference_name=relpath
+            )
+            result = env.from_string(template_content).render(jinja_context)
             scripts_contents.append(result)
 
         except FileNotFoundError as e:
             raise MissingScriptError(relpath) from e
 
         except jinja2.TemplateSyntaxError as e:
-            raise InvalidScriptError(relpath, e, e.lineno) from e
+            raise InvalidTemplateInFileError(relpath, e, e.lineno) from e
 
         except jinja2.UndefinedError as e:
-            raise InvalidScriptError(relpath, e) from e
+            raise InvalidTemplateInFileError(relpath, e) from e
 
     return scripts_contents
+
+
+def validation_item_to_str(item: dict[str, str | int]):
+    s = item["message"]
+    if item["errorCode"]:
+        s = f"{s} (error code {item['errorCode']})"
+    return s
