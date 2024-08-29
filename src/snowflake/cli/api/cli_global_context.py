@@ -484,8 +484,8 @@ class _CliGlobalContextManager:
 
     def _register_project_definition(self):
         """
-        Sets project_definition, project_root, and template_context
-        based on the value of project_path_arg.
+        Sets project_definition, project_root, and template_context based on the
+        values of project_path_arg, project_env_overrides_args, and project_is_optional.
         """
         if not self.project_path_arg:
             return
