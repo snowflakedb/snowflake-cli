@@ -18,6 +18,7 @@ import asyncio
 import logging
 import re
 import warnings
+from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterator, Optional
@@ -566,12 +567,17 @@ def get_cli_context() -> _CliGlobalContextAccess:
     return _CliGlobalContextAccess(get_cli_context_manager())
 
 
+@contextmanager
 def fork_cli_context(
     connection_overrides: Optional[dict],
     env: Optional[dict[str, str]],
     project_is_optional: Optional[bool],
     project_path: Optional[str],
 ) -> Iterator[_CliGlobalContextAccess]:
+    """
+    Forks the global CLI context, making changes that are only visible
+    while inside this context manager.
+    """
     new_manager = _CLI_CONTEXT_MANAGER.get().clone()
     token = _CLI_CONTEXT_MANAGER.set(new_manager)
 
