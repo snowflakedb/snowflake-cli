@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import List, Optional
 
 import yaml
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectProperties,
@@ -83,6 +82,8 @@ def default_app_package(project_name: str):
 
 
 def default_role():
+    from snowflake.cli.api.cli_global_context import get_cli_context
+
     conn = get_cli_context().connection
     return conn.role
 
