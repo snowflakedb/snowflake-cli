@@ -124,7 +124,7 @@ LikeOption = like_option(
 )
 
 
-@app.command("deploy", requires_connection=True)
+@app.command("deploy", requires_connection=True, require_warehouse=True)
 @with_project_definition()
 def deploy(
     replace: bool = ReplaceOption(
