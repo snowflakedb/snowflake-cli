@@ -7,6 +7,13 @@ src/snowflake/cli/api/utils/ @snowflakedb/snowcli @snowflakedb/nade
 **/test_data @snowflakedb/snowcli @snowflakedb/nade
 tests_e2e/conftest.py @snowflakedb/snowcli @snowflakedb/nade
 
+## Workspaces (shared ownership)
+src/snowflake/cli/_plugins/workspace/ @snowflakedb/snowcli @snowflakedb/nade
+src/snowflake/cli/api/entities/ @snowflakedb/snowcli @snowflakedb/nade
+src/snowflake/cli/api/project/schemas/entities/ @snowflakedb/snowcli @snowflakedb/nade
+tests/workspace/ @snowflakedb/snowcli @snowflakedb/nade
+tests_integration/workspaces/ @snowflakedb/snowcli @snowflakedb/nade
+
 # Native Apps Owners
 **/nativeapp/ @snowflakedb/nade
 **/native_app/ @snowflakedb/nade
