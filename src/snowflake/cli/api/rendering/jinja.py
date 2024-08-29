@@ -82,7 +82,7 @@ class IgnoreAttrEnvironment(Environment):
             return self.undefined(obj=obj, name=argument)
 
 
-def _get_jinja_env(loader: Optional[loaders.BaseLoader] = None) -> Environment:
+def get_basic_jinja_env(loader: Optional[loaders.BaseLoader] = None) -> Environment:
     return env_bootstrap(
         IgnoreAttrEnvironment(
             loader=loader or loaders.BaseLoader(),
@@ -90,20 +90,6 @@ def _get_jinja_env(loader: Optional[loaders.BaseLoader] = None) -> Environment:
             undefined=StrictUndefined,
         )
     )
-
-
-def jinja_render_from_str(template_content: str, data: Dict[str, Any]) -> str:
-    """
-    Renders a jinja template and outputs either the rendered contents as string or writes to a file.
-
-    Args:
-        template_content (str): template contents
-        data (dict): A dictionary of jinja variables and their actual values
-
-    Returns:
-        None if file path is provided, else returns the rendered string.
-    """
-    return _get_jinja_env().from_string(template_content).render(data)
 
 
 def jinja_render_from_file(
@@ -120,7 +106,7 @@ def jinja_render_from_file(
     Returns:
         None if file path is provided, else returns the rendered string.
     """
-    env = _get_jinja_env(
+    env = get_basic_jinja_env(
         loader=loaders.FileSystemLoader(template_path.parent.as_posix())
     )
     loaded_template = env.get_template(template_path.name)
