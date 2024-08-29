@@ -25,7 +25,6 @@ from typing import TYPE_CHECKING, Iterator, Optional
 
 from snowflake.cli.api.exceptions import InvalidSchemaError, MissingConfiguration
 from snowflake.cli.api.output.formats import OutputFormat
-from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.compat import IS_WINDOWS
@@ -33,6 +32,7 @@ from snowflake.connector.compat import IS_WINDOWS
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from snowflake.cli.api.project.definition_manager import DefinitionManager
     from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 
 schema_pattern = re.compile(r".+\..+")
@@ -441,6 +441,13 @@ class _CliGlobalContextManager:
         )
 
     @property
+    def project_is_optional(self) -> bool:
+        return self._project_is_optional
+
+    def set_project_is_optional(self, project_is_optional: bool):
+        self._project_is_optional = project_is_optional
+
+    @property
     def project_path_arg(self) -> Optional[str]:
         return self._project_path_arg
 
@@ -448,13 +455,6 @@ class _CliGlobalContextManager:
         # force re-calculation of DefinitionManager + dependent attrs
         self._definition_manager = None
         self._project_path_arg = project_path_arg
-
-    @property
-    def project_is_optional(self) -> bool:
-        return self._project_is_optional
-
-    def set_project_is_optional(self, project_is_optional: bool):
-        self._project_is_optional = project_is_optional
 
     @property
     def project_env_overrides_args(self) -> dict[str, str]:
@@ -487,6 +487,8 @@ class _CliGlobalContextManager:
         Sets project_definition, project_root, and template_context based on the
         values of project_path_arg, project_env_overrides_args, and project_is_optional.
         """
+        from snowflake.cli.api.project.definition_manager import DefinitionManager
+
         if not self.project_path_arg:
             return
 
