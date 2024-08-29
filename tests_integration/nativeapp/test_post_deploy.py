@@ -10,13 +10,19 @@ from tests_integration.testing_utils.working_directory_utils import (
 )
 
 
-def run(runner, args):
+def run(runner, base_command, args):
+    # TODO Run "ws deploy --entity-id=app" once ApplicationEntity deploy is implemented
     result = runner.invoke_with_connection_json(["app", "run"] + args)
     assert result.exit_code == 0
 
 
-def deploy(runner, args):
-    result = runner.invoke_with_connection_json(["app", "deploy"] + args)
+def deploy(runner, base_command, args):
+    if base_command == "ws":
+        result = runner.invoke_with_connection_json(
+            ["ws", "deploy", "--entity-id=pkg"] + args
+        )
+    else:
+        result = runner.invoke_with_connection_json([base_command, "deploy"] + args)
     assert result.exit_code == 0
 
 
@@ -63,8 +69,12 @@ def verify_pkg_post_deploy_log(snowflake_session, pkg_name, expected_rows):
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "test_project",
-    ["napp_application_post_deploy_v1", "napp_application_post_deploy_v2"],
+    "base_command,test_project",
+    [
+        ["app", "napp_application_post_deploy_v1"],
+        ["app", "napp_application_post_deploy_v2"],
+        ["ws", "napp_application_post_deploy_v2"],
+    ],
 )
 @pytest.mark.parametrize("is_versioned", [True, False])
 @pytest.mark.parametrize("with_project_flag", [True, False])
@@ -74,6 +84,7 @@ def test_nativeapp_post_deploy(
     default_username,
     resource_suffix,
     nativeapp_project_directory,
+    base_command,
     test_project,
     is_versioned,
     with_project_flag,
@@ -95,16 +106,18 @@ def test_nativeapp_post_deploy(
             # first run, application is created
             if is_versioned:
                 create_version(runner, version, project_args)
-            run(runner, project_args + version_run_args)
+            run(runner, base_command, project_args + version_run_args)
 
-            verify_app_post_deploy_log(
-                snowflake_session,
-                app_name,
-                [
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                ],
-            )
+            # TODO Remove condition once ApplicationEntity deploy is implemented
+            if base_command == "app":
+                verify_app_post_deploy_log(
+                    snowflake_session,
+                    app_name,
+                    [
+                        {"TEXT": "app-post-deploy-part-1"},
+                        {"TEXT": "app-post-deploy-part-2"},
+                    ],
+                )
 
             verify_pkg_post_deploy_log(
                 snowflake_session,
@@ -118,18 +131,20 @@ def test_nativeapp_post_deploy(
             # Second run, application is upgraded
             if is_versioned:
                 create_version(runner, version, project_args)
-            run(runner, project_args + version_run_args)
+            run(runner, base_command, project_args + version_run_args)
 
-            verify_app_post_deploy_log(
-                snowflake_session,
-                app_name,
-                [
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                ],
-            )
+            # TODO Remove condition once ApplicationEntity deploy is implemented
+            if base_command == "app":
+                verify_app_post_deploy_log(
+                    snowflake_session,
+                    app_name,
+                    [
+                        {"TEXT": "app-post-deploy-part-1"},
+                        {"TEXT": "app-post-deploy-part-2"},
+                        {"TEXT": "app-post-deploy-part-1"},
+                        {"TEXT": "app-post-deploy-part-2"},
+                    ],
+                )
             verify_pkg_post_deploy_log(
                 snowflake_session,
                 pkg_name,
@@ -141,18 +156,20 @@ def test_nativeapp_post_deploy(
                 ],
             )
 
-            deploy(runner, project_args)
+            deploy(runner, base_command, project_args)
 
-            verify_app_post_deploy_log(
-                snowflake_session,
-                app_name,
-                [
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                ],
-            )
+            # TODO Remove condition once ApplicationEntity deploy is implemented
+            if base_command == "app":
+                verify_app_post_deploy_log(
+                    snowflake_session,
+                    app_name,
+                    [
+                        {"TEXT": "app-post-deploy-part-1"},
+                        {"TEXT": "app-post-deploy-part-2"},
+                        {"TEXT": "app-post-deploy-part-1"},
+                        {"TEXT": "app-post-deploy-part-2"},
+                    ],
+                )
             verify_pkg_post_deploy_log(
                 snowflake_session,
                 pkg_name,

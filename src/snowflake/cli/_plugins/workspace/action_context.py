@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from snowflake.cli.api.console.abc import AbstractConsole
 
@@ -13,3 +14,4 @@ class ActionContext:
     console: AbstractConsole
     project_root: Path
     default_role: str
+    default_warehouse: Optional[str]
