@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
+from shlex import split
 
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
@@ -161,12 +161,20 @@ def test_nativeapp_teardown_unowned_app(
 
 @pytest.mark.integration
 @pytest.mark.parametrize("default_release_directive", [True, False])
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app teardown", "napp_init_v1"],
+        ["app teardown", "napp_init_v2"],
+        ["ws drop --entity-id=pkg", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_teardown_pkg_versions(
     runner,
     default_username,
     resource_suffix,
     default_release_directive,
+    command,
     test_project,
     nativeapp_project_directory,
 ):
@@ -189,7 +197,7 @@ def test_nativeapp_teardown_pkg_versions(
             assert result.exit_code == 0
 
         # try to teardown; fail because we have a version
-        result = runner.invoke_with_connection(["app", "teardown"])
+        result = runner.invoke_with_connection(split(command))
         assert result.exit_code == 1
         assert f"Drop versions first, or use --force to override." in result.output
 
@@ -205,5 +213,5 @@ def test_nativeapp_teardown_pkg_versions(
             teardown_args = ["--force"]
 
         # either way, we can now tear down the application package
-        result = runner.invoke_with_connection(["app", "teardown"] + teardown_args)
+        result = runner.invoke_with_connection(split(command) + teardown_args)
         assert result.exit_code == 0
