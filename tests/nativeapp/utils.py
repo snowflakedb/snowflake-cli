@@ -32,6 +32,9 @@ RUN_MODULE = "snowflake.cli._plugins.nativeapp.run_processor"
 VERSION_MODULE = "snowflake.cli._plugins.nativeapp.version.version_processor"
 ENTITIES_COMMON_MODULE = "snowflake.cli.api.entities.common"
 ENTITIES_UTILS_MODULE = "snowflake.cli.api.entities.utils"
+APPLICATION_PACKAGE_ENTITY_MODULE = (
+    "snowflake.cli.api.entities.application_package_entity"
+)
 
 CLI_GLOBAL_TEMPLATE_CONTEXT = (
     "snowflake.cli.api.cli_global_context._CliGlobalContextAccess.template_context"
