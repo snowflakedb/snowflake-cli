@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
 import warnings
 from pathlib import Path
@@ -23,6 +25,8 @@ from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.compat import IS_WINDOWS
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
@@ -226,22 +230,56 @@ class _ConnectionContext:
 
 
 class ConnectionCache:
-    cache: dict[str, SnowflakeConnection]
+    """
+    A connection cache that transparently manages SnowflakeConnection objects
+    and is keyed by _ConnectionContext objects, e.g. cache[ctx].execute_string(...).
+    Connections are automatically closed after CONNECTION_CLEANUP_SEC.
+    """
+
+    connections: dict[str, SnowflakeConnection]
+    cleanup_futures: dict[str, asyncio.TimerHandle]
+
+    CONNECTION_CLEANUP_SEC: float = 10.0 * 60
 
     def __init__(self):
-        self.cache = {}
+        self.connections = {}
 
     def __getitem__(self, ctx):
         if isinstance(ctx, _ConnectionContext):
             key = repr(ctx)
             if key not in self.cache:
-                # TODO: auto-close connections
-                self.cache[key] = ctx.build_connection()
-            return self.cache[key]
+                self._insert(key, ctx)
+            self._touch(key)
+            return self.connections[key]
         else:
             raise ValueError(
                 f"Expected key to be _ConnectionContext but got {repr(ctx)}"
             )
+
+    def _insert(self, key: str, ctx: _ConnectionContext):
+        self.connections[key] = ctx.build_connection()
+
+    def _touch(self, key: str):
+        """
+        Extend the lifetime of the cached connection at the given key.
+        """
+        if key in self.cleanup_futures:
+            self.cleanup_futures.pop(key).cancel()
+
+        loop = asyncio.get_event_loop()
+        handle = loop.call_later(
+            self.CONNECTION_CLEANUP_SEC, lambda: self._cleanup(key)
+        )
+        self.cleanup_futures[key] = handle
+
+    def _cleanup(self, key: str):
+        """Closes the cached connection at the given key."""
+        if key not in self.connections:
+            logger.warning("Cleaning up connection {key}, but not found in cache!")
+
+        # doesn't cancel in-flight async queries
+        self.connections.pop(key).close()
+        del self.cleanup_futures[key]
 
 
 _CONNECTION_CACHE = ConnectionCache()
