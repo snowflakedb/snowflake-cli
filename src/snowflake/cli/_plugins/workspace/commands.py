@@ -23,8 +23,6 @@ import typer
 import yaml
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.nativeapp.common_flags import ValidateOption
-from snowflake.cli._plugins.snowpark.commands import migrate_v1_snowpark_to_v2
-from snowflake.cli._plugins.streamlit.commands import migrate_v1_streamlit_to_v2
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition

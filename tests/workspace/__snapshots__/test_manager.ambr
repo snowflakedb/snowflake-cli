@@ -258,3 +258,106 @@
   
   '''
 # ---
+# name: test_migrations_with_multiple_entities
+  '''
+  definition_version: '2'
+  entities:
+    func1:
+      artifacts:
+      - dest: my_snowpark_project
+        src: app
+      external_access_integrations: []
+      handler: app.func1_handler
+      identifier:
+        name: func1
+      imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
+      returns: string
+      runtime: '3.10'
+      secrets: {}
+      signature:
+      - default: default value
+        name: a
+        type: string
+      - name: b
+        type: variant
+      stage: dev_deployment
+      type: function
+    procedureName:
+      artifacts:
+      - dest: my_snowpark_project
+        src: app
+      execute_as_caller: false
+      external_access_integrations: []
+      handler: hello
+      identifier:
+        name: procedureName
+      imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
+      returns: string
+      secrets: {}
+      signature:
+      - name: name
+        type: string
+      stage: dev_deployment
+      type: procedure
+    test_streamlit:
+      artifacts:
+      - streamlit_app.py
+      - environment.yml
+      - pages
+      identifier:
+        name: test_streamlit
+      main_file: streamlit_app.py
+      pages_dir: None
+      query_warehouse: test_warehouse
+      stage: streamlit
+      title: My Fancy Streamlit
+      type: streamlit
+  mixins:
+    snowpark_shared:
+      artifacts:
+      - dest: my_snowpark_project
+        src: app/
+      stage: dev_deployment
+  
+  '''
+# ---
+# name: test_migrations_with_multiple_entities.1
+  '''
+  definition_version: 1
+  streamlit:
+    name: test_streamlit
+    stage: streamlit
+    query_warehouse: test_warehouse
+    main_file: "streamlit_app.py"
+    title: "My Fancy Streamlit"
+  snowpark:
+    project_name: "my_snowpark_project"
+    stage_name: "dev_deployment"
+    src: "app/"
+    functions:
+      - name: func1
+        handler: "app.func1_handler"
+        signature:
+          - name: "a"
+            type: "string"
+            default: "default value"
+          - name: "b"
+            type: "variant"
+        returns: string
+        runtime: 3.10
+    procedures:
+      - name: procedureName
+        handler: "hello"
+        signature:
+          - name: "name"
+            type: "string"
+        returns: string
+  
+  '''
+# ---

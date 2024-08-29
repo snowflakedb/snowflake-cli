@@ -49,7 +49,6 @@ def convert_snowpark_to_v2_data(snowpark: Snowpark) -> Dict[str, Any]:
     if snowpark.project_name:
         artifact_mapping["dest"] = snowpark.project_name
 
-
     data: dict = {
         "mixins": {
             SNOWPARK_SHARED_MIXIN: {
@@ -60,9 +59,7 @@ def convert_snowpark_to_v2_data(snowpark: Snowpark) -> Dict[str, Any]:
         "entities": {},
     }
 
-    for index, entity in enumerate(
-        [*snowpark.procedures, *snowpark.functions]
-    ):
+    for index, entity in enumerate([*snowpark.procedures, *snowpark.functions]):
         identifier = {"name": entity.name}
         if entity.database is not None:
             identifier["database"] = entity.database
@@ -98,9 +95,7 @@ def convert_snowpark_to_v2_data(snowpark: Snowpark) -> Dict[str, Any]:
 
 def convert_streamlit_to_v2_data(streamlit: Streamlit):
     # Process env file and pages dir
-    environment_file = _process_streamlit_files(
-        streamlit.env_file, "environment"
-    )
+    environment_file = _process_streamlit_files(streamlit.env_file, "environment")
     pages_dir = _process_streamlit_files(streamlit.pages_dir, "pages")
 
     # Build V2 definition
@@ -174,11 +169,10 @@ def _check_if_project_definition_meets_requirements(
 def _process_streamlit_files(
     file_name: Optional[str], file_type: Literal["pages", "environment"]
 ):
-    if not file_name:
-        file_name = (
-            DEFAULT_ENV_FILE if file_type == "environment" else DEFAULT_PAGES_DIR
-        )
+    default = DEFAULT_PAGES_DIR if file_type == "pages" else DEFAULT_ENV_FILE
 
-    if not Path(file_name).exists():  # type: ignore
+    if file_name and not Path(file_name).exists():
         raise ClickException(f"Provided file {file_name} does not exist")
+    elif file_name is None and Path(default).exists():
+        file_name = default
     return file_name
