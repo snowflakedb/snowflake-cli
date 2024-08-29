@@ -31,9 +31,9 @@ schema_pattern = re.compile(r".+\..+")
 
 
 class _ConnectionContext:
-    def __init__(self):
-        self._cached_connection: Optional[SnowflakeConnection] = None
+    # TODO: reduce duplication / boilerplate by using config.ConnectionConfig
 
+    def __init__(self):
         self._connection_name: Optional[str] = None
         self._account: Optional[str] = None
         self._database: Optional[str] = None
@@ -52,14 +52,6 @@ class _ConnectionContext:
         self._session_token: Optional[str] = None
         self._master_token: Optional[str] = None
         self._token_file_path: Optional[Path] = None
-
-    def __setattr__(self, key, value):
-        """
-        We invalidate connection cache every time connection attributes change.
-        """
-        super().__setattr__(key, value)
-        if key != "_cached_connection":
-            self._cached_connection = None
 
     @property
     def connection_name(self) -> Optional[str]:
@@ -194,12 +186,6 @@ class _ConnectionContext:
     def set_token_file_path(self, value: Optional[Path]):
         self._token_file_path = value
 
-    @property
-    def connection(self) -> SnowflakeConnection:
-        if not self._cached_connection:
-            self._cached_connection = self._build_connection()
-        return self._cached_connection
-
     def _collect_not_empty_connection_attributes(self):
         return {
             "account": self.account,
@@ -216,7 +202,7 @@ class _ConnectionContext:
             "token_file_path": self.token_file_path,
         }
 
-    def _build_connection(self):
+    def build_connection(self):
         from snowflake.cli._app.snow_connector import connect_to_snowflake
 
         # Ignore warnings about bad owner or permissions on Windows
@@ -237,6 +223,28 @@ class _ConnectionContext:
             connection_name=self.connection_name,
             **self._collect_not_empty_connection_attributes(),
         )
+
+
+class ConnectionCache:
+    cache: dict[str, SnowflakeConnection]
+
+    def __init__(self):
+        self.cache = {}
+
+    def __getitem__(self, ctx):
+        if isinstance(ctx, _ConnectionContext):
+            key = repr(ctx)
+            if key not in self.cache:
+                # TODO: auto-close connections
+                self.cache[key] = ctx.build_connection()
+            return self.cache[key]
+        else:
+            raise ValueError(
+                f"Expected key to be _ConnectionContext but got {repr(ctx)}"
+            )
+
+
+_CONNECTION_CACHE = ConnectionCache()
 
 
 class _CliGlobalContextManager:
@@ -337,7 +345,11 @@ class _CliGlobalContextManager:
 
     @property
     def connection(self) -> SnowflakeConnection:
-        return self.connection_context.connection
+        """
+        Returns a connection for our configured context from the global active
+        connection cache singleton, possibly creating a new one and caching it.
+        """
+        return _CONNECTION_CACHE[self.connection_context]
 
     @property
     def silent(self) -> bool:
