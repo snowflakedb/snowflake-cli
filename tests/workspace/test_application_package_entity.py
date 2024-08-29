@@ -28,6 +28,7 @@ from snowflake.cli.api.entities.application_package_entity import (
 from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
     ApplicationPackageEntityModel,
 )
+from snowflake.cli.api.project.schemas.entities.common import SqlScriptHookType
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.utils import (
@@ -50,6 +51,7 @@ def _get_app_pkg_entity(project_directory):
                 console=mock_console,
                 project_root=project_root,
                 default_role="app_role",
+                default_warehouse="wh",
             )
             return ApplicationPackageEntity(model), action_ctx, mock_console
 
@@ -66,9 +68,17 @@ def test_bundle(project_directory):
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(f"{APP_PACKAGE_ENTITY}.execute_post_deploy_hooks")
 @mock.patch(f"{APP_PACKAGE_ENTITY}.validate_setup_script")
 @mock.patch(f"{APPLICATION_PACKAGE_ENTITY_MODULE}.sync_deploy_root_with_stage")
-def test_deploy(mock_sync, mock_validate, mock_execute, project_directory, mock_cursor):
+def test_deploy(
+    mock_sync,
+    mock_validate,
+    mock_execute_post_deploy_hooks,
+    mock_execute,
+    project_directory,
+    mock_cursor,
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -141,4 +151,14 @@ def test_deploy(mock_sync, mock_validate, mock_execute, project_directory, mock_
         print_diff=True,
     )
     mock_validate.assert_called_once()
+    mock_execute_post_deploy_hooks.assert_called_once_with(
+        console=mock_console,
+        project_root=bundle_ctx.project_root,
+        post_deploy_hooks=[
+            SqlScriptHookType(sql_script="scripts/package_post_deploy1.sql"),
+            SqlScriptHookType(sql_script="scripts/package_post_deploy2.sql"),
+        ],
+        package_name="pkg",
+        package_warehouse="wh",
+    )
     assert mock_execute.mock_calls == expected
