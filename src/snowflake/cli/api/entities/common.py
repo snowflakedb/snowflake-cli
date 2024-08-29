@@ -8,6 +8,7 @@ from snowflake.cli.api.sql_execution import SqlExecutor
 class EntityActions(str, Enum):
     BUNDLE = "action_bundle"
     DEPLOY = "action_deploy"
+    DROP = "action_drop"
 
 
 T = TypeVar("T")

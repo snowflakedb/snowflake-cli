@@ -23,7 +23,10 @@ import typer
 import yaml
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
-from snowflake.cli._plugins.nativeapp.common_flags import ValidateOption
+from snowflake.cli._plugins.nativeapp.common_flags import (
+    ForceOption,
+    ValidateOption,
+)
 from snowflake.cli._plugins.snowpark.commands import migrate_v1_snowpark_to_v2
 from snowflake.cli._plugins.streamlit.commands import migrate_v1_streamlit_to_v2
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
@@ -179,3 +182,30 @@ def deploy(
         validate=validate,
     )
     return MessageResult("Deployed successfully.")
+
+
+@ws.command(requires_connection=True)
+@with_project_definition()
+def drop(
+    entity_id: str = typer.Option(
+        help=f"""The ID of the entity you want to drop.""",
+    ),
+    # TODO The following options should be generated automatically, depending on the specified entity type
+    force: Optional[bool] = ForceOption,
+    **options,
+):
+    """
+    Drops the specified entity.
+    """
+
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+
+    ws.perform_action(
+        entity_id,
+        EntityActions.DROP,
+        force_drop=force,
+    )

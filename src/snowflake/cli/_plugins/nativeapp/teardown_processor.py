@@ -22,12 +22,7 @@ import typer
 from snowflake.cli._plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
-    EXTERNAL_DISTRIBUTION,
-    INTERNAL_DISTRIBUTION,
     OWNER_COL,
-)
-from snowflake.cli._plugins.nativeapp.exceptions import (
-    CouldNotDropApplicationPackageWithVersions,
 )
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppCommandProcessor,
@@ -37,11 +32,15 @@ from snowflake.cli._plugins.nativeapp.utils import (
     needs_confirmation,
 )
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.utils import ensure_correct_owner
+from snowflake.cli.api.entities.application_package_entity import (
+    ApplicationPackageEntity,
+)
+from snowflake.cli.api.entities.utils import (
+    drop_generic_object,
+    ensure_correct_owner,
+)
 from snowflake.cli.api.errno import APPLICATION_NO_LONGER_AVAILABLE
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor
 
 
 class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
@@ -51,20 +50,13 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
     def drop_generic_object(
         self, object_type: str, object_name: str, role: str, cascade: bool = False
     ):
-        """
-        Drop object using the given role.
-        """
-        with self.use_role(role):
-            cc.step(f"Dropping {object_type} {object_name} now.")
-            drop_query = f"drop {object_type} {object_name}"
-            if cascade:
-                drop_query += " cascade"
-            try:
-                self._execute_query(drop_query)
-            except:
-                raise SnowflakeSQLExecutionError(drop_query)
-
-            cc.message(f"Dropped {object_type} {object_name} successfully.")
+        return drop_generic_object(
+            console=cc,
+            object_type=object_type,
+            object_name=object_name,
+            role=role,
+            cascade=cascade,
+        )
 
     def drop_application(
         self, auto_yes: bool, interactive: bool = False, cascade: Optional[bool] = None
@@ -198,90 +190,12 @@ class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
         return  # The application object was successfully dropped, therefore exit gracefully
 
     def drop_package(self, auto_yes: bool):
-        """
-        Attempts to drop application package unless user specifies otherwise.
-        """
-        needs_confirm = True
-
-        # 1. If existing application package is not found, exit gracefully
-        show_obj_row = self.get_existing_app_pkg_info()
-        if show_obj_row is None:
-            cc.warning(
-                f"Role {self.package_role} does not own any application package with the name {self.package_name}, or the application package does not exist."
-            )
-            return
-
-        # 2. Check for the right owner
-        ensure_correct_owner(
-            row=show_obj_row, role=self.package_role, obj_name=self.package_name
+        return ApplicationPackageEntity.drop(
+            console=cc,
+            package_name=self.package_name,
+            package_role=self.package_role,
+            force_drop=auto_yes,
         )
-
-        with self.use_role(self.package_role):
-            # 3. Check for versions in the application package
-            show_versions_query = (
-                f"show versions in application package {self.package_name}"
-            )
-            show_versions_cursor = self._execute_query(
-                show_versions_query, cursor_class=DictCursor
-            )
-            if show_versions_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_versions_query)
-
-            if show_versions_cursor.rowcount > 0:
-                # allow dropping a package with versions when --force is set
-                if not auto_yes:
-                    raise CouldNotDropApplicationPackageWithVersions(
-                        "Drop versions first, or use --force to override."
-                    )
-
-        # 4. Check distribution of the existing application package
-        actual_distribution = self.get_app_pkg_distribution_in_snowflake
-        if not self.verify_project_distribution(actual_distribution):
-            cc.warning(
-                f"Continuing to execute `snow app teardown` on application package {self.package_name} with distribution '{actual_distribution}'."
-            )
-
-        # 5. If distribution is internal, check if created by the Snowflake CLI
-        row_comment = show_obj_row[COMMENT_COL]
-        if actual_distribution == INTERNAL_DISTRIBUTION:
-            if row_comment in ALLOWED_SPECIAL_COMMENTS:
-                needs_confirm = False
-            else:
-                if needs_confirmation(needs_confirm, auto_yes):
-                    cc.warning(
-                        f"Application package {self.package_name} was not created by Snowflake CLI."
-                    )
-        else:
-            if needs_confirmation(needs_confirm, auto_yes):
-                cc.warning(
-                    f"Application package {self.package_name} in your Snowflake account has distribution property '{EXTERNAL_DISTRIBUTION}' and could be associated with one or more of your listings on Snowflake Marketplace."
-                )
-
-        if needs_confirmation(needs_confirm, auto_yes):
-            should_drop_object = typer.confirm(
-                dedent(
-                    f"""\
-                        Application package details:
-                        Name: {self.app_name}
-                        Created on: {show_obj_row["created_on"]}
-                        Distribution: {actual_distribution}
-                        Owner: {show_obj_row[OWNER_COL]}
-                        Comment: {show_obj_row[COMMENT_COL]}
-                        Are you sure you want to drop it?
-                    """
-                )
-            )
-            if not should_drop_object:
-                cc.message(f"Did not drop application package {self.package_name}.")
-                return  # The user desires to keep the application package, therefore exit gracefully
-
-        # All validations have passed, drop object
-        self.drop_generic_object(
-            object_type="application package",
-            object_name=self.package_name,
-            role=self.package_role,
-        )
-        return  # The application package was successfully dropped, therefore exit gracefully
 
     def process(
         self,
