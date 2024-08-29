@@ -40,7 +40,6 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 )
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppManager,
-    SnowflakeSQLExecutionError,
 )
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
@@ -51,6 +50,7 @@ from snowflake.cli.api.entities.utils import (
     ensure_correct_owner,
 )
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
@@ -957,7 +957,7 @@ def test_get_paths_to_sync(
     assert result.sort() == [StagePath(p) for p in expected_result].sort()
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_validate_passing(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
@@ -984,7 +984,7 @@ def test_validate_passing(mock_execute, temp_dir, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 def test_validate_passing_with_warnings(
     mock_warning, mock_execute, temp_dir, mock_cursor
@@ -1026,7 +1026,7 @@ def test_validate_passing_with_warnings(
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor):
     create_named_file(
@@ -1083,7 +1083,7 @@ def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_validate_query_error(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
@@ -1110,7 +1110,7 @@ def test_validate_query_error(mock_execute, temp_dir, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_validate_not_deployed(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
@@ -1142,7 +1142,7 @@ def test_validate_not_deployed(mock_execute, temp_dir, mock_cursor):
 
 @mock.patch(NATIVEAPP_MANAGER_BUILD_BUNDLE)
 @mock.patch(NATIVEAPP_MANAGER_DEPLOY)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_validate_use_scratch_stage(
     mock_execute, mock_deploy, mock_build_bundle, temp_dir, mock_cursor
 ):
@@ -1194,7 +1194,7 @@ def test_validate_use_scratch_stage(
 
 @mock.patch(NATIVEAPP_MANAGER_BUILD_BUNDLE)
 @mock.patch(NATIVEAPP_MANAGER_DEPLOY)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_validate_failing_drops_scratch_stage(
     mock_execute, mock_deploy, mock_build_bundle, temp_dir, mock_cursor
 ):
@@ -1258,7 +1258,7 @@ def test_validate_failing_drops_scratch_stage(
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",

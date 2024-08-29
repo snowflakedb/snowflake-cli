@@ -22,7 +22,7 @@
   | --project   -p      TEXT  Path where Snowflake project resides. Defaults to  |
   |                           current working directory.                         |
   | --env               TEXT  String in format of key=value. Overrides variables |
-  |                           from env section used for templating.              |
+  |                           from env section used for templates.               |
   | --help      -h            Show this message and exit.                        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+

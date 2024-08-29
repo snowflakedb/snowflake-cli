@@ -94,7 +94,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
 
         self._create_or_update_sandbox()
 
-        cc.phase("Processing Python setup files")
+        cc.step("Processing Python setup files")
 
         files_to_process = []
         for src_file, dest_file in bundle_map.all_mappings(

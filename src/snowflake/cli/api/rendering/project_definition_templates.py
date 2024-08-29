@@ -24,7 +24,7 @@ _YML_TEMPLATE_START = "<%"
 _YML_TEMPLATE_END = "%>"
 
 
-def get_project_definition_cli_jinja_env() -> Environment:
+def get_client_side_jinja_env() -> Environment:
     _random_block = "___very___unique___block___to___disable___logic___blocks___"
     return env_bootstrap(
         IgnoreAttrEnvironment(

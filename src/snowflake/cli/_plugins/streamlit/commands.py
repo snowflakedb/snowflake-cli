@@ -172,13 +172,61 @@ def streamlit_deploy(
 
 
 def migrate_v1_streamlit_to_v2(pd: ProjectDefinition):
-    data = convert_to_v2_data(pd)
+    default_env_file = "environment.yml"
+    default_pages_dir = "pages"
+
+    # Process env file
+    environment_file = pd.streamlit.env_file
+    if environment_file and not Path(environment_file).exists():
+        raise ClickException(f"Provided file {environment_file} does not exist")
+    elif environment_file is None and Path(default_env_file).exists():
+        environment_file = default_env_file
+    # Process pages dir
+    pages_dir = pd.streamlit.pages_dir
+    if pages_dir and not Path(pages_dir).exists():
+        raise ClickException(f"Provided file {pages_dir} does not exist")
+    elif pages_dir is None and Path(default_pages_dir).exists():
+        pages_dir = default_pages_dir
+
+    # Build V2 definition
+    artifacts = [
+        pd.streamlit.main_file,
+        environment_file,
+        pages_dir,
+    ]
+    artifacts = [a for a in artifacts if a is not None]
+    if pd.streamlit.additional_source_files:
+        artifacts.extend(pd.streamlit.additional_source_files)
+
+    identifier = {"name": pd.streamlit.name}
+    if pd.streamlit.schema_name:
+        identifier["schema"] = pd.streamlit.schema_name
+    if pd.streamlit.database:
+        identifier["database"] = pd.streamlit.database
+
+    if pd.streamlit.name.startswith("<%") and pd.streamlit.name.endswith("%>"):
+        streamlit_name = "streamlit_entity_1"
+    else:
+        streamlit_name = pd.streamlit.name
+
+    data = {
+        "definition_version": "2",
+        "entities": {
+            streamlit_name: {
+                "type": "streamlit",
+                "identifier": identifier,
+                "title": pd.streamlit.title,
+                "query_warehouse": pd.streamlit.query_warehouse,
+                "main_file": str(pd.streamlit.main_file),
+                "pages_dir": str(pd.streamlit.pages_dir),
+                "stage": pd.streamlit.stage,
+                "artifacts": artifacts,
+            }
+        },
+    }
+    if hasattr(pd, "env") and pd.env:
+        data["env"] = {k: v for k, v in pd.env.items()}
     return ProjectDefinitionV2(**data)
-
-
-def convert_to_v2_data(pd: ProjectDefinition):
-
-    return {}
 
 
 @app.command("get-url", requires_connection=True)
