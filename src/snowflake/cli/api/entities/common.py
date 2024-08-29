@@ -7,6 +7,7 @@ from snowflake.cli.api.sql_execution import SqlExecutor
 
 class EntityActions(str, Enum):
     BUNDLE = "action_bundle"
+    DEPLOY = "action_deploy"
 
 
 T = TypeVar("T")
@@ -35,11 +36,13 @@ class EntityBase(Generic[T]):
         """
         return callable(getattr(self, action, None))
 
-    def perform(self, action: EntityActions, action_ctx: ActionContext):
+    def perform(
+        self, action: EntityActions, action_ctx: ActionContext, *args, **kwargs
+    ):
         """
         Performs the requested action.
         """
-        return getattr(self, action)(action_ctx)
+        return getattr(self, action)(action_ctx, *args, **kwargs)
 
 
 def get_sql_executor() -> SqlExecutor:

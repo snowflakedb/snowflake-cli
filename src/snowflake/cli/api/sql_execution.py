@@ -97,6 +97,13 @@ class SqlExecutor:
                 f"Could not use {object_type} {name}. Object does not exist, or operation cannot be performed."
             )
 
+    def current_role(self) -> str:
+        *_, cursor = self._execute_string(
+            "select current_role()", cursor_class=DictCursor
+        )
+        role_result = cursor.fetchone()
+        return role_result["CURRENT_ROLE()"]
+
     @contextmanager
     def use_role(self, new_role: str):
         """

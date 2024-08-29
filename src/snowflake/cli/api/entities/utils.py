@@ -323,3 +323,10 @@ def render_script_templates(
             raise InvalidTemplateInFileError(relpath, e) from e
 
     return scripts_contents
+
+
+def validation_item_to_str(item: dict[str, str | int]):
+    s = item["message"]
+    if item["errorCode"]:
+        s = f"{s} (error code {item['errorCode']})"
+    return s
