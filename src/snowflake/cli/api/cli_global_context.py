@@ -585,8 +585,6 @@ def fork_cli_context(
         new_manager.set_project_is_optional(project_is_optional)
 
     if project_path:
-        # XXX: should we instead register + call all pre-execute commands?
-        # how can we figure out if the project definition one was already given?
         new_manager.set_project_path_arg(project_path)
 
     yield _CliGlobalContextAccess(new_manager)
