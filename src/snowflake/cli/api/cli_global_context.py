@@ -263,7 +263,11 @@ class ConnectionCache:
             )
 
     def _insert(self, key: str, ctx: _ConnectionContext):
-        self.connections[key] = ctx.build_connection()
+        try:
+            self.connections[key] = ctx.build_connection()
+        except:
+            logger.info("ConnectionCache: failed to connect using {key}; not caching.")
+            raise
 
     def _touch(self, key: str):
         """
