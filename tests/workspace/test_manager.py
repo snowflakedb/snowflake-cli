@@ -138,3 +138,16 @@ def test_if_template_raises_error_during_migrations(
         result = runner.invoke(["ws", "migrate"])
         assert result.exit_code == 1
         assert "Project definition contains templates" in result.output
+
+
+def test_migration_with_only_envs(project_directory, runner):
+    with project_directory("sql_templating"):
+        result = runner.invoke(["ws", "migrate"])
+
+    assert result.exit_code == 0
+
+
+def test_migrations_with_multiple_entities(runner, project_directory):
+    with project_directory("migration_multiple_entities"):
+        result = runner.invoke(["ws", "migrate"])
+    assert result.exit_code == 0

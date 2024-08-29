@@ -18,16 +18,16 @@ import logging
 
 import typer
 import yaml
-from click import ClickException
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
-from snowflake.cli._plugins.snowpark.commands import migrate_v1_snowpark_to_v2
-from snowflake.cli._plugins.streamlit.commands import migrate_v1_streamlit_to_v2
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.snow_typer import SnowTyper
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.project.definition_conversion import (
+    convert_project_definition_to_v2,
+)
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -51,24 +51,7 @@ def migrate(
     if pd.meets_version_requirement("2"):
         return MessageResult("Project definition is already at version 2.")
 
-    if "<% ctx." in str(pd):
-        if not accept_templates:
-            raise ClickException(
-                "Project definition contains templates. They may not be migrated correctly, and require manual migration."
-                "You can try again with --accept-templates  option, to attempt automatic migration."
-            )
-        log.warning(
-            "Your V1 definition contains templates. We cannot guarantee the correctness of the migration."
-        )
-
-    if pd.streamlit:
-        pd_v2 = migrate_v1_streamlit_to_v2(pd)
-    elif pd.snowpark:
-        pd_v2 = migrate_v1_snowpark_to_v2(pd)
-    else:
-        raise ValueError(
-            "Only Snowpark and Streamlit entities are supported for migration."
-        )
+    pd_v2 = convert_project_definition_to_v2(pd, accept_templates)
 
     SecurePath("snowflake.yml").rename("snowflake_V1.yml")
     with open("snowflake.yml", "w") as file:

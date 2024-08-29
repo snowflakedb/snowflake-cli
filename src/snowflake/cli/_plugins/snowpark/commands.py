@@ -447,6 +447,11 @@ def describe(
 
 
 def migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
+    data = convert_to_v2_data(pd)
+    return ProjectDefinitionV2(**data)
+
+
+def convert_to_v2_data(pd: ProjectDefinition):
     if not pd.snowpark:
         raise NoProjectDefinitionError(
             project_type="snowpark", project_root=get_cli_context().project_root
@@ -497,11 +502,6 @@ def migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
             v2_entity["execute_as_caller"] = entity.execute_as_caller
 
         data["entities"][entity_name] = v2_entity
-
-    if hasattr(pd, "env") and pd.env:
-        data["env"] = {k: v for k, v in pd.env.items()}
-
-    return ProjectDefinitionV2(**data)
 
 
 def _get_v2_project_definition(cli_context) -> ProjectDefinitionV2:
