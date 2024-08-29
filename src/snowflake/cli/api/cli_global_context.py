@@ -57,6 +57,12 @@ class _ConnectionContext:
         self._master_token: Optional[str] = None
         self._token_file_path: Optional[Path] = None
 
+    def __repr__(self):
+        items = [
+            f"{k} = {repr(v)}" for (k, v) in self.__dict__.items() if v is not None
+        ]
+        return f"{self.__class__.__name__}({', '.join(items)})"
+
     @property
     def connection_name(self) -> Optional[str]:
         return self._connection_name
