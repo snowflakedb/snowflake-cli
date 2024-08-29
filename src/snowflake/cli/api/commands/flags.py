@@ -24,7 +24,6 @@ from click import ClickException
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
-from snowflake.cli.api.commands.typer_pre_execute import register_pre_execute_command
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.config import get_all_connections
 from snowflake.cli.api.console import cli_console
@@ -486,9 +485,7 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
 def project_definition_option(is_optional: bool):
     def project_definition_callback(project_path: str) -> None:
         get_cli_context_manager().set_project_path_arg(project_path)
-        register_pre_execute_command(
-            lambda: get_cli_context_manager().register_project_definition(is_optional)
-        )
+        get_cli_context_manager().set_project_is_optional(is_optional)
 
     return typer.Option(
         None,

@@ -20,7 +20,7 @@ import re
 import warnings
 from contextvars import ContextVar
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Iterator, Optional
+from typing import TYPE_CHECKING, Iterator, Optional
 
 from snowflake.cli.api.exceptions import InvalidSchemaError, MissingConfiguration
 from snowflake.cli.api.output.formats import OutputFormat
@@ -345,18 +345,18 @@ _CONNECTION_CACHE = ConnectionCache()
 
 
 class _CliGlobalContextManager:
+    _definition_manager: Optional[DefinitionManager]
+
     def __init__(self):
         self._connection_context = _ConnectionContext()
+        self._definition_manager = None
         self._enable_tracebacks = True
         self._output_format = OutputFormat.TABLE
         self._verbose = False
         self._experimental = False
-        self._project_definition = None
-        self._project_root = None
         self._project_path_arg = None
+        self._project_is_optional = True
         self._project_env_overrides_args = {}
-        self._typer_pre_execute_commands = []
-        self._template_context = None
         self._silent: bool = False
 
     def reset(self):
@@ -369,15 +369,8 @@ class _CliGlobalContextManager:
         mgr.set_output_format(self._output_format)
         mgr.set_verbose(self.verbose)
         mgr.set_experimental(self.experimental)
-        mgr.set_project_definition(self.project_definition)
-        mgr.set_project_root(self._project_root)
         mgr.set_project_path_arg(self._project_path_arg)
         mgr.set_project_env_overrides_args(self._project_env_overrides_args.copy())
-        for cmd in self.typer_pre_execute_commands:
-            mgr.add_typer_pre_execute_commands(cmd)
-        mgr.set_template_context(
-            self.template_context.copy() if self.template_context is not None else None
-        )
         mgr.set_silent(self.silent)
         return mgr
 
@@ -418,24 +411,49 @@ class _CliGlobalContextManager:
 
     @property
     def project_definition(self) -> Optional[ProjectDefinition]:
-        return self._project_definition
-
-    def set_project_definition(self, value: ProjectDefinition):
-        self._project_definition = value
+        if not self._definition_manager:
+            self._register_project_definition()
+        return (
+            self._definition_manager.project_definition
+            if self._definition_manager
+            else None
+        )
 
     @property
-    def project_root(self):
-        return self._project_root
+    def project_root(self) -> Optional[Path]:
+        if not self._definition_manager:
+            self._register_project_definition()
+        return (
+            Path(self._definition_manager.project_root)
+            if self._definition_manager
+            else None
+        )
 
-    def set_project_root(self, project_root: Path):
-        self._project_root = project_root
+    @property
+    def template_context(self) -> dict:
+        if not self._definition_manager:
+            self._register_project_definition()
+        return (
+            self._definition_manager.template_context
+            if self._definition_manager
+            else {}
+        )
 
     @property
     def project_path_arg(self) -> Optional[str]:
         return self._project_path_arg
 
     def set_project_path_arg(self, project_path_arg: str):
+        # force re-calculation of DefinitionManager + dependent attrs
+        self._definition_manager = None
         self._project_path_arg = project_path_arg
+
+    @property
+    def project_is_optional(self) -> bool:
+        return self._project_is_optional
+
+    def set_project_is_optional(self, project_is_optional: bool):
+        self._project_is_optional = project_is_optional
 
     @property
     def project_env_overrides_args(self) -> dict[str, str]:
@@ -444,23 +462,9 @@ class _CliGlobalContextManager:
     def set_project_env_overrides_args(
         self, project_env_overrides_args: dict[str, str]
     ):
+        # force re-calculation of DefinitionManager + dependent attrs
+        self._definition_manager = None
         self._project_env_overrides_args = project_env_overrides_args
-
-    @property
-    def template_context(self) -> dict:
-        return self._template_context
-
-    def set_template_context(self, template_context: dict):
-        self._template_context = template_context
-
-    @property
-    def typer_pre_execute_commands(self) -> list[Callable[[], None]]:
-        return self._typer_pre_execute_commands
-
-    def add_typer_pre_execute_commands(
-        self, typer_pre_execute_command: Callable[[], None]
-    ):
-        self._typer_pre_execute_commands.append(typer_pre_execute_command)
 
     @property
     def silent(self) -> bool:
@@ -477,27 +481,24 @@ class _CliGlobalContextManager:
         """
         return _CONNECTION_CACHE[self.connection_context]
 
-    def register_project_definition(self, is_optional: bool):
+    def _register_project_definition(self):
         """
         Sets project_definition, project_root, and template_context
         based on the value of project_path_arg.
         """
-        project_path = self.project_path_arg
-        env_overrides_args = self.project_env_overrides_args
+        if not self.project_path_arg:
+            return
 
-        dm = DefinitionManager(project_path, {CONTEXT_KEY: {"env": env_overrides_args}})
-        project_definition = dm.project_definition
-        project_root = dm.project_root
-        template_context = dm.template_context
-
-        if not dm.has_definition_file and not is_optional:
+        dm = DefinitionManager(
+            self.project_path_arg,
+            {CONTEXT_KEY: {"env": self.project_env_overrides_args}},
+        )
+        if not dm.has_definition_file and not self.project_is_optional:
             raise MissingConfiguration(
                 "Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
             )
 
-        self.set_project_definition(project_definition)
-        self.set_project_root(project_root)
-        self.set_template_context(template_context)
+        self._definition_manager = dm
 
 
 class _CliGlobalContextAccess:
@@ -529,12 +530,12 @@ class _CliGlobalContextAccess:
         return self._manager.experimental
 
     @property
-    def project_definition(self) -> ProjectDefinition | None:
+    def project_definition(self) -> Optional[ProjectDefinition]:
         return self._manager.project_definition
 
     @property
-    def project_root(self) -> Path:
-        return Path(self._manager.project_root)
+    def project_root(self) -> Optional[Path]:
+        return self._manager.project_root
 
     @property
     def template_context(self) -> dict:
@@ -567,8 +568,9 @@ def get_cli_context() -> _CliGlobalContextAccess:
 
 def fork_cli_context(
     connection_overrides: Optional[dict],
-    project_path: Optional[str],
     env: Optional[dict[str, str]],
+    project_is_optional: Optional[bool],
+    project_path: Optional[str],
 ) -> Iterator[_CliGlobalContextAccess]:
     new_manager = _CLI_CONTEXT_MANAGER.get().clone()
     token = _CLI_CONTEXT_MANAGER.set(new_manager)
@@ -579,11 +581,13 @@ def fork_cli_context(
     if env:
         new_manager.project_env_overrides_args.update(env)
 
+    if project_is_optional is not None:
+        new_manager.set_project_is_optional(project_is_optional)
+
     if project_path:
         # XXX: should we instead register + call all pre-execute commands?
         # how can we figure out if the project definition one was already given?
         new_manager.set_project_path_arg(project_path)
-        new_manager.register_project_definition(is_optional=False)
 
     yield _CliGlobalContextAccess(new_manager)
     _CLI_CONTEXT_MANAGER.reset(token)
