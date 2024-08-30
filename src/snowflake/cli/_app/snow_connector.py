@@ -25,11 +25,8 @@ from snowflake.cli._app.constants import (
     PARAM_APPLICATION_NAME,
 )
 from snowflake.cli._app.telemetry import command_info
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.config import (
     get_connection_dict,
-    get_default_connection_dict,
-    get_default_connection_name,
 )
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import (
@@ -58,6 +55,10 @@ def connect_to_snowflake(
 ) -> SnowflakeConnection:
     if temporary_connection and connection_name:
         raise ClickException("Can't use connection name and temporary connection.")
+    elif not temporary_connection and not connection_name:
+        raise ClickException(
+            "One of connection name and temporary connection is required."
+        )
 
     using_session_token = (
         "session_token" in overrides and overrides["session_token"] is not None
@@ -74,11 +75,6 @@ def connect_to_snowflake(
         connection_parameters = get_connection_dict(connection_name)
     elif temporary_connection:
         connection_parameters = {}  # we will apply overrides in next step
-    else:
-        connection_parameters = get_default_connection_dict()
-        get_cli_context().connection_context.set_connection_name(
-            get_default_connection_name()
-        )
 
     # Apply overrides to connection details
     for key, value in overrides.items():

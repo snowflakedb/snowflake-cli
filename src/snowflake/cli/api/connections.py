@@ -21,6 +21,7 @@ import warnings
 from pathlib import Path
 from typing import Optional
 
+from snowflake.cli.api.config import get_default_connection_name
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.compat import IS_WINDOWS
@@ -266,13 +267,17 @@ class ConnectionContext:
                 module="snowflake.connector.config_manager",
             )
 
+        # ensure we have one of connection_name / temporary_connection
+        if not self.temporary_connection and not self.connection_name:
+            self._connection_name = get_default_connection_name()
+
         return connect_to_snowflake(
-            temporary_connection=self.temporary_connection,
+            temporary_connection=self._temporary_connection,
             mfa_passcode=self._mfa_passcode,
             enable_diag=self._enable_diag,
             diag_log_path=self._diag_log_path,
             diag_allowlist_path=self._diag_allowlist_path,
-            connection_name=self.connection_name,
+            connection_name=self._connection_name,
             **self._collect_not_empty_connection_attributes(),
         )
 
@@ -298,6 +303,9 @@ class OpenConnectionCache:
         if isinstance(ctx, ConnectionContext):
             key = repr(ctx)
             if not self._has_open_connection(key):
+                if len(self.connections.keys()) >= 1:
+                    for _key in self.connections.keys():
+                        raise KeyError(_key, key)
                 self._insert(key, ctx)
             self._touch(key)
             return self.connections[key]
