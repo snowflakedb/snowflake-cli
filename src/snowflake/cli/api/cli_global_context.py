@@ -285,11 +285,12 @@ class _ConnectionContext:
         )
 
 
-class ConnectionCache:
+class OpenConnectionCache:
     """
     A connection cache that transparently manages SnowflakeConnection objects
     and is keyed by _ConnectionContext objects, e.g. cache[ctx].execute_string(...).
-    Connections are automatically closed after CONNECTION_CLEANUP_SEC.
+    Connections are automatically closed after CONNECTION_CLEANUP_SEC, but
+    are guaranteed to be open (if config is valid) when returned by the cache.
     """
 
     connections: dict[str, SnowflakeConnection]
@@ -304,7 +305,7 @@ class ConnectionCache:
     def __getitem__(self, ctx):
         if isinstance(ctx, _ConnectionContext):
             key = repr(ctx)
-            if not self._has(key):
+            if not self._has_open_connection(key):
                 self._insert(key, ctx)
             self._touch(key)
             return self.connections[key]
@@ -313,8 +314,8 @@ class ConnectionCache:
                 f"Expected key to be _ConnectionContext but got {repr(ctx)}"
             )
 
-    def _has(self, key: str):
-        return key in self.connections
+    def _has_open_connection(self, key: str):
+        return key in self.connections and not self.connections[key].is_closed()
 
     def _insert(self, key: str, ctx: _ConnectionContext):
         try:
@@ -346,7 +347,7 @@ class ConnectionCache:
         del self.cleanup_futures[key]
 
 
-_CONNECTION_CACHE = ConnectionCache()
+_CONNECTION_CACHE = OpenConnectionCache()
 
 
 class _CliGlobalContextManager:
