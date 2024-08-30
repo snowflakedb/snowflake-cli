@@ -19,9 +19,13 @@ from tests.nativeapp.utils import APP_PACKAGE_ENTITY_DISTRIBUTION_IN_SF
 
 
 def mock_connection():
+    connection = mock.Mock()
+    connection.role = "role"
+    connection.warehouse = "wh"
     return mock.patch(
         "snowflake.cli.api.cli_global_context._CliGlobalContextAccess.connection",
         new_callable=PropertyMock,
+        return_value=connection,
     )
 
 
