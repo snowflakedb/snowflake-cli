@@ -37,7 +37,7 @@ from snowflake.cli.api.commands.flags import (
     ExecuteVariablesOption,
     OnErrorOption,
     PatternOption,
-    identifier_argument,
+    identifier_stage_argument,
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -59,7 +59,7 @@ app = SnowTyperFactory(
     help="Manages stages.",
 )
 
-StageNameArgument = identifier_argument(sf_object="stage", example="@my_stage")
+StageNameArgument = identifier_stage_argument(sf_object="stage", example="@my_stage")
 
 add_object_command_aliases(
     app=app,
