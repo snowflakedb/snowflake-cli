@@ -84,13 +84,17 @@ def test_bundle_of_invalid_entity_type(temp_dir):
         ws_manager.perform_action("app", EntityActions.BUNDLE)
 
 
-#TESTS:
+# TESTS:
 # 1. Simple file but with multiple entities - done with
 # 2. File with templating - no option checked
 # 3. File with templating - option checked
 # 4. File already v2 - complex file
 
-def test_migration_already_v2(runner, project_directory, ):
+
+def test_migration_already_v2(
+    runner,
+    project_directory,
+):
     with project_directory("migration_already_v2"):
         result = runner.invoke(["ws", "migrate"])
 
