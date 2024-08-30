@@ -22,7 +22,10 @@ from unittest import mock
 import pytest
 from rich import box
 from snowflake.cli._app import loggers
-from snowflake.cli.api.cli_global_context import get_cli_context_manager
+from snowflake.cli.api.cli_global_context import (
+    _CONNECTION_CACHE,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.commands.decorators import global_options, with_output
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.console import cli_console
@@ -79,6 +82,7 @@ def reset_global_context_and_setup_config_and_logging_levels(
     config_init(test_snowcli_config)
     loggers.create_loggers(verbose=False, debug=False)
     yield
+    _CONNECTION_CACHE.clear()
 
 
 # This automatically used cleanup fixture is required to avoid random breaking of logging

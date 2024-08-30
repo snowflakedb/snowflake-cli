@@ -57,12 +57,14 @@ class _CliGlobalContextManager:
     def clone(self) -> _CliGlobalContextManager:
         mgr = _CliGlobalContextManager()
         mgr.set_connection_context(self.connection_context.clone())
+        # definition manager omitted; lazily evaluated
         mgr.set_enable_tracebacks(self.enable_tracebacks)
         mgr.set_output_format(self._output_format)
         mgr.set_verbose(self.verbose)
         mgr.set_experimental(self.experimental)
         mgr.set_project_path_arg(self._project_path_arg)
         mgr.set_project_env_overrides_args(self._project_env_overrides_args.copy())
+        mgr.set_override_project_definition(self._override_project_definition)
         mgr.set_silent(self.silent)
         return mgr
 

@@ -306,8 +306,15 @@ class OpenConnectionCache:
                 f"Expected key to be ConnectionContext but got {repr(ctx)}"
             )
 
+    def clear(self):
+        """Closes all connections and resets the cache to its initial state."""
+        for key in self.connections:
+            self.connections.pop(key).close()
+        for key in self.cleanup_futures:
+            self.cleanup_futures.pop(key).cancel()
+
     def _has_open_connection(self, key: str):
-        return key in self.connections and not self.connections[key].is_closed()
+        return key in self.connections
 
     def _insert(self, key: str, ctx: ConnectionContext):
         try:
