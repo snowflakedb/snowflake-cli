@@ -103,12 +103,12 @@ class _CliGlobalContextManager:
 
     @property
     def project_definition(self) -> Optional[ProjectDefinition]:
-        if not self._definition_manager:
-            self._register_project_definition()
-
         # TODO: remove; for implicit v1 <-> v2 conversion
         if self._override_project_definition:
             return self._override_project_definition
+
+        if not self._definition_manager:
+            self._register_project_definition()
 
         return (
             self._definition_manager.project_definition
