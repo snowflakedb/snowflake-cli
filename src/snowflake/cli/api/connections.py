@@ -303,9 +303,6 @@ class OpenConnectionCache:
         if isinstance(ctx, ConnectionContext):
             key = repr(ctx)
             if not self._has_open_connection(key):
-                if len(self.connections.keys()) >= 1:
-                    for _key in self.connections.keys():
-                        raise KeyError(_key, key)
                 self._insert(key, ctx)
             self._touch(key)
             return self.connections[key]
