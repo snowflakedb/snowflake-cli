@@ -491,7 +491,7 @@ def test_mixin_values_are_properly_applied_to_entity():
                 "meta": {"use_mixins": ["schema_mixin"]},
             },
             "func_a": {
-                "identifier": {"name": "<% ctx.env.USER %>"},
+                "identifier": {"name": "<% ctx.env.FOO %>"},
                 **common,
                 "meta": {"use_mixins": ["schema_mixin"]},
             },
@@ -503,6 +503,7 @@ def test_mixin_values_are_properly_applied_to_entity():
                 "external_access_integrations": ["integration_2"],
             }
         },
+        "env": {"FOO": "foo_name"},
     }
     project = render_definition_template(definition_input, {}).project_definition
     func_entity = project.entities["func"]
@@ -515,6 +516,7 @@ def test_mixin_values_are_properly_applied_to_entity():
         "integration_1",
         "integration_2",
     ]
+    assert project.entities["func_a"].fqn.identifier == "MIXIN.foo_name"
 
 
 def test_mixins_values_have_to_be_type_compatible_with_entities():
