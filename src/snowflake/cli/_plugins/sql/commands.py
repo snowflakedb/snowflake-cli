@@ -73,8 +73,7 @@ def execute_sql(
     Query to execute can be specified using query option, filename option (all queries from file will be executed)
     or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
 
-    The command supports variable substitution that happens on client-side. Both &VARIABLE or &{ VARIABLE }
-    syntax are supported.
+    The command supports variable substitution that happens on client-side.
     """
 
     data = {}

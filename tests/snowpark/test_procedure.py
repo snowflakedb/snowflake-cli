@@ -39,7 +39,10 @@ def test_deploy_function_no_procedure(runner, project_directory):
             ],
         )
     assert result.exit_code == 1
-    assert "No snowpark project definition found" in result.output
+    assert (
+        "No procedures or functions were specified in the project definition."
+        in result.output
+    )
 
 
 @mock.patch("snowflake.connector.connect")
