@@ -222,16 +222,3 @@ cp -p \
   $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
 
 ls -l $DIST_DIR
-
-
-SF_STAGE_BASE=s3://sfc-eng-jenkins/repository/snowflake-cli
-
-loginfo "---------------------------------"
-loginfo "${SF_STAGE_BASE}, ${BRANCH}, ${REVISION}"
-loginfo "copying to s3 ${SF_STAGE_BASE}/mac_${MACHINE}/${REVISION}/"
-loginfo "---------------------------------"
-aws s3 cp $DIST_DIR \
-  $SF_STAGE_BASE/mac_${MACHINE}/${REVISION}/ \
-  --recursive \
-  --exclude "*" \
-  --include "snowflake-cli-${CLI_VERSION}*.pkg"
