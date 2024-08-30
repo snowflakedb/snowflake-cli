@@ -275,10 +275,10 @@ def get_cli_context() -> _CliGlobalContextAccess:
 
 @contextmanager
 def fork_cli_context(
-    connection_overrides: Optional[dict],
-    env: Optional[dict[str, str]],
-    project_is_optional: Optional[bool],
-    project_path: Optional[str],
+    connection_overrides: Optional[dict] = None,
+    env: Optional[dict[str, str]] = None,
+    project_is_optional: Optional[bool] = None,
+    project_path: Optional[str] = None,
 ) -> Iterator[_CliGlobalContextAccess]:
     """
     Forks the global CLI context, making changes that are only visible
