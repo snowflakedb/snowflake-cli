@@ -3,7 +3,8 @@ definition_version: 2
 entities:
   pkg:
     type: application package
-    identifier: my_app_pkg_<% ctx.env.foo %>
+    identifier:
+      name: my_app_pkg_<% ctx.env.foo %>
     artifacts:
       - src: src/**/*
         dest: /
@@ -19,10 +20,11 @@ entities:
       role: my_role
       post_deploy:
       - sql_script: scripts/post_pkg_deploy.sql
-      use_mixins: ["defaults"]
+      use_mixins: ["defaults", "stage_mixin"]
   app:
     type: application
-    identifier: my_app_<% ctx.env.foo %>
+    identifier:
+      name: my_app_<% ctx.env.foo %>
     from:
       target: pkg
     meta:
@@ -34,7 +36,9 @@ entities:
 
 mixins:
   defaults:
-    schema: default_schema
+    identifier:
+       schema: default_schema
+  stage_mixin:
     stage: default_stage
 
 env:
