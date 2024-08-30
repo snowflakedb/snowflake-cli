@@ -35,12 +35,18 @@ skip_python_3_12 = pytest.mark.skipif(
 )
 
 
+@pytest.mark.parametrize(
+    "stage_name, expected_stage_name",
+    [("stageName", "@stageName"), ("@stageName", "@stageName")],
+)
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_stage_list(mock_execute, runner, mock_cursor):
+def test_stage_list(mock_execute, runner, mock_cursor, stage_name, expected_stage_name):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["stage", "list-files", "-c", "empty", "stageName"])
+    result = runner.invoke(["stage", "list-files", "-c", "empty", stage_name])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with("ls @stageName", cursor_class=DictCursor)
+    mock_execute.assert_called_once_with(
+        f"ls {expected_stage_name}", cursor_class=DictCursor
+    )
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
