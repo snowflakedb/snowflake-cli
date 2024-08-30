@@ -100,6 +100,41 @@ def test_from_string(fqn_str, identifier):
 
 
 @pytest.mark.parametrize(
+    "fqn_str, identifier",
+    [
+        ("db.schema.name", "db.schema.name"),
+        ("DB.SCHEMA.NAME", "DB.SCHEMA.NAME"),
+        ("schema.name", "schema.name"),
+        ("name", "name"),
+        ('"name with space"', '"name with space"'),
+        ('"dot.db"."dot.schema"."dot.name"', '"dot.db"."dot.schema"."dot.name"'),
+        ('"dot.db".schema."dot.name"', '"dot.db".schema."dot.name"'),
+        ('db.schema."dot.name"', 'db.schema."dot.name"'),
+        ('"dot.db".schema."DOT.name"', '"dot.db".schema."DOT.name"'),
+        # Nested quotes
+        ('"abc""this is in nested quotes"""', '"abc""this is in nested quotes"""'),
+        # Callables
+        (
+            "db.schema.function(string, int, variant)",
+            "db.schema.function",
+        ),
+        (
+            'db.schema."fun tion"(string, int, variant)',
+            'db.schema."fun tion"',
+        ),
+        ("@name", "name"),
+        ("@schema.name", "schema.name"),
+        ("@db.schema.name", "db.schema.name"),
+    ],
+)
+def test_from_stage(fqn_str, identifier):
+    fqn = FQN.from_stage(fqn_str)
+    assert fqn.identifier == identifier
+    if fqn.signature:
+        assert fqn.signature == "(string, int, variant)"
+
+
+@pytest.mark.parametrize(
     "fqn_str",
     [
         "db.schema.name.foo",
