@@ -1,0 +1,29 @@
+definition_version: 1
+streamlit:
+  name: test_streamlit
+  stage: streamlit
+  query_warehouse: test_warehouse
+  main_file: "streamlit_app.py"
+  title: "My Fancy Streamlit"
+snowpark:
+  project_name: "my_snowpark_project"
+  stage_name: "dev_deployment"
+  src: "app/"
+  functions:
+    - name: func1
+      handler: "app.func1_handler"
+      signature:
+        - name: "a"
+          type: "string"
+          default: "default value"
+        - name: "b"
+          type: "variant"
+      returns: string
+      runtime: 3.10
+  procedures:
+    - name: procedureName
+      handler: "hello"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
