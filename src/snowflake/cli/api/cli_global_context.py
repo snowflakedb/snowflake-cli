@@ -14,338 +14,20 @@
 
 from __future__ import annotations
 
-import asyncio
-import logging
-import re
-import warnings
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterator, Optional
 
-from snowflake.cli.api.exceptions import InvalidSchemaError, MissingConfiguration
+from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
+from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 from snowflake.connector import SnowflakeConnection
-from snowflake.connector.compat import IS_WINDOWS
-
-logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from snowflake.cli.api.project.definition_manager import DefinitionManager
     from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
-
-schema_pattern = re.compile(r".+\..+")
-
-
-class _ConnectionContext:
-    # TODO: reduce duplication / boilerplate by using config.ConnectionConfig
-
-    def __init__(self):
-        self._connection_name: Optional[str] = None
-        self._account: Optional[str] = None
-        self._database: Optional[str] = None
-        self._role: Optional[str] = None
-        self._schema: Optional[str] = None
-        self._user: Optional[str] = None
-        self._password: Optional[str] = None
-        self._authenticator: Optional[str] = None
-        self._private_key_file: Optional[str] = None
-        self._warehouse: Optional[str] = None
-        self._mfa_passcode: Optional[str] = None
-        self._enable_diag: Optional[bool] = False
-        self._diag_log_path: Optional[Path] = None
-        self._diag_allowlist_path: Optional[Path] = None
-        self._temporary_connection: bool = False
-        self._session_token: Optional[str] = None
-        self._master_token: Optional[str] = None
-        self._token_file_path: Optional[Path] = None
-
-    def clone(self) -> _ConnectionContext:
-        ctx = _ConnectionContext()
-        ctx.set_connection_name(self.connection_name)
-        ctx.set_account(self.account)
-        ctx.set_database(self.database)
-        ctx.set_role(self.role)
-        ctx.set_schema(self.schema)
-        ctx.set_user(self.user)
-        ctx.set_password(self.password)
-        ctx.set_authenticator(self.authenticator)
-        ctx.set_private_key_path(self.private_key_path)
-        ctx.set_warehouse(self.warehouse)
-        ctx.set_mfa_passcode(self.mfa_passcode)
-        ctx.set_enable_diag(self.enable_diag)
-        ctx.set_diag_log_path(self.diag_log_path)
-        ctx.set_diag_allowlist_path(self.diag_allowlist_path)
-        ctx.set_temporary_connection(self.temporary_connection)
-        ctx.set_session_token(self.session_token)
-        ctx.set_master_token(self.master_token)
-        ctx.set_token_file_path(self.token_file_path)
-        return ctx
-
-    def update(self, **updates):
-        """
-        Given a dictionary of property (key, value) mappings, update properties
-        of this context object with equivalent names to the keys.
-
-        Raises ValueError if a non-(settable-)property is specified as a key.
-        """
-        for (key, value) in updates.items():
-            # ensure key represents a property
-            prop = getattr(type(self), key)
-            if not isinstance(prop, property):
-                raise ValueError(
-                    f"{key} is not a property of {self.__class__.__name__}"
-                )
-
-            # our properties don't have setters (fset) but they do follow a convention
-            try:
-                setter = getattr(self, f"set_{key}")
-                setter(value)
-            except AttributeError:
-                raise ValueError(
-                    f"set_{key}() does not exist on {self.__class__.__name__}"
-                )
-
-    def __repr__(self):
-        items = [
-            f"{k} = {repr(v)}" for (k, v) in self.__dict__.items() if v is not None
-        ]
-        return f"{self.__class__.__name__}({', '.join(items)})"
-
-    @property
-    def connection_name(self) -> Optional[str]:
-        return self._connection_name
-
-    def set_connection_name(self, value: Optional[str]):
-        self._connection_name = value
-
-    @property
-    def account(self) -> Optional[str]:
-        return self._account
-
-    def set_account(self, value: Optional[str]):
-        self._account = value
-
-    @property
-    def database(self) -> Optional[str]:
-        return self._database
-
-    def set_database(self, value: Optional[str]):
-        self._database = value
-
-    @property
-    def role(self) -> Optional[str]:
-        return self._role
-
-    def set_role(self, value: Optional[str]):
-        self._role = value
-
-    @property
-    def schema(self) -> Optional[str]:
-        return self._schema
-
-    def set_schema(self, value: Optional[str]):
-        if (
-            value
-            and not (value.startswith('"') and value.endswith('"'))
-            # if schema is fully qualified name (db.schema)
-            and schema_pattern.match(value)
-        ):
-            raise InvalidSchemaError(value)
-        self._schema = value
-
-    @property
-    def user(self) -> Optional[str]:
-        return self._user
-
-    def set_user(self, value: Optional[str]):
-        self._user = value
-
-    @property
-    def password(self) -> Optional[str]:
-        return self._password
-
-    def set_password(self, value: Optional[str]):
-        self._password = value
-
-    @property
-    def authenticator(self) -> Optional[str]:
-        return self._authenticator
-
-    def set_authenticator(self, value: Optional[str]):
-        self._authenticator = value
-
-    @property
-    def private_key_file(self) -> Optional[str]:
-        return self._private_key_file
-
-    def set_private_key_file(self, value: Optional[str]):
-        self._private_key_file = value
-
-    @property
-    def warehouse(self) -> Optional[str]:
-        return self._warehouse
-
-    def set_warehouse(self, value: Optional[str]):
-        self._warehouse = value
-
-    @property
-    def mfa_passcode(self) -> Optional[str]:
-        return self._mfa_passcode
-
-    def set_mfa_passcode(self, value: Optional[str]):
-        self._mfa_passcode = value
-
-    @property
-    def enable_diag(self) -> Optional[bool]:
-        return self._enable_diag
-
-    def set_enable_diag(self, value: Optional[bool]):
-        self._enable_diag = value
-
-    @property
-    def diag_log_path(self) -> Optional[Path]:
-        return self._diag_log_path
-
-    def set_diag_log_path(self, value: Optional[Path]):
-        self._diag_log_path = value
-
-    @property
-    def diag_allowlist_path(self) -> Optional[Path]:
-        return self._diag_allowlist_path
-
-    def set_diag_allowlist_path(self, value: Optional[Path]):
-        self._diag_allowlist_path = value
-
-    @property
-    def temporary_connection(self) -> bool:
-        return self._temporary_connection
-
-    def set_temporary_connection(self, value: bool):
-        self._temporary_connection = value
-
-    @property
-    def session_token(self) -> Optional[str]:
-        return self._session_token
-
-    def set_session_token(self, value: Optional[str]):
-        self._session_token = value
-
-    @property
-    def master_token(self) -> Optional[str]:
-        return self._master_token
-
-    def set_master_token(self, value: Optional[str]):
-        self._master_token = value
-
-    @property
-    def token_file_path(self) -> Optional[Path]:
-        return self._token_file_path
-
-    def set_token_file_path(self, value: Optional[Path]):
-        self._token_file_path = value
-
-    def _collect_not_empty_connection_attributes(self):
-        return {
-            "account": self.account,
-            "user": self.user,
-            "password": self.password,
-            "authenticator": self.authenticator,
-            "private_key_file": self.private_key_file,
-            "database": self.database,
-            "schema": self.schema,
-            "role": self.role,
-            "warehouse": self.warehouse,
-            "session_token": self.session_token,
-            "master_token": self.master_token,
-            "token_file_path": self.token_file_path,
-        }
-
-    def build_connection(self):
-        from snowflake.cli._app.snow_connector import connect_to_snowflake
-
-        # Ignore warnings about bad owner or permissions on Windows
-        # Telemetry omit our warning filter from config.py
-        if IS_WINDOWS:
-            warnings.filterwarnings(
-                action="ignore",
-                message="Bad owner or permissions.*",
-                module="snowflake.connector.config_manager",
-            )
-
-        return connect_to_snowflake(
-            temporary_connection=self.temporary_connection,
-            mfa_passcode=self._mfa_passcode,
-            enable_diag=self._enable_diag,
-            diag_log_path=self._diag_log_path,
-            diag_allowlist_path=self._diag_allowlist_path,
-            connection_name=self.connection_name,
-            **self._collect_not_empty_connection_attributes(),
-        )
-
-
-class OpenConnectionCache:
-    """
-    A connection cache that transparently manages SnowflakeConnection objects
-    and is keyed by _ConnectionContext objects, e.g. cache[ctx].execute_string(...).
-    Connections are automatically closed after CONNECTION_CLEANUP_SEC, but
-    are guaranteed to be open (if config is valid) when returned by the cache.
-    """
-
-    connections: dict[str, SnowflakeConnection]
-    cleanup_futures: dict[str, asyncio.TimerHandle]
-
-    CONNECTION_CLEANUP_SEC: float = 10.0 * 60
-
-    def __init__(self):
-        self.connections = {}
-        self.cleanup_futures = {}
-
-    def __getitem__(self, ctx):
-        if isinstance(ctx, _ConnectionContext):
-            key = repr(ctx)
-            if not self._has_open_connection(key):
-                self._insert(key, ctx)
-            self._touch(key)
-            return self.connections[key]
-        else:
-            raise ValueError(
-                f"Expected key to be _ConnectionContext but got {repr(ctx)}"
-            )
-
-    def _has_open_connection(self, key: str):
-        return key in self.connections and not self.connections[key].is_closed()
-
-    def _insert(self, key: str, ctx: _ConnectionContext):
-        try:
-            self.connections[key] = ctx.build_connection()
-        except:
-            logger.info("ConnectionCache: failed to connect using {key}; not caching.")
-            raise
-
-    def _touch(self, key: str):
-        """
-        Extend the lifetime of the cached connection at the given key.
-        """
-        if key in self.cleanup_futures:
-            self.cleanup_futures.pop(key).cancel()
-
-        loop = asyncio.get_event_loop()
-        handle = loop.call_later(
-            self.CONNECTION_CLEANUP_SEC, lambda: self._cleanup(key)
-        )
-        self.cleanup_futures[key] = handle
-
-    def _cleanup(self, key: str):
-        """Closes the cached connection at the given key."""
-        if key not in self.connections:
-            logger.warning("Cleaning up connection {key}, but not found in cache!")
-
-        # doesn't cancel in-flight async queries
-        self.connections.pop(key).close()
-        del self.cleanup_futures[key]
-
 
 _CONNECTION_CACHE = OpenConnectionCache()
 
@@ -355,7 +37,7 @@ class _CliGlobalContextManager:
     _override_project_definition: Optional[ProjectDefinition]
 
     def __init__(self):
-        self._connection_context = _ConnectionContext()
+        self._connection_context = ConnectionContext()
         self._definition_manager = None
         self._enable_tracebacks = True
         self._output_format = OutputFormat.TABLE
@@ -385,10 +67,10 @@ class _CliGlobalContextManager:
         return mgr
 
     @property
-    def connection_context(self) -> _ConnectionContext:
+    def connection_context(self) -> ConnectionContext:
         return self._connection_context
 
-    def set_connection_context(self, connection_context: _ConnectionContext):
+    def set_connection_context(self, connection_context: ConnectionContext):
         self._connection_context = connection_context
 
     @property
@@ -533,7 +215,7 @@ class _CliGlobalContextAccess:
         return self._manager.connection
 
     @property
-    def connection_context(self) -> _ConnectionContext:
+    def connection_context(self) -> ConnectionContext:
         return self._manager.connection_context
 
     @property
