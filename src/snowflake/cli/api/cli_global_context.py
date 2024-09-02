@@ -42,7 +42,7 @@ class _ConnectionContext:
         self._user: Optional[str] = None
         self._password: Optional[str] = None
         self._authenticator: Optional[str] = None
-        self._private_key_path: Optional[str] = None
+        self._private_key_file: Optional[str] = None
         self._warehouse: Optional[str] = None
         self._mfa_passcode: Optional[str] = None
         self._enable_diag: Optional[bool] = False
@@ -125,11 +125,11 @@ class _ConnectionContext:
         self._authenticator = value
 
     @property
-    def private_key_path(self) -> Optional[str]:
-        return self._private_key_path
+    def private_key_file(self) -> Optional[str]:
+        return self._private_key_file
 
-    def set_private_key_path(self, value: Optional[str]):
-        self._private_key_path = value
+    def set_private_key_file(self, value: Optional[str]):
+        self._private_key_file = value
 
     @property
     def warehouse(self) -> Optional[str]:
@@ -206,7 +206,7 @@ class _ConnectionContext:
             "user": self.user,
             "password": self.password,
             "authenticator": self.authenticator,
-            "private_key_path": self.private_key_path,
+            "private_key_file": self.private_key_file,
             "database": self.database,
             "schema": self.schema,
             "role": self.role,
