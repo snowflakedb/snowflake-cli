@@ -124,6 +124,12 @@ class SqlExecutor:
             if is_different_role:
                 self._execute_query(f"use role {prev_role}")
 
+    def session_has_warehouse(self) -> bool:
+        result = self._execute_query(
+            "select current_warehouse() is not null as result", cursor_class=DictCursor
+        ).fetchone()
+        return bool(result.get("RESULT"))
+
     @contextmanager
     def use_warehouse(self, new_wh: str):
         """
