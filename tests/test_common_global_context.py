@@ -34,7 +34,7 @@ def test_default_setup_of_global_connection():
     assert cli_context_manager.connection_context.user is None
     assert cli_context_manager.connection_context.password is None
     assert cli_context_manager.connection_context.authenticator is None
-    assert cli_context_manager.connection_context.private_key_path is None
+    assert cli_context_manager.connection_context.private_key_file is None
     assert cli_context_manager.connection_context.warehouse is None
     assert cli_context_manager.connection_context.temporary_connection is False
 
@@ -52,7 +52,7 @@ def test_connection_details_callback():
     assert cli_context_manager.connection_context.user is None
     assert cli_context_manager.connection_context.password is None
     assert cli_context_manager.connection_context.authenticator is None
-    assert cli_context_manager.connection_context.private_key_path is None
+    assert cli_context_manager.connection_context.private_key_file is None
     assert cli_context_manager.connection_context.warehouse is "newValue2"
     assert cli_context_manager.connection_context.temporary_connection is False
 
@@ -87,7 +87,7 @@ def test_connection_caching(mock_connect):
                 user=None,
                 password=None,
                 authenticator=None,
-                private_key_path=None,
+                private_key_file=None,
                 token_file_path=None,
                 session_token=None,
                 master_token=None,
@@ -107,7 +107,7 @@ def test_connection_caching(mock_connect):
                 user="newValue3",
                 password=None,
                 authenticator=None,
-                private_key_path=None,
+                private_key_file=None,
                 token_file_path=None,
                 session_token=None,
                 master_token=None,
