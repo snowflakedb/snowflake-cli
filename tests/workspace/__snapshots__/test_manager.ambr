@@ -142,6 +142,15 @@
   
   '''
 # ---
+# name: test_migrating_native_app_raises_error
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Your project file contains a native app definition. Conversion of Native     |
+  | apps is not yet supported                                                    |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
 # name: test_migration_v1_to_v2[migration_snowpark_V1_to_V2]
   '''
   definition_version: '2'
