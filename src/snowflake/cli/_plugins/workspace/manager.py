@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict
 
 from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.common import EntityActions, get_sql_executor
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
@@ -14,6 +15,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV20,
     ProjectDefinition,
 )
+from snowflake.cli.api.project.util import to_identifier
 
 
 class WorkspaceManager:
@@ -32,6 +34,10 @@ class WorkspaceManager:
         self._default_role = default_role()
         if self._default_role is None:
             self._default_role = get_sql_executor().current_role()
+        self.default_warehouse = None
+        cli_context = get_cli_context()
+        if cli_context.connection.warehouse:
+            self.default_warehouse = to_identifier(cli_context.connection.warehouse)
 
     def get_entity(self, entity_id: str):
         """
@@ -57,6 +63,7 @@ class WorkspaceManager:
                 console=cc,
                 project_root=self.project_root(),
                 default_role=self._default_role,
+                default_warehouse=self.default_warehouse,
             )
             return entity.perform(action, action_ctx, *args, **kwargs)
         else:

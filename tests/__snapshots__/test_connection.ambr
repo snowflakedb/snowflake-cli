@@ -13,7 +13,7 @@
   warehouse = "some warehouse"
   role = "some role"
   authenticator = " foo   "
-  private_key_path = ""
+  private_key_file = ""
   
   '''
 # ---
@@ -34,7 +34,7 @@
               "warehouse": "some warehouse",
               "role": "some role",
               "authenticator": " foo   ",
-              "private_key_path": ""
+              "private_key_file": ""
           },
           "is_default": false
       }
@@ -85,7 +85,7 @@
   account = "account1"
   user = "user2"
   authenticator = "SNOWFLAKE_JWT"
-  private_key_path = "~/private_key"
+  private_key_file = "~/private_key"
   
   '''
 # ---

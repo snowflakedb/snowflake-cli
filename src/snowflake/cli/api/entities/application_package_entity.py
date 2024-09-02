@@ -26,6 +26,7 @@ from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     ensure_correct_owner,
+    execute_post_deploy_hooks,
     generic_sql_error_handler,
     render_script_templates,
     sync_deploy_root_with_stage,
@@ -38,6 +39,7 @@ from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
     ApplicationPackageEntityModel,
 )
+from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.util import extract_schema
 from snowflake.cli.api.rendering.jinja import (
     get_basic_jinja_env,
@@ -111,7 +113,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 print_diff=True,
             )
 
-        # TODO Execute post-deploy hooks
+        if model.meta and model.meta.post_deploy:
+            self.execute_post_deploy_hooks(
+                console=ctx.console,
+                project_root=ctx.project_root,
+                post_deploy_hooks=model.meta.post_deploy,
+                package_name=package_name,
+                package_warehouse=model.meta.warehouse or ctx.default_warehouse,
+            )
 
         if validate:
             self.validate_setup_script(
@@ -324,6 +333,24 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                         distribution = {package_distribution}
                 """
                 )
+            )
+
+    @classmethod
+    def execute_post_deploy_hooks(
+        cls,
+        console: AbstractConsole,
+        project_root: Path,
+        post_deploy_hooks: Optional[List[PostDeployHook]],
+        package_name: str,
+        package_warehouse: Optional[str],
+    ):
+        with cls.use_package_warehouse(package_warehouse):
+            execute_post_deploy_hooks(
+                console=console,
+                project_root=project_root,
+                post_deploy_hooks=post_deploy_hooks,
+                deployed_object_type="application package",
+                database_name=package_name,
             )
 
     @classmethod

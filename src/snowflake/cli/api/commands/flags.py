@@ -134,11 +134,12 @@ AuthenticatorOption = typer.Option(
 
 PrivateKeyPathOption = typer.Option(
     None,
+    "--private-key-file",
     "--private-key-path",
-    help="Snowflake private key path. Overrides the value specified for the connection.",
+    help="Snowflake private key file path. Overrides the value specified for the connection.",
     hide_input=True,
     callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_private_key_path
+        lambda: get_cli_context_manager().connection_context.set_private_key_file
     ),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
@@ -440,15 +441,40 @@ def experimental_option(
     )
 
 
+class IdentifierType(click.ParamType):
+    name = "TEXT"
+
+    def convert(self, value, param, ctx):
+        return FQN.from_string(value)
+
+
+class IdentifierStageType(click.ParamType):
+    name = "TEXT"
+
+    def convert(self, value, param, ctx):
+        return FQN.from_stage(value)
+
+
 def identifier_argument(
-    sf_object: str, example: str, callback: Callable | None = None
+    sf_object: str,
+    example: str,
+    click_type: click.ParamType = IdentifierType(),
+    callback: Callable | None = None,
 ) -> typer.Argument:
     return typer.Argument(
         ...,
         help=f"Identifier of the {sf_object}. For example: {example}",
         show_default=False,
-        click_type=IdentifierType(),
+        click_type=click_type,
         callback=callback,
+    )
+
+
+def identifier_stage_argument(
+    sf_object: str, example: str, callback: Callable | None = None
+) -> typer.Argument:
+    return identifier_argument(
+        sf_object, example, click_type=IdentifierStageType(), callback=callback
     )
 
 
@@ -530,10 +556,3 @@ def deprecated_flag_callback_enum(msg: str):
         return value.value
 
     return _warning_callback
-
-
-class IdentifierType(click.ParamType):
-    name = "TEXT"
-
-    def convert(self, value, param, ctx):
-        return FQN.from_string(value)
