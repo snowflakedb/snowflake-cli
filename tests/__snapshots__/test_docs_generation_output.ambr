@@ -17,7 +17,7 @@
       --user <user>
       --password <password>
       --authenticator <authenticator>
-      --private-key-path <private_key_path>
+      --private-key-file <private_key_file>
       --token-file-path <token_file_path>
       --database <database>
       --schema <schema>
@@ -63,8 +63,8 @@
   :samp:`--authenticator {TEXT}`
     Snowflake authenticator. Overrides the value specified for the connection.
   
-  :samp:`--private-key-path {TEXT}`
-    Snowflake private key path. Overrides the value specified for the connection.
+  :samp:`--private-key-file, --private-key-path {TEXT}`
+    Snowflake private key file path. Overrides the value specified for the connection.
   
   :samp:`--token-file-path {TEXT}`
     Path to file with an OAuth token that should be used when connecting to Snowflake.

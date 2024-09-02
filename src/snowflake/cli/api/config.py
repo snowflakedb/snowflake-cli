@@ -80,7 +80,7 @@ class ConnectionConfig:
     warehouse: Optional[str] = None
     role: Optional[str] = None
     authenticator: Optional[str] = None
-    private_key_path: Optional[str] = None
+    private_key_file: Optional[str] = None
     token_file_path: Optional[str] = None
 
     _other_settings: dict = field(default_factory=lambda: {})

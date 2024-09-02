@@ -84,31 +84,25 @@ def test_bundle_of_invalid_entity_type(temp_dir):
         ws_manager.perform_action("app", EntityActions.BUNDLE)
 
 
-@pytest.mark.parametrize(
-    "project_directory_name",
-    ["migration_streamlit_v1_to_v2", "migration_snowpark_v1_to_v2"],
-)
-def test_migration_v1_to_v2(
-    runner, project_directory, snapshot, project_directory_name
+def test_migration_already_v2(
+    runner,
+    project_directory,
 ):
-    with project_directory(project_directory_name):
-        result = runner.invoke(["ws", "migrate"])
-
-    assert result.exit_code == 0
-    assert "Project definition migrated to version 2." in result.output
-    assert Path("snowflake.yml").read_text() == snapshot
-    assert Path("snowflake_V1.yml").read_text() == snapshot
-
-
-@pytest.mark.parametrize(
-    "project_directory_name", ["migration_streamlit_V2", "migration_snowpark_V2"]
-)
-def test_migration_already_v2(runner, project_directory, project_directory_name):
-    with project_directory(project_directory_name):
+    with project_directory("migration_already_v2"):
         result = runner.invoke(["ws", "migrate"])
 
     assert result.exit_code == 0
     assert "Project definition is already at version 2." in result.output
+
+
+def test_migrations_with_multiple_entities(
+    runner, project_directory, os_agnostic_snapshot
+):
+    with project_directory("migration_multiple_entities"):
+        result = runner.invoke(["ws", "migrate"])
+    assert result.exit_code == 0
+    assert Path("snowflake.yml").read_text() == os_agnostic_snapshot
+    assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
 
 
 @pytest.mark.parametrize(
@@ -149,14 +143,13 @@ def test_migration_with_only_envs(project_directory, runner):
     assert result.exit_code == 0
 
 
-def test_migrations_with_multiple_entities(
-    runner, project_directory, os_agnostic_snapshot
+def test_migrating_native_app_raises_error(
+    project_directory, runner, os_agnostic_snapshot
 ):
-    with project_directory("migration_multiple_entities"):
+    with project_directory("napp_project_1") as pd:
         result = runner.invoke(["ws", "migrate"])
-    assert result.exit_code == 0
-    assert Path("snowflake.yml").read_text() == os_agnostic_snapshot
-    assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
+    assert result.exit_code == 1
+    assert result.output == os_agnostic_snapshot
 
 
 @pytest.mark.parametrize(

@@ -134,11 +134,12 @@ AuthenticatorOption = typer.Option(
 
 PrivateKeyPathOption = typer.Option(
     None,
+    "--private-key-file",
     "--private-key-path",
-    help="Snowflake private key path. Overrides the value specified for the connection.",
+    help="Snowflake private key file path. Overrides the value specified for the connection.",
     hide_input=True,
     callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_private_key_path
+        lambda: get_cli_context_manager().connection_context.set_private_key_file
     ),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
