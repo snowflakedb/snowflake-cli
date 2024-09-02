@@ -20,7 +20,7 @@ python.exe -m hatch -e packaging run pyinstaller --name snow --onedir --clean --
 
 cd dist
 dir .
-signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
+REM signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 
 
 REM candle /?
