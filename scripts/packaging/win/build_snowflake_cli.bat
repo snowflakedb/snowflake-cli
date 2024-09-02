@@ -22,6 +22,7 @@ cd dist
 dir .
 REM signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 wmic product get name, version
+where /r c: signtool.exe
 
 
 REM candle /?
