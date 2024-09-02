@@ -23,6 +23,7 @@ dir .
 REM signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 wmic product get name, version
 where /r c:\ "signtool*"
+DIR /r "C:\Program Files (x86)\Windows Kits\10\bin\"
 
 
 REM candle /?
