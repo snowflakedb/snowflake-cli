@@ -30,6 +30,13 @@ if IS_WINDOWS:
     pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
 
 
+mock_session_has_warehouse = mock.patch(
+    "snowflake.cli.api.sql_execution.SqlExecutionMixin.session_has_warehouse",
+    lambda _: True,
+)
+
+
+@mock_session_has_warehouse
 def test_deploy_function_no_procedure(runner, project_directory):
     with project_directory("empty_project"):
         result = runner.invoke(
@@ -45,6 +52,7 @@ def test_deploy_function_no_procedure(runner, project_directory):
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock_session_has_warehouse
 def test_deploy_procedure(
     mock_om_show,
     mock_om_describe,
@@ -108,6 +116,7 @@ def test_deploy_procedure(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock_session_has_warehouse
 def test_deploy_procedure_with_external_access(
     mock_om_show,
     mock_om_describe,
@@ -168,6 +177,7 @@ def test_deploy_procedure_with_external_access(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock_session_has_warehouse
 def test_deploy_procedure_secrets_without_external_access(
     mock_om_show,
     mock_om_describe,
@@ -201,6 +211,7 @@ def test_deploy_procedure_secrets_without_external_access(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock_session_has_warehouse
 def test_deploy_procedure_fails_if_integration_does_not_exists(
     mock_om_show,
     mock_om_describe,
@@ -236,6 +247,7 @@ def test_deploy_procedure_fails_if_integration_does_not_exists(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock_session_has_warehouse
 def test_deploy_procedure_fails_if_object_exists_and_no_replace(
     mock_om_show,
     mock_om_describe,
@@ -268,6 +280,7 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock_session_has_warehouse
 def test_deploy_procedure_replace_nothing_to_update(
     mock_om_show,
     mock_om_describe,
@@ -323,6 +336,7 @@ def test_deploy_procedure_replace_nothing_to_update(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock_session_has_warehouse
 def test_deploy_procedure_replace_updates_single_object(
     mock_om_show,
     mock_om_describe,
@@ -376,6 +390,7 @@ def test_deploy_procedure_replace_updates_single_object(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock_session_has_warehouse
 def test_deploy_procedure_replace_creates_missing_object(
     mock_om_show,
     mock_om_describe,
@@ -421,6 +436,7 @@ def test_deploy_procedure_replace_creates_missing_object(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock_session_has_warehouse
 def test_deploy_procedure_fully_qualified_name(
     mock_om_show,
     mock_om_describe,
@@ -446,6 +462,7 @@ def test_deploy_procedure_fully_qualified_name(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock_session_has_warehouse
 def test_deploy_procedure_fully_qualified_name_duplicated_schema(
     mock_om_show,
     mock_om_describe,
@@ -513,3 +530,17 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
 
     queries = ctx.get_queries()
     assert queries[0] == queries[1]
+
+
+@mock.patch(
+    "snowflake.cli.api.sql_execution.SqlExecutionMixin.session_has_warehouse",
+    lambda _: False,
+)
+def test_snowpark_fail_if_no_active_warehouse(runner, mock_ctx, project_directory):
+    with project_directory("snowpark_procedures"):
+        result = runner.invoke(["snowpark", "deploy"])
+    assert result.exit_code == 1, result.output
+    assert (
+        "The command requires warehouse. No warehouse found in current connection."
+        in result.output
+    )
