@@ -21,6 +21,7 @@ python.exe -m hatch -e packaging run pyinstaller --name snow --onedir --clean --
 cd dist
 dir .
 REM signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
+wmic product get name, version
 
 
 REM candle /?
