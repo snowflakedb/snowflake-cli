@@ -170,6 +170,15 @@ def test_migrating_native_app_raises_error(
       main_file: "streamlit_app.py"
       title: "My Fancy Streamlit"
     """,
+        """
+    - name: anotherProcedure
+      handler: "hello"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+      handler: "app.hello"
+    """,
     ],
 )
 def test_migrating_a_file_with_duplicated_keys_raises_an_error(

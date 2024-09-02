@@ -20,7 +20,8 @@ import pytest
 from click import ClickException
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.utils.models import ProjectEnvironment
-from test_data.test_data import definition_v2_duplicated_entity_names
+
+from tests.test_data.test_data import definition_v2_duplicated_entity_names
 
 
 def mock_is_file_for(*known_files):

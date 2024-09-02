@@ -142,13 +142,31 @@
   
   '''
 # ---
+# name: test_migrating_a_file_with_duplicated_keys_raises_an_error[\n    - name: procedureName\n      handler: "hello"\n      signature:\n        - name: "name"\n          type: "string"\n      returns: string\n    0]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Entity with name procedureName seems to be duplicated. Please rename it, and |
+  | try again.                                                                   |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_migrating_a_file_with_duplicated_keys_raises_an_error[\n    - name: procedureName\n      handler: "hello"\n      signature:\n        - name: "name"\n          type: "string"\n      returns: string\n    1]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Entity with name procedureName seems to be duplicated. Please rename it, and |
+  | try again.                                                                   |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
 # name: test_migrating_a_file_with_duplicated_keys_raises_an_error[\n    - name: procedureName\n      handler: "hello"\n      signature:\n        - name: "name"\n          type: "string"\n      returns: string\n    ]
   '''
   +- Error ----------------------------------------------------------------------+
   | Entity with name procedureName seems to be duplicated. Please rename it, and |
   | try again.                                                                   |
   +------------------------------------------------------------------------------+
-
+  
   '''
 # ---
 # name: test_migrating_a_file_with_duplicated_keys_raises_an_error[\n    - name: procedureName\n      stage: streamlit\n      query_warehouse: test_warehouse\n      main_file: "streamlit_app.py"\n      title: "My Fancy Streamlit"\n    ]
@@ -175,7 +193,7 @@
   | 'snowpark.procedures[1].title' with value 'My Fancy Streamlit' that is not   |
   | supported in given version.                                                  |
   +------------------------------------------------------------------------------+
-
+  
   '''
 # ---
 # name: test_migrating_native_app_raises_error
@@ -184,7 +202,6 @@
   | Your project file contains a native app definition. Conversion of Native     |
   | apps is not yet supported                                                    |
   +------------------------------------------------------------------------------+
-
   '''
 # ---
 # name: test_migration_v1_to_v2[migration_snowpark_V1_to_V2]
