@@ -157,3 +157,37 @@ def test_migrations_with_multiple_entities(
     assert result.exit_code == 0
     assert Path("snowflake.yml").read_text() == os_agnostic_snapshot
     assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
+
+
+@pytest.mark.parametrize(
+    "duplicated_entity",
+    [
+        """
+    - name: procedureName
+      handler: "hello"
+      signature:
+        - name: "name"
+          type: "string"
+      returns: string
+    """,
+        """
+    - name: procedureName
+      stage: streamlit
+      query_warehouse: test_warehouse
+      main_file: "streamlit_app.py"
+      title: "My Fancy Streamlit"
+    """,
+    ],
+)
+def test_migrating_a_file_with_duplicated_keys_raises_an_error(
+    runner, project_directory, os_agnostic_snapshot, duplicated_entity
+):
+    with project_directory("migration_multiple_entities") as pd:
+        definition_path = pd / "snowflake.yml"
+
+        with open(definition_path, "a") as definition_file:
+            definition_file.write(duplicated_entity)
+
+        result = runner.invoke(["ws", "migrate"])
+    assert result.exit_code == 1
+    assert result.output == os_agnostic_snapshot

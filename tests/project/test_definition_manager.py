@@ -13,10 +13,14 @@
 # limitations under the License.
 
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import TestCase, mock
 
+import pytest
+from click import ClickException
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.utils.models import ProjectEnvironment
+from test_data.test_data import definition_v2_duplicated_entity_names
 
 
 def mock_is_file_for(*known_files):
@@ -141,3 +145,16 @@ class DefinitionManagerTest(TestCase):
     def test_find_project_root_stops_at_fs_root(self, mock_abs):
         with mock_is_file_for("/hello/work/snowflake.yml") as mock_is_file:
             assert DefinitionManager.find_project_root(Path("/tmp")) is None
+
+
+def test_loading_yaml_with_duplicated_keys_raises_an_error():
+    with pytest.raises(ClickException) as err:
+        with TemporaryDirectory() as tmpdir:
+            definition_file = Path(tmpdir) / "snowflake.yml"
+            definition_file.write_text(definition_v2_duplicated_entity_names)
+            _ = DefinitionManager(tmpdir).project_definition
+
+    assert (
+        "While loading the project definition file, duplicate key was found: hello_world"
+        in err.value.message
+    )
