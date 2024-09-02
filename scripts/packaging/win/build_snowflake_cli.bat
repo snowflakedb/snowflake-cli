@@ -23,8 +23,8 @@ cd dist
 signtool sign /debug /sm /t http://timestamp.digicert.com /a snowsql.exeDIR .
 
 
+where /r C: signtool.exe
 
-DIR .
 
 REM signtool /?
 REM candle /?
