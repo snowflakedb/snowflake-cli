@@ -112,7 +112,7 @@ def test_list_branches_and_tags(runner, sf_git_repository):
 
 
 @pytest.mark.integration
-def test_list_files(runner, sf_git_repository):
+def test_list_files(runner, sf_git_repository, snapshot):
     # error messages are passed to the user
     result = runner.invoke_with_connection(["git", "list-files", sf_git_repository])
     _assert_invalid_repo_path_error_message(result.output)
@@ -121,15 +121,10 @@ def test_list_files(runner, sf_git_repository):
     result = runner.invoke_with_connection(["git", "list-files", repository_path])
     _assert_invalid_repo_path_error_message(result.output)
 
-    try:
-        repository_path = f"@{sf_git_repository}/tags/no-such-tag/"
-        runner.invoke_with_connection(["git", "list-files", repository_path])
-        assert False, "Expected exception"
-    except ProgrammingError as err:
-        assert (
-            err.raw_msg
-            == "The specified tag 'no-such-tag' cannot be found in the Git Repository."
-        )
+    repository_path = f"@{sf_git_repository}/tags/no-such-tag/"
+    result = runner.invoke_with_connection(["git", "list-files", repository_path])
+    assert result.exit_code == 1
+    assert result.output == snapshot
 
     # list files with pattern
     repository_path = f"@{sf_git_repository}/tags/v2.1.0-rc1/"
@@ -243,21 +238,16 @@ def test_copy_single_file_to_local_file_system(runner, sf_git_repository):
 
 
 @pytest.mark.integration
-def test_copy_error(runner, sf_git_repository):
+def test_copy_error(runner, sf_git_repository, snapshot):
     with tempfile.TemporaryDirectory() as tmp_dir:
         LOCAL_DIR = Path(tmp_dir) / "a_dir"
-        # error messages are passed to the user
-        try:
-            repository_path = f"@{sf_git_repository}/tags/no-such-tag/"
-            runner.invoke_with_connection(
-                ["git", "copy", repository_path, str(LOCAL_DIR)]
-            )
-            assert False, "Expected exception"
-        except ProgrammingError as err:
-            assert (
-                err.raw_msg
-                == "The specified tag 'no-such-tag' cannot be found in the Git Repository."
-            )
+
+        repository_path = f"@{sf_git_repository}/tags/no-such-tag/"
+        result = runner.invoke_with_connection(
+            ["git", "copy", repository_path, str(LOCAL_DIR)]
+        )
+        assert result.exit_code == 1
+        assert result.output == snapshot
 
 
 @pytest.mark.integration

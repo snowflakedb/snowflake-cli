@@ -26,17 +26,14 @@ def _execute_notebook(runner, notebook_name):
     assert result.json == {"message": f"Notebook {notebook_name} executed."}
 
 
-def _execute_notebook_failure(runner, notebook_name):
-    with pytest.raises(ProgrammingError) as err:
-        result = runner.invoke_with_connection_json(
-            ["notebook", "execute", notebook_name, "--format", "json"]
-        )
-        assert result.exit_code == 1
-        assert "invalid identifier 'FOO'" in err
+def _execute_notebook_failure(runner, notebook_name, snapshot):
+    result = runner.invoke_with_connection(["notebook", "execute", notebook_name])
+    assert result.exit_code == 1
+    assert result.output == snapshot
 
 
 @pytest.mark.integration
-def test_create_notebook(runner, test_database, snowflake_session):
+def test_create_notebook(runner, test_database, snowflake_session, snapshot):
     stage_name = "notebook_stage"
     snowflake_session.execute_string(f"create stage {stage_name};")
 
@@ -49,7 +46,7 @@ def test_create_notebook(runner, test_database, snowflake_session):
         _create_notebook(local_notebook_file, runner, snowflake_session, stage_name)
 
     _execute_notebook(runner, notebooks[0].stem)
-    _execute_notebook_failure(runner, notebooks[1].stem)
+    _execute_notebook_failure(runner, notebooks[1].stem, snapshot)
 
 
 def _create_notebook(local_notebook_file, runner, snowflake_session, stage_name):
