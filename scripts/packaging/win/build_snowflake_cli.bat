@@ -18,15 +18,9 @@ set CONTENTSDIR="snowflake-cli-%CLI_VERSION%"
 set ENTRYPOINT=src\\snowflake\\cli\\_app\\__main__.py
 python.exe -m hatch -e packaging run pyinstaller --name snow --onedir --clean --noconfirm --noconsole --contents-directory=%CONTENTSDIR% %ENTRYPOINT%
 
-
-wmic product get name, version
-
-where /r C: signtool.exe
-
 cd dist
-signtool sign /debug /sm /t http://timestamp.digicert.com /a snowsql.exeDIR .
+signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 
 
-REM signtool /?
 REM candle /?
 REM light /?
