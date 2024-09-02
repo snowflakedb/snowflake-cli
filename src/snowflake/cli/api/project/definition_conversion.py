@@ -162,7 +162,7 @@ def _check_if_project_definition_meets_requirements(
         )
     if pd.native_app:
         raise ClickException(
-            "Your project file contains a native app definition. Conversion Native apps is not yet supported"
+            "Your project file contains a native app definition. Conversion of Native apps is not yet supported"
         )
 
 
