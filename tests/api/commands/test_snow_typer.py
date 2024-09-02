@@ -30,7 +30,7 @@ def class_factory(
 ):
     class _CustomTyper(SnowTyper):
         @staticmethod
-        def pre_execute(execution):
+        def pre_execute(execution, require_warehouse):
             if pre_execute:
                 pre_execute(execution)
 
