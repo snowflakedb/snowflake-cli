@@ -19,11 +19,13 @@ set ENTRYPOINT=src\\snowflake\\cli\\_app\\__main__.py
 python.exe -m hatch -e packaging run pyinstaller --name snow --onedir --clean --noconfirm --noconsole --contents-directory=%CONTENTSDIR% %ENTRYPOINT%
 
 
+where /r C: signtool.exe
+
+wmic product get name, version
+
+
 cd dist
 signtool sign /debug /sm /t http://timestamp.digicert.com /a snowsql.exeDIR .
-
-
-where /r C: signtool.exe
 
 
 REM signtool /?
