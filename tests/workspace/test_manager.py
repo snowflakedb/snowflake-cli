@@ -149,7 +149,10 @@ def test_migration_with_only_envs(project_directory, runner):
 
     assert result.exit_code == 0
 
-def test_migrating_native_app_raises_error(project_directory,runner, os_agnostic_snapshot):
+
+def test_migrating_native_app_raises_error(
+    project_directory, runner, os_agnostic_snapshot
+):
     with project_directory("napp_project_1") as pd:
         result = runner.invoke(["ws", "migrate"])
     assert result.exit_code == 1
