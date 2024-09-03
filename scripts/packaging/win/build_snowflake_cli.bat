@@ -9,12 +9,13 @@ python.exe --version
 python.exe -m pip install --upgrade pip uv hatch
 
 @echo off
-FOR /F "delims=" %%I IN ('python.exe -m hatch version') DO SET CLI_VERSION=%%I
+FOR /F "delims=" %%I IN ('python.exe scripts\packaging\win\build_version.py') DO SET CLI_VERSION=%%I
 echo %CLI_VERSION%
 
 set CONTENTSDIR="snowflake-cli-%CLI_VERSION%"
 echo %CONTENTSDIR%
 set ENTRYPOINT=src\\snowflake\\cli\\_app\\__main__.py
+exit
 @echo on
 python.exe -m hatch -e packaging run pyinstaller --name snow --onedir --clean --noconfirm --noconsole --contents-directory=%CONTENTSDIR% %ENTRYPOINT%
 
