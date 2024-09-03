@@ -245,7 +245,7 @@ class ConnectionContext:
             "user": self.user,
             "password": self.password,
             "authenticator": self.authenticator,
-            "private_key_path": self.private_key_path,
+            "private_key_file": self.private_key_file,
             "database": self.database,
             "schema": self.schema,
             "role": self.role,
