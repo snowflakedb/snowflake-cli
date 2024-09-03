@@ -25,7 +25,7 @@ signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 
 cd ..\..
 candle ^
-    -dSnowSQLVersion=%CLI_VERSION% ^
+    -dSnowflakeCLIVersion=%CLI_VERSION% ^
     scripts/packaging/win/snowflake_cli.wxs ^
     scripts/packaging/win/snowflake_cli_exitdlg.wxs
 light snowflake_cli.wixobj ^
