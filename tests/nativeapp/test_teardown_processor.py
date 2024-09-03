@@ -99,18 +99,12 @@ def test_drop_generic_object_success(mock_execute, temp_dir, mock_cursor):
 
 
 # Test drop_generic_object() with an exception
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_drop_generic_object_failure_w_exception(
-    mock_execute_sql,
-    mock_execute_na,
+    mock_execute,
     temp_dir,
     mock_cursor,
 ):
-    mock_execute = mock.MagicMock()
-    mock_execute.attach_mock(mock_execute_na, "execute_na")
-    mock_execute.attach_mock(mock_execute_sql, "execute_sql")
-
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -128,8 +122,7 @@ def test_drop_generic_object_failure_w_exception(
             (None, mock.call.execute_sql("use role old_role")),
         ]
     )
-    mock_execute_sql.side_effect = side_effects[::1]
-    mock_execute_na.side_effect = side_effects[2::]
+    mock_execute.side_effect = side_effects
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -760,7 +753,6 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
 
 
 # Test drop_package when there is no distribution mismatch AND distribution = internal AND special comment is True AND name is quoted
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
 @pytest.mark.parametrize(
@@ -774,21 +766,13 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
 )
 def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop(
     mock_get_distribution,
-    mock_execute_sql,
-    mock_execute_na,
+    mock_execute,
     auto_yes_param,
     special_comment,
     temp_dir,
     mock_cursor,
 ):
     mock_get_distribution.return_value = "internal"
-
-    # We are mocking _execute_query on both NativeAppManager and SqlExecutor. Attaching both to a single mock to verify the order of calls.
-    # The first 4 calls are expected to be on SqlExecutor, and the rest on NativeAppManager.
-    mock_execute = mock.MagicMock()
-    mock_execute.attach_mock(mock_execute_na, "execute_na")
-    mock_execute.attach_mock(mock_execute_sql, "execute_sql")
-
     side_effects, expected = mock_execute_helper(
         [
             # Show app pkg
@@ -839,8 +823,7 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
         ]
     )
 
-    mock_execute_sql.side_effect = side_effects[::3]
-    mock_execute_na.side_effect = side_effects[4::]
+    mock_execute.side_effect = side_effects
 
     current_working_directory = os.getcwd()
     create_named_file(
