@@ -20,11 +20,11 @@
         <MajorUpgrade AllowDowngrades="yes"/>
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="ProgramFiles64Folder" Name="PFiles">
-                 <Directory Id="TESTFILEPRODUCTDIR" Name="Snowflake SnowflakeCLI"/>
+                 <Directory Id="TESTFILEPRODUCTDIR" Name="Snowflake CLI"/>
             </Directory>
         </Directory>
         <DirectoryRef Id="TESTFILEPRODUCTDIR">
-            <Component Id="snowsql.exe" Guid="2240777C-49B9-4D5F-ADF3-37483C0D7A61" Win64="yes">
+            <Component Id="snow.exe" Guid="2240777C-49B9-4D5F-ADF3-37483C0D7A61" Win64="yes">
                 <Environment Id="PATH" Name="PATH" Value="[TESTFILEPRODUCTDIR]" Permanent="no" Part="last" Action="set" System="yes"/>
                 <File Id="snow.exe" Source="dist\snow\snow.exe" KeyPath="yes" Checksum="yes"/>
             </Component>
@@ -32,7 +32,7 @@
         <Feature Id="MainApplication" Title="Snowflake CLI" Level="1">
             <ComponentRef Id="snow.exe" />
         </Feature>
-        <Icon Id="icon.ico" SourceFile="scripts/packaging/win/snowflake_msi.ico"/>
+        <Icon Id="icon.ico" SourceFile="scripts\packaging\win\snowflake_msi.ico"/>
         <Property Id="ARPPRODUCTICON" Value="icon.ico" />
         <Property Id="ARPHELPLINK" Value="https://docs.snowflake.net/manuals/user-guide/snowflake-cli.html" />
         <Property Id="ARPNOMODIFY" Value="yes" Secure="yes" />
