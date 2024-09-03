@@ -27,7 +27,7 @@ cd ..\..
 candle ^
     -dSnowSQLVersion=%CLI_VERSION% ^
     scripts/packaging/win/snowflake_cli.wxs ^
-    scropts/packaging/win/snowflake_cli_exitdlg.wxs
+    scripts/packaging/win/snowflake_cli_exitdlg.wxs
 light snowflake_cli.wixobj ^
     snowflake_cli_exitdlg.wixobj ^
     -cultures:en-us ^
