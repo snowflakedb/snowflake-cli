@@ -75,7 +75,7 @@ def convert_snowpark_to_v2_data(snowpark: Snowpark) -> Dict[str, Any]:
 
         if entity_name in data["entities"]:
             raise ClickException(
-                f"Entity with name {entity_name} seems to be duplicated. Please rename it, and try again."
+                f"Entity with name {entity_name} seems to be duplicated. Please rename it and try again."
             )
 
         v2_entity = {

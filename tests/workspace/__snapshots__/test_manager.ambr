@@ -153,7 +153,7 @@
 # name: test_migrating_a_file_with_duplicated_keys_raises_an_error[\n    - name: test\n      handler: "test"\n      signature: ""\n      returns: string\n      runtime: "3.10"\n    ]
   '''
   +- Error ----------------------------------------------------------------------+
-  | Entity with name test seems to be duplicated. Please rename it, and try      |
+  | Entity with name test seems to be duplicated. Please rename it and try       |
   | again.                                                                       |
   +------------------------------------------------------------------------------+
   
