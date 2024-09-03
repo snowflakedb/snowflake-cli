@@ -28,7 +28,10 @@ from uuid import uuid4
 import pytest
 import yaml
 
-from snowflake.cli.api.cli_global_context import get_cli_context_manager
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context_manager,
+    _CONNECTION_CACHE,
+)
 from snowflake.cli._app.cli_app import app_factory
 from typer import Typer
 from typer.testing import CliRunner
@@ -214,6 +217,7 @@ def project_directory(temporary_working_directory, test_root_path):
 def reset_global_context_after_each_test(request):
     get_cli_context_manager().reset()
     yield
+    _CONNECTION_CACHE.clear()
 
 
 # This automatically used fixture isolates default location
