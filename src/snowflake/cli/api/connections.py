@@ -101,9 +101,7 @@ class ConnectionContext:
                 )
 
     def __repr__(self):
-        items = [
-            f"{k} = {repr(v)}" for (k, v) in self.__dict__.items() if v is not None
-        ]
+        items = [f"{k}={repr(v)}" for (k, v) in self.__dict__.items() if v is not None]
         return f"{self.__class__.__name__}({', '.join(items)})"
 
     @property
@@ -330,8 +328,8 @@ class OpenConnectionCache:
     def _insert(self, key: str, ctx: ConnectionContext):
         try:
             self.connections[key] = ctx.build_connection()
-        except:
-            logger.info("ConnectionCache: failed to connect using {key}; not caching.")
+        except Exception:
+            logger.debug("ConnectionCache: failed to connect using {key}; not caching.")
             raise
 
     def _touch(self, key: str):
@@ -341,7 +339,16 @@ class OpenConnectionCache:
         if key in self.cleanup_futures:
             self.cleanup_futures.pop(key).cancel()
 
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_event_loop()
+        except (RuntimeError, DeprecationWarning):
+            # there is no event loop
+            # the exception is different for Python 3.10/3.11+
+            logger.debug(
+                "ConnectionCache: no event loop; connections will close at exit."
+            )
+            return
+
         handle = loop.call_later(
             self.CONNECTION_CLEANUP_SEC, lambda: self._cleanup(key)
         )
@@ -350,7 +357,7 @@ class OpenConnectionCache:
     def _cleanup(self, key: str):
         """Closes the cached connection at the given key."""
         if key not in self.connections:
-            logger.warning("Cleaning up connection {key}, but not found in cache!")
+            logger.debug("Cleaning up connection {key}, but not found in cache!")
 
         # doesn't cancel in-flight async queries
         self.connections.pop(key).close()

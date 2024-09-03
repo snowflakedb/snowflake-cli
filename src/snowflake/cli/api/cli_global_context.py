@@ -17,7 +17,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator, Optional
+from typing import TYPE_CHECKING, Iterator
 
 from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
 from snowflake.cli.api.exceptions import MissingConfiguration
@@ -33,8 +33,8 @@ _CONNECTION_CACHE = OpenConnectionCache()
 
 
 class _CliGlobalContextManager:
-    _definition_manager: Optional[DefinitionManager]
-    _override_project_definition: Optional[ProjectDefinition]
+    _definition_manager: DefinitionManager | None
+    _override_project_definition: ProjectDefinition | None
 
     def __init__(self):
         self._connection_context = ConnectionContext()
@@ -104,10 +104,10 @@ class _CliGlobalContextManager:
         self._experimental = value
 
     @property
-    def definition_manager(self) -> Optional[DefinitionManager]:
+    def definition_manager(self) -> DefinitionManager | None:
         return self._definition_manager
 
-    def _set_definition_manager(self, definition_manager: Optional[DefinitionManager]):
+    def _set_definition_manager(self, definition_manager: DefinitionManager | None):
         """
         This should only be called by the clone() method.
         """
@@ -118,41 +118,26 @@ class _CliGlobalContextManager:
         return self._override_project_definition
 
     def set_override_project_definition(
-        self, override_project_definition: Optional[ProjectDefinition]
+        self, override_project_definition: ProjectDefinition | None
     ):
         # TODO: remove; for implicit v1 <-> v2 conversion
         self._override_project_definition = override_project_definition
 
     @property
-    def project_definition(self) -> Optional[ProjectDefinition]:
+    def project_definition(self) -> ProjectDefinition | None:
         # TODO: remove; for implicit v1 <-> v2 conversion
         if self._override_project_definition:
             return self._override_project_definition
 
-        self._ensure_definition_manager()
-        return (
-            self._definition_manager.project_definition
-            if self._definition_manager
-            else None
-        )
+        return self._definition_manager_or_raise().project_definition
 
     @property
-    def project_root(self) -> Optional[Path]:
-        self._ensure_definition_manager()
-        return (
-            Path(self._definition_manager.project_root)
-            if self._definition_manager
-            else None
-        )
+    def project_root(self) -> Path | None:
+        return Path(self._definition_manager_or_raise().project_root)
 
     @property
     def template_context(self) -> dict:
-        self._ensure_definition_manager()
-        return (
-            self._definition_manager.template_context
-            if self._definition_manager
-            else {}
-        )
+        return self._definition_manager_or_raise().template_context
 
     @property
     def project_is_optional(self) -> bool:
@@ -162,10 +147,10 @@ class _CliGlobalContextManager:
         self._project_is_optional = project_is_optional
 
     @property
-    def project_path_arg(self) -> Optional[str]:
+    def project_path_arg(self) -> str | None:
         return self._project_path_arg
 
-    def set_project_path_arg(self, project_path_arg: Optional[str]):
+    def set_project_path_arg(self, project_path_arg: str | None):
         self._clear_definition_manager()
         self._project_path_arg = project_path_arg
 
@@ -196,10 +181,11 @@ class _CliGlobalContextManager:
         self.connection_context.validate_and_complete()
         return _CONNECTION_CACHE[self.connection_context]
 
-    def _ensure_definition_manager(self):
+    def _definition_manager_or_raise(self) -> DefinitionManager:
         """
         (Re-)parses project definition based on project args (project_path_arg and
-        project_env_overrides_args).
+        project_env_overrides_args). If we cannot provide a project definition
+        (i.e. no snowflake.yml) and require one, raises MissingConfiguration.
         """
         from snowflake.cli.api.project.definition_manager import DefinitionManager
 
@@ -217,6 +203,7 @@ class _CliGlobalContextManager:
             )
 
         self._definition_manager = dm
+        return dm
 
     def _clear_definition_manager(self):
         """
@@ -255,11 +242,11 @@ class _CliGlobalContextAccess:
         return self._manager.experimental
 
     @property
-    def project_definition(self) -> Optional[ProjectDefinition]:
+    def project_definition(self) -> ProjectDefinition | None:
         return self._manager.project_definition
 
     @property
-    def project_root(self) -> Optional[Path]:
+    def project_root(self) -> Path | None:
         return self._manager.project_root
 
     @property
@@ -293,10 +280,10 @@ def get_cli_context() -> _CliGlobalContextAccess:
 
 @contextmanager
 def fork_cli_context(
-    connection_overrides: Optional[dict] = None,
-    env: Optional[dict[str, str]] = None,
-    project_is_optional: Optional[bool] = None,
-    project_path: Optional[str] = None,
+    connection_overrides: dict | None = None,
+    env: dict[str, str] | None = None,
+    project_is_optional: bool | None = None,
+    project_path: str | None = None,
 ) -> Iterator[_CliGlobalContextAccess]:
     """
     Forks the global CLI context, making changes that are only visible
