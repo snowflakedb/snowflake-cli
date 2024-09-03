@@ -323,11 +323,8 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                 predicate=is_python_file_artifact,
             )
         ):
-            cc.step(
-                "Processing Snowpark annotations from {}".format(
-                    dest_file.relative_to(bundle_map.deploy_root())
-                )
-            )
+            src_file_name = src_file.relative_to(bundle_map.project_root)
+            cc.step(f"Processing Snowpark annotations from {src_file_name}")
             collected_extension_function_json = _execute_in_sandbox(
                 py_file=str(dest_file.resolve()),
                 deploy_root=self._bundle_ctx.deploy_root,

@@ -24,6 +24,10 @@ _YML_TEMPLATE_START = "<%"
 _YML_TEMPLATE_END = "%>"
 
 
+def has_client_side_templates(template_content: str) -> bool:
+    return _YML_TEMPLATE_START in template_content
+
+
 def get_client_side_jinja_env() -> Environment:
     _random_block = "___very___unique___block___to___disable___logic___blocks___"
     return env_bootstrap(
