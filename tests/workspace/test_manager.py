@@ -150,3 +150,45 @@ def test_migrating_native_app_raises_error(
         result = runner.invoke(["ws", "migrate"])
     assert result.exit_code == 1
     assert result.output == os_agnostic_snapshot
+
+
+@pytest.mark.parametrize(
+    "duplicated_entity",
+    [
+        """
+    - name: test
+      handler: "test"
+      signature: ""
+      returns: string
+      runtime: "3.10"
+    """,
+        """
+streamlit:
+  name: test
+  stage: streamlit
+  query_warehouse: test_warehouse
+  main_file: "streamlit_app.py"
+  title: "My Fancy Streamlit"
+    """,
+        """
+    - name: test
+      handler: "test"
+      signature: ""
+      returns: string
+      handler: test
+      runtime: "3.10"
+    """,
+    ],
+)
+def test_migrating_a_file_with_duplicated_keys_raises_an_error(
+    runner, project_directory, os_agnostic_snapshot, duplicated_entity
+):
+    with project_directory("snowpark_procedures") as pd:
+        definition_path = pd / "snowflake.yml"
+
+        with open(definition_path, "a") as definition_file:
+            definition_file.write(duplicated_entity)
+
+        result = runner.invoke(["ws", "migrate"])
+    assert result.exit_code == 1
+    assert result.output == os_agnostic_snapshot

@@ -147,3 +147,32 @@ describe_function_response = """[
     "value": "['python==3.10.17']"
   }
 ]"""
+
+definition_v2_duplicated_entity_names = """
+definition_version: 2
+entities:  
+  hello_world:
+    artifacts:
+      - app/
+    handler: hello
+    identifier:
+      name: test_procedure
+    returns: string
+    signature:
+      - name: "name"
+        type: "string"
+    stage: dev_deployment
+    type: procedure
+  hello_world:
+    artifacts:
+      - app/
+    handler: hello
+    identifier:
+      name: test_procedure
+    returns: string
+    signature:
+      - name: "name"
+        type: "string"
+    stage: dev_deployment
+    type: function
+"""

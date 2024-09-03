@@ -24,6 +24,7 @@
 * Added templates expansion of arbitrary files for Native Apps through `templates` processor.
 
 ## Fixes and improvements
+* Duplicated keys in `snowflake.yml` are now detected and reported.
 
 
 # v3.0.0
