@@ -23,5 +23,15 @@ dir .
 signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 
 
-REM candle /?
-REM light /?
+cd ..\..
+candle ^
+    -dSnowSQLVersion=%CLI_VERSION% ^
+    snowsql.wxs ^
+    snowsql_exitdlg.wxs
+light snowsql.wixobj ^
+    snowsql_exitdlg.wixobj ^
+    -cultures:en-us ^
+    -loc snowsql_en-us.wxl ^
+    -ext WixUIExtension ^
+    -ext WixUtilExtension ^
+    -o dist\snowflake-cli-windows_x86_64.msi
