@@ -189,20 +189,18 @@ class _CliGlobalContextManager:
         """
         from snowflake.cli.api.project.definition_manager import DefinitionManager
 
-        if self._definition_manager:
-            # don't need to re-parse definition if we already have one
-            return
-
-        dm = DefinitionManager(
-            self.project_path_arg,
-            {CONTEXT_KEY: {"env": self.project_env_overrides_args}},
-        )
-        if not dm.has_definition_file and not self.project_is_optional:
-            raise MissingConfiguration(
-                "Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
+        # don't need to re-parse definition if we already have one
+        if not self._definition_manager:
+            dm = DefinitionManager(
+                self.project_path_arg,
+                {CONTEXT_KEY: {"env": self.project_env_overrides_args}},
             )
+            if not dm.has_definition_file and not self.project_is_optional:
+                raise MissingConfiguration(
+                    "Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
+                )
+            self._definition_manager = dm
 
-        self._definition_manager = dm
         return dm
 
     def _clear_definition_manager(self):
