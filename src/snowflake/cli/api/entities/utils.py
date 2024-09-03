@@ -32,6 +32,7 @@ from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
+from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.rendering.sql_templates import (
@@ -330,3 +331,27 @@ def validation_item_to_str(item: dict[str, str | int]):
     if item["errorCode"]:
         s = f"{s} (error code {item['errorCode']})"
     return s
+
+
+def drop_generic_object(
+    console: AbstractConsole,
+    object_type: str,
+    object_name: str,
+    role: str,
+    cascade: bool = False,
+):
+    """
+    Drop object using the given role.
+    """
+    sql_executor = get_sql_executor()
+    with sql_executor.use_role(role):
+        console.step(f"Dropping {object_type} {object_name} now.")
+        drop_query = f"drop {object_type} {object_name}"
+        if cascade:
+            drop_query += " cascade"
+        try:
+            sql_executor.execute_query(drop_query)
+        except:
+            raise SnowflakeSQLExecutionError(drop_query)
+
+        console.message(f"Dropped {object_type} {object_name} successfully.")

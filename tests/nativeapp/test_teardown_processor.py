@@ -40,14 +40,16 @@ from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
 from tests.nativeapp.utils import (
+    APP_PACKAGE_ENTITY_DROP_GENERIC_OBJECT,
+    APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
+    APP_PACKAGE_ENTITY_IS_CORRECT_OWNER,
+    APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
     NATIVEAPP_MANAGER_EXECUTE,
     NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION,
-    NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME,
     SQL_EXECUTOR_EXECUTE,
     TEARDOWN_MODULE,
     TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT,
     TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO,
-    TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO,
     TEARDOWN_PROCESSOR_IS_CORRECT_OWNER,
     TYPER_CONFIRM,
     TYPER_PROMPT,
@@ -67,7 +69,7 @@ def _get_na_teardown_processor():
 
 
 # Test drop_generic_object() with success
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_drop_generic_object_success(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
@@ -97,23 +99,27 @@ def test_drop_generic_object_success(mock_execute, temp_dir, mock_cursor):
 
 
 # Test drop_generic_object() with an exception
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-def test_drop_generic_object_failure_w_exception(mock_execute, temp_dir, mock_cursor):
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_drop_generic_object_failure_w_exception(
+    mock_execute,
+    temp_dir,
+    mock_cursor,
+):
     side_effects, expected = mock_execute_helper(
         [
             (
                 mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock.call.execute_sql("select current_role()", cursor_class=DictCursor),
             ),
-            (None, mock.call("use role package_role")),
+            (None, mock.call.execute_sql("use role package_role")),
             (
                 ProgrammingError(
                     msg="Object does not exist, or operation cannot be performed.",
                     errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
                 ),
-                mock.call("drop application package app_pkg"),
+                mock.call.execute_sql("drop application package app_pkg"),
             ),
-            (None, mock.call("use role old_role")),
+            (None, mock.call.execute_sql("use role old_role")),
         ]
     )
     mock_execute.side_effect = side_effects
@@ -232,7 +238,7 @@ def test_drop_application_has_special_comment(
 
 
 # Test drop_application() successfully when it has special comment but is a quoted string
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param, special_comment",  # auto_yes should have no effect on the test
@@ -447,7 +453,7 @@ def test_drop_application_idempotent(
 
 # Test drop_package() when no application package exists
 @mock.patch(
-    TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO,
+    APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     return_value=None,
 )
 @mock.patch(f"{TEARDOWN_MODULE}.cc.warning")
@@ -475,7 +481,7 @@ def test_drop_package_no_existing_application(
 
 
 # Test drop_package() when it has a different owner role
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @pytest.mark.parametrize(
     "auto_yes_param",
     [True, False],  # This should have no effect on the test
@@ -503,9 +509,9 @@ def test_drop_package_incorrect_owner(
 
 
 # Test drop_package when the package has more than 0 existing versions
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_show_versions_failure_w_exception(
     mock_execute,
     mock_is_correct_owner,
@@ -549,11 +555,11 @@ def test_show_versions_failure_w_exception(
 
 
 # Test drop_package when there is no distribution mismatch AND distribution = external AND auto_yes is False AND should_drop is False
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME, return_value=True)
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME, return_value=True)
 @mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=False)
 def test_drop_package_no_mismatch_no_drop(
     mock_confirm,
@@ -605,14 +611,14 @@ def test_drop_package_no_mismatch_no_drop(
 # Test drop_package when there is no distribution mismatch AND distribution = external AND auto_yes is True
 # Test drop_package when there is distribution mismatch AND distribution = external AND auto_yes is False AND should_drop is True
 # Test drop_package when there is distribution mismatch AND distribution = external AND auto_yes is True
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(f"{TEARDOWN_MODULE}.cc.warning")
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
 @mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=True)
-@mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(APP_PACKAGE_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
 @pytest.mark.parametrize(
     "auto_yes_param, is_pkg_distribution_same",
     [(False, True), (False, False), (True, True), (True, False)],
@@ -668,7 +674,7 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
     mock_execute.mock_calls == expected
     if not is_pkg_distribution_same:
         mock_warning.assert_any_call(
-            "Continuing to execute `snow app teardown` on application package app_pkg with distribution 'external'."
+            "Dropping application package app_pkg with distribution 'external'."
         )
     if not auto_yes_param:
         mock_warning.assert_any_call(
@@ -679,12 +685,12 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
 
 # Test drop_package when there is no distribution mismatch AND distribution = internal AND special comment is True
 # Test drop_package when there is distribution mismatch AND distribution = internal AND special comment is True
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
-@mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
+@mock.patch(APP_PACKAGE_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
 @mock.patch(f"{TEARDOWN_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "auto_yes_param, is_pkg_distribution_same",  # auto_yes_param should have no effect on the test
@@ -742,12 +748,11 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
     mock_drop_generic_object.assert_called_once()
     if not is_pkg_distribution_same:
         mock_warning.assert_any_call(
-            "Continuing to execute `snow app teardown` on application package app_pkg with distribution 'internal'."
+            "Dropping application package app_pkg with distribution 'internal'."
         )
 
 
 # Test drop_package when there is no distribution mismatch AND distribution = internal AND special comment is True AND name is quoted
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
 @pytest.mark.parametrize(
@@ -761,21 +766,13 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
 )
 def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop(
     mock_get_distribution,
-    mock_execute_sql,
-    mock_execute_na,
+    mock_execute,
     auto_yes_param,
     special_comment,
     temp_dir,
     mock_cursor,
 ):
     mock_get_distribution.return_value = "internal"
-
-    # We are mocking _execute_query on both NativeAppManager and SqlExecutor. Attaching both to a single mock to verify the order of calls.
-    # The first 4 calls are expected to be on SqlExecutor, and the rest on NativeAppManager.
-    mock_execute = mock.MagicMock()
-    mock_execute.attach_mock(mock_execute_na, "execute_na")
-    mock_execute.attach_mock(mock_execute_sql, "execute_sql")
-
     side_effects, expected = mock_execute_helper(
         [
             # Show app pkg
@@ -826,8 +823,7 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
         ]
     )
 
-    mock_execute_sql.side_effect = side_effects[::3]
-    mock_execute_na.side_effect = side_effects[4::]
+    mock_execute.side_effect = side_effects
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -848,11 +844,11 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
 
 # Test drop_package when there is no distribution mismatch AND distribution = internal AND without special comment AND auto_yes is False AND should_drop is False
 # Test drop_package when there is distribution mismatch AND distribution = internal AND without special comment AND auto_yes is False AND should_drop is False
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
 @mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=False)
 @mock.patch(f"{TEARDOWN_MODULE}.cc.warning")
 @pytest.mark.parametrize("is_pkg_distribution_same", [True, False])
@@ -906,7 +902,7 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
     mock_execute.mock_calls == expected
     if not is_pkg_distribution_same:
         mock_warning.assert_any_call(
-            "Continuing to execute `snow app teardown` on application package app_pkg with distribution 'internal'."
+            "Dropping application package app_pkg with distribution 'internal'."
         )
 
 
@@ -914,13 +910,13 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
 # Test drop_package when there is no distribution mismatch AND distribution = internal AND without special comment AND auto_yes is True
 # Test drop_package when there is distribution mismatch AND distribution = internal AND without special comment AND auto_yes is False AND should_drop is True
 # Test drop_package when there is distribution mismatch AND distribution = internal AND without special comment AND auto_yes is True
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME)
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
 @mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=True)
-@mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(APP_PACKAGE_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
 @pytest.mark.parametrize(
     "auto_yes_param, is_pkg_distribution_same",  # auto_yes_param should have no effect on the test
     [(True, True), (True, False), (False, True), (False, False)],
@@ -978,12 +974,12 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_allows_drop(
 
 
 # Test idempotent drop_package()
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
-@mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
+@mock.patch(APP_PACKAGE_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME, return_value=True)
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME, return_value=True)
 @pytest.mark.parametrize(
     "auto_yes_param",
     [False, True],  # This should have no effect on the test
