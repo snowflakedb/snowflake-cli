@@ -28,14 +28,19 @@ signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 
 
 cd ..\..
+dir /r .
 candle ^
     -dSnowflakeCLIVersion=%CLI_VERSION% ^
     scripts\packaging\win\snowflake_cli.wxs ^
     scripts\packaging\win\snowflake_cli_exitdlg.wxs
+
+  dir /r .
 light snowflake_cli.wixobj ^
     snowflake_cli_exitdlg.wixobj ^
     -cultures:en-us ^
     -loc scripts\packaging\win\snowflake_cli_en-us.wxl ^
     -ext WixUIExtension ^
     -ext WixUtilExtension ^
-    -o dist\snowflake-cli-windows_x86_64.msi
+    -o dist\snowflake-cli-%CLI_VERSION%-windows_x86_64.msi
+
+dir /r .
