@@ -53,7 +53,7 @@ def test_command_context_is_passed_to_snowflake_connection(
     mock_ctx.command_path = cmd
     mock_command_info.return_value = expected
 
-    connect_to_snowflake()
+    connect_to_snowflake(connection_name="default")
 
     mock_connect.assert_called_once_with(
         application=expected,

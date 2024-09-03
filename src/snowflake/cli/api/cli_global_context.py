@@ -184,6 +184,7 @@ class _CliGlobalContextManager:
         Returns a connection for our configured context from the global active
         connection cache singleton, possibly creating a new one and caching it.
         """
+        self.connection_context.validate_and_complete()
         return _CONNECTION_CACHE[self.connection_context]
 
     def _register_project_definition(self):

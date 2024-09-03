@@ -255,6 +255,13 @@ class ConnectionContext:
             "token_file_path": self.token_file_path,
         }
 
+    def validate_and_complete(self):
+        """
+        Ensure we can create a connection from this context.
+        """
+        if not self._temporary_connection and not self._connection_name:
+            self._connection_name = get_default_connection_name()
+
     def build_connection(self):
         from snowflake.cli._app.snow_connector import connect_to_snowflake
 
@@ -266,10 +273,6 @@ class ConnectionContext:
                 message="Bad owner or permissions.*",
                 module="snowflake.connector.config_manager",
             )
-
-        # ensure we have one of connection_name / temporary_connection
-        if not self.temporary_connection and not self.connection_name:
-            self._connection_name = get_default_connection_name()
 
         return connect_to_snowflake(
             temporary_connection=self._temporary_connection,
