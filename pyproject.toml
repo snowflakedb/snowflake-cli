@@ -108,6 +108,7 @@ build-all = [
   "./scripts/packaging/build_binaries.sh",
   "./scripts/packaging/build_packages.sh",
 ]
+win-build-version = ["python ./scripts/packaging/win/build_version.py"]
 
 [tool.hatch.envs.e2e]
 template = "e2e"

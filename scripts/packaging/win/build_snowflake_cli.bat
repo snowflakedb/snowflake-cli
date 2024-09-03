@@ -9,7 +9,7 @@ python.exe --version
 python.exe -m pip install --upgrade pip uv hatch
 
 @echo off
-FOR /F "delims=" %%I IN ('python.exe scripts\packaging\win\build_version.py') DO SET CLI_VERSION=%%I
+FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION=%%I
 echo %CLI_VERSION%
 
 set CONTENTSDIR="snowflake-cli-%CLI_VERSION%"
