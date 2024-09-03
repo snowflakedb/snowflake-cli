@@ -26,7 +26,7 @@
         <DirectoryRef Id="TESTFILEPRODUCTDIR">
             <Component Id="snowsql.exe" Guid="2240777C-49B9-4D5F-ADF3-37483C0D7A61" Win64="yes">
                 <Environment Id="PATH" Name="PATH" Value="[TESTFILEPRODUCTDIR]" Permanent="no" Part="last" Action="set" System="yes"/>
-                <File Id="snow.exe" Source="dist\snow.exe" KeyPath="yes" Checksum="yes"/>
+                <File Id="snow.exe" Source="dist\dist\snow.exe" KeyPath="yes" Checksum="yes"/>
             </Component>
         </DirectoryRef>
         <Feature Id="MainApplication" Title="Snowflake SnowflakeCLI" Level="1">
