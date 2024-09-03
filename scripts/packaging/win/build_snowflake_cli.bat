@@ -35,7 +35,7 @@ candle ^
 light snowflake_cli.wixobj ^
     snowflake_cli_exitdlg.wixobj ^
     -cultures:en-us ^
-    -loc scripts\packaging\win\snowsql_en-us.wxl ^
+    -loc scripts/packaging/win/snowflake_cli_en-us.wxl ^
     -ext WixUIExtension ^
     -ext WixUtilExtension ^
     -o dist\snowflake-cli-windows_x86_64.msi
