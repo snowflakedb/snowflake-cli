@@ -23,18 +23,18 @@ jobs:
           SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
         run: |
           PARENT_DIR=$(dirname "${{ github.workspace }}")
-          PRIVATE_KEY_PATH=$PARENT_DIR/.ssh/key.p8
+          PRIVATE_KEY_FILE=$PARENT_DIR/.ssh/key.p8
           echo "PARENT_DIR=$PARENT_DIR" >> $GITHUB_ENV
-          echo "PRIVATE_KEY_PATH=$PRIVATE_KEY_PATH" >> $GITHUB_ENV
+          echo "PRIVATE_KEY_FILE=$PRIVATE_KEY_FILE" >> $GITHUB_ENV
 
           mkdir $PARENT_DIR/.ssh
-          echo "${SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY}" > $PRIVATE_KEY_PATH
-          sudo chmod 600 $PRIVATE_KEY_PATH
+          echo "${SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY}" > $PRIVATE_KEY_FILE
+          sudo chmod 600 $PRIVATE_KEY_FILE
       - name: Test connection
         env:
           TERM: unknown
           SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR: SNOWFLAKE_JWT
           SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH: ${{ env.PRIVATE_KEY_PATH }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE: ${{ env.PRIVATE_KEY_FILE }}
         run: snow connection test -c integration | grep Status

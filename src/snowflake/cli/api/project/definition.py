@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import yaml
+from click import ClickException
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.project_definition import (
@@ -45,8 +46,13 @@ def _get_merged_definitions(paths: List[Path]) -> Optional[Definition]:
     if len(spaths) == 0:
         return None
 
+    loader = yaml.BaseLoader
+    loader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicates_constructor
+    )
+
     with spaths[0].open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as base_yml:
-        definition = yaml.load(base_yml.read(), Loader=yaml.loader.BaseLoader) or {}
+        definition = yaml.load(base_yml.read(), Loader=loader) or {}
 
     for override_path in spaths[1:]:
         with override_path.open(
@@ -90,3 +96,20 @@ def default_role():
 def default_application(project_name: str):
     user = sanitize_identifier(get_env_username() or DEFAULT_USERNAME).lower()
     return append_to_identifier(to_identifier(project_name), f"_{user}")
+
+
+def _no_duplicates_constructor(loader, node, deep=False):
+    """
+    Raises error it there are duplicated keys on the same level in the yaml file
+    """
+    mapping = {}
+
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        value = loader.construct_object(value_node, deep=deep)
+        if key in mapping.keys():
+            raise ClickException(
+                f"While loading the project definition file, duplicate key was found: {key}"
+            )
+        mapping[key] = value
+    return loader.construct_mapping(node, deep)

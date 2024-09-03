@@ -18,11 +18,13 @@
 ## Backward incompatibility
 
 ## Deprecations
+* Renamed `private-key-path` flag to `private-key-file`, added `private-key-path` as an alias for backward compatibility.
 
 ## New additions
 * Added templates expansion of arbitrary files for Native Apps through `templates` processor.
 
 ## Fixes and improvements
+* Duplicated keys in `snowflake.yml` are now detected and reported.
 
 
 # v3.0.0

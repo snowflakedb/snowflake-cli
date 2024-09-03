@@ -224,9 +224,10 @@ def add(
         prompt="Authentication method",
         help="Chosen authenticator, if other than password-based",
     ),
-    private_key_path: str = typer.Option(
+    private_key_file: str = typer.Option(
         EmptyInput(),
         "--private-key",
+        "--private-key-path",
         "-k",
         click_type=OptionalPrompt(),
         prompt="Path to private key file",
@@ -268,7 +269,7 @@ def add(
             warehouse=warehouse,
             role=role,
             authenticator=authenticator,
-            private_key_path=private_key_path,
+            private_key_file=private_key_file,
             token_file_path=token_file_path,
         ),
     )
