@@ -156,35 +156,34 @@ def test_migrating_native_app_raises_error(
     "duplicated_entity",
     [
         """
-    - name: procedureName
-      handler: "hello"
-      signature:
-        - name: "name"
-          type: "string"
+    - name: test
+      handler: "test"
+      signature: ""
       returns: string
+      runtime: "3.10"
     """,
         """
-    - name: procedureName
-      stage: streamlit
-      query_warehouse: test_warehouse
-      main_file: "streamlit_app.py"
-      title: "My Fancy Streamlit"
+streamlit:
+  name: test
+  stage: streamlit
+  query_warehouse: test_warehouse
+  main_file: "streamlit_app.py"
+  title: "My Fancy Streamlit"
     """,
         """
-    - name: anotherProcedure
-      handler: "hello"
-      signature:
-        - name: "name"
-          type: "string"
+    - name: test
+      handler: "test"
+      signature: ""
       returns: string
-      handler: "app.hello"
+      handler: test
+      runtime: "3.10"
     """,
     ],
 )
 def test_migrating_a_file_with_duplicated_keys_raises_an_error(
     runner, project_directory, os_agnostic_snapshot, duplicated_entity
 ):
-    with project_directory("migration_multiple_entities") as pd:
+    with project_directory("snowpark_procedures") as pd:
         definition_path = pd / "snowflake.yml"
 
         with open(definition_path, "a") as definition_file:

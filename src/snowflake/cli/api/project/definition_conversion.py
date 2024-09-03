@@ -35,8 +35,9 @@ def convert_project_definition_to_v2(
 
     data = {
         "definition_version": "2",
-        "entities": streamlit_data.get("entities", {})
-        | snowpark_data.get("entities", {}),
+        "entities": get_list_of_all_entities(
+            snowpark_data.get("entities", {}), streamlit_data.get("entities", {})
+        ),
         "mixins": snowpark_data.get("mixins", None),
         "env": envs,
     }
@@ -181,3 +182,13 @@ def _process_streamlit_files(
     elif file_name is None and Path(default).exists():
         file_name = default
     return file_name
+
+
+def get_list_of_all_entities(
+    snowpark_entities: Dict[str, Any], streamlit_entities: Dict[str, Any]
+):
+    if snowpark_entities.keys() & streamlit_entities.keys():
+        raise ClickException(
+            "In your project, streamlit and snowpark entities share the same name. Please rename them and try again."
+        )
+    return snowpark_entities | streamlit_entities
