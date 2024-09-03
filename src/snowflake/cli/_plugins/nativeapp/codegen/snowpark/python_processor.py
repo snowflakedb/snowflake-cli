@@ -323,7 +323,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                 predicate=is_python_file_artifact,
             )
         ):
-            src_file_name = src_file.relative_to(bundle_map.project_root)
+            src_file_name = src_file.relative_to(self._bundle_ctx.project_root)
             cc.step(f"Processing Snowpark annotations from {src_file_name}")
             collected_extension_function_json = _execute_in_sandbox(
                 py_file=str(dest_file.resolve()),
