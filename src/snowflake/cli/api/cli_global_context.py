@@ -57,14 +57,14 @@ class _CliGlobalContextManager:
     def clone(self) -> _CliGlobalContextManager:
         mgr = _CliGlobalContextManager()
         mgr.set_connection_context(self.connection_context.clone())
-        # definition manager omitted; lazily evaluated
+        mgr._set_definition_manager(self.definition_manager)  # noqa: SLF001
         mgr.set_enable_tracebacks(self.enable_tracebacks)
-        mgr.set_output_format(self._output_format)
+        mgr.set_output_format(self.output_format)
         mgr.set_verbose(self.verbose)
         mgr.set_experimental(self.experimental)
-        mgr.set_project_path_arg(self._project_path_arg)
-        mgr.set_project_env_overrides_args(self._project_env_overrides_args.copy())
-        mgr.set_override_project_definition(self._override_project_definition)
+        mgr.set_project_path_arg(self.project_path_arg)
+        mgr.set_project_env_overrides_args(self.project_env_overrides_args.copy())
+        mgr.set_override_project_definition(self.override_project_definition)
         mgr.set_silent(self.silent)
         return mgr
 
@@ -104,30 +104,41 @@ class _CliGlobalContextManager:
         self._experimental = value
 
     @property
+    def definition_manager(self) -> Optional[DefinitionManager]:
+        return self._definition_manager
+
+    def _set_definition_manager(self, definition_manager: Optional[DefinitionManager]):
+        """
+        This should only be called by the clone() method.
+        """
+        self._definition_manager = definition_manager
+
+    @property
+    def override_project_definition(self):
+        return self._override_project_definition
+
+    def set_override_project_definition(
+        self, override_project_definition: Optional[ProjectDefinition]
+    ):
+        # TODO: remove; for implicit v1 <-> v2 conversion
+        self._override_project_definition = override_project_definition
+
+    @property
     def project_definition(self) -> Optional[ProjectDefinition]:
         # TODO: remove; for implicit v1 <-> v2 conversion
         if self._override_project_definition:
             return self._override_project_definition
 
-        if not self._definition_manager:
-            self._register_project_definition()
-
+        self._ensure_definition_manager()
         return (
             self._definition_manager.project_definition
             if self._definition_manager
             else None
         )
 
-    def set_override_project_definition(
-        self, override_project_definition: ProjectDefinition
-    ):
-        # TODO: remove; for implicit v1 <-> v2 conversion
-        self._override_project_definition = override_project_definition
-
     @property
     def project_root(self) -> Optional[Path]:
-        if not self._definition_manager:
-            self._register_project_definition()
+        self._ensure_definition_manager()
         return (
             Path(self._definition_manager.project_root)
             if self._definition_manager
@@ -136,8 +147,7 @@ class _CliGlobalContextManager:
 
     @property
     def template_context(self) -> dict:
-        if not self._definition_manager:
-            self._register_project_definition()
+        self._ensure_definition_manager()
         return (
             self._definition_manager.template_context
             if self._definition_manager
@@ -155,9 +165,8 @@ class _CliGlobalContextManager:
     def project_path_arg(self) -> Optional[str]:
         return self._project_path_arg
 
-    def set_project_path_arg(self, project_path_arg: str):
-        # force re-calculation of DefinitionManager + dependent attrs
-        self._definition_manager = None
+    def set_project_path_arg(self, project_path_arg: Optional[str]):
+        self._clear_definition_manager()
         self._project_path_arg = project_path_arg
 
     @property
@@ -168,7 +177,7 @@ class _CliGlobalContextManager:
         self, project_env_overrides_args: dict[str, str]
     ):
         # force re-calculation of DefinitionManager + dependent attrs
-        self._definition_manager = None
+        self._clear_definition_manager()
         self._project_env_overrides_args = project_env_overrides_args
 
     @property
@@ -187,12 +196,16 @@ class _CliGlobalContextManager:
         self.connection_context.validate_and_complete()
         return _CONNECTION_CACHE[self.connection_context]
 
-    def _register_project_definition(self):
+    def _ensure_definition_manager(self):
         """
-        Sets project_definition, project_root, and template_context based on the
-        values of project_path_arg, project_env_overrides_args, and project_is_optional.
+        (Re-)parses project definition based on project args (project_path_arg and
+        project_env_overrides_args).
         """
         from snowflake.cli.api.project.definition_manager import DefinitionManager
+
+        if self._definition_manager:
+            # don't need to re-parse definition if we already have one
+            return
 
         dm = DefinitionManager(
             self.project_path_arg,
@@ -205,8 +218,12 @@ class _CliGlobalContextManager:
 
         self._definition_manager = dm
 
-        # TODO: remove; for implicit v1 <-> v2 conversion
-        self._override_project_definition = None
+    def _clear_definition_manager(self):
+        """
+        Force re-calculation of definition_manager and its dependent attributes
+        (template_context, project_definition, and project_root).
+        """
+        self._definition_manager = None
 
 
 class _CliGlobalContextAccess:
