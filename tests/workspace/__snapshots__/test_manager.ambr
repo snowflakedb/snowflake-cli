@@ -181,6 +181,13 @@
   '''
   definition_version: '2'
   entities:
+    app:
+      from:
+        target: pkg
+      identifier: myapp_app
+      meta:
+        warehouse: app_wh
+      type: application
     func1:
       artifacts:
       - dest: my_snowpark_project
@@ -204,6 +211,28 @@
         type: variant
       stage: dev_deployment
       type: function
+    pkg:
+      artifacts:
+      - dest: ./
+        src: app/*
+      - dest: ./
+        processors:
+        - name: native app setup
+        - name: templates
+          properties:
+            foo: bar
+        src: to_process/*
+      bundle_root: output/bundle/
+      deploy_root: output/deploy/
+      distribution: external
+      generated_root: __generated/
+      identifier: myapp_pkg
+      manifest: app/manifest.yml
+      meta:
+        role: pkg_role
+      scratch_stage: app_src.scratch
+      stage: app_src.stage
+      type: application package
     procedureName:
       artifacts:
       - dest: my_snowpark_project
@@ -277,6 +306,26 @@
           - name: "name"
             type: "string"
         returns: string
-  
+  native_app:
+    name: myapp
+    source_stage: app_src.stage
+    scratch_stage: app_src.scratch
+    artifacts:
+      - src: app/*
+        dest: ./
+      - src: to_process/*
+        dest: ./
+        processors:
+          - native app setup
+          - name: templates
+            properties:
+              foo: bar
+    package:
+      role: pkg_role
+      distribution: external
+    application:
+      name: myapp_app
+      warehouse: app_wh
+      debug: true
   '''
 # ---
