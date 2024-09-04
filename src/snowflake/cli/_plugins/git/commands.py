@@ -98,6 +98,19 @@ def _validate_origin_url(url: str) -> None:
         raise ClickException("Url address should start with 'https'")
 
 
+def _unique_new_object_name(
+    om: ObjectManager, object_type: ObjectType, proposed_name: str
+) -> str:
+    result = proposed_name
+    i = 1
+    while om.object_exists(
+        object_type=object_type.value.cli_name, fqn=FQN.from_string(result)
+    ):
+        result = proposed_name + str(i)
+        i += 1
+    return result
+
+
 @app.command("setup", requires_connection=True)
 def setup(
     repository_name: FQN = RepoNameArgument,
@@ -128,8 +141,13 @@ def setup(
     should_create_secret = False
     secret_name = None
     if secret_needed:
+        default_secret_name = _unique_new_object_name(
+            om,
+            object_type=ObjectType.SECRET,
+            proposed_name=f"{repository_name.name}_secret",
+        )
         secret_name = (
-            FQN.from_string(f"{repository_name.name}_secret")
+            FQN.from_string(default_secret_name)
             .set_schema(repository_name.schema)
             .set_database(repository_name.database)
         )
@@ -149,9 +167,17 @@ def setup(
 
     api_integration = typer.prompt(
         "API integration identifier (will be created if not exists)",
-        default=f"{repository_name.name}_api_integration",
+        default=_unique_new_object_name(
+            om,
+            object_type=ObjectType.INTEGRATION,
+            proposed_name=f"{repository_name.name}_api_integration",
+        ),
     )
-    api_integration_fqn = FQN.from_string(api_integration)
+    api_integration_fqn = (
+        FQN.from_string(api_integration)
+        .set_schema(repository_name.schema)
+        .set_database(repository_name.database)
+    )
 
     if should_create_secret:
         manager.create_password_secret(
