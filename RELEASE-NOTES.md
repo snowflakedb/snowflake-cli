@@ -42,7 +42,7 @@
 
 ## Deprecations
 * Renamed `private-key-path` flag to `private-key-file`, added `private-key-path` as an alias for backward compatibility.
-* 
+*
 ## New additions
 * Added `snow spcs service execute-job` command, which supports creating and executing a job service in the current schema.
 * Added `snow app events` command to fetch logs and traces from local and customer app installations.
