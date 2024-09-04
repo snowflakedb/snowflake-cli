@@ -29,9 +29,10 @@ import pytest
 import yaml
 
 from snowflake.cli.api.cli_global_context import (
+    fork_cli_context,
     get_cli_context_manager,
-    _CONNECTION_CACHE,
 )
+from snowflake.cli.api.connections import OpenConnectionCache
 from snowflake.cli._app.cli_app import app_factory
 from typer import Typer
 from typer.testing import CliRunner
@@ -215,9 +216,14 @@ def project_directory(temporary_working_directory, test_root_path):
 
 @pytest.fixture(autouse=True)
 def reset_global_context_after_each_test(request):
-    get_cli_context_manager().reset()
-    yield
-    _CONNECTION_CACHE.clear()
+    with fork_cli_context():
+        connection_cache = OpenConnectionCache()
+        cli_context_manager = get_cli_context_manager()
+        cli_context_manager.reset()
+        try:
+            yield
+        finally:
+            connection_cache.clear()
 
 
 # This automatically used fixture isolates default location
