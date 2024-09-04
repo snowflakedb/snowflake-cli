@@ -94,7 +94,7 @@ def bundle(
     return MessageResult(f"Bundle generated at {bundle_map.deploy_root()}")
 
 
-@ws.command(requires_connection=True)
+@ws.command(requires_connection=True, hidden=True)
 @with_project_definition()
 def deploy(
     entity_id: str = typer.Option(
@@ -157,7 +157,7 @@ def deploy(
     return MessageResult("Deployed successfully.")
 
 
-@ws.command(requires_connection=True)
+@ws.command(requires_connection=True, hidden=True)
 @with_project_definition()
 def drop(
     entity_id: str = typer.Option(
@@ -183,7 +183,7 @@ def drop(
     )
 
 
-@ws.command(requires_connection=True)
+@ws.command(requires_connection=True, hidden=True)
 @with_project_definition()
 def validate(
     entity_id: str = typer.Option(
