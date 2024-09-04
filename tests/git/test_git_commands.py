@@ -447,6 +447,51 @@ def test_setup_create_secret_create_api(
     )
 
 
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+def test_api_integration_and_secrets_get_unique_names(
+    mock_om_describe, mock_connector, runner, mock_ctx
+):
+    mock_om_describe.side_effect = [
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),  # repo does not exist
+        # 3 first secret names does exist
+        None,
+        None,
+        None,
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # 4 first api integration names does exist
+        None,
+        None,
+        None,
+        None,
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+    ]
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    communication = "\n".join([EXAMPLE_URL, "y", "", "john_doe", "admin123", "", ""])
+    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith(
+        "\n".join(
+            [
+                "Origin url: https://github.com/an-example-repo.git",
+                "Use secret for authentication? [y/N]: y",
+                "Secret identifier (will be created if not exists) [repo_name_secret3]: ",
+                "Secret 'repo_name_secret3' will be created",
+                "username: john_doe",
+                "password/token: ",
+                "API integration identifier (will be created if not exists) [repo_name_api_integration4]: ",
+                "Secret 'repo_name_secret3' successfully created.",
+                "API integration 'repo_name_api_integration4' successfully created.",
+            ]
+        )
+    )
+
+
 @pytest.mark.parametrize(
     "repository_path, expected_stage, expected_files",
     [
