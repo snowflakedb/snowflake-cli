@@ -201,7 +201,7 @@ class _CliGlobalContextManager:
                 )
             self._definition_manager = dm
 
-        return dm
+        return self._definition_manager
 
     def _clear_definition_manager(self):
         """
