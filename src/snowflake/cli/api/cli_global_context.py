@@ -82,10 +82,6 @@ class _CliGlobalContextManager:
         super().__setattr__(prop, val)
 
     @property
-    def definition_manager(self) -> DefinitionManager | None:
-        return self._definition_manager
-
-    @property
     def project_definition(self) -> ProjectDefinition | None:
         if self.override_project_definition:
             return self.override_project_definition

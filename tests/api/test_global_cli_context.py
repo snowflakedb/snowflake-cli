@@ -36,6 +36,7 @@ def test_reset_global_context_mgr():
     mgr.output_format = OutputFormat.JSON
     mgr.connection_context.database = "blahblah"
     mgr.connection_context.password = "****"
+    mgr.override_project_definition = "project definition"
     assert mgr.connection_cache == _CONNECTION_CACHE
     mgr.connection_cache = None
     mgr.reset()
