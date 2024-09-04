@@ -74,16 +74,6 @@ def migrate(
 
 @ws.command(requires_connection=True, hidden=True)
 @with_project_definition()
-def validate(
-    **options,
-):
-    """Validates the project definition file."""
-    # If we get to this point, @with_project_definition() has already validated the PDF schema
-    return MessageResult("Project definition is valid.")
-
-
-@ws.command(requires_connection=True, hidden=True)
-@with_project_definition()
 def bundle(
     entity_id: str = typer.Option(
         help=f"""The ID of the entity you want to bundle.""",
@@ -180,7 +170,6 @@ def drop(
     """
     Drops the specified entity.
     """
-
     cli_context = get_cli_context()
     ws = WorkspaceManager(
         project_definition=cli_context.project_definition,
@@ -191,4 +180,25 @@ def drop(
         entity_id,
         EntityActions.DROP,
         force_drop=force,
+    )
+
+
+@ws.command(requires_connection=True)
+@with_project_definition()
+def validate(
+    entity_id: str = typer.Option(
+        help=f"""The ID of the entity you want to validate.""",
+    ),
+    **options,
+):
+    """Validates the specified entity."""
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+
+    ws.perform_action(
+        entity_id,
+        EntityActions.VALIDATE,
     )

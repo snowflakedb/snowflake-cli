@@ -12,29 +12,49 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from shlex import split
 from tests.project.fixtures import *
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
-def test_nativeapp_validate(test_project, nativeapp_project_directory, runner):
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app validate", "napp_init_v1"],
+        ["app validate", "napp_init_v2"],
+        ["ws validate --entity-id=pkg", "napp_init_v2"],
+    ],
+)
+def test_nativeapp_validate(command, test_project, nativeapp_project_directory, runner):
     with nativeapp_project_directory(test_project):
         # validate the app's setup script
-        result = runner.invoke_with_connection(["app", "validate"])
+        result = runner.invoke_with_connection(split(command))
         assert result.exit_code == 0, result.output
-        assert "Native App validation succeeded." in result.output
+        if command.startswith("ws"):
+            assert "Setup script is valid" in result.output
+        else:
+            assert "Native App validation succeeded." in result.output
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
-def test_nativeapp_validate_failing(test_project, nativeapp_project_directory, runner):
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app validate", "napp_init_v1"],
+        ["app validate", "napp_init_v2"],
+        ["ws validate --entity-id=pkg", "napp_init_v2"],
+    ],
+)
+def test_nativeapp_validate_failing(
+    command, test_project, nativeapp_project_directory, runner
+):
     with nativeapp_project_directory(test_project):
         # Create invalid SQL file
         Path("app/setup_script.sql").write_text("Lorem ipsum dolor sit amet")
 
         # validate the app's setup script, this will fail
         # because we include an empty file
-        result = runner.invoke_with_connection(["app", "validate"])
+        result = runner.invoke_with_connection(split(command))
         assert result.exit_code == 1, result.output
         assert "Snowflake Native App setup script failed validation." in result.output
         assert "syntax error" in result.output

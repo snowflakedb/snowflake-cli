@@ -85,6 +85,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         recursive: bool,
         paths: List[Path],
         validate: bool,
+        stage_fqn: Optional[str] = None,
     ):
         model = self._entity_model
         package_name = model.fqn.identifier
@@ -106,7 +107,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         with get_sql_executor().use_role(package_role):
             # 3. Upload files from deploy root local folder to the above stage
-            stage_fqn = f"{package_name}.{model.stage}"
+            if not stage_fqn:
+                stage_fqn = f"{package_name}.{model.stage}"
             stage_schema = extract_schema(stage_fqn)
             sync_deploy_root_with_stage(
                 console=ctx.console,
@@ -160,6 +162,36 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             package_role=package_role,
             force_drop=force_drop,
         )
+
+    def action_validate(self, ctx: ActionContext):
+        model = self._entity_model
+        package_name = model.fqn.identifier
+        stage_fqn = f"{package_name}.{model.stage}"
+        if model.meta and model.meta.role:
+            package_role = model.meta.role
+        else:
+            package_role = ctx.default_role
+
+        def deploy_to_scratch_stage_fn():
+            self.action_deploy(
+                ctx=ctx,
+                prune=True,
+                recursive=True,
+                paths=[],
+                validate=False,
+                stage_fqn=model.scratch_stage,
+            )
+
+        self.validate_setup_script(
+            console=ctx.console,
+            package_name=package_name,
+            package_role=package_role,
+            stage_fqn=stage_fqn,
+            use_scratch_stage=True,
+            scratch_stage_fqn=model.scratch_stage,
+            deploy_to_scratch_stage_fn=deploy_to_scratch_stage_fn,
+        )
+        ctx.console.message("Setup script is valid")
 
     @staticmethod
     def get_existing_app_pkg_info(
