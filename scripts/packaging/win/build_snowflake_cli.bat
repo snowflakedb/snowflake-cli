@@ -22,8 +22,10 @@ REM exit
 @echo on
 python.exe -m hatch -e packaging run pyinstaller --name snow --onedir --clean --noconfirm --noconsole --contents-directory=%CONTENTSDIR% %ENTRYPOINT%
 
+tar -a -c -f snow.zip dist\snow
+
 cd dist\snow
-dir .
+dir /r .
 signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 
 
