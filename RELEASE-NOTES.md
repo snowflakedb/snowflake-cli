@@ -27,6 +27,7 @@
 * Duplicated keys in `snowflake.yml` are now detected and reported.
 * Fixed git execute not working with upper case in directory name.
 * Fixed `snow git setup` command behaviour for fully qualified repository names.
+* `snow streamlit deploy` will check for existing streamlit instance before deploying anything.
 
 # v3.0.0
 ## Backward incompatibility
