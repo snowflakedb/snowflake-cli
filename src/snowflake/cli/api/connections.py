@@ -18,6 +18,7 @@ import asyncio
 import logging
 import re
 import warnings
+from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
 from typing import Optional
 
@@ -31,112 +32,55 @@ logger = logging.getLogger(__name__)
 schema_pattern = re.compile(r".+\..+")
 
 
+@dataclass
 class ConnectionContext:
-    # FIXME: can reduce duplication (using config.ConnectionConfig) and boilerplate
+    # FIXME: can reduce duplication using config.ConnectionConfig
+    connection_name: Optional[str] = None
+    account: Optional[str] = None
+    database: Optional[str] = None
+    role: Optional[str] = None
+    schema: Optional[str] = None
+    user: Optional[str] = None
+    password: Optional[str] = field(default=None, repr=False)
+    authenticator: Optional[str] = None
+    private_key_file: Optional[str] = None
+    warehouse: Optional[str] = None
+    mfa_passcode: Optional[str] = None
+    enable_diag: Optional[bool] = False
+    diag_log_path: Optional[Path] = None
+    diag_allowlist_path: Optional[Path] = None
+    temporary_connection: bool = False
+    session_token: Optional[str] = None
+    master_token: Optional[str] = None
+    token_file_path: Optional[Path] = None
 
-    def __init__(self):
-        self._connection_name: Optional[str] = None
-        self._account: Optional[str] = None
-        self._database: Optional[str] = None
-        self._role: Optional[str] = None
-        self._schema: Optional[str] = None
-        self._user: Optional[str] = None
-        self._password: Optional[str] = None
-        self._authenticator: Optional[str] = None
-        self._private_key_file: Optional[str] = None
-        self._warehouse: Optional[str] = None
-        self._mfa_passcode: Optional[str] = None
-        self._enable_diag: Optional[bool] = False
-        self._diag_log_path: Optional[Path] = None
-        self._diag_allowlist_path: Optional[Path] = None
-        self._temporary_connection: bool = False
-        self._session_token: Optional[str] = None
-        self._master_token: Optional[str] = None
-        self._token_file_path: Optional[Path] = None
+    VALIDATED_FIELD_NAMES = ["schema"]
 
     def clone(self) -> ConnectionContext:
-        ctx = ConnectionContext()
-        ctx.set_connection_name(self.connection_name)
-        ctx.set_account(self.account)
-        ctx.set_database(self.database)
-        ctx.set_role(self.role)
-        ctx.set_schema(self.schema)
-        ctx.set_user(self.user)
-        ctx.set_password(self.password)
-        ctx.set_authenticator(self.authenticator)
-        ctx.set_private_key_file(self.private_key_file)
-        ctx.set_warehouse(self.warehouse)
-        ctx.set_mfa_passcode(self.mfa_passcode)
-        ctx.set_enable_diag(self.enable_diag)
-        ctx.set_diag_log_path(self.diag_log_path)
-        ctx.set_diag_allowlist_path(self.diag_allowlist_path)
-        ctx.set_temporary_connection(self.temporary_connection)
-        ctx.set_session_token(self.session_token)
-        ctx.set_master_token(self.master_token)
-        ctx.set_token_file_path(self.token_file_path)
-        return ctx
+        return replace(self)
 
     def update(self, **updates):
         """
         Given a dictionary of property (key, value) mappings, update properties
         of this context object with equivalent names to the keys.
 
-        Raises ValueError if a non-(settable-)property is specified as a key.
+        Raises KeyError if a non-property is specified as a key.
         """
+        field_map = {field.name: field for field in fields(self)}
         for (key, value) in updates.items():
             # ensure key represents a property
-            prop = getattr(type(self), key)
-            if not isinstance(prop, property):
-                raise ValueError(
-                    f"{key} is not a property of {self.__class__.__name__}"
-                )
+            if key not in field_map:
+                raise KeyError(f"{key} is not a field of {self.__class__.__name__}")
+            setattr(self, key, value)
 
-            # our properties don't have setters (fset) but they do follow a convention
-            try:
-                setter = getattr(self, f"set_{key}")
-                setter(value)
-            except AttributeError:
-                raise ValueError(
-                    f"set_{key}() does not exist on {self.__class__.__name__}"
-                )
+    def __setattr__(self, prop, val):
+        """Runs registered validators before setting fields."""
+        if prop in self.VALIDATED_FIELD_NAMES:
+            validate = getattr(self, f"validate_{prop}")
+            validate(val)
+        super().__setattr__(prop, val)
 
-    def __repr__(self):
-        items = [f"{k}={repr(v)}" for (k, v) in self.__dict__.items() if v is not None]
-        return f"{self.__class__.__name__}({', '.join(items)})"
-
-    @property
-    def connection_name(self) -> Optional[str]:
-        return self._connection_name
-
-    def set_connection_name(self, value: Optional[str]):
-        self._connection_name = value
-
-    @property
-    def account(self) -> Optional[str]:
-        return self._account
-
-    def set_account(self, value: Optional[str]):
-        self._account = value
-
-    @property
-    def database(self) -> Optional[str]:
-        return self._database
-
-    def set_database(self, value: Optional[str]):
-        self._database = value
-
-    @property
-    def role(self) -> Optional[str]:
-        return self._role
-
-    def set_role(self, value: Optional[str]):
-        self._role = value
-
-    @property
-    def schema(self) -> Optional[str]:
-        return self._schema
-
-    def set_schema(self, value: Optional[str]):
+    def validate_schema(self, value: Optional[str]):
         if (
             value
             and not (value.startswith('"') and value.endswith('"'))
@@ -144,121 +88,13 @@ class ConnectionContext:
             and schema_pattern.match(value)
         ):
             raise InvalidSchemaError(value)
-        self._schema = value
-
-    @property
-    def user(self) -> Optional[str]:
-        return self._user
-
-    def set_user(self, value: Optional[str]):
-        self._user = value
-
-    @property
-    def password(self) -> Optional[str]:
-        return self._password
-
-    def set_password(self, value: Optional[str]):
-        self._password = value
-
-    @property
-    def authenticator(self) -> Optional[str]:
-        return self._authenticator
-
-    def set_authenticator(self, value: Optional[str]):
-        self._authenticator = value
-
-    @property
-    def private_key_file(self) -> Optional[str]:
-        return self._private_key_file
-
-    def set_private_key_file(self, value: Optional[str]):
-        self._private_key_file = value
-
-    @property
-    def warehouse(self) -> Optional[str]:
-        return self._warehouse
-
-    def set_warehouse(self, value: Optional[str]):
-        self._warehouse = value
-
-    @property
-    def mfa_passcode(self) -> Optional[str]:
-        return self._mfa_passcode
-
-    def set_mfa_passcode(self, value: Optional[str]):
-        self._mfa_passcode = value
-
-    @property
-    def enable_diag(self) -> Optional[bool]:
-        return self._enable_diag
-
-    def set_enable_diag(self, value: Optional[bool]):
-        self._enable_diag = value
-
-    @property
-    def diag_log_path(self) -> Optional[Path]:
-        return self._diag_log_path
-
-    def set_diag_log_path(self, value: Optional[Path]):
-        self._diag_log_path = value
-
-    @property
-    def diag_allowlist_path(self) -> Optional[Path]:
-        return self._diag_allowlist_path
-
-    def set_diag_allowlist_path(self, value: Optional[Path]):
-        self._diag_allowlist_path = value
-
-    @property
-    def temporary_connection(self) -> bool:
-        return self._temporary_connection
-
-    def set_temporary_connection(self, value: bool):
-        self._temporary_connection = value
-
-    @property
-    def session_token(self) -> Optional[str]:
-        return self._session_token
-
-    def set_session_token(self, value: Optional[str]):
-        self._session_token = value
-
-    @property
-    def master_token(self) -> Optional[str]:
-        return self._master_token
-
-    def set_master_token(self, value: Optional[str]):
-        self._master_token = value
-
-    @property
-    def token_file_path(self) -> Optional[Path]:
-        return self._token_file_path
-
-    def set_token_file_path(self, value: Optional[Path]):
-        self._token_file_path = value
-
-    def _collect_not_empty_connection_attributes(self):
-        return {
-            "account": self.account,
-            "user": self.user,
-            "password": self.password,
-            "authenticator": self.authenticator,
-            "private_key_file": self.private_key_file,
-            "database": self.database,
-            "schema": self.schema,
-            "role": self.role,
-            "warehouse": self.warehouse,
-            "session_token": self.session_token,
-            "master_token": self.master_token,
-            "token_file_path": self.token_file_path,
-        }
 
     def validate_and_complete(self):
         """
         Ensure we can create a connection from this context.
         """
-        if not self._temporary_connection and not self._connection_name:
-            self._connection_name = get_default_connection_name()
+        if not self.temporary_connection and not self.connection_name:
+            self.connection_name = get_default_connection_name()
 
     def build_connection(self):
         from snowflake.cli._app.snow_connector import connect_to_snowflake
@@ -272,15 +108,7 @@ class ConnectionContext:
                 module="snowflake.connector.config_manager",
             )
 
-        return connect_to_snowflake(
-            temporary_connection=self._temporary_connection,
-            mfa_passcode=self._mfa_passcode,
-            enable_diag=self._enable_diag,
-            diag_log_path=self._diag_log_path,
-            diag_allowlist_path=self._diag_allowlist_path,
-            connection_name=self._connection_name,
-            **self._collect_not_empty_connection_attributes(),
-        )
+        return connect_to_snowflake(**asdict(self))
 
 
 class OpenConnectionCache:
