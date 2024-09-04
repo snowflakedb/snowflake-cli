@@ -1,13 +1,57 @@
 # serializer version: 1
+# name: test_execute[@DB.SCHEMA.REPO/branches/main/s1.sql-@DB.SCHEMA.REPO/branches/main/-expected_files4]
+  '''
+  SUCCESS - @DB.SCHEMA.REPO/branches/main/s1.sql
+  +--------------------------------------------------------+
+  | File                                 | Status  | Error |
+  |--------------------------------------+---------+-------|
+  | @DB.SCHEMA.REPO/branches/main/s1.sql | SUCCESS | None  |
+  +--------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_execute[@DB.SCHEMA.REPO/branches/main/s1.sql-@db.schema.repo/branches/main/-expected_files0]
+  '''
+  SUCCESS - @db.schema.repo/branches/main/s1.sql
+  +--------------------------------------------------------+
+  | File                                 | Status  | Error |
+  |--------------------------------------+---------+-------|
+  | @db.schema.repo/branches/main/s1.sql | SUCCESS | None  |
+  +--------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_execute[@DB.schema.REPO/branches/main/a/S3.sql-@DB.schema.REPO/branches/main/-expected_files5]
+  '''
+  SUCCESS - @DB.schema.REPO/branches/main/a/S3.sql
+  +----------------------------------------------------------+
+  | File                                   | Status  | Error |
+  |----------------------------------------+---------+-------|
+  | @DB.schema.REPO/branches/main/a/S3.sql | SUCCESS | None  |
+  +----------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_execute[@DB.schema.REPO/branches/main/a/S3.sql-@db.schema.repo/branches/main/-expected_files1]
+  '''
+  SUCCESS - @db.schema.repo/branches/main/a/S3.sql
+  +----------------------------------------------------------+
+  | File                                   | Status  | Error |
+  |----------------------------------------+---------+-------|
+  | @db.schema.repo/branches/main/a/S3.sql | SUCCESS | None  |
+  +----------------------------------------------------------+
+  
+  '''
+# ---
 # name: test_execute[@db.schema.repo/branches/main/-@db.schema.repo/branches/main/-expected_files2]
   '''
   SUCCESS - @db.schema.repo/branches/main/s1.sql
-  SUCCESS - @db.schema.repo/branches/main/a/s3.sql
+  SUCCESS - @db.schema.repo/branches/main/a/S3.sql
   +----------------------------------------------------------+
   | File                                   | Status  | Error |
   |----------------------------------------+---------+-------|
   | @db.schema.repo/branches/main/s1.sql   | SUCCESS | None  |
-  | @db.schema.repo/branches/main/a/s3.sql | SUCCESS | None  |
+  | @db.schema.repo/branches/main/a/S3.sql | SUCCESS | None  |
   +----------------------------------------------------------+
   
   '''
@@ -26,24 +70,72 @@
 # name: test_execute[@repo/branches/main/-@repo/branches/main/-expected_files0]
   '''
   SUCCESS - @repo/branches/main/s1.sql
-  SUCCESS - @repo/branches/main/a/s3.sql
+  SUCCESS - @repo/branches/main/a/S3.sql
   +------------------------------------------------+
   | File                         | Status  | Error |
   |------------------------------+---------+-------|
   | @repo/branches/main/s1.sql   | SUCCESS | None  |
-  | @repo/branches/main/a/s3.sql | SUCCESS | None  |
+  | @repo/branches/main/a/S3.sql | SUCCESS | None  |
   +------------------------------------------------+
   
   '''
 # ---
 # name: test_execute[@repo/branches/main/a-@repo/branches/main/-expected_files1]
   '''
+  SUCCESS - @repo/branches/main/a/S3.sql
+  +------------------------------------------------+
+  | File                         | Status  | Error |
+  |------------------------------+---------+-------|
+  | @repo/branches/main/a/S3.sql | SUCCESS | None  |
+  +------------------------------------------------+
+  
+  '''
+# ---
+# name: test_execute_new_git_repository_list_files[@repo/branches/main/-@repo/branches/main/-expected_files0]
+  '''
+  SUCCESS - @repo/branches/main/S2.sql
+  SUCCESS - @repo/branches/main/s1.sql
+  SUCCESS - @repo/branches/main/a/s3.sql
+  +------------------------------------------------+
+  | File                         | Status  | Error |
+  |------------------------------+---------+-------|
+  | @repo/branches/main/S2.sql   | SUCCESS | None  |
+  | @repo/branches/main/s1.sql   | SUCCESS | None  |
+  | @repo/branches/main/a/s3.sql | SUCCESS | None  |
+  +------------------------------------------------+
+  
+  '''
+# ---
+# name: test_execute_new_git_repository_list_files[@repo/branches/main/S2.sql-@repo/branches/main/-expected_files2]
+  '''
+  SUCCESS - @repo/branches/main/S2.sql
+  +----------------------------------------------+
+  | File                       | Status  | Error |
+  |----------------------------+---------+-------|
+  | @repo/branches/main/S2.sql | SUCCESS | None  |
+  +----------------------------------------------+
+  
+  '''
+# ---
+# name: test_execute_new_git_repository_list_files[@repo/branches/main/a/s3.sql-@repo/branches/main/-expected_files3]
+  '''
   SUCCESS - @repo/branches/main/a/s3.sql
   +------------------------------------------------+
   | File                         | Status  | Error |
   |------------------------------+---------+-------|
   | @repo/branches/main/a/s3.sql | SUCCESS | None  |
   +------------------------------------------------+
+  
+  '''
+# ---
+# name: test_execute_new_git_repository_list_files[@repo/branches/main/s1.sql-@repo/branches/main/-expected_files1]
+  '''
+  SUCCESS - @repo/branches/main/s1.sql
+  +----------------------------------------------+
+  | File                       | Status  | Error |
+  |----------------------------+---------+-------|
+  | @repo/branches/main/s1.sql | SUCCESS | None  |
+  +----------------------------------------------+
   
   '''
 # ---
