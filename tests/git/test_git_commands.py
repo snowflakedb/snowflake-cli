@@ -435,25 +435,35 @@ def test_setup_create_secret_create_api(
         (
             "@repo/branches/main/",
             "@repo/branches/main/",
-            ["@repo/branches/main/s1.sql", "@repo/branches/main/a/s3.sql"],
+            ["@repo/branches/main/s1.sql", "@repo/branches/main/a/S3.sql"],
         ),
         (
             "@repo/branches/main/a",
             "@repo/branches/main/",
-            ["@repo/branches/main/a/s3.sql"],
+            ["@repo/branches/main/a/S3.sql"],
         ),
         (
             "@db.schema.repo/branches/main/",
             "@db.schema.repo/branches/main/",
             [
                 "@db.schema.repo/branches/main/s1.sql",
-                "@db.schema.repo/branches/main/a/s3.sql",
+                "@db.schema.repo/branches/main/a/S3.sql",
             ],
         ),
         (
             "@db.schema.repo/branches/main/s1.sql",
             "@db.schema.repo/branches/main/",
             ["@db.schema.repo/branches/main/s1.sql"],
+        ),
+        (
+            "@DB.SCHEMA.REPO/branches/main/s1.sql",
+            "@DB.SCHEMA.REPO/branches/main/",
+            ["@DB.SCHEMA.REPO/branches/main/s1.sql"],
+        ),
+        (
+            "@DB.schema.REPO/branches/main/a/S3.sql",
+            "@DB.schema.REPO/branches/main/",
+            ["@DB.schema.REPO/branches/main/a/S3.sql"],
         ),
     ],
 )
@@ -469,9 +479,68 @@ def test_execute(
 ):
     mock_execute.return_value = mock_cursor(
         [
-            {"name": "repo/branches/main/a/s3.sql"},
+            {"name": "repo/branches/main/a/S3.sql"},
             {"name": "repo/branches/main/s1.sql"},
             {"name": "repo/branches/main/s2"},
+        ],
+        [],
+    )
+
+    result = runner.invoke(["git", "execute", repository_path])
+
+    assert result.exit_code == 0, result.output
+    ls_call, *execute_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls {expected_stage}", cursor_class=DictCursor)
+    assert execute_calls == [
+        mock.call(f"execute immediate from {p}") for p in expected_files
+    ]
+    assert result.output == os_agnostic_snapshot
+
+
+@pytest.mark.parametrize(
+    "repository_path, expected_stage, expected_files",
+    [
+        (
+            "@repo/branches/main/",
+            "@repo/branches/main/",
+            [
+                "@repo/branches/main/S2.sql",
+                "@repo/branches/main/s1.sql",
+                "@repo/branches/main/a/s3.sql",
+            ],
+        ),
+        (
+            "@repo/branches/main/s1.sql",
+            "@repo/branches/main/",
+            ["@repo/branches/main/s1.sql"],
+        ),
+        (
+            "@repo/branches/main/S2.sql",
+            "@repo/branches/main/",
+            ["@repo/branches/main/S2.sql"],
+        ),
+        (
+            "@repo/branches/main/a/s3.sql",
+            "@repo/branches/main/",
+            ["@repo/branches/main/a/s3.sql"],
+        ),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_new_git_repository_list_files(
+    mock_execute,
+    mock_cursor,
+    runner,
+    repository_path,
+    expected_stage,
+    expected_files,
+    os_agnostic_snapshot,
+):
+    mock_execute.return_value = mock_cursor(
+        [
+            {"name": "/branches/main/s1.sql"},
+            {"name": "/branches/main/S2.sql"},
+            {"name": "/branches/main/a/s3.sql"},
         ],
         [],
     )
