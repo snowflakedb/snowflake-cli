@@ -45,6 +45,14 @@ def _callback(provide_setter: Callable[[], Callable[[Any], Any]]):
     return callback
 
 
+def _setattr_callback(obj: Any, prop: str):
+    def callback(value):
+        setattr(obj, prop, value)
+        return value
+
+    return callback
+
+
 ConnectionOption = typer.Option(
     None,
     "--connection",
@@ -301,7 +309,7 @@ OutputFormatOption = typer.Option(
     "--format",
     help="Specifies the output format.",
     case_sensitive=False,
-    callback=_callback(lambda: get_cli_context_manager().set_output_format),
+    callback=_setattr_callback(get_cli_context_manager(), "output_format"),
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 
@@ -309,7 +317,7 @@ SilentOption = typer.Option(
     False,
     "--silent",
     help="Turns off intermediate output to console.",
-    callback=_callback(lambda: get_cli_context_manager().set_silent),
+    callback=_setattr_callback(get_cli_context_manager(), "silent"),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
     is_eager=True,
@@ -320,7 +328,7 @@ VerboseOption = typer.Option(
     "--verbose",
     "-v",
     help="Displays log entries for log levels `info` and higher.",
-    callback=_callback(lambda: get_cli_context_manager().set_verbose),
+    callback=_setattr_callback(get_cli_context_manager(), "verbose"),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
@@ -329,7 +337,7 @@ DebugOption = typer.Option(
     False,
     "--debug",
     help="Displays log entries for log levels `debug` and higher; debug logs contains additional information.",
-    callback=_callback(lambda: get_cli_context_manager().set_enable_tracebacks),
+    callback=_setattr_callback(get_cli_context_manager(), "enable_tracebacks"),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
@@ -432,7 +440,7 @@ def experimental_option(
         "--experimental",
         help=help_text,
         hidden=True,
-        callback=_callback(lambda: get_cli_context_manager().set_experimental),
+        callback=_setattr_callback(get_cli_context_manager(), "experimental"),
         is_flag=True,
         rich_help_panel=_CLI_BEHAVIOUR,
     )
@@ -485,8 +493,8 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
 
 def project_definition_option(is_optional: bool):
     def project_definition_callback(project_path: str) -> None:
-        get_cli_context_manager().set_project_path_arg(project_path)
-        get_cli_context_manager().set_project_is_optional(is_optional)
+        get_cli_context_manager().project_path_arg = project_path
+        get_cli_context_manager().project_is_optional = is_optional
 
     return typer.Option(
         None,
@@ -504,7 +512,7 @@ def project_env_overrides_option():
         env_overrides_args_map = {
             v.key: v.value for v in parse_key_value_variables(env_overrides_args_list)
         }
-        get_cli_context_manager().set_project_env_overrides_args(env_overrides_args_map)
+        get_cli_context_manager().project_env_overrides_args = env_overrides_args_map
 
     return typer.Option(
         [],

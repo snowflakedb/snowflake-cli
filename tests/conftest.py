@@ -83,9 +83,9 @@ def reset_global_context_and_setup_config_and_logging_levels(
         connection_cache = OpenConnectionCache()
         cli_context_manager = get_cli_context_manager()
         cli_context_manager.reset()
-        cli_context_manager.set_verbose(False)
-        cli_context_manager.set_enable_tracebacks(False)
-        cli_context_manager.set_connection_cache(connection_cache)
+        cli_context_manager.verbose = False
+        cli_context_manager.enable_tracebacks = False
+        cli_context_manager.connection_cache = connection_cache
         config_init(test_snowcli_config)
         loggers.create_loggers(verbose=False, debug=False)
         try:

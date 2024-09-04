@@ -148,7 +148,7 @@ def nativeapp_definition_v2_to_v1(func):
             )
         if original_pdf.definition_version == "2":
             pdfv1 = _pdf_v2_to_v1(original_pdf)
-            get_cli_context_manager().set_override_project_definition(pdfv1)
+            get_cli_context_manager().override_project_definition = pdfv1
         return func(*args, **kwargs)
 
     return wrapper

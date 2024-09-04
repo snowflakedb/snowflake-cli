@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterator
 
@@ -32,112 +33,62 @@ if TYPE_CHECKING:
 _CONNECTION_CACHE = OpenConnectionCache()
 
 
+@dataclass
 class _CliGlobalContextManager:
-    _definition_manager: DefinitionManager | None
-    _override_project_definition: ProjectDefinition | None
-    _connection_cache: OpenConnectionCache
+    connection_context: ConnectionContext = field(default_factory=ConnectionContext)
+    connection_cache: OpenConnectionCache = (
+        _CONNECTION_CACHE  # by default, use global cache
+    )
 
-    def __init__(self):
-        self._connection_context = ConnectionContext()
-        self._connection_cache = _CONNECTION_CACHE  # by default, use global cache
-        self._definition_manager = None
-        self._enable_tracebacks = True
-        self._output_format = OutputFormat.TABLE
-        self._verbose = False
-        self._experimental = False
-        self._project_path_arg = None
-        self._project_is_optional = True
-        self._project_env_overrides_args = {}
-        self._override_project_definition = None  # TODO: remove; see setter below
-        self._silent: bool = False
+    output_format: OutputFormat = OutputFormat.TABLE
+    silent: bool = False
+    verbose: bool = False
+    experimental: bool = False
+    enable_tracebacks: bool = True
+
+    project_path_arg: str | None = None
+    project_is_optional: bool = True
+    project_env_overrides_args: dict[str, str] = field(default_factory=dict)
+
+    # FIXME: this property only exists to help implement
+    # nativeapp_definition_v2_to_v1. Consider changing the way
+    # this calculation is provided to commands in order to remove
+    # this logic (then make project_definition a non-cloned @property)
+    override_project_definition: ProjectDefinition | None = None
+
+    _definition_manager: DefinitionManager | None = None
+
+    # which properties invalidate our current DefinitionManager?
+    DEFINITION_MANAGER_DEPENDENCIES = [
+        "project_path_arg",
+        "project_is_optional",
+        "project_env_overrides_args",
+    ]
 
     def reset(self):
         self.__init__()
 
     def clone(self) -> _CliGlobalContextManager:
-        mgr = _CliGlobalContextManager()
-        mgr.set_connection_context(self.connection_context.clone())
-        mgr.set_connection_cache(self._connection_cache)
-        mgr._set_definition_manager(self.definition_manager)  # noqa: SLF001
-        mgr.set_enable_tracebacks(self.enable_tracebacks)
-        mgr.set_output_format(self.output_format)
-        mgr.set_verbose(self.verbose)
-        mgr.set_experimental(self.experimental)
-        mgr.set_project_path_arg(self.project_path_arg)
-        mgr.set_project_env_overrides_args(self.project_env_overrides_args.copy())
-        mgr.set_override_project_definition(self.override_project_definition)
-        mgr.set_silent(self.silent)
-        return mgr
+        return replace(
+            self,
+            connection_context=self.connection_context.clone(),
+            project_env_overrides_args=self.project_env_overrides_args.copy(),
+        )
 
-    @property
-    def connection_context(self) -> ConnectionContext:
-        return self._connection_context
+    def __setattr__(self, prop, val):
+        if prop in self.DEFINITION_MANAGER_DEPENDENCIES:
+            self._clear_definition_manager()
 
-    def set_connection_context(self, connection_context: ConnectionContext):
-        self._connection_context = connection_context
-
-    @property
-    def connection_cache(self) -> OpenConnectionCache:
-        return self._connection_cache
-
-    def set_connection_cache(self, connection_cache: OpenConnectionCache):
-        self._connection_cache = connection_cache
-
-    @property
-    def enable_tracebacks(self) -> bool:
-        return self._enable_tracebacks
-
-    def set_enable_tracebacks(self, value: bool):
-        self._enable_tracebacks = value
-
-    @property
-    def output_format(self) -> OutputFormat:
-        return self._output_format
-
-    def set_output_format(self, value: OutputFormat):
-        self._output_format = value
-
-    @property
-    def verbose(self) -> bool:
-        return self._verbose
-
-    def set_verbose(self, value: bool):
-        self._verbose = value
-
-    @property
-    def experimental(self) -> bool:
-        return self._experimental
-
-    def set_experimental(self, value: bool):
-        self._experimental = value
+        super().__setattr__(prop, val)
 
     @property
     def definition_manager(self) -> DefinitionManager | None:
         return self._definition_manager
 
-    def _set_definition_manager(self, definition_manager: DefinitionManager | None):
-        """
-        This should only be called by the clone() method.
-        """
-        self._definition_manager = definition_manager
-
-    @property
-    def override_project_definition(self):
-        return self._override_project_definition
-
-    def set_override_project_definition(
-        self, override_project_definition: ProjectDefinition | None
-    ):
-        # FIXME: this property only exists to help implement
-        # nativeapp_definition_v2_to_v1. Consider changing the way
-        # this calculation is provided to commands in order to remove
-        # this logic (then make project_definition a non-cloned @property)
-        self._override_project_definition = override_project_definition
-
     @property
     def project_definition(self) -> ProjectDefinition | None:
-        if self._override_project_definition:
-            return self._override_project_definition
+        if self.override_project_definition:
+            return self.override_project_definition
 
         return self._definition_manager_or_raise().project_definition
 
@@ -150,39 +101,6 @@ class _CliGlobalContextManager:
         return self._definition_manager_or_raise().template_context
 
     @property
-    def project_is_optional(self) -> bool:
-        return self._project_is_optional
-
-    def set_project_is_optional(self, project_is_optional: bool):
-        self._project_is_optional = project_is_optional
-
-    @property
-    def project_path_arg(self) -> str | None:
-        return self._project_path_arg
-
-    def set_project_path_arg(self, project_path_arg: str | None):
-        self._clear_definition_manager()
-        self._project_path_arg = project_path_arg
-
-    @property
-    def project_env_overrides_args(self) -> dict[str, str]:
-        return self._project_env_overrides_args
-
-    def set_project_env_overrides_args(
-        self, project_env_overrides_args: dict[str, str]
-    ):
-        # force re-calculation of DefinitionManager + dependent attrs
-        self._clear_definition_manager()
-        self._project_env_overrides_args = project_env_overrides_args
-
-    @property
-    def silent(self) -> bool:
-        return self._silent
-
-    def set_silent(self, value: bool):
-        self._silent = value
-
-    @property
     def connection(self) -> SnowflakeConnection:
         """
         Returns a connection for our configured context from the configured cache.
@@ -190,7 +108,7 @@ class _CliGlobalContextManager:
         does not already exist, creates a new connection and caches it.
         """
         self.connection_context.validate_and_complete()
-        return self._connection_cache[self.connection_context]
+        return self.connection_cache[self.connection_context]
 
     def _definition_manager_or_raise(self) -> DefinitionManager:
         """
@@ -311,10 +229,10 @@ def fork_cli_context(
         new_manager.project_env_overrides_args.update(env)
 
     if project_is_optional is not None:
-        new_manager.set_project_is_optional(project_is_optional)
+        new_manager.project_is_optional = project_is_optional
 
     if project_path:
-        new_manager.set_project_path_arg(project_path)
+        new_manager.project_path_arg = project_path
 
     yield _CliGlobalContextAccess(new_manager)
     _CLI_CONTEXT_MANAGER.reset(token)
