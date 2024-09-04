@@ -46,9 +46,7 @@ class _CliGlobalContextManager:
         self._project_path_arg = None
         self._project_is_optional = True
         self._project_env_overrides_args = {}
-        self._override_project_definition = (
-            None  # TODO: remove; for implicit v1 <-> v2 conversion
-        )
+        self._override_project_definition = None  # TODO: remove; see setter below
         self._silent: bool = False
 
     def reset(self):
@@ -120,12 +118,14 @@ class _CliGlobalContextManager:
     def set_override_project_definition(
         self, override_project_definition: ProjectDefinition | None
     ):
-        # TODO: remove; for implicit v1 <-> v2 conversion
+        # FIXME: this property only exists to help implement
+        # nativeapp_definition_v2_to_v1. Consider changing the way
+        # this calculation is provided to commands in order to remove
+        # this logic (then make project_definition a non-cloned @property)
         self._override_project_definition = override_project_definition
 
     @property
     def project_definition(self) -> ProjectDefinition | None:
-        # TODO: remove; for implicit v1 <-> v2 conversion
         if self._override_project_definition:
             return self._override_project_definition
 
@@ -285,7 +285,7 @@ def fork_cli_context(
 ) -> Iterator[_CliGlobalContextAccess]:
     """
     Forks the global CLI context, making changes that are only visible
-    while inside this context manager.
+    (e.g. via get_cli_context()) while inside this context manager.
     """
     new_manager = _CLI_CONTEXT_MANAGER.get().clone()
     token = _CLI_CONTEXT_MANAGER.set(new_manager)

@@ -21,6 +21,7 @@ from snowflake.cli.api.cli_global_context import (
 )
 
 
+# FIXME: needs asyncio test
 def test_forked_context():
     assert get_cli_context().connection_context.connection_name is None
 

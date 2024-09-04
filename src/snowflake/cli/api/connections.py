@@ -32,7 +32,7 @@ schema_pattern = re.compile(r".+\..+")
 
 
 class ConnectionContext:
-    # TODO: reduce duplication / boilerplate by using config.ConnectionConfig
+    # FIXME: can reduce duplication (using config.ConnectionConfig) and boilerplate
 
     def __init__(self):
         self._connection_name: Optional[str] = None
@@ -295,6 +295,7 @@ class OpenConnectionCache:
     cleanup_futures: dict[str, asyncio.TimerHandle]
 
     CONNECTION_CLEANUP_SEC: float = 10.0 * 60
+    """Connections are closed this many seconds after the last time they are accessed."""
 
     def __init__(self):
         self.connections = {}
@@ -332,17 +333,17 @@ class OpenConnectionCache:
             logger.debug("ConnectionCache: failed to connect using {key}; not caching.")
             raise
 
+    def _cancel_cleanup_future_if_exists(self, key: str):
+        if key in self.cleanup_futures:
+            self.cleanup_futures.pop(key).cancel()
+
     def _touch(self, key: str):
         """
         Extend the lifetime of the cached connection at the given key.
         """
-        if key in self.cleanup_futures:
-            self.cleanup_futures.pop(key).cancel()
-
         try:
             loop = asyncio.get_event_loop()
         except (RuntimeError, DeprecationWarning):
-            # there is no event loop
             # the exception is different for Python 3.10/3.11+
             logger.debug(
                 "ConnectionCache: no event loop; connections will close at exit."
@@ -352,6 +353,7 @@ class OpenConnectionCache:
         handle = loop.call_later(
             self.CONNECTION_CLEANUP_SEC, lambda: self._cleanup(key)
         )
+        self._cancel_cleanup_future_if_exists(key)
         self.cleanup_futures[key] = handle
 
     def _cleanup(self, key: str):
@@ -360,5 +362,5 @@ class OpenConnectionCache:
             logger.debug("Cleaning up connection {key}, but not found in cache!")
 
         # doesn't cancel in-flight async queries
+        self._cancel_cleanup_future_if_exists(key)
         self.connections.pop(key).close()
-        del self.cleanup_futures[key]
