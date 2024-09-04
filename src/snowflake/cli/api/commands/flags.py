@@ -271,7 +271,6 @@ EnableDiagOption = typer.Option(
 _DIAG_LOG_DEFAULT_VALUE = "<temporary_directory>"
 
 
-# TODO: fix this not getting called
 def _diag_log_path_callback(path: str):
     if path != _DIAG_LOG_DEFAULT_VALUE:
         return path

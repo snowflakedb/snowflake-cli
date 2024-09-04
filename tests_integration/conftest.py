@@ -220,6 +220,7 @@ def reset_global_context_after_each_test(request):
         connection_cache = OpenConnectionCache()
         cli_context_manager = get_cli_context_manager()
         cli_context_manager.reset()
+        cli_context_manager.connection_cache = connection_cache
         try:
             yield
         finally:
