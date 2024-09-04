@@ -99,14 +99,16 @@ def _validate_origin_url(url: str) -> None:
 
 
 def _unique_new_object_name(
-    om: ObjectManager, object_type: ObjectType, proposed_name: str
-) -> str:
-    result = proposed_name
+    om: ObjectManager, object_type: ObjectType, proposed_fqn: FQN
+) -> FQN:
+    result = (
+        FQN.from_string(proposed_fqn.name)
+        .set_schema(proposed_fqn.schema)
+        .set_database(proposed_fqn.database)
+    )
     i = 1
-    while om.object_exists(
-        object_type=object_type.value.cli_name, fqn=FQN.from_string(result)
-    ):
-        result = proposed_name + str(i)
+    while om.object_exists(object_type=object_type.value.cli_name, fqn=result):
+        result.set_name(proposed_fqn.name + str(i))
         i += 1
     return result
 
@@ -141,22 +143,21 @@ def setup(
     should_create_secret = False
     secret_name = None
     if secret_needed:
-        default_secret_name = _unique_new_object_name(
-            om,
-            object_type=ObjectType.SECRET,
-            proposed_name=f"{repository_name.name}_secret",
-        )
         secret_name = (
-            FQN.from_string(default_secret_name)
+            FQN.from_string(f"{repository_name.name}_secret")
             .set_schema(repository_name.schema)
             .set_database(repository_name.database)
         )
-        secret_name = typer.prompt(
-            "Secret identifier (will be created if not exists)", default=secret_name
+        secret_name.set_name(
+            typer.prompt(
+                "Secret identifier (will be created if not exists)",
+                default=_unique_new_object_name(
+                    om, object_type=ObjectType.SECRET, proposed_fqn=secret_name
+                ),
+            )
         )
-        secret_fqn = FQN.from_string(secret_name)
         if om.object_exists(
-            object_type=ObjectType.SECRET.value.cli_name, fqn=secret_fqn
+            object_type=ObjectType.SECRET.value.cli_name, fqn=secret_name
         ):
             cli_console.step(f"Using existing secret '{secret_name}'")
         else:
@@ -165,31 +166,33 @@ def setup(
             secret_username = typer.prompt("username")
             secret_password = typer.prompt("password/token", hide_input=True)
 
-    api_integration = typer.prompt(
-        "API integration identifier (will be created if not exists)",
-        default=_unique_new_object_name(
-            om,
-            object_type=ObjectType.INTEGRATION,
-            proposed_name=f"{repository_name.name}_api_integration",
-        ),
-    )
-    api_integration_fqn = (
-        FQN.from_string(api_integration)
+    api_integration = (
+        FQN.from_string(f"{repository_name.name}_api_integration")
         .set_schema(repository_name.schema)
         .set_database(repository_name.database)
+    )
+    api_integration.set_name(
+        typer.prompt(
+            "API integration identifier (will be created if not exists)",
+            default=_unique_new_object_name(
+                om,
+                object_type=ObjectType.INTEGRATION,
+                proposed_fqn=api_integration,
+            ),
+        )
     )
 
     if should_create_secret:
         manager.create_password_secret(
-            name=secret_fqn, username=secret_username, password=secret_password
+            name=secret_name, username=secret_username, password=secret_password
         )
         cli_console.step(f"Secret '{secret_name}' successfully created.")
 
     if not om.object_exists(
-        object_type=ObjectType.INTEGRATION.value.cli_name, fqn=api_integration_fqn
+        object_type=ObjectType.INTEGRATION.value.cli_name, fqn=api_integration
     ):
         manager.create_api_integration(
-            name=api_integration_fqn,
+            name=api_integration,
             api_provider="git_https_api",
             allowed_prefix=url,
             secret=secret_name,
