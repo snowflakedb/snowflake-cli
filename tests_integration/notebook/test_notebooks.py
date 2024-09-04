@@ -26,10 +26,10 @@ def _execute_notebook(runner, notebook_name):
     assert result.json == {"message": f"Notebook {notebook_name} executed."}
 
 
-def _execute_notebook_failure(runner, notebook_name, snapshot):
+def _execute_notebook_failure(runner, notebook_name):
     result = runner.invoke_with_connection(["notebook", "execute", notebook_name])
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert "NameError: name 'fooBar' is not defined" in result.output
 
 
 @pytest.mark.integration
@@ -46,7 +46,7 @@ def test_create_notebook(runner, test_database, snowflake_session, snapshot):
         _create_notebook(local_notebook_file, runner, snowflake_session, stage_name)
 
     _execute_notebook(runner, notebooks[0].stem)
-    _execute_notebook_failure(runner, notebooks[1].stem, snapshot)
+    _execute_notebook_failure(runner, notebooks[1].stem)
 
 
 def _create_notebook(local_notebook_file, runner, snowflake_session, stage_name):

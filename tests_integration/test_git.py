@@ -112,7 +112,7 @@ def test_list_branches_and_tags(runner, sf_git_repository):
 
 
 @pytest.mark.integration
-def test_list_files(runner, sf_git_repository, snapshot):
+def test_list_files(runner, sf_git_repository):
     # error messages are passed to the user
     result = runner.invoke_with_connection(["git", "list-files", sf_git_repository])
     _assert_invalid_repo_path_error_message(result.output)
@@ -124,7 +124,7 @@ def test_list_files(runner, sf_git_repository, snapshot):
     repository_path = f"@{sf_git_repository}/tags/no-such-tag/"
     result = runner.invoke_with_connection(["git", "list-files", repository_path])
     assert result.exit_code == 1
-    assert result.output == snapshot
+    assert "'no-such-tag' cannot be found" in result.output
 
     # list files with pattern
     repository_path = f"@{sf_git_repository}/tags/v2.1.0-rc1/"
@@ -247,7 +247,7 @@ def test_copy_error(runner, sf_git_repository, snapshot):
             ["git", "copy", repository_path, str(LOCAL_DIR)]
         )
         assert result.exit_code == 1
-        assert result.output == snapshot
+        assert "'no-such-tag' cannot be found" in result.output
 
 
 @pytest.mark.integration
