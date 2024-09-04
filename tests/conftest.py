@@ -28,6 +28,7 @@ from snowflake.cli.api.cli_global_context import (
 )
 from snowflake.cli.api.commands.decorators import global_options, with_output
 from snowflake.cli.api.config import config_init
+from snowflake.cli.api.connections import OpenConnectionCache
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import QueryResult
 from syrupy.extensions import AmberSnapshotExtension
@@ -73,19 +74,24 @@ def os_agnostic_snapshot(snapshot):
 # This automatically used setup fixture is required to use test.conf from resources
 # in unit tests which are not using "runner" fixture (tests which do not invoke CLI command).
 #
-# Connection cache is cleared at the end, but individual tests may
+# In addition to its own CliContextManager, each test gets its own OpenConnectionCache
+# which is cleared after the test completes.
 def reset_global_context_and_setup_config_and_logging_levels(
     request, test_snowcli_config
 ):
     with fork_cli_context():
+        connection_cache = OpenConnectionCache()
         cli_context_manager = get_cli_context_manager()
         cli_context_manager.reset()
         cli_context_manager.set_verbose(False)
         cli_context_manager.set_enable_tracebacks(False)
-        cli_context_manager.set_use_connection_cache(False)
+        cli_context_manager.set_connection_cache(connection_cache)
         config_init(test_snowcli_config)
         loggers.create_loggers(verbose=False, debug=False)
-        yield
+        try:
+            yield
+        finally:
+            connection_cache.clear()
 
 
 # This automatically used cleanup fixture is required to avoid random breaking of logging

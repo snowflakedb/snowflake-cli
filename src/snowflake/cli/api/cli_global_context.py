@@ -35,11 +35,11 @@ _CONNECTION_CACHE = OpenConnectionCache()
 class _CliGlobalContextManager:
     _definition_manager: DefinitionManager | None
     _override_project_definition: ProjectDefinition | None
-    _use_connection_cache: bool
+    _connection_cache: OpenConnectionCache
 
     def __init__(self):
         self._connection_context = ConnectionContext()
-        self._use_connection_cache = True
+        self._connection_cache = _CONNECTION_CACHE  # by default, use global cache
         self._definition_manager = None
         self._enable_tracebacks = True
         self._output_format = OutputFormat.TABLE
@@ -57,7 +57,7 @@ class _CliGlobalContextManager:
     def clone(self) -> _CliGlobalContextManager:
         mgr = _CliGlobalContextManager()
         mgr.set_connection_context(self.connection_context.clone())
-        mgr.set_use_connection_cache(self.use_connection_cache)
+        mgr.set_connection_cache(self._connection_cache)
         mgr._set_definition_manager(self.definition_manager)  # noqa: SLF001
         mgr.set_enable_tracebacks(self.enable_tracebacks)
         mgr.set_output_format(self.output_format)
@@ -77,11 +77,11 @@ class _CliGlobalContextManager:
         self._connection_context = connection_context
 
     @property
-    def use_connection_cache(self) -> bool:
-        return self._use_connection_cache
+    def connection_cache(self) -> OpenConnectionCache:
+        return self._connection_cache
 
-    def set_use_connection_cache(self, use_connection_cache: bool):
-        self._use_connection_cache = use_connection_cache
+    def set_connection_cache(self, connection_cache: OpenConnectionCache):
+        self._connection_cache = connection_cache
 
     @property
     def enable_tracebacks(self) -> bool:
@@ -185,17 +185,12 @@ class _CliGlobalContextManager:
     @property
     def connection(self) -> SnowflakeConnection:
         """
-        If connection caching is enabled, returns a connection for our configured
-        context from the global active connection cache singleton, possibly
-        creating a new one and caching it.
-
-        When disabled, always returns a new connection.
+        Returns a connection for our configured context from the configured cache.
+        By default, this is the global _CONNECTION_CACHE. If a matching connection
+        does not already exist, creates a new connection and caches it.
         """
         self.connection_context.validate_and_complete()
-        if self._use_connection_cache:
-            return _CONNECTION_CACHE[self.connection_context]
-        else:
-            return self._connection_context.build_connection()
+        return self._connection_cache[self.connection_context]
 
     def _definition_manager_or_raise(self) -> DefinitionManager:
         """
