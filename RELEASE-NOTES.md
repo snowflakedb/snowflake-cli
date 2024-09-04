@@ -23,6 +23,7 @@
 
 ## Fixes and improvements
 * Fixed git execute not working with upper case in directory name.
+* Fixed `snow git setup` command behaviour for fully qualified repository names.
 
 
 # v2.8.0
