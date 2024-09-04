@@ -108,7 +108,8 @@ class ConnectionContext:
                 module="snowflake.connector.config_manager",
             )
 
-        return connect_to_snowflake(**asdict(self))
+        non_empty_params = {k: v for (k, v) in asdict(self).items() if v is not None}
+        return connect_to_snowflake(**non_empty_params)
 
 
 class OpenConnectionCache:

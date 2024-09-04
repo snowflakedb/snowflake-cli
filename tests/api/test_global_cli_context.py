@@ -14,11 +14,38 @@
 
 from __future__ import annotations
 
+from dataclasses import fields
+
 from snowflake.cli.api.cli_global_context import (
+    _CONNECTION_CACHE,
+    _CliGlobalContextManager,
     fork_cli_context,
     get_cli_context,
     get_cli_context_manager,
 )
+from snowflake.cli.api.output.formats import OutputFormat
+
+
+def test_reset_global_context_mgr():
+    """
+    Ensures that the reset() method is working properly.
+    """
+    mgr = _CliGlobalContextManager()
+    mgr.experimental = True
+    mgr.silent = True
+    mgr.output_format = OutputFormat.JSON
+    mgr.connection_context.database = "blahblah"
+    mgr.connection_context.password = "****"
+    assert mgr.connection_cache == _CONNECTION_CACHE
+    mgr.connection_cache = None
+    mgr.reset()
+    assert mgr.connection_cache == _CONNECTION_CACHE
+
+    initial_mgr = _CliGlobalContextManager()
+    for f in fields(mgr):
+        assert getattr(mgr, f.name) == getattr(
+            initial_mgr, f.name
+        ), f"{f.name} was not reset properly"
 
 
 # FIXME: needs asyncio test

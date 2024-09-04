@@ -12,8 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import asdict
+from unittest import mock
+
 import pytest
-from snowflake.cli.api.connections import ConnectionContext
+from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
+
+
+@pytest.fixture
+def local_connection_cache():
+    cache = OpenConnectionCache()
+    yield cache
+    cache.clear()
 
 
 @pytest.mark.parametrize(
@@ -29,3 +39,64 @@ def test_stable_connection_context_repr(args: dict, snapshot):
     ctx.update(**args)
     ctx.validate_and_complete()
     assert repr(ctx) == snapshot
+
+
+def test_clone_connection_context():
+    """
+    Tests that the clone() method is working properly.
+    """
+
+    keys = (
+        "connection_name",
+        "account",
+        "database",
+        "role",
+        "schema",
+        "user",
+        "password",
+        "authenticator",
+        "warehouse",
+        "session_token",
+        "master_token",
+    )
+
+    ctx = ConnectionContext()
+    for key in keys:
+        setattr(ctx, key, "value")
+
+    new_ctx = ctx.clone()
+    assert asdict(new_ctx) == asdict(ctx)
+
+    for key in keys:
+        setattr(new_ctx, key, "values_should_not_appear_in_ctx")
+
+    for key in keys:
+        assert getattr(ctx, key) == "value"
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+def test_connection_cache_caches(
+    mock_command_info, mock_connect, local_connection_cache, test_snowcli_config
+):
+    mock_command_info.return_value = "application"
+
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    ctx = ConnectionContext(connection_name="default")
+
+    local_connection_cache[ctx]
+    local_connection_cache[ctx]
+    local_connection_cache[ctx]
+
+    mock_connect.assert_called_once_with(
+        application=mock_command_info.return_value,
+        database="db_for_test",
+        schema="test_public",
+        role="test_role",
+        warehouse="xs",
+        password="dummy_password",
+        application_name="snowcli",
+    )
