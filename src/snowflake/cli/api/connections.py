@@ -302,26 +302,26 @@ class OpenConnectionCache:
         self.cleanup_futures = {}
 
     def __getitem__(self, ctx):
-        if isinstance(ctx, ConnectionContext):
-            key = repr(ctx)
-            if not self._has_open_connection(key):
-                self._insert(key, ctx)
-            self._touch(key)
-            return self.connections[key]
-        else:
+        if not isinstance(ctx, ConnectionContext):
             raise ValueError(
                 f"Expected key to be ConnectionContext but got {repr(ctx)}"
             )
+        key = repr(ctx)
+        if not self._has_open_connection(key):
+            self._insert(key, ctx)
+        self._touch(key)
+        return self.connections[key]
 
     def clear(self):
         """Closes all connections and resets the cache to its initial state."""
+        connection_keys = list(self.connections.keys())
+        for key in connection_keys:
+            self._cleanup(key)
+
+        # if any orphaned futures still exist, clean them up too
         for key in self.cleanup_futures:
             self.cleanup_futures[key].cancel()
         self.cleanup_futures.clear()
-
-        for key in self.connections:
-            self.connections[key].close()
-        self.connections.clear()
 
     def _has_open_connection(self, key: str):
         return key in self.connections
