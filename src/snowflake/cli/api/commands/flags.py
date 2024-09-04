@@ -268,18 +268,17 @@ _DIAG_LOG_DEFAULT_VALUE = "<temporary_directory>"
 
 
 def _diag_log_path_callback(path: str):
-    if path != _DIAG_LOG_DEFAULT_VALUE:
-        return path
-    return tempfile.gettempdir()
+    if path == _DIAG_LOG_DEFAULT_VALUE:
+        path = tempfile.gettempdir()
+    get_cli_context_manager().connection_context.set_diag_log_path(Path(path))
+    return path
 
 
 DiagLogPathOption: Path = typer.Option(
     _DIAG_LOG_DEFAULT_VALUE,
     "--diag-log-path",
     help="Diagnostic report path",
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_diag_log_path
-    ),
+    callback=_diag_log_path_callback,
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
     exists=True,
