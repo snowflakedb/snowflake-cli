@@ -21,11 +21,11 @@ from snowflake.cli.api.connections import ConnectionContext
     [
         (
             {"connection_name": "myconn"},
-            "ConnectionContext(_connection_name = 'myconn', _enable_diag = False, _temporary_connection = False)",
+            "ConnectionContext(_connection_name='myconn', _enable_diag=False, _temporary_connection=False)",
         ),
         (
             {"temporary_connection": True, "account": "myacct", "user": "myuser"},
-            "ConnectionContext(_account = 'myacct', _user = 'myuser', _enable_diag = False, _temporary_connection = True)",
+            "ConnectionContext(_account='myacct', _user='myuser', _enable_diag=False, _temporary_connection=True)",
         ),
     ],
 )
