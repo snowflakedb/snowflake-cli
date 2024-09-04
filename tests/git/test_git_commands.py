@@ -350,7 +350,11 @@ def test_setup_existing_secret_existing_api(
     "repo_name, int_name, existing_secret_name",
     [
         ("db.schema.FooRepo", "FooRepo_api_integration", "db.schema.existing_secret"),
-        ("schema.FooRepo", "FooRepo_api_integration", "schema.existing_secret"),
+        (
+            "schema.FooRepo",
+            "FooRepo_api_integration",
+            "different_schema.existing_secret",
+        ),
         ("FooRepo", "FooRepo_api_integration", "existing_secret"),
     ],
 )
@@ -381,7 +385,7 @@ def test_setup_existing_secret_create_api(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    communication = "\n".join([EXAMPLE_URL, "y", "existing_secret", "", ""])
+    communication = "\n".join([EXAMPLE_URL, "y", existing_secret_name, "", ""])
     result = runner.invoke(["git", "setup", repo_name], input=communication)
 
     assert result.exit_code == 0, result.output
@@ -390,7 +394,7 @@ def test_setup_existing_secret_create_api(
             [
                 "Origin url: https://github.com/an-example-repo.git",
                 "Use secret for authentication? [y/N]: y",
-                f"Secret identifier (will be created if not exists) [FooRepo_secret]: existing_secret",
+                f"Secret identifier (will be created if not exists) [FooRepo_secret]: {existing_secret_name}",
                 f"Using existing secret '{existing_secret_name}'",
                 f"API integration identifier (will be created if not exists) [{int_name}]: ",
                 f"API integration '{int_name}' successfully created.",

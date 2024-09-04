@@ -100,7 +100,7 @@ def _validate_origin_url(url: str) -> None:
 
 def _unique_new_object_name(
     om: ObjectManager, object_type: ObjectType, proposed_fqn: FQN
-) -> FQN:
+) -> str:
     result = (
         FQN.from_string(proposed_fqn.name)
         .set_schema(proposed_fqn.schema)
@@ -110,7 +110,7 @@ def _unique_new_object_name(
     while om.object_exists(object_type=object_type.value.cli_name, fqn=result):
         result.set_name(proposed_fqn.name + str(i))
         i += 1
-    return result
+    return result.name
 
 
 @app.command("setup", requires_connection=True)
@@ -143,19 +143,27 @@ def setup(
     should_create_secret = False
     secret_name = None
     if secret_needed:
-        secret_name = (
+        default_secret_name = (
             FQN.from_string(f"{repository_name.name}_secret")
             .set_schema(repository_name.schema)
             .set_database(repository_name.database)
         )
-        secret_name.set_name(
+        default_secret_name.set_name(
+            _unique_new_object_name(
+                om, object_type=ObjectType.SECRET, proposed_fqn=default_secret_name
+            ),
+        )
+        secret_name = FQN.from_string(
             typer.prompt(
                 "Secret identifier (will be created if not exists)",
-                default=_unique_new_object_name(
-                    om, object_type=ObjectType.SECRET, proposed_fqn=secret_name
-                ),
+                default=default_secret_name.name,
             )
         )
+        if not secret_name.database:
+            secret_name.set_database(repository_name.database)
+        if not secret_name.schema:
+            secret_name.set_schema(repository_name.schema)
+
         if om.object_exists(
             object_type=ObjectType.SECRET.value.cli_name, fqn=secret_name
         ):
@@ -166,11 +174,8 @@ def setup(
             secret_username = typer.prompt("username")
             secret_password = typer.prompt("password/token", hide_input=True)
 
-    api_integration = (
-        FQN.from_string(f"{repository_name.name}_api_integration")
-        .set_schema(repository_name.schema)
-        .set_database(repository_name.database)
-    )
+    # API integration is an account-level object
+    api_integration = FQN.from_string(f"{repository_name.name}_api_integration")
     api_integration.set_name(
         typer.prompt(
             "API integration identifier (will be created if not exists)",
