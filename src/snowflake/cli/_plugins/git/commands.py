@@ -128,7 +128,11 @@ def setup(
     should_create_secret = False
     secret_name = None
     if secret_needed:
-        secret_name = f"{repository_name}_secret"
+        secret_name = (
+            FQN.from_string(f"{repository_name.name}_secret")
+            .set_schema(repository_name.schema)
+            .set_database(repository_name.database)
+        )
         secret_name = typer.prompt(
             "Secret identifier (will be created if not exists)", default=secret_name
         )
@@ -143,10 +147,9 @@ def setup(
             secret_username = typer.prompt("username")
             secret_password = typer.prompt("password/token", hide_input=True)
 
-    api_integration = f"{repository_name}_api_integration"
     api_integration = typer.prompt(
         "API integration identifier (will be created if not exists)",
-        default=api_integration,
+        default=f"{repository_name.name}_api_integration",
     )
     api_integration_fqn = FQN.from_string(api_integration)
 

@@ -314,7 +314,9 @@ def test_create_error_schema_not_exist(runner, test_database):
 @mock.patch.dict(os.environ, os.environ, clear=True)
 def test_create_error_undefined_database(runner):
     # undefined database
-    del os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE"]
+    database_environment_variable = "SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE"
+    if database_environment_variable in os.environ:
+        del os.environ[database_environment_variable]
 
     result = runner.invoke_with_connection(
         ["object", "create", "schema", f"name=test_schema"]
