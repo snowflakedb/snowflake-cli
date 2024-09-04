@@ -181,7 +181,9 @@ def convert_native_app_to_v2_data(
         bundle_map = build_bundle(
             project_root, Path(native_app.deploy_root), native_app.artifacts
         )
-        return str(bundle_map.to_project_path(Path("manifest.yml")))
+        # Use a POSIX path to be consistent with other migrated fields
+        # which use POSIX paths as default values
+        return bundle_map.to_project_path(Path("manifest.yml")).as_posix()
 
     package_entity_name = "pkg"
     package = {
