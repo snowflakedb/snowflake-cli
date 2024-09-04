@@ -7,7 +7,7 @@
         Language="1033"
         Version="$(var.SnowflakeCLIVersion)"
         Manufacturer="Snowflake, Inc."
-        UpgradeCode="d9d48a7c-fa95-11e5-86aa-5e5517507c66">
+        UpgradeCode="42280567-AE10-4184-8BB4-F98F59519CB2">
         <Package Id="*"
             InstallerVersion="405"
             Compressed="yes"
@@ -24,7 +24,7 @@
             </Directory>
         </Directory>
         <DirectoryRef Id="TESTFILEPRODUCTDIR">
-            <Component Id="snow.exe" Guid="2240777C-49B9-4D5F-ADF3-37483C0D7A61" Win64="yes">
+            <Component Id="snow.exe" Guid="3FDE264C-66C4-4B6C-AE4C-F42618FB98BC" Win64="yes">
                 <Environment Id="PATH" Name="PATH" Value="[TESTFILEPRODUCTDIR]" Permanent="no" Part="last" Action="set" System="yes"/>
                 <File Id="snow.exe" Source="dist\snow\snow.exe" KeyPath="yes" Checksum="yes"/>
             </Component>
