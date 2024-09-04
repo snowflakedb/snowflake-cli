@@ -369,7 +369,7 @@ def test_v1_to_v2_conversion(
 
     with project_directory(project_name) as project_dir:
         definition_v1 = DefinitionManager(project_dir).project_definition
-        definition_v2 = convert_project_definition_to_v2(definition_v1)
+        definition_v2 = convert_project_definition_to_v2(project_dir, definition_v1)
         assert definition_v2.definition_version == "2"
         assert (
             definition_v1.snowpark.project_name
