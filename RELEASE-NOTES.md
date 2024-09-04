@@ -22,6 +22,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fixed git execute not working with upper case in directory name.
 
 
 # v2.8.0

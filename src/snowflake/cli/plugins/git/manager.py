@@ -40,16 +40,24 @@ class GitStagePathParts(StagePathParts):
 
     @property
     def path(self) -> str:
-        return (
-            f"{self.stage_name}{self.directory}"
-            if self.stage_name.endswith("/")
-            else f"{self.stage_name}/{self.directory}"
-        )
+        return f"{self.stage_name.rstrip('/')}/{self.directory}"
 
-    def add_stage_prefix(self, file_path: str) -> str:
+    @classmethod
+    def get_directory(cls, stage_path: str) -> str:
+        return "/".join(Path(stage_path).parts[3:])
+
+    @property
+    def full_path(self) -> str:
+        return f"{self.stage.rstrip('/')}/{self.directory}"
+
+    def replace_stage_prefix(self, file_path: str) -> str:
         stage = Path(self.stage).parts[0]
         file_path_without_prefix = Path(file_path).parts[1:]
         return f"{stage}/{'/'.join(file_path_without_prefix)}"
+
+    def add_stage_prefix(self, file_path: str) -> str:
+        stage = self.stage.rstrip("/")
+        return f"{stage}/{file_path.lstrip('/')}"
 
     def get_directory_from_file_path(self, file_path: str) -> List[str]:
         stage_path_length = len(Path(self.directory).parts)
