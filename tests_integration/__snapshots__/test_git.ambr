@@ -8,3 +8,12 @@
     }),
   ])
 # ---
+# name: test_execute_with_name_in_pascal_case
+  list([
+    dict({
+      'Error': None,
+      'File': '@SNOWCLI_TESTING_REPO/branches/main/tests_integration/test_data/projects/stage_execute/ScriptInPascalCase.sql',
+      'Status': 'SUCCESS',
+    }),
+  ])
+# ---
