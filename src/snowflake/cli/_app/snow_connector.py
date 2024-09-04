@@ -57,7 +57,7 @@ def connect_to_snowflake(
         raise ClickException("Can't use connection name and temporary connection.")
     elif not temporary_connection and not connection_name:
         raise ClickException(
-            "One of connection name and temporary connection is required."
+            "One of connection name or temporary connection is required."
         )
 
     using_session_token = (
