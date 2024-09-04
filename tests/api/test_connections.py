@@ -17,20 +17,15 @@ from snowflake.cli.api.connections import ConnectionContext
 
 
 @pytest.mark.parametrize(
-    "args, expected",
+    "args",
     [
-        (
-            {"connection_name": "myconn"},
-            "ConnectionContext(_connection_name='myconn', _enable_diag=False, _temporary_connection=False)",
-        ),
-        (
-            {"temporary_connection": True, "account": "myacct", "user": "myuser"},
-            "ConnectionContext(_account='myacct', _user='myuser', _enable_diag=False, _temporary_connection=True)",
-        ),
+        {},
+        {"connection_name": "myconn"},
+        {"temporary_connection": True, "account": "myacct", "user": "myuser"},
     ],
 )
-def test_connection_context_repr(args: dict, expected: str):
+def test_stable_connection_context_repr(args: dict, snapshot):
     ctx = ConnectionContext()
-    for k, v in args.items():
-        getattr(ctx, f"set_{k}")(v)
-    assert repr(ctx) == expected
+    ctx.update(**args)
+    ctx.validate_and_complete()
+    assert repr(ctx) == snapshot

@@ -122,11 +122,11 @@ def test_connection_caching(mock_connect):
 
 @pytest.mark.parametrize("schema", ["my_schema", '".my_schema3"', '"my.schema"'])
 def test_schema_validation_ok(schema):
-    get_cli_context_manager().connection_context.set_schema(schema)
+    get_cli_context_manager().connection_context.schema = schema
 
 
 @pytest.mark.parametrize("schema", ["db.schema"])
 def test_schema_validation_error(schema):
     with pytest.raises(InvalidSchemaError) as e:
-        get_cli_context_manager().connection_context.set_schema(schema)
+        get_cli_context_manager().connection_context.schema = schema
         assert e.value.message == f"Invalid schema {schema}"
