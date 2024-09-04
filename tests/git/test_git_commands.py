@@ -217,6 +217,7 @@ def test_setup_no_secret_existing_api(
 ):
     mock_om_describe.side_effect = [
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
         None,
     ]
     mock_om_describe.return_value = [None, {"object_details": "something"}]
@@ -302,10 +303,18 @@ def test_setup_existing_secret_existing_api(
 ):
     mock_om_describe.side_effect = [
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
         None,
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
         None,
     ]
-    mock_om_describe.return_value = [None, "integration_details", "secret_details"]
+    mock_om_describe.return_value = [
+        None,
+        None,
+        "integration_details",
+        None,
+        "secret_details",
+    ]
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
@@ -338,24 +347,37 @@ def test_setup_existing_secret_existing_api(
 
 
 @pytest.mark.parametrize(
-    "repo_name, int_name, secret_name",
+    "repo_name, int_name, existing_secret_name",
     [
-        ("db.schema.FooRepo", "FooRepo_api_integration", "db.schema.FooRepo_secret"),
-        ("schema.FooRepo", "FooRepo_api_integration", "schema.FooRepo_secret"),
-        ("FooRepo", "FooRepo_api_integration", "FooRepo_secret"),
+        ("db.schema.FooRepo", "FooRepo_api_integration", "db.schema.existing_secret"),
+        ("schema.FooRepo", "FooRepo_api_integration", "schema.existing_secret"),
+        ("FooRepo", "FooRepo_api_integration", "existing_secret"),
     ],
 )
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 def test_setup_existing_secret_create_api(
-    mock_om_describe, mock_connector, runner, mock_ctx, repo_name, int_name, secret_name
+    mock_om_describe,
+    mock_connector,
+    runner,
+    mock_ctx,
+    repo_name,
+    int_name,
+    existing_secret_name,
 ):
     mock_om_describe.side_effect = [
+        # repo does not exists
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # proposed secret name does not exist
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # chosen secret exists
         None,
+        # proposed integration name does not exist
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # chosen integration does not exist
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
     ]
-    mock_om_describe.return_value = [None, "secret_details", None]
+    mock_om_describe.return_value = [None, None, "secret_details", None, None, None]
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
@@ -368,8 +390,8 @@ def test_setup_existing_secret_create_api(
             [
                 "Origin url: https://github.com/an-example-repo.git",
                 "Use secret for authentication? [y/N]: y",
-                f"Secret identifier (will be created if not exists) [{secret_name}]: existing_secret",
-                "Using existing secret 'existing_secret'",
+                f"Secret identifier (will be created if not exists) [FooRepo_secret]: existing_secret",
+                f"Using existing secret '{existing_secret_name}'",
                 f"API integration identifier (will be created if not exists) [{int_name}]: ",
                 f"API integration '{int_name}' successfully created.",
             ]
@@ -380,14 +402,14 @@ def test_setup_existing_secret_create_api(
         create api integration IDENTIFIER('{int_name}')
         api_provider = git_https_api
         api_allowed_prefixes = ('https://github.com/an-example-repo.git')
-        allowed_authentication_secrets = (existing_secret)
+        allowed_authentication_secrets = ({existing_secret_name})
         enabled = true
 
 
         create git repository IDENTIFIER('{repo_name}')
         api_integration = {int_name}
         origin = 'https://github.com/an-example-repo.git'
-        git_credentials = existing_secret
+        git_credentials = {existing_secret_name}
         """
     )
 
