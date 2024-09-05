@@ -1,1 +1,2 @@
 snowflake-snowpark-python
+dummy-pkg-for-tests

@@ -28,6 +28,7 @@ from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
     UpdatableModel,
 )
+from snowflake.cli.api.project.schemas.util import FieldInfoWithGetter
 
 
 class PathMapping(UpdatableModel):
@@ -62,7 +63,7 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel):
         default=[],
     )
     stage: str = Field(title="Stage in which artifacts will be stored")
-    artifacts: List[Union[PathMapping, str]] = Field(title="List of required sources")
+    artifacts: List[Union[PathMapping, str]] = FieldInfoWithGetter(title="List of required sources", getter_return_type=str)
 
     @field_validator("artifacts")
     @classmethod
@@ -82,13 +83,13 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel):
             return str(runtime_input)
         return runtime_input
 
-    @field_validator("artifacts")
-    @classmethod
-    def validate_artifacts(cls, artifacts: List[Path]) -> List[Path]:
-        for artefact in artifacts:
-            if "*" in str(artefact):
-                raise ValueError("Glob patterns not supported for Snowpark artifacts.")
-        return artifacts
+    # @field_validator("artifacts")
+    # @classmethod
+    # def validate_artifacts(cls, artifacts: List[Path]) -> List[Path]:
+    #     for artefact in artifacts:
+    #         if "*" in str(artefact):
+    #             raise ValueError("Glob patterns not supported for Snowpark artifacts.")
+    #     return artifacts
 
     @property
     def udf_sproc_identifier(self) -> UdfSprocIdentifier:

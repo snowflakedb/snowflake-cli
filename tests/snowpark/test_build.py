@@ -11,8 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+from pathlib import Path
 
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
+
+import pytest
 
 from snowflake.cli._plugins.snowpark.package_utils import (
     DownloadUnavailablePackagesResult,
@@ -28,3 +33,8 @@ def test_snowpark_build_no_deprecated_warnings_by_default(
         result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
         assert result.exit_code == 0, result.output
         assert "flag is deprecated" not in result.output
+
+def test_build_with_glob_patterns_in_artifacts(runner,project_directory):
+    with project_directory("glob_patterns_v2"):
+        result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
+        assert result.exit_code == 0

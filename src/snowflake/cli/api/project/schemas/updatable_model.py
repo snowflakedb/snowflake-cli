@@ -26,6 +26,9 @@ from pydantic import (
     field_validator,
 )
 from pydantic.fields import FieldInfo
+
+from snowflake.cli.api.project.schemas.util import FieldInfoWithGetter, convert_path_mapping_to_str, \
+    list_of_path_mapping_to_list_of_str, get_converter
 from snowflake.cli.api.project.util import IDENTIFIER_NO_LENGTH
 
 PROJECT_TEMPLATE_START = "<%"
@@ -139,6 +142,10 @@ class UpdatableModel(BaseModel):
             field = field_values.get(field_name)
             if not cls._is_entity_type_field(field):
                 cls._add_validator(field_name)
+            if isinstance(field, FieldInfoWithGetter):
+                cls._add_getter(field_name, field)
+
+
 
     @classmethod
     def _add_validator(cls, field_name: str):
@@ -184,6 +191,20 @@ class UpdatableModel(BaseModel):
                 else:
                     setattr(self, field, value)
         return self
+
+    @classmethod
+    def _add_getter(cls,attribute_name: str, field: FieldInfoWithGetter):
+        """
+        This is called from the __init__ method of the subclass, and adds getters to automatically convert fields
+        declared as FieldInfoWithGetter to the correct type.
+        """
+
+        def getter(self):
+            value = getattr(self, attribute_name)
+            converter_function = get_converter(type(value), field.getter_return_type)
+            return converter_function(value) #TODO: Add conversion logic here
+
+        setattr(cls, f"get_{attribute_name}", property(getter))
 
 
 def DiscriminatorField(*args, **kwargs):  # noqa N802

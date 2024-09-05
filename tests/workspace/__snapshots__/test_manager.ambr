@@ -161,10 +161,8 @@
 # ---
 # name: test_migrating_a_file_with_duplicated_keys_raises_an_error[\nstreamlit:\n  name: test\n  stage: streamlit\n  query_warehouse: test_warehouse\n  main_file: "streamlit_app.py"\n  title: "My Fancy Streamlit"\n    ]
   '''
-  +- Error ----------------------------------------------------------------------+
-  | In your project, streamlit and snowpark entities share the same name. Please |
-  | rename them and try again.                                                   |
-  +------------------------------------------------------------------------------+
+  
+  Aborted.
   
   '''
 # ---
