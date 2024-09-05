@@ -10,17 +10,6 @@
   
   '''
 # ---
-# name: test_execute[@DB.SCHEMA.REPO/branches/main/s1.sql-@db.schema.repo/branches/main/-expected_files0]
-  '''
-  SUCCESS - @db.schema.repo/branches/main/s1.sql
-  +--------------------------------------------------------+
-  | File                                 | Status  | Error |
-  |--------------------------------------+---------+-------|
-  | @db.schema.repo/branches/main/s1.sql | SUCCESS | None  |
-  +--------------------------------------------------------+
-  
-  '''
-# ---
 # name: test_execute[@DB.schema.REPO/branches/main/a/S3.sql-@DB.schema.REPO/branches/main/-expected_files5]
   '''
   SUCCESS - @DB.schema.REPO/branches/main/a/S3.sql
@@ -28,17 +17,6 @@
   | File                                   | Status  | Error |
   |----------------------------------------+---------+-------|
   | @DB.schema.REPO/branches/main/a/S3.sql | SUCCESS | None  |
-  +----------------------------------------------------------+
-  
-  '''
-# ---
-# name: test_execute[@DB.schema.REPO/branches/main/a/S3.sql-@db.schema.repo/branches/main/-expected_files1]
-  '''
-  SUCCESS - @db.schema.repo/branches/main/a/S3.sql
-  +----------------------------------------------------------+
-  | File                                   | Status  | Error |
-  |----------------------------------------+---------+-------|
-  | @db.schema.repo/branches/main/a/S3.sql | SUCCESS | None  |
   +----------------------------------------------------------+
   
   '''
