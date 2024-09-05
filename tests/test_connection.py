@@ -353,7 +353,7 @@ def test_connection_test(mock_connect, mock_om, runner):
         temporary_connection=False,
         mfa_passcode=None,
         enable_diag=False,
-        diag_log_path="/tmp",
+        diag_log_path=Path("/tmp"),
         diag_allowlist_path=None,
         connection_name="full",
         account=None,
@@ -896,7 +896,7 @@ def test_connection_test_diag_report(mock_connect, mock_om, runner):
         temporary_connection=False,
         mfa_passcode=None,
         enable_diag=True,
-        diag_log_path="/tmp",
+        diag_log_path=Path("/tmp"),
         diag_allowlist_path=None,
         connection_name="full",
         account=None,
@@ -912,3 +912,16 @@ def test_connection_test_diag_report(mock_connect, mock_om, runner):
         role=None,
         warehouse=None,
     )
+
+
+@mock.patch("snowflake.cli.plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli.app.snow_connector.connect_to_snowflake")
+def test_diag_log_path_default_is_actual_tempdir(mock_connect, mock_om, runner):
+    from snowflake.cli.api.commands.flags import _DIAG_LOG_DEFAULT_VALUE
+
+    result = runner.invoke(["connection", "test", "-c", "full", "--enable-diag"])
+    assert result.exit_code == 0, result.output
+    assert mock_connect.call_args.kwargs["diag_log_path"] not in [
+        _DIAG_LOG_DEFAULT_VALUE,
+        Path(_DIAG_LOG_DEFAULT_VALUE),
+    ]
