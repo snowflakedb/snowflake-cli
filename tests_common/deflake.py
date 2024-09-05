@@ -20,6 +20,9 @@ from _pytest.terminal import TerminalReporter
 TEST_TYPE_OPTION = "--deflake-test-type"
 PREVIOUS_OUTCOME_KEY = StashKey[dict[str, str]]()
 
+FAILED = "failed"
+FLAKY = "flaky"
+
 APP_REPO = "snowflakedb/snowflake-cli"
 ISSUE_REPO = APP_REPO
 FLAKY_LABEL = "flaky-test"
@@ -98,11 +101,11 @@ class DeflakePlugin:
         report.should_retry = False
         if call.when in previous_outcomes:
             # This is a retry
-            if previous_outcomes[call.when] == "failed" and report.outcome == "passed":
+            if previous_outcomes[call.when] == FAILED and report.outcome == "passed":
                 # This test initially failed then passed on a retry, it's flaky
-                report.outcome = "flaky"
+                report.outcome = FLAKY
                 self.flaky_tests += 1
-        elif report.outcome == "failed":
+        elif report.outcome == FAILED:
             # This test should be retried
             report.should_retry = True
             # Don't count this as an error
@@ -118,8 +121,8 @@ class DeflakePlugin:
         phase = getattr(test, report.when)
         phase.outcome = report.outcome
 
-        if report.outcome == "failed":
-            test.outcome = "failed"
+        if report.outcome == FAILED:
+            test.outcome = FAILED
             phase.longrepr = report.longreprtext
             if crash := getattr(report.longrepr, "reprcrash", None):
                 phase.crash = Crash(
@@ -127,8 +130,8 @@ class DeflakePlugin:
                     lineno=crash.lineno,
                     message=crash.message,
                 )
-        elif report.outcome == "flaky":
-            test.outcome = "flaky"
+        elif report.outcome == FLAKY:
+            test.outcome = FLAKY
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_report_teststatus(
@@ -138,7 +141,7 @@ class DeflakePlugin:
         if report.should_retry:
             # Don't log a status for this yet since it's not final
             return "", "", ""
-        if report.outcome == "flaky":
+        if report.outcome == FLAKY:
             # outcome category, letter used for regular output, and status used for full output, respectively
             return "flaky", "K", "FLAKY"
         # Otherwise let the default hook implementation decide the status strings
@@ -147,7 +150,7 @@ class DeflakePlugin:
     def pytest_sessionfinish(self) -> None:
         # Called at the end of the pytest run to log flaky tests to GitHub
         for nodeid, test in self.test_run.tests.items():
-            if test.outcome != "flaky":
+            if test.outcome != FLAKY:
                 continue
 
             if self.github and self.test_type:
@@ -264,7 +267,7 @@ class GitHub:
     def comment_on_issue(self, issue: dict, test: TestResult) -> dict:
         body = "+1"
         for phase in PHASES:
-            if getattr(test, phase).outcome in ("failed", "flaky"):
+            if getattr(test, phase).outcome in (FAILED, FLAKY):
                 body += f"\n```python\n{getattr(test, phase).crash.message}\n```\n"
                 break
 
