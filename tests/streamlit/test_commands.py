@@ -22,6 +22,11 @@ from snowflake.cli._plugins.connection.util import REGIONLESS_QUERY
 STREAMLIT_NAME = "test_streamlit"
 TEST_WAREHOUSE = "test_warehouse"
 
+mock_streamlit_exists = mock.patch(
+    "snowflake.cli._plugins.streamlit.manager.ObjectManager.object_exists",
+    lambda _, **kwargs: False,
+)
+
 
 @mock.patch("snowflake.connector.connect")
 def test_list_streamlit(mock_connector, runner, mock_ctx):
@@ -56,6 +61,7 @@ def _put_query(source: str, dest: str):
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
+@mock_streamlit_exists
 def test_deploy_only_streamlit_file(
     mock_connector,
     mock_typer,
@@ -107,6 +113,7 @@ def test_deploy_only_streamlit_file(
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
+@mock_streamlit_exists
 def test_deploy_only_streamlit_file_no_stage(
     mock_connector,
     mock_typer,
@@ -157,6 +164,7 @@ def test_deploy_only_streamlit_file_no_stage(
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
+@mock_streamlit_exists
 def test_deploy_with_empty_pages(
     mock_connector,
     mock_typer,
@@ -209,6 +217,7 @@ def test_deploy_with_empty_pages(
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
+@mock_streamlit_exists
 def test_deploy_only_streamlit_file_replace(
     mock_connector,
     mock_typer,
@@ -293,6 +302,7 @@ def test_artifacts_must_exists(
 
 @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
+@mock_streamlit_exists
 def test_deploy_launch_browser(
     mock_connector, mock_typer, mock_cursor, runner, mock_ctx, project_directory
 ):
@@ -318,6 +328,7 @@ def test_deploy_launch_browser(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock_streamlit_exists
 def test_deploy_streamlit_and_environment_files(
     mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
@@ -360,6 +371,7 @@ def test_deploy_streamlit_and_environment_files(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock_streamlit_exists
 def test_deploy_streamlit_and_pages_files(
     mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
@@ -401,6 +413,7 @@ def test_deploy_streamlit_and_pages_files(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock_streamlit_exists
 def test_deploy_all_streamlit_files(
     mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
@@ -443,6 +456,7 @@ def test_deploy_all_streamlit_files(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock_streamlit_exists
 def test_deploy_put_files_on_stage(
     mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
@@ -487,6 +501,7 @@ def test_deploy_put_files_on_stage(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock_streamlit_exists
 def test_deploy_all_streamlit_files_not_defaults(
     mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
@@ -529,6 +544,7 @@ def test_deploy_all_streamlit_files_not_defaults(
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
 @pytest.mark.parametrize("enable_streamlit_no_checkouts", [True, False])
+@mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental(
     mock_connector,
     mock_cursor,
@@ -599,6 +615,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
     mock_connector,
     mock_cursor,
@@ -665,6 +682,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
 
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
+@mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
     mock_connector,
     mock_cursor,
@@ -723,6 +741,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_replace(
     mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
