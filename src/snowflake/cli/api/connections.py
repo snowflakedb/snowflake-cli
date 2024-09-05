@@ -74,12 +74,14 @@ class ConnectionContext:
             setattr(self, key, value)
 
     def __repr__(self) -> str:
-        """ Minimal repr where empty (i.e. None) values have their keys omitted. """
+        """Minimal repr where empty (i.e. None) values have their keys omitted."""
         items = [
-            f"{k}={repr(v)}" for (k, v) in self.as_nonempty_dict().items() if v is not None
+            f"{k}={repr(v)}"
+            for (k, v) in self.as_nonempty_dict().items()
+            if v is not None
         ]
         return f"{self.__class__.__name__}({', '.join(items)})"
-    
+
     def __setattr__(self, prop, val):
         """Runs registered validators before setting fields."""
         if prop in self.VALIDATED_FIELD_NAMES:
