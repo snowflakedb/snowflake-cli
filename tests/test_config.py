@@ -24,6 +24,7 @@ from snowflake.cli.api.config import (
     get_config_section,
     get_connection_dict,
     get_default_connection_dict,
+    get_env_variable_name,
 )
 from snowflake.cli.api.exceptions import MissingConfiguration
 
@@ -387,3 +388,17 @@ def test_corrupted_config_raises_human_friendly_error(
 
     assert result.exit_code == 1, result.output
     assert result.output == os_agnostic_snapshot
+
+
+@pytest.mark.parametrize(
+    "path, key, expected",
+    [
+        (["connections", "integration"], "private_key_file", "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE"),
+        (["connections", "default"], "user", "SNOWFLAKE_CONNECTIONS_DEFAULT_USER"),
+        ([], "mfa_passcode", "SNOWFLAKE_MFA_PASSCODE"),
+        ([], "warehouse", "SNOWFLAKE_WAREHOUSE"),
+    ]
+)
+def test_get_env_variable_name(path, key, expected):
+    assert get_env_variable_name(*path, key=key) == expected
+
