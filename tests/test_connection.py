@@ -433,23 +433,9 @@ def test_connection_test(mock_connect, mock_om, runner):
 
     mock_connect.assert_called_with(
         temporary_connection=False,
-        mfa_passcode=None,
         enable_diag=False,
         diag_log_path="/tmp",
-        diag_allowlist_path=None,
         connection_name="full",
-        account=None,
-        user=None,
-        password=None,
-        authenticator=None,
-        private_key_file=None,
-        token_file_path=None,
-        session_token=None,
-        master_token=None,
-        database=None,
-        schema=None,
-        role=None,
-        warehouse=None,
     )
 
     conn = mock_connect.return_value
