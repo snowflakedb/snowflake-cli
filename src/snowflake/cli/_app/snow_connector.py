@@ -27,6 +27,7 @@ from snowflake.cli._app.constants import (
 from snowflake.cli._app.telemetry import command_info
 from snowflake.cli.api.config import (
     get_connection_dict,
+    get_env_value,
 )
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import (
@@ -42,6 +43,22 @@ log = logging.getLogger(__name__)
 
 ENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN ENCRYPTED PRIVATE KEY-----"
 UNENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN PRIVATE KEY-----"
+
+# connection keys that can be set using SNOWFLAKE_* env vars
+SUPPORTED_ENV_OVERRIDES = [
+    "account",
+    "user",
+    "password",
+    "authenticator",
+    "private_key_file",
+    "database",
+    "schema",
+    "role",
+    "warehouse",
+    "session_token",
+    "master_token",
+    "token_file_path",
+]
 
 
 def connect_to_snowflake(
@@ -72,19 +89,20 @@ def connect_to_snowflake(
 
     if connection_name:
         connection_parameters = get_connection_dict(connection_name)
-        connection_parameters = get_connection_dict(connection_name)
     elif temporary_connection:
         connection_parameters = {}  # we will apply overrides in next step
 
     # Apply overrides to connection details
+    # (1) Command line override case
     for key, value in overrides.items():
-        # Command line override case
         if value:
             connection_parameters[key] = value
             continue
 
-        # Generic environment variable case, apply only if value not passed via flag or connection variable
-        generic_env_value = os.environ.get(f"SNOWFLAKE_{key}".upper())
+    # (2) Generic environment variable case
+    # ... apply only if value not passed via flag or connection variable
+    for key in SUPPORTED_ENV_OVERRIDES:
+        generic_env_value = get_env_value(key)
         if key not in connection_parameters and generic_env_value:
             connection_parameters[key] = generic_env_value
             continue
