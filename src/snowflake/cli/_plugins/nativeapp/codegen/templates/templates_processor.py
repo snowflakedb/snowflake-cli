@@ -62,7 +62,7 @@ class TemplatesProcessor(ArtifactProcessor):
                 return
 
             src_file_name = src.relative_to(self._bundle_ctx.project_root)
-            cc.step(f"Processing Templates from {src_file_name}")
+            cc.step(f"Expanding templates in {src_file_name}")
             with cc.indented():
                 try:
                     jinja_env = (
