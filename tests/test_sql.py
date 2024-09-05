@@ -153,7 +153,7 @@ def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
         temporary_connection=False,
         mfa_passcode=None,
         enable_diag=False,
-        diag_log_path="/tmp",
+        diag_log_path=Path("/tmp"),
         diag_allowlist_path=None,
         connection_name="connectionName",
         account="accountnameValue",
