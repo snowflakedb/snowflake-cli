@@ -298,6 +298,7 @@ def _initialise_config(config_file: Path) -> None:
 def get_env_variable_name(*path, key: str) -> str:
     return ("_".join(["snowflake", *path, key])).upper()
 
+
 def get_env_value(*path, key: str) -> str | None:
     return os.environ.get(get_env_variable_name(*path, key=key))
 
