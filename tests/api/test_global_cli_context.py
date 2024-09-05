@@ -41,6 +41,7 @@ def test_reset_global_context_mgr():
     mgr.connection_cache = None
     mgr.reset()
     assert mgr.connection_cache == _CONNECTION_CACHE
+    assert mgr.override_project_definition is None
 
     initial_mgr = _CliGlobalContextManager()
     for f in fields(mgr):

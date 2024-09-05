@@ -115,7 +115,19 @@ class SnowCLIRunner(CliRunner):
         if "catch_exceptions" not in kw:
             kw.update(catch_exceptions=False)
         kw = self._with_env_vars(kw)
-        return super().invoke(self.app, *a, **kw)
+
+        # between every invocation, we need to reset the CLI context
+        # and ensure no connections are cached going forward (to prevent
+        # test cases from impacting each other / align with CLI usage)
+        with fork_cli_context():
+            connection_cache = OpenConnectionCache()
+            cli_context_manager = get_cli_context_manager()
+            cli_context_manager.reset()
+            cli_context_manager.connection_cache = connection_cache
+            try:
+                return super().invoke(self.app, *a, **kw)
+            finally:
+                connection_cache.clear()
 
     def _with_env_vars(self, kw) -> dict:
         """
@@ -216,15 +228,8 @@ def project_directory(temporary_working_directory, test_root_path):
 
 @pytest.fixture(autouse=True)
 def reset_global_context_after_each_test(request):
-    with fork_cli_context():
-        connection_cache = OpenConnectionCache()
-        cli_context_manager = get_cli_context_manager()
-        cli_context_manager.reset()
-        cli_context_manager.connection_cache = connection_cache
-        try:
-            yield
-        finally:
-            connection_cache.clear()
+    get_cli_context_manager().reset()
+    yield
 
 
 # This automatically used fixture isolates default location
