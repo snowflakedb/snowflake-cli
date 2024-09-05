@@ -18,7 +18,7 @@ import itertools
 import logging
 from os import path
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import typer
 from click import ClickException
@@ -41,6 +41,7 @@ from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import CollectionResult, CommandResult, QueryResult
 from snowflake.cli.api.utils.path_utils import is_stage_path
+from snowflake.connector import DictCursor
 
 app = SnowTyperFactory(
     name="git",
@@ -101,16 +102,19 @@ def _validate_origin_url(url: str) -> None:
 def _unique_new_object_name(
     om: ObjectManager, object_type: ObjectType, proposed_fqn: FQN
 ) -> str:
-    result = (
-        FQN.from_string(proposed_fqn.name)
-        .set_schema(proposed_fqn.schema)
-        .set_database(proposed_fqn.database)
-    )
+    existing_objects: List[Dict] = om.show(
+        object_type=object_type.value.cli_name,
+        like=f"{proposed_fqn.name}%",
+        cursor_class=DictCursor,
+    ).fetchall()
+    existing_names = set(o["name"].upper() for o in existing_objects)
+
+    result = proposed_fqn.name
     i = 1
-    while om.object_exists(object_type=object_type.value.cli_name, fqn=result):
-        result.set_name(proposed_fqn.name + str(i))
+    while result.upper() in existing_names:
+        result = proposed_fqn.name + str(i)
         i += 1
-    return result.name
+    return result
 
 
 @app.command("setup", requires_connection=True)
