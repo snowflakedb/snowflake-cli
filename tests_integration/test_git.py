@@ -238,7 +238,7 @@ def test_copy_single_file_to_local_file_system(runner, sf_git_repository):
 
 
 @pytest.mark.integration
-def test_copy_error(runner, sf_git_repository, snapshot):
+def test_copy_error(runner, sf_git_repository):
     with tempfile.TemporaryDirectory() as tmp_dir:
         LOCAL_DIR = Path(tmp_dir) / "a_dir"
 
