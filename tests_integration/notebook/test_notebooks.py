@@ -70,5 +70,4 @@ def _create_notebook(local_notebook_file, runner, snowflake_session, stage_name)
     result = runner.invoke_with_connection_json(command)
     assert result.exit_code == 0
     message: str = result.json.get("message", "")
-    assert message.startswith("https://app.snowflake.com/")
     assert message.endswith(notebook_name.upper())

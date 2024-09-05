@@ -120,6 +120,7 @@ features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
 test = ["pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration"]
+test_qa = ["pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration -k 'not test_use_session_token and not test_temporary_connection and not test_cortex_complete_for_prompt and not test_cortex_complete_for_conversation'"]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.10", "3.11", "3.12"]
