@@ -138,7 +138,7 @@ def streamlit_deploy(
             raise NoProjectDefinitionError(
                 project_type="streamlit", project_root=cli_context.project_root
             )
-        pd = convert_project_definition_to_v2(pd)
+        pd = convert_project_definition_to_v2(cli_context.project_root, pd)
 
     streamlits: Dict[str, StreamlitEntityModel] = pd.get_entities_by_type(
         entity_type="streamlit"

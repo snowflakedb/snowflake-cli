@@ -53,13 +53,14 @@ def migrate(
     ),
     **options,
 ):
-    """Migrates the Snowpark and Streamlit project definition files from V1 to V2."""
-    pd = DefinitionManager().unrendered_project_definition
+    """Migrates the Snowpark, Streamlit, and Native App project definition files from V1 to V2."""
+    manager = DefinitionManager()
+    pd = manager.unrendered_project_definition
 
     if pd.meets_version_requirement("2"):
         return MessageResult("Project definition is already at version 2.")
 
-    pd_v2 = convert_project_definition_to_v2(pd, accept_templates)
+    pd_v2 = convert_project_definition_to_v2(manager.project_root, pd, accept_templates)
 
     SecurePath("snowflake.yml").rename("snowflake_V1.yml")
     with open("snowflake.yml", "w") as file:
