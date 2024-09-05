@@ -41,6 +41,15 @@ def test_streamlit_deploy(
         result = runner.invoke_with_connection_json(["streamlit", "deploy"])
         assert result.exit_code == 0
 
+        result = runner.invoke_with_connection(["streamlit", "deploy"])
+        assert result.exit_code == 1
+        assert "already exist" in result.output
+
+        result = runner.invoke_with_connection_json(
+            ["streamlit", "deploy", "--replace"]
+        )
+        assert result.exit_code == 0
+
         result = runner.invoke_with_connection_json(["streamlit", "list"])
         assert_that_result_is_successful(result)
 
