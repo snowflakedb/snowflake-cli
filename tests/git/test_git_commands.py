@@ -212,12 +212,15 @@ def test_setup_invalid_url_error(mock_om_describe, mock_connector, runner, mock_
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_setup_no_secret_existing_api(
-    mock_om_describe, mock_connector, runner, mock_ctx
+    mock_om_show, mock_om_describe, mock_connector, runner, mock_ctx, mock_cursor
 ):
+    mock_om_show.return_value = mock_cursor([], [])
     mock_om_describe.side_effect = [
+        # repo does not exist
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
-        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # api integration exists
         None,
     ]
     mock_om_describe.return_value = [None, {"object_details": "something"}]
@@ -257,10 +260,21 @@ def test_setup_no_secret_existing_api(
 )
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_setup_no_secret_create_api(
-    mock_om_describe, mock_connector, runner, mock_ctx, repo_name, int_name, secret_name
+    mock_om_show,
+    mock_om_describe,
+    mock_connector,
+    runner,
+    mock_ctx,
+    mock_cursor,
+    repo_name,
+    int_name,
+    secret_name,
 ):
+    mock_om_show.return_value = mock_cursor([], [])
     mock_om_describe.side_effect = ProgrammingError(
+        # nothing exists
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
     )
     ctx = mock_ctx()
@@ -298,14 +312,17 @@ def test_setup_no_secret_create_api(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_setup_existing_secret_existing_api(
-    mock_om_describe, mock_connector, runner, mock_ctx
+    mock_om_show, mock_om_describe, mock_connector, runner, mock_ctx, mock_cursor
 ):
+    mock_om_show.return_value = mock_cursor([], [])
     mock_om_describe.side_effect = [
+        # repo does not exist
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
-        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # secret exists
         None,
-        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # api integration exists
         None,
     ]
     mock_om_describe.return_value = [
@@ -360,24 +377,24 @@ def test_setup_existing_secret_existing_api(
 )
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_setup_existing_secret_create_api(
+    mock_om_show,
     mock_om_describe,
     mock_connector,
     runner,
     mock_ctx,
+    mock_cursor,
     repo_name,
     int_name,
     existing_secret_name,
 ):
+    mock_om_show.return_value = mock_cursor([], [])
     mock_om_describe.side_effect = [
         # repo does not exists
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
-        # proposed secret name does not exist
-        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
         # chosen secret exists
         None,
-        # proposed integration name does not exist
-        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
         # chosen integration does not exist
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
     ]
@@ -420,10 +437,13 @@ def test_setup_existing_secret_create_api(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_setup_create_secret_create_api(
-    mock_om_describe, mock_connector, runner, mock_ctx
+    mock_om_show, mock_om_describe, mock_connector, runner, mock_ctx, mock_cursor
 ):
+    mock_om_show.return_value = mock_cursor([], [])
     mock_om_describe.side_effect = ProgrammingError(
+        # nothing exists
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
     )
     ctx = mock_ctx()
@@ -475,23 +495,22 @@ def test_setup_create_secret_create_api(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 def test_api_integration_and_secrets_get_unique_names(
-    mock_om_describe, mock_connector, runner, mock_ctx
+    mock_om_show, mock_om_describe, mock_connector, runner, mock_ctx, mock_cursor
 ):
+    mock_om_show.return_value = mock_cursor(
+        [{"name": f"repo_name_secret{x}"} for x in range(1, 3)]
+        + [{"name": f"repo_name_api_integration{x}"} for x in range(1, 4)]
+        + [{"name": "repo_name_secret"}, {"name": "repo_name_api_integration"}],
+        [],
+    )
     mock_om_describe.side_effect = [
-        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),  # repo does not exist
-        # 3 first secret names does exist
-        None,
-        None,
-        None,
+        # repo does not exist
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # chosen secret does not exist
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
-        # 4 first api integration names does exist
-        None,
-        None,
-        None,
-        None,
-        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # chosen api integration does not exist
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
     ]
     ctx = mock_ctx()
