@@ -967,23 +967,9 @@ def test_connection_test_diag_report(mock_connect, mock_om, runner):
     assert "Diag Report" in result.output
     mock_connect.assert_called_once_with(
         temporary_connection=False,
-        mfa_passcode=None,
         enable_diag=True,
         diag_log_path="/tmp",
-        diag_allowlist_path=None,
         connection_name="full",
-        account=None,
-        user=None,
-        password=None,
-        authenticator=None,
-        private_key_file=None,
-        token_file_path=None,
-        session_token=None,
-        master_token=None,
-        database=None,
-        schema=None,
-        role=None,
-        warehouse=None,
     )
 
 
