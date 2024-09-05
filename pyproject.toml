@@ -63,7 +63,7 @@ development = [
   "pytest-randomly==3.15.0",
   "syrupy==4.7.1",
 ]
-packaging = ["pyinstaller~=6.9"]
+packaging = ["pyinstaller~=6.10"]
 
 [project.urls]
 "Source code" = "https://github.com/snowflakedb/snowflake-cli"
@@ -97,7 +97,7 @@ test-cov = [
 ]
 
 [tool.hatch.envs.packaging]
-python = "3.10"
+python = "3.11"
 features = ["development", "packaging"]
 
 [tool.hatch.envs.packaging.scripts]
