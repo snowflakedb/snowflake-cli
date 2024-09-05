@@ -102,7 +102,7 @@ def connect_to_snowflake(
     # (2) Generic environment variable case
     # ... apply only if value not passed via flag or connection variable
     for key in SUPPORTED_ENV_OVERRIDES:
-        generic_env_value = get_env_value(key)
+        generic_env_value = get_env_value(key=key)
         if key not in connection_parameters and generic_env_value:
             connection_parameters[key] = generic_env_value
             continue
