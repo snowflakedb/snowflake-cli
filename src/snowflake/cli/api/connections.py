@@ -73,6 +73,13 @@ class ConnectionContext:
                 raise KeyError(f"{key} is not a field of {self.__class__.__name__}")
             setattr(self, key, value)
 
+    def __repr__(self) -> str:
+        """ Minimal repr where empty (i.e. None) values have their keys omitted. """
+        items = [
+            f"{k}={repr(v)}" for (k, v) in self.as_nonempty_dict().items() if v is not None
+        ]
+        return f"{self.__class__.__name__}({', '.join(items)})"
+    
     def __setattr__(self, prop, val):
         """Runs registered validators before setting fields."""
         if prop in self.VALIDATED_FIELD_NAMES:
@@ -96,6 +103,9 @@ class ConnectionContext:
         if not self.temporary_connection and not self.connection_name:
             self.connection_name = get_default_connection_name()
 
+    def as_nonempty_dict(self) -> dict:
+        return {k: v for (k, v) in asdict(self).items() if v is not None}
+
     def build_connection(self):
         from snowflake.cli._app.snow_connector import connect_to_snowflake
 
@@ -108,8 +118,7 @@ class ConnectionContext:
                 module="snowflake.connector.config_manager",
             )
 
-        non_empty_params = {k: v for (k, v) in asdict(self).items() if v is not None}
-        return connect_to_snowflake(**non_empty_params)
+        return connect_to_snowflake(**self.as_nonempty_dict())
 
 
 class OpenConnectionCache:

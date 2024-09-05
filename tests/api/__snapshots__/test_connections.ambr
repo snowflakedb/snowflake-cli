@@ -1,10 +1,10 @@
 # serializer version: 1
 # name: test_stable_connection_context_repr[args0]
-  "ConnectionContext(connection_name='default', account=None, database=None, role=None, schema=None, user=None, authenticator=None, private_key_file=None, warehouse=None, mfa_passcode=None, enable_diag=False, diag_log_path=None, diag_allowlist_path=None, temporary_connection=False, session_token=None, master_token=None, token_file_path=None)"
+  "ConnectionContext(connection_name='default', enable_diag=False, temporary_connection=False)"
 # ---
 # name: test_stable_connection_context_repr[args1]
-  "ConnectionContext(connection_name='myconn', account=None, database=None, role=None, schema=None, user=None, authenticator=None, private_key_file=None, warehouse=None, mfa_passcode=None, enable_diag=False, diag_log_path=None, diag_allowlist_path=None, temporary_connection=False, session_token=None, master_token=None, token_file_path=None)"
+  "ConnectionContext(connection_name='myconn', enable_diag=False, temporary_connection=False)"
 # ---
 # name: test_stable_connection_context_repr[args2]
-  "ConnectionContext(connection_name=None, account='myacct', database=None, role=None, schema=None, user='myuser', authenticator=None, private_key_file=None, warehouse=None, mfa_passcode=None, enable_diag=False, diag_log_path=None, diag_allowlist_path=None, temporary_connection=True, session_token=None, master_token=None, token_file_path=None)"
+  "ConnectionContext(account='myacct', user='myuser', enable_diag=False, temporary_connection=True)"
 # ---
