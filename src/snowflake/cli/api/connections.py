@@ -165,6 +165,11 @@ class OpenConnectionCache:
 
     def _insert(self, key: str, ctx: ConnectionContext):
         try:
+            # N.B. build_connection ultimately calls connect_to_snowflake, which
+            # interpolates in connection dicts (from config) and environment variables.
+            # This means that we could return a stale (incorrect) connection for the
+            # given ConnectionContext if get_env_value or get_connection_dict would
+            # have returned different values (i.e. env / config have changed).
             self.connections[key] = ctx.build_connection()
         except Exception:
             logger.debug(

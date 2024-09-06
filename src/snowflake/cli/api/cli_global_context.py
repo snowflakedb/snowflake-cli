@@ -208,13 +208,17 @@ def get_cli_context() -> _CliGlobalContextAccess:
 @contextmanager
 def fork_cli_context(
     connection_overrides: dict | None = None,
-    env: dict[str, str] | None = None,
+    project_env_overrides: dict[str, str] | None = None,
     project_is_optional: bool | None = None,
     project_path: str | None = None,
 ) -> Iterator[_CliGlobalContextAccess]:
     """
     Forks the global CLI context, making changes that are only visible
     (e.g. via get_cli_context()) while inside this context manager.
+
+    Please note that environment variable changes are only visible through
+    the project definition; os.getenv / os.environ / get_env_value are not
+    affected by these new values.
     """
     old_manager = get_cli_context_manager()
     new_manager = old_manager.clone()
@@ -223,8 +227,8 @@ def fork_cli_context(
     if connection_overrides:
         new_manager.connection_context.update(**connection_overrides)
 
-    if env:
-        new_manager.project_env_overrides_args.update(env)
+    if project_env_overrides:
+        new_manager.project_env_overrides_args.update(project_env_overrides)
 
     if project_is_optional is not None:
         new_manager.project_is_optional = project_is_optional

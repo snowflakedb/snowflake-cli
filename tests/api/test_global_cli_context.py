@@ -56,7 +56,7 @@ def test_forked_context():
 
     with fork_cli_context(
         connection_overrides={"connection_name": "outer"},
-        env={"abc": "123", "initial": "value"},
+        project_env_overrides={"abc": "123", "initial": "value"},
     ) as outer:
         assert outer._manager == get_cli_context_manager()  # noqa: SLF001
         assert get_cli_context().connection_context.connection_name == "outer"
@@ -67,7 +67,7 @@ def test_forked_context():
 
         with fork_cli_context(
             connection_overrides={"connection_name": "inner"},
-            env={"abc": "456", "another": "one"},
+            project_env_overrides={"abc": "456", "another": "one"},
         ) as inner:
             assert inner._manager == get_cli_context_manager()  # noqa: SLF001
             assert get_cli_context().connection_context.connection_name == "inner"

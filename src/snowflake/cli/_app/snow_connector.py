@@ -51,6 +51,7 @@ SUPPORTED_ENV_OVERRIDES = [
     "password",
     "authenticator",
     "private_key_file",
+    "private_key_path",
     "database",
     "schema",
     "role",
@@ -59,6 +60,16 @@ SUPPORTED_ENV_OVERRIDES = [
     "master_token",
     "token_file_path",
 ]
+
+# mapping of found key -> key to set
+CONNECTION_KEY_ALIASES = {"private_key_path": "private_key_file"}
+
+
+def _resolve_alias(key_or_alias: str):
+    """
+    Given the key of an override / env var, what key should it be set as in the connection parameters?
+    """
+    return CONNECTION_KEY_ALIASES.get(key_or_alias, key_or_alias)
 
 
 def connect_to_snowflake(
@@ -88,33 +99,36 @@ def connect_to_snowflake(
     )
 
     if connection_name:
-        connection_parameters = get_connection_dict(connection_name)
+        connection_parameters = {
+            _resolve_alias(k): v
+            for k, v in get_connection_dict(connection_name).items()
+        }
     elif temporary_connection:
         connection_parameters = {}  # we will apply overrides in next step
 
     # Apply overrides to connection details
     # (1) Command line override case
     for key, value in overrides.items():
-        if value:
-            connection_parameters[key] = value
-            continue
+        if value is not None:
+            connection_parameters[_resolve_alias(key)] = value
 
     # (2) Generic environment variable case
     # ... apply only if value not passed via flag or connection variable
     for key in SUPPORTED_ENV_OVERRIDES:
         generic_env_value = get_env_value(key=key)
-        if key not in connection_parameters and generic_env_value:
-            connection_parameters[key] = generic_env_value
-            continue
+        connection_key = _resolve_alias(key)
+        if connection_key not in connection_parameters and generic_env_value:
+            connection_parameters[connection_key] = generic_env_value
 
     # Clean up connection params
     connection_parameters = {
         k: v for k, v in connection_parameters.items() if v is not None
     }
 
-    connection_parameters = update_connection_details_with_private_key(
-        connection_parameters
-    )
+    if "private_key_file" in connection_parameters:
+        update_connection_details_with_private_key(
+            connection_parameters, "private_key_file"
+        )
 
     if mfa_passcode:
         connection_parameters["passcode"] = mfa_passcode
@@ -178,15 +192,9 @@ def _raise_errors_related_to_session_token(
         )
 
 
-def update_connection_details_with_private_key(connection_parameters: Dict):
-    if "private_key_file" in connection_parameters:
-        _load_private_key(connection_parameters, "private_key_file")
-    elif "private_key_path" in connection_parameters:
-        _load_private_key(connection_parameters, "private_key_path")
-    return connection_parameters
-
-
-def _load_private_key(connection_parameters: Dict, private_key_var_name: str) -> None:
+def update_connection_details_with_private_key(
+    connection_parameters: Dict, private_key_var_name: str = "private_key_file"
+) -> None:
     if connection_parameters.get("authenticator") == "SNOWFLAKE_JWT":
         private_key = _load_pem_to_der(connection_parameters[private_key_var_name])
         connection_parameters["private_key"] = private_key

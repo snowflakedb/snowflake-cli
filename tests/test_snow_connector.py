@@ -66,6 +66,84 @@ def test_command_context_is_passed_to_snowflake_connection(
     )
 
 
+@pytest.mark.parametrize(
+    "connection_name, user_input, should_override",
+    [
+        ("private_key_file", None, False),
+        ("private_key_file", "SNOWFLAKE_PRIVATE_KEY_FILE", False),
+        ("private_key_file", "SNOWFLAKE_PRIVATE_KEY_PATH", False),
+        ("private_key_file", "private_key_file", True),
+        ("private_key_file", "private_key_path", True),
+        ("private_key_path", None, False),
+        ("private_key_path", "SNOWFLAKE_PRIVATE_KEY_FILE", False),
+        ("private_key_path", "SNOWFLAKE_PRIVATE_KEY_PATH", False),
+        ("private_key_path", "private_key_file", True),
+        ("private_key_path", "private_key_path", True),
+        ("no_private_key", None, False),
+        ("no_private_key", "SNOWFLAKE_PRIVATE_KEY_FILE", True),
+        ("no_private_key", "SNOWFLAKE_PRIVATE_KEY_PATH", True),
+        ("no_private_key", "private_key_file", True),
+        ("no_private_key", "private_key_path", True),
+    ],
+)
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector._load_pem_to_der")
+def test_private_key_loading_and_aliases(
+    mock_load_pem_to_der,
+    mock_command_info,
+    mock_connect,
+    test_snowcli_config,
+    connection_name,
+    user_input,
+    should_override,
+):
+    """
+    Ensures that the interaction between private_key_file and private_key_path is sound.
+    """
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init, get_connection_dict
+
+    config_init(test_snowcli_config)
+
+    # set up an override for private key path, either via env or override
+    override_value = "/override/value"
+    env = {}
+    overrides = {}
+    if user_input is not None:
+        if user_input.startswith("SNOWFLAKE_"):
+            env[user_input] = override_value
+        else:
+            overrides[user_input] = override_value
+
+    mock_command_info.return_value = "SNOWCLI.SQL"
+    mock_load_pem_to_der.return_value = b"bytes"
+
+    conn_dict = get_connection_dict(connection_name)
+    default_value = conn_dict.get("private_key_file", None) or conn_dict.get(
+        "private_key_path", None
+    )
+    expected_private_key_file_value = (
+        override_value if should_override else default_value
+    )
+
+    with mock.patch.dict(os.environ, env, clear=True):
+        connect_to_snowflake(connection_name=connection_name, **overrides)
+        expected_private_key_args = (
+            {}
+            if expected_private_key_file_value is None
+            else dict(private_key=mock_load_pem_to_der.return_value)
+        )
+        mock_connect.assert_called_once_with(
+            application=mock_command_info.return_value,
+            authenticator="SNOWFLAKE_JWT",
+            application_name="snowcli",
+            **expected_private_key_args,
+        )
+        if expected_private_key_file_value is not None:
+            mock_load_pem_to_der.assert_called_with(expected_private_key_file_value)
+
+
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_returns_nice_error_in_case_of_connectivity_error(runner):
     result = runner.invoke(["sql", "-q", "select 1"])
