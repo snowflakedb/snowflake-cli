@@ -208,7 +208,7 @@ def convert_native_app_to_v2_data(
 
     def _convert_package_script_files(package_scripts: list[str]):
         # PDFv2 doesn't support package scripts, only post-deploy scripts, so we
-        # need to context the Jinja syntax from {{ }} to <% %>
+        # need to convert the Jinja syntax from {{ }} to <% %>
         # Luckily, package scripts only support {{ package_name }}, so let's convert that tag
         # to v2 template syntax by running it though the template process with a fake
         # package name that's actually a valid v2 template, which will be evaluated
