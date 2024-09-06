@@ -134,6 +134,17 @@ def test_get_all_connections(test_snowcli_config):
             "user": "dev_user",
             "warehouse": "dev_warehouse",
         },
+        "no_private_key": {
+            "authenticator": "SNOWFLAKE_JWT",
+        },
+        "private_key_file": {
+            "authenticator": "SNOWFLAKE_JWT",
+            "private_key_file": "/private/key",
+        },
+        "private_key_path": {
+            "authenticator": "SNOWFLAKE_JWT",
+            "private_key_path": "/private/key",
+        },
         "test_connections": {"user": "python"},
     }
 

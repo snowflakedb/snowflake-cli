@@ -327,6 +327,28 @@ def test_lists_connection_information(mock_get_default_conn_name, runner):
             "parameters": {"user": "python"},
             "is_default": False,
         },
+        {
+            "connection_name": "private_key_file",
+            "is_default": False,
+            "parameters": {
+                "authenticator": "SNOWFLAKE_JWT",
+                "private_key_file": "/private/key",
+            },
+        },
+        {
+            "connection_name": "private_key_path",
+            "is_default": False,
+            "parameters": {
+                "authenticator": "SNOWFLAKE_JWT",
+            },
+        },
+        {
+            "connection_name": "no_private_key",
+            "is_default": False,
+            "parameters": {
+                "authenticator": "SNOWFLAKE_JWT",
+            },
+        },
     ]
 
 
@@ -379,6 +401,28 @@ def test_connection_list_does_not_print_too_many_env_variables(
             "connection_name": "test_connections",
             "parameters": {"user": "python"},
             "is_default": False,
+        },
+        {
+            "connection_name": "private_key_file",
+            "is_default": False,
+            "parameters": {
+                "authenticator": "SNOWFLAKE_JWT",
+                "private_key_file": "/private/key",
+            },
+        },
+        {
+            "connection_name": "private_key_path",
+            "is_default": False,
+            "parameters": {
+                "authenticator": "SNOWFLAKE_JWT",
+            },
+        },
+        {
+            "connection_name": "no_private_key",
+            "is_default": False,
+            "parameters": {
+                "authenticator": "SNOWFLAKE_JWT",
+            },
         },
     ]
 
