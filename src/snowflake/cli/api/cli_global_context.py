@@ -188,13 +188,17 @@ class _CliGlobalContextAccess:
         return self._manager.output_format == OutputFormat.JSON
 
 
-_CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager] = ContextVar(
-    "cli_context", default=_CliGlobalContextManager()
+_CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager | None] = ContextVar(
+    "cli_context", default=None
 )
 
 
 def get_cli_context_manager() -> _CliGlobalContextManager:
-    return _CLI_CONTEXT_MANAGER.get()
+    mgr = _CLI_CONTEXT_MANAGER.get()
+    if not mgr:
+        mgr = _CliGlobalContextManager()
+        _CLI_CONTEXT_MANAGER.set(mgr)
+    return mgr
 
 
 def get_cli_context() -> _CliGlobalContextAccess:
@@ -212,7 +216,7 @@ def fork_cli_context(
     Forks the global CLI context, making changes that are only visible
     (e.g. via get_cli_context()) while inside this context manager.
     """
-    old_manager = _CLI_CONTEXT_MANAGER.get()
+    old_manager = get_cli_context_manager()
     new_manager = old_manager.clone()
     token = _CLI_CONTEXT_MANAGER.set(new_manager)
 

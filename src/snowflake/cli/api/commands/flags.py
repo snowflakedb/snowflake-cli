@@ -466,8 +466,9 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
 
 def project_definition_option(is_optional: bool):
     def project_path_callback(project_path: str) -> str:
-        get_cli_context_manager().project_path_arg = project_path
-        get_cli_context_manager().project_is_optional = is_optional
+        ctx_mgr = get_cli_context_manager()
+        ctx_mgr.project_path_arg = project_path
+        ctx_mgr.project_is_optional = is_optional
         return project_path
 
     return typer.Option(
