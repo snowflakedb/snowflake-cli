@@ -8,6 +8,7 @@ from typing import Generator, cast
 
 import pytest
 import requests
+import pluggy
 from _pytest import runner
 from _pytest.config import Config, Parser
 from _pytest.main import Session
@@ -96,7 +97,10 @@ class DeflakePlugin:
         # Wrap the creation of the test report for this phase to override the
         # status to "flaky" if it's a retry and it passed
         previous_outcomes = item.stash.setdefault(PREVIOUS_OUTCOME_KEY, {})
-        report = (yield).get_result()
+
+        # yield nothing, receive result when generator resumes
+        result_wrapper: pluggy.Result = yield
+        report = result_wrapper.get_result()
 
         report.should_retry = False
         if call.when in previous_outcomes:
