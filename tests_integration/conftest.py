@@ -47,6 +47,7 @@ from tests.testing_utils.files_and_dirs import merge_left
 
 pytest_plugins = [
     "tests_common",
+    "tests_common.deflake",
     "tests_integration.testing_utils",
     "tests_integration.snowflake_connector",
 ]

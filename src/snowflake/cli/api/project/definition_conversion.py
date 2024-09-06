@@ -178,12 +178,27 @@ def convert_native_app_to_v2_data(
         # glob patterns. The simplest solution is to bundle the app and find the
         # manifest file from the resultant BundleMap, since the bundle process ensures
         # that only a single source path can map to the corresponding destination path
-        bundle_map = build_bundle(
-            project_root, Path(native_app.deploy_root), native_app.artifacts
-        )
+        try:
+            bundle_map = build_bundle(
+                project_root, Path(native_app.deploy_root), native_app.artifacts
+            )
+        except Exception as e:
+            # The manifest field is required, so we can't gracefully handle bundle failures
+            raise ClickException(
+                f"{e}\nCould not bundle Native App artifacts, unable to perform migration"
+            ) from e
+
+        manifest_path = bundle_map.to_project_path(Path("manifest.yml"))
+        if not manifest_path:
+            # The manifest field is required, so we can't gracefully handle it being missing
+            raise ClickException(
+                "manifest.yml file not found in any Native App artifact sources, "
+                "unable to perform migration"
+            )
+
         # Use a POSIX path to be consistent with other migrated fields
         # which use POSIX paths as default values
-        return bundle_map.to_project_path(Path("manifest.yml")).as_posix()
+        return manifest_path.as_posix()
 
     package_entity_name = "pkg"
     package = {
