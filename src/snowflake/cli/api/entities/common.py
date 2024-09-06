@@ -32,11 +32,12 @@ class EntityBase(Generic[T]):
         """
         return get_args(cls.__orig_bases__[0])[0]  # type: ignore[attr-defined]
 
-    def supports(self, action: EntityActions) -> bool:
+    @classmethod
+    def supports(cls, action: EntityActions) -> bool:
         """
         Checks whether this entity supports the given action. An entity is considered to support an action if it implements a method with the action name.
         """
-        return callable(getattr(self, action, None))
+        return callable(getattr(cls, action, None))
 
     def perform(
         self, action: EntityActions, action_ctx: ActionContext, *args, **kwargs

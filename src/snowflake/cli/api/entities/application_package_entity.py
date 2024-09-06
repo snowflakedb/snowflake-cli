@@ -63,6 +63,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     """
 
     def action_bundle(self, ctx: ActionContext):
+        """
+        Prepares a local folder with configured app artifacts.
+        """
         model = self._entity_model
         return self.bundle(
             project_root=ctx.project_root,
@@ -82,6 +85,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         validate: bool,
         stage_fqn: Optional[str] = None,
     ):
+        """
+        Syncs local changes to the stage configured for this package.
+        """
         model = self._entity_model
         package_name = model.fqn.identifier
         if model.meta and model.meta.role:
@@ -144,6 +150,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         ctx: ActionContext,
         force_drop: bool,
     ):
+        """
+        Drops this application package.
+        """
         model = self._entity_model
         package_name = model.fqn.identifier
         if model.meta and model.meta.role:
@@ -159,6 +168,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
     def action_validate(self, ctx: ActionContext):
+        """
+        Uploads and validates the setup script set in manifest.yml.
+        """
         model = self._entity_model
         package_name = model.fqn.identifier
         stage_fqn = f"{package_name}.{model.stage}"
