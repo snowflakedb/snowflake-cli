@@ -56,6 +56,10 @@ class ConnectionContext:
 
     VALIDATED_FIELD_NAMES = ["schema"]
 
+    def present_values_as_dict(self) -> dict:
+        """Dictionary representation of this ConnectionContext for values that are not None"""
+        return {k: v for (k, v) in asdict(self).items() if v is not None}
+
     def clone(self) -> ConnectionContext:
         return replace(self)
 
@@ -74,12 +78,8 @@ class ConnectionContext:
             setattr(self, key, value)
 
     def __repr__(self) -> str:
-        """Minimal repr where empty (i.e. None) values have their keys omitted."""
-        items = [
-            f"{k}={repr(v)}"
-            for (k, v) in self.as_nonempty_dict().items()
-            if v is not None
-        ]
+        """Minimal repr where None values have their keys omitted."""
+        items = [f"{k}={repr(v)}" for (k, v) in self.present_values_as_dict().items()]
         return f"{self.__class__.__name__}({', '.join(items)})"
 
     def __setattr__(self, prop, val):
@@ -105,9 +105,6 @@ class ConnectionContext:
         if not self.temporary_connection and not self.connection_name:
             self.connection_name = get_default_connection_name()
 
-    def as_nonempty_dict(self) -> dict:
-        return {k: v for (k, v) in asdict(self).items() if v is not None}
-
     def build_connection(self):
         from snowflake.cli._app.snow_connector import connect_to_snowflake
 
@@ -120,7 +117,7 @@ class ConnectionContext:
                 module="snowflake.connector.config_manager",
             )
 
-        return connect_to_snowflake(**self.as_nonempty_dict())
+        return connect_to_snowflake(**self.present_values_as_dict())
 
 
 class OpenConnectionCache:
@@ -159,8 +156,8 @@ class OpenConnectionCache:
             self._cleanup(key)
 
         # if any orphaned futures still exist, clean them up too
-        for key in self.cleanup_futures:
-            self.cleanup_futures[key].cancel()
+        for future in self.cleanup_futures.values():
+            future.cancel()
         self.cleanup_futures.clear()
 
     def _has_open_connection(self, key: str):
@@ -170,7 +167,9 @@ class OpenConnectionCache:
         try:
             self.connections[key] = ctx.build_connection()
         except Exception:
-            logger.debug("ConnectionCache: failed to connect using {key}; not caching.")
+            logger.debug(
+                "ConnectionCache: failed to connect using %s; not caching.", key
+            )
             raise
 
     def _cancel_cleanup_future_if_exists(self, key: str):
@@ -181,25 +180,29 @@ class OpenConnectionCache:
         """
         Extend the lifetime of the cached connection at the given key.
         """
+        loop = None
         try:
             loop = asyncio.get_event_loop()
-        except (RuntimeError, DeprecationWarning):
-            # the exception is different for Python 3.10/3.11+
+        except RuntimeError:
+            # Python 3.11+ will throw when no event loop;
+            # Python 3.10 will issue a DeprecationWarning and return None
+            pass
+
+        if not loop:
             logger.debug(
                 "ConnectionCache: no event loop; connections will close at exit."
             )
             return
 
-        handle = loop.call_later(
+        self._cancel_cleanup_future_if_exists(key)
+        self.cleanup_futures[key] = loop.call_later(
             self.CONNECTION_CLEANUP_SEC, lambda: self._cleanup(key)
         )
-        self._cancel_cleanup_future_if_exists(key)
-        self.cleanup_futures[key] = handle
 
     def _cleanup(self, key: str):
         """Closes the cached connection at the given key."""
         if key not in self.connections:
-            logger.debug("Cleaning up connection {key}, but not found in cache!")
+            logger.debug("Cleaning up connection %s, but not found in cache!", key)
 
         # doesn't cancel in-flight async queries
         self._cancel_cleanup_future_if_exists(key)

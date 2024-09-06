@@ -89,7 +89,7 @@ class _CliGlobalContextManager:
         return self._definition_manager_or_raise().project_definition
 
     @property
-    def project_root(self) -> Path | None:
+    def project_root(self) -> Path:
         return Path(self._definition_manager_or_raise().project_root)
 
     @property
@@ -188,10 +188,8 @@ class _CliGlobalContextAccess:
         return self._manager.output_format == OutputFormat.JSON
 
 
-_INITIAL_CLI_CONTEXT = _CliGlobalContextManager()
-
 _CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager] = ContextVar(
-    "cli_context", default=_INITIAL_CLI_CONTEXT
+    "cli_context", default=_CliGlobalContextManager()
 )
 
 

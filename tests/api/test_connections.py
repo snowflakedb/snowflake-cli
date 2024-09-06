@@ -60,18 +60,16 @@ def test_clone_connection_context():
         "master_token",
     )
 
-    ctx = ConnectionContext()
+    old_ctx = ConnectionContext()
     for key in keys:
-        setattr(ctx, key, "value")
+        setattr(old_ctx, key, "value")
 
-    new_ctx = ctx.clone()
-    assert asdict(new_ctx) == asdict(ctx)
-
-    for key in keys:
-        setattr(new_ctx, key, "values_should_not_appear_in_ctx")
+    new_ctx = old_ctx.clone()
+    assert asdict(new_ctx) == asdict(old_ctx)
 
     for key in keys:
-        assert getattr(ctx, key) == "value"
+        setattr(new_ctx, key, "updated_values_should_not_appear_in_old_ctx")
+        assert getattr(old_ctx, key) == "value"
 
 
 @mock.patch("snowflake.connector.connect")
