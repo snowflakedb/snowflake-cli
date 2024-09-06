@@ -19,6 +19,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+import yaml
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
@@ -103,6 +104,28 @@ def test_migrations_with_multiple_entities(
     assert result.exit_code == 0
     assert Path("snowflake.yml").read_text() == os_agnostic_snapshot
     assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
+
+
+def test_migration_native_app_missing_manifest(runner, project_directory):
+    with project_directory("migration_multiple_entities") as project_dir:
+        (project_dir / "app" / "manifest.yml").unlink()
+        result = runner.invoke(["ws", "migrate"])
+    assert result.exit_code == 1
+    assert "manifest.yml file not found" in result.output
+
+
+def test_migration_native_app_no_artifacts(runner, project_directory):
+    with project_directory("migration_multiple_entities") as project_dir:
+        with (project_dir / "snowflake.yml").open("r+") as snowflake_yml:
+            pdf = yaml.safe_load(snowflake_yml)
+            pdf["native_app"]["artifacts"] = []
+            snowflake_yml.seek(0)
+            yaml.safe_dump(pdf, snowflake_yml)
+            snowflake_yml.truncate()
+        result = runner.invoke(["ws", "migrate"])
+    assert result.exit_code == 1
+    assert "No artifacts mapping found in project definition" in result.output
+    assert "Could not bundle Native App artifacts" in result.output
 
 
 @pytest.mark.parametrize(
