@@ -62,6 +62,23 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     A Native App application package.
     """
 
+    def action_version_create(self, ctx: ActionContext):
+        """
+        Adds a new patch to the provided version defined in your application package. If the version does not exist, creates a version with patch 0.
+        """
+        pass
+
+    def action_version_drop(self, ctx: ActionContext):
+        """
+        Drops a version defined in your application package. Versions can either be passed in as an argument to the command or read from the `manifest.yml` file.
+        Dropping patches is not allowed.
+        """
+        pass
+
+    def action_version_list(self, ctx: ActionContext):
+        """Lists all versions defined in an application package."""
+        pass
+
     def action_bundle(self, ctx: ActionContext):
         """
         Prepares a local folder with configured app artifacts.
