@@ -19,7 +19,7 @@ for ns_name, ns_url in ns.items():
     ElementTree.register_namespace(ns_name, ns_url)
 wxs = ElementTree.parse(WXS_TEMPLATE_FILE)
 root = wxs.getroot()
-snow_files = root.find(".//Component", namespaces=ns)
+snow_files = root.find(".//DirectoryRef", namespaces=ns)
 if snow_files is None:
     raise ValueError("Component not found in the template")
 
