@@ -21,11 +21,15 @@ from typing import Any, Callable, Optional
 import click
 import typer
 from click import ClickException
-from snowflake.cli.api.cli_global_context import get_cli_context_manager
+from snowflake.cli.api.cli_global_context import (
+    _CliGlobalContextManager,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.config import get_all_connections
+from snowflake.cli.api.connections import ConnectionContext
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.formats import OutputFormat
@@ -38,8 +42,18 @@ _CLI_BEHAVIOUR = "Global configuration"
 
 def _connection_callback(prop: str):
     """Generates a setter for a field on the current context manager's connection context."""
+    if not prop in ConnectionContext.__dataclass_fields__:
+        raise KeyError(
+            f"Cannot generate setter for non-existent connection attr {prop}"
+        )
 
     def callback(value):
+        try:
+            if click.get_current_context().resilient_parsing:
+                return
+        except RuntimeError:
+            pass
+
         setattr(get_cli_context_manager().connection_context, prop, value)
         return value
 
@@ -48,8 +62,16 @@ def _connection_callback(prop: str):
 
 def _context_callback(prop: str):
     """Generates a setter for a field on the current context manager."""
+    if not prop in _CliGlobalContextManager.__dataclass_fields__:
+        raise KeyError(f"Cannot generate setter for non-existent context attr {prop}")
 
     def callback(value):
+        try:
+            if click.get_current_context().resilient_parsing:
+                return
+        except RuntimeError:
+            pass
+
         setattr(get_cli_context_manager(), prop, value)
         return value
 
