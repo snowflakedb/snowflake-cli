@@ -168,6 +168,258 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
         assert {**pdfv1_actual, **pdfv1_expected} == pdfv1_actual
 
 
+@pytest.mark.parametrize(
+    "pdfv2_input, expected_pdfv1, expected_error",
+    [
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    "pkg": {
+                        "type": "application package",
+                        "identifier": "pkg_name",
+                        "artifacts": [{"src": "app/*", "dest": "./"}],
+                        "manifest": "",
+                        "stage": "app.stage",
+                        "bundle_root": "bundle_root_path",
+                        "generated_root": "generated_root_path",
+                        "deploy_root": "deploy_root_path",
+                        "scratch_stage": "scratch_stage_path",
+                        "meta": {
+                            "role": "pkg_role",
+                            "warehouse": "pkg_wh",
+                            "post_deploy": [
+                                {"sql_script": "scripts/script1.sql"},
+                                {"sql_script": "scripts/script2.sql"},
+                            ],
+                        },
+                        "distribution": "external",
+                    },
+                    "pkg2": {
+                        "type": "application package",
+                        "identifier": "pkg_name2",
+                        "artifacts": [{"src": "app/*", "dest": "./"}],
+                        "manifest": "",
+                        "stage": "app.stage",
+                        "bundle_root": "bundle_root_path",
+                        "generated_root": "generated_root_path",
+                        "deploy_root": "deploy_root_path",
+                        "scratch_stage": "scratch_stage_path",
+                        "meta": {
+                            "role": "pkg_role",
+                            "warehouse": "pkg_wh",
+                            "post_deploy": [
+                                {"sql_script": "scripts/script1.sql"},
+                                {"sql_script": "scripts/script2.sql"},
+                            ],
+                        },
+                        "distribution": "external",
+                    },
+                    "app": {
+                        "type": "application",
+                        "identifier": "app_name",
+                        "from": {"target": "pkg"},
+                        "debug": True,
+                        "meta": {
+                            "role": "app_role",
+                            "warehouse": "app_wh",
+                            "post_deploy": [
+                                {"sql_script": "scripts/script3.sql"},
+                                {"sql_script": "scripts/script4.sql"},
+                            ],
+                        },
+                    },
+                },
+            },
+            None,
+            "More than one application package entity exists in the project definition file, "
+            "specify --package-entity-id to choose which one to operate on.",
+        ],
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    "pkg": {
+                        "type": "application package",
+                        "identifier": "pkg_name",
+                        "artifacts": [{"src": "app/*", "dest": "./"}],
+                        "manifest": "",
+                        "stage": "app.stage",
+                        "bundle_root": "bundle_root_path",
+                        "generated_root": "generated_root_path",
+                        "deploy_root": "deploy_root_path",
+                        "scratch_stage": "scratch_stage_path",
+                        "meta": {
+                            "role": "pkg_role",
+                            "warehouse": "pkg_wh",
+                            "post_deploy": [
+                                {"sql_script": "scripts/script1.sql"},
+                                {"sql_script": "scripts/script2.sql"},
+                            ],
+                        },
+                        "distribution": "external",
+                    },
+                    "app": {
+                        "type": "application",
+                        "identifier": "app_name",
+                        "from": {"target": "pkg"},
+                        "debug": True,
+                        "meta": {
+                            "role": "app_role",
+                            "warehouse": "app_wh",
+                            "post_deploy": [
+                                {"sql_script": "scripts/script3.sql"},
+                                {"sql_script": "scripts/script4.sql"},
+                            ],
+                        },
+                    },
+                    "app2": {
+                        "type": "application",
+                        "identifier": "app_name2",
+                        "from": {"target": "pkg"},
+                        "debug": True,
+                        "meta": {
+                            "role": "app_role",
+                            "warehouse": "app_wh",
+                            "post_deploy": [
+                                {"sql_script": "scripts/script3.sql"},
+                                {"sql_script": "scripts/script4.sql"},
+                            ],
+                        },
+                    },
+                },
+            },
+            None,
+            "More than one application entity exists in the project definition file, "
+            "specify --app-entity-id to choose which one to operate on.",
+        ],
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    "pkg": {
+                        "type": "application package",
+                        "identifier": "pkg_name",
+                        "artifacts": [{"src": "app/*", "dest": "./"}],
+                        "manifest": "",
+                        "stage": "app.stage",
+                        "bundle_root": "bundle_root_path",
+                        "generated_root": "generated_root_path",
+                        "deploy_root": "deploy_root_path",
+                        "scratch_stage": "scratch_stage_path",
+                        "meta": {
+                            "role": "pkg_role",
+                            "warehouse": "pkg_wh",
+                            "post_deploy": [
+                                {"sql_script": "scripts/script1.sql"},
+                                {"sql_script": "scripts/script2.sql"},
+                            ],
+                        },
+                        "distribution": "external",
+                    },
+                    "pkg2": {
+                        "type": "application package",
+                        "identifier": "pkg_name2",
+                        "artifacts": [{"src": "app/*", "dest": "./"}],
+                        "manifest": "",
+                        "stage": "app.stage",
+                        "bundle_root": "bundle_root_path",
+                        "generated_root": "generated_root_path",
+                        "deploy_root": "deploy_root_path",
+                        "scratch_stage": "scratch_stage_path",
+                        "meta": {
+                            "role": "pkg_role",
+                            "warehouse": "pkg_wh",
+                            "post_deploy": [
+                                {"sql_script": "scripts/script1.sql"},
+                                {"sql_script": "scripts/script2.sql"},
+                            ],
+                        },
+                        "distribution": "external",
+                    },
+                    "app": {
+                        "type": "application",
+                        "identifier": "app_name",
+                        "from": {"target": "pkg"},
+                        "debug": True,
+                        "meta": {
+                            "role": "app_role",
+                            "warehouse": "app_wh",
+                            "post_deploy": [
+                                {"sql_script": "scripts/script3.sql"},
+                                {"sql_script": "scripts/script4.sql"},
+                            ],
+                        },
+                    },
+                    "app2": {
+                        "type": "application",
+                        "identifier": "app_name2",
+                        "from": {"target": "pkg2"},
+                        "debug": True,
+                        "meta": {
+                            "role": "app_role",
+                            "warehouse": "app_wh",
+                            "post_deploy": [
+                                {"sql_script": "scripts/script3.sql"},
+                                {"sql_script": "scripts/script4.sql"},
+                            ],
+                        },
+                    },
+                },
+            },
+            {
+                "definition_version": "1.1",
+                "native_app": {
+                    "name": "app_name2",
+                    "artifacts": [{"src": "app/*", "dest": "./"}],
+                    "source_stage": "app.stage",
+                    "bundle_root": "bundle_root_path",
+                    "generated_root": "generated_root_path",
+                    "deploy_root": "deploy_root_path",
+                    "scratch_stage": "scratch_stage_path",
+                    "package": {
+                        "name": "pkg_name2",
+                        "distribution": "external",
+                        "role": "pkg_role",
+                        "warehouse": "pkg_wh",
+                        "post_deploy": [
+                            {"sql_script": "scripts/script1.sql"},
+                            {"sql_script": "scripts/script2.sql"},
+                        ],
+                    },
+                    "application": {
+                        "name": "app_name2",
+                        "role": "app_role",
+                        "debug": True,
+                        "warehouse": "app_wh",
+                        "post_deploy": [
+                            {"sql_script": "scripts/script3.sql"},
+                            {"sql_script": "scripts/script4.sql"},
+                        ],
+                    },
+                },
+            },
+            None,
+        ],
+    ],
+)
+def test_v2_to_v1_conversions_with_multiple_entities(
+    pdfv2_input, expected_pdfv1, expected_error
+):
+    pdfv2 = DefinitionV20(**pdfv2_input)
+    if expected_error:
+        with pytest.raises(ClickException, match=expected_error) as err:
+            _pdf_v2_to_v1(pdfv2)
+    else:
+        pdfv1_actual = vars(
+            _pdf_v2_to_v1(pdfv2, package_entity_id="pkg2", app_entity_id="app2")
+        )
+        pdfv1_expected = vars(DefinitionV11(**expected_pdfv1))
+
+        # Assert that the expected dict is a subset of the actual dict
+        assert {**pdfv1_actual, **pdfv1_expected} == pdfv1_actual
+
+
 def test_decorator_error_when_no_project_exists():
     with pytest.raises(ValueError, match="Project definition could not be found"):
         nativeapp_definition_v2_to_v1(lambda *args: None)()

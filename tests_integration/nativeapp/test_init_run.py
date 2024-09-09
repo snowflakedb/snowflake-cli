@@ -62,6 +62,45 @@ def test_nativeapp_init_run_without_modifications(
         )
 
 
+@pytest.mark.integration
+@pytest.mark.parametrize("test_project", ["napp_init_v2_multiple_entities"])
+def test_nativeapp_init_run_multiple_pdf_entities(
+    test_project,
+    nativeapp_project_directory,
+    runner,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+):
+    project_name = "myapp"
+    entity_id_selector = ["--package-entity-id", "pkg2", "--app-entity-id", "app2"]
+    with nativeapp_project_directory(test_project, teardown_args=entity_id_selector):
+        result = runner.invoke_with_connection_json(["app", "run"] + entity_id_selector)
+        assert result.exit_code == 0
+
+        # app + package exist
+        package_name = (
+            f"{project_name}_pkg_{default_username}_2{resource_suffix}".upper()
+        )
+        app_name = f"{project_name}_{default_username}_2{resource_suffix}".upper()
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show application packages like '{package_name}'",
+                )
+            ),
+            dict(name=package_name),
+        )
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show applications like '{app_name}'",
+                )
+            ),
+            dict(name=app_name),
+        )
+
+
 # Tests a simple flow of an existing project, but executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
 @pytest.mark.parametrize(

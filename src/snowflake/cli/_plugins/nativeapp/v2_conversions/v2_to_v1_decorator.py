@@ -14,14 +14,17 @@
 
 from __future__ import annotations
 
+import inspect
 from functools import wraps
 from typing import Any, Dict, Optional, Union
 
+import typer
 from click import ClickException
 from snowflake.cli.api.cli_global_context import (
     get_cli_context,
     get_cli_context_manager,
 )
+from snowflake.cli.api.commands.decorators import _options_decorator_factory
 from snowflake.cli.api.project.schemas.entities.application_entity_model import (
     ApplicationEntityModel,
 )
@@ -48,7 +51,11 @@ def _convert_v2_artifact_to_v1_dict(
     return v2_artifact
 
 
-def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
+def _pdf_v2_to_v1(
+    v2_definition: DefinitionV20,
+    package_entity_id: str = "",
+    app_entity_id: str = "",
+) -> DefinitionV11:
     pdfv1: Dict[str, Any] = {"definition_version": "1.1", "native_app": {}}
 
     app_package_definition: Optional[ApplicationPackageEntityModel] = None
@@ -56,20 +63,25 @@ def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
 
     for key, entity in v2_definition.entities.items():
         if entity.get_type() == ApplicationPackageEntityModel.get_type():
-            if app_package_definition:
-                raise ClickException(
-                    "More than one application package entity exists in the project definition file."
-                )
-            app_package_definition = entity
+            if entity.entity_id == package_entity_id or not package_entity_id:
+                if app_package_definition:
+                    raise ClickException(
+                        "More than one application package entity exists in the project definition file, "
+                        "specify --package-entity-id to choose which one to operate on."
+                    )
+                app_package_definition = entity
         elif entity.get_type() == ApplicationEntityModel.get_type():
-            if app_definition:
-                raise ClickException(
-                    "More than one application entity exists in the project definition file."
-                )
-            app_definition = entity
+            if entity.entity_id == app_entity_id or not app_entity_id:
+                if app_definition:
+                    raise ClickException(
+                        "More than one application entity exists in the project definition file, "
+                        "specify --app-entity-id to choose which one to operate on."
+                    )
+                app_definition = entity
     if not app_package_definition:
+        with_id = f'with ID "{package_entity_id}" ' if package_entity_id else ""
         raise ClickException(
-            "Could not find an application package entity in the project definition file."
+            f"Could not find an application package entity {with_id}in the project definition file."
         )
 
     # NativeApp
@@ -147,8 +159,32 @@ def nativeapp_definition_v2_to_v1(func):
                 "Project definition could not be found. The nativeapp_definition_v2_to_v1 command decorator assumes with_project_definition() was called before it."
             )
         if original_pdf.definition_version == "2":
-            pdfv1 = _pdf_v2_to_v1(original_pdf)
+            package_entity_id = kwargs.get("package_entity_id", "")
+            app_entity_id = kwargs.get("app_entity_id", "")
+            pdfv1 = _pdf_v2_to_v1(original_pdf, package_entity_id, app_entity_id)
             get_cli_context_manager().override_project_definition = pdfv1
         return func(*args, **kwargs)
 
-    return wrapper
+    return _options_decorator_factory(
+        wrapper,
+        additional_options=[
+            inspect.Parameter(
+                "package_entity_id",
+                inspect.Parameter.KEYWORD_ONLY,
+                annotation=Optional[str],
+                default=typer.Option(
+                    default="",
+                    help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
+                ),
+            ),
+            inspect.Parameter(
+                "app_entity_id",
+                inspect.Parameter.KEYWORD_ONLY,
+                annotation=Optional[str],
+                default=typer.Option(
+                    default="",
+                    help="The ID of the application entity on which to operate when definition_version is 2 or higher.",
+                ),
+            ),
+        ],
+    )
