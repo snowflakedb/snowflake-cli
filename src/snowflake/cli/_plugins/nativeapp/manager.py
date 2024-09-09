@@ -27,10 +27,6 @@ from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
-    build_bundle,
-)
-from snowflake.cli._plugins.nativeapp.codegen.compiler import (
-    NativeAppCompiler,
 )
 from snowflake.cli._plugins.nativeapp.constants import (
     NAME_COL,
@@ -219,10 +215,14 @@ class NativeAppManager(SqlExecutionMixin):
         """
         Populates the local deploy root from artifact sources.
         """
-        bundle_map = build_bundle(self.project_root, self.deploy_root, self.artifacts)
-        compiler = NativeAppCompiler(self.na_project.get_bundle_context())
-        compiler.compile_artifacts()
-        return bundle_map
+        return ApplicationPackageEntity.bundle(
+            project_root=self.project_root,
+            deploy_root=self.deploy_root,
+            bundle_root=self.bundle_root,
+            generated_root=self.generated_root,
+            package_name=self.package_name,
+            artifacts=self.artifacts,
+        )
 
     def sync_deploy_root_with_stage(
         self,
