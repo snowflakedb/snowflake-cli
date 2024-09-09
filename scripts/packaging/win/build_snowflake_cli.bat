@@ -37,6 +37,9 @@ cd dist\snow
 dir /r .
 signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 
+REM Generate wxs file for Wix
+python.exe -m hatch -e packaging run ^
+  python scripts\packaging\win\generate_wxs.py
 
 cd ..\..
 dir /r .
