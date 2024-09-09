@@ -42,7 +42,7 @@ _CLI_BEHAVIOUR = "Global configuration"
 
 def _connection_callback(prop: str):
     """Generates a setter for a field on the current context manager's connection context."""
-    if not prop in ConnectionContext.__dataclass_fields__:
+    if prop not in ConnectionContext.__dataclass_fields__:
         raise KeyError(
             f"Cannot generate setter for non-existent connection attr {prop}"
         )
@@ -62,7 +62,7 @@ def _connection_callback(prop: str):
 
 def _context_callback(prop: str):
     """Generates a setter for a field on the current context manager."""
-    if not prop in _CliGlobalContextManager.__dataclass_fields__:
+    if prop not in _CliGlobalContextManager.__dataclass_fields__:
         raise KeyError(f"Cannot generate setter for non-existent context attr {prop}")
 
     def callback(value):
