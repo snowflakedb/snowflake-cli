@@ -49,7 +49,8 @@ candle ^
     scripts\packaging\win\snowflake_cli.wxs ^
     scripts\packaging\win\snowflake_cli_exitdlg.wxs
 
-  dir /r .
+dir /r .
+
 light snowflake_cli.wixobj ^
     snowflake_cli_exitdlg.wixobj ^
     -cultures:en-us ^
