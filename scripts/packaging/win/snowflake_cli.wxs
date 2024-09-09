@@ -14,10 +14,11 @@
     <Property Id="ARPURLINFOABOUT" Value="https://snowflake.com/" />
     <Property Id="ApplicationFolderName" Value="Snowflake CLI" />
     <Property Id="WixAppFolder" Value="WixUISupportPerUser" />
-  </Package<StandardDirectory Id="ProgramFiles6432Folder">
+  <StandardDirectory Id="ProgramFiles6432Folder">
     <Directory
         Id="INSTALLFOLDER"
         Name="!(bind.Property.Manufacturer) !(bind.Property.ProductName)"
     />
 </StandardDirectory>
+    </Package>
 </Wix>
