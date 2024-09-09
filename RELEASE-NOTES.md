@@ -29,6 +29,7 @@
 * Fixed `snow git setup` command behaviour for fully qualified repository names.
 * Fixed `snow git setup` command behaviour in case API integration or secret with default name already exists.
 * `snow streamlit deploy` will check for existing streamlit instance before deploying anything.
+* Fixed `snow snowpark package create` creating empty zip when package name contained capital letters.
 
 # v3.0.0
 ## Backward incompatibility

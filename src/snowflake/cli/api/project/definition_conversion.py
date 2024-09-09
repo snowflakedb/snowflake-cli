@@ -12,8 +12,13 @@ from snowflake.cli._plugins.snowpark.common import is_name_a_templated_one
 from snowflake.cli.api.constants import (
     DEFAULT_ENV_FILE,
     DEFAULT_PAGES_DIR,
+    PROJECT_TEMPLATE_VARIABLE_CLOSING,
     PROJECT_TEMPLATE_VARIABLE_OPENING,
     SNOWPARK_SHARED_MIXIN,
+)
+from snowflake.cli.api.entities.utils import render_script_template
+from snowflake.cli.api.project.schemas.entities.common import (
+    SqlScriptHookType,
 )
 from snowflake.cli.api.project.schemas.native_app.application import Application
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
@@ -28,6 +33,7 @@ from snowflake.cli.api.project.schemas.snowpark.callable import (
 )
 from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
+from snowflake.cli.api.rendering.jinja import get_basic_jinja_env
 
 log = logging.getLogger(__name__)
 
@@ -200,6 +206,24 @@ def convert_native_app_to_v2_data(
         # which use POSIX paths as default values
         return manifest_path.as_posix()
 
+    def _convert_package_script_files(package_scripts: list[str]):
+        # PDFv2 doesn't support package scripts, only post-deploy scripts, so we
+        # need to convert the Jinja syntax from {{ }} to <% %>
+        # Luckily, package scripts only support {{ package_name }}, so let's convert that tag
+        # to v2 template syntax by running it though the template process with a fake
+        # package name that's actually a valid v2 template, which will be evaluated
+        # when the script is used as a post-deploy script
+        fake_package_replacement_template = f"{PROJECT_TEMPLATE_VARIABLE_OPENING} ctx.entities.{package_entity_name}.identifier {PROJECT_TEMPLATE_VARIABLE_CLOSING}"
+        jinja_context = dict(package_name=fake_package_replacement_template)
+        post_deploy_hooks = []
+        for script_file in package_scripts:
+            new_contents = render_script_template(
+                project_root, jinja_context, script_file, get_basic_jinja_env()
+            )
+            (project_root / script_file).write_text(new_contents)
+            post_deploy_hooks.append(SqlScriptHookType(sql_script=script_file))
+        return post_deploy_hooks
+
     package_entity_name = "pkg"
     package = {
         "type": "application package",
@@ -218,9 +242,16 @@ def convert_native_app_to_v2_data(
     }
     if native_app.package:
         package["distribution"] = native_app.package.distribution
-        if package_meta := _make_meta(native_app.package):
+        package_meta = _make_meta(native_app.package)
+        if native_app.package.scripts:
+            converted_post_deploy_hooks = _convert_package_script_files(
+                native_app.package.scripts
+            )
+            package_meta["post_deploy"] = (
+                package_meta.get("post_deploy", []) + converted_post_deploy_hooks
+            )
+        if package_meta:
             package["meta"] = package_meta
-        # todo migrate package scripts (requires migrating template tags)
 
     app_entity_name = "app"
     app = {
@@ -265,12 +296,6 @@ def _check_if_project_definition_meets_requirements(
             )
         log.warning(
             "Your V1 definition contains templates. We cannot guarantee the correctness of the migration."
-        )
-    if pd.native_app and pd.native_app.package and pd.native_app.package.scripts:
-        raise ClickException(
-            "Your project file contains a native app definition that uses package scripts. "
-            "Package scripts are not supported in definition version 2 and require manual conversion "
-            "to post-deploy scripts."
         )
 
 

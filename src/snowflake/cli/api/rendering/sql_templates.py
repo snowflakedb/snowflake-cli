@@ -55,6 +55,13 @@ def _does_template_have_env_syntax(env: Environment, template_content: str) -> b
     return bool(meta.find_undeclared_variables(template))
 
 
+def has_sql_templates(template_content: str) -> bool:
+    return (
+        _OLD_SQL_TEMPLATE_START in template_content
+        or _SQL_TEMPLATE_START in template_content
+    )
+
+
 def choose_sql_jinja_env_based_on_template_syntax(
     template_content: str, reference_name: Optional[str] = None
 ) -> Environment:

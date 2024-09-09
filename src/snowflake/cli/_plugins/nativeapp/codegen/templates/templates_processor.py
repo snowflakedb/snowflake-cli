@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 import jinja2
@@ -30,10 +31,16 @@ from snowflake.cli.api.project.schemas.native_app.path_mapping import (
 )
 from snowflake.cli.api.rendering.project_definition_templates import (
     get_client_side_jinja_env,
+    has_client_side_templates,
 )
 from snowflake.cli.api.rendering.sql_templates import (
     choose_sql_jinja_env_based_on_template_syntax,
+    has_sql_templates,
 )
+
+
+def _is_sql_file(file: Path) -> bool:
+    return file.name.lower().endswith(".sql")
 
 
 class TemplatesProcessor(ArtifactProcessor):
@@ -41,16 +48,55 @@ class TemplatesProcessor(ArtifactProcessor):
     Processor class to perform template expansion on all relevant artifacts (specified in the project definition file).
     """
 
+    def expand_templates_in_file(self, src: Path, dest: Path) -> None:
+        """
+        Expand templates in the file.
+        """
+        if src.is_dir():
+            return
+
+        with self.edit_file(dest) as file:
+            if not has_client_side_templates(file.contents) and not (
+                _is_sql_file(dest) and has_sql_templates(file.contents)
+            ):
+                return
+
+            src_file_name = src.relative_to(self._bundle_ctx.project_root)
+            cc.step(f"Expanding templates in {src_file_name}")
+            with cc.indented():
+                try:
+                    jinja_env = (
+                        choose_sql_jinja_env_based_on_template_syntax(
+                            file.contents, reference_name=src_file_name
+                        )
+                        if _is_sql_file(dest)
+                        else get_client_side_jinja_env()
+                    )
+                    expanded_template = jinja_env.from_string(file.contents).render(
+                        get_cli_context().template_context
+                    )
+
+                # For now, we are printing the source file path in the error message
+                # instead of the destination file path to make it easier for the user
+                # to identify the file that has the error, and edit the correct file.
+                except jinja2.TemplateSyntaxError as e:
+                    raise InvalidTemplateInFileError(src_file_name, e, e.lineno) from e
+
+                except jinja2.UndefinedError as e:
+                    raise InvalidTemplateInFileError(src_file_name, e) from e
+
+                if expanded_template != file.contents:
+                    file.edited_contents = expanded_template
+
     def process(
         self,
         artifact_to_process: PathMapping,
         processor_mapping: Optional[ProcessorMapping],
         **kwargs,
-    ):
+    ) -> None:
         """
         Process the artifact by executing the template expansion logic on it.
         """
-        cc.step(f"Processing artifact {artifact_to_process} with templates processor")
 
         bundle_map = BundleMap(
             project_root=self._bundle_ctx.project_root,
@@ -62,32 +108,4 @@ class TemplatesProcessor(ArtifactProcessor):
             absolute=True,
             expand_directories=True,
         ):
-            if src.is_dir():
-                continue
-            with self.edit_file(dest) as f:
-                file_name = src.relative_to(self._bundle_ctx.project_root)
-
-                jinja_env = (
-                    choose_sql_jinja_env_based_on_template_syntax(
-                        f.contents, reference_name=file_name
-                    )
-                    if dest.name.lower().endswith(".sql")
-                    else get_client_side_jinja_env()
-                )
-
-                try:
-                    expanded_template = jinja_env.from_string(f.contents).render(
-                        get_cli_context().template_context
-                    )
-
-                # For now, we are printing the source file path in the error message
-                # instead of the destination file path to make it easier for the user
-                # to identify the file that has the error, and edit the correct file.
-                except jinja2.TemplateSyntaxError as e:
-                    raise InvalidTemplateInFileError(file_name, e, e.lineno) from e
-
-                except jinja2.UndefinedError as e:
-                    raise InvalidTemplateInFileError(file_name, e) from e
-
-                if expanded_template != f.contents:
-                    f.edited_contents = expanded_template
+            self.expand_templates_in_file(src, dest)
