@@ -19,7 +19,6 @@ from typing import Optional
 
 import typer
 from click import MissingParameter
-from snowflake.cli._plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli._plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
     AskAlwaysPolicy,
@@ -38,6 +37,7 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.entities.parameters import ForceOption, InteractiveOption
 from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
 from snowflake.cli.api.project.project_verification import assert_project_type
 

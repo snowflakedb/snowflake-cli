@@ -22,11 +22,6 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
-from snowflake.cli._plugins.nativeapp.common_flags import (
-    ForceOption,
-    InteractiveOption,
-    ValidateOption,
-)
 from snowflake.cli._plugins.nativeapp.init import (
     OFFICIAL_TEMPLATES_GITHUB_URL,
     nativeapp_init,
@@ -59,6 +54,11 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.entities.parameters import (
+    ForceOption,
+    InteractiveOption,
+    ValidateOption,
+)
 from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (

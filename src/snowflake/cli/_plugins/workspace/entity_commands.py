@@ -14,21 +14,24 @@
 
 import logging
 from pathlib import Path
-from typing import Callable
 
 from click import ClickException
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.commands.decorators import with_project_definition
+from snowflake.cli.api.commands.decorators import (
+    _options_decorator_factory,
+    with_project_definition,
+)
 from snowflake.cli.api.commands.snow_typer import (
     SnowTyper,
     SnowTyperCommandData,
     SnowTyperFactory,
 )
-from snowflake.cli.api.entities.common import EntityActions
+from snowflake.cli.api.entities.actions import EntityAction, EntityActions
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.schemas.entities.entities import (
+    Entity,
     v2_entity_model_to_entity_map,
     v2_entity_model_types_map,
 )
@@ -37,6 +40,11 @@ logger = logging.getLogger(__name__)
 
 
 class EntityCommandGroup(SnowTyperFactory):
+    """
+    Command group for entity actions on a particular concrete entity.
+    Currently, all such command groups are hidden.
+    """
+
     help: str  # noqa: A003
     target_id: str
     _tree_path: list[str]
@@ -50,7 +58,7 @@ class EntityCommandGroup(SnowTyperFactory):
         help_text: str | None = None,
         tree_path: list[str] = [],
     ):
-        super().__init__(name=name, help=help_text)
+        super().__init__(name=name, help=help_text, is_hidden=lambda: True)
         self.target_id = target_id
         self._tree_path = tree_path
         self._command_map = {}
@@ -76,7 +84,7 @@ class EntityCommandGroup(SnowTyperFactory):
                     *self._command_map.keys(),
                 ]
             )
-            self.help = "\+ " + ", ".join(subcommands)
+            self.help = r"\+ " + ", ".join(subcommands)
 
         return super().create_instance()
 
@@ -106,17 +114,14 @@ class EntityCommandGroup(SnowTyperFactory):
         return subtree
 
     def register_command_leaf(
-        self, name: str, action: EntityActions, action_callable: Callable
+        self, name: str, entity_type: Entity, action: EntityAction
     ):
         """Registers the provided action at the given name"""
 
-        @self.command(name)
         @with_project_definition()
         def _action_executor(**options) -> CommandResult:
-            # TODO: get args for action and turn into typer options
             # TODO: what message result are we returning? do we throw them away for multi-step actions (i.e deps?)
             # TODO: how do we know if a command needs connection?
-
             cli_context = get_cli_context()
             ws = WorkspaceManager(
                 project_definition=cli_context.project_definition,
@@ -128,18 +133,23 @@ class EntityCommandGroup(SnowTyperFactory):
                 f"Successfully performed {action.verb} on {self.target_id}."
             )
 
-        _action_executor.__doc__ = action_callable.__doc__
+        # add typer options/arguments and metadata
+        fn = entity_type.get_action_callable()
+        params = entity_type.get_action_params_as_inspect()
+        _action_executor = _options_decorator_factory(_action_executor, params)
+        _action_executor.__doc__ = fn.__doc__
 
-    def register_command_in_tree(
-        self, action: EntityActions, action_callable: Callable
-    ):
+        # queue this command for registration
+        self.command(name)(_action_executor)
+
+    def register_command_in_tree(self, entity_type: Entity, action: EntityAction):
         """
         Recurses into subtrees created on-demand to register
         an action based on its command path and implementation.
         """
         [*group_path, verb] = action.command_path
         subtree = self._get_subtree(group_path)
-        subtree.register_command_leaf(verb, action, action_callable)
+        subtree.register_command_leaf(verb, entity_type, action)
 
 
 def generate_entity_commands(
@@ -175,9 +185,6 @@ def generate_entity_commands(
             [action for action in EntityActions if entity_type.supports(action)]
         )
         for action in supported_actions:
-            tree_group.register_command_in_tree(
-                action, entity_type.get_action_callable(action)
-            )
+            tree_group.register_command_in_tree(entity_type, action)
 
-        # TODO: hide, by default
         ws.add_typer(tree_group)

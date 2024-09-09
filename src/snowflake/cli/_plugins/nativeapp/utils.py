@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from sys import stdin, stdout
 from typing import Iterable, Optional, Union
 
 from click import ClickException
@@ -24,10 +23,6 @@ from click import ClickException
 
 def needs_confirmation(needs_confirm: bool, auto_yes: bool) -> bool:
     return needs_confirm and not auto_yes
-
-
-def is_tty_interactive():
-    return stdin.isatty() and stdout.isatty()
 
 
 def get_first_paragraph_from_markdown_file(file_path: Path) -> Optional[str]:
