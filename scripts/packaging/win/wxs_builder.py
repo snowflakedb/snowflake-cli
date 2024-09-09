@@ -11,10 +11,17 @@ WIN_RES_DIR = Path(__file__).parent.absolute()
 WXS_TEMPLATE_FILE = WIN_RES_DIR.joinpath("snowflake_cli_template_v4.wxs")
 WXS_OUTPUT_FILE = WXS_TEMPLATE_FILE.parent.joinpath("snowflake_cli.wxs")
 
+ns = {
+    "util": "http://wixtoolset.org/schemas/v4/wxs/util",
+    "": "http://wixtoolset.org/schemas/v4/wxs",
+}
+for ns_name, ns_url in ns.items():
+    ElementTree.register_namespace(ns_name, ns_url)
 wxs = ElementTree.parse(WXS_TEMPLATE_FILE)
 root = wxs.getroot()
-snow_files_xpath = ".//{http://wixtoolset.org/schemas/v4/wxs}Component"
-snow_files = root.findall(snow_files_xpath)
+snow_files = root.find(".//Component", namespaces=ns)
+if snow_files is None:
+    raise ValueError("Component not found in the template")
 
 
 lib_files = list(LIBS.glob("**/*"))
@@ -48,10 +55,9 @@ for lib_path in LIBS.glob("**/*"):
 
         component.append(environment)
         component.append(file)
-        snow_files[0].append(component)
+        snow_files.extend(component)
 
 
 ElementTree.indent(root, space="  ", level=0)
 
-with WXS_OUTPUT_FILE.expanduser().open("wb") as f:
-    wxs.write(f, encoding="utf-8")
+wxs.write(WXS_OUTPUT_FILE, encoding="utf-8", xml_declaration=True)
