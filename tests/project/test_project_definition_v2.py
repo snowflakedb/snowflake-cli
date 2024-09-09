@@ -413,7 +413,7 @@ def _assert_entities_are_equal(
     assert v1_entity.runtime == v2_entity.runtime
 
 
-def test_mixin_with_unknwon_entity_key_raises_error():
+def test_mixin_with_unknown_entity_key_raises_error():
     definition_input = {
         "definition_version": "2",
         "entities": {

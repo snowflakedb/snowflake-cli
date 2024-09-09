@@ -192,7 +192,6 @@ class DefinitionV20(_ProjectDefinitionBase):
                 mixins=data["mixins"],
             )
             entities[entity_name] = merged_values
-            continue
         return data
 
     @staticmethod
