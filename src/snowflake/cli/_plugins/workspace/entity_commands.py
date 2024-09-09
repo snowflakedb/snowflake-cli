@@ -76,7 +76,7 @@ class EntityCommandGroup(SnowTyperFactory):
                     *self._command_map.keys(),
                 ]
             )
-            self.help = "-> " + ", ".join(subcommands)
+            self.help = "\+ " + ", ".join(subcommands)
 
         return super().create_instance()
 
@@ -179,4 +179,5 @@ def generate_entity_commands(
                 action, entity_type.get_action_callable(action)
             )
 
+        # TODO: hide, by default
         ws.add_typer(tree_group)
