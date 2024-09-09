@@ -20,7 +20,16 @@ REM exit
 
 
 @echo on
-python.exe -m hatch -e packaging run pyinstaller --name snow --onedir --clean --noconfirm --console --icon=scripts\packaging\win\snowflake_msi.ico --contents-directory=%CONTENTSDIR% %ENTRYPOINT%
+python.exe -m hatch -e packaging run ^
+  pyinstaller ^
+  --name snow ^
+  --onedir ^
+  --clean ^
+  --noconfirm ^
+  --console ^
+  --icon=scripts\packaging\win\snowflake_msi.ico ^
+  --contents-directory=%CONTENTSDIR% ^
+  %ENTRYPOINT%
 
 tar -a -c -f snow.zip dist\snow
 
