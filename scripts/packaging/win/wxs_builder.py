@@ -1,24 +1,29 @@
+import uuid
 from pathlib import Path
-from uuid import uuid4
 from xml.etree import ElementTree
 
-WXS_FILE = Path(
-    "/Users/mraba/sources/snowflake-cli/scripts/packaging/win/snowflake_cli.wxs"
+PROJECT_ROOT_PATH = Path(__file__).parent.parent.parent.parent
+assert PROJECT_ROOT_PATH.parts[-1] == "snowflake-cli"
+DIST_DIR = PROJECT_ROOT_PATH.joinpath("dist")
+LIBS = DIST_DIR.joinpath("snow")
+
+WXS_TEMPLATE_FILE = (
+    Path(__file__).parent.absolute().joinpath("snowflake_cli_template.wxs")
 )
 WXS_FILE = Path(__file__).parent.absolute().joinpath("snowflake_cli.wxs")
 
-wxs = ElementTree.parse(WXS_FILE)
+wxs = ElementTree.parse(WXS_TEMPLATE_FILE)
 root = wxs.getroot()
 snow_files_xpath = ".//{http://schemas.microsoft.com/wix/2006/wi}Component"
 snow_files = root.findall(snow_files_xpath)
 
-LIBS = Path(__file__).parent.parent.parent.parent.joinpath("dist").joinpath("snow")
 
 lib_files = list(LIBS.glob("**/*"))
 
-for lib in LIBS.glob("**/*"):
-    if lib.is_file():
-        l = lib.relative_to(LIBS)
+for lib_path in LIBS.glob("**/*"):
+    if lib_path.is_file():
+        relative_lib_path = lib_path.relative_to(LIBS)
+        relative_file = str(relative_lib_path)
 
         environment = ElementTree.Element("Environment")
         environment.set("Id", "PATH")
@@ -30,15 +35,17 @@ for lib in LIBS.glob("**/*"):
         environment.set("System", "yes")
 
         file = ElementTree.Element("File")
-        file.set("Id", str(l))
-        file.set("Source", str(lib.relative_to(LIBS.parent.parent)))
+        file.set("Id", str(relative_lib_path))
+        source_path = lib_path.relative_to(PROJECT_ROOT_PATH)
+        file.set("Source", str(source_path))
         file.set("Name", "PATH")
         file.set("KeyPath", "yes")
         file.set("Checksum", "yes")
 
         component = ElementTree.Element("Component")
-        component.set("Id", str(l))
-        component.set("Guid", str(uuid4()).upper())
+        component.set("Id", relative_file)
+        guid_hash = str(uuid.uuid3(uuid.NAMESPACE_DNS, relative_file)).upper()
+        component.set("Guid", guid_hash)
         component.set("Win64", "yes")
 
         component.append(environment)
@@ -46,8 +53,7 @@ for lib in LIBS.glob("**/*"):
         snow_files[0].append(component)
 
 
-# ElementTree.dump(snow_files[0])
 ElementTree.indent(root, space="  ", level=0)
 
-with Path("~/Downloads/t.xml").expanduser().open("wb") as f:
+with WXS_FILE.expanduser().open("wb") as f:
     wxs.write(f, encoding="utf-8")
