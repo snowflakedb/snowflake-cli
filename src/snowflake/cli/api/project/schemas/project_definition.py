@@ -41,6 +41,7 @@ from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
 
 AnnotatedEntity = Annotated[EntityModel, Field(discriminator="type")]
+scalar = str | int | float | bool
 
 
 @dataclass
@@ -178,59 +179,79 @@ class DefinitionV20(_ProjectDefinitionBase):
         if "mixins" not in data or "entities" not in data:
             return data
 
-        for entity_name, entity in data["entities"].items():
+        entities = data["entities"]
+        for entity_name, entity in entities.items():
             entity_mixins = entity_mixins_to_list(
                 entity.get("meta", {}).get("use_mixins")
             )
 
-            entity_fields = get_allowed_fields_for_entity(entity)
-            if not (entity_fields and entity_mixins):
-                continue
-
-            for mixin_name in entity_mixins:
-                if mixin_name not in data["mixins"]:
-                    raise ValueError(f"Mixin {mixin_name} not found in mixins")
-
-                cls._merge_mixin_with_entity(
-                    entity_name, entity, entity_fields, mixin_name, data["mixins"]
-                )
+            merged_values = cls._merge_mixins_with_entity(
+                entity_name=entity_name,
+                entity=entity,
+                entity_mixins_names=entity_mixins,
+                mixins=data["mixins"],
+            )
+            entities[entity_name] = merged_values
+            continue
         return data
 
     @staticmethod
-    def _merge_mixin_with_entity(
-        entity_name: str,
-        entity: dict,
-        entity_fields: list[str],
-        mixin_name: str,
-        mixins: dict,
-    ):
-        mixin = mixins[mixin_name]
-        for key, mixin_value in mixin.items():
-            if key not in entity_fields:
+    def _merge_mixins_with_entity(
+        entity_name: str, entity: dict, entity_mixins_names: list, mixins: dict
+    ) -> dict:
+        # Validate mixins
+        for mixin_name in entity_mixins_names:
+            if mixin_name not in mixins:
+                raise ValueError(f"Mixin {mixin_name} not defined")
+
+        # Build object override data from mixins
+        data: dict = {}
+        for mx_name in entity_mixins_names:
+            data = DefinitionV20._merge_data(data, mixins[mx_name])
+
+        for key, override_value in data.items():
+            if key not in get_allowed_fields_for_entity(entity):
                 raise ValueError(
                     f"Unsupported key '{key}' for entity of type {entity['type']} "
                 )
 
-            if key not in entity:
-                entity[key] = mixin_value
-                continue
+            entity_value = entity.get(key)
+            if entity_value is not None and not isinstance(
+                entity_value, type(override_value)
+            ):
+                raise ValueError(
+                    f"Value from mixins for property {key} is of type '{type(override_value).__name__}' "
+                    f"while entity {entity_name} expects value of type '{type(entity_value).__name__}'"
+                )
 
-            entity_value = entity[key]
+        # Apply entity data on top of mixins
+        data = DefinitionV20._merge_data(data, entity)
+        return data
 
-            merger = {
-                dict: lambda data, new_data: {**data, **new_data},
-                list: lambda data, new_data: _unique_extend(data, new_data),
-                str: lambda _, new_data: new_data,
-            }
-            for type_, merge_func in merger.items():
-                if isinstance(mixin_value, type_):
-                    if not isinstance(entity_value, type_):
-                        raise ValueError(
-                            f"Mixin {mixin_name} has property {key} of type '{type_.__name__}' "
-                            f"while entity {entity_name} expects value of type '{type(entity_value).__name__}'"
-                        )
-                    entity[key] = merge_func(entity_value, mixin_value)
-                    break
+    @staticmethod
+    def _merge_data(
+        left: dict | list | scalar | None,
+        right: dict | list | scalar | None,
+    ):
+        if left is None:
+            return right
+
+        # At that point left and right are of the same type
+        if isinstance(left, dict) and isinstance(right, dict):
+            data = dict(left)
+            for key in right:
+                data[key] = DefinitionV20._merge_data(
+                    left=data.get(key), right=right[key]
+                )
+            return data
+
+        if isinstance(left, list) and isinstance(right, list):
+            return _unique_extend(left, right)
+
+        if not isinstance(right, type(left)):
+            raise ValueError(f"Could not merge {type(right)} and {type(left)}.")
+
+        return right
 
     def get_entities_by_type(self, entity_type: str):
         return {i: e for i, e in self.entities.items() if e.get_type() == entity_type}
@@ -284,7 +305,8 @@ def get_allowed_fields_for_entity(entity: Dict[str, Any]) -> List[str]:
 
 
 def _unique_extend(list_a: List, list_b: List) -> List:
+    new_list = list(list_a)
     for item in list_b:
         if item not in list_a:
-            list_a.append(item)
-    return list_a
+            new_list.append(item)
+    return new_list

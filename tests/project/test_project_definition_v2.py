@@ -433,7 +433,7 @@ def test_list_of_mixins_in_correct_order(project_directory):
 
     assert definition.entities["function1"].stage == "foo"
     assert definition.entities["function2"].stage == "baz"
-    assert definition.entities["streamlit1"].stage == "bar"
+    assert definition.entities["streamlit1"].stage == "streamlit"
 
 
 def _assert_entities_are_equal(
@@ -471,31 +471,21 @@ def test_mixin_with_unknwon_entity_key_raises_error():
     assert "Unsupported key 'unknown_key' for entity of type function" in str(err)
 
 
+_PARTIAL_FUNCTION = {
+    "type": "function",
+    "handler": "foo",
+    "returns": "string",
+    "signature": "",
+    "artifacts": [],
+    "stage": "bar",
+    "secrets": {"secret_a": "secret_a_value"},
+    "external_access_integrations": ["integration_1"],
+}
+
+
 def test_mixin_values_are_properly_applied_to_entity():
-    common = {
-        "type": "function",
-        "handler": "foo",
-        "returns": "string",
-        "signature": "",
-        "artifacts": [],
-        "stage": "bar",
-        "secrets": {"secret_a": "secret_a_value"},
-        "external_access_integrations": ["integration_1"],
-    }
     definition_input = {
         "definition_version": "2",
-        "entities": {
-            "func": {
-                "identifier": {"name": "my_func"},
-                **common,
-                "meta": {"use_mixins": ["schema_mixin"]},
-            },
-            "func_a": {
-                "identifier": {"name": "<% ctx.env.FOO %>"},
-                **common,
-                "meta": {"use_mixins": ["schema_mixin"]},
-            },
-        },
         "mixins": {
             "schema_mixin": {
                 "identifier": {"schema": "MIXIN"},
@@ -504,19 +494,225 @@ def test_mixin_values_are_properly_applied_to_entity():
             }
         },
         "env": {"FOO": "foo_name"},
+        "entities": {
+            "func": {
+                "identifier": {"name": "my_func"},
+                **_PARTIAL_FUNCTION,
+                "meta": {"use_mixins": ["schema_mixin"]},
+            },
+            "func_a": {
+                "identifier": {"name": "<% ctx.env.FOO %>"},
+                **_PARTIAL_FUNCTION,
+                "meta": {"use_mixins": ["schema_mixin"]},
+            },
+        },
     }
     project = render_definition_template(definition_input, {}).project_definition
     func_entity = project.entities["func"]
-    assert func_entity.fqn.identifier == "MIXIN.my_func"
+    assert func_entity.fqn.schema == "MIXIN"
     assert func_entity.secrets == {
         "secret_a": "secret_a_value",
         "secret_b": "secret_b_value",
     }
     assert func_entity.external_access_integrations == [
-        "integration_1",
         "integration_2",
+        "integration_1",
     ]
-    assert project.entities["func_a"].fqn.identifier == "MIXIN.foo_name"
+    assert project.entities["func_a"].fqn.schema == "MIXIN"
+
+
+def test_mixin_order_scalar():
+    _function = {
+        "type": "function",
+        "handler": "foo",
+        "returns": "string",
+        "signature": "",
+        "artifacts": [],
+    }
+    stage_from_entity = "stage_from_entity"
+    definition_input = {
+        "definition_version": "2",
+        "mixins": {
+            "mix1": {"stage": "mix1"},
+            "mix2": {"stage": "mix2"},
+        },
+        "entities": {
+            "no_mixin": {**_function, "stage": stage_from_entity},
+            "mix1_only": {
+                **_function,
+                "meta": {"use_mixins": ["mix1"]},
+            },
+            "mix1_and_mix2": {
+                **_function,
+                "meta": {"use_mixins": ["mix1", "mix2"]},
+            },
+            "mix2_and_mix1": {
+                **_function,
+                "meta": {"use_mixins": ["mix2", "mix1"]},
+            },
+            "mix1_and_entity": {
+                **_function,
+                "stage": stage_from_entity,
+                "meta": {"use_mixins": ["mix1"]},
+            },
+            "mixins_and_entity": {
+                **_function,
+                "stage": stage_from_entity,
+                "meta": {"use_mixins": ["mix1", "mix2"]},
+            },
+        },
+    }
+    pd = DefinitionV20(**definition_input)
+    entities = pd.entities
+    assert entities["no_mixin"].stage == stage_from_entity
+    assert entities["mix1_only"].stage == "mix1"
+    assert entities["mix1_and_mix2"].stage == "mix2"
+    assert entities["mix2_and_mix1"].stage == "mix1"
+    assert entities["mix1_and_entity"].stage == stage_from_entity
+    assert entities["mixins_and_entity"].stage == stage_from_entity
+
+
+def test_mixin_order_sequence_merge_order():
+    _function = {
+        "type": "function",
+        "handler": "foo",
+        "returns": "string",
+        "signature": "",
+        "stage": "foo",
+        "artifacts": [],
+    }
+
+    definition_input = {
+        "definition_version": "2",
+        "mixins": {
+            "mix1": {"external_access_integrations": ["mix1_int"]},
+            "mix2": {"external_access_integrations": ["mix2_int"]},
+        },
+        "entities": {
+            "no_mixin": {
+                **_function,
+                "external_access_integrations": ["entity_int"],
+            },
+            "mix1_only": {
+                **_function,
+                "meta": {"use_mixins": ["mix1"]},
+            },
+            "mix1_and_mix2": {
+                **_function,
+                "meta": {"use_mixins": ["mix1", "mix2"]},
+            },
+            "mix2_and_mix1": {
+                **_function,
+                "meta": {"use_mixins": ["mix2", "mix1"]},
+            },
+            "mix1_and_entity": {
+                **_function,
+                "external_access_integrations": ["entity_int"],
+                "meta": {"use_mixins": ["mix1"]},
+            },
+            "mixins_and_entity": {
+                **_function,
+                "external_access_integrations": ["entity_int"],
+                "meta": {"use_mixins": ["mix1", "mix2"]},
+            },
+        },
+    }
+    pd = DefinitionV20(**definition_input)
+    entities = pd.entities
+    assert entities["no_mixin"].external_access_integrations == ["entity_int"]
+    assert entities["mix1_only"].external_access_integrations == ["mix1_int"]
+    assert entities["mix1_and_mix2"].external_access_integrations == [
+        "mix1_int",
+        "mix2_int",
+    ]
+    assert entities["mix2_and_mix1"].external_access_integrations == [
+        "mix2_int",
+        "mix1_int",
+    ]
+    assert entities["mix1_and_entity"].external_access_integrations == [
+        "mix1_int",
+        "entity_int",
+    ]
+    assert entities["mixins_and_entity"].external_access_integrations == [
+        "mix1_int",
+        "mix2_int",
+        "entity_int",
+    ]
+
+
+def test_mixin_order_mapping_merge_order():
+    _function = {
+        "type": "function",
+        "handler": "foo",
+        "returns": "string",
+        "signature": "",
+        "stage": "foo",
+        "artifacts": [],
+    }
+
+    definition_input = {
+        "definition_version": "2",
+        "mixins": {
+            "mix1": {"secrets": {"mix1_key": "mix1_value", "common": "mix1"}},
+            "mix2": {"secrets": {"mix2_key": "mix2_value", "common": "mix2"}},
+        },
+        "entities": {
+            "no_mixin": {
+                **_function,
+                "secrets": {"entity_key": "entity_value", "common": "entity"},
+            },
+            "mix1_only": {
+                **_function,
+                "meta": {"use_mixins": ["mix1"]},
+            },
+            "mix1_and_mix2": {
+                **_function,
+                "meta": {"use_mixins": ["mix1", "mix2"]},
+            },
+            "mix2_and_mix1": {
+                **_function,
+                "meta": {"use_mixins": ["mix2", "mix1"]},
+            },
+            "mix1_and_entity": {
+                **_function,
+                "secrets": {"entity_key": "entity_value", "common": "entity"},
+                "meta": {"use_mixins": ["mix1"]},
+            },
+            "mixins_and_entity": {
+                **_function,
+                "secrets": {"entity_key": "entity_value", "common": "entity"},
+                "meta": {"use_mixins": ["mix1", "mix2"]},
+            },
+        },
+    }
+    pd = DefinitionV20(**definition_input)
+    entities = pd.entities
+    assert entities["no_mixin"].secrets == {
+        "entity_key": "entity_value",
+        "common": "entity",
+    }
+    assert entities["mix1_only"].secrets == {"mix1_key": "mix1_value", "common": "mix1"}
+    assert entities["mix1_and_mix2"].secrets == {
+        "mix1_key": "mix1_value",
+        "mix2_key": "mix2_value",
+        "common": "mix2",
+    }
+    assert entities["mix2_and_mix1"].secrets == {
+        "mix1_key": "mix1_value",
+        "mix2_key": "mix2_value",
+        "common": "mix1",
+    }
+    assert entities["mix1_and_entity"].secrets == {
+        "mix1_key": "mix1_value",
+        "entity_key": "entity_value",
+        "common": "entity",
+    }
+    assert entities["mixins_and_entity"].secrets == {
+        "mix1_key": "mix1_value",
+        "mix2_key": "mix2_value",
+        "entity_key": "entity_value",
+        "common": "entity",
+    }
 
 
 def test_mixins_values_have_to_be_type_compatible_with_entities():
@@ -540,6 +736,6 @@ def test_mixins_values_have_to_be_type_compatible_with_entities():
         _ = render_definition_template(definition_input, {}).project_definition
 
     assert (
-        "Mixin schema_mixin has property identifier of type 'dict' while entity func expects value of type 'str'"
+        "Value from mixins for property identifier is of type 'dict' while entity func expects value of type 'str'"
         in str(err)
     )
