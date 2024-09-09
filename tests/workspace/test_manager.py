@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from textwrap import dedent
 from unittest import mock
 
 import pytest
@@ -126,6 +127,20 @@ def test_migration_native_app_no_artifacts(runner, project_directory):
     assert result.exit_code == 1
     assert "No artifacts mapping found in project definition" in result.output
     assert "Could not bundle Native App artifacts" in result.output
+
+
+def test_migration_native_app_package_scripts(runner, project_directory):
+    with project_directory("migration_package_scripts") as project_dir:
+        result = runner.invoke(["ws", "migrate"])
+        assert result.exit_code == 0
+        package_scripts_dir = project_dir / "package_scripts"
+        for file in package_scripts_dir.iterdir():
+            assert file.read_text() == dedent(
+                """\
+                -- Just a demo package script, won't actually be executed in tests
+                select * from <% ctx.entities.pkg.identifier %>.my_schema.my_table
+                """
+            )
 
 
 @pytest.mark.parametrize(
