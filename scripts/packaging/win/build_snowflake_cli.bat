@@ -42,7 +42,7 @@ cd ..\..
 dir /r .
 REM Generate wxs file for Wix
 python.exe -m hatch -e packaging run ^
-  python scripts\packaging\win\generate_wxs.py
+  python scripts\packaging\win\wxs_builder.py
 
 candle ^
     -dSnowflakeCLIVersion=%CLI_VERSION% ^
