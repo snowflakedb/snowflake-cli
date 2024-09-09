@@ -302,41 +302,6 @@ def test_identifiers():
     assert entities["D"].entity_id == "D"
 
 
-# def test_defaults_are_applied():
-#     definition_input = {
-#         "definition_version": "2",
-#         "entities": {
-#             "pkg": {
-#                 "type": "application package",
-#                 "identifier": "",
-#                 "artifacts": [],
-#                 "manifest": "",
-#             }
-#         },
-#         "defaults": {"stage": "default_stage"},
-#     }
-#     project = DefinitionV20(**definition_input)
-#     assert project.entities["pkg"].stage == "default_stage"
-
-
-# def test_defaults_do_not_override_values():
-#     definition_input = {
-#         "definition_version": "2",
-#         "entities": {
-#             "pkg": {
-#                 "type": "application package",
-#                 "identifier": "",
-#                 "artifacts": [],
-#                 "manifest": "",
-#                 "stage": "pkg_stage",
-#             }
-#         },
-#         "defaults": {"stage": "default_stage"},
-#     }
-#     project = DefinitionV20(**definition_input)
-#     assert project.entities["pkg"].stage == "pkg_stage"
-
-
 # Verify that each entity model type has the correct "type" field
 def test_entity_types():
     for entity_type, entity_class in v2_entity_model_types_map.items():
