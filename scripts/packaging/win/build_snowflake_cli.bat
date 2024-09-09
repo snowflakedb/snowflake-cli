@@ -37,12 +37,13 @@ cd dist\snow
 dir /r .
 signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 
+REM Build MSI-installer
+cd ..\..
+dir /r .
 REM Generate wxs file for Wix
 python.exe -m hatch -e packaging run ^
   python scripts\packaging\win\generate_wxs.py
 
-cd ..\..
-dir /r .
 candle ^
     -dSnowflakeCLIVersion=%CLI_VERSION% ^
     scripts\packaging\win\snowflake_cli.wxs ^
