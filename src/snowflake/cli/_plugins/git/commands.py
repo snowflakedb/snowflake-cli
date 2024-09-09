@@ -18,7 +18,7 @@ import itertools
 import logging
 from os import path
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import typer
 from click import ClickException
@@ -41,6 +41,7 @@ from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import CollectionResult, CommandResult, QueryResult
 from snowflake.cli.api.utils.path_utils import is_stage_path
+from snowflake.connector import DictCursor
 
 app = SnowTyperFactory(
     name="git",
@@ -98,6 +99,24 @@ def _validate_origin_url(url: str) -> None:
         raise ClickException("Url address should start with 'https'")
 
 
+def _unique_new_object_name(
+    om: ObjectManager, object_type: ObjectType, proposed_fqn: FQN
+) -> str:
+    existing_objects: List[Dict] = om.show(
+        object_type=object_type.value.cli_name,
+        like=f"{proposed_fqn.name}%",
+        cursor_class=DictCursor,
+    ).fetchall()
+    existing_names = set(o["name"].upper() for o in existing_objects)
+
+    result = proposed_fqn.name
+    i = 1
+    while result.upper() in existing_names:
+        result = proposed_fqn.name + str(i)
+        i += 1
+    return result
+
+
 @app.command("setup", requires_connection=True)
 def setup(
     repository_name: FQN = RepoNameArgument,
@@ -128,13 +147,29 @@ def setup(
     should_create_secret = False
     secret_name = None
     if secret_needed:
-        secret_name = f"{repository_name}_secret"
-        secret_name = typer.prompt(
-            "Secret identifier (will be created if not exists)", default=secret_name
+        default_secret_name = (
+            FQN.from_string(f"{repository_name.name}_secret")
+            .set_schema(repository_name.schema)
+            .set_database(repository_name.database)
         )
-        secret_fqn = FQN.from_string(secret_name)
+        default_secret_name.set_name(
+            _unique_new_object_name(
+                om, object_type=ObjectType.SECRET, proposed_fqn=default_secret_name
+            ),
+        )
+        secret_name = FQN.from_string(
+            typer.prompt(
+                "Secret identifier (will be created if not exists)",
+                default=default_secret_name.name,
+            )
+        )
+        if not secret_name.database:
+            secret_name.set_database(repository_name.database)
+        if not secret_name.schema:
+            secret_name.set_schema(repository_name.schema)
+
         if om.object_exists(
-            object_type=ObjectType.SECRET.value.cli_name, fqn=secret_fqn
+            object_type=ObjectType.SECRET.value.cli_name, fqn=secret_name
         ):
             cli_console.step(f"Using existing secret '{secret_name}'")
         else:
@@ -143,24 +178,30 @@ def setup(
             secret_username = typer.prompt("username")
             secret_password = typer.prompt("password/token", hide_input=True)
 
-    api_integration = f"{repository_name}_api_integration"
-    api_integration = typer.prompt(
-        "API integration identifier (will be created if not exists)",
-        default=api_integration,
+    # API integration is an account-level object
+    api_integration = FQN.from_string(f"{repository_name.name}_api_integration")
+    api_integration.set_name(
+        typer.prompt(
+            "API integration identifier (will be created if not exists)",
+            default=_unique_new_object_name(
+                om,
+                object_type=ObjectType.INTEGRATION,
+                proposed_fqn=api_integration,
+            ),
+        )
     )
-    api_integration_fqn = FQN.from_string(api_integration)
 
     if should_create_secret:
         manager.create_password_secret(
-            name=secret_fqn, username=secret_username, password=secret_password
+            name=secret_name, username=secret_username, password=secret_password
         )
         cli_console.step(f"Secret '{secret_name}' successfully created.")
 
     if not om.object_exists(
-        object_type=ObjectType.INTEGRATION.value.cli_name, fqn=api_integration_fqn
+        object_type=ObjectType.INTEGRATION.value.cli_name, fqn=api_integration
     ):
         manager.create_api_integration(
-            name=api_integration_fqn,
+            name=api_integration,
             api_provider="git_https_api",
             allowed_prefix=url,
             secret=secret_name,

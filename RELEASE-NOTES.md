@@ -18,12 +18,17 @@
 ## Backward incompatibility
 
 ## Deprecations
+* Renamed `private-key-path` flag to `private-key-file`, added `private-key-path` as an alias for backward compatibility.
 
 ## New additions
 * Added templates expansion of arbitrary files for Native Apps through `templates` processor.
 
 ## Fixes and improvements
-
+* Duplicated keys in `snowflake.yml` are now detected and reported.
+* Fixed git execute not working with upper case in directory name.
+* Fixed `snow git setup` command behaviour for fully qualified repository names.
+* Fixed `snow git setup` command behaviour in case API integration or secret with default name already exists.
+* `snow streamlit deploy` will check for existing streamlit instance before deploying anything.
 
 # v3.0.0
 ## Backward incompatibility
@@ -57,7 +62,6 @@
 * Fix error handling and improve messaging when no artifacts provided.
 * Improved error message for incompatible parameters.
 * Fixed SQL error when running `snow app version create` and `snow app version drop` with a version name that isn't a valid Snowflake unquoted identifier
-
 
 # v2.8.0
 ## Backward incompatibility

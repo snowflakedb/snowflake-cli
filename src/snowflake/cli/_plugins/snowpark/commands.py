@@ -121,7 +121,7 @@ LikeOption = like_option(
 )
 
 
-@app.command("deploy", requires_connection=True)
+@app.command("deploy", requires_connection=True, require_warehouse=True)
 @with_project_definition()
 def deploy(
     replace: bool = ReplaceOption(
@@ -446,5 +446,5 @@ def describe(
 def _get_v2_project_definition(cli_context) -> ProjectDefinitionV2:
     pd = cli_context.project_definition
     if not pd.meets_version_requirement("2"):
-        pd = convert_project_definition_to_v2(pd)
+        pd = convert_project_definition_to_v2(cli_context.project_root, pd)
     return pd

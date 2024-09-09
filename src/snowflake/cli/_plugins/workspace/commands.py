@@ -22,7 +22,10 @@ from typing import List, Optional
 import typer
 import yaml
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
-from snowflake.cli._plugins.nativeapp.common_flags import ValidateOption
+from snowflake.cli._plugins.nativeapp.common_flags import (
+    ForceOption,
+    ValidateOption,
+)
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
@@ -50,13 +53,14 @@ def migrate(
     ),
     **options,
 ):
-    """Migrates the Snowpark and Streamlit project definition files from V1 to V2."""
-    pd = DefinitionManager().unrendered_project_definition
+    """Migrates the Snowpark, Streamlit, and Native App project definition files from V1 to V2."""
+    manager = DefinitionManager()
+    pd = manager.unrendered_project_definition
 
     if pd.meets_version_requirement("2"):
         return MessageResult("Project definition is already at version 2.")
 
-    pd_v2 = convert_project_definition_to_v2(pd, accept_templates)
+    pd_v2 = convert_project_definition_to_v2(manager.project_root, pd, accept_templates)
 
     SecurePath("snowflake.yml").rename("snowflake_V1.yml")
     with open("snowflake.yml", "w") as file:
@@ -67,16 +71,6 @@ def migrate(
             file,
         )
     return MessageResult("Project definition migrated to version 2.")
-
-
-@ws.command(requires_connection=True, hidden=True)
-@with_project_definition()
-def validate(
-    **options,
-):
-    """Validates the project definition file."""
-    # If we get to this point, @with_project_definition() has already validated the PDF schema
-    return MessageResult("Project definition is valid.")
 
 
 @ws.command(requires_connection=True, hidden=True)
@@ -101,7 +95,7 @@ def bundle(
     return MessageResult(f"Bundle generated at {bundle_map.deploy_root()}")
 
 
-@ws.command(requires_connection=True)
+@ws.command(requires_connection=True, hidden=True)
 @with_project_definition()
 def deploy(
     entity_id: str = typer.Option(
@@ -162,3 +156,50 @@ def deploy(
         validate=validate,
     )
     return MessageResult("Deployed successfully.")
+
+
+@ws.command(requires_connection=True, hidden=True)
+@with_project_definition()
+def drop(
+    entity_id: str = typer.Option(
+        help=f"""The ID of the entity you want to drop.""",
+    ),
+    # TODO The following options should be generated automatically, depending on the specified entity type
+    force: Optional[bool] = ForceOption,
+    **options,
+):
+    """
+    Drops the specified entity.
+    """
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+
+    ws.perform_action(
+        entity_id,
+        EntityActions.DROP,
+        force_drop=force,
+    )
+
+
+@ws.command(requires_connection=True, hidden=True)
+@with_project_definition()
+def validate(
+    entity_id: str = typer.Option(
+        help=f"""The ID of the entity you want to validate.""",
+    ),
+    **options,
+):
+    """Validates the specified entity."""
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+
+    ws.perform_action(
+        entity_id,
+        EntityActions.VALIDATE,
+    )

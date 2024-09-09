@@ -1,0 +1,11 @@
+definition_version: 1
+native_app:
+  name: myapp
+  source_stage: app_src.stage
+  artifacts:
+    - src: app/*
+      dest: ./
+  package:
+    scripts:
+      - package_scripts/001.sql
+      - package_scripts/002.sql
