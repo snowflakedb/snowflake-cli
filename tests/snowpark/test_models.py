@@ -77,7 +77,7 @@ def test_wheel_metadata_parsing(test_root_path):
         package_src = (
             SecurePath(test_root_path) / "test_data" / "local_packages" / ".packages"
         )
-        for srcdir in ["Zendesk", "Zendesk-1.1.1.dist-info"]:
+        for srcdir in ["zendesk", "Zendesk-1.1.1.dist-info"]:
             (package_src / srcdir).copy(package_dir.path)
         zip_dir(source=package_dir.path, dest_zip=wheel_path.path)
 
