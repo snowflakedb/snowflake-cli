@@ -13,7 +13,11 @@
 # limitations under the License.
 
 import pytest
-from snowflake.cli.plugins.snowpark.models import Requirement, get_package_name
+from snowflake.cli.plugins.snowpark.models import (
+    Requirement,
+    WheelMetadata,
+    get_package_name,
+)
 
 
 @pytest.mark.parametrize(
@@ -58,3 +62,27 @@ def test_requirement_is_parsed_correctly(line, name, extras):
 )
 def test_get_package_name(line, name):
     assert get_package_name(line) == name
+
+
+def test_wheel_metadata_parsing(test_root_path):
+    from snowflake.cli.api.secure_path import SecurePath
+    from snowflake.cli.plugins.snowpark.zipper import zip_dir
+
+    with SecurePath.temporary_directory() as tmpdir:
+        wheel_path = tmpdir / "Zendesk-1.1.1-py3-none-any.whl"
+
+        # prepare .whl package
+        package_dir = tmpdir / "ZendeskWhl"
+        package_dir.mkdir()
+        package_src = (
+            SecurePath(test_root_path) / "test_data" / "local_packages" / ".packages"
+        )
+        for srcdir in ["zendesk", "Zendesk-1.1.1.dist-info"]:
+            (package_src / srcdir).copy(package_dir.path)
+        zip_dir(source=package_dir.path, dest_zip=wheel_path.path)
+
+        # check metadata
+        meta = WheelMetadata.from_wheel(wheel_path.path)
+        assert meta.name == "zendesk"
+        assert meta.wheel_path == wheel_path.path
+        assert meta.dependencies == ["httplib2", "simplejson"]

@@ -211,6 +211,30 @@ class TestPackage:
         assert "at https://support.anaconda.com/" in result.output
 
     @pytest.mark.integration
+    def test_package_with_capital_letters(self, directory_for_test, runner):
+        # TODO: change to package controlled by SF, for example dummy-package-with-Capital-Letters
+        package_name = "Zendesk"
+        result = runner.invoke(
+            [
+                "snowpark",
+                "package",
+                "create",
+                package_name,
+                "--ignore-anaconda",
+                "--allow-shared-libraries",
+            ]
+        )
+        assert result.exit_code == 0
+        zipfile = f"{package_name.lower()}.zip"
+        assert Path(zipfile).exists()
+        files = self._get_filenames_from_zip(zipfile)
+        assert any(
+            file.startswith(package_name) and file.endswith("dist-info/")
+            for file in files
+        )
+
+    @pytest.mark.integration
+    @pytest.mark.integration
     def test_incorrect_input(self, runner):
         with pytest.raises(InvalidRequirement) as err:
             runner.invoke_with_connection(
