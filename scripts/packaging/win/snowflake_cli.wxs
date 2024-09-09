@@ -19,5 +19,5 @@
         Id="INSTALLFOLDER"
         Name="!(bind.Property.Manufacturer) !(bind.Property.ProductName)"
     />
-</StandardDirectory>>
+</StandardDirectory>
 </Wix>
