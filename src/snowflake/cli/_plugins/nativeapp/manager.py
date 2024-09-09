@@ -28,9 +28,6 @@ from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
 )
-from snowflake.cli._plugins.nativeapp.constants import (
-    NAME_COL,
-)
 from snowflake.cli._plugins.nativeapp.exceptions import (
     NoEventTableForAccount,
 )
@@ -41,6 +38,9 @@ from snowflake.cli._plugins.stage.diff import (
     DiffResult,
 )
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.entities.application_entity import (
+    ApplicationEntity,
+)
 from snowflake.cli.api.entities.application_package_entity import (
     ApplicationPackageEntity,
 )
@@ -249,14 +249,10 @@ class NativeAppManager(SqlExecutionMixin):
         )
 
     def get_existing_app_info(self) -> Optional[dict]:
-        """
-        Check for an existing application object by the same name as in project definition, in account.
-        It executes a 'show applications like' query and returns the result as single row, if one exists.
-        """
-        with self.use_role(self.app_role):
-            return self.show_specific_object(
-                "applications", self.app_name, name_col=NAME_COL
-            )
+        return ApplicationEntity.get_existing_app_info(
+            app_name=self.app_name,
+            app_role=self.app_role,
+        )
 
     def get_existing_app_pkg_info(self) -> Optional[dict]:
         return ApplicationPackageEntity.get_existing_app_pkg_info(
