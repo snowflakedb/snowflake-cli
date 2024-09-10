@@ -2620,7 +2620,7 @@
   | *    object_type      TEXT  Type of object. For example table, database,     |
   |                             compute-pool.                                    |
   |                             [required]                                       |
-  | *    object_name      TEXT  Name of the object [default: None] [required]    |
+  | *    object_name      TEXT  Name of the object. [required]                   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -2698,7 +2698,7 @@
   | *    object_type      TEXT  Type of object. For example table, database,     |
   |                             compute-pool.                                    |
   |                             [required]                                       |
-  | *    object_name      TEXT  Name of the object [default: None] [required]    |
+  | *    object_name      TEXT  Name of the object. [required]                   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -2952,7 +2952,8 @@
    Creates a named stage if it does not already exist.                            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    stage_name      TEXT  Name of the stage. [required]                     |
+  | *    stage_name      TEXT  Identifier of the stage. For example: @my_stage   |
+  |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -3102,7 +3103,8 @@
    Lists the stage contents.                                                      
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    stage_name      TEXT  Name of the stage. [required]                     |
+  | *    stage_name      TEXT  Identifier of the stage. For example: @my_stage   |
+  |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --pattern          TEXT  Regex pattern for filtering files by name. For      |
@@ -3179,7 +3181,8 @@
    Removes a file from a stage.                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    stage_name      TEXT  Name of the stage. [required]                     |
+  | *    stage_name      TEXT  Identifier of the stage. For example: @my_stage   |
+  |                            [required]                                        |
   | *    file_name       TEXT  Name of the file to remove. [default: None]       |
   |                            [required]                                        |
   +------------------------------------------------------------------------------+
