@@ -30,6 +30,7 @@ from snowflake.cli._plugins.nativeapp.utils import (
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.action_context import ActionContext
 from snowflake.cli.api.console.abc import AbstractConsole
+from snowflake.cli.api.entities.actions import EntityActions
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -62,23 +63,31 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     A Native App application package.
     """
 
-    def action_version_create(self, ctx: ActionContext):
+    @EntityActions.VERSION_CREATE.implementation
+    def action_version_create(
+        self, ctx: ActionContext, version: str, patch: Optional[int]
+    ):
         """
-        Adds a new patch to the provided version defined in your application package. If the version does not exist, creates a version with patch 0.
+        Adds a new patch to the provided version defined in your application package.
+        If the version does not exist, creates a version with patch 0.
         """
         pass
 
+    @EntityActions.VERSION_DROP.implementation
     def action_version_drop(self, ctx: ActionContext):
         """
-        Drops a version defined in your application package. Versions can either be passed in as an argument to the command or read from the `manifest.yml` file.
+        Drops a version defined in your application package.
+        Versions can either be passed in as an argument to the command or read from the `manifest.yml` file.
         Dropping patches is not allowed.
         """
         pass
 
+    @EntityActions.VERSION_LIST.implementation
     def action_version_list(self, ctx: ActionContext):
         """Lists all versions defined in an application package."""
         pass
 
+    @EntityActions.BUNDLE.implementation
     def action_bundle(self, ctx: ActionContext):
         """
         Prepares a local folder with configured app artifacts.
@@ -93,6 +102,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             artifacts=model.artifacts,
         )
 
+    @EntityActions.DEPLOY.implementation
     def action_deploy(
         self,
         ctx: ActionContext,
@@ -115,7 +125,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         # 1. Create a bundle
         bundle_map = self.action_bundle(ctx)
 
-        # 2. Create an empty application package, if none exists
+        # 2. Ensure all dependencies have been deployed and/or created
+        ctx.delegate("create")
+        ctx.delegate("deploy")
+
+        # 3. Create an empty application package, if none exists
         self.create_app_package(
             console=ctx.console,
             package_name=package_name,
@@ -124,7 +138,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
         with get_sql_executor().use_role(package_role):
-            # 3. Upload files from deploy root local folder to the above stage
+            # 4. Upload files from deploy root local folder to the above stage
             if not stage_fqn:
                 stage_fqn = f"{package_name}.{model.stage}"
             stage_schema = extract_schema(stage_fqn)
@@ -162,10 +176,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 deploy_to_scratch_stage_fn=lambda *args: None,
             )
 
+    @EntityActions.DROP.implementation
     def action_drop(
         self,
         ctx: ActionContext,
-        force_drop: bool,
+        force: bool,
     ):
         """
         Drops this application package.
@@ -181,9 +196,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             console=ctx.console,
             package_name=package_name,
             package_role=package_role,
-            force_drop=force_drop,
+            force_drop=force,
         )
 
+    @EntityActions.VALIDATE.implementation
     def action_validate(self, ctx: ActionContext):
         """
         Uploads and validates the setup script set in manifest.yml.

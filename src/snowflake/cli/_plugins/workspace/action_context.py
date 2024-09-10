@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Optional
 
@@ -15,3 +15,8 @@ class ActionContext:
     project_root: Path
     default_role: str
     default_warehouse: Optional[str]
+    force: bool
+    interactive: bool
+
+    def clone(self, **kwargs) -> "ActionContext":
+        return replace(self, **kwargs)

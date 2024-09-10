@@ -134,8 +134,13 @@ class EntityCommandGroup(SnowTyperFactory):
             )
 
         # add typer options/arguments and metadata
+        # FIXME: need to get these both here and in WorkspaceManager
         fn = entity_type.get_action_callable()
         params = entity_type.get_action_params_as_inspect()
+
+        # TODO: add InteractiveOption, ForceOption and set actioncontext
+        # will need to do it somehow through workspace manager
+
         _action_executor = _options_decorator_factory(_action_executor, params)
         _action_executor.__doc__ = fn.__doc__
 
