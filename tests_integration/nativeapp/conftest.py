@@ -21,9 +21,9 @@ def nativeapp_project_directory(project_directory, nativeapp_teardown):
     """
 
     @contextmanager
-    def _nativeapp_project_directory(name):
+    def _nativeapp_project_directory(name, teardown_args: list[str] | None = None):
         with project_directory(name) as d:
-            with nativeapp_teardown(project_dir=d):
+            with nativeapp_teardown(project_dir=d, extra_args=teardown_args):
                 yield d
 
     return _nativeapp_project_directory
@@ -47,6 +47,7 @@ def nativeapp_teardown(runner: SnowCLIRunner):
         *,
         project_dir: Path | None = None,
         env: dict | None = None,
+        extra_args: list[str] | None = None,
     ):
         try:
             yield
@@ -54,6 +55,8 @@ def nativeapp_teardown(runner: SnowCLIRunner):
             args = ["--force", "--cascade"]
             if project_dir:
                 args += ["--project", str(project_dir)]
+            if extra_args:
+                args += extra_args
             kwargs: dict[str, Any] = {}
             if env:
                 kwargs["env"] = env
