@@ -31,14 +31,7 @@ python.exe -m hatch -e packaging run ^
   --contents-directory=%CONTENTSDIR% ^
   %ENTRYPOINT%
 
-tar -a -c -f snow.zip dist\snow
-
-
-dotnet tool install --global wix
-wix --version
-where wix
-wix extension add -g WixToolset.Util.wixext
-wix extension add -g WixToolset.UI.wixext
+REM tar -a -c -f snow.zip dist\snow
 
 cd dist\snow
 dir /r .
@@ -46,6 +39,13 @@ signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 
 REM Build MSI-installer
 cd ..\..
+
+call scripts\packaging\win\dotnet-install.ps1
+dotnet tool install --global wix
+where wix
+wix --version
+wix extension add -g WixToolset.Util.wixext
+wix extension add -g WixToolset.UI.wixext
 
 wix build -d SnowflakeCLIVersion=3.0.0.2 ^
   -o snowflake-cli-3.0.0.dev0.2-windows_x86_64.msi ^
