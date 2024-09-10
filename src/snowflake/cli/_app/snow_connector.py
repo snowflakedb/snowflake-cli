@@ -125,10 +125,7 @@ def connect_to_snowflake(
         k: v for k, v in connection_parameters.items() if v is not None
     }
 
-    if "private_key_file" in connection_parameters:
-        update_connection_details_with_private_key(
-            connection_parameters, "private_key_file"
-        )
+    update_connection_details_with_private_key(connection_parameters)
 
     if mfa_passcode:
         connection_parameters["passcode"] = mfa_passcode
