@@ -4,15 +4,17 @@ set PATH=C:\Program Files\Python310\;c:\Program Files (x86)\Windows Kits\8.1\bin
 echo %PATH%
 
 @echo on
-dir /r "C:\Program Files (x86)"
 dir /r "C:\Program Files (x86)\WiX Toolset v3.11\bin"
+where candle
+where lighs
+where heat
 REM call scripts\packaging\win\dotnet-install.ps1 -Verbose
 REM dotnet tool install --global wix
 REM where wix
 REM wix --version
 REM wix extension add -g WixToolset.Util.wixext
 REM wix extension add -g WixToolset.UI.wixext
-
+exit
 python.exe --version
 python.exe -m pip install --upgrade pip uv hatch
 
