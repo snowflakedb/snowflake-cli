@@ -5,6 +5,13 @@ set PATH=C:\Program Files\Python310\;c:\Program Files (x86)\Windows Kits\8.1\bin
 echo %PATH%
 
 @echo on
+call scripts\packaging\win\dotnet-install.ps1 -Verbose
+dotnet tool install --global wix
+where wix
+wix --version
+wix extension add -g WixToolset.Util.wixext
+wix extension add -g WixToolset.UI.wixext
+
 python.exe --version
 python.exe -m pip install --upgrade pip uv hatch
 
@@ -16,8 +23,7 @@ set CONTENTSDIR="snowflake-cli-%CLI_VERSION%"
 echo %CONTENTSDIR%
 set ENTRYPOINT=src\\snowflake\\cli\\_app\\__main__.py
 
-REM exit
-
+exit
 
 @echo on
 python.exe -m hatch -e packaging run ^
@@ -39,13 +45,6 @@ signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 
 REM Build MSI-installer
 cd ..\..
-
-call scripts\packaging\win\dotnet-install.ps1 -Verbose
-dotnet tool install --global wix
-where wix
-wix --version
-wix extension add -g WixToolset.Util.wixext
-wix extension add -g WixToolset.UI.wixext
 
 wix build -d SnowflakeCLIVersion=3.0.0.2 ^
   -o snowflake-cli-3.0.0.dev0.2-windows_x86_64.msi ^
