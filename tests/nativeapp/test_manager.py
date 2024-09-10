@@ -437,7 +437,7 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
     )
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
@@ -479,7 +479,7 @@ def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
