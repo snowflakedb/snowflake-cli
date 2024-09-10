@@ -18,6 +18,7 @@ from unittest.mock import Mock, create_autospec, patch
 import click.core
 import pytest
 import typer
+from snowflake.cli.api.commands import flags
 from snowflake.cli.api.commands.flags import (
     PLAIN_PASSWORD_MSG,
     OverrideableOption,
@@ -214,3 +215,17 @@ def test_overrideable_option_callback_with_mutually_exclusive(os_agnostic_snapsh
     result = runner.invoke(app, ["--option1", "1", "--option2", "2"])
     assert result.exit_code == 2
     assert result.output == os_agnostic_snapshot
+
+
+@pytest.mark.parametrize(
+    "callback", [flags._connection_callback, flags._context_callback]  # noqa: SLF001
+)
+def test_cannot_callback_unknown_context_args(callback):
+    with pytest.raises(KeyError):
+        app = Typer()
+
+        @app.command()
+        def _(
+            opt=typer.Option(None, "--my-opt", callback=callback("attr_does_not_exist"))
+        ):
+            pass

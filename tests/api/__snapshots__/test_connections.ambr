@@ -1,0 +1,10 @@
+# serializer version: 1
+# name: test_stable_connection_context_repr[args0]
+  "ConnectionContext(connection_name='default', enable_diag=False, temporary_connection=False)"
+# ---
+# name: test_stable_connection_context_repr[args1]
+  "ConnectionContext(connection_name='myconn', enable_diag=False, temporary_connection=False)"
+# ---
+# name: test_stable_connection_context_repr[args2]
+  "ConnectionContext(account='myacct', user='myuser', enable_diag=False, temporary_connection=True)"
+# ---

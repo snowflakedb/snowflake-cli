@@ -22,7 +22,10 @@ from typing import Any, Dict, Union
 import click
 from snowflake.cli.__about__ import VERSION
 from snowflake.cli._app.constants import PARAM_APPLICATION_NAME
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import (
+    _CliGlobalContextAccess,
+    get_cli_context,
+)
 from snowflake.cli.api.commands.execution_metadata import ExecutionMetadata
 from snowflake.cli.api.config import get_feature_flags_section
 from snowflake.cli.api.output.formats import OutputFormat
@@ -106,8 +109,9 @@ def python_version() -> str:
 
 
 class CLITelemetryClient:
-    def __init__(self, ctx):
-        self._ctx = ctx
+    @property
+    def _ctx(self) -> _CliGlobalContextAccess:
+        return get_cli_context()
 
     @staticmethod
     def generate_telemetry_data_dict(
@@ -143,7 +147,7 @@ class CLITelemetryClient:
         self._telemetry.send_batch()
 
 
-_telemetry = CLITelemetryClient(ctx=get_cli_context())
+_telemetry = CLITelemetryClient()
 
 
 @ignore_exceptions()

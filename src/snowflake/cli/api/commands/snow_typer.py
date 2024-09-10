@@ -30,7 +30,6 @@ from snowflake.cli.api.commands.execution_metadata import (
     ExecutionStatus,
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
-from snowflake.cli.api.commands.typer_pre_execute import run_pre_execute_commands
 from snowflake.cli.api.exceptions import CommandReturnTypeError
 from snowflake.cli.api.output.types import CommandResult
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
@@ -128,7 +127,6 @@ class SnowTyper(typer.Typer):
         from snowflake.cli._app.telemetry import log_command_usage
 
         log.debug("Executing command pre execution callback")
-        run_pre_execute_commands()
         log_command_usage(execution)
         if require_warehouse and not SqlExecutionMixin().session_has_warehouse():
             raise ClickException(

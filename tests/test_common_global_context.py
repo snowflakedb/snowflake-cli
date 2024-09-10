@@ -78,41 +78,16 @@ def test_connection_caching(mock_connect):
         [
             call(
                 temporary_connection=False,
-                mfa_passcode=None,
                 enable_diag=False,
-                diag_log_path=None,
-                diag_allowlist_path=None,
-                connection_name=None,
-                account=None,
-                user=None,
-                password=None,
-                authenticator=None,
-                private_key_file=None,
-                token_file_path=None,
-                session_token=None,
-                master_token=None,
-                database=None,
-                schema=None,
+                connection_name="default",
                 role="newValue",
                 warehouse="newValue2",
             ),
             call(
                 temporary_connection=False,
-                mfa_passcode=None,
                 enable_diag=False,
-                diag_log_path=None,
-                diag_allowlist_path=None,
-                connection_name=None,
-                account=None,
+                connection_name="default",
                 user="newValue3",
-                password=None,
-                authenticator=None,
-                private_key_file=None,
-                token_file_path=None,
-                session_token=None,
-                master_token=None,
-                database=None,
-                schema=None,
                 role="newValue",
                 warehouse="newValue2",
             ),
@@ -122,11 +97,11 @@ def test_connection_caching(mock_connect):
 
 @pytest.mark.parametrize("schema", ["my_schema", '".my_schema3"', '"my.schema"'])
 def test_schema_validation_ok(schema):
-    get_cli_context_manager().connection_context.set_schema(schema)
+    get_cli_context_manager().connection_context.schema = schema
 
 
 @pytest.mark.parametrize("schema", ["db.schema"])
 def test_schema_validation_error(schema):
     with pytest.raises(InvalidSchemaError) as e:
-        get_cli_context_manager().connection_context.set_schema(schema)
+        get_cli_context_manager().connection_context.schema = schema
         assert e.value.message == f"Invalid schema {schema}"
