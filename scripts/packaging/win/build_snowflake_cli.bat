@@ -1,5 +1,4 @@
 @echo off
-echo %PATH%
 echo "Updating PATH"
 set PATH=C:\Program Files\Python310\;c:\Program Files (x86)\Windows Kits\8.1\bin\x86\;%PATH%
 echo %PATH%
