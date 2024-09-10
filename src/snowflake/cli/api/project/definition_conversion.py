@@ -20,9 +20,12 @@ from snowflake.cli.api.entities.utils import render_script_template
 from snowflake.cli.api.project.schemas.entities.common import (
     SqlScriptHookType,
 )
-from snowflake.cli.api.project.schemas.native_app.application import Application
+from snowflake.cli.api.project.schemas.native_app.application import (
+    Application,
+    ApplicationV11,
+)
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
-from snowflake.cli.api.project.schemas.native_app.package import Package
+from snowflake.cli.api.project.schemas.native_app.package import Package, PackageV11
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
@@ -232,14 +235,17 @@ def convert_native_app_to_v2_data(
         return post_deploy_hooks
 
     package_entity_name = "pkg"
-    if native_app.package and native_app.package.name:
+    if (
+        native_app.package
+        and native_app.package.name
+        and native_app.package.name != PackageV11.model_fields["name"].default
+    ):
         package_identifier = native_app.package.name
     else:
-        package_identifier = f"{native_app.name}_pkg"
-        if str(definition_version) == "1":
-            # PDFv1.0 doesn't have the username append in the definition object,
-            # it's done in the NativeAppProjectModel, so we have to emulate that here
-            package_identifier += f"_{_make_template('ctx.env.USERNAME')}"
+        # Backport the PackageV11 default name template, updated for PDFv2
+        package_identifier = _make_template(
+            f"fn.concat_ids('{native_app.name}', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower)"
+        )
     package = {
         "type": "application package",
         "identifier": package_identifier,
@@ -265,14 +271,17 @@ def convert_native_app_to_v2_data(
             package["meta"] = package_meta
 
     app_entity_name = "app"
-    if native_app.application and native_app.application.name:
+    if (
+        native_app.application
+        and native_app.application.name
+        and native_app.application.name != ApplicationV11.model_fields["name"].default
+    ):
         app_identifier = native_app.application.name
     else:
-        app_identifier = native_app.name
-        if str(definition_version) == "1":
-            # PDFv1.0 doesn't have the username append in the definition object,
-            # it's done in the NativeAppProjectModel, so we have to emulate that here
-            app_identifier += f"_{_make_template('ctx.env.USERNAME')}"
+        # Backport the ApplicationV11 default name template, updated for PDFv2
+        app_identifier = _make_template(
+            f"fn.concat_ids('{native_app.name}', '_', fn.sanitize_id(fn.get_username('unknown_user')) | lower)"
+        )
     app = {
         "type": "application",
         "identifier": app_identifier,

@@ -22,10 +22,6 @@ from unittest import mock
 import pytest
 import yaml
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
-from snowflake.cli.api.constants import (
-    PROJECT_TEMPLATE_VARIABLE_CLOSING,
-    PROJECT_TEMPLATE_VARIABLE_OPENING,
-)
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
@@ -227,26 +223,29 @@ def test_migrating_a_file_with_duplicated_keys_raises_an_error(
     assert result.output == os_agnostic_snapshot
 
 
-def test_migrate_nativeapp_fields_with_username_v1_definition(
-    runner, project_directory
+@pytest.mark.parametrize("definition_version", [1, "1.1"])
+def test_migrate_nativeapp_fields_with_username(
+    runner, project_directory, definition_version
 ):
     with project_directory("integration") as pd:
         definition_path = pd / "snowflake.yml"
-        with definition_path.open("r") as f:
+        with definition_path.open("r+") as f:
             old_definition = yaml.safe_load(f)
-        assert old_definition["definition_version"] == 1
+            old_definition["definition_version"] = definition_version
+            f.seek(0)
+            yaml.safe_dump(old_definition, f)
+            f.truncate()
 
-        result = runner.invoke(["ws", "migrate"])
+        result = runner.invoke(["ws", "migrate", "--accept-templates"])
         assert result.exit_code == 0, result.output
 
         with definition_path.open("r") as f:
             new_definition = yaml.safe_load(f)
-        username_suffix = f"_{PROJECT_TEMPLATE_VARIABLE_OPENING} ctx.env.USERNAME {PROJECT_TEMPLATE_VARIABLE_CLOSING}"
         assert (
             new_definition["entities"]["app"]["identifier"]
-            == f"integration{username_suffix}"
+            == "<% fn.concat_ids('integration', '_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>"
         )
         assert (
             new_definition["entities"]["pkg"]["identifier"]
-            == f"integration_pkg{username_suffix}"
+            == "<% fn.concat_ids('integration', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>"
         )

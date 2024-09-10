@@ -217,7 +217,8 @@
       deploy_root: output/deploy/
       distribution: external
       generated_root: __generated/
-      identifier: myapp_pkg_<% ctx.env.USERNAME %>
+      identifier: <% fn.concat_ids('myapp', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user'))
+        | lower) %>
       manifest: app/manifest.yml
       meta:
         role: pkg_role
