@@ -259,6 +259,22 @@ def test_copy_error(runner, sf_git_repository):
 
 
 @pytest.mark.integration
+def test_execute_with_name_in_pascal_case(
+    runner, test_database, sf_git_repository, snapshot
+):
+    result = runner.invoke_with_connection_json(
+        [
+            "git",
+            "execute",
+            f"@{sf_git_repository}/branches/main/tests_integration/test_data/projects/stage_execute/ScriptInPascalCase.sql",
+        ]
+    )
+
+    assert result.exit_code == 0
+    assert result.json == snapshot
+
+
+@pytest.mark.integration
 def test_execute(runner, test_database, sf_git_repository, snapshot):
     result = runner.invoke_with_connection_json(
         [

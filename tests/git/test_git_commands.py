@@ -212,11 +212,15 @@ def test_setup_invalid_url_error(mock_om_describe, mock_connector, runner, mock_
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
 def test_setup_no_secret_existing_api(
-    mock_om_describe, mock_connector, runner, mock_ctx
+    mock_om_show, mock_om_describe, mock_connector, runner, mock_ctx, mock_cursor
 ):
+    mock_om_show.return_value = mock_cursor([], [])
     mock_om_describe.side_effect = [
+        # repo does not exist
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # api integration exists
         None,
     ]
     mock_om_describe.return_value = [None, {"object_details": "something"}]
@@ -239,24 +243,45 @@ def test_setup_no_secret_existing_api(
     )
     assert ctx.get_query() == dedent(
         """
-        create git repository repo_name
+        create git repository IDENTIFIER('repo_name')
         api_integration = existing_api_integration
         origin = 'https://github.com/an-example-repo.git'
         """
     )
 
 
+@pytest.mark.parametrize(
+    "repo_name, int_name, secret_name",
+    [
+        ("db.schema.FooRepo", "FooRepo_api_integration", "db.schema.FooRepo_secret"),
+        ("schema.FooRepo", "FooRepo_api_integration", "schema.FooRepo_secret"),
+        ("FooRepo", "FooRepo_api_integration", "FooRepo_secret"),
+    ],
+)
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
-def test_setup_no_secret_create_api(mock_om_describe, mock_connector, runner, mock_ctx):
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+def test_setup_no_secret_create_api(
+    mock_om_show,
+    mock_om_describe,
+    mock_connector,
+    runner,
+    mock_ctx,
+    mock_cursor,
+    repo_name,
+    int_name,
+    secret_name,
+):
+    mock_om_show.return_value = mock_cursor([], [])
     mock_om_describe.side_effect = ProgrammingError(
+        # nothing exists
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
     )
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
     communication = "\n".join([EXAMPLE_URL, "n", "", ""])
-    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+    result = runner.invoke(["git", "setup", repo_name], input=communication)
 
     assert result.exit_code == 0, result.output
     assert result.output.startswith(
@@ -264,22 +289,22 @@ def test_setup_no_secret_create_api(mock_om_describe, mock_connector, runner, mo
             [
                 "Origin url: https://github.com/an-example-repo.git",
                 "Use secret for authentication? [y/N]: n",
-                "API integration identifier (will be created if not exists) [repo_name_api_integration]: ",
-                "API integration 'repo_name_api_integration' successfully created.",
+                f"API integration identifier (will be created if not exists) [{int_name}]: ",
+                f"API integration '{int_name}' successfully created.",
             ]
         )
     )
     assert ctx.get_query() == dedent(
-        """
-        create api integration repo_name_api_integration
+        f"""
+        create api integration IDENTIFIER('{int_name}')
         api_provider = git_https_api
         api_allowed_prefixes = ('https://github.com/an-example-repo.git')
         allowed_authentication_secrets = ()
         enabled = true
         
         
-        create git repository repo_name
-        api_integration = repo_name_api_integration
+        create git repository IDENTIFIER('{repo_name}')
+        api_integration = {int_name}
         origin = 'https://github.com/an-example-repo.git'
         """
     )
@@ -287,15 +312,26 @@ def test_setup_no_secret_create_api(mock_om_describe, mock_connector, runner, mo
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
 def test_setup_existing_secret_existing_api(
-    mock_om_describe, mock_connector, runner, mock_ctx
+    mock_om_show, mock_om_describe, mock_connector, runner, mock_ctx, mock_cursor
 ):
+    mock_om_show.return_value = mock_cursor([], [])
     mock_om_describe.side_effect = [
+        # repo does not exist
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # secret exists
         None,
+        # api integration exists
         None,
     ]
-    mock_om_describe.return_value = [None, "integration_details", "secret_details"]
+    mock_om_describe.return_value = [
+        None,
+        None,
+        "integration_details",
+        None,
+        "secret_details",
+    ]
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
@@ -319,7 +355,7 @@ def test_setup_existing_secret_existing_api(
     )
     assert ctx.get_query() == dedent(
         """
-        create git repository repo_name
+        create git repository IDENTIFIER('repo_name')
         api_integration = existing_api_integration
         origin = 'https://github.com/an-example-repo.git'
         git_credentials = existing_secret
@@ -327,22 +363,47 @@ def test_setup_existing_secret_existing_api(
     )
 
 
+@pytest.mark.parametrize(
+    "repo_name, int_name, existing_secret_name",
+    [
+        ("db.schema.FooRepo", "FooRepo_api_integration", "db.schema.existing_secret"),
+        (
+            "schema.FooRepo",
+            "FooRepo_api_integration",
+            "different_schema.existing_secret",
+        ),
+        ("FooRepo", "FooRepo_api_integration", "existing_secret"),
+    ],
+)
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
 def test_setup_existing_secret_create_api(
-    mock_om_describe, mock_connector, runner, mock_ctx
+    mock_om_show,
+    mock_om_describe,
+    mock_connector,
+    runner,
+    mock_ctx,
+    mock_cursor,
+    repo_name,
+    int_name,
+    existing_secret_name,
 ):
+    mock_om_show.return_value = mock_cursor([], [])
     mock_om_describe.side_effect = [
+        # repo does not exists
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # chosen secret exists
         None,
+        # chosen integration does not exist
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
     ]
-    mock_om_describe.return_value = [None, "secret_details", None]
+    mock_om_describe.return_value = [None, None, "secret_details", None, None, None]
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    communication = "\n".join([EXAMPLE_URL, "y", "existing_secret", "", ""])
-    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+    communication = "\n".join([EXAMPLE_URL, "y", existing_secret_name, "", ""])
+    result = runner.invoke(["git", "setup", repo_name], input=communication)
 
     assert result.exit_code == 0, result.output
     assert result.output.startswith(
@@ -350,36 +411,39 @@ def test_setup_existing_secret_create_api(
             [
                 "Origin url: https://github.com/an-example-repo.git",
                 "Use secret for authentication? [y/N]: y",
-                "Secret identifier (will be created if not exists) [repo_name_secret]: existing_secret",
-                "Using existing secret 'existing_secret'",
-                "API integration identifier (will be created if not exists) [repo_name_api_integration]: ",
-                "API integration 'repo_name_api_integration' successfully created.",
+                f"Secret identifier (will be created if not exists) [FooRepo_secret]: {existing_secret_name}",
+                f"Using existing secret '{existing_secret_name}'",
+                f"API integration identifier (will be created if not exists) [{int_name}]: ",
+                f"API integration '{int_name}' successfully created.",
             ]
         )
     )
     assert ctx.get_query() == dedent(
-        """
-        create api integration repo_name_api_integration
+        f"""
+        create api integration IDENTIFIER('{int_name}')
         api_provider = git_https_api
         api_allowed_prefixes = ('https://github.com/an-example-repo.git')
-        allowed_authentication_secrets = (existing_secret)
+        allowed_authentication_secrets = ({existing_secret_name})
         enabled = true
 
 
-        create git repository repo_name
-        api_integration = repo_name_api_integration
+        create git repository IDENTIFIER('{repo_name}')
+        api_integration = {int_name}
         origin = 'https://github.com/an-example-repo.git'
-        git_credentials = existing_secret
+        git_credentials = {existing_secret_name}
         """
     )
 
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
 def test_setup_create_secret_create_api(
-    mock_om_describe, mock_connector, runner, mock_ctx
+    mock_om_show, mock_om_describe, mock_connector, runner, mock_ctx, mock_cursor
 ):
+    mock_om_show.return_value = mock_cursor([], [])
     mock_om_describe.side_effect = ProgrammingError(
+        # nothing exists
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
     )
     ctx = mock_ctx()
@@ -408,24 +472,68 @@ def test_setup_create_secret_create_api(
     )
     assert ctx.get_query() == dedent(
         """
-        create secret repo_name_secret
+        create secret IDENTIFIER('repo_name_secret')
         type = password
         username = 'john_doe'
         password = 'admin123'
         
         
-        create api integration new_integration
+        create api integration IDENTIFIER('new_integration')
         api_provider = git_https_api
         api_allowed_prefixes = ('https://github.com/an-example-repo.git')
         allowed_authentication_secrets = (repo_name_secret)
         enabled = true
         
         
-        create git repository repo_name
+        create git repository IDENTIFIER('repo_name')
         api_integration = new_integration
         origin = 'https://github.com/an-example-repo.git'
         git_credentials = repo_name_secret
         """
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli.plugins.snowpark.commands.ObjectManager.show")
+def test_api_integration_and_secrets_get_unique_names(
+    mock_om_show, mock_om_describe, mock_connector, runner, mock_ctx, mock_cursor
+):
+    mock_om_show.return_value = mock_cursor(
+        [{"name": f"repo_name_secret{x}"} for x in range(1, 3)]
+        + [{"name": f"repo_name_api_integration{x}"} for x in range(1, 4)]
+        + [{"name": "repo_name_secret"}, {"name": "repo_name_api_integration"}],
+        [],
+    )
+    mock_om_describe.side_effect = [
+        # repo does not exist
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # chosen secret does not exist
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+        # chosen api integration does not exist
+        ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+    ]
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    communication = "\n".join([EXAMPLE_URL, "y", "", "john_doe", "admin123", "", ""])
+    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith(
+        "\n".join(
+            [
+                "Origin url: https://github.com/an-example-repo.git",
+                "Use secret for authentication? [y/N]: y",
+                "Secret identifier (will be created if not exists) [repo_name_secret3]: ",
+                "Secret 'repo_name_secret3' will be created",
+                "username: john_doe",
+                "password/token: ",
+                "API integration identifier (will be created if not exists) [repo_name_api_integration4]: ",
+                "Secret 'repo_name_secret3' successfully created.",
+                "API integration 'repo_name_api_integration4' successfully created.",
+            ]
+        )
     )
 
 
@@ -435,25 +543,35 @@ def test_setup_create_secret_create_api(
         (
             "@repo/branches/main/",
             "@repo/branches/main/",
-            ["@repo/branches/main/s1.sql", "@repo/branches/main/a/s3.sql"],
+            ["@repo/branches/main/s1.sql", "@repo/branches/main/a/S3.sql"],
         ),
         (
             "@repo/branches/main/a",
             "@repo/branches/main/",
-            ["@repo/branches/main/a/s3.sql"],
+            ["@repo/branches/main/a/S3.sql"],
         ),
         (
             "@db.schema.repo/branches/main/",
             "@db.schema.repo/branches/main/",
             [
                 "@db.schema.repo/branches/main/s1.sql",
-                "@db.schema.repo/branches/main/a/s3.sql",
+                "@db.schema.repo/branches/main/a/S3.sql",
             ],
         ),
         (
             "@db.schema.repo/branches/main/s1.sql",
             "@db.schema.repo/branches/main/",
             ["@db.schema.repo/branches/main/s1.sql"],
+        ),
+        (
+            "@DB.SCHEMA.REPO/branches/main/s1.sql",
+            "@DB.SCHEMA.REPO/branches/main/",
+            ["@DB.SCHEMA.REPO/branches/main/s1.sql"],
+        ),
+        (
+            "@DB.schema.REPO/branches/main/a/S3.sql",
+            "@DB.schema.REPO/branches/main/",
+            ["@DB.schema.REPO/branches/main/a/S3.sql"],
         ),
     ],
 )
@@ -469,9 +587,68 @@ def test_execute(
 ):
     mock_execute.return_value = mock_cursor(
         [
-            {"name": "repo/branches/main/a/s3.sql"},
+            {"name": "repo/branches/main/a/S3.sql"},
             {"name": "repo/branches/main/s1.sql"},
             {"name": "repo/branches/main/s2"},
+        ],
+        [],
+    )
+
+    result = runner.invoke(["git", "execute", repository_path])
+
+    assert result.exit_code == 0, result.output
+    ls_call, *execute_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls {expected_stage}", cursor_class=DictCursor)
+    assert execute_calls == [
+        mock.call(f"execute immediate from {p}") for p in expected_files
+    ]
+    assert result.output == os_agnostic_snapshot
+
+
+@pytest.mark.parametrize(
+    "repository_path, expected_stage, expected_files",
+    [
+        (
+            "@repo/branches/main/",
+            "@repo/branches/main/",
+            [
+                "@repo/branches/main/S2.sql",
+                "@repo/branches/main/s1.sql",
+                "@repo/branches/main/a/s3.sql",
+            ],
+        ),
+        (
+            "@repo/branches/main/s1.sql",
+            "@repo/branches/main/",
+            ["@repo/branches/main/s1.sql"],
+        ),
+        (
+            "@repo/branches/main/S2.sql",
+            "@repo/branches/main/",
+            ["@repo/branches/main/S2.sql"],
+        ),
+        (
+            "@repo/branches/main/a/s3.sql",
+            "@repo/branches/main/",
+            ["@repo/branches/main/a/s3.sql"],
+        ),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_new_git_repository_list_files(
+    mock_execute,
+    mock_cursor,
+    runner,
+    repository_path,
+    expected_stage,
+    expected_files,
+    os_agnostic_snapshot,
+):
+    mock_execute.return_value = mock_cursor(
+        [
+            {"name": "/branches/main/s1.sql"},
+            {"name": "/branches/main/S2.sql"},
+            {"name": "/branches/main/a/s3.sql"},
         ],
         [],
     )

@@ -18,7 +18,7 @@ import itertools
 import logging
 from os import path
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import typer
 from click import ClickException
@@ -41,6 +41,7 @@ from snowflake.cli.plugins.object.command_aliases import (
 )
 from snowflake.cli.plugins.object.manager import ObjectManager
 from snowflake.cli.plugins.stage.manager import OnErrorType
+from snowflake.connector import DictCursor
 
 app = SnowTyperFactory(
     name="git",
@@ -82,10 +83,12 @@ add_object_command_aliases(
     scope_option=scope_option(help_example="`list --in database my_db`"),
 )
 
+from snowflake.cli.api.identifiers import FQN
 
-def _assure_repository_does_not_exist(om: ObjectManager, repository_name: str) -> None:
+
+def _assure_repository_does_not_exist(om: ObjectManager, repository_name: FQN) -> None:
     if om.object_exists(
-        object_type=ObjectType.GIT_REPOSITORY.value.cli_name, name=repository_name
+        object_type=ObjectType.GIT_REPOSITORY.value.cli_name, fqn=repository_name
     ):
         raise ClickException(f"Repository '{repository_name}' already exists")
 
@@ -95,9 +98,27 @@ def _validate_origin_url(url: str) -> None:
         raise ClickException("Url address should start with 'https'")
 
 
+def _unique_new_object_name(
+    om: ObjectManager, object_type: ObjectType, proposed_fqn: FQN
+) -> str:
+    existing_objects: List[Dict] = om.show(
+        object_type=object_type.value.cli_name,
+        like=f"{proposed_fqn.name}%",
+        cursor_class=DictCursor,
+    ).fetchall()
+    existing_names = set(o["name"].upper() for o in existing_objects)
+
+    result = proposed_fqn.name
+    i = 1
+    while result.upper() in existing_names:
+        result = proposed_fqn.name + str(i)
+        i += 1
+    return result
+
+
 @app.command("setup", requires_connection=True)
 def setup(
-    repository_name: str = RepoNameArgument,
+    repository_name: FQN = RepoNameArgument,
     **options,
 ) -> CommandResult:
     """
@@ -123,12 +144,29 @@ def setup(
     should_create_secret = False
     secret_name = None
     if secret_needed:
-        secret_name = f"{repository_name}_secret"
-        secret_name = typer.prompt(
-            "Secret identifier (will be created if not exists)", default=secret_name
+        default_secret_name = (
+            FQN.from_string(f"{repository_name.name}_secret")
+            .set_schema(repository_name.schema)
+            .set_database(repository_name.database)
         )
+        default_secret_name.set_name(
+            _unique_new_object_name(
+                om, object_type=ObjectType.SECRET, proposed_fqn=default_secret_name
+            ),
+        )
+        secret_name = FQN.from_string(
+            typer.prompt(
+                "Secret identifier (will be created if not exists)",
+                default=default_secret_name.name,
+            )
+        )
+        if not secret_name.database:
+            secret_name.set_database(repository_name.database)
+        if not secret_name.schema:
+            secret_name.set_schema(repository_name.schema)
+
         if om.object_exists(
-            object_type=ObjectType.SECRET.value.cli_name, name=secret_name
+            object_type=ObjectType.SECRET.value.cli_name, fqn=secret_name
         ):
             cli_console.step(f"Using existing secret '{secret_name}'")
         else:
@@ -137,10 +175,17 @@ def setup(
             secret_username = typer.prompt("username")
             secret_password = typer.prompt("password/token", hide_input=True)
 
-    api_integration = f"{repository_name}_api_integration"
-    api_integration = typer.prompt(
-        "API integration identifier (will be created if not exists)",
-        default=api_integration,
+    # API integration is an account-level object
+    api_integration = FQN.from_string(f"{repository_name.name}_api_integration")
+    api_integration.set_name(
+        typer.prompt(
+            "API integration identifier (will be created if not exists)",
+            default=_unique_new_object_name(
+                om,
+                object_type=ObjectType.INTEGRATION,
+                proposed_fqn=api_integration,
+            ),
+        )
     )
 
     if should_create_secret:
@@ -150,7 +195,7 @@ def setup(
         cli_console.step(f"Secret '{secret_name}' successfully created.")
 
     if not om.object_exists(
-        object_type=ObjectType.INTEGRATION.value.cli_name, name=api_integration
+        object_type=ObjectType.INTEGRATION.value.cli_name, fqn=api_integration
     ):
         manager.create_api_integration(
             name=api_integration,
@@ -177,7 +222,7 @@ def setup(
     requires_connection=True,
 )
 def list_branches(
-    repository_name: str = RepoNameArgument,
+    repository_name: FQN = RepoNameArgument,
     like=like_option(
         help_example='`list-branches --like "%_test"` lists all branches that end with "_test"'
     ),
@@ -186,7 +231,9 @@ def list_branches(
     """
     List all branches in the repository.
     """
-    return QueryResult(GitManager().show_branches(repo_name=repository_name, like=like))
+    return QueryResult(
+        GitManager().show_branches(repo_name=repository_name.identifier, like=like)
+    )
 
 
 @app.command(
@@ -194,7 +241,7 @@ def list_branches(
     requires_connection=True,
 )
 def list_tags(
-    repository_name: str = RepoNameArgument,
+    repository_name: FQN = RepoNameArgument,
     like=like_option(
         help_example='`list-tags --like "v2.0%"` lists all tags that start with "v2.0"'
     ),
@@ -203,7 +250,9 @@ def list_tags(
     """
     List all tags in the repository.
     """
-    return QueryResult(GitManager().show_tags(repo_name=repository_name, like=like))
+    return QueryResult(
+        GitManager().show_tags(repo_name=repository_name.identifier, like=like)
+    )
 
 
 @app.command(
@@ -228,13 +277,13 @@ def list_files(
     requires_connection=True,
 )
 def fetch(
-    repository_name: str = RepoNameArgument,
+    repository_name: FQN = RepoNameArgument,
     **options,
 ) -> CommandResult:
     """
     Fetch changes from origin to Snowflake repository.
     """
-    return QueryResult(GitManager().fetch(repo_name=repository_name))
+    return QueryResult(GitManager().fetch(fqn=repository_name))
 
 
 @app.command(

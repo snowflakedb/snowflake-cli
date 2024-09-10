@@ -18,6 +18,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import List
 
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.plugins.stage.manager import (
     USER_STAGE_PREFIX,
     StageManager,
@@ -40,16 +41,24 @@ class GitStagePathParts(StagePathParts):
 
     @property
     def path(self) -> str:
-        return (
-            f"{self.stage_name}{self.directory}"
-            if self.stage_name.endswith("/")
-            else f"{self.stage_name}/{self.directory}"
-        )
+        return f"{self.stage_name.rstrip('/')}/{self.directory}"
 
-    def add_stage_prefix(self, file_path: str) -> str:
+    @classmethod
+    def get_directory(cls, stage_path: str) -> str:
+        return "/".join(Path(stage_path).parts[3:])
+
+    @property
+    def full_path(self) -> str:
+        return f"{self.stage.rstrip('/')}/{self.directory}"
+
+    def replace_stage_prefix(self, file_path: str) -> str:
         stage = Path(self.stage).parts[0]
         file_path_without_prefix = Path(file_path).parts[1:]
         return f"{stage}/{'/'.join(file_path_without_prefix)}"
+
+    def add_stage_prefix(self, file_path: str) -> str:
+        stage = self.stage.rstrip("/")
+        return f"{stage}/{file_path.lstrip('/')}"
 
     def get_directory_from_file_path(self, file_path: str) -> List[str]:
         stage_path_length = len(Path(self.directory).parts)
@@ -63,15 +72,15 @@ class GitManager(StageManager):
     def show_tags(self, repo_name: str, like: str) -> SnowflakeCursor:
         return self._execute_query(f"show git tags like '{like}' in {repo_name}")
 
-    def fetch(self, repo_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"alter git repository {repo_name} fetch")
+    def fetch(self, fqn: FQN) -> SnowflakeCursor:
+        return self._execute_query(f"alter git repository {fqn} fetch")
 
     def create(
-        self, repo_name: str, api_integration: str, url: str, secret: str
+        self, repo_name: FQN, api_integration: str, url: str, secret: str
     ) -> SnowflakeCursor:
         query = dedent(
             f"""
-            create git repository {repo_name}
+            create git repository {repo_name.sql_identifier}
             api_integration = {api_integration}
             origin = '{url}'
             """

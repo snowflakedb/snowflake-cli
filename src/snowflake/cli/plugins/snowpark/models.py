@@ -128,13 +128,14 @@ class WheelMetadata:
                 if line.startswith(dep_keyword)
             ]
             name = cls._get_name_from_wheel_filename(wheel_path.name)
+
             return cls(name=name, wheel_path=wheel_path, dependencies=dependencies)
 
     @staticmethod
     def _get_name_from_wheel_filename(wheel_filename: str) -> str:
         # wheel filename is in format {name}-{version}[-{extra info}]
         # https://peps.python.org/pep-0491/#file-name-convention
-        return wheel_filename.split("-")[0]
+        return wheel_filename.split("-")[0].lower()
 
     @staticmethod
     def to_wheel_name_format(package_name: str) -> str:

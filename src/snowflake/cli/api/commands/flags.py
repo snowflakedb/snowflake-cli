@@ -28,6 +28,7 @@ from snowflake.cli.api.cli_global_context import cli_context_manager
 from snowflake.cli.api.commands.typer_pre_execute import register_pre_execute_command
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import MissingConfiguration
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
@@ -350,13 +351,23 @@ EnableDiagOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+# Set default via callback to avoid including tempdir path in generated docs (snow --docs).
+# Use constant instead of None, as None is removed from telemetry data.
+_DIAG_LOG_DEFAULT_VALUE = "<temporary_directory>"
+
+
+def _diag_log_path_callback(path: str):
+    if path == _DIAG_LOG_DEFAULT_VALUE:
+        path = tempfile.gettempdir()
+    cli_context_manager.connection_context.set_diag_log_path(Path(path))
+    return path
+
+
 DiagLogPathOption: Path = typer.Option(
     tempfile.gettempdir(),
     "--diag-log-path",
     help="Diagnostic report path",
-    callback=_callback(
-        lambda: cli_context_manager.connection_context.set_diag_log_path
-    ),
+    callback=_diag_log_path_callback,
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
     exists=True,
@@ -514,11 +525,15 @@ def experimental_option(
     )
 
 
-def identifier_argument(sf_object: str, example: str) -> typer.Argument:
+def identifier_argument(
+    sf_object: str, example: str, callback: Callable | None = None
+) -> typer.Argument:
     return typer.Argument(
         ...,
         help=f"Identifier of the {sf_object}. For example: {example}",
         show_default=False,
+        click_type=IdentifierType(),
+        callback=callback,
     )
 
 
@@ -638,3 +653,10 @@ def parse_key_value_variables(variables: Optional[List[str]]) -> List[Variable]:
         key, value = p.split("=", 1)
         result.append(Variable(key.strip(), value.strip()))
     return result
+
+
+class IdentifierType(click.ParamType):
+    name = "TEXT"
+
+    def convert(self, value, param, ctx):
+        return FQN.from_string(value)

@@ -17,9 +17,10 @@ import logging
 import typer
 from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.plugins.notebook.manager import NotebookManager
-from snowflake.cli.plugins.notebook.types import NotebookName, NotebookStagePath
+from snowflake.cli.plugins.notebook.types import NotebookStagePath
 from typing_extensions import Annotated
 
 app = SnowTyperFactory(
@@ -38,7 +39,7 @@ NotebookFile: NotebookStagePath = typer.Option(
 
 @app.command(requires_connection=True)
 def execute(
-    identifier: str = NOTEBOOK_IDENTIFIER,
+    identifier: FQN = NOTEBOOK_IDENTIFIER,
     **options,
 ):
     """
@@ -51,7 +52,7 @@ def execute(
 
 @app.command(requires_connection=True)
 def get_url(
-    identifier: str = NOTEBOOK_IDENTIFIER,
+    identifier: FQN = NOTEBOOK_IDENTIFIER,
     **options,
 ):
     """Return a url to a notebook."""
@@ -61,7 +62,7 @@ def get_url(
 
 @app.command(name="open", requires_connection=True)
 def open_cmd(
-    identifier: str = NOTEBOOK_IDENTIFIER,
+    identifier: FQN = NOTEBOOK_IDENTIFIER,
     **options,
 ):
     """Opens a notebook in default browser"""
@@ -72,7 +73,7 @@ def open_cmd(
 
 @app.command(requires_connection=True)
 def create(
-    identifier: Annotated[NotebookName, NOTEBOOK_IDENTIFIER],
+    identifier: Annotated[FQN, NOTEBOOK_IDENTIFIER],
     notebook_file: Annotated[NotebookStagePath, NotebookFile],
     **options,
 ):

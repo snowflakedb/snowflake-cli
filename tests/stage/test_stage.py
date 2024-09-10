@@ -499,7 +499,9 @@ def test_stage_create(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["stage", "create", "-c", "empty", "stageName"])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with("create stage if not exists stageName")
+    mock_execute.assert_called_once_with(
+        "create stage if not exists IDENTIFIER('stageName')"
+    )
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -507,7 +509,9 @@ def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["stage", "create", "-c", "empty", '"stage name"'])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with('create stage if not exists "stage name"')
+    mock_execute.assert_called_once_with(
+        """create stage if not exists IDENTIFIER('"stage name"')"""
+    )
 
 
 @mock.patch("snowflake.cli.plugins.object.commands.ObjectManager._execute_query")
@@ -515,7 +519,7 @@ def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", "stageName", "-c", "empty"])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with("drop stage stageName")
+    mock_execute.assert_called_once_with("drop stage IDENTIFIER('stageName')")
 
 
 @mock.patch("snowflake.cli.plugins.object.commands.ObjectManager._execute_query")
@@ -523,7 +527,7 @@ def test_stage_drop_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", '"stage name"', "-c", "empty"])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with('drop stage "stage name"')
+    mock_execute.assert_called_once_with("""drop stage IDENTIFIER('"stage name"')""")
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -744,15 +748,15 @@ def test_stage_internal_put_quoted_path(
 @pytest.mark.parametrize(
     "stage_path, expected_stage, expected_files",
     [
-        ("@exe", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/*", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/*.sql", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/a", "@exe", ["@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/a/", "@exe", ["@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/a/*", "@exe", ["@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/a/*.sql", "@exe", ["@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
+        ("@exe", "@exe", ["@exe/s1.sql", "@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe", "@exe", ["@exe/s1.sql", "@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/", "@exe", ["@exe/s1.sql", "@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/*", "@exe", ["@exe/s1.sql", "@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/*.sql", "@exe", ["@exe/s1.sql", "@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/a", "@exe", ["@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/a/", "@exe", ["@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/a/*", "@exe", ["@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/a/*.sql", "@exe", ["@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
         ("exe/a/b", "@exe", ["@exe/a/b/s4.sql"]),
         ("exe/a/b/", "@exe", ["@exe/a/b/s4.sql"]),
         ("exe/a/b/*", "@exe", ["@exe/a/b/s4.sql"]),
@@ -764,7 +768,7 @@ def test_stage_internal_put_quoted_path(
             "@db.schema.exe",
             [
                 "@db.schema.exe/s1.sql",
-                "@db.schema.exe/a/s3.sql",
+                "@db.schema.exe/a/S3.sql",
                 "@db.schema.exe/a/b/s4.sql",
             ],
         ),
@@ -773,11 +777,14 @@ def test_stage_internal_put_quoted_path(
             "@db.schema.exe",
             [
                 "@db.schema.exe/s1.sql",
-                "@db.schema.exe/a/s3.sql",
+                "@db.schema.exe/a/S3.sql",
                 "@db.schema.exe/a/b/s4.sql",
             ],
         ),
         ("@db.schema.exe/s1.sql", "@db.schema.exe", ["@db.schema.exe/s1.sql"]),
+        ("@db.schema.exe/a/S3.sql", "@db.schema.exe", ["@db.schema.exe/a/S3.sql"]),
+        ("@DB.SCHEMA.EXE/s1.sql", "@DB.SCHEMA.EXE", ["@DB.SCHEMA.EXE/s1.sql"]),
+        ("@DB.schema.EXE/a/S3.sql", "@DB.schema.EXE", ["@DB.schema.EXE/a/S3.sql"]),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -792,7 +799,7 @@ def test_execute(
 ):
     mock_execute.return_value = mock_cursor(
         [
-            {"name": "exe/a/s3.sql"},
+            {"name": "exe/a/S3.sql"},
             {"name": "exe/a/b/s4.sql"},
             {"name": "exe/s1.sql"},
             {"name": "exe/s2"},
