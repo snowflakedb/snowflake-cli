@@ -22,6 +22,16 @@
 ## New additions
 
 ## Fixes and improvements
+
+
+# v2.8.1
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
 * Fixed git execute not working with upper case in directory name.
 * Fixed `snow git setup` command behaviour for fully qualified repository names.
 * Fixed `snow git setup` command behaviour in case API integration or secret with default name already exists.
