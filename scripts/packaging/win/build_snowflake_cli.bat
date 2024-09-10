@@ -5,7 +5,8 @@ set PATH=C:\Program Files\Python310\;c:\Program Files (x86)\Windows Kits\8.1\bin
 echo %PATH%
 
 @echo on
-dir /r C:\Program Files (x86)\WiX Toolset v3.11\bin
+dir /r "C:\Program Files (x86)"
+dir /r "C:\Program Files (x86)\WiX Toolset v3.11\bin"
 REM call scripts\packaging\win\dotnet-install.ps1 -Verbose
 REM dotnet tool install --global wix
 REM where wix
