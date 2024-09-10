@@ -186,32 +186,32 @@ class DefinitionV20(_ProjectDefinitionBase):
             )
 
             merged_values = cls._merge_mixins_with_entity(
-                entity_name=entity_name,
+                entity_id=entity_name,
                 entity=entity,
                 entity_mixins_names=entity_mixins,
-                mixins=data["mixins"],
+                mixin_defs=data["mixins"],
             )
             entities[entity_name] = merged_values
         return data
 
-    @staticmethod
+    @classmethod
     def _merge_mixins_with_entity(
-        entity_name: str, entity: dict, entity_mixins_names: list, mixins: dict
+        cls, entity_id: str, entity: dict, entity_mixins_names: list, mixin_defs: dict
     ) -> dict:
         # Validate mixins
         for mixin_name in entity_mixins_names:
-            if mixin_name not in mixins:
+            if mixin_name not in mixin_defs:
                 raise ValueError(f"Mixin {mixin_name} not defined")
 
         # Build object override data from mixins
         data: dict = {}
         for mx_name in entity_mixins_names:
-            data = DefinitionV20._merge_data(data, mixins[mx_name])
+            data = cls._merge_data(data, mixin_defs[mx_name])
 
         for key, override_value in data.items():
             if key not in get_allowed_fields_for_entity(entity):
                 raise ValueError(
-                    f"Unsupported key '{key}' for entity of type {entity['type']} "
+                    f"Unsupported key '{key}' for entity {entity_id} of type {entity['type']} "
                 )
 
             entity_value = entity.get(key)
@@ -220,15 +220,16 @@ class DefinitionV20(_ProjectDefinitionBase):
             ):
                 raise ValueError(
                     f"Value from mixins for property {key} is of type '{type(override_value).__name__}' "
-                    f"while entity {entity_name} expects value of type '{type(entity_value).__name__}'"
+                    f"while entity {entity_id} expects value of type '{type(entity_value).__name__}'"
                 )
 
         # Apply entity data on top of mixins
-        data = DefinitionV20._merge_data(data, entity)
+        data = cls._merge_data(data, entity)
         return data
 
-    @staticmethod
+    @classmethod
     def _merge_data(
+        cls,
         left: dict | list | scalar | None,
         right: dict | list | scalar | None,
     ):

@@ -389,7 +389,9 @@ def test_using_mixing_with_unknown_entity_property_fails(project_directory):
         with pytest.raises(SchemaValidationError) as err:
             _ = DefinitionManager(project_dir).project_definition
 
-    assert "Unsupported key 'main_file' for entity of type function" in str(err)
+    assert "Unsupported key 'main_file' for entity function1 of type function" in str(
+        err
+    )
 
 
 def test_list_of_mixins_in_correct_order(project_directory):
@@ -433,7 +435,7 @@ def test_mixin_with_unknown_entity_key_raises_error():
     with pytest.raises(SchemaValidationError) as err:
         DefinitionV20(**definition_input)
 
-    assert "Unsupported key 'unknown_key' for entity of type function" in str(err)
+    assert "Unsupported key 'unknown_key' for entity func of type function" in str(err)
 
 
 _PARTIAL_FUNCTION = {
