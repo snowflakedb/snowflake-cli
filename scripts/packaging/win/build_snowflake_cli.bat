@@ -40,7 +40,7 @@ signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 REM Build MSI-installer
 cd ..\..
 
-call scripts\packaging\win\dotnet-install.ps1
+call scripts\packaging\win\dotnet-install.ps1 -Verbose
 dotnet tool install --global wix
 where wix
 wix --version
