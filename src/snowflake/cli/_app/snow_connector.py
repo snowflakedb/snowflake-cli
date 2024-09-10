@@ -192,11 +192,37 @@ def _raise_errors_related_to_session_token(
         )
 
 
-def update_connection_details_with_private_key(
-    connection_parameters: Dict, private_key_var_name: str = "private_key_file"
+def update_connection_details_with_private_key(connection_parameters: Dict):
+    if "private_key_file" in connection_parameters:
+        _load_private_key(connection_parameters, "private_key_file")
+    elif "private_key_path" in connection_parameters:
+        _load_private_key(connection_parameters, "private_key_path")
+    elif "private_key_raw" in connection_parameters:
+        _load_private_key_from_parameters(connection_parameters, "private_key_raw")
+    return connection_parameters
+
+
+def _load_private_key(connection_parameters: Dict, private_key_var_name: str) -> None:
+    if connection_parameters.get("authenticator") == "SNOWFLAKE_JWT":
+        private_key_pem = _load_pem_from_file(
+            connection_parameters[private_key_var_name]
+        )
+        private_key = _load_pem_to_der(private_key_pem)
+        connection_parameters["private_key"] = private_key
+        del connection_parameters[private_key_var_name]
+    else:
+        raise ClickException(
+            "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
+        )
+
+
+def _load_private_key_from_parameters(
+    connection_parameters: Dict, private_key_var_name: str
 ) -> None:
     if connection_parameters.get("authenticator") == "SNOWFLAKE_JWT":
-        private_key = _load_pem_to_der(connection_parameters[private_key_var_name])
+        private_key_pem = connection_parameters[private_key_var_name]
+        private_key_pem = private_key_pem.encode("utf-8")
+        private_key = _load_pem_to_der(private_key_pem)
         connection_parameters["private_key"] = private_key
         del connection_parameters[private_key_var_name]
     else:
@@ -213,17 +239,19 @@ def _update_connection_application_name(connection_parameters: Dict):
     connection_parameters.update(connection_application_params)
 
 
-def _load_pem_to_der(private_key_file: str) -> bytes:
-    """
-    Given a private key file path (in PEM format), decode key data into DER
-    format
-    """
-
+def _load_pem_from_file(private_key_file: str) -> bytes:
     with SecurePath(private_key_file).open(
         "rb", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
     ) as f:
         private_key_pem = f.read()
+    return private_key_pem
 
+
+def _load_pem_to_der(private_key_pem: bytes) -> bytes:
+    """
+    Given a private key file path (in PEM format), decode key data into DER
+    format
+    """
     private_key_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
     if (
         private_key_pem.startswith(ENCRYPTED_PKCS8_PK_HEADER)
