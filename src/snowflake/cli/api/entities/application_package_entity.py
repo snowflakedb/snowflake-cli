@@ -48,6 +48,7 @@ from snowflake.cli.api.project.schemas.entities.application_package_entity_model
     ApplicationPackageEntityModel,
 )
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
+from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import extract_schema
 from snowflake.cli.api.rendering.jinja import (
     get_basic_jinja_env,
@@ -63,20 +64,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     def action_bundle(self, ctx: ActionContext):
         model = self._entity_model
-        bundle_map = build_bundle(
-            ctx.project_root, Path(model.deploy_root), model.artifacts
-        )
-        bundle_context = BundleContext(
+        return self.bundle(
+            project_root=ctx.project_root,
+            deploy_root=Path(model.deploy_root),
+            bundle_root=Path(model.bundle_root),
+            generated_root=Path(model.generated_root),
             package_name=model.identifier,
             artifacts=model.artifacts,
-            project_root=ctx.project_root,
-            bundle_root=Path(model.bundle_root),
-            deploy_root=Path(model.deploy_root),
-            generated_root=Path(model.generated_root),
         )
-        compiler = NativeAppCompiler(bundle_context)
-        compiler.compile_artifacts()
-        return bundle_map
 
     def action_deploy(
         self,
@@ -85,6 +80,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         recursive: bool,
         paths: List[Path],
         validate: bool,
+        stage_fqn: Optional[str] = None,
     ):
         model = self._entity_model
         package_name = model.fqn.identifier
@@ -106,7 +102,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         with get_sql_executor().use_role(package_role):
             # 3. Upload files from deploy root local folder to the above stage
-            stage_fqn = f"{package_name}.{model.stage}"
+            if not stage_fqn:
+                stage_fqn = f"{package_name}.{model.stage}"
             stage_schema = extract_schema(stage_fqn)
             sync_deploy_root_with_stage(
                 console=ctx.console,
@@ -160,6 +157,58 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             package_role=package_role,
             force_drop=force_drop,
         )
+
+    def action_validate(self, ctx: ActionContext):
+        model = self._entity_model
+        package_name = model.fqn.identifier
+        stage_fqn = f"{package_name}.{model.stage}"
+        if model.meta and model.meta.role:
+            package_role = model.meta.role
+        else:
+            package_role = ctx.default_role
+
+        def deploy_to_scratch_stage_fn():
+            self.action_deploy(
+                ctx=ctx,
+                prune=True,
+                recursive=True,
+                paths=[],
+                validate=False,
+                stage_fqn=model.scratch_stage,
+            )
+
+        self.validate_setup_script(
+            console=ctx.console,
+            package_name=package_name,
+            package_role=package_role,
+            stage_fqn=stage_fqn,
+            use_scratch_stage=True,
+            scratch_stage_fqn=model.scratch_stage,
+            deploy_to_scratch_stage_fn=deploy_to_scratch_stage_fn,
+        )
+        ctx.console.message("Setup script is valid")
+
+    @staticmethod
+    def bundle(
+        project_root: Path,
+        deploy_root: Path,
+        bundle_root: Path,
+        generated_root: Path,
+        artifacts: list[PathMapping],
+        package_name: str,
+    ):
+        bundle_map = build_bundle(project_root, deploy_root, artifacts)
+        bundle_context = BundleContext(
+            package_name=package_name,
+            artifacts=artifacts,
+            project_root=project_root,
+            bundle_root=bundle_root,
+            deploy_root=deploy_root,
+            generated_root=generated_root,
+        )
+        compiler = NativeAppCompiler(bundle_context)
+        compiler.compile_artifacts()
+        return bundle_map
 
     @staticmethod
     def get_existing_app_pkg_info(

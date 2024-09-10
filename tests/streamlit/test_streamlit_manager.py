@@ -8,10 +8,16 @@ from snowflake.cli.api.project.schemas.entities.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 
+mock_streamlit_exists = mock.patch(
+    "snowflake.cli._plugins.streamlit.manager.ObjectManager.object_exists",
+    lambda _, **kwargs: False,
+)
+
 
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.get_url")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager._execute_query")
+@mock_streamlit_exists
 def test_deploy_streamlit(mock_execute_query, _, mock_stage_manager, temp_dir):
     mock_stage_manager().get_standard_stage_prefix.return_value = "stage_root"
 
@@ -47,6 +53,7 @@ def test_deploy_streamlit(mock_execute_query, _, mock_stage_manager, temp_dir):
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.get_url")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager._execute_query")
+@mock_streamlit_exists
 def test_deploy_streamlit_with_api_integrations(
     mock_execute_query, _, mock_stage_manager, temp_dir
 ):

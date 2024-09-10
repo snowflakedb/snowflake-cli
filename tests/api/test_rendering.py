@@ -18,7 +18,13 @@ from unittest import mock
 import pytest
 from click import ClickException
 from jinja2 import UndefinedError
-from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
+from snowflake.cli.api.rendering.project_definition_templates import (
+    has_client_side_templates,
+)
+from snowflake.cli.api.rendering.sql_templates import (
+    has_sql_templates,
+    snowflake_sql_jinja_render,
+)
 from snowflake.cli.api.utils.models import ProjectEnvironment
 
 
@@ -118,3 +124,25 @@ def test_contex_can_access_environment_variable(cli_context):
     assert snowflake_sql_jinja_render("&{ ctx.env.TEST_ENV_VAR }") == os.environ.get(
         "TEST_ENV_VAR"
     )
+
+
+def test_has_sql_templates():
+    assert has_sql_templates("abc <% %> abc")
+    assert has_sql_templates("abc <% abc")
+    assert has_sql_templates("abc &{ foo } abc")
+    assert has_sql_templates("abc &{ abc")
+    assert not has_sql_templates("SELECT 1")
+    assert not has_sql_templates("<test>")
+    assert not has_sql_templates("{<est}")
+    assert not has_sql_templates("")
+
+
+def test_has_client_side_templates():
+    assert has_client_side_templates("abc <% %> abc")
+    assert has_client_side_templates("abc <% abc")
+    assert not has_client_side_templates("abc &{ foo } abc")
+    assert not has_client_side_templates("abc &{ abc")
+    assert not has_client_side_templates("SELECT 1")
+    assert not has_client_side_templates("<test>")
+    assert not has_client_side_templates("{<est}")
+    assert not has_client_side_templates("")
