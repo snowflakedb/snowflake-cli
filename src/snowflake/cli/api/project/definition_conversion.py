@@ -46,7 +46,9 @@ def convert_project_definition_to_v2(
     snowpark_data = convert_snowpark_to_v2_data(pd.snowpark) if pd.snowpark else {}
     streamlit_data = convert_streamlit_to_v2_data(pd.streamlit) if pd.streamlit else {}
     native_app_data = (
-        convert_native_app_to_v2_data(project_root, pd.native_app)
+        convert_native_app_to_v2_data(
+            project_root, pd.definition_version, pd.native_app
+        )
         if pd.native_app
         else {}
     )
@@ -166,7 +168,7 @@ def convert_streamlit_to_v2_data(streamlit: Streamlit) -> Dict[str, Any]:
 
 
 def convert_native_app_to_v2_data(
-    project_root, native_app: NativeApp
+    project_root, definition_version: str | int, native_app: NativeApp
 ) -> Dict[str, Any]:
     def _make_meta(obj: Application | Package):
         meta = {}
@@ -206,6 +208,9 @@ def convert_native_app_to_v2_data(
         # which use POSIX paths as default values
         return manifest_path.as_posix()
 
+    def _make_template(template: str) -> str:
+        return f"{PROJECT_TEMPLATE_VARIABLE_OPENING} {template} {PROJECT_TEMPLATE_VARIABLE_CLOSING}"
+
     def _convert_package_script_files(package_scripts: list[str]):
         # PDFv2 doesn't support package scripts, only post-deploy scripts, so we
         # need to convert the Jinja syntax from {{ }} to <% %>
@@ -213,7 +218,9 @@ def convert_native_app_to_v2_data(
         # to v2 template syntax by running it though the template process with a fake
         # package name that's actually a valid v2 template, which will be evaluated
         # when the script is used as a post-deploy script
-        fake_package_replacement_template = f"{PROJECT_TEMPLATE_VARIABLE_OPENING} ctx.entities.{package_entity_name}.identifier {PROJECT_TEMPLATE_VARIABLE_CLOSING}"
+        fake_package_replacement_template = _make_template(
+            f"ctx.entities.{package_entity_name}.identifier"
+        )
         jinja_context = dict(package_name=fake_package_replacement_template)
         post_deploy_hooks = []
         for script_file in package_scripts:
@@ -225,13 +232,17 @@ def convert_native_app_to_v2_data(
         return post_deploy_hooks
 
     package_entity_name = "pkg"
+    if native_app.package and native_app.package.name:
+        package_identifier = native_app.package.name
+    else:
+        package_identifier = f"{native_app.name}_pkg"
+        if str(definition_version) == "1":
+            # PDFv1.0 doesn't have the username append in the definition object,
+            # it's done in the NativeAppProjectModel, so we have to emulate that here
+            package_identifier += f"_{_make_template('ctx.env.USERNAME')}"
     package = {
         "type": "application package",
-        "identifier": (
-            native_app.package.name
-            if native_app.package and native_app.package.name
-            else f"{native_app.name}_pkg"
-        ),
+        "identifier": package_identifier,
         "manifest": _find_manifest(),
         "artifacts": native_app.artifacts,
         "bundle_root": native_app.bundle_root,
@@ -254,13 +265,17 @@ def convert_native_app_to_v2_data(
             package["meta"] = package_meta
 
     app_entity_name = "app"
+    if native_app.application and native_app.application.name:
+        app_identifier = native_app.application.name
+    else:
+        app_identifier = native_app.name
+        if str(definition_version) == "1":
+            # PDFv1.0 doesn't have the username append in the definition object,
+            # it's done in the NativeAppProjectModel, so we have to emulate that here
+            app_identifier += f"_{_make_template('ctx.env.USERNAME')}"
     app = {
         "type": "application",
-        "identifier": (
-            native_app.application.name
-            if native_app.application and native_app.application.name
-            else native_app.name
-        ),
+        "identifier": app_identifier,
         "from": {"target": package_entity_name},
     }
     if native_app.application:

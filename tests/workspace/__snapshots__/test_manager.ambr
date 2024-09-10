@@ -168,15 +168,6 @@
   
   '''
 # ---
-# name: test_migrating_native_app_raises_error
-  '''
-  +- Error ----------------------------------------------------------------------+
-  | Your project file contains a native app definition. Conversion of Native     |
-  | apps is not yet supported                                                    |
-  +------------------------------------------------------------------------------+
-  
-  '''
-# ---
 # name: test_migrations_with_multiple_entities
   '''
   definition_version: '2'
@@ -226,7 +217,7 @@
       deploy_root: output/deploy/
       distribution: external
       generated_root: __generated/
-      identifier: myapp_pkg
+      identifier: myapp_pkg_<% ctx.env.USERNAME %>
       manifest: app/manifest.yml
       meta:
         role: pkg_role
