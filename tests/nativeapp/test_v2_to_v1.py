@@ -177,7 +177,7 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
 
 
 @pytest.mark.parametrize(
-    "pdfv2_input, target_pkg, target_app, expected_pdfv1, expected_error",
+    "pdfv2_input, target_pkg, target_app, app_required, expected_pdfv1, expected_error",
     [
         [
             {
@@ -190,6 +190,7 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
             },
             "",
             "",
+            True,
             None,
             "More than one application entity exists in the project definition file, "
             "specify --app-entity-id to choose which one to operate on.",
@@ -205,6 +206,7 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
             },
             "pkg2",
             "app2",
+            True,
             None,
             "The application entity app2 does not "
             "target the application package entity pkg2.",
@@ -219,6 +221,56 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
             },
             "",
             "",
+            True,
+            None,
+            f"Could not find an application entity in the project definition file.",
+        ],
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    **package_v2("pkg1"),
+                    **app_v2("app1", "pkg1"),
+                    **package_v2("pkg2"),
+                    **app_v2("app2", "pkg2"),
+                },
+            },
+            "pkg2",
+            "app2",
+            True,
+            {
+                "definition_version": "1.1",
+                "native_app": native_app_v1("app2", "pkg2", "app2"),
+            },
+            None,
+        ],
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    **package_v2("pkg1"),
+                    **package_v2("pkg2"),
+                    **app_v2("app2", "pkg1"),
+                },
+            },
+            "pkg2",
+            "app2",
+            False,
+            None,
+            "The application entity app2 does not "
+            "target the application package entity pkg2.",
+        ],
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    **package_v2("pkg1"),
+                    **package_v2("pkg2"),
+                },
+            },
+            "",
+            "",
+            False,
             None,
             "More than one application package entity exists in the project definition file, "
             "specify --package-entity-id to choose which one to operate on.",
@@ -233,6 +285,7 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
             },
             "pkg3",
             "",
+            False,
             None,
             f'Could not find an application package entity with ID "pkg3" in the project definition file.',
         ],
@@ -248,6 +301,7 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
             },
             "pkg2",
             "app2",
+            False,
             {
                 "definition_version": "1.1",
                 "native_app": native_app_v1("app2", "pkg2", "app2"),
@@ -257,15 +311,25 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
     ],
 )
 def test_v2_to_v1_conversions_with_multiple_entities(
-    pdfv2_input, target_pkg, target_app, expected_pdfv1, expected_error
+    pdfv2_input, target_pkg, target_app, app_required, expected_pdfv1, expected_error
 ):
     pdfv2 = DefinitionV20(**pdfv2_input)
     if expected_error:
         with pytest.raises(ClickException, match=expected_error) as err:
-            _pdf_v2_to_v1(pdfv2, package_entity_id=target_pkg, app_entity_id=target_app)
+            _pdf_v2_to_v1(
+                pdfv2,
+                package_entity_id=target_pkg,
+                app_entity_id=target_app,
+                app_required=app_required,
+            )
     else:
         pdfv1_actual = vars(
-            _pdf_v2_to_v1(pdfv2, package_entity_id=target_pkg, app_entity_id=target_app)
+            _pdf_v2_to_v1(
+                pdfv2,
+                package_entity_id=target_pkg,
+                app_entity_id=target_app,
+                app_required=app_required,
+            )
         )
         pdfv1_expected = vars(DefinitionV11(**expected_pdfv1))
 
@@ -275,7 +339,7 @@ def test_v2_to_v1_conversions_with_multiple_entities(
 
 def test_decorator_error_when_no_project_exists():
     with pytest.raises(ValueError, match="Project definition could not be found"):
-        nativeapp_definition_v2_to_v1(lambda *args: None)()
+        nativeapp_definition_v2_to_v1()(lambda *args: None)()
 
 
 @pytest.mark.parametrize(
@@ -337,7 +401,7 @@ def test_decorator_skips_when_project_is_not_v2(mock_pdf_v2_to_v1):
     )
     get_cli_context_manager().override_project_definition = pdfv1
 
-    nativeapp_definition_v2_to_v1(lambda *args: None)()
+    nativeapp_definition_v2_to_v1()(lambda *args: None)()
 
     mock_pdf_v2_to_v1.launch.assert_not_called()
     assert get_cli_context().project_definition == pdfv1
