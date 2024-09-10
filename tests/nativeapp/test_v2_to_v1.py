@@ -259,7 +259,7 @@ def test_decorator_skips_when_project_is_not_v2(mock_pdf_v2_to_v1):
             },
         },
     )
-    get_cli_context_manager().set_project_definition(pdfv1)
+    get_cli_context_manager().override_project_definition = pdfv1
 
     nativeapp_definition_v2_to_v1(lambda *args: None)()
 

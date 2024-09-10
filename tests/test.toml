@@ -36,6 +36,16 @@ password = "dummy_password"
 [connections.test_connections]
 user = "python"
 
+[connections.private_key_file]
+authenticator = "SNOWFLAKE_JWT"
+private_key_file = "/private/key"
+
+[connections.private_key_path]
+authenticator = "SNOWFLAKE_JWT"
+private_key_path = "/private/key"
+
+[connections.no_private_key]
+authenticator = "SNOWFLAKE_JWT"
 
 [cli.features]
 dummy_flag = true
