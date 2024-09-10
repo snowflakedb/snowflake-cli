@@ -22,7 +22,6 @@
 
 ## New additions
 * Added templates expansion of arbitrary files for Native Apps through `templates` processor.
-* Added `--package-entity-id` and `--app-entity-id` options to `snow app` commands to allow targeting specific entities when the `definition_version` in `snowflake.yml` is `2` or higher and it contains multiple `application package` or `application` entities.
 
 ## Fixes and improvements
 * Duplicated keys in `snowflake.yml` are now detected and reported.
@@ -56,6 +55,7 @@
 * Added support for `<% ... %>` syntax in SQL templating.
 * Support multiple Streamlit application in single snowflake.yml project definition file.
 * Added `snow ws migrate` command to migrate `snowflake.yml` file from V1 to V2.
+* Added `--package-entity-id` and `--app-entity-id` options to `snow app` commands to allow targeting specific entities when the `definition_version` in `snowflake.yml` is `2` or higher and it contains multiple `application package` or `application` entities.
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command.
