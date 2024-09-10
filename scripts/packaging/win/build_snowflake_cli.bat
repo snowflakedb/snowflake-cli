@@ -36,6 +36,7 @@ tar -a -c -f snow.zip dist\snow
 
 dotnet tool install --global wix
 wix --version
+where wix
 wix extension add -g WixToolset.Util.wixext
 wix extension add -g WixToolset.UI.wixext
 
@@ -45,29 +46,10 @@ signtool sign /debug /sm /t http://timestamp.digicert.com /a snow.exe
 
 REM Build MSI-installer
 cd ..\..
-dir /r .
-REM Generate wxs file for Wix
-REM python.exe -m hatch -e packaging run ^
-REM   python scripts\packaging\win\wxs_builder.py
 
 wix build -d SnowflakeCLIVersion=3.0.0.2 ^
   -o snowflake-cli-3.0.0.dev0.2-windows_x86_64.msi ^
   -ext WixToolset.UI.wixext ^
   scripts\packaging\win\snowflake_cli.wxs
-
-REM candle ^
-REM     -dSnowflakeCLIVersion=%CLI_VERSION% ^
-REM     scripts\packaging\win\snowflake_cli.wxs ^
-REM     scripts\packaging\win\snowflake_cli_exitdlg.wxs
-REM
-REM dir /r .
-REM
-REM light snowflake_cli.wixobj ^
-REM     snowflake_cli_exitdlg.wixobj ^
-REM     -cultures:en-us ^
-REM     -loc scripts\packaging\win\snowflake_cli_en-us.wxl ^
-REM     -ext WixUIExtension ^
-REM     -ext WixUtilExtension ^
-REM     -o dist\snowflake-cli-%CLI_VERSION%-windows_x86_64.msi
 
 dir /r .
