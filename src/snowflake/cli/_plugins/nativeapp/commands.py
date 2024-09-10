@@ -160,7 +160,7 @@ def app_list_templates(**options) -> CommandResult:
 
 @app.command("bundle")
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1()
 def app_bundle(
     **options,
 ) -> CommandResult:
@@ -181,7 +181,7 @@ def app_bundle(
 
 @app.command("diff", requires_connection=True, hidden=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1()
 def app_diff(
     **options,
 ) -> CommandResult:
@@ -208,7 +208,7 @@ def app_diff(
 
 @app.command("run", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1(app_required=True)
 def app_run(
     version: Optional[str] = typer.Option(
         None,
@@ -272,7 +272,7 @@ def app_run(
 
 @app.command("open", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1(app_required=True)
 def app_open(
     **options,
 ) -> CommandResult:
@@ -299,7 +299,7 @@ def app_open(
 
 @app.command("teardown", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1(app_required=True)
 def app_teardown(
     force: Optional[bool] = ForceOption,
     cascade: Optional[bool] = typer.Option(
@@ -327,7 +327,7 @@ def app_teardown(
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1()
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
@@ -395,7 +395,7 @@ def app_deploy(
 
 @app.command("validate", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1()
 def app_validate(**options):
     """
     Validates a deployed Snowflake Native App's setup script.
@@ -428,7 +428,7 @@ DEFAULT_EVENT_FOLLOW_LAST = 20
 
 @app.command("events", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1(app_required=True)
 def app_events(
     since: str = typer.Option(
         default="",

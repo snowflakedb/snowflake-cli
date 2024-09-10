@@ -55,6 +55,7 @@ def _pdf_v2_to_v1(
     v2_definition: DefinitionV20,
     package_entity_id: str = "",
     app_entity_id: str = "",
+    app_required: bool = False,
 ) -> DefinitionV11:
     pdfv1: Dict[str, Any] = {"definition_version": "1.1", "native_app": {}}
 
@@ -76,8 +77,9 @@ def _pdf_v2_to_v1(
     elif len(apps) == 1:
         # Otherwise, if there is only one app entity, fall back to that one
         app_definition = next(iter(apps.values()))
-    elif len(apps) > 1:
-        # If there are multiple app entities, the user must specify which one to use
+    elif len(apps) > 1 and app_required:
+        # If there are multiple app entities and the command being called requires one,
+        # the user must specify which one to use
         raise ClickException(
             "More than one application entity exists in the project definition file, "
             "specify --app-entity-id to choose which one to operate on."
@@ -100,6 +102,12 @@ def _pdf_v2_to_v1(
         elif target_package in packages:
             # If the user didn't target a specific package entity, use the one the app entity targets
             package_entity_id = target_package
+    elif app_required:
+        # If an app entity is required but we don't have one, error out
+        with_id = f'with ID "{app_entity_id}" ' if app_entity_id else ""
+        raise ClickException(
+            f"Could not find an application entity {with_id}in the project definition file."
+        )
 
     # Determine the package entity to convert, there must be one
     if package_entity_id:
@@ -180,7 +188,7 @@ def _pdf_v2_to_v1(
     return result.project_definition
 
 
-def nativeapp_definition_v2_to_v1(func):
+def nativeapp_definition_v2_to_v1(*, app_required: bool = False):
     """
     A command decorator that attempts to automatically convert a native app project from
     definition v2 to v1.1. Assumes with_project_definition() has already been called.
@@ -189,40 +197,45 @@ def nativeapp_definition_v2_to_v1(func):
     entity type is expected.
     """
 
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        original_pdf: Optional[DefinitionV20] = get_cli_context().project_definition
-        if not original_pdf:
-            raise ValueError(
-                "Project definition could not be found. The nativeapp_definition_v2_to_v1 command decorator assumes with_project_definition() was called before it."
-            )
-        if original_pdf.definition_version == "2":
-            package_entity_id = kwargs.get("package_entity_id", "")
-            app_entity_id = kwargs.get("app_entity_id", "")
-            pdfv1 = _pdf_v2_to_v1(original_pdf, package_entity_id, app_entity_id)
-            get_cli_context_manager().override_project_definition = pdfv1
-        return func(*args, **kwargs)
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            original_pdf: Optional[DefinitionV20] = get_cli_context().project_definition
+            if not original_pdf:
+                raise ValueError(
+                    "Project definition could not be found. The nativeapp_definition_v2_to_v1 command decorator assumes with_project_definition() was called before it."
+                )
+            if original_pdf.definition_version == "2":
+                package_entity_id = kwargs.get("package_entity_id", "")
+                app_entity_id = kwargs.get("app_entity_id", "")
+                pdfv1 = _pdf_v2_to_v1(
+                    original_pdf, package_entity_id, app_entity_id, app_required
+                )
+                get_cli_context_manager().override_project_definition = pdfv1
+            return func(*args, **kwargs)
 
-    return _options_decorator_factory(
-        wrapper,
-        additional_options=[
-            inspect.Parameter(
-                "package_entity_id",
-                inspect.Parameter.KEYWORD_ONLY,
-                annotation=Optional[str],
-                default=typer.Option(
-                    default="",
-                    help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
+        return _options_decorator_factory(
+            wrapper,
+            additional_options=[
+                inspect.Parameter(
+                    "package_entity_id",
+                    inspect.Parameter.KEYWORD_ONLY,
+                    annotation=Optional[str],
+                    default=typer.Option(
+                        default="",
+                        help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
+                    ),
                 ),
-            ),
-            inspect.Parameter(
-                "app_entity_id",
-                inspect.Parameter.KEYWORD_ONLY,
-                annotation=Optional[str],
-                default=typer.Option(
-                    default="",
-                    help="The ID of the application entity on which to operate when definition_version is 2 or higher.",
+                inspect.Parameter(
+                    "app_entity_id",
+                    inspect.Parameter.KEYWORD_ONLY,
+                    annotation=Optional[str],
+                    default=typer.Option(
+                        default="",
+                        help="The ID of the application entity on which to operate when definition_version is 2 or higher.",
+                    ),
                 ),
-            ),
-        ],
-    )
+            ],
+        )
+
+    return decorator
