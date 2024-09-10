@@ -41,8 +41,8 @@ REM Build MSI-installer
 cd ..\..
 dir /r .
 REM Generate wxs file for Wix
-python.exe -m hatch -e packaging run ^
-  python scripts\packaging\win\wxs_builder.py
+REM python.exe -m hatch -e packaging run ^
+REM   python scripts\packaging\win\wxs_builder.py
 
 candle ^
     -dSnowflakeCLIVersion=%CLI_VERSION% ^
