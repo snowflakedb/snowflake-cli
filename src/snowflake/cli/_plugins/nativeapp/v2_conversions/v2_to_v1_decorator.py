@@ -62,14 +62,12 @@ def _pdf_v2_to_v1(
     app_definition: Optional[ApplicationEntityModel] = None
 
     # Enumerate all application package and application entities in the project definition
-    packages = {}
-    apps = {}
-    for key, entity in v2_definition.entities.items():
-        entity_type = entity.get_type()
-        if entity_type == ApplicationPackageEntityModel.get_type():
-            packages[key] = entity
-        elif entity_type == ApplicationEntityModel.get_type():
-            apps[key] = entity
+    packages: dict[
+        str, ApplicationPackageEntityModel
+    ] = v2_definition.get_entities_by_type(ApplicationPackageEntityModel.get_type())
+    apps: dict[str, ApplicationEntityModel] = v2_definition.get_entities_by_type(
+        ApplicationEntityModel.get_type()
+    )
 
     # Determine the application entity to convert, there can be zero or one
     if app_entity_id:
