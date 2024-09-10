@@ -24,6 +24,7 @@ import yaml
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
+    InteractiveOption,
     ValidateOption,
 )
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
@@ -123,6 +124,15 @@ def deploy(
             unspecified, the command syncs all local changes to the stage."""
         ).strip(),
     ),
+    from_release_directive: Optional[bool] = typer.Option(
+        False,
+        "--from-release-directive",
+        help=f"""Creates or upgrades an application object to the version and patch specified by the release directive applicable to your Snowflake account.
+        The command fails if no release directive exists for your Snowflake account for a given application package, which is determined from the project definition file. Default: unset.""",
+        is_flag=True,
+    ),
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
     validate: bool = ValidateOption,
     **options,
 ):
@@ -154,6 +164,9 @@ def deploy(
         recursive=recursive,
         paths=paths,
         validate=validate,
+        from_release_directive=from_release_directive,
+        interactive=interactive,
+        force=force,
     )
     return MessageResult("Deployed successfully.")
 

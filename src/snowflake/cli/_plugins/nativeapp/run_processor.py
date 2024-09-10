@@ -20,10 +20,6 @@ from typing import Optional
 import typer
 from click import UsageError
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
-from snowflake.cli._plugins.nativeapp.constants import (
-    PATCH_COL,
-    VERSION_COL,
-)
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
 )
@@ -48,13 +44,8 @@ from snowflake.cli.api.errno import (
 )
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
-from snowflake.cli.api.project.util import (
-    identifier_to_show_like_pattern,
-    unquote_identifier,
-)
-from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor, SnowflakeCursor
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
@@ -76,35 +67,11 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             return show_obj_cursor
 
     def get_existing_version_info(self, version: str) -> Optional[dict]:
-        """
-        Get the latest patch on an existing version by name in the application package.
-        Executes 'show versions like ... in application package' query and returns
-        the latest patch in the version as a single row, if one exists. Otherwise,
-        returns None.
-        """
-        with self.use_role(self.package_role):
-            try:
-                query = f"show versions like {identifier_to_show_like_pattern(version)} in application package {self.package_name}"
-                cursor = self._execute_query(query, cursor_class=DictCursor)
-
-                if cursor.rowcount is None:
-                    raise SnowflakeSQLExecutionError(query)
-
-                matching_rows = find_all_rows(
-                    cursor, lambda row: row[VERSION_COL] == unquote_identifier(version)
-                )
-
-                if not matching_rows:
-                    return None
-
-                return max(matching_rows, key=lambda row: row[PATCH_COL])
-
-            except ProgrammingError as err:
-                if err.msg.__contains__("does not exist or not authorized"):
-                    raise ApplicationPackageDoesNotExistError(self.package_name)
-                else:
-                    generic_sql_error_handler(err=err, role=self.package_role)
-                    return None
+        return ApplicationEntity.get_existing_version_info(
+            version=version,
+            package_name=self.package_name,
+            package_role=self.package_role,
+        )
 
     def drop_application_before_upgrade(
         self, policy: PolicyBase, is_interactive: bool, cascade: bool = False

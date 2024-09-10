@@ -1,9 +1,21 @@
+from pathlib import Path
 from textwrap import dedent
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 
+from click import UsageError
+from snowflake.cli._plugins.nativeapp.common_flags import (
+    ForceOption,
+    InteractiveOption,
+    ValidateOption,
+)
 from snowflake.cli._plugins.nativeapp.constants import (
     NAME_COL,
+    PATCH_COL,
     SPECIAL_COMMENT,
+    VERSION_COL,
+)
+from snowflake.cli._plugins.nativeapp.exceptions import (
+    ApplicationPackageDoesNotExistError,
 )
 from snowflake.cli._plugins.nativeapp.policy import PolicyBase
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
@@ -23,10 +35,21 @@ from snowflake.cli.api.errno import (
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
     ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
+from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.entities.application_entity_model import (
     ApplicationEntityModel,
 )
+from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
+    ApplicationPackageEntityModel,
+)
+from snowflake.cli.api.project.util import (
+    extract_schema,
+    identifier_to_show_like_pattern,
+    unquote_identifier,
+)
+from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.connector import ProgrammingError
+from snowflake.connector.cursor import DictCursor
 
 # Reasons why an `alter application ... upgrade` might fail
 UPGRADE_RESTRICTION_CODES = {
@@ -46,11 +69,160 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
     def action_deploy(
         self,
         ctx: ActionContext,
+        from_release_directive: bool,
+        policy: PolicyBase,
+        prune: bool,
+        recursive: bool,
+        paths: List[Path],
+        validate: bool = ValidateOption,
+        stage_fqn: Optional[str] = None,
+        interactive: bool = InteractiveOption,
+        version: Optional[str] = None,
+        patch: Optional[int] = None,
+        force: Optional[bool] = ForceOption,
         *args,
         **kwargs,
     ):
-        # TODO
-        pass
+        model = self._entity_model
+        app_name = model.fqn.identifier
+        debug_mode = model.debug
+        if model.meta:
+            app_role = getattr(model.meta, "role", ctx.default_role)
+            app_warehouse = getattr(model.meta, "warehouse", ctx.default_warehouse)
+        else:
+            app_role = ctx.default_role
+            app_warehouse = ctx.default_warehouse
+
+        package_model: ApplicationPackageEntityModel = ctx.get_entity(
+            model.from_.target
+        )
+        package_name = package_model.fqn.identifier
+        if package_model.meta and package_model.meta.role:
+            package_role = package_model.meta.role
+        else:
+            package_role = ctx.default_role
+
+        if not stage_fqn:
+            stage_fqn = f"{package_name}.{model.stage}"
+        stage_schema = extract_schema(stage_fqn)
+
+        self.deploy(
+            console=ctx.console,
+            app_name=app_name,
+            app_role=app_role,
+            app_warehouse=app_warehouse,
+            package_name=package_name,
+            package_role=package_role,
+            stage_schema=stage_schema,
+            stage_fqn=stage_fqn,
+            debug_mode=debug_mode,
+            validate=validate,
+            from_release_directive=from_release_directive,
+            is_interactive=interactive,
+            policy=policy,
+            version=version,
+            patch=patch,
+        )
+
+    @classmethod
+    def deploy(
+        cls,
+        console: AbstractConsole,
+        app_name: str,
+        app_role: str,
+        app_warehouse: str,
+        package_name: str,
+        package_role: str,
+        stage_schema: str,
+        stage_fqn: str,
+        debug_mode: bool,
+        validate: bool,
+        from_release_directive: bool,
+        is_interactive: bool,
+        policy: PolicyBase,
+        version: Optional[str] = None,
+        patch: Optional[int] = None,
+    ):
+        """
+        Create or upgrade the application object using the given strategy
+        (unversioned dev, versioned dev, or same-account release directive).
+        """
+
+        # same-account release directive
+        if from_release_directive:
+            cls.create_or_upgrade_app(
+                console=console,
+                package_name=package_name,
+                package_role=package_role,
+                app_name=app_name,
+                app_role=app_role,
+                app_warehouse=app_warehouse,
+                stage_schema=stage_schema,
+                stage_fqn=stage_fqn,
+                debug_mode=debug_mode,
+                policy=policy,
+                is_interactive=is_interactive,
+                install_method=SameAccountInstallMethod.release_directive(),
+            )
+            return
+
+        # versioned dev
+        if version:
+            try:
+                version_exists = cls.get_existing_version_info(
+                    version=version,
+                    package_name=package_name,
+                    package_role=package_role,
+                )
+                if not version_exists:
+                    raise UsageError(
+                        f"Application package {package_name} does not have any version {version} defined. Use 'snow app version create' to define a version in the application package first."
+                    )
+            except ApplicationPackageDoesNotExistError as app_err:
+                raise UsageError(
+                    f"Application package {package_name} does not exist. Use 'snow app version create' to first create an application package and then define a version in it."
+                )
+
+            cls.create_or_upgrade_app(
+                console=console,
+                package_name=package_name,
+                package_role=package_role,
+                app_name=app_name,
+                app_role=app_role,
+                app_warehouse=app_warehouse,
+                stage_schema=stage_schema,
+                stage_fqn=stage_fqn,
+                debug_mode=debug_mode,
+                policy=policy,
+                is_interactive=is_interactive,
+                install_method=SameAccountInstallMethod.versioned_dev(version, patch),
+            )
+            return
+
+        # unversioned dev
+        # TODO deploy package
+        # package_entity.deploy(
+        #     ctx=ctx,
+        #     prune=True,
+        #     recursive=True,
+        #     paths=[],
+        #     validate=validate,
+        #     stage_fqn=stage_fqn,
+        # )
+        cls.create_or_upgrade_app(
+            console=console,
+            package_name=package_name,
+            package_role=package_role,
+            app_name=app_name,
+            app_role=app_role,
+            app_warehouse=app_warehouse,
+            stage_schema=stage_schema,
+            stage_fqn=stage_fqn,
+            debug_mode=debug_mode,
+            policy=policy,
+            is_interactive=is_interactive,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+        )
 
     @classmethod
     def create_or_upgrade_app(
@@ -117,7 +289,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                             generic_sql_error_handler(err=err)
                         else:  # The existing application object was created from a different process.
                             console.warning(err.msg)
-                            # TODO
+                            # TODO Drop the entity here instead of taking a callback once action_drop() is implemented
                             if drop_application_before_upgrade:
                                 drop_application_before_upgrade()
                             else:
@@ -180,3 +352,40 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             return sql_executor.show_specific_object(
                 "applications", app_name, name_col=NAME_COL
             )
+
+    @staticmethod
+    def get_existing_version_info(
+        version: str,
+        package_name: str,
+        package_role: str,
+    ) -> Optional[dict]:
+        """
+        Get the latest patch on an existing version by name in the application package.
+        Executes 'show versions like ... in application package' query and returns
+        the latest patch in the version as a single row, if one exists. Otherwise,
+        returns None.
+        """
+        sql_executor = get_sql_executor()
+        with sql_executor.use_role(package_role):
+            try:
+                query = f"show versions like {identifier_to_show_like_pattern(version)} in application package {package_name}"
+                cursor = sql_executor.execute_query(query, cursor_class=DictCursor)
+
+                if cursor.rowcount is None:
+                    raise SnowflakeSQLExecutionError(query)
+
+                matching_rows = find_all_rows(
+                    cursor, lambda row: row[VERSION_COL] == unquote_identifier(version)
+                )
+
+                if not matching_rows:
+                    return None
+
+                return max(matching_rows, key=lambda row: row[PATCH_COL])
+
+            except ProgrammingError as err:
+                if err.msg.__contains__("does not exist or not authorized"):
+                    raise ApplicationPackageDoesNotExistError(package_name)
+                else:
+                    generic_sql_error_handler(err=err, role=package_role)
+                    return None
