@@ -46,8 +46,8 @@ python.exe -m hatch -e packaging run ^
 
 candle ^
     -dSnowflakeCLIVersion=%CLI_VERSION% ^
-    scripts\packaging\win\snowflake_cli.wxs ^
-    scripts\packaging\win\snowflake_cli_exitdlg.wxs
+    snowflake_cli.wxs ^
+    snowflake_cli_exitdlg.wxs
 
 dir /r .
 
