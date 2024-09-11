@@ -15,19 +15,7 @@
  -->
 
 # Unreleased version
-## Backward incompatibility
 
-## Deprecations
-* Renamed `private-key-path` flag to `private-key-file`, added `private-key-path` as an alias for backward compatibility.
-
-## New additions
-* Added templates expansion of arbitrary files for Native Apps through `templates` processor.
-
-## Fixes and improvements
-* Duplicated keys in `snowflake.yml` are now detected and reported.
-* `snow streamlit deploy` will check for existing streamlit instance before deploying anything.
-
-# v3.0.0
 ## Backward incompatibility
 * Dropped support for Python below 3.10 version.
 * `snow object stage` commands are removed in favour of `snow stage`.
@@ -43,6 +31,7 @@
   * `snow snowpark package` commands no longer fallback to Anaconda Channel metadata when fetching available packages info fails.
 
 ## Deprecations
+* Renamed `private-key-path` flag to `private-key-file`, added `private-key-path` as an alias for backward compatibility.
 
 ## New additions
 * Added `snow spcs service execute-job` command, which supports creating and executing a job service in the current schema.
@@ -52,6 +41,7 @@
 * Support multiple Streamlit application in single snowflake.yml project definition file.
 * Added `snow ws migrate` command to migrate `snowflake.yml` file from V1 to V2.
 * Added `--package-entity-id` and `--app-entity-id` options to `snow app` commands to allow targeting specific entities when the `definition_version` in `snowflake.yml` is `2` or higher and it contains multiple `application package` or `application` entities.
+* Added templates expansion of arbitrary files for Native Apps through `templates` processor.
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command.
@@ -60,7 +50,8 @@
 * Fix error handling and improve messaging when no artifacts provided.
 * Improved error message for incompatible parameters.
 * Fixed SQL error when running `snow app version create` and `snow app version drop` with a version name that isn't a valid Snowflake unquoted identifier
-
+* Duplicated keys in `snowflake.yml` are now detected and reported.
+* `snow streamlit deploy` will check for existing streamlit instance before deploying anything.
 
 # v2.8.1
 ## Backward incompatibility
