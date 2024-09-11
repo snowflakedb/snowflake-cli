@@ -233,6 +233,11 @@ class DefinitionV20(_ProjectDefinitionBase):
         left: dict | list | scalar | None,
         right: dict | list | scalar | None,
     ):
+        """
+        Merges right data into left. Right and left is expected to be of the same type, if not right is returned.
+        If left is sequence then missing elements from right are appended.
+        If left is dictionary then we update it with data from right. The update is done recursively key by key.
+        """
         if left is None:
             return right
 
@@ -240,9 +245,7 @@ class DefinitionV20(_ProjectDefinitionBase):
         if isinstance(left, dict) and isinstance(right, dict):
             data = dict(left)
             for key in right:
-                data[key] = DefinitionV20._merge_data(
-                    left=data.get(key), right=right[key]
-                )
+                data[key] = cls._merge_data(left=data.get(key), right=right[key])
             return data
 
         if isinstance(left, list) and isinstance(right, list):
