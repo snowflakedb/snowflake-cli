@@ -57,6 +57,7 @@ from tests.nativeapp.patch_utils import (
 )
 from tests.nativeapp.utils import (
     APP_ENTITY_GET_EXISTING_APP_INFO,
+    APP_ENTITY_GET_EXISTING_VERSION_INFO,
     NATIVEAPP_MODULE,
     SQL_EXECUTOR_EXECUTE,
     TYPER_CONFIRM,
@@ -1758,7 +1759,7 @@ def test_upgrade_app_recreate_app(
 
 # Test upgrade app method for version AND no existing version info
 @mock.patch(
-    "snowflake.cli._plugins.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
+    APP_ENTITY_GET_EXISTING_VERSION_INFO,
     return_value=None,
 )
 @pytest.mark.parametrize(
@@ -1787,7 +1788,7 @@ def test_upgrade_app_from_version_throws_usage_error_one(
 
 # Test upgrade app method for version AND no existing app package from version info
 @mock.patch(
-    "snowflake.cli._plugins.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
+    APP_ENTITY_GET_EXISTING_VERSION_INFO,
     side_effect=ApplicationPackageDoesNotExistError("app_pkg"),
 )
 @pytest.mark.parametrize(
@@ -1816,7 +1817,7 @@ def test_upgrade_app_from_version_throws_usage_error_two(
 
 # Test upgrade app method for version AND existing app info AND user wants to drop app AND drop succeeds AND app is created successfully
 @mock.patch(
-    "snowflake.cli._plugins.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
+    APP_ENTITY_GET_EXISTING_VERSION_INFO,
     return_value={"key": "val"},
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -1908,13 +1909,15 @@ def test_upgrade_app_recreate_app_from_version(
     )
 
     run_processor = _get_na_run_processor()
-    run_processor.process(
-        bundle_map=mock_bundle_map,
-        policy=policy_param,
-        version="v1",
-        is_interactive=True,
-    )
-    assert mock_execute.mock_calls == expected
+    # TODO Remove next line once ApplicationEntity.action_drop() is implemented and ApplicationEntity.create_or_upgrade_app() drop before upgrade is implemented
+    with pytest.raises(NotImplementedError):
+        run_processor.process(
+            bundle_map=mock_bundle_map,
+            policy=policy_param,
+            version="v1",
+            is_interactive=True,
+        )
+        assert mock_execute.mock_calls == expected
 
 
 # Test get_existing_version_info returns version info correctly

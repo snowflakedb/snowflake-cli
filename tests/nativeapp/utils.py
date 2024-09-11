@@ -77,6 +77,7 @@ FIND_VERSION_FROM_MANIFEST = f"{VERSION_MODULE}.find_version_info_in_manifest_fi
 
 APP_ENTITY = "snowflake.cli.api.entities.application_entity.ApplicationEntity"
 APP_ENTITY_GET_EXISTING_APP_INFO = f"{APP_ENTITY}.get_existing_app_info"
+APP_ENTITY_GET_EXISTING_VERSION_INFO = f"{APP_ENTITY}.get_existing_version_info"
 
 APP_PACKAGE_ENTITY = (
     "snowflake.cli.api.entities.application_package_entity.ApplicationPackageEntity"
