@@ -2,6 +2,16 @@ name: SPCS Integration testing
 
 on:
   pull_request:
+    paths:
+      - ".github/workflows/**"
+      - "src/**"
+      - "test_external_plugins/**"
+      - "tests/**"
+      - "tests_common/**"
+      - "tests_e2e/**"
+      - "tests_integration/**"
+      - ".pre-commit-config.yaml"
+      - "pyproject.toml"
     branches:
       - "*"
   push:
