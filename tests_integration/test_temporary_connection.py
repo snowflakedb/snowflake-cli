@@ -18,6 +18,7 @@ from unittest import mock
 
 
 @pytest.mark.integration
+@pytest.mark.no_qa
 @mock.patch.dict(
     os.environ,
     {

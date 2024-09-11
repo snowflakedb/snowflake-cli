@@ -21,18 +21,18 @@ from typing import Any, Callable, Optional
 import click
 import typer
 from click import ClickException
-from snowflake.cli.api.cli_global_context import get_cli_context_manager
+from snowflake.cli.api.cli_global_context import (
+    _CliGlobalContextManager,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
-from snowflake.cli.api.commands.typer_pre_execute import register_pre_execute_command
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.config import get_all_connections
+from snowflake.cli.api.connections import ConnectionContext
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.formats import OutputFormat
-from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
@@ -40,10 +40,39 @@ _CONNECTION_SECTION = "Connection configuration"
 _CLI_BEHAVIOUR = "Global configuration"
 
 
-def _callback(provide_setter: Callable[[], Callable[[Any], Any]]):
+def _connection_callback(prop: str):
+    """Generates a setter for a field on the current context manager's connection context."""
+    if prop not in ConnectionContext.__dataclass_fields__:
+        raise KeyError(
+            f"Cannot generate setter for non-existent connection attr {prop}"
+        )
+
     def callback(value):
-        set_value = provide_setter()
-        set_value(value)
+        try:
+            if click.get_current_context().resilient_parsing:
+                return
+        except RuntimeError:
+            pass
+
+        setattr(get_cli_context_manager().connection_context, prop, value)
+        return value
+
+    return callback
+
+
+def _context_callback(prop: str):
+    """Generates a setter for a field on the current context manager."""
+    if prop not in _CliGlobalContextManager.__dataclass_fields__:
+        raise KeyError(f"Cannot generate setter for non-existent context attr {prop}")
+
+    def callback(value):
+        try:
+            if click.get_current_context().resilient_parsing:
+                return
+        except RuntimeError:
+            pass
+
+        setattr(get_cli_context_manager(), prop, value)
         return value
 
     return callback
@@ -55,9 +84,7 @@ ConnectionOption = typer.Option(
     "-c",
     "--environment",
     help=f"Name of the connection, as defined in your `config.toml`. Default: `default`.",
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_connection_name
-    ),
+    callback=_connection_callback("connection_name"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
     shell_complete=lambda _, __, ___: list(get_all_connections()),
@@ -68,9 +95,7 @@ TemporaryConnectionOption = typer.Option(
     "--temporary-connection",
     "-x",
     help="Uses connection defined with command line parameters, instead of one defined in config",
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_temporary_connection
-    ),
+    callback=_connection_callback("temporary_connection"),
     is_flag=True,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -80,9 +105,7 @@ AccountOption = typer.Option(
     "--account",
     "--accountname",
     help="Name assigned to your Snowflake account. Overrides the value specified for the connection.",
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_account
-    ),
+    callback=_connection_callback("account"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -92,7 +115,7 @@ UserOption = typer.Option(
     "--user",
     "--username",
     help="Username to connect to Snowflake. Overrides the value specified for the connection.",
-    callback=_callback(lambda: get_cli_context_manager().connection_context.set_user),
+    callback=_connection_callback("user"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -105,9 +128,7 @@ def _password_callback(value: str):
     if value:
         cli_console.message(PLAIN_PASSWORD_MSG)
 
-    return _callback(lambda: get_cli_context_manager().connection_context.set_password)(
-        value
-    )
+    return _connection_callback("password")(value)
 
 
 PasswordOption = typer.Option(
@@ -125,9 +146,7 @@ AuthenticatorOption = typer.Option(
     "--authenticator",
     help="Snowflake authenticator. Overrides the value specified for the connection.",
     hide_input=True,
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_authenticator
-    ),
+    callback=_connection_callback("authenticator"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -138,9 +157,7 @@ PrivateKeyPathOption = typer.Option(
     "--private-key-path",
     help="Snowflake private key file path. Overrides the value specified for the connection.",
     hide_input=True,
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_private_key_file
-    ),
+    callback=_connection_callback("private_key_file"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
     exists=True,
@@ -153,9 +170,7 @@ SessionTokenOption = typer.Option(
     "--session-token",
     help="Snowflake session token. Can be used only in conjunction with --master-token. Overrides the value specified for the connection.",
     hide_input=True,
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_session_token
-    ),
+    callback=_connection_callback("session_token"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
     exists=True,
@@ -169,9 +184,7 @@ MasterTokenOption = typer.Option(
     "--master-token",
     help="Snowflake master token. Can be used only in conjunction with --session-token. Overrides the value specified for the connection.",
     hide_input=True,
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_master_token
-    ),
+    callback=_connection_callback("master_token"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
     exists=True,
@@ -184,9 +197,7 @@ TokenFilePathOption = typer.Option(
     None,
     "--token-file-path",
     help="Path to file with an OAuth token that should be used when connecting to Snowflake",
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_token_file_path
-    ),
+    callback=_connection_callback("token_file_path"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
     exists=True,
@@ -199,9 +210,7 @@ DatabaseOption = typer.Option(
     "--database",
     "--dbname",
     help="Database to use. Overrides the value specified for the connection.",
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_database
-    ),
+    callback=_connection_callback("database"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -211,7 +220,7 @@ SchemaOption = typer.Option(
     "--schema",
     "--schemaname",
     help="Database schema to use. Overrides the value specified for the connection.",
-    callback=_callback(lambda: get_cli_context_manager().connection_context.set_schema),
+    callback=_connection_callback("schema"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -221,7 +230,7 @@ RoleOption = typer.Option(
     "--role",
     "--rolename",
     help="Role to use. Overrides the value specified for the connection.",
-    callback=_callback(lambda: get_cli_context_manager().connection_context.set_role),
+    callback=_connection_callback("role"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -230,9 +239,7 @@ WarehouseOption = typer.Option(
     None,
     "--warehouse",
     help="Warehouse to use. Overrides the value specified for the connection.",
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_warehouse
-    ),
+    callback=_connection_callback("warehouse"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -241,9 +248,7 @@ MfaPasscodeOption = typer.Option(
     None,
     "--mfa-passcode",
     help="Token to use for multi-factor authentication (MFA)",
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_mfa_passcode
-    ),
+    callback=_connection_callback("mfa_passcode"),
     prompt="MFA passcode",
     prompt_required=False,
     show_default=False,
@@ -254,9 +259,7 @@ EnableDiagOption = typer.Option(
     False,
     "--enable-diag",
     help="Run python connector diagnostic test",
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_enable_diag
-    ),
+    callback=_connection_callback("enable_diag"),
     show_default=False,
     is_flag=True,
     rich_help_panel=_CONNECTION_SECTION,
@@ -270,7 +273,7 @@ _DIAG_LOG_DEFAULT_VALUE = "<temporary_directory>"
 def _diag_log_path_callback(path: str):
     if path == _DIAG_LOG_DEFAULT_VALUE:
         path = tempfile.gettempdir()
-    get_cli_context_manager().connection_context.set_diag_log_path(Path(path))
+    get_cli_context_manager().connection_context.diag_log_path = Path(path)
     return path
 
 
@@ -289,9 +292,7 @@ DiagAllowlistPathOption: Path = typer.Option(
     None,
     "--diag-allowlist-path",
     help="Diagnostic report path to optional allowlist",
-    callback=_callback(
-        lambda: get_cli_context_manager().connection_context.set_diag_allowlist_path
-    ),
+    callback=_connection_callback("diag_allowlist_path"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
     exists=True,
@@ -303,7 +304,7 @@ OutputFormatOption = typer.Option(
     "--format",
     help="Specifies the output format.",
     case_sensitive=False,
-    callback=_callback(lambda: get_cli_context_manager().set_output_format),
+    callback=_context_callback("output_format"),
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 
@@ -311,7 +312,7 @@ SilentOption = typer.Option(
     False,
     "--silent",
     help="Turns off intermediate output to console.",
-    callback=_callback(lambda: get_cli_context_manager().set_silent),
+    callback=_context_callback("silent"),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
     is_eager=True,
@@ -322,7 +323,7 @@ VerboseOption = typer.Option(
     "--verbose",
     "-v",
     help="Displays log entries for log levels `info` and higher.",
-    callback=_callback(lambda: get_cli_context_manager().set_verbose),
+    callback=_context_callback("verbose"),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
@@ -331,7 +332,7 @@ DebugOption = typer.Option(
     False,
     "--debug",
     help="Displays log entries for log levels `debug` and higher; debug logs contains additional information.",
-    callback=_callback(lambda: get_cli_context_manager().set_enable_tracebacks),
+    callback=_context_callback("enable_tracebacks"),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
@@ -434,7 +435,7 @@ def experimental_option(
         "--experimental",
         help=help_text,
         hidden=True,
-        callback=_callback(lambda: get_cli_context_manager().set_experimental),
+        callback=_context_callback("experimental"),
         is_flag=True,
         rich_help_panel=_CLI_BEHAVIOUR,
     )
@@ -485,30 +486,12 @@ def execution_identifier_argument(sf_object: str, example: str) -> typer.Argumen
     )
 
 
-def register_project_definition(is_optional: bool) -> None:
-    cli_context_manager = get_cli_context_manager()
-    project_path = cli_context_manager.project_path_arg
-    env_overrides_args = cli_context_manager.project_env_overrides_args
-
-    dm = DefinitionManager(project_path, {CONTEXT_KEY: {"env": env_overrides_args}})
-    project_definition = dm.project_definition
-    project_root = dm.project_root
-    template_context = dm.template_context
-
-    if not dm.has_definition_file and not is_optional:
-        raise MissingConfiguration(
-            "Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
-        )
-
-    cli_context_manager.set_project_definition(project_definition)
-    cli_context_manager.set_project_root(project_root)
-    cli_context_manager.set_template_context(template_context)
-
-
 def project_definition_option(is_optional: bool):
-    def project_definition_callback(project_path: str) -> None:
-        get_cli_context_manager().set_project_path_arg(project_path)
-        register_pre_execute_command(lambda: register_project_definition(is_optional))
+    def project_path_callback(project_path: str) -> str:
+        ctx_mgr = get_cli_context_manager()
+        ctx_mgr.project_path_arg = project_path
+        ctx_mgr.project_is_optional = is_optional
+        return project_path
 
     return typer.Option(
         None,
@@ -516,23 +499,26 @@ def project_definition_option(is_optional: bool):
         "--project",
         help=f"Path where Snowflake project resides. "
         f"Defaults to current working directory.",
-        callback=_callback(lambda: project_definition_callback),
+        callback=project_path_callback,
         show_default=False,
     )
 
 
 def project_env_overrides_option():
-    def project_env_overrides_callback(env_overrides_args_list: list[str]) -> None:
+    def project_env_overrides_callback(
+        env_overrides_args_list: list[str],
+    ) -> dict[str, str]:
         env_overrides_args_map = {
             v.key: v.value for v in parse_key_value_variables(env_overrides_args_list)
         }
-        get_cli_context_manager().set_project_env_overrides_args(env_overrides_args_map)
+        get_cli_context_manager().project_env_overrides_args = env_overrides_args_map
+        return env_overrides_args_map
 
     return typer.Option(
         [],
         "--env",
         help="String in format of key=value. Overrides variables from env section used for templates.",
-        callback=_callback(lambda: project_env_overrides_callback),
+        callback=project_env_overrides_callback,
         show_default=False,
     )
 

@@ -21,7 +21,7 @@ from tests_integration.testing_utils import ObjectNameProvider
 
 INTEGRATION_DATABASE = os.environ.get(
     "SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE", "SNOWCLI_DB"
-)
+).upper()
 INTEGRATION_SCHEMA = "PUBLIC"
 INTEGRATION_REPOSITORY = "snowcli_repository"
 

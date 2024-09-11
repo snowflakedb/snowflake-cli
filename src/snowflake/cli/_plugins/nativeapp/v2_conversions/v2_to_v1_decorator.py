@@ -14,14 +14,17 @@
 
 from __future__ import annotations
 
+import inspect
 from functools import wraps
 from typing import Any, Dict, Optional, Union
 
+import typer
 from click import ClickException
 from snowflake.cli.api.cli_global_context import (
     get_cli_context,
     get_cli_context_manager,
 )
+from snowflake.cli.api.commands.decorators import _options_decorator_factory
 from snowflake.cli.api.project.schemas.entities.application_entity_model import (
     ApplicationEntityModel,
 )
@@ -48,28 +51,75 @@ def _convert_v2_artifact_to_v1_dict(
     return v2_artifact
 
 
-def _pdf_v2_to_v1(v2_definition: DefinitionV20) -> DefinitionV11:
+def _pdf_v2_to_v1(
+    v2_definition: DefinitionV20,
+    package_entity_id: str = "",
+    app_entity_id: str = "",
+) -> DefinitionV11:
     pdfv1: Dict[str, Any] = {"definition_version": "1.1", "native_app": {}}
 
     app_package_definition: Optional[ApplicationPackageEntityModel] = None
     app_definition: Optional[ApplicationEntityModel] = None
 
-    for key, entity in v2_definition.entities.items():
-        if entity.get_type() == ApplicationPackageEntityModel.get_type():
-            if app_package_definition:
-                raise ClickException(
-                    "More than one application package entity exists in the project definition file."
-                )
-            app_package_definition = entity
-        elif entity.get_type() == ApplicationEntityModel.get_type():
-            if app_definition:
-                raise ClickException(
-                    "More than one application entity exists in the project definition file."
-                )
-            app_definition = entity
-    if not app_package_definition:
+    # Enumerate all application package and application entities in the project definition
+    packages: dict[
+        str, ApplicationPackageEntityModel
+    ] = v2_definition.get_entities_by_type(ApplicationPackageEntityModel.get_type())
+    apps: dict[str, ApplicationEntityModel] = v2_definition.get_entities_by_type(
+        ApplicationEntityModel.get_type()
+    )
+
+    # Determine the application entity to convert, there can be zero or one
+    if app_entity_id:
+        # If the user specified an app entity ID, use that one directly
+        app_definition = apps.get(app_entity_id)
+    elif len(apps) == 1:
+        # Otherwise, if there is only one app entity, fall back to that one
+        app_definition = next(iter(apps.values()))
+    elif len(apps) > 1:
+        # If there are multiple app entities, the user must specify which one to use
         raise ClickException(
-            "Could not find an application package entity in the project definition file."
+            "More than one application entity exists in the project definition file, "
+            "specify --app-entity-id to choose which one to operate on."
+        )
+
+    # Infer or verify the package if we have an app entity to convert
+    if app_definition:
+        target_package = app_definition.from_.target
+        if package_entity_id:
+            # If the user specified a package entity ID,
+            # check that the app entity targets the user-specified package entity
+            if target_package != package_entity_id:
+                raise ClickException(
+                    f"The application entity {app_definition.entity_id} does not "
+                    f"target the application package entity {package_entity_id}. Either"
+                    f"use --package-entity-id {target_package} to target the correct package entity, "
+                    f"or omit the --package-entity-id flag to automatically use the package entity "
+                    f"that the application entity targets."
+                )
+        elif target_package in packages:
+            # If the user didn't target a specific package entity, use the one the app entity targets
+            package_entity_id = target_package
+
+    # Determine the package entity to convert, there must be one
+    if package_entity_id:
+        # If the user specified a package entity ID (or we inferred one from the app entity), use that one directly
+        app_package_definition = packages.get(package_entity_id)
+    elif len(packages) == 1:
+        # Otherwise, if there is only one package entity, fall back to that one
+        app_package_definition = next(iter(packages.values()))
+    elif len(packages) > 1:
+        # If there are multiple package entities, the user must specify which one to use
+        raise ClickException(
+            "More than one application package entity exists in the project definition file, "
+            "specify --package-entity-id to choose which one to operate on."
+        )
+
+    # If we don't have a package entity to convert, error out since it's not optional
+    if not app_package_definition:
+        with_id = f'with ID "{package_entity_id}" ' if package_entity_id else ""
+        raise ClickException(
+            f"Could not find an application package entity {with_id}in the project definition file."
         )
 
     # NativeApp
@@ -141,14 +191,38 @@ def nativeapp_definition_v2_to_v1(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        original_pdf: DefinitionV20 = get_cli_context().project_definition
+        original_pdf: Optional[DefinitionV20] = get_cli_context().project_definition
         if not original_pdf:
             raise ValueError(
                 "Project definition could not be found. The nativeapp_definition_v2_to_v1 command decorator assumes with_project_definition() was called before it."
             )
         if original_pdf.definition_version == "2":
-            pdfv1 = _pdf_v2_to_v1(original_pdf)
-            get_cli_context_manager().set_project_definition(pdfv1)
+            package_entity_id = kwargs.get("package_entity_id", "")
+            app_entity_id = kwargs.get("app_entity_id", "")
+            pdfv1 = _pdf_v2_to_v1(original_pdf, package_entity_id, app_entity_id)
+            get_cli_context_manager().override_project_definition = pdfv1
         return func(*args, **kwargs)
 
-    return wrapper
+    return _options_decorator_factory(
+        wrapper,
+        additional_options=[
+            inspect.Parameter(
+                "package_entity_id",
+                inspect.Parameter.KEYWORD_ONLY,
+                annotation=Optional[str],
+                default=typer.Option(
+                    default="",
+                    help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
+                ),
+            ),
+            inspect.Parameter(
+                "app_entity_id",
+                inspect.Parameter.KEYWORD_ONLY,
+                annotation=Optional[str],
+                default=typer.Option(
+                    default="",
+                    help="The ID of the application entity on which to operate when definition_version is 2 or higher.",
+                ),
+            ),
+        ],
+    )
