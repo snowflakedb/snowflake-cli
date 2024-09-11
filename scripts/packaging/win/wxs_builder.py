@@ -8,7 +8,7 @@ DIST_DIR = PROJECT_ROOT_PATH.joinpath("dist")
 LIBS = DIST_DIR.joinpath("snow")
 
 WIN_RES_DIR = Path(__file__).parent.absolute()
-WXS_TEMPLATE_FILE = WIN_RES_DIR.joinpath("snowflake_cli_template_v4.wxs")
+WXS_TEMPLATE_FILE = WIN_RES_DIR.joinpath("snowflake_cli_template_v3.wxs")
 WXS_OUTPUT_FILE = WXS_TEMPLATE_FILE.parent.joinpath("snowflake_cli.wxs")
 
 ns = {
