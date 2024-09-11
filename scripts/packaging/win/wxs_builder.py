@@ -12,14 +12,15 @@ WXS_TEMPLATE_FILE = WIN_RES_DIR.joinpath("snowflake_cli_template_v4.wxs")
 WXS_OUTPUT_FILE = WXS_TEMPLATE_FILE.parent.joinpath("snowflake_cli.wxs")
 
 ns = {
-    "util": "http://wixtoolset.org/schemas/v4/wxs/util",
-    "": "http://wixtoolset.org/schemas/v4/wxs",
+    "": "http://schemas.microsoft.com/wix/2006/wi",
+    "util": "http://schemas.microsoft.com/wix/UtilExtension",
 }
 for ns_name, ns_url in ns.items():
     ElementTree.register_namespace(ns_name, ns_url)
+
 wxs = ElementTree.parse(WXS_TEMPLATE_FILE)
 root = wxs.getroot()
-snow_files = root.find(".//DirectoryRef", namespaces=ns)
+snow_files = root.find(".//Component[@Id='snow.exe']/..", namespaces=ns)
 if snow_files is None:
     raise ValueError("Component not found in the template")
 
@@ -31,31 +32,36 @@ for lib_path in LIBS.glob("**/*"):
         relative_lib_path = lib_path.relative_to(LIBS)
         relative_file = str(relative_lib_path)
 
-        environment = ElementTree.Element("Environment")
-        environment.set("Id", "PATH")
-        environment.set("Name", "PATH")
-        environment.set("VALUE", "[TESTFILEPRODUCTDIR]")
-        environment.set("Permanent", "no")
-        environment.set("Part", "last")
-        environment.set("Action", "set")
-        environment.set("System", "yes")
+        environment = ElementTree.Element(
+            "Environment",
+            Id="PATH",
+            Name="PATH",
+            VALUE="[TESTFILEPRODUCTDIR]",
+            Permanent="no",
+            Part="last",
+            Action="set",
+            System="yes",
+        )
 
-        file = ElementTree.Element("File")
-        file.set("Id", str(relative_lib_path))
         source_path = lib_path.relative_to(PROJECT_ROOT_PATH)
-        file.set("Source", str(source_path))
-        file.set("KeyPath", "yes")
-        file.set("Checksum", "yes")
+        file = ElementTree.Element(
+            "File",
+            Id=str(relative_lib_path),
+            Source=str(source_path),
+            KeyPath="yes",
+            Checksum="yes",
+        )
 
-        component = ElementTree.Element("Component")
-        component.set("Id", relative_file)
-        guid_hash = str(uuid.uuid3(uuid.NAMESPACE_DNS, relative_file)).upper()
-        component.set("Guid", guid_hash)
-        component.set("Bitness", "always64")
+        component = ElementTree.Element(
+            "Component",
+            Id=relative_file,
+            Guid=str(uuid.uuid3(uuid.NAMESPACE_DNS, relative_file)).upper(),
+            Bitness="always64",
+        )
 
         component.append(environment)
         component.append(file)
-        snow_files.extend(component)
+        snow_files.append(component)
 
 
 ElementTree.indent(root, space="  ", level=0)
