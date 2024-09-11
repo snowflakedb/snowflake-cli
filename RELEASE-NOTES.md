@@ -25,11 +25,7 @@
 
 ## Fixes and improvements
 * Duplicated keys in `snowflake.yml` are now detected and reported.
-* Fixed git execute not working with upper case in directory name.
-* Fixed `snow git setup` command behaviour for fully qualified repository names.
-* Fixed `snow git setup` command behaviour in case API integration or secret with default name already exists.
 * `snow streamlit deploy` will check for existing streamlit instance before deploying anything.
-* Fixed `snow snowpark package create` creating empty zip when package name contained capital letters.
 
 # v3.0.0
 ## Backward incompatibility
@@ -64,6 +60,21 @@
 * Fix error handling and improve messaging when no artifacts provided.
 * Improved error message for incompatible parameters.
 * Fixed SQL error when running `snow app version create` and `snow app version drop` with a version name that isn't a valid Snowflake unquoted identifier
+
+
+# v2.8.1
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Fixed git execute not working with upper case in directory name.
+* Fixed `snow git setup` command behaviour for fully qualified repository names.
+* Fixed `snow git setup` command behaviour in case API integration or secret with default name already exists.
+* Fixed `snow snowpark package create` creating empty zip when package name contained capital letters.
+
 
 # v2.8.0
 ## Backward incompatibility
