@@ -52,7 +52,7 @@ candle ^
 dir /r .
 
 light snowflake_cli.wixobj ^
-    snowflake_cli_exitdlg.wixobj ^
+    dist\snowflake_cli_exitdlg.wixobj ^
     -cultures:en-us ^
     -loc scripts\packaging\win\snowflake_cli_en-us.wxl ^
     -ext WixUIExtension ^
