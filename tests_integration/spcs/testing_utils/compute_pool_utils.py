@@ -59,6 +59,8 @@ class ComputePoolTestSteps:
         assert (
             f"Compute pool {compute_pool_name.upper()} successfully created."
             in result.json["status"]  # type: ignore
+            or f"Compute pool {compute_pool_name.upper()} successfully created."
+            in result.json["status"]  # type: ignore
         )
 
     def list_should_return_compute_pool(self, compute_pool_name) -> None:
