@@ -25,8 +25,8 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 
 class Identifier(UpdatableModel):
     name: str = Field(title="Entity name")
-    schema_: str = Field(title="Entity schema", alias="schema", default=None)
-    database: str = Field(title="Entity database", default=None)
+    schema_: Optional[str] = Field(title="Entity schema", alias="schema", default=None)
+    database: Optional[str] = Field(title="Entity database", default=None)
 
 
 class ObjectIdentifierBaseModel:

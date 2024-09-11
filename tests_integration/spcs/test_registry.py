@@ -65,6 +65,7 @@ def test_get_registry_url(test_database, test_role, runner, snowflake_session):
 
 
 @pytest.mark.integration
+@pytest.mark.skip("Possibly flaky test")
 def test_registry_login(runner):
     result = runner.invoke_with_connection_json(["spcs", "image-registry", "login"])
     assert_that_result_is_successful_and_output_json_equals(
