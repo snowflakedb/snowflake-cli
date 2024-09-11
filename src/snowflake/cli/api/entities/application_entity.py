@@ -25,6 +25,7 @@ from snowflake.cli._plugins.workspace.action_context import ActionContext
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
+    execute_post_deploy_hooks,
     generic_sql_error_handler,
     print_messages,
 )
@@ -42,6 +43,7 @@ from snowflake.cli.api.project.schemas.entities.application_entity_model import 
 from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
     ApplicationPackageEntityModel,
 )
+from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.util import (
     extract_schema,
     identifier_to_show_like_pattern,
@@ -89,9 +91,11 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         if model.meta:
             app_role = getattr(model.meta, "role", ctx.default_role)
             app_warehouse = getattr(model.meta, "warehouse", ctx.default_warehouse)
+            post_deploy_hooks = getattr(model.meta, "post_deploy", None)
         else:
             app_role = ctx.default_role
             app_warehouse = ctx.default_warehouse
+            post_deploy_hooks = None
 
         package_model: ApplicationPackageEntityModel = ctx.get_entity(
             model.from_.target
@@ -108,6 +112,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         self.deploy(
             console=ctx.console,
+            project_root=ctx.project_root,
             app_name=app_name,
             app_role=app_role,
             app_warehouse=app_warehouse,
@@ -122,12 +127,14 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             policy=policy,
             version=version,
             patch=patch,
+            post_deploy_hooks=post_deploy_hooks,
         )
 
     @classmethod
     def deploy(
         cls,
         console: AbstractConsole,
+        project_root: Path,
         app_name: str,
         app_role: str,
         app_warehouse: str,
@@ -142,6 +149,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         policy: PolicyBase,
         version: Optional[str] = None,
         patch: Optional[int] = None,
+        post_deploy_hooks: Optional[List[PostDeployHook]] = None,
     ):
         """
         Create or upgrade the application object using the given strategy
@@ -152,6 +160,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         if from_release_directive:
             cls.create_or_upgrade_app(
                 console=console,
+                project_root=project_root,
                 package_name=package_name,
                 package_role=package_role,
                 app_name=app_name,
@@ -161,8 +170,9 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 stage_fqn=stage_fqn,
                 debug_mode=debug_mode,
                 policy=policy,
-                is_interactive=is_interactive,
                 install_method=SameAccountInstallMethod.release_directive(),
+                is_interactive=is_interactive,
+                post_deploy_hooks=post_deploy_hooks,
             )
             return
 
@@ -185,6 +195,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
             cls.create_or_upgrade_app(
                 console=console,
+                project_root=project_root,
                 package_name=package_name,
                 package_role=package_role,
                 app_name=app_name,
@@ -194,8 +205,9 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 stage_fqn=stage_fqn,
                 debug_mode=debug_mode,
                 policy=policy,
-                is_interactive=is_interactive,
                 install_method=SameAccountInstallMethod.versioned_dev(version, patch),
+                is_interactive=is_interactive,
+                post_deploy_hooks=post_deploy_hooks,
             )
             return
 
@@ -211,6 +223,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         # )
         cls.create_or_upgrade_app(
             console=console,
+            project_root=project_root,
             package_name=package_name,
             package_role=package_role,
             app_name=app_name,
@@ -220,14 +233,16 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             stage_fqn=stage_fqn,
             debug_mode=debug_mode,
             policy=policy,
-            is_interactive=is_interactive,
             install_method=SameAccountInstallMethod.unversioned_dev(),
+            is_interactive=is_interactive,
+            post_deploy_hooks=post_deploy_hooks,
         )
 
     @classmethod
     def create_or_upgrade_app(
         cls,
         console: AbstractConsole,
+        project_root: Path,
         package_name: str,
         package_role: str,
         app_name: str,
@@ -239,6 +254,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         policy: PolicyBase,
         install_method: SameAccountInstallMethod,
         is_interactive: bool = False,
+        post_deploy_hooks: Optional[List[PostDeployHook]] = None,
         drop_application_before_upgrade: Optional[Callable] = None,
     ):
         sql_executor = get_sql_executor()
@@ -281,7 +297,14 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                                 )
 
                         # hooks always executed after a create or upgrade
-                        # TODO Execute app post deploy hooks
+                        if post_deploy_hooks:
+                            cls.execute_post_deploy_hooks(
+                                console=console,
+                                project_root=project_root,
+                                post_deploy_hooks=post_deploy_hooks,
+                                app_name=app_name,
+                                app_warehouse=app_warehouse,
+                            )
                         return
 
                     except ProgrammingError as err:
@@ -333,10 +356,35 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     print_messages(console, create_cursor)
 
                     # hooks always executed after a create or upgrade
-                    # TODO Execute app post deploy hooks
+                    if post_deploy_hooks:
+                        cls.execute_post_deploy_hooks(
+                            console=console,
+                            project_root=project_root,
+                            post_deploy_hooks=post_deploy_hooks,
+                            app_name=app_name,
+                            app_warehouse=app_warehouse,
+                        )
 
                 except ProgrammingError as err:
                     generic_sql_error_handler(err)
+
+    @classmethod
+    def execute_post_deploy_hooks(
+        cls,
+        console: AbstractConsole,
+        project_root: Path,
+        post_deploy_hooks: Optional[List[PostDeployHook]],
+        app_name: str,
+        app_warehouse: Optional[str],
+    ):
+        with cls.use_package_warehouse(app_warehouse):
+            execute_post_deploy_hooks(
+                console=console,
+                project_root=project_root,
+                post_deploy_hooks=post_deploy_hooks,
+                deployed_object_type="application",
+                database_name=app_name,
+            )
 
     @staticmethod
     def get_existing_app_info(

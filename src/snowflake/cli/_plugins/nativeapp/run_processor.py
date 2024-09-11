@@ -132,6 +132,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
         return ApplicationEntity.create_or_upgrade_app(
             console=cc,
+            project_root=self.project_root,
             package_name=self.package_name,
             package_role=self.package_role,
             app_name=self.app_name,
@@ -143,6 +144,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             policy=policy,
             install_method=install_method,
             is_interactive=is_interactive,
+            post_deploy_hooks=self.app_post_deploy_hooks,
             drop_application_before_upgrade=drop_app,
         )
 
