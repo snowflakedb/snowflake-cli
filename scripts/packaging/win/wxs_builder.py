@@ -9,7 +9,7 @@ LIBS = DIST_DIR.joinpath("snow")
 
 WIN_RES_DIR = Path(__file__).parent.absolute()
 WXS_TEMPLATE_FILE = WIN_RES_DIR.joinpath("snowflake_cli_template_v3.wxs")
-WXS_OUTPUT_FILE = WXS_TEMPLATE_FILE.parent.joinpath("snowflake_cli.wxs")
+WXS_OUTPUT_FILE = PROJECT_ROOT_PATH.parent.joinpath("snowflake_cli.wxs")
 
 ns = {
     "": "http://schemas.microsoft.com/wix/2006/wi",
