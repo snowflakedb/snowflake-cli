@@ -596,7 +596,7 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
 @mock.patch("snowflake.cli._plugins.connection.util.get_context")
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
     "warehouse, fallback_warehouse_call, fallback_side_effect",
@@ -661,7 +661,7 @@ def test_get_snowsight_url_with_pdf_warehouse(
 @mock.patch("snowflake.cli._plugins.connection.util.get_context")
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
     "project_definition_files, warehouse, expected_calls, fallback_side_effect",
