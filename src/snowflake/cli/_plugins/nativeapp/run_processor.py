@@ -18,11 +18,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from click import UsageError
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
-from snowflake.cli._plugins.nativeapp.exceptions import (
-    ApplicationPackageDoesNotExistError,
-)
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppCommandProcessor,
     NativeAppManager,
@@ -160,46 +156,28 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         *args,
         **kwargs,
     ):
-        """
-        Create or upgrade the application object using the given strategy
-        (unversioned dev, versioned dev, or same-account release directive).
-        """
-
-        # same-account release directive
-        if from_release_directive:
-            self.create_or_upgrade_app(
-                policy=policy,
-                is_interactive=is_interactive,
-                install_method=SameAccountInstallMethod.release_directive(),
+        def deploy_package():
+            self.deploy(
+                bundle_map=bundle_map, prune=True, recursive=True, validate=validate
             )
-            return
 
-        # versioned dev
-        if version:
-            try:
-                version_exists = self.get_existing_version_info(version)
-                if not version_exists:
-                    raise UsageError(
-                        f"Application package {self.package_name} does not have any version {version} defined. Use 'snow app version create' to define a version in the application package first."
-                    )
-            except ApplicationPackageDoesNotExistError as app_err:
-                raise UsageError(
-                    f"Application package {self.package_name} does not exist. Use 'snow app version create' to first create an application package and then define a version in it."
-                )
-
-            self.create_or_upgrade_app(
-                policy=policy,
-                install_method=SameAccountInstallMethod.versioned_dev(version, patch),
-                is_interactive=is_interactive,
-            )
-            return
-
-        # unversioned dev
-        self.deploy(
-            bundle_map=bundle_map, prune=True, recursive=True, validate=validate
-        )
-        self.create_or_upgrade_app(
-            policy=policy,
+        ApplicationEntity.deploy(
+            console=cc,
+            project_root=self.project_root,
+            app_name=self.app_name,
+            app_role=self.app_role,
+            app_warehouse=self.application_warehouse,
+            package_name=self.package_name,
+            package_role=self.package_role,
+            stage_schema=self.stage_schema,
+            stage_fqn=self.stage_fqn,
+            debug_mode=self.debug_mode,
+            validate=validate,
+            from_release_directive=from_release_directive,
             is_interactive=is_interactive,
-            install_method=SameAccountInstallMethod.unversioned_dev(),
+            policy=policy,
+            version=version,
+            patch=patch,
+            post_deploy_hooks=self.app_post_deploy_hooks,
+            deploy_package=deploy_package,
         )

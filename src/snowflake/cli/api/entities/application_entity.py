@@ -176,10 +176,10 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         from_release_directive: bool,
         is_interactive: bool,
         policy: PolicyBase,
+        deploy_package: Callable,
         version: Optional[str] = None,
         patch: Optional[int] = None,
         post_deploy_hooks: Optional[List[PostDeployHook]] = None,
-        deploy_package: Optional[Callable] = None,
     ):
         """
         Create or upgrade the application object using the given strategy
@@ -242,8 +242,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             return
 
         # unversioned dev
-        if not deploy_package:
-            raise NotImplementedError
         deploy_package()
         cls.create_or_upgrade_app(
             console=console,
