@@ -36,6 +36,7 @@ entities:
       name: test_streamlit
     pages_dir: non_existent_dir
     query_warehouse: test_warehouse
+    main_file: streamlit_app.py
     stage: streamlit
     title: My Fancy Streamlit
     type: streamlit
@@ -46,13 +47,7 @@ entities:
 mixins:
   first_mixin:
     stage: foo
-    main_file: streamlit_app.py
-    pages_dir: non_existent_pages_dir
   second_mixin:
     stage: bar
-    main_file: streamlit_app.py
-    pages_dir: pages
   third_mixin:
     stage: baz
-    main_file: streamlit_app.py
-    pages_dir: pages
