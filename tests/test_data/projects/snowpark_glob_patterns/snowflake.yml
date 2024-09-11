@@ -1,0 +1,14 @@
+definition_version: 2
+entities:
+  hello_function:
+    artifacts:
+      - src/*.*
+    handler: hello
+    identifier:
+      name: hello_function
+    returns: string
+    signature:
+      - name: "name"
+        type: "string"
+    stage: dev_deployment
+    type: procedure

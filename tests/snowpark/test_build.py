@@ -28,3 +28,9 @@ def test_snowpark_build_no_deprecated_warnings_by_default(
         result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
         assert result.exit_code == 0, result.output
         assert "flag is deprecated" not in result.output
+
+
+def test_build_with_glob_patterns_in_artifacts(runner, project_directory):
+    with project_directory("snowpark_glob_patterns"):
+        result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
+        assert result.exit_code == 0

@@ -82,13 +82,23 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel):
             return str(runtime_input)
         return runtime_input
 
-    @field_validator("artifacts")
-    @classmethod
-    def validate_artifacts(cls, artifacts: List[Path]) -> List[Path]:
-        for artefact in artifacts:
-            if "*" in str(artefact):
-                raise ValueError("Glob patterns not supported for Snowpark artifacts.")
-        return artifacts
+    @property
+    def get_artifacts(self) -> List[PathMapping]:
+        _artifacts = []
+        for artifact in self.artifacts:
+            if isinstance(artifact, str):
+                _artifacts.append(PathMapping(src=Path(artifact)))
+            elif isinstance(artifact, PathMapping):
+                if "*" in str(artifact.src):
+                    _artifacts.extend(
+                        [
+                            PathMapping(src=item)
+                            for item in artifact.src.parent.glob(artifact.src.name)
+                        ]
+                    )
+                else:
+                    _artifacts.append(artifact)
+        return _artifacts
 
     @property
     def udf_sproc_identifier(self) -> UdfSprocIdentifier:

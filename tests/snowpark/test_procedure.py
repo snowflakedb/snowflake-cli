@@ -547,3 +547,39 @@ def test_snowpark_fail_if_no_active_warehouse(runner, mock_ctx, project_director
         "The command requires warehouse. No warehouse found in current connection."
         in result.output
     )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.StageManager.put")
+@mock_session_has_warehouse
+def test_deploy_procedure_with_glob_patterns_in_src(
+    mock_sm_put,
+    mock_om_show,
+    mock_om_describe,
+    mock_conn,
+    runner,
+    mock_ctx,
+    project_directory,
+):
+    mock_om_describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory("snowpark_glob_patterns") as tmp:
+
+        result = runner.invoke(
+            [
+                "snowpark",
+                "deploy",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        mock_sm_put.assert_any_call(
+            local_path=tmp / "src" / "app.py",
+            stage_path="@MockDatabase.MockSchema.dev_deployment/",
+            overwrite=True,
+        )
