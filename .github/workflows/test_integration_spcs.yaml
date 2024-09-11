@@ -24,7 +24,7 @@ jobs:
     uses: ./.github/workflows/matrix.yaml
 
   # Branch-based pull request
-  integration-trusted:
+  spcs-integration-trusted:
     needs: define-matrix
     strategy:
       fail-fast: false
@@ -41,7 +41,7 @@ jobs:
     secrets: inherit
 
   # Repo owner has commented /ok-to-test on a (fork-based) pull request
-  integration-fork:
+  spcs-integration-fork:
     needs: define-matrix
     strategy:
       fail-fast: true
