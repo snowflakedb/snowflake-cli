@@ -1,17 +1,7 @@
-name: E2E testing
+name: SPCS Integration testing
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/**"
-      - "src/**"
-      - "test_external_plugins/**"
-      - "tests/**"
-      - "tests_common/**"
-      - "tests_e2e/**"
-      - "tests_integration/**"
-      - ".pre-commit-config.yaml"
-      - "pyproject.toml"
     branches:
       - "*"
   push:
@@ -28,34 +18,36 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+
 jobs:
   define-matrix:
     uses: ./.github/workflows/matrix.yaml
 
-  e2e-trusted:
+  # Branch-based pull request
+  spcs-integration-trusted:
     needs: define-matrix
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
-        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
-        python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
+        os: ["ubuntu-latest"]
+        python-version: ["3.10"]
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     uses: ./.github/workflows/test_trusted.yaml
     with:
       runs-on: ${{ matrix.os }}
       python-version: ${{ matrix.python-version }}
-      python-env: e2e
-      hatch-run: e2e:test
+      python-env: integration
+      hatch-run: integration:test-spcs
     secrets: inherit
 
   # Repo owner has commented /ok-to-test on a (fork-based) pull request
-  e2e-fork:
+  spcs-integration-fork:
     needs: define-matrix
     strategy:
       fail-fast: true
       matrix:
-        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
-        python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
+        os: ["ubuntu-latest"]
+        python-version: ["3.10"]
     permissions:
       pull-requests: write
       checks: write
@@ -70,6 +62,6 @@ jobs:
     with:
       runs-on: ${{ matrix.os }}
       python-version: ${{ matrix.python-version }}
-      python-env: e2e
-      hatch-run: e2e:test
+      python-env: integration
+      hatch-run: integration:test-spcs
     secrets: inherit
