@@ -30,25 +30,16 @@ lib_files = list(LIBS.glob("**/*"))
 for lib_path in LIBS.glob("**/*"):
     if lib_path.is_file():
         relative_lib_path = lib_path.relative_to(LIBS)
-        relative_file = str(relative_lib_path)
-
-        environment = ElementTree.Element(
-            "Environment",
-            Id="PATH",
-            Name="PATH",
-            VALUE="[TESTFILEPRODUCTDIR]",
-            Permanent="no",
-            Part="last",
-            Action="set",
-            System="yes",
-        )
+        relative_file = str(
+            relative_lib_path
+        )  # TODO: this cannot be longer than 72 characters
 
         source_path = lib_path.relative_to(PROJECT_ROOT_PATH)
         file = ElementTree.Element(
             "File",
             Id=str(relative_lib_path),
             Source=str(source_path),
-            KeyPath="yes",
+            KeyPath="yes",  # TODO: This is to be set only on the first occureance of the folder
             Checksum="yes",
         )
 
@@ -59,7 +50,6 @@ for lib_path in LIBS.glob("**/*"):
             Bitness="always64",
         )
 
-        component.append(environment)
         component.append(file)
         snow_files.append(component)
 
