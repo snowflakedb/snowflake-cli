@@ -173,8 +173,16 @@ def test_nativeapp_run_existing(
 
 # Tests a simple flow of initiating a project, executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app run", "napp_init_v1"],
+        ["app run", "napp_init_v2"],
+        ["ws deploy --entity-id=app", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_init_run_handles_spaces(
+    command,
     test_project,
     nativeapp_project_directory,
     runner,
@@ -184,7 +192,7 @@ def test_nativeapp_init_run_handles_spaces(
 ):
     project_name = "myapp"
     with nativeapp_project_directory(test_project):
-        result = runner.invoke_with_connection_json(["app", "run"])
+        result = runner.invoke_with_connection_json(command.split())
         assert result.exit_code == 0
 
         # app + package exist
@@ -287,9 +295,21 @@ def test_nativeapp_run_existing_w_external(
 
 # Verifies that running "app run" after "app deploy" upgrades the app
 @pytest.mark.integration
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "base_command,test_project",
+    [
+        ["app", "napp_init_v1"],
+        ["app", "napp_init_v2"],
+        ["ws", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_run_after_deploy(
-    test_project, nativeapp_project_directory, runner, default_username, resource_suffix
+    base_command,
+    test_project,
+    nativeapp_project_directory,
+    runner,
+    default_username,
+    resource_suffix,
 ):
     project_name = "myapp"
     app_name = f"{project_name}_{default_username}{resource_suffix}"
@@ -297,17 +317,32 @@ def test_nativeapp_run_after_deploy(
 
     with nativeapp_project_directory(test_project):
         # Run #1
-        result = runner.invoke_with_connection_json(["app", "run"])
+        if base_command == "ws":
+            result = runner.invoke_with_connection_json(
+                ["ws", "deploy", "--entity-id=app"]
+            )
+        else:
+            result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
 
         # Make a change & deploy
         with open("app/README.md", "a") as file:
             file.write("### Test")
-        result = runner.invoke_with_connection_json(["app", "deploy"])
+        if base_command == "ws":
+            result = runner.invoke_with_connection_json(
+                ["ws", "deploy", "--entity-id=pkg"]
+            )
+        else:
+            result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
 
         # Run #2
-        result = runner.invoke_with_connection_json(["app", "run", "--debug"])
+        if base_command == "ws":
+            result = runner.invoke_with_connection_json(
+                ["ws", "deploy", "--entity-id=app", "--debug"]
+            )
+        else:
+            result = runner.invoke_with_connection_json(["app", "run", "--debug"])
         assert result.exit_code == 0
         assert (
             f"alter application {app_name} upgrade using @{stage_fqn}" in result.output
