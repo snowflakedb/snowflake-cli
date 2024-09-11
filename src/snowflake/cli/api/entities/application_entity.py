@@ -1,8 +1,9 @@
+from contextlib import contextmanager
 from pathlib import Path
 from textwrap import dedent
 from typing import Callable, List, Optional
 
-from click import UsageError
+from click import ClickException, UsageError
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -17,12 +18,20 @@ from snowflake.cli._plugins.nativeapp.constants import (
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
 )
-from snowflake.cli._plugins.nativeapp.policy import PolicyBase
+from snowflake.cli._plugins.nativeapp.policy import (
+    AllowAlwaysPolicy,
+    AskAlwaysPolicy,
+    DenyAlwaysPolicy,
+    PolicyBase,
+)
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.workspace.action_context import ActionContext
 from snowflake.cli.api.console.abc import AbstractConsole
+from snowflake.cli.api.entities.application_package_entity import (
+    ApplicationPackageEntity,
+)
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     execute_post_deploy_hooks,
@@ -72,7 +81,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         self,
         ctx: ActionContext,
         from_release_directive: bool,
-        policy: PolicyBase,
         prune: bool,
         recursive: bool,
         paths: List[Path],
@@ -97,8 +105,9 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             app_warehouse = ctx.default_warehouse
             post_deploy_hooks = None
 
-        package_model: ApplicationPackageEntityModel = ctx.get_entity(
-            model.from_.target
+        package_entity: ApplicationPackageEntity = ctx.get_entity(model.from_.target)
+        package_model: ApplicationPackageEntityModel = (
+            package_entity._entity_model  # noqa: SLF001
         )
         package_name = package_model.fqn.identifier
         if package_model.meta and package_model.meta.role:
@@ -107,8 +116,27 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             package_role = ctx.default_role
 
         if not stage_fqn:
-            stage_fqn = f"{package_name}.{model.stage}"
+            stage_fqn = f"{package_name}.{package_model.stage}"
         stage_schema = extract_schema(stage_fqn)
+
+        is_interactive = False
+        if force:
+            policy = AllowAlwaysPolicy()
+        elif interactive:
+            is_interactive = True
+            policy = AskAlwaysPolicy()
+        else:
+            policy = DenyAlwaysPolicy()
+
+        def deploy_package():
+            package_entity.action_deploy(
+                ctx=ctx,
+                prune=True,
+                recursive=True,
+                paths=[],
+                validate=validate,
+                stage_fqn=stage_fqn,
+            )
 
         self.deploy(
             console=ctx.console,
@@ -123,11 +151,12 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             debug_mode=debug_mode,
             validate=validate,
             from_release_directive=from_release_directive,
-            is_interactive=interactive,
+            is_interactive=is_interactive,
             policy=policy,
             version=version,
             patch=patch,
             post_deploy_hooks=post_deploy_hooks,
+            deploy_package=deploy_package,
         )
 
     @classmethod
@@ -150,6 +179,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         version: Optional[str] = None,
         patch: Optional[int] = None,
         post_deploy_hooks: Optional[List[PostDeployHook]] = None,
+        deploy_package: Optional[Callable] = None,
     ):
         """
         Create or upgrade the application object using the given strategy
@@ -212,15 +242,9 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             return
 
         # unversioned dev
-        # TODO deploy package
-        # package_entity.deploy(
-        #     ctx=ctx,
-        #     prune=True,
-        #     recursive=True,
-        #     paths=[],
-        #     validate=validate,
-        #     stage_fqn=stage_fqn,
-        # )
+        if not deploy_package:
+            raise NotImplementedError
+        deploy_package()
         cls.create_or_upgrade_app(
             console=console,
             project_root=project_root,
@@ -377,13 +401,31 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         app_name: str,
         app_warehouse: Optional[str],
     ):
-        with cls.use_package_warehouse(app_warehouse):
+        with cls.use_application_warehouse(app_warehouse):
             execute_post_deploy_hooks(
                 console=console,
                 project_root=project_root,
                 post_deploy_hooks=post_deploy_hooks,
                 deployed_object_type="application",
                 database_name=app_name,
+            )
+
+    @staticmethod
+    @contextmanager
+    def use_application_warehouse(
+        app_warehouse: Optional[str],
+    ):
+        if app_warehouse:
+            with get_sql_executor().use_warehouse(app_warehouse):
+                yield
+        else:
+            raise ClickException(
+                dedent(
+                    f"""\
+                Application warehouse cannot be empty.
+                Please provide a value for it in your connection information or your project definition file.
+                """
+                )
             )
 
     @staticmethod

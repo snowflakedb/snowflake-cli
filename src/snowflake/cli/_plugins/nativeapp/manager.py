@@ -16,14 +16,12 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
 from typing import Generator, List, Optional, TypedDict
 
-from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
@@ -137,20 +135,8 @@ class NativeAppManager(SqlExecutionMixin):
     def application_warehouse(self) -> Optional[str]:
         return self.na_project.application_warehouse
 
-    @contextmanager
     def use_application_warehouse(self):
-        if self.application_warehouse:
-            with self.use_warehouse(self.application_warehouse):
-                yield
-        else:
-            raise ClickException(
-                dedent(
-                    f"""\
-                Application warehouse cannot be empty.
-                Please provide a value for it in your connection information or your project definition file.
-                """
-                )
-            )
+        return ApplicationEntity.use_application_warehouse(self.application_warehouse)
 
     @property
     def project_identifier(self) -> str:
