@@ -9,8 +9,8 @@ entities:
     query_warehouse: xsmall
     main_file: streamlit_app.py
     external_access_integrations:
-      - snowflake_docs_access_integration
+      - snowflake_docs_access_integration_tmp
     secrets:
-      generic_secret: external_access_db.public.test_secret
+      generic_secret: snowcli_db.public.test_secret
     artifacts:
       - streamlit_app.py

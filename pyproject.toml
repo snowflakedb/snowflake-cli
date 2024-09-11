@@ -120,6 +120,7 @@ features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
 test = ["pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration"]
+test_qa = ["pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration"]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.10", "3.11", "3.12"]
@@ -154,6 +155,7 @@ markers = [
   "loaded_modules: checks loaded modules",
   "patch_app_version: sets app version to 0.0.0-test_patched",
   "integration_experimental: experimental integration test",
+  "no_qa: mark test as not to be run in QA",
 ]
 
 

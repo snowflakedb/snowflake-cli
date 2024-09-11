@@ -39,11 +39,12 @@ def test_get_registry_url(test_database, test_role, runner, snowflake_session):
     test_repo = ObjectNameProvider("test_repo").create_and_get_next_object_name()
     snowflake_session.execute_string(f"create image repository {test_repo}")
 
-    fail_result = runner.invoke_with_connection(
-        ["spcs", "image-registry", "url", "--role", test_role]
-    )
-    assert fail_result.exit_code == 1, fail_result.output
-    assert "No image repository found." in fail_result.output
+    # Commented due to different behaviour between prod and qa
+    # fail_result = runner.invoke_with_connection(
+    #     ["spcs", "image-registry", "url", "--role", test_role]
+    # )
+    # assert fail_result.exit_code == 1, fail_result.output
+    # assert "No image repository found." in fail_result.output
 
     # role should be able to get registry URL once granted read access to an image repository
     repo_list_cursor = snowflake_session.execute_string("show image repositories")
