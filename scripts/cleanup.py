@@ -53,6 +53,7 @@ if __name__ == "__main__":
     role = os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ROLE", "INTEGRATION_TESTS")
     config = {
         "authenticator": "SNOWFLAKE_JWT",
+        "host": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST"),
         "account": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"),
         "user": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"),
         "private_key_file": os.getenv(
@@ -71,7 +72,6 @@ if __name__ == "__main__":
         ("database", "databases"): [
             "CLEANUP_DB",
             "DOCS_TESTING",
-            "EXTERNAL_ACCESS_DB",
             "SNOWCLI_DB",
         ],
         ("compute pool", "compute pools"): [],

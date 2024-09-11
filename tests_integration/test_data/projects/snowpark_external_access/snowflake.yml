@@ -9,15 +9,15 @@ snowpark:
       signature:
       returns: string
       external_access_integrations:
-        - snowflake_docs_access_integration
+        - snowflake_docs_access_integration_tmp
       secrets:
-        generic_secret: external_access_db.public.test_secret
+        generic_secret: snowcli_db.public.test_secret
   procedures:
     - name: status_procedure
       handler: app.check_secret_and_get_status_procedure
       signature:
       returns: string
       external_access_integrations:
-        - snowflake_docs_access_integration
+        - snowflake_docs_access_integration_tmp
       secrets:
-        generic_secret: external_access_db.public.test_secret
+        generic_secret: snowcli_db.public.test_secret
