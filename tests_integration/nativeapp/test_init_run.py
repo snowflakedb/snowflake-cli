@@ -11,8 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
-import uuid
+
+from shlex import split
 
 from snowflake.cli._plugins.nativeapp.init import OFFICIAL_TEMPLATES_GITHUB_URL
 from snowflake.cli.api.secure_path import SecurePath
@@ -27,8 +27,16 @@ from tests_integration.test_utils import (
 
 # Tests a simple flow of initiating a new project, executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app run", "napp_init_v1"],
+        ["app run", "napp_init_v2"],
+        ["ws deploy --entity-id=app", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_init_run_without_modifications(
+    command,
     test_project,
     nativeapp_project_directory,
     runner,
@@ -38,7 +46,7 @@ def test_nativeapp_init_run_without_modifications(
 ):
     project_name = "myapp"
     with nativeapp_project_directory(test_project):
-        result = runner.invoke_with_connection_json(["app", "run"])
+        result = runner.invoke_with_connection_json(command.split())
         assert result.exit_code == 0
 
         # app + package exist

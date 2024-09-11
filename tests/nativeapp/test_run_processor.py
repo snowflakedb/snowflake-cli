@@ -1909,15 +1909,13 @@ def test_upgrade_app_recreate_app_from_version(
     )
 
     run_processor = _get_na_run_processor()
-    # TODO Remove next line once ApplicationEntity.action_drop() is implemented and ApplicationEntity.create_or_upgrade_app() drop before upgrade is implemented
-    with pytest.raises(NotImplementedError):
-        run_processor.process(
-            bundle_map=mock_bundle_map,
-            policy=policy_param,
-            version="v1",
-            is_interactive=True,
-        )
-        assert mock_execute.mock_calls == expected
+    run_processor.process(
+        bundle_map=mock_bundle_map,
+        policy=policy_param,
+        version="v1",
+        is_interactive=True,
+    )
+    assert mock_execute.mock_calls == expected
 
 
 # Test get_existing_version_info returns version info correctly

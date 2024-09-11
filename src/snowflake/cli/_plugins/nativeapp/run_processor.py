@@ -161,6 +161,9 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
                 bundle_map=bundle_map, prune=True, recursive=True, validate=validate
             )
 
+        def drop_app():
+            self.drop_application_before_upgrade(policy, is_interactive)
+
         ApplicationEntity.deploy(
             console=cc,
             project_root=self.project_root,
@@ -180,4 +183,5 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             patch=patch,
             post_deploy_hooks=self.app_post_deploy_hooks,
             deploy_package=deploy_package,
+            drop_application_before_upgrade=drop_app,
         )

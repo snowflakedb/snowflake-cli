@@ -180,6 +180,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         version: Optional[str] = None,
         patch: Optional[int] = None,
         post_deploy_hooks: Optional[List[PostDeployHook]] = None,
+        drop_application_before_upgrade: Optional[Callable] = None,
     ):
         """
         Create or upgrade the application object using the given strategy
@@ -203,6 +204,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 install_method=SameAccountInstallMethod.release_directive(),
                 is_interactive=is_interactive,
                 post_deploy_hooks=post_deploy_hooks,
+                drop_application_before_upgrade=drop_application_before_upgrade,
             )
             return
 
@@ -238,6 +240,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 install_method=SameAccountInstallMethod.versioned_dev(version, patch),
                 is_interactive=is_interactive,
                 post_deploy_hooks=post_deploy_hooks,
+                drop_application_before_upgrade=drop_application_before_upgrade,
             )
             return
 
@@ -258,6 +261,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             install_method=SameAccountInstallMethod.unversioned_dev(),
             is_interactive=is_interactive,
             post_deploy_hooks=post_deploy_hooks,
+            drop_application_before_upgrade=drop_application_before_upgrade,
         )
 
     @classmethod
