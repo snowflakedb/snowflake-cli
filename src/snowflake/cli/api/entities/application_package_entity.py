@@ -2,7 +2,7 @@ import json
 from contextlib import contextmanager
 from pathlib import Path
 from textwrap import dedent
-from typing import Callable, List, Optional
+from typing import Annotated, Callable, List, Optional
 
 import typer
 from click import ClickException
@@ -28,10 +28,13 @@ from snowflake.cli._plugins.nativeapp.utils import (
     needs_confirmation,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli._plugins.workspace.manager import ActionContext
+from snowflake.cli.api.commands.flags import is_tty_interactive
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.actions import EntityActions
-from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
+from snowflake.cli.api.entities.actions.lib import HelpText, ParameterDeclarations
+from snowflake.cli.api.entities.common import get_sql_executor
+from snowflake.cli.api.entities.entity_base import EntityBase
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
     ensure_correct_owner,
@@ -57,6 +60,17 @@ from snowflake.cli.api.rendering.jinja import (
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
+InteractiveBool = Annotated[
+    bool,
+    HelpText(""),
+    DefaultFactory(is_tty_interactive),
+]
+
+ForceBool = Annotated[
+    bool,
+    HelpText(""),
+]
+
 
 class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     """
@@ -65,7 +79,30 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     @EntityActions.VERSION_CREATE.implementation
     def action_version_create(
-        self, ctx: ActionContext, version: str, patch: Optional[int]
+        self,
+        ctx: ActionContext,
+        version: Annotated[
+            Optional[str],
+            HelpText(
+                """
+                Version to define in your application package.
+                If the version already exists, an auto-incremented patch is added to the version instead.
+                Defaults to the version specified in the `manifest.yml` file.
+            """
+            ),
+        ],
+        patch: Annotated[
+            Optional[int],
+            HelpText(
+                """
+                The patch number you want to create for an existing version.
+                Defaults to undefined if it is not set, which means the Snowflake CLI either uses
+                the patch specified in the `manifest.yml` file or automatically generates a new patch number.
+            """
+            ),
+        ],
+        interactive: InteractiveBool = is_tty_interactive(),
+        force: ForceBool = False,
     ):
         """
         Adds a new patch to the provided version defined in your application package.
@@ -74,7 +111,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         pass
 
     @EntityActions.VERSION_DROP.implementation
-    def action_version_drop(self, ctx: ActionContext):
+    def action_version_drop(
+        self,
+        ctx: ActionContext,
+        version: Annotated[
+            Optional[str],
+            HelpText(""),
+        ] = None,
+    ):
         """
         Drops a version defined in your application package.
         Versions can either be passed in as an argument to the command or read from the `manifest.yml` file.
@@ -106,10 +150,45 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def action_deploy(
         self,
         ctx: ActionContext,
-        prune: bool,
-        recursive: bool,
-        paths: List[Path],
-        validate: bool,
+        prune: Annotated[
+            Optional[bool],
+            HelpText(
+                dedent(
+                    """
+                    Whether to delete specified files from the stage if they don't exist locally.
+                    If set, the command deletes files that exist in the stage, but not in the local filesystem.
+                    This option cannot be used when paths are specified.
+                """
+                ).strip()
+            ),
+        ] = None,
+        recursive: Annotated[
+            Optional[bool],
+            ParameterDeclarations("--recursive/--no-recursive", "-r"),
+            HelpText(
+                "Whether to traverse and deploy files from subdirectories. If set, the command deploys all files and subdirectories; otherwise, only files in the current directory are deployed."
+            ),
+        ] = None,
+        paths: Annotated[
+            Optional[List[Path]],
+            HelpText(
+                dedent(
+                    """
+                    Paths, relative to the the project root, of files or directories you want to upload to a stage. If a file is
+                    specified, it must match one of the artifacts src pattern entries in snowflake.yml. If a directory is
+                    specified, it will be searched for subfolders or files to deploy based on artifacts src pattern entries. If
+                    unspecified, the command syncs all local changes to the stage.
+                """
+                ).strip()
+            ),
+        ] = None,
+        validate: Annotated[
+            bool,
+            ParameterDeclarations("--validate/--no-validate"),
+            HelpText(
+                "When enabled, this option triggers validation of a deployed Snowflake Native App's setup script SQL"
+            ),
+        ] = True,
         stage_fqn: Optional[str] = None,
     ):
         """
@@ -125,11 +204,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         # 1. Create a bundle
         bundle_map = self.action_bundle(ctx)
 
-        # 2. Ensure all dependencies have been deployed and/or created
-        ctx.delegate("create")
-        ctx.delegate("deploy")
-
-        # 3. Create an empty application package, if none exists
+        # 2. Create an empty application package, if none exists
         self.create_app_package(
             console=ctx.console,
             package_name=package_name,
@@ -138,7 +213,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
         with get_sql_executor().use_role(package_role):
-            # 4. Upload files from deploy root local folder to the above stage
+            # 3. Upload files from deploy root local folder to the above stage
             if not stage_fqn:
                 stage_fqn = f"{package_name}.{model.stage}"
             stage_schema = extract_schema(stage_fqn)

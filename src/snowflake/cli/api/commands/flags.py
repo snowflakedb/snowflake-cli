@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from sys import stdin, stdout
 from typing import Any, Callable, Optional
 
 import click
@@ -370,7 +371,41 @@ OnErrorOption = typer.Option(
     help="What to do when an error occurs. Defaults to break.",
 )
 
+
 NoInteractiveOption = typer.Option(False, "--no-interactive", help="Disable prompting.")
+
+
+def is_tty_interactive():
+    return stdin.isatty() and stdout.isatty()
+
+
+def interactive_callback(val):
+    if val is None:
+        return is_tty_interactive()
+    return val
+
+
+InteractiveOption = typer.Option(
+    None,
+    help=f"""When enabled, this option displays prompts even if the standard input and output are not terminal devices. Defaults to True in an interactive shell environment, and False otherwise.""",
+    callback=interactive_callback,
+    show_default=False,
+)
+
+ForceOption = typer.Option(
+    False,
+    "--force",
+    help=f"""When enabled, this option causes the command to implicitly approve any prompts that arise.
+    You should enable this option if interactive mode is not specified and if you want perform potentially destructive actions. Defaults to unset.""",
+    is_flag=True,
+)
+
+ValidateOption = typer.Option(
+    True,
+    "--validate/--no-validate",
+    help="""When enabled, this option triggers validation of a deployed Snowflake Native App's setup script SQL""",
+    is_flag=True,
+)
 
 
 def entity_argument(entity_type: str) -> typer.Argument:
