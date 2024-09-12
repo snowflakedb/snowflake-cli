@@ -1,20 +1,16 @@
 from enum import Enum
-from typing import Callable, Optional
 
 ENTITY_ACTION_ATTR = "_entity_action"
 
 
 class EntityAction:
     key: str
-    declaration: Optional[Callable]
 
     def __init__(
         self,
         key: str,
-        declaration: Optional[Callable],
     ):
         self.key = key
-        self.declaration = declaration
 
     def __str__(self) -> str:
         return f"EntityAction[{self.key}]"
