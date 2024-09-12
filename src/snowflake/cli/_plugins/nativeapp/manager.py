@@ -325,35 +325,25 @@ class NativeAppManager(SqlExecutionMixin):
         validate: bool = True,
         print_diff: bool = True,
     ) -> DiffResult:
-        """app deploy process"""
-
-        # 1. Create an empty application package, if none exists
-        self.create_app_package()
-
-        with self.use_role(self.package_role):
-            # 2. now that the application package exists, create shared data
-            self._apply_package_scripts()
-
-            # 3. Upload files from deploy root local folder to the above stage
-            stage_fqn = stage_fqn or self.stage_fqn
-            diff = self.sync_deploy_root_with_stage(
-                bundle_map=bundle_map,
-                role=self.package_role,
-                prune=prune,
-                recursive=recursive,
-                stage_fqn=stage_fqn,
-                local_paths_to_sync=local_paths_to_sync,
-                print_diff=print_diff,
-            )
-
-            # 4. Execute post-deploy hooks
-            with self.use_package_warehouse():
-                self.execute_package_post_deploy_hooks()
-
-        if validate:
-            self.validate(use_scratch_stage=False)
-
-        return diff
+        return ApplicationPackageEntity.deploy(
+            console=cc,
+            project_root=self.project_root,
+            deploy_root=self.deploy_root,
+            bundle_root=self.bundle_root,
+            generated_root=self.generated_root,
+            artifacts=self.artifacts,
+            package_name=self.package_name,
+            package_role=self.package_role,
+            package_distribution=self.package_distribution,
+            prune=prune,
+            recursive=recursive,
+            paths=local_paths_to_sync,
+            validate=validate,
+            stage_fqn=stage_fqn or self.stage_fqn,
+            package_warehouse=self.package_warehouse,
+            post_deploy_hooks=self.package_post_deploy_hooks,
+            package_scripts=self.package_scripts,
+        )
 
     def deploy_to_scratch_stage_fn(self):
         bundle_map = self.build_bundle()

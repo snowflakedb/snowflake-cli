@@ -27,6 +27,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 from snowflake.cli._plugins.nativeapp.utils import (
     needs_confirmation,
 )
+from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.action_context import ActionContext
 from snowflake.cli.api.console.abc import AbstractConsole
@@ -86,60 +87,27 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     ):
         model = self._entity_model
         package_name = model.fqn.identifier
-        if model.meta and model.meta.role:
-            package_role = model.meta.role
-        else:
-            package_role = ctx.default_role
-
-        # 1. Create a bundle
-        bundle_map = self.action_bundle(ctx)
-
-        # 2. Create an empty application package, if none exists
-        self.create_app_package(
+        return self.deploy(
             console=ctx.console,
+            project_root=ctx.project_root,
+            deploy_root=Path(model.deploy_root),
+            bundle_root=Path(model.bundle_root),
+            generated_root=Path(model.generated_root),
+            artifacts=model.artifacts,
             package_name=package_name,
-            package_role=package_role,
+            package_role=(model.meta and model.meta.role) or ctx.default_role,
             package_distribution=model.distribution,
+            prune=prune,
+            recursive=recursive,
+            paths=paths,
+            validate=validate,
+            stage_fqn=stage_fqn or f"{package_name}.{model.stage}",
+            package_warehouse=(
+                (model.meta and model.meta.warehouse) or ctx.default_warehouse
+            ),
+            post_deploy_hooks=model.meta and model.meta.post_deploy,
+            package_scripts=[],  # Package scripts are not supported in PDFv2
         )
-
-        with get_sql_executor().use_role(package_role):
-            # 3. Upload files from deploy root local folder to the above stage
-            if not stage_fqn:
-                stage_fqn = f"{package_name}.{model.stage}"
-            stage_schema = extract_schema(stage_fqn)
-            sync_deploy_root_with_stage(
-                console=ctx.console,
-                deploy_root=Path(model.deploy_root),
-                package_name=package_name,
-                stage_schema=stage_schema,
-                bundle_map=bundle_map,
-                role=package_role,
-                prune=prune,
-                recursive=recursive,
-                stage_fqn=stage_fqn,
-                local_paths_to_sync=paths,
-                print_diff=True,
-            )
-
-        if model.meta and model.meta.post_deploy:
-            self.execute_post_deploy_hooks(
-                console=ctx.console,
-                project_root=ctx.project_root,
-                post_deploy_hooks=model.meta.post_deploy,
-                package_name=package_name,
-                package_warehouse=model.meta.warehouse or ctx.default_warehouse,
-            )
-
-        if validate:
-            self.validate_setup_script(
-                console=ctx.console,
-                package_name=package_name,
-                package_role=package_role,
-                stage_fqn=stage_fqn,
-                use_scratch_stage=False,
-                scratch_stage_fqn="",
-                deploy_to_scratch_stage_fn=lambda *args: None,
-            )
 
     def action_drop(self, ctx: ActionContext, force_drop: bool, *args, **kwargs):
         model = self._entity_model
@@ -207,6 +175,94 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         compiler = NativeAppCompiler(bundle_context)
         compiler.compile_artifacts()
         return bundle_map
+
+    @classmethod
+    def deploy(
+        cls,
+        console: AbstractConsole,
+        project_root: Path,
+        deploy_root: Path,
+        bundle_root: Path,
+        generated_root: Path,
+        artifacts: list[PathMapping],
+        package_name: str,
+        package_role: str,
+        package_distribution: str,
+        package_warehouse: str | None,
+        prune: bool,
+        recursive: bool,
+        paths: List[Path],
+        validate: bool,
+        stage_fqn: str,
+        post_deploy_hooks: list[PostDeployHook] | None,
+        package_scripts: List[str],
+    ) -> DiffResult:
+        # 1. Create a bundle
+        bundle_map = cls.bundle(
+            project_root=project_root,
+            deploy_root=deploy_root,
+            bundle_root=bundle_root,
+            generated_root=generated_root,
+            artifacts=artifacts,
+            package_name=package_name,
+        )
+
+        # 2. Create an empty application package, if none exists
+        cls.create_app_package(
+            console=console,
+            package_name=package_name,
+            package_role=package_role,
+            package_distribution=package_distribution,
+        )
+
+        with get_sql_executor().use_role(package_role):
+            if package_scripts:
+                cls.apply_package_scripts(
+                    console=console,
+                    package_scripts=package_scripts,
+                    package_warehouse=package_warehouse,
+                    project_root=project_root,
+                    package_role=package_role,
+                    package_name=package_name,
+                )
+
+            # 3. Upload files from deploy root local folder to the above stage
+            stage_schema = extract_schema(stage_fqn)
+            diff = sync_deploy_root_with_stage(
+                console=console,
+                deploy_root=deploy_root,
+                package_name=package_name,
+                stage_schema=stage_schema,
+                bundle_map=bundle_map,
+                role=package_role,
+                prune=prune,
+                recursive=recursive,
+                stage_fqn=stage_fqn,
+                local_paths_to_sync=paths,
+                print_diff=True,
+            )
+
+        if post_deploy_hooks:
+            cls.execute_post_deploy_hooks(
+                console=console,
+                project_root=project_root,
+                post_deploy_hooks=post_deploy_hooks,
+                package_name=package_name,
+                package_warehouse=package_warehouse,
+            )
+
+        if validate:
+            cls.validate_setup_script(
+                console=console,
+                package_name=package_name,
+                package_role=package_role,
+                stage_fqn=stage_fqn,
+                use_scratch_stage=False,
+                scratch_stage_fqn="",
+                deploy_to_scratch_stage_fn=lambda *args: None,
+            )
+
+        return diff
 
     @staticmethod
     def get_existing_app_pkg_info(
