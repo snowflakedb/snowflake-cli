@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import os
+from collections import deque
+from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime
+from itertools import groupby
 from pathlib import Path
 from subprocess import run, PIPE
 from typing import Generator, cast
@@ -28,6 +32,42 @@ APP_REPO = "snowflakedb/snowflake-cli"
 ISSUE_REPO = APP_REPO
 FLAKY_LABEL = "flaky-test"
 PHASES = ["setup", "call", "teardown"]
+
+
+Trace = tuple[str, datetime, datetime | None, str]
+TRACE_STACK: deque[Trace] = deque()
+CLOSED_TRACES: list[Trace] = []
+
+
+def pytest_terminal_summary(terminalreporter: TerminalReporter) -> None:
+    # Called at the end of the pytest run to print custom messages to the terminal
+    if not CLOSED_TRACES:
+        return
+    terminalreporter.write_sep("=", f"test traces")
+    sorted_traces = sorted(CLOSED_TRACES, key=lambda t: t[0])
+    grouped_by_test_name = groupby(sorted_traces, key=lambda t: t[0])
+    for test_name, traces in grouped_by_test_name:
+        terminalreporter.write_line(test_name)
+        for _, start, end, meta in traces:
+            assert end is not None
+            duration = (end - start).total_seconds()
+            terminalreporter.write_line(f"\t{start} {duration:.02f} {meta}")
+
+
+@contextmanager
+def trace(meta):
+    test_name = os.environ["PYTEST_CURRENT_TEST"]
+    start = datetime.now()
+    span = [test_name, start, None, meta]
+    TRACE_STACK.append(span)
+    try:
+        yield span
+    finally:
+        end = datetime.now()
+        span[2] = end
+        _trace = TRACE_STACK.pop()
+        if not TRACE_STACK:
+            CLOSED_TRACES.append(_trace)
 
 
 class DeflakePlugin:

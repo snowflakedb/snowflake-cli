@@ -17,6 +17,7 @@ import uuid
 from snowflake.cli._plugins.nativeapp.init import OFFICIAL_TEMPLATES_GITHUB_URL
 from snowflake.cli.api.secure_path import SecurePath
 from tests.project.fixtures import *
+from tests_common.deflake import trace
 from tests_integration.test_utils import (
     pushd,
     contains_row_with,
@@ -376,22 +377,24 @@ def test_nativeapp_run_orphan(
                 f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
             )
             app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show application packages like '{package_name}'",
-                    )
-                ),
-                dict(name=package_name),
-            )
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show applications like '{app_name}'"
-                    )
-                ),
-                dict(name=app_name, source=package_name),
-            )
+            with trace(f"show application packages like '{package_name}'"):
+                assert contains_row_with(
+                    row_from_snowflake_session(
+                        snowflake_session.execute_string(
+                            f"show application packages like '{package_name}'",
+                        )
+                    ),
+                    dict(name=package_name),
+                )
+            with trace(f"show applications like '{app_name}'"):
+                assert contains_row_with(
+                    row_from_snowflake_session(
+                        snowflake_session.execute_string(
+                            f"show applications like '{app_name}'"
+                        )
+                    ),
+                    dict(name=app_name, source=package_name),
+                )
 
             result = runner.invoke_with_connection(
                 ["sql", "-q", f"drop application package {package_name}"]
@@ -403,22 +406,24 @@ def test_nativeapp_run_orphan(
                 f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
             )
             app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
-            assert not_contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show application packages like '{package_name}'",
-                    )
-                ),
-                dict(name=package_name),
-            )
-            assert not_contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show applications like '{app_name}'"
-                    )
-                ),
-                dict(name=app_name, source=package_name),
-            )
+            with trace(f"show application packages like '{package_name}'"):
+                assert not_contains_row_with(
+                    row_from_snowflake_session(
+                        snowflake_session.execute_string(
+                            f"show application packages like '{package_name}'",
+                        )
+                    ),
+                    dict(name=package_name),
+                )
+            with trace(f"show applications like '{app_name}'"):
+                assert not_contains_row_with(
+                    row_from_snowflake_session(
+                        snowflake_session.execute_string(
+                            f"show applications like '{app_name}'"
+                        )
+                    ),
+                    dict(name=app_name, source=package_name),
+                )
 
             if force_flag:
                 command = ["app", "run", "--force"]
@@ -435,22 +440,24 @@ def test_nativeapp_run_orphan(
                 ), result.output
 
             # app + package exist
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show application packages like '{package_name}'",
-                    )
-                ),
-                dict(name=package_name),
-            )
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show applications like '{app_name}'"
-                    )
-                ),
-                dict(name=app_name, source=package_name),
-            )
+            with trace(f"show application packages like '{package_name}'"):
+                assert contains_row_with(
+                    row_from_snowflake_session(
+                        snowflake_session.execute_string(
+                            f"show application packages like '{package_name}'",
+                        )
+                    ),
+                    dict(name=package_name),
+                )
+            with trace(f"show applications like '{app_name}'"):
+                assert contains_row_with(
+                    row_from_snowflake_session(
+                        snowflake_session.execute_string(
+                            f"show applications like '{app_name}'"
+                        )
+                    ),
+                    dict(name=app_name, source=package_name),
+                )
 
 
 # Verifies that we can always cross-upgrade between different

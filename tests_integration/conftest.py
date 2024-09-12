@@ -27,23 +27,23 @@ from uuid import uuid4
 
 import pytest
 import yaml
+from typer import Typer
+from typer.testing import CliRunner
 
+from snowflake.cli._app.cli_app import app_factory
 from snowflake.cli.api.cli_global_context import (
     fork_cli_context,
     get_cli_context_manager,
 )
 from snowflake.cli.api.connections import OpenConnectionCache
-from snowflake.cli._app.cli_app import app_factory
-from typer import Typer
-from typer.testing import CliRunner
-
 from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.conftest import clean_logging_handlers_fixture  # noqa: F401
+from tests.testing_utils.files_and_dirs import merge_left
 from tests.testing_utils.fixtures import (
-    alter_snowflake_yml,  # noqa: F401
+    # noqa: F401
     snowflake_home,
 )
-from tests.testing_utils.files_and_dirs import merge_left
+from tests_common.deflake import trace
 
 pytest_plugins = [
     "tests_common",
@@ -126,7 +126,9 @@ class SnowCLIRunner(CliRunner):
             cli_context_manager.reset()
             cli_context_manager.connection_cache = connection_cache
             try:
-                return super().invoke(self.app, *a, **kw)
+                command = " ".join(str(c) for c in a[0][2:])
+                with trace(command):
+                    return super().invoke(self.app, *a, **kw)
             finally:
                 connection_cache.clear()
 
