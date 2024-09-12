@@ -52,6 +52,7 @@ def _get_app_pkg_entity(project_directory):
                 project_root=project_root,
                 default_role="app_role",
                 default_warehouse="wh",
+                get_entity=lambda *args: None,
             )
             return ApplicationPackageEntity(model), action_ctx, mock_console
 
