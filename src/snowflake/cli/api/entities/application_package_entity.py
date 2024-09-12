@@ -62,7 +62,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     A Native App application package.
     """
 
-    def action_bundle(self, ctx: ActionContext):
+    def action_bundle(self, ctx: ActionContext, *args, **kwargs):
         model = self._entity_model
         return self.bundle(
             project_root=ctx.project_root,
@@ -81,6 +81,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         paths: List[Path],
         validate: bool,
         stage_fqn: Optional[str] = None,
+        *args,
+        **kwargs,
     ):
         model = self._entity_model
         package_name = model.fqn.identifier
@@ -139,11 +141,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 deploy_to_scratch_stage_fn=lambda *args: None,
             )
 
-    def action_drop(
-        self,
-        ctx: ActionContext,
-        force_drop: bool,
-    ):
+    def action_drop(self, ctx: ActionContext, force_drop: bool, *args, **kwargs):
         model = self._entity_model
         package_name = model.fqn.identifier
         if model.meta and model.meta.role:
@@ -158,7 +156,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             force_drop=force_drop,
         )
 
-    def action_validate(self, ctx: ActionContext):
+    def action_validate(self, ctx: ActionContext, *args, **kwargs):
         model = self._entity_model
         package_name = model.fqn.identifier
         stage_fqn = f"{package_name}.{model.stage}"

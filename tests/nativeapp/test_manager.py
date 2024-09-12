@@ -437,7 +437,7 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
     )
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
@@ -479,7 +479,7 @@ def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
@@ -596,7 +596,7 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
 @mock.patch("snowflake.cli._plugins.connection.util.get_context")
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
     "warehouse, fallback_warehouse_call, fallback_side_effect",
@@ -661,7 +661,7 @@ def test_get_snowsight_url_with_pdf_warehouse(
 @mock.patch("snowflake.cli._plugins.connection.util.get_context")
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
     "project_definition_files, warehouse, expected_calls, fallback_side_effect",

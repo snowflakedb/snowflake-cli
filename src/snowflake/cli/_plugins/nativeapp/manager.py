@@ -16,20 +16,15 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
 from typing import Generator, List, Optional, TypedDict
 
-from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
-)
-from snowflake.cli._plugins.nativeapp.constants import (
-    NAME_COL,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
     NoEventTableForAccount,
@@ -41,6 +36,9 @@ from snowflake.cli._plugins.stage.diff import (
     DiffResult,
 )
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.entities.application_entity import (
+    ApplicationEntity,
+)
 from snowflake.cli.api.entities.application_package_entity import (
     ApplicationPackageEntity,
 )
@@ -137,20 +135,8 @@ class NativeAppManager(SqlExecutionMixin):
     def application_warehouse(self) -> Optional[str]:
         return self.na_project.application_warehouse
 
-    @contextmanager
     def use_application_warehouse(self):
-        if self.application_warehouse:
-            with self.use_warehouse(self.application_warehouse):
-                yield
-        else:
-            raise ClickException(
-                dedent(
-                    f"""\
-                Application warehouse cannot be empty.
-                Please provide a value for it in your connection information or your project definition file.
-                """
-                )
-            )
+        return ApplicationEntity.use_application_warehouse(self.application_warehouse)
 
     @property
     def project_identifier(self) -> str:
@@ -249,14 +235,10 @@ class NativeAppManager(SqlExecutionMixin):
         )
 
     def get_existing_app_info(self) -> Optional[dict]:
-        """
-        Check for an existing application object by the same name as in project definition, in account.
-        It executes a 'show applications like' query and returns the result as single row, if one exists.
-        """
-        with self.use_role(self.app_role):
-            return self.show_specific_object(
-                "applications", self.app_name, name_col=NAME_COL
-            )
+        return ApplicationEntity.get_existing_app_info(
+            app_name=self.app_name,
+            app_role=self.app_role,
+        )
 
     def get_existing_app_pkg_info(self) -> Optional[dict]:
         return ApplicationPackageEntity.get_existing_app_pkg_info(
