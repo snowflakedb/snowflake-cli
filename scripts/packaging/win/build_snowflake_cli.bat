@@ -20,4 +20,4 @@ python.exe -m hatch -e packaging run ^
   --icon=scripts\packaging\win\snowflake_msi.ico ^
   %ENTRYPOINT%
 
-tar -a -c -f snow.zip dist\snow
+tar -a -c -f snowflake-cli-%CLI_VERSION%.zip dist\snow
