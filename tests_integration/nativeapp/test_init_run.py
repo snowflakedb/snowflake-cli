@@ -46,7 +46,7 @@ def test_nativeapp_init_run_without_modifications(
 ):
     project_name = "myapp"
     with nativeapp_project_directory(test_project):
-        result = runner.invoke_with_connection_json(command.split())
+        result = runner.invoke_with_connection_json(split(command))
         assert result.exit_code == 0
 
         # app + package exist
@@ -192,7 +192,7 @@ def test_nativeapp_init_run_handles_spaces(
 ):
     project_name = "myapp"
     with nativeapp_project_directory(test_project):
-        result = runner.invoke_with_connection_json(command.split())
+        result = runner.invoke_with_connection_json(split(command))
         assert result.exit_code == 0
 
         # app + package exist
@@ -216,81 +216,74 @@ def test_nativeapp_init_run_handles_spaces(
         )
 
 
-# Tests a simple flow of an existing project, but executing snow app run and teardown, all with distribution=external
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "project_definition_files",
-    ["integration_external", "integration_external_v2"],
-    indirect=True,
+    "command,test_project",
+    [
+        ["app run", "integration_external"],
+        ["app run", "integration_external_v2"],
+        ["ws deploy --entity-id=app", "integration_external_v2"],
+    ],
 )
 def test_nativeapp_run_existing_w_external(
+    command,
+    test_project,
+    nativeapp_project_directory,
     runner,
     snowflake_session,
-    project_definition_files: List[Path],
     default_username,
-    nativeapp_teardown,
     resource_suffix,
 ):
     project_name = "integration_external"
-    project_dir = project_definition_files[0].parent
-    with pushd(project_dir):
-        result = runner.invoke_with_connection_json(["app", "run"])
+    with nativeapp_project_directory(test_project):
+        result = runner.invoke_with_connection_json(split(command))
         assert result.exit_code == 0
 
-        with nativeapp_teardown():
-            # app + package exist
-            package_name = (
-                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
-            )
-            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show application packages like '{package_name}'",
-                    )
-                ),
-                dict(name=package_name),
-            )
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show applications like '{app_name}'"
-                    )
-                ),
-                dict(name=app_name),
-            )
-
-            # app package contains distribution=external
-            expect = row_from_snowflake_session(
+        # app + package exist
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+        app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
+        assert contains_row_with(
+            row_from_snowflake_session(
                 snowflake_session.execute_string(
-                    f"desc application package {package_name}"
+                    f"show application packages like '{package_name}'",
                 )
-            )
-            assert contains_row_with(
-                expect, {"property": "name", "value": package_name}
-            )
-            assert contains_row_with(
-                expect, {"property": "distribution", "value": "EXTERNAL"}
-            )
+            ),
+            dict(name=package_name),
+        )
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(f"show applications like '{app_name}'")
+            ),
+            dict(name=app_name),
+        )
 
-            # sanity checks
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"select count(*) from {app_name}.core.shared_view"
-                    )
-                ),
-                {"COUNT(*)": 1},
-            )
-            test_string = "TEST STRING"
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"call {app_name}.core.echo('{test_string}')"
-                    )
-                ),
-                {"ECHO": test_string},
-            )
+        # app package contains distribution=external
+        expect = row_from_snowflake_session(
+            snowflake_session.execute_string(f"desc application package {package_name}")
+        )
+        assert contains_row_with(expect, {"property": "name", "value": package_name})
+        assert contains_row_with(
+            expect, {"property": "distribution", "value": "EXTERNAL"}
+        )
+
+        # sanity checks
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"select count(*) from {app_name}.core.shared_view"
+                )
+            ),
+            {"COUNT(*)": 1},
+        )
+        test_string = "TEST STRING"
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"call {app_name}.core.echo('{test_string}')"
+                )
+            ),
+            {"ECHO": test_string},
+        )
 
 
 # Verifies that running "app run" after "app deploy" upgrades the app
@@ -395,80 +388,82 @@ def test_nativeapp_init_from_repo_with_single_template(
 # Tests running an app whose package was dropped externally (requires dropping and recreating the app)
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "project_definition_files", ["integration", "integration_v2"], indirect=True
+    "command,test_project",
+    [
+        ["app run", "integration_external"],
+        ["app run", "integration_external_v2"],
+        ["ws deploy --entity-id=app", "integration_external_v2"],
+    ],
 )
 @pytest.mark.parametrize("force_flag", [True, False])
 def test_nativeapp_run_orphan(
+    command,
+    test_project,
+    force_flag,
+    nativeapp_project_directory,
     runner,
     snowflake_session,
-    project_definition_files: List[Path],
-    force_flag,
     default_username,
     resource_suffix,
-    nativeapp_teardown,
 ):
-    project_name = "integration"
-    project_dir = project_definition_files[0].parent
-    with pushd(project_dir):
-        result = runner.invoke_with_connection_json(["app", "run"])
+    project_name = "integration_external"
+    with nativeapp_project_directory(test_project):
+        result = runner.invoke_with_connection_json(split(command))
         assert result.exit_code == 0
 
-        with nativeapp_teardown():
-            # app + package exist
-            package_name = (
-                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
-            )
-            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show application packages like '{package_name}'",
-                    )
-                ),
-                dict(name=package_name),
-            )
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show applications like '{app_name}'"
-                    )
-                ),
-                dict(name=app_name, source=package_name),
-            )
+        # app + package exist
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+        app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show application packages like '{package_name}'",
+                )
+            ),
+            dict(name=package_name),
+        )
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(f"show applications like '{app_name}'")
+            ),
+            dict(name=app_name, source=package_name),
+        )
 
-            result = runner.invoke_with_connection(
-                ["sql", "-q", f"drop application package {package_name}"]
-            )
-            assert result.exit_code == 0, result.output
+        result = runner.invoke_with_connection(
+            ["sql", "-q", f"drop application package {package_name}"]
+        )
+        assert result.exit_code == 0, result.output
 
-            # package doesn't exist, app not readable
-            package_name = (
-                f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
-            )
-            app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
-            assert not_contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show application packages like '{package_name}'",
-                    )
-                ),
-                dict(name=package_name),
-            )
-            assert not_contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show applications like '{app_name}'"
-                    )
-                ),
-                dict(name=app_name, source=package_name),
-            )
+        # package doesn't exist, app not readable
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+        app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
+        assert not_contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show application packages like '{package_name}'",
+                )
+            ),
+            dict(name=package_name),
+        )
+        assert not_contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(f"show applications like '{app_name}'")
+            ),
+            dict(name=app_name, source=package_name),
+        )
 
-            if force_flag:
-                command = ["app", "run", "--force"]
-                _input = None
-            else:
-                command = ["app", "run", "--interactive"]  # show prompt in tests
-                _input = "y\n"  # yes to drop app
+        if force_flag:
+            command = [*split(command), "--force"]
+            _input = None
+        else:
+            command = [*split(command), "--interactive"]  # show prompt in tests
+            _input = "y\n"  # yes to drop app
+
+        if command[0] == "ws":
+            # TODO Remove this condition once ApplicationEntity.create_or_upgrade_app() supports calling drop()
+            with pytest.raises(NotImplementedError):
+                runner.invoke_with_connection(command, input=_input)
+        else:
             result = runner.invoke_with_connection(command, input=_input)
             assert result.exit_code == 0, result.output
             if not force_flag:
