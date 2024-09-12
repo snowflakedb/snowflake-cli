@@ -43,6 +43,7 @@
 * Added `--package-entity-id` and `--app-entity-id` options to `snow app` commands to allow targeting specific entities when the `definition_version` in `snowflake.yml` is `2` or higher and it contains multiple `application package` or `application` entities.
 * Added templates expansion of arbitrary files for Native Apps through `templates` processor.
 * Added `SNOWFLAKE_..._PRIVATE_KEY_RAW` environment variable to pass private key as a raw string.
+* Added periodic check for newest version of Snowflake CLI. When new version is available, user will be notified.
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command.
