@@ -36,8 +36,6 @@ entities:
     type: streamlit
     meta:
         use_mixins: my_mixin
-defaults:
-    stage: baz
 mixins:
   my_mixin:
     stage: foo

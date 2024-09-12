@@ -11,7 +11,7 @@ snowpark:
       external_access_integrations:
         - snowflake_docs_access_integration
       secrets:
-        generic_secret: external_access_db.public.test_secret
+        generic_secret: snowcli_db.public.test_secret
   procedures:
     - name: status_procedure
       handler: app.check_secret_and_get_status_procedure
@@ -20,4 +20,4 @@ snowpark:
       external_access_integrations:
         - snowflake_docs_access_integration
       secrets:
-        generic_secret: external_access_db.public.test_secret
+        generic_secret: snowcli_db.public.test_secret

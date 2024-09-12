@@ -61,18 +61,6 @@ class MetaField(UpdatableModel):
         return mixins
 
 
-class DefaultsField(UpdatableModel):
-    schema_: Optional[str] = Field(
-        title="Schema.",
-        alias="schema",
-        default=None,
-    )
-    stage: Optional[str] = Field(
-        title="Stage.",
-        default=None,
-    )
-
-
 class EntityModelBase(ABC, UpdatableModel):
     @classmethod
     def get_type(cls) -> str:

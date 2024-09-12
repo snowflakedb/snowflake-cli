@@ -53,6 +53,7 @@ def test_cortex_search(runner):
 
 
 @pytest.mark.integration
+@pytest.mark.no_qa
 def test_cortex_complete_for_prompt(runner):
     result = runner.invoke_with_connection(
         [
@@ -65,6 +66,7 @@ def test_cortex_complete_for_prompt(runner):
 
 
 @pytest.mark.integration
+@pytest.mark.no_qa
 def test_cortex_complete_for_conversation(runner):
     result = runner.invoke_with_connection(
         [
