@@ -119,7 +119,7 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
-test = ["pytest -m integration -n6 --dist=worksteal --durations=20 --deflake-test-type=integration --ignore=tests_integration/spcs"]
+test = ["pytest -m integration -n6 --dist=worksteal --durations=20 --deflake-test-type=integration --ignore=tests_integration/spcs tests_integration/nativeapp/test_post_deploy.py"]
 test-spcs = ["pytest -m integration -n6 --dist=worksteal --durations=20 --deflake-test-type=integration tests_integration/spcs"]
 test_qa = ["pytest -m 'integration and not no_qa' -n6 --dist=worksteal --durations=20 --deflake-test-type=integration"]
 

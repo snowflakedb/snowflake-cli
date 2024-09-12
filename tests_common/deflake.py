@@ -66,7 +66,7 @@ def pytest_terminal_summary(terminalreporter: TerminalReporter) -> None:
 
 @contextmanager
 def trace(meta: str):
-    test_name = os.environ["PYTEST_CURRENT_TEST"]
+    test_name = os.environ.get("PYTEST_CURRENT_TEST", "unknown")
     start = datetime.now()
     span = Span(test_name, start, meta)
     SPAN_STACK.append(span)
