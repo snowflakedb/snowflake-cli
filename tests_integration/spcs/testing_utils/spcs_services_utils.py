@@ -22,7 +22,10 @@ import pytest
 from snowflake.connector import SnowflakeConnection
 
 from tests_integration.conftest import SnowCLIRunner
-from tests_integration.test_utils import contains_row_with, not_contains_row_with
+from tests_integration.testing_utils.cursor_helpers import (
+    contains_row_with,
+    not_contains_row_with,
+)
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful_and_executed_successfully,
     assert_that_result_is_successful_and_output_json_contains,

@@ -16,7 +16,10 @@ import os
 import pytest
 from snowflake.cli.api.project.util import escape_like_pattern
 
-from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
+from tests_integration.testing_utils.cursor_helpers import (
+    contains_row_with,
+    row_from_snowflake_session,
+)
 from tests_integration.testing_utils import ObjectNameProvider
 
 INTEGRATION_DATABASE = os.environ.get(

@@ -20,9 +20,8 @@ import time
 from pathlib import Path
 
 import pytest
-from snowflake.connector import DictCursor
 
-from tests_integration.test_utils import (
+from tests_integration.testing_utils.cursor_helpers import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,

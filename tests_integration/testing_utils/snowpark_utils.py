@@ -34,7 +34,8 @@ from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful,
     assert_that_result_is_successful_and_output_json_equals,
 )
-from tests_integration.testing_utils.sql_utils import SqlTestHelper
+from tests_integration.testing_utils.cursor_helpers import SqlTestHelper
+
 
 # TODO name 'entity' for both function and procedure does not seem to be perfect.
 #  But i can`t come up with anything better

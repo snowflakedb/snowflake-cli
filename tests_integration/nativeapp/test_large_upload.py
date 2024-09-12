@@ -23,7 +23,7 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
 from snowflake.cli._plugins.stage.md5 import parse_multipart_md5sum
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import pushd
+from tests_common import pushd
 
 THRESHOLD_BYTES: int | None = None  # if set, passes this option with PUT
 TEMP_FILE_SIZE_BYTES = 200 * 1024 * 1024

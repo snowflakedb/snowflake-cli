@@ -36,8 +36,9 @@ from snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor import (
 from snowflake.cli.api.project.schemas.native_app.path_mapping import ProcessorMapping
 
 from tests.nativeapp.utils import assert_dir_snapshot, create_native_app_project_model
-from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
+from tests.testing_utils.files_and_dirs import temp_local_dir
 from tests_common import IS_WINDOWS
+from tests_common.path_utils import pushd
 
 PROJECT_ROOT = Path("/path/to/project")
 

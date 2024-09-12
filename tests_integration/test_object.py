@@ -16,7 +16,7 @@ from unittest import mock
 
 import pytest
 
-from tests_integration.test_utils import row_from_cursor
+from tests_integration.testing_utils.cursor_helpers import row_from_cursor
 from tests_integration.testing_utils.naming_utils import ObjectNameProvider
 
 from contextlib import contextmanager

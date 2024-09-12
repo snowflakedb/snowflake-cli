@@ -18,7 +18,6 @@ import functools
 import json
 import shutil
 import tempfile
-from contextlib import contextmanager
 from dataclasses import dataclass
 from json import JSONDecodeError
 from pathlib import Path
@@ -26,7 +25,6 @@ from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 import pytest
-import yaml
 
 from snowflake.cli.api.cli_global_context import (
     fork_cli_context,
@@ -40,14 +38,14 @@ from typer.testing import CliRunner
 from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.conftest import clean_logging_handlers_fixture  # noqa: F401
 from tests.testing_utils.fixtures import (
-    alter_snowflake_yml,  # noqa: F401
+    # noqa: F401
     snowflake_home,
 )
-from tests.testing_utils.files_and_dirs import merge_left
 
 pytest_plugins = [
     "tests_common",
     "tests_common.deflake",
+    "tests_common.project_utils",
     "tests_integration.testing_utils",
     "tests_integration.snowflake_connector",
 ]
@@ -199,32 +197,6 @@ def runner(test_snowcli_config_provider, default_username, resource_suffix):
 class QueryResultJsonEncoderError(RuntimeError):
     def __init__(self, output: str):
         super().__init__(f"Can not parse query result:\n{output}")
-
-
-@pytest.fixture
-def project_directory(temporary_working_directory, test_root_path):
-    @contextmanager
-    def _temporary_project_directory(
-        project_name,
-        merge_project_definition: Optional[dict] = None,
-        subpath: Optional[Path] = None,
-    ):
-        test_data_file = test_root_path / "test_data" / "projects" / project_name
-        project_dir = temporary_working_directory
-        if subpath:
-            project_dir = temporary_working_directory / subpath
-            project_dir.mkdir(parents=True)
-        shutil.copytree(test_data_file, project_dir, dirs_exist_ok=True)
-        if merge_project_definition:
-            with Path("snowflake.yml").open("r") as fh:
-                project_definition = yaml.safe_load(fh)
-            merge_left(project_definition, merge_project_definition)
-            with open(Path(project_dir) / "snowflake.yml", "w") as file:
-                yaml.dump(project_definition, file)
-
-        yield project_dir
-
-    return _temporary_project_directory
 
 
 @pytest.fixture(autouse=True)

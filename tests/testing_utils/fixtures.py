@@ -17,17 +17,14 @@ from __future__ import annotations
 import functools
 import importlib
 import os
-import shutil
 import sys
 import tempfile
-from contextlib import contextmanager
 from io import StringIO
 from pathlib import Path
 from typing import Any, Dict, Generator, List, NamedTuple, Optional, Union
 from unittest import mock
 
 import pytest
-import yaml
 from snowflake.cli._app.cli_app import app_factory
 from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
     NativeAppExtensionFunction,
@@ -46,9 +43,9 @@ from tests.test_data import test_data
 from tests.testing_utils.files_and_dirs import (
     create_named_file,
     create_temp_file,
-    merge_left,
 )
 from tests_common import IS_WINDOWS
+from tests_common.path_utils import _named_temporary_file
 
 REQUIREMENTS_SNOWFLAKE = "requirements.snowflake.txt"
 REQUIREMENTS_TXT = "requirements.txt"
@@ -239,31 +236,6 @@ def runner(test_snowcli_config):
 
 
 @pytest.fixture
-def temp_dir():
-    initial_dir = os.getcwd()
-    tmp = tempfile.TemporaryDirectory()
-    os.chdir(tmp.name)
-    yield tmp.name
-    os.chdir(initial_dir)
-    tmp.cleanup()
-
-
-@contextmanager
-def _named_temporary_file(suffix=None, prefix=None):
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        suffix = suffix or ""
-        prefix = prefix or ""
-        f = Path(tmp_dir) / f"{prefix}tmp_file{suffix}"
-        f.touch()
-        yield f
-
-
-@pytest.fixture()
-def named_temporary_file():
-    return _named_temporary_file
-
-
-@pytest.fixture
 def temp_directory_for_app_zip(temp_dir) -> Generator:
     temp_dir = tempfile.TemporaryDirectory(dir=temp_dir)
     yield temp_dir.name
@@ -286,33 +258,6 @@ def test_root_path():
 @pytest.fixture(scope="session")
 def test_projects_path(test_root_path):
     return test_root_path / "test_data" / "projects"
-
-
-@pytest.fixture
-def txt_file_in_a_subdir(temp_dir: str) -> Generator:
-    subdir = tempfile.TemporaryDirectory(dir=temp_dir)
-    yield create_temp_file(".txt", subdir.name, [])
-
-
-@pytest.fixture
-def project_directory(temp_dir, test_projects_path):
-    @contextmanager
-    def _temporary_project_directory(
-        project_name, merge_project_definition: Optional[dict] = None
-    ):
-        test_data_file = test_projects_path / project_name
-        shutil.copytree(test_data_file, temp_dir, dirs_exist_ok=True)
-        if merge_project_definition:
-            project_definition = yaml.load(
-                Path("snowflake.yml").read_text(), Loader=yaml.BaseLoader
-            )
-            merge_left(project_definition, merge_project_definition)
-            with open(Path(temp_dir) / "snowflake.yml", "w") as file:
-                file.write(yaml.dump(project_definition))
-
-        yield Path(temp_dir)
-
-    return _temporary_project_directory
 
 
 @pytest.fixture(autouse=True)

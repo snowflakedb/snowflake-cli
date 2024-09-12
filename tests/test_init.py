@@ -77,7 +77,7 @@ def test_error_project_already_exists(runner, test_projects_path, temp_dir):
     result = runner.invoke(
         [
             "init",
-            temp_dir,
+            str(temp_dir),
             "--template-source",
             test_projects_path / project_name,
         ]

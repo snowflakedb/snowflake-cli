@@ -15,11 +15,10 @@
 import os
 from shlex import split
 
-from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.nativeapp.utils import touch
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import (
+from tests_integration.testing_utils.cursor_helpers import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,

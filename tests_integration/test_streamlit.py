@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_integration.test_utils import (
+from tests_integration.testing_utils.cursor_helpers import (
     contains_row_with,
     row_from_snowflake_session,
     rows_from_snowflake_session,

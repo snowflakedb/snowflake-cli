@@ -13,12 +13,11 @@
 # limitations under the License.
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import (
-    pushd,
+from tests_integration.testing_utils.cursor_helpers import (
     contains_row_with,
-    not_contains_row_with,
     row_from_snowflake_session,
 )
+from tests_common import pushd
 
 
 # Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal

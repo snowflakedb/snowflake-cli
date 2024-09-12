@@ -14,7 +14,7 @@
 
 import pytest
 
-from tests_integration.test_utils import row_from_snowflake_session
+from tests_integration.testing_utils.cursor_helpers import row_from_snowflake_session
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful_and_output_json_equals,
 )

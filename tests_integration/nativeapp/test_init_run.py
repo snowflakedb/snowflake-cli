@@ -11,18 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
-import uuid
 
 from snowflake.cli._plugins.nativeapp.init import OFFICIAL_TEMPLATES_GITHUB_URL
 from snowflake.cli.api.secure_path import SecurePath
 from tests.project.fixtures import *
-from tests_integration.test_utils import (
-    pushd,
+from tests_integration.testing_utils.cursor_helpers import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
 )
+from tests_common import pushd
 
 
 # Tests a simple flow of initiating a new project, executing snow app run and teardown, all with distribution=internal

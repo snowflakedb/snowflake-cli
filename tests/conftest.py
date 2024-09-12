@@ -33,6 +33,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import QueryResult
 from syrupy.extensions import AmberSnapshotExtension
 
+from tests_common import *  # noqa
 from tests_common import IS_WINDOWS
 
 pytest_plugins = [

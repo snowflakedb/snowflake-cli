@@ -13,14 +13,11 @@
 # limitations under the License.
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import (
-    pushd,
+from tests_integration.testing_utils.cursor_helpers import (
     contains_row_with,
     row_from_snowflake_session,
 )
-from tests_integration.testing_utils.working_directory_utils import (
-    WorkingDirectoryChanger,
-)
+from tests_common import pushd, WorkingDirectoryChanger
 
 
 # Tests a simple flow of native app with template reading env variables from OS

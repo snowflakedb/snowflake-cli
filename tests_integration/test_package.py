@@ -21,7 +21,10 @@ from zipfile import ZipFile
 import pytest
 
 
-from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
+from tests_integration.testing_utils.cursor_helpers import (
+    contains_row_with,
+    row_from_snowflake_session,
+)
 
 
 class TestPackage:

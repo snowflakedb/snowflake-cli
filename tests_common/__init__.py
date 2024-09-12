@@ -16,3 +16,4 @@ import platform
 from tests_common.path_utils import *
 
 IS_WINDOWS = platform.system() == "Windows"
+from tests_common.project_utils import *

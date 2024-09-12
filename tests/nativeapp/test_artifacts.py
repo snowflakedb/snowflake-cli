@@ -38,8 +38,9 @@ from tests.nativeapp.utils import (
     assert_dir_snapshot,
     touch,
 )
-from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
+from tests.testing_utils.files_and_dirs import temp_local_dir
 from tests_common import IS_WINDOWS
+from tests_common.path_utils import pushd
 
 
 def trimmed_contents(path: Path) -> Optional[str]:

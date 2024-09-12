@@ -20,7 +20,7 @@ from snowflake.connector.errors import ProgrammingError
 
 from tests.project.fixtures import *
 
-from tests_integration.test_utils import pushd
+from tests_common import pushd
 
 
 class ApplicationNotFoundError(Exception):

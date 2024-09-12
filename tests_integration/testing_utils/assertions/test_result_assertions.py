@@ -17,7 +17,7 @@ import re
 from typing import Dict, List, Optional, Union
 
 from tests_integration.conftest import CommandResult
-from tests_integration.test_utils import contains_row_with
+from tests_integration.testing_utils.cursor_helpers import contains_row_with
 
 
 _BOX_LINE_PATTERN = re.compile(r"\s*\u2502(?P<content>.*)\u2502\s*")

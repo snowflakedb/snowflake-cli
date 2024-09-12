@@ -2,12 +2,10 @@
 
 import pytest
 
-from tests_integration.test_utils import (
+from tests_integration.testing_utils.cursor_helpers import (
     row_from_snowflake_session,
 )
-from tests_integration.testing_utils.working_directory_utils import (
-    WorkingDirectoryChanger,
-)
+from tests_common import WorkingDirectoryChanger
 
 
 def run(runner, base_command, args):
