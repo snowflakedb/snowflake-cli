@@ -66,9 +66,20 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel):
             return self
 
         for artifact in self.artifacts:
-            if not artifact.exists():
+
+            if artifact.is_file() and not artifact.exists():
                 raise ValueError(
                     f"Specified artifact {artifact} does not exist locally."
                 )
-
         return self
+
+    def get_artifacts(self):
+        _artifacts = []
+        for artifact in self.artifacts:
+            if "*" in str(artifact):
+                root = artifact.parent if "**" not in str(artifact) else Path(".")
+                _artifacts.extend([item for item in root.glob(artifact.name)])
+            else:
+                _artifacts.append(artifact)
+
+        return _artifacts

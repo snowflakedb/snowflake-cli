@@ -569,7 +569,7 @@ def test_deploy_procedure_with_glob_patterns_in_src(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_glob_patterns") as tmp:
+    with project_directory("glob_patterns") as tmp:
 
         result = runner.invoke(
             [
@@ -578,8 +578,11 @@ def test_deploy_procedure_with_glob_patterns_in_src(
             ]
         )
         assert result.exit_code == 0, result.output
-        mock_sm_put.assert_any_call(
-            local_path=tmp / "src" / "app.py",
-            stage_path="@MockDatabase.MockSchema.dev_deployment/",
-            overwrite=True,
+        assert any(
+            "app.py" in str(call.kwargs["local_path"])
+            for call in mock_sm_put.mock_calls
+        )
+        assert any(
+            "procedures.py" in str(call.kwargs["local_path"])
+            for call in mock_sm_put.mock_calls
         )

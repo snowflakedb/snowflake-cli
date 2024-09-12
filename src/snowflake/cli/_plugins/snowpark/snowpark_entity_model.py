@@ -82,7 +82,6 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel):
             return str(runtime_input)
         return runtime_input
 
-    @property
     def get_artifacts(self) -> List[PathMapping]:
         _artifacts = []
         for artifact in self.artifacts:
@@ -90,10 +89,13 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel):
                 _artifacts.append(PathMapping(src=Path(artifact)))
             elif isinstance(artifact, PathMapping):
                 if "*" in str(artifact.src):
+                    root = (
+                        artifact.src.parent if not "**" in str(artifact) else Path(".")
+                    )
                     _artifacts.extend(
                         [
-                            PathMapping(src=item)
-                            for item in artifact.src.parent.glob(artifact.src.name)
+                            PathMapping(src=item, dest=artifact.dest)
+                            for item in root.parent.glob(artifact.src.name)
                         ]
                     )
                 else:

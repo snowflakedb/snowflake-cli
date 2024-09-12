@@ -954,3 +954,27 @@ def test_deploy_streamlit_with_comment_v2(
         REGIONLESS_QUERY,
         "select current_account_name()",
     ]
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
+def test_deploy_streamlit_with_glob_pattern_in_artifacts(
+    mock_sm_put, mock_connector, runner, project_directory, mock_ctx, mock_cursor
+):
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
+    mock_connector.return_value = ctx
+    with project_directory("glob_patterns"):
+        result = runner.invoke(["streamlit", "deploy", "--replace"])
+
+    assert result.exit_code == 0, result.output
+    assert any("my_page.py" in str(call[1]) for call in mock_sm_put.mock_calls)
+    assert any("my_page2.py" in str(call[1]) for call in mock_sm_put.mock_calls)

@@ -173,7 +173,7 @@ class StreamlitManager(SqlExecutionMixin):
 
             self._put_streamlit_files(
                 root_location,
-                streamlit.artifacts,
+                streamlit.get_artifacts(),
             )
         else:
             """
@@ -193,7 +193,7 @@ class StreamlitManager(SqlExecutionMixin):
                 f"{stage_name}/{streamlit_name_for_root_location}"
             )
 
-            self._put_streamlit_files(root_location, streamlit.artifacts)
+            self._put_streamlit_files(root_location, streamlit.get_artifacts())
 
             self._create_streamlit(
                 streamlit=streamlit,
