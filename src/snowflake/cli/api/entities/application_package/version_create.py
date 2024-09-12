@@ -16,7 +16,11 @@ from typing import Annotated, Optional
 
 from snowflake.cli.api.commands.flags import is_tty_interactive
 from snowflake.cli.api.entities.actions import EntityActions
-from snowflake.cli.api.entities.actions.lib import ActionContext, HelpText
+from snowflake.cli.api.entities.actions.lib import (
+    ActionContext,
+    HelpText,
+    ParameterDeclarations,
+)
 from snowflake.cli.api.entities.application_package.entity import (
     ApplicationPackageEntity,
     ForceBool,
@@ -38,6 +42,13 @@ def action_version_create(
         """
         ),
     ] = None,
+    skip_git_check: Annotated[
+        Optional[bool],
+        ParameterDeclarations(["--skip-git-check"]),
+        HelpText(
+            "When enabled, the Snowflake CLI skips checking if your project has any untracked or stages files in git."
+        ),
+    ] = False,
     patch: Annotated[
         Optional[int],
         HelpText(
@@ -56,5 +67,4 @@ def action_version_create(
     If the version does not exist, creates a version with patch 0.
     """
     model = self._entity_model
-
     pass
