@@ -15,6 +15,7 @@
 [connections.dev]
 [connections.integration]
 schema = "public"
+authenticator = "SNOWFLAKE_JWT"
 
 
 [cli.plugins.snowpark-hello]
