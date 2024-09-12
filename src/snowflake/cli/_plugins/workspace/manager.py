@@ -5,8 +5,7 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.actions import EntityAction
 from snowflake.cli.api.entities.actions.lib import ActionContext
-from snowflake.cli.api.entities.common import get_sql_executor
-from snowflake.cli.api.entities.entity_base import EntityBase
+from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.definition import default_role
 from snowflake.cli.api.project.schemas.entities.entities import (

@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Dict, List, Optional, Union
+from typing import Dict, Generic, List, Optional, TypeVar, Union
 
 from pydantic import Field, PrivateAttr, field_validator
 from snowflake.cli.api.identifiers import FQN
@@ -93,6 +93,23 @@ class EntityModelBase(ABC, UpdatableModel):
             return FQN.from_identifier_model_v2(self.identifier)
         if self.entity_id:
             return FQN.from_string(self.entity_id)
+
+
+TargetType = TypeVar("TargetType")
+
+
+class TargetField(UpdatableModel, Generic[TargetType]):
+    target: str = Field(
+        title="Reference to a target entity",
+    )
+
+    def get_type(self) -> type:
+        """
+        Returns the generic type of this class, indicating the entity type.
+        Pydantic extracts Generic annotations, and populates
+        them in __pydantic_generic_metadata__
+        """
+        return self.__pydantic_generic_metadata__["args"][0]
 
 
 class ExternalAccessBaseModel:
