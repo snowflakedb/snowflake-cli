@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import tempfile
 
 import pytest
 import os
@@ -28,30 +29,34 @@ from unittest import mock
         "SNOWFLAKE_CONNECTIONS_INTEGRATION_USER": os.environ.get(
             "SNOWFLAKE_CONNECTIONS_INTEGRATION_USER", None
         ),
-        "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE": os.environ.get(
-            "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH",
-            os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE"),
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW": os.environ.get(
+            "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW",
         ),
     },
     clear=True,
 )
 def test_temporary_connection(runner, snapshot):
 
-    result = runner.invoke(
-        [
-            "sql",
-            "-q",
-            "select 1",
-            "--temporary-connection",
-            "--authenticator",
-            "SNOWFLAKE_JWT",
-            "--account",
-            os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"],
-            "--user",
-            os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"],
-            "--private-key-file",
-            os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE"],
-        ]
-    )
-    assert result.exit_code == 0
-    assert result.output == snapshot
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        private_key_path = os.path.join(tmp_dir, "private_key.p8")
+        with open(private_key_path, "w") as f:
+            f.write(os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW"])
+
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                "select 1",
+                "--temporary-connection",
+                "--authenticator",
+                "SNOWFLAKE_JWT",
+                "--account",
+                os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"],
+                "--user",
+                os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"],
+                "--private-key-file",
+                str(private_key_path),
+            ]
+        )
+        assert result.exit_code == 0
+        assert result.output == snapshot
