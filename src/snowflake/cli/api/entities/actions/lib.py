@@ -39,7 +39,7 @@ class HelpText:
 class ParameterDeclarations:
     """
     Annotation metadata to declare argument names on the command line, e.g.
-    ParameterDeclarations("--interactive/--no-interactive", "-i")
+    ParameterDeclarations(["--interactive/--no-interactive", "-i"])
     """
 
     decls: List[str]
@@ -92,10 +92,15 @@ def signature_to_typer_params(sig: Signature) -> List[Parameter]:
     implementations.
     """
 
-    [ctx_param, *rest_params] = sig.parameters.values()
+    [entity_self_param, ctx_param, *rest_params] = sig.parameters.values()
+    if entity_self_param.name != "self":
+        raise InvalidActionDefintionError(
+            "By convention, the first argument must be self, which is passed the current entity instance."
+        )
+
     if ctx_param.annotation != ActionContext:
         raise InvalidActionDefintionError(
-            "Invalid action definition: first argument must be ActionContext"
+            "Invalid action definition: second argument must be ActionContext"
         )
 
     typer_params = []
@@ -125,11 +130,16 @@ def signature_to_typer_params(sig: Signature) -> List[Parameter]:
 
         typer_params.append(
             param.replace(
+                # FIXME: _options_decorator_factory doesn't work with POSITIONAL_OR_KEYWORD
+                # it probably doesn't work with POSITIONAL_ONLY either...
+                kind=Parameter.KEYWORD_ONLY
+                if param.kind == Parameter.POSITIONAL_OR_KEYWORD
+                else Parameter.POSITIONAL_ONLY,
                 default=typer_factory(
                     param.default,
                     *typer_args,
                     **typer_kwargs,
-                )
+                ),
             )
         )
 

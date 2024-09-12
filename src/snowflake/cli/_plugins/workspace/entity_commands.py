@@ -15,6 +15,7 @@
 import inspect
 import logging
 from pathlib import Path
+from typing import List
 
 from click import ClickException
 from snowflake.cli._plugins.workspace.manager import (
@@ -121,30 +122,35 @@ class EntityCommandGroup(SnowTyperFactory):
         self, name: str, entity_type: Entity, action: EntityAction
     ):
         """Registers the provided action at the given name"""
+        fn = entity_type.get_action_callable(action)
+        sig = inspect.signature(fn)
+        known_params = list(sig.parameters.keys())
 
         @with_project_definition()
-        def _action_executor(*args, **kwargs) -> CommandResult:
-            # TODO: what message result are we returning? do we throw them away for multi-step actions (i.e deps?)
-            # TODO: how do we know if a command needs connection?
+        def _action_executor(**options) -> CommandResult:
             cli_context = get_cli_context()
             ws = WorkspaceManager(
                 project_definition=cli_context.project_definition,
                 project_root=cli_context.project_root,
             )
-            ws.perform_action(self.target_id, action, *args, **kwargs)
+
+            # filter out common CLI options our action doesn't take
+            pass_through_options = {
+                k: v for (k, v) in options.items() if k in known_params
+            }
+            ws.perform_action(self.target_id, action, **pass_through_options)
             return MessageResult(
                 f"Successfully performed {action.verb} on {self.target_id}."
             )
 
         # add typer options/arguments and metadata
-        fn = entity_type.get_action_callable()
-        sig = inspect.signature(fn)
-        params = signature_to_typer_params(sig)
-        _action_executor = _options_decorator_factory(_action_executor, params)
+        _action_executor = _options_decorator_factory(
+            _action_executor, signature_to_typer_params(sig)
+        )
         _action_executor.__doc__ = fn.__doc__
 
         # queue this command for registration
-        self.command(name)(_action_executor)
+        self.command(name, requires_connection=False)(_action_executor)
 
     def register_command_in_tree(self, entity_type: Entity, action: EntityAction):
         """
@@ -185,10 +191,14 @@ def generate_entity_commands(
 
         model_type = v2_entity_model_types_map[model.type]
         entity_type = v2_entity_model_to_entity_map[model_type]
-        supported_actions = sorted(
-            [action for action in EntityActions if entity_type.supports(action)]
+        supported_actions: List[EntityAction] = sorted(
+            [action for action in EntityActions if entity_type.supports(action)],
+            key=lambda action: action.key,
         )
         for action in supported_actions:
             tree_group.register_command_in_tree(entity_type, action)
 
+        # FIXME: breaks completion ("(eval):1: command not found: Action")
+        # FIXME: why does "snow ws @pkg bundle" require connection -- and how should we mark it?
+        # FIXME: positional typer.Arguments not supported by current approach; need to re-impl _options_decorator_factory to introspect Parameter.kind
         ws.add_typer(tree_group)

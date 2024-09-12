@@ -28,15 +28,14 @@ from snowflake.cli._plugins.nativeapp.utils import (
     needs_confirmation,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli._plugins.workspace.manager import ActionContext
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.actions import EntityActions
 from snowflake.cli.api.entities.actions.lib import (
+    ActionContext,
     HelpText,
     ParameterDeclarations,
 )
-from snowflake.cli.api.entities.common import get_sql_executor
-from snowflake.cli.api.entities.entity_base import EntityBase
+from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
     ensure_correct_owner,
@@ -49,7 +48,10 @@ from snowflake.cli.api.entities.utils import (
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
 )
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.exceptions import (
+    IncompatibleParametersError,
+    SnowflakeSQLExecutionError,
+)
 from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
     ApplicationPackageEntityModel,
 )
@@ -109,7 +111,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         ] = None,
         recursive: Annotated[
             Optional[bool],
-            ParameterDeclarations("--recursive/--no-recursive", "-r"),
+            ParameterDeclarations(["--recursive/--no-recursive", "-r"]),
             HelpText(
                 "Whether to traverse and deploy files from subdirectories. If set, the command deploys all files and subdirectories; otherwise, only files in the current directory are deployed."
             ),
@@ -127,7 +129,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         ] = None,
         validate: Annotated[
             bool,
-            ParameterDeclarations("--validate/--no-validate"),
+            ParameterDeclarations(["--validate/--no-validate"]),
             HelpText(
                 "When enabled, this option triggers validation of a deployed Snowflake Native App's setup script SQL"
             ),
@@ -143,6 +145,20 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             package_role = model.meta.role
         else:
             package_role = ctx.default_role
+
+        # 0. Finish resolving arguments + defaults
+        has_paths = paths is not None and len(paths) > 0
+        if prune is None and recursive is None and not has_paths:
+            prune = True
+            recursive = True
+        else:
+            if prune is None:
+                prune = False
+            if recursive is None:
+                recursive = False
+
+        if has_paths and prune:
+            raise IncompatibleParametersError(["paths", "--prune"])
 
         # 1. Create a bundle
         bundle_map = self.action_bundle(ctx)

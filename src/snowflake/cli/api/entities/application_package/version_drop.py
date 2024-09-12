@@ -14,9 +14,8 @@
 
 from typing import Annotated, Optional
 
-from snowflake.cli._plugins.workspace.manager import ActionContext
 from snowflake.cli.api.entities.actions import EntityActions
-from snowflake.cli.api.entities.actions.lib import HelpText
+from snowflake.cli.api.entities.actions.lib import ActionContext, HelpText
 from snowflake.cli.api.entities.application_package.entity import (
     ApplicationPackageEntity,
 )

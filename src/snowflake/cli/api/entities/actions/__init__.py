@@ -26,10 +26,10 @@ class EntityAction:
     def implementation(self):
         """
         Registers the wrapped function against this action for the given entity type.
+        TODO: implement rules to ensure that function fits the expected shape of arguments for the action
         """
 
         def wrapper(func):
-            # TODO: implement rules to ensure that function fits the expected shape of arguments for the action
             setattr(func, ENTITY_ACTION_ATTR, self)
             return func
 

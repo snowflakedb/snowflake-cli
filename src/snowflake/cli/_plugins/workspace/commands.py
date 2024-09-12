@@ -26,9 +26,9 @@ from snowflake.cli._plugins.workspace.entity_commands import generate_entity_com
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
+from snowflake.cli.api.commands.flags import ForceOption, ValidateOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.actions import EntityActions
-from snowflake.cli.api.entities.parameters import ForceOption, ValidateOption
 from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.api.project.definition_conversion import (

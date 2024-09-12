@@ -68,9 +68,9 @@ class WorkspaceManager:
                 default_role=self._default_role,
                 default_warehouse=self.default_warehouse,
             )
-            return fn(ctx, *args, **kwargs)
+            return fn(entity, ctx, *args, **kwargs)
         else:
-            raise ValueError(f'This entity type does not support "{action.value}"')
+            raise ValueError(f'This entity type does not support "{action.key}"')
 
     def project_root(self) -> Path:
         return self._project_root

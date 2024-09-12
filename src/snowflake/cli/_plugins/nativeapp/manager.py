@@ -41,7 +41,7 @@ from snowflake.cli._plugins.stage.diff import (
     DiffResult,
 )
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.application_package.entity import (
+from snowflake.cli.api.entities.application_package import (
     ApplicationPackageEntity,
 )
 from snowflake.cli.api.entities.utils import (

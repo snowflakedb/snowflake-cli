@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli._plugins.workspace.manager import ActionContext
 from snowflake.cli.api.entities.actions import EntityActions
+from snowflake.cli.api.entities.actions.lib import ActionContext
 from snowflake.cli.api.entities.application_package.entity import (
     ApplicationPackageEntity,
 )

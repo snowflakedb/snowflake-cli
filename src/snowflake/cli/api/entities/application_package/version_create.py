@@ -14,10 +14,9 @@
 
 from typing import Annotated, Optional
 
-from snowflake.cli._plugins.workspace.manager import ActionContext
 from snowflake.cli.api.commands.flags import is_tty_interactive
 from snowflake.cli.api.entities.actions import EntityActions
-from snowflake.cli.api.entities.actions.lib import HelpText
+from snowflake.cli.api.entities.actions.lib import ActionContext, HelpText
 from snowflake.cli.api.entities.application_package.entity import (
     ApplicationPackageEntity,
     ForceBool,
@@ -27,7 +26,7 @@ from snowflake.cli.api.entities.application_package.entity import (
 
 @ApplicationPackageEntity.implements(EntityActions.VERSION_CREATE)
 def action_version_create(
-    entity: "ApplicationPackageEntity",
+    self: ApplicationPackageEntity,
     ctx: ActionContext,
     version: Annotated[
         Optional[str],
@@ -38,7 +37,7 @@ def action_version_create(
             Defaults to the version specified in the `manifest.yml` file.
         """
         ),
-    ],
+    ] = None,
     patch: Annotated[
         Optional[int],
         HelpText(
@@ -48,7 +47,7 @@ def action_version_create(
             the patch specified in the `manifest.yml` file or automatically generates a new patch number.
         """
         ),
-    ],
+    ] = None,
     interactive: InteractiveBool = is_tty_interactive(),
     force: ForceBool = False,
 ):
@@ -56,4 +55,6 @@ def action_version_create(
     Adds a new patch to the provided version defined in your application package.
     If the version does not exist, creates a version with patch 0.
     """
+    model = self._entity_model
+
     pass

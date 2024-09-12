@@ -23,17 +23,18 @@ class EntityBase(Generic[T]):
         """
         Returns a generic action callable that is _not_ bound to a particular entity.
         """
-        fn = cls.__dict__.get(action.key, None)
-
+        fn = next(
+            (
+                v
+                for (k, v) in cls.__dict__.items()
+                if getattr(v, ENTITY_ACTION_ATTR, None) == action
+            ),
+            None,
+        )
         if fn is None:
-            raise KeyError(f"{action.key} does not exist on {cls.__name__}")
-
-        if not callable(fn) or not hasattr(fn, ENTITY_ACTION_ATTR):
-            # expected an action callable; got something else
             raise KeyError(
-                f"{action.key} exists on {cls.__name__} but is not an action implementation"
+                f"No implementation for {action.key} exists on {cls.__name__}"
             )
-
         return fn
 
     @classmethod
@@ -52,17 +53,23 @@ class EntityBase(Generic[T]):
         An entity is considered to support an action if it implements a method with the action name.
         """
         try:
-            cls.get_action_callable(action.key)
+            cls.get_action_callable(action)
             return True
         except KeyError:
             return False
 
     @classmethod
-    def implements(cls, action: EntityAction):
+    def implements(cls, action: EntityAction, *args, **kwargs):
         """
         Registers the wrapped function against the given action for this entity type.
         """
-        return action.implementation()
+
+        def wrapper(func):
+            wrapped_func = action.implementation(*args, **kwargs)(func)
+            setattr(cls, func.__name__, wrapped_func)
+            return wrapped_func
+
+        return wrapper
 
 
 def get_sql_executor() -> SqlExecutor:
