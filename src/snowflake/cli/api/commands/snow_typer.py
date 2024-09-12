@@ -34,6 +34,7 @@ from snowflake.cli.api.exceptions import CommandReturnTypeError
 from snowflake.cli.api.output.types import CommandResult
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector import DatabaseError
 
 log = logging.getLogger(__name__)
 
@@ -106,8 +107,8 @@ class SnowTyper(typer.Typer):
                     execution.complete(ExecutionStatus.SUCCESS)
                 except Exception as err:
                     execution.complete(ExecutionStatus.FAILURE)
-                    self.exception_handler(err, execution)
-                    raise
+                    exception = self.exception_handler(err, execution)
+                    raise exception
                 finally:
                     self.post_execute(execution)
 
@@ -155,6 +156,9 @@ class SnowTyper(typer.Typer):
 
         log.debug("Executing command exception callback")
         log_command_execution_error(exception, execution)
+        if isinstance(exception, DatabaseError):
+            return ClickException(exception.msg)
+        return exception
 
     @staticmethod
     def post_execute(execution: ExecutionMetadata):

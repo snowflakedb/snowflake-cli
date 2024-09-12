@@ -957,16 +957,17 @@ def test_execute_not_existing_stage(mock_execute, mock_cursor, runner):
         )
     ]
 
-    with pytest.raises(ProgrammingError) as e:
-        runner.invoke(["stage", "execute", stage_name])
+    result = runner.invoke(["stage", "execute", stage_name])
+
+    assert result.exit_code == 1
+    assert (
+        f"002003: 2003: Stage '{stage_name}' does not exist or not authorized."
+        in result.output
+    )
 
     assert mock_execute.mock_calls == [
         mock.call(f"ls @{stage_name}", cursor_class=DictCursor)
     ]
-    assert (
-        e.value.msg
-        == f"002003: 2003: Stage '{stage_name}' does not exist or not authorized."
-    )
 
 
 @pytest.mark.parametrize(
@@ -1016,8 +1017,8 @@ def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner
         ProgrammingError(error_message),
     ]
 
-    with pytest.raises(ProgrammingError) as e:
-        runner.invoke(["stage", "execute", "exe"])
+    result = runner.invoke(["stage", "execute", "exe"])
+    assert result.exit_code == 1
 
     assert mock_execute.mock_calls == [
         mock.call("ls @exe", cursor_class=DictCursor),
@@ -1028,7 +1029,7 @@ def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner
         mock.call("@exe/p1.py", {}),
         mock.call("@exe/p2.py", {}),
     ]
-    assert e.value.msg == error_message
+    assert error_message in result.output
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")

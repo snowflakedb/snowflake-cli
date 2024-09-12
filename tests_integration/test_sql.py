@@ -65,14 +65,16 @@ def test_multiple_files(runner, snowflake_session, test_root_path, snapshot):
 
 @pytest.mark.integration
 def test_multi_queries_where_one_of_them_is_failing(
-    runner, snowflake_session, test_root_path, snapshot
+    runner, snowflake_session, test_root_path
 ):
     result = runner.invoke_with_connection_json(
         ["sql", "-q", f"select 1; select 2; select foo; select 4", "--format", "json"],
-        catch_exceptions=True,
     )
+    assert result.exit_code == 1
 
-    assert result.output == snapshot
+    assert '"1"  :   1' in result.output
+    assert '"2"  :   2' in result.output
+    assert "invalid identifier 'FOO'" in result.output
 
 
 @pytest.mark.integration
