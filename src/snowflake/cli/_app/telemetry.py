@@ -144,7 +144,7 @@ class CLITelemetryClient:
     ) -> Dict[str, Any]:
         data = {
             CLITelemetryField.SOURCE: PARAM_APPLICATION_NAME,
-            CLITelemetryField.INSTALLATION_SOURCE: _get_installation_source(),
+            CLITelemetryField.INSTALLATION_SOURCE: _get_installation_source().value,
             CLITelemetryField.VERSION_CLI: VERSION,
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
