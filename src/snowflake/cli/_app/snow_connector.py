@@ -25,11 +25,9 @@ from snowflake.cli._app.constants import (
     PARAM_APPLICATION_NAME,
 )
 from snowflake.cli._app.telemetry import command_info
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.config import (
     get_connection_dict,
-    get_default_connection_dict,
-    get_default_connection_name,
+    get_env_value,
 )
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import (
@@ -46,6 +44,33 @@ log = logging.getLogger(__name__)
 ENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN ENCRYPTED PRIVATE KEY-----"
 UNENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN PRIVATE KEY-----"
 
+# connection keys that can be set using SNOWFLAKE_* env vars
+SUPPORTED_ENV_OVERRIDES = [
+    "account",
+    "user",
+    "password",
+    "authenticator",
+    "private_key_file",
+    "private_key_path",
+    "database",
+    "schema",
+    "role",
+    "warehouse",
+    "session_token",
+    "master_token",
+    "token_file_path",
+]
+
+# mapping of found key -> key to set
+CONNECTION_KEY_ALIASES = {"private_key_path": "private_key_file"}
+
+
+def _resolve_alias(key_or_alias: str):
+    """
+    Given the key of an override / env var, what key should it be set as in the connection parameters?
+    """
+    return CONNECTION_KEY_ALIASES.get(key_or_alias, key_or_alias)
+
 
 def connect_to_snowflake(
     temporary_connection: bool = False,
@@ -58,6 +83,10 @@ def connect_to_snowflake(
 ) -> SnowflakeConnection:
     if temporary_connection and connection_name:
         raise ClickException("Can't use connection name and temporary connection.")
+    elif not temporary_connection and not connection_name:
+        raise ClickException(
+            "One of connection name or temporary connection is required."
+        )
 
     using_session_token = (
         "session_token" in overrides and overrides["session_token"] is not None
@@ -70,37 +99,33 @@ def connect_to_snowflake(
     )
 
     if connection_name:
-        connection_parameters = get_connection_dict(connection_name)
-        connection_parameters = get_connection_dict(connection_name)
+        connection_parameters = {
+            _resolve_alias(k): v
+            for k, v in get_connection_dict(connection_name).items()
+        }
     elif temporary_connection:
         connection_parameters = {}  # we will apply overrides in next step
-    else:
-        connection_parameters = get_default_connection_dict()
-        get_cli_context().connection_context.set_connection_name(
-            get_default_connection_name()
-        )
 
     # Apply overrides to connection details
+    # (1) Command line override case
     for key, value in overrides.items():
-        # Command line override case
-        if value:
-            connection_parameters[key] = value
-            continue
+        if value is not None:
+            connection_parameters[_resolve_alias(key)] = value
 
-        # Generic environment variable case, apply only if value not passed via flag or connection variable
-        generic_env_value = os.environ.get(f"SNOWFLAKE_{key}".upper())
-        if key not in connection_parameters and generic_env_value:
-            connection_parameters[key] = generic_env_value
-            continue
+    # (2) Generic environment variable case
+    # ... apply only if value not passed via flag or connection variable
+    for key in SUPPORTED_ENV_OVERRIDES:
+        generic_env_value = get_env_value(key=key)
+        connection_key = _resolve_alias(key)
+        if connection_key not in connection_parameters and generic_env_value:
+            connection_parameters[connection_key] = generic_env_value
 
     # Clean up connection params
     connection_parameters = {
         k: v for k, v in connection_parameters.items() if v is not None
     }
 
-    connection_parameters = update_connection_details_with_private_key(
-        connection_parameters
-    )
+    update_connection_details_with_private_key(connection_parameters)
 
     if mfa_passcode:
         connection_parameters["passcode"] = mfa_passcode
@@ -169,12 +194,32 @@ def update_connection_details_with_private_key(connection_parameters: Dict):
         _load_private_key(connection_parameters, "private_key_file")
     elif "private_key_path" in connection_parameters:
         _load_private_key(connection_parameters, "private_key_path")
+    elif "private_key_raw" in connection_parameters:
+        _load_private_key_from_parameters(connection_parameters, "private_key_raw")
     return connection_parameters
 
 
 def _load_private_key(connection_parameters: Dict, private_key_var_name: str) -> None:
     if connection_parameters.get("authenticator") == "SNOWFLAKE_JWT":
-        private_key = _load_pem_to_der(connection_parameters[private_key_var_name])
+        private_key_pem = _load_pem_from_file(
+            connection_parameters[private_key_var_name]
+        )
+        private_key = _load_pem_to_der(private_key_pem)
+        connection_parameters["private_key"] = private_key
+        del connection_parameters[private_key_var_name]
+    else:
+        raise ClickException(
+            "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
+        )
+
+
+def _load_private_key_from_parameters(
+    connection_parameters: Dict, private_key_var_name: str
+) -> None:
+    if connection_parameters.get("authenticator") == "SNOWFLAKE_JWT":
+        private_key_pem = connection_parameters[private_key_var_name]
+        private_key_pem = private_key_pem.encode("utf-8")
+        private_key = _load_pem_to_der(private_key_pem)
         connection_parameters["private_key"] = private_key
         del connection_parameters[private_key_var_name]
     else:
@@ -191,17 +236,19 @@ def _update_connection_application_name(connection_parameters: Dict):
     connection_parameters.update(connection_application_params)
 
 
-def _load_pem_to_der(private_key_file: str) -> bytes:
-    """
-    Given a private key file path (in PEM format), decode key data into DER
-    format
-    """
-
+def _load_pem_from_file(private_key_file: str) -> bytes:
     with SecurePath(private_key_file).open(
         "rb", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
     ) as f:
         private_key_pem = f.read()
+    return private_key_pem
 
+
+def _load_pem_to_der(private_key_pem: bytes) -> bytes:
+    """
+    Given a private key file path (in PEM format), decode key data into DER
+    format
+    """
     private_key_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
     if (
         private_key_pem.startswith(ENCRYPTED_PKCS8_PK_HEADER)

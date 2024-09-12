@@ -11,6 +11,6 @@ entities:
     external_access_integrations:
       - snowflake_docs_access_integration
     secrets:
-      generic_secret: external_access_db.public.test_secret
+      generic_secret: snowcli_db.public.test_secret
     artifacts:
       - streamlit_app.py

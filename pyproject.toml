@@ -29,10 +29,10 @@ dependencies = [
   "pluggy==1.5.0",
   "PyYAML==6.0.2",
   "packaging",
-  "rich==13.7.1",
+  "rich==13.8.0",
   "requests==2.32.3",
   "requirements-parser==0.11.0",
-  "setuptools==74.1.0",
+  "setuptools==74.1.2",
   'snowflake.core==0.8.0; python_version < "3.12"',
   "snowflake-connector-python[secure-local-storage]==3.12.1",
   'snowflake-snowpark-python>=1.15.0;python_version < "3.12"',
@@ -41,7 +41,7 @@ dependencies = [
   "urllib3>=1.24.3,<2.3",
   "GitPython==3.1.43",
   "pip",
-  "pydantic==2.8.2",
+  "pydantic==2.9.1",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -61,7 +61,7 @@ development = [
   "pre-commit>=3.5.0",
   "pytest==8.3.2",
   "pytest-randomly==3.15.0",
-  "syrupy==4.6.1",
+  "syrupy==4.7.1",
   "factory-boy==3.3.0",
   "Faker==26.0.0",
 ]
@@ -121,7 +121,9 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
-test = ["pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration"]
+test = ["pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/spcs"]
+test-spcs = ["pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs"]
+test_qa = ["pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration"]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.10", "3.11", "3.12"]
@@ -156,6 +158,7 @@ markers = [
   "loaded_modules: checks loaded modules",
   "patch_app_version: sets app version to 0.0.0-test_patched",
   "integration_experimental: experimental integration test",
+  "no_qa: mark test as not to be run in QA",
 ]
 
 
