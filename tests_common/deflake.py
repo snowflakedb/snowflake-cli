@@ -34,9 +34,20 @@ FLAKY_LABEL = "flaky-test"
 PHASES = ["setup", "call", "teardown"]
 
 
-Trace = tuple[str, datetime, datetime | None, str]
-TRACE_STACK: deque[Trace] = deque()
-CLOSED_TRACES: list[Trace] = []
+@dataclass(frozen=True)
+class Span:
+    test_name: str
+    start: datetime
+    meta: str
+
+
+@dataclass(frozen=True)
+class ClosedTrace(Span):
+    end: datetime
+
+
+SPAN_STACK: deque[Span] = deque()
+CLOSED_TRACES: list[ClosedTrace] = []
 
 
 def pytest_terminal_summary(terminalreporter: TerminalReporter) -> None:
@@ -44,30 +55,28 @@ def pytest_terminal_summary(terminalreporter: TerminalReporter) -> None:
     if not CLOSED_TRACES:
         return
     terminalreporter.write_sep("=", f"test traces")
-    sorted_traces = sorted(CLOSED_TRACES, key=lambda t: t[0])
-    grouped_by_test_name = groupby(sorted_traces, key=lambda t: t[0])
+    sorted_traces = sorted(CLOSED_TRACES, key=lambda t: t.test_name)
+    grouped_by_test_name = groupby(sorted_traces, key=lambda t: t.test_name)
     for test_name, traces in grouped_by_test_name:
         terminalreporter.write_line(test_name)
-        for _, start, end, meta in traces:
-            assert end is not None
-            duration = (end - start).total_seconds()
-            terminalreporter.write_line(f"\t{start} {duration:.02f} {meta}")
+        for t in traces:
+            duration = (t.end - t.start).total_seconds()
+            terminalreporter.write_line(f"  {t.start} {duration:.02f} {t.meta}")
 
 
 @contextmanager
-def trace(meta):
+def trace(meta: str):
     test_name = os.environ["PYTEST_CURRENT_TEST"]
     start = datetime.now()
-    span = [test_name, start, None, meta]
-    TRACE_STACK.append(span)
+    span = Span(test_name, start, meta)
+    SPAN_STACK.append(span)
     try:
         yield span
     finally:
         end = datetime.now()
-        span[2] = end
-        _trace = TRACE_STACK.pop()
-        if not TRACE_STACK:
-            CLOSED_TRACES.append(_trace)
+        SPAN_STACK.pop()
+        if not SPAN_STACK:
+            CLOSED_TRACES.append(ClosedTrace(test_name, start, end=end, meta=meta))
 
 
 class DeflakePlugin:
