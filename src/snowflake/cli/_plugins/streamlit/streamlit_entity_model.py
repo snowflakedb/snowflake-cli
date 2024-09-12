@@ -77,7 +77,7 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel):
         _artifacts = []
         for artifact in self.artifacts:
             if "*" in str(artifact):
-                root = artifact.parent if "**" not in str(artifact) else Path(".")
+                root = artifact.parent.absolute() if "**" not in str(artifact) else Path(".")
                 _artifacts.extend([item for item in root.glob(artifact.name)])
             else:
                 _artifacts.append(artifact)

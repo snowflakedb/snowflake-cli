@@ -579,10 +579,10 @@ def test_deploy_procedure_with_glob_patterns_in_src(
         )
         assert result.exit_code == 0, result.output
         assert any(
-            "app.py" in str(call.kwargs["local_path"])
+            "app.py" in str(call.kwargs.get("local_path"))
             for call in mock_sm_put.mock_calls
         )
         assert any(
-            "procedures.py" in str(call.kwargs["local_path"])
+            "procedures.py" in str(call.kwargs.get("local_path"))
             for call in mock_sm_put.mock_calls
         )

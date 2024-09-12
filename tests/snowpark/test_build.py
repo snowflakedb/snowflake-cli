@@ -31,6 +31,6 @@ def test_snowpark_build_no_deprecated_warnings_by_default(
 
 
 def test_build_with_glob_patterns_in_artifacts(runner, project_directory):
-    with project_directory("snowpark_glob_patterns"):
+    with project_directory("glob_patterns"):
         result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
         assert result.exit_code == 0

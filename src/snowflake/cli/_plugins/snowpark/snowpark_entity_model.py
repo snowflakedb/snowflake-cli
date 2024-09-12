@@ -90,12 +90,12 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel):
             elif isinstance(artifact, PathMapping):
                 if "*" in str(artifact.src):
                     root = (
-                        artifact.src.parent if not "**" in str(artifact) else Path(".")
+                        artifact.src.parent.absolute() if not "**" in str(artifact) else Path(".").absolute()
                     )
                     _artifacts.extend(
                         [
                             PathMapping(src=item, dest=artifact.dest)
-                            for item in root.parent.glob(artifact.src.name)
+                            for item in root.glob(artifact.src.name)
                         ]
                     )
                 else:
