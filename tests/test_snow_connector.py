@@ -89,7 +89,9 @@ def test_command_context_is_passed_to_snowflake_connection(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._app.snow_connector.command_info")
 @mock.patch("snowflake.cli._app.snow_connector._load_pem_to_der")
+@mock.patch("snowflake.cli._app.snow_connector._load_pem_from_file")
 def test_private_key_loading_and_aliases(
+    mock_load_pem_from_file,
     mock_load_pem_to_der,
     mock_command_info,
     mock_connect,
@@ -117,6 +119,7 @@ def test_private_key_loading_and_aliases(
             overrides[user_input] = override_value
 
     mock_command_info.return_value = "SNOWCLI.SQL"
+    mock_load_pem_from_file.return_value = b"bytes"
     mock_load_pem_to_der.return_value = b"bytes"
 
     conn_dict = get_connection_dict(connection_name)
@@ -141,7 +144,8 @@ def test_private_key_loading_and_aliases(
             **expected_private_key_args,
         )
         if expected_private_key_file_value is not None:
-            mock_load_pem_to_der.assert_called_with(expected_private_key_file_value)
+            mock_load_pem_from_file.assert_called_with(expected_private_key_file_value)
+            mock_load_pem_to_der.assert_called_with(b"bytes")
 
 
 @mock.patch.dict(os.environ, {}, clear=True)

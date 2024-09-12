@@ -85,12 +85,12 @@ def test_snowpark_upgrades_with_external_access(
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.functions.0.external_access_integrations",
-            value=["snowflake_docs_access_integration_tmp"],
+            value=["snowflake_docs_access_integration"],
         )
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.procedures.0.external_access_integrations",
-            value=["snowflake_docs_access_integration_tmp"],
+            value=["snowflake_docs_access_integration"],
         )
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
@@ -117,13 +117,13 @@ def test_snowpark_upgrades_with_external_access(
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.functions.0.external_access_integrations",
-            value=["CLI_TEST_INTEGRATION_TMP"],
+            value=["CLI_TEST_INTEGRATION"],
         )
 
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="snowpark.procedures.0.external_access_integrations",
-            value=["CLI_TEST_INTEGRATION_TMP"],
+            value=["CLI_TEST_INTEGRATION"],
         )
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
