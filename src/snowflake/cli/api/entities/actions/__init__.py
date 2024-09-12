@@ -1,7 +1,7 @@
 from enum import Enum
-from typing import Callable, Optional, Type
+from typing import Callable, Optional
 
-from snowflake.cli.api.entities.entity_base import EntityBase
+ENTITY_ACTION_ATTR = "_entity_action"
 
 
 class EntityAction:
@@ -27,12 +27,17 @@ class EntityAction:
     def command_path(self) -> list[str]:
         return self.key.split("_")
 
-    def as_implemented_by(self, entity: Type[EntityBase]):
+    def implementation(self):
         """
         Registers the wrapped function against this action for the given entity type.
-        TODO: implement
         """
-        return entity.implements(self)
+
+        def wrapper(func):
+            # TODO: implement rules to ensure that function fits the expected shape of arguments for the action
+            setattr(func, ENTITY_ACTION_ATTR, self)
+            return func
+
+        return wrapper
 
 
 class EntityActions(EntityAction, Enum):

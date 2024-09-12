@@ -1,15 +1,12 @@
 import logging
 from typing import Callable, Generic, Type, TypeVar, get_args
 
-from snowflake.cli.api.entities.actions import EntityAction
+from snowflake.cli.api.entities.actions import ENTITY_ACTION_ATTR, EntityAction
 
 logger = logging.getLogger(__name__)
 
 
 T = TypeVar("T")
-
-
-ENTITY_ACTION_ATTR = "_entity_action"
 
 
 class EntityBase(Generic[T]):
@@ -64,10 +61,4 @@ class EntityBase(Generic[T]):
         """
         Registers the wrapped function against the given action for this entity type.
         """
-
-        def wrapper(func):
-            # TODO: implement rules to ensure that function fits the expected shape of arguments for the action
-            setattr(func, ENTITY_ACTION_ATTR, action)
-            return func
-
-        return wrapper
+        return action.implementation()

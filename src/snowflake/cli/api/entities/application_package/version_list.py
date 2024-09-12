@@ -18,9 +18,8 @@ from snowflake.cli.api.entities.application_package.entity import (
     ApplicationPackageEntity,
 )
 
-ApplicationPackageEntity.implements(EntityActions.VERSION_LIST)
 
-
+@ApplicationPackageEntity.implements(EntityActions.VERSION_LIST)
 def action_version_list(self, ctx: ActionContext):
     """Lists all versions defined in an application package."""
     pass

@@ -81,7 +81,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     A Native App application package.
     """
 
-    @EntityActions.BUNDLE.implementation
+    @EntityActions.BUNDLE.implementation()
     def action_bundle(self, ctx: ActionContext):
         """
         Prepares a local folder with configured app artifacts.
@@ -96,7 +96,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             artifacts=model.artifacts,
         )
 
-    @EntityActions.DEPLOY.implementation
+    @EntityActions.DEPLOY.implementation()
     def action_deploy(
         self,
         ctx: ActionContext,
@@ -201,7 +201,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 deploy_to_scratch_stage_fn=lambda *args: None,
             )
 
-    @EntityActions.DROP.implementation
+    @EntityActions.DROP.implementation()
     def action_drop(
         self,
         ctx: ActionContext,
@@ -224,7 +224,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             force_drop=force,
         )
 
-    @EntityActions.VALIDATE.implementation
+    @EntityActions.VALIDATE.implementation()
     def action_validate(self, ctx: ActionContext):
         """
         Uploads and validates the setup script set in manifest.yml.

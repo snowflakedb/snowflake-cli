@@ -21,9 +21,8 @@ from snowflake.cli.api.entities.application_package.entity import (
     ApplicationPackageEntity,
 )
 
-ApplicationPackageEntity.implements(EntityActions.VERSION_DROP)
 
-
+@ApplicationPackageEntity.implements(EntityActions.VERSION_DROP)
 def action_version_drop(
     self,
     ctx: ActionContext,

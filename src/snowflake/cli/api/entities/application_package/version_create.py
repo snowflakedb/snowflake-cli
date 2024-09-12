@@ -24,9 +24,8 @@ from snowflake.cli.api.entities.application_package.entity import (
     InteractiveBool,
 )
 
-ApplicationPackageEntity.implements(EntityActions.VERSION_CREATE)
 
-
+@ApplicationPackageEntity.implements(EntityActions.VERSION_CREATE)
 def action_version_create(
     entity: "ApplicationPackageEntity",
     ctx: ActionContext,
