@@ -7,5 +7,4 @@ if len(version := VERSION.split(".")) > 3:
 else:
     version.append("0")
 
-
-print(f"{'.'.join(version)}")
+print(".".join(version))
