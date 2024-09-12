@@ -1,5 +1,7 @@
 from enum import Enum
-from typing import Callable, Optional
+from typing import Callable, Optional, Type
+
+from snowflake.cli.api.entities.entity_base import EntityBase
 
 
 class EntityAction:
@@ -25,23 +27,12 @@ class EntityAction:
     def command_path(self) -> list[str]:
         return self.key.split("_")
 
-    def implementation(self):
+    def as_implemented_by(self, entity: Type[EntityBase]):
         """
-        Validates the wrapped function's signature against the stored declaration
-        signature, and registers it as the implementation for this action (requires
-        EntityBase class __metaclass__).
+        Registers the wrapped function against this action for the given entity type.
+        TODO: implement
         """
-
-        def wrapper(func):
-            # TODO: implement RULES when we have self.definition:
-            # 1. For annotations with the same name, impl. must have same type or narrower
-            # 2. If both have same optional arg, copy default over impl. sig if no default given in impl.
-            # sig = inspect.signature(func)
-
-            func.entity_action = self
-            return func
-
-        return wrapper
+        return entity.implements(self)
 
 
 class EntityActions(EntityAction, Enum):

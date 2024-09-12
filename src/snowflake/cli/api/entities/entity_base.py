@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, Generic, Type, TypeVar, get_args
+from typing import Callable, Generic, Type, TypeVar, get_args
 
 from snowflake.cli.api.entities.actions import EntityAction
 
@@ -9,36 +9,34 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+ENTITY_ACTION_ATTR = "_entity_action"
+
+
 class EntityBase(Generic[T]):
     """
     Base class for the fully-featured entity classes.
     """
 
-    _entity_actions_attrs: Dict[str, EntityAction]
-
-    class __metaclass__(type):  # noqa: N801
-        def __new__(cls, name, bases, attr_dict):
-            """
-            Discover @EntityAction.impl() annotations.
-            """
-            kls = type.__new__(cls, name, bases, attr_dict)
-
-            kls._entity_actions_attrs = {}  # noqa: SLF001
-            for (key, func) in attr_dict.items():
-                try:
-                    action: EntityAction = getattr(func, "entity_action", None)
-                    logger.warning(
-                        "Found entity action %s (%s) on %s", key, action, name
-                    )
-                    kls._entity_actions_attrs[action.key] = key  # noqa: SLF001
-
-                except AttributeError:
-                    pass
-
-            return kls
-
     def __init__(self, entity_model: T):
         self._entity_model = entity_model
+
+    @classmethod
+    def get_action_callable(cls, action: EntityAction) -> Callable:
+        """
+        Returns a generic action callable that is _not_ bound to a particular entity.
+        """
+        fn = cls.__dict__.get(action.key, None)
+
+        if fn is None:
+            raise KeyError(f"{action.key} does not exist on {cls.__name__}")
+
+        if not callable(fn) or not hasattr(fn, ENTITY_ACTION_ATTR):
+            # expected an action callable; got something else
+            raise KeyError(
+                f"{action.key} exists on {cls.__name__} but is not an action implementation"
+            )
+
+        return fn
 
     @classmethod
     def get_entity_model_type(cls) -> Type[T]:
@@ -55,16 +53,21 @@ class EntityBase(Generic[T]):
         Checks whether this entity supports the given action.
         An entity is considered to support an action if it implements a method with the action name.
         """
-        return action.key in cls._entity_actions_attrs
+        try:
+            cls.get_action_callable(action.key)
+            return True
+        except KeyError:
+            return False
 
     @classmethod
-    def get_action_callable(cls, action: EntityAction) -> Callable:
+    def implements(cls, action: EntityAction):
         """
-        Returns a generic action callable that is _not_ bound to a particular entity.
+        Registers the wrapped function against the given action for this entity type.
         """
-        try:
-            return cls._entity_actions_attrs[action.key]
-        except KeyError:
-            raise ValueError(
-                f"Entity {cls.__name__} does not implement action {action}"
-            )
+
+        def wrapper(func):
+            # TODO: implement rules to ensure that function fits the expected shape of arguments for the action
+            setattr(func, ENTITY_ACTION_ATTR, action)
+            return func
+
+        return wrapper

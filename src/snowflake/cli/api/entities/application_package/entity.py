@@ -32,7 +32,11 @@ from snowflake.cli._plugins.workspace.manager import ActionContext
 from snowflake.cli.api.commands.flags import is_tty_interactive
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.actions import EntityActions
-from snowflake.cli.api.entities.actions.lib import HelpText, ParameterDeclarations
+from snowflake.cli.api.entities.actions.lib import (
+    DefaultValue,
+    HelpText,
+    ParameterDeclarations,
+)
 from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.entities.entity_base import EntityBase
 from snowflake.cli.api.entities.utils import (
@@ -63,7 +67,7 @@ from snowflake.connector.cursor import DictCursor
 InteractiveBool = Annotated[
     bool,
     HelpText(""),
-    DefaultFactory(is_tty_interactive),
+    DefaultValue(factory=is_tty_interactive),
 ]
 
 ForceBool = Annotated[
@@ -76,60 +80,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     """
     A Native App application package.
     """
-
-    @EntityActions.VERSION_CREATE.implementation
-    def action_version_create(
-        self,
-        ctx: ActionContext,
-        version: Annotated[
-            Optional[str],
-            HelpText(
-                """
-                Version to define in your application package.
-                If the version already exists, an auto-incremented patch is added to the version instead.
-                Defaults to the version specified in the `manifest.yml` file.
-            """
-            ),
-        ],
-        patch: Annotated[
-            Optional[int],
-            HelpText(
-                """
-                The patch number you want to create for an existing version.
-                Defaults to undefined if it is not set, which means the Snowflake CLI either uses
-                the patch specified in the `manifest.yml` file or automatically generates a new patch number.
-            """
-            ),
-        ],
-        interactive: InteractiveBool = is_tty_interactive(),
-        force: ForceBool = False,
-    ):
-        """
-        Adds a new patch to the provided version defined in your application package.
-        If the version does not exist, creates a version with patch 0.
-        """
-        pass
-
-    @EntityActions.VERSION_DROP.implementation
-    def action_version_drop(
-        self,
-        ctx: ActionContext,
-        version: Annotated[
-            Optional[str],
-            HelpText(""),
-        ] = None,
-    ):
-        """
-        Drops a version defined in your application package.
-        Versions can either be passed in as an argument to the command or read from the `manifest.yml` file.
-        Dropping patches is not allowed.
-        """
-        pass
-
-    @EntityActions.VERSION_LIST.implementation
-    def action_version_list(self, ctx: ActionContext):
-        """Lists all versions defined in an application package."""
-        pass
 
     @EntityActions.BUNDLE.implementation
     def action_bundle(self, ctx: ActionContext):
@@ -307,6 +257,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             deploy_to_scratch_stage_fn=deploy_to_scratch_stage_fn,
         )
         ctx.console.message("Setup script is valid")
+
+    # TODO: move static methods out to another class (superclass?)
 
     @staticmethod
     def bundle(

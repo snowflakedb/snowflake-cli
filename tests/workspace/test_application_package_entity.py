@@ -21,8 +21,8 @@ from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
 )
-from snowflake.cli._plugins.workspace.action_context import ActionContext
-from snowflake.cli.api.entities.application_package_entity import (
+from snowflake.cli._plugins.workspace.manager import ActionContext
+from snowflake.cli.api.entities.application_package.entity import (
     ApplicationPackageEntity,
 )
 from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (

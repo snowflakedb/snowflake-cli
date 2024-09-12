@@ -32,7 +32,7 @@ from snowflake.cli._plugins.nativeapp.utils import (
     needs_confirmation,
 )
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.application_package_entity import (
+from snowflake.cli.api.entities.application_package.entity import (
     ApplicationPackageEntity,
 )
 from snowflake.cli.api.entities.utils import (

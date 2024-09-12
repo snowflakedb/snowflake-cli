@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import Dict, List, Union, get_args
 
 from snowflake.cli.api.entities.application_entity import ApplicationEntity
-from snowflake.cli.api.entities.application_package_entity import (
+from snowflake.cli.api.entities.application_package.entity import (
     ApplicationPackageEntity,
 )
 from snowflake.cli.api.entities.snowpark_entity import FunctionEntity, ProcedureEntity
