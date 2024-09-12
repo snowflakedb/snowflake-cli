@@ -19,7 +19,6 @@ from pathlib import Path
 from click import ClickException
 from snowflake.cli._plugins.workspace.manager import (
     WorkspaceManager,
-    signature_to_typer_params,
 )
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
@@ -32,6 +31,7 @@ from snowflake.cli.api.commands.snow_typer import (
     SnowTyperFactory,
 )
 from snowflake.cli.api.entities.actions import EntityAction, EntityActions
+from snowflake.cli.api.entities.actions.lib import signature_to_typer_params
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.schemas.entities.entities import (
