@@ -35,6 +35,31 @@ def test_banner_shows_up_in_command_invocation(build_runner):
     "snowflake.cli._app.version_check._VersionCache.get_last_version",
     lambda _: Version("2.0.0"),
 )
+def test_banner_do_not_shows_up_if_silent(build_runner):
+    runner = build_runner()
+    result = runner.invoke(["connection", "set-default", "default", "--silent"])
+    msg = "New version of Snowflake CLI available. Newest: 2.0.0, current: 1.0.0"
+    assert msg not in result.output
+
+
+@patch("snowflake.cli._app.version_check._VersionCache._read_latest_version")
+def test_version_check_exception_are_handled_safely(
+    mock_read_latest_version, build_runner
+):
+    mock_read_latest_version.side_effect = Exception("Error")
+    runner = build_runner()
+    result = runner.invoke(["connection", "set-default", "default"])
+
+    msg = "New version of Snowflake CLI available. Newest: 2.0.0, current: 1.0.0"
+    assert result.exit_code == 0
+    assert msg not in result.output
+
+
+@patch("snowflake.cli._app.version_check.VERSION", "1.0.0")
+@patch(
+    "snowflake.cli._app.version_check._VersionCache.get_last_version",
+    lambda _: Version("2.0.0"),
+)
 def test_get_new_version_msg_message_if_new_version_available():
     msg = get_new_version_msg()
     assert (
