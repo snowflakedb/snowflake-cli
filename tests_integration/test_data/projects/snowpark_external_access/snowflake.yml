@@ -9,7 +9,7 @@ snowpark:
       signature:
       returns: string
       external_access_integrations:
-        - snowflake_docs_access_integration_tmp
+        - snowflake_docs_access_integration
       secrets:
         generic_secret: snowcli_db.public.test_secret
   procedures:
@@ -18,6 +18,6 @@ snowpark:
       signature:
       returns: string
       external_access_integrations:
-        - snowflake_docs_access_integration_tmp
+        - snowflake_docs_access_integration
       secrets:
         generic_secret: snowcli_db.public.test_secret
