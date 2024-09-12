@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 import logging
 from pathlib import Path
 
 from click import ClickException
-from snowflake.cli._plugins.workspace.manager import WorkspaceManager
+from snowflake.cli._plugins.workspace.manager import (
+    WorkspaceManager,
+    signature_to_typer_params,
+)
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     _options_decorator_factory,
@@ -119,7 +123,7 @@ class EntityCommandGroup(SnowTyperFactory):
         """Registers the provided action at the given name"""
 
         @with_project_definition()
-        def _action_executor(**options) -> CommandResult:
+        def _action_executor(*args, **kwargs) -> CommandResult:
             # TODO: what message result are we returning? do we throw them away for multi-step actions (i.e deps?)
             # TODO: how do we know if a command needs connection?
             cli_context = get_cli_context()
@@ -127,17 +131,15 @@ class EntityCommandGroup(SnowTyperFactory):
                 project_definition=cli_context.project_definition,
                 project_root=cli_context.project_root,
             )
-            # entity = ws.get_entity(self.target_id)
-            ws.perform_action(self.target_id, action)
+            ws.perform_action(self.target_id, action, *args, **kwargs)
             return MessageResult(
                 f"Successfully performed {action.verb} on {self.target_id}."
             )
 
         # add typer options/arguments and metadata
-        # FIXME: need to get these both here and in WorkspaceManager
         fn = entity_type.get_action_callable()
-        params = entity_type.get_action_params_as_inspect()
-
+        sig = inspect.signature(fn)
+        params = signature_to_typer_params(sig)
         _action_executor = _options_decorator_factory(_action_executor, params)
         _action_executor.__doc__ = fn.__doc__
 

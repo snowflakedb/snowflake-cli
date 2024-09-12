@@ -1,12 +1,10 @@
 import functools
-from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import List, Optional
 
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.actions import EntityAction
+from snowflake.cli.api.entities.actions.lib import ActionContext
 from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.entities.entity_base import EntityBase
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
@@ -19,24 +17,6 @@ from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
 )
 from snowflake.cli.api.project.util import to_identifier
-
-
-@dataclass
-class ActionContext:
-    """
-    An object that is passed to each action when called by WorkspaceManager.
-    """
-
-    force: bool
-    interactive: bool
-
-    console: AbstractConsole
-    project_root: Path
-    default_role: str
-    default_warehouse: Optional[str]
-
-    def clone(self, **kwargs) -> "ActionContext":
-        return replace(self, **kwargs)
 
 
 class WorkspaceManager:
@@ -59,13 +39,13 @@ class WorkspaceManager:
         if cli_context.connection.warehouse:
             self.default_warehouse = to_identifier(cli_context.connection.warehouse)
 
-    def _get_model(self, id: str):
-        entity_model = self._project_definition.entities.get(id, None)
+    def _get_model(self, entity_id: str):
+        entity_model = self._project_definition.entities.get(entity_id, None)
         if entity_model is None:
-            raise ValueError(f"No such entity ID: {id}")
+            raise ValueError(f"No such entity ID: {entity_id}")
         return entity_model
 
-    @functools.cached_property
+    @functools.cache
     def get_entity(self, entity_id: str) -> EntityBase:
         """
         Returns an entity instance with the given ID. If exists, reuses the
@@ -75,9 +55,6 @@ class WorkspaceManager:
         entity_model_cls = entity_model.__class__
         entity_cls = v2_entity_model_to_entity_map[entity_model_cls]
         return entity_cls(entity_model)
-
-    def get_dependency_ids(self, entity_id: str) -> List[str]:
-        self._get_model(entity_id).meta
 
     def perform_action(self, entity_id: str, action: EntityAction, *args, **kwargs):
         """

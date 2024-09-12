@@ -29,11 +29,9 @@ from snowflake.cli._plugins.nativeapp.utils import (
 )
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.manager import ActionContext
-from snowflake.cli.api.commands.flags import is_tty_interactive
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.actions import EntityActions
 from snowflake.cli.api.entities.actions.lib import (
-    DefaultValue,
     HelpText,
     ParameterDeclarations,
 )
@@ -67,7 +65,6 @@ from snowflake.connector.cursor import DictCursor
 InteractiveBool = Annotated[
     bool,
     HelpText(""),
-    DefaultValue(factory=is_tty_interactive),
 ]
 
 ForceBool = Annotated[
@@ -103,13 +100,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         prune: Annotated[
             Optional[bool],
             HelpText(
-                dedent(
-                    """
-                    Whether to delete specified files from the stage if they don't exist locally.
-                    If set, the command deletes files that exist in the stage, but not in the local filesystem.
-                    This option cannot be used when paths are specified.
                 """
-                ).strip()
+                Whether to delete specified files from the stage if they don't exist locally.
+                If set, the command deletes files that exist in the stage, but not in the local filesystem.
+                This option cannot be used when paths are specified.
+                """
             ),
         ] = None,
         recursive: Annotated[
@@ -122,14 +117,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         paths: Annotated[
             Optional[List[Path]],
             HelpText(
-                dedent(
-                    """
-                    Paths, relative to the the project root, of files or directories you want to upload to a stage. If a file is
-                    specified, it must match one of the artifacts src pattern entries in snowflake.yml. If a directory is
-                    specified, it will be searched for subfolders or files to deploy based on artifacts src pattern entries. If
-                    unspecified, the command syncs all local changes to the stage.
                 """
-                ).strip()
+                Paths, relative to the the project root, of files or directories you want to upload to a stage. If a file is
+                specified, it must match one of the artifacts src pattern entries in snowflake.yml. If a directory is
+                specified, it will be searched for subfolders or files to deploy based on artifacts src pattern entries. If
+                unspecified, the command syncs all local changes to the stage.
+                """
             ),
         ] = None,
         validate: Annotated[
