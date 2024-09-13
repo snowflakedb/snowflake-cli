@@ -35,15 +35,6 @@ class CommandArguments(CliContextArguments):
     kwargs: NotRequired[Dict[str, Any]]
 
 
-
-class CommandSignature(TypedDict):
-    name: str
-    args: List[str]
-    arg_types: TypeDef
-    arg_defaults: Dict[str, Any]
-    return_type: str
-
-
 def workspace_command(
     server: LanguageServer,
     name: str,
@@ -70,6 +61,8 @@ def workspace_command(
                 if requires_project and "project_path" not in args:
                     raise ValueError("project_path missing, but requires_connection=True")
 
+                # TODO: validation of args.args / args.kwargs based on shape of actual command...
+
                 with fork_cli_context(**args):
                     return func(*args.get("args", []), **args.get("kwargs", {}))
                 
@@ -81,54 +74,3 @@ def workspace_command(
         return wrapper
 
     return _decorator
-
-
-def to_typedef(annotation: any) -> str:
-    # if not isinstance(annotation, type):
-    #     raise ValueError(f"expected {annotation} to be a type!")
-    
-    # return type(annotation).__name__
-
-    if is_typeddict(annotation):
-        print('hi')
-    elif is_typeddict(type(annotation)):
-        print('hiback')
-
-    return annotation
-
-    # print(annotation)
-
-    # if hasattr(annotation, '__annotations__'):
-    #     tuples = annotation.__annotations__
-    #     print(tuples)
-
-
-def generate_signature(func: Callable) -> CommandSignature:    
-    signature = inspect.signature(func)
-    args = list(signature.parameters.keys())
-    arg_types = { k: to_typedef(v.annotation) for k, v in signature.parameters.items() if v.annotation is not inspect.Parameter.empty }
-    arg_defaults = { k: v.default for k, v in signature.parameters.items() if v.default is not inspect.Parameter.empty }
-    return_type = signature.return_annotation if signature.return_annotation is not inspect.Signature.empty else None
-
-    print(signature)
-    print(get_type_hints(func))
-
-    return CommandSignature(
-        name=func.__name__,
-        args=args,
-        arg_types=arg_types,
-        arg_defaults=arg_defaults,
-        return_type=return_type
-    )
-
-class Ghi(TypedDict):
-    x: List[str]
-    y: Dict[str, int]
-
-class Abc(TypedDict):
-    d: int
-    e: str
-    f: Optional[Ghi]
-
-def myfunc(a: int, b: int | None, c: Ghi, d: Abc, e: Union[Abc, Ghi]) -> Abc:
-    pass
