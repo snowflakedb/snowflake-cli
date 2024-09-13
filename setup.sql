@@ -1,4 +1,4 @@
-<!--
+/*
  Copyright (c) 2024 Snowflake Inc.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +12,6 @@
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  See the License for the specific language governing permissions and
  limitations under the License.
- -->
+*/
 
-By when protect true news. Magazine learn car how represent particularly similar. May expect degree town oil while.
-Now project statement treatment myself look fine.
+select 1;

@@ -13,21 +13,20 @@
 # limitations under the License.
 from __future__ import annotations
 
-from typing import cast
+import os
+from pathlib import Path
 
 import factory
-from snowflake.cli.api.project.schemas.entities.entities import Entity
+import yaml
 from snowflake.cli.api.project.schemas.native_app.application import Application
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.package import Package
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV10,
-    DefinitionV11,
-    DefinitionV20,
-    ProjectProperties,
     _ProjectDefinitionBase,
 )
-from snowflake.cli.api.utils.types import Context
+
+from tests.testing_utils.files_and_dirs import clear_none_values, merge_left
 
 
 class FileFactory(factory.Factory):
@@ -77,21 +76,42 @@ class PackageFactory(factory.Factory):
     class Meta:
         model = Package
 
+    # TODO: rewrite _create, no validation, and return none if no arguments are passed in
+    distribution = None
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        if len(kwargs) == 1 and "distribution" in kwargs:
+            return None
+        return cls._build(model_class, *args, **kwargs)
+
 
 class ApplicationFactory(factory.Factory):
     class Meta:
         model = Application
+
+    # TODO: rewrite _create, no validation, and return none if no arguments are passed in
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        if len(kwargs) == 0:
+            return None
+        return cls._build(model_class, *args, **kwargs)
 
 
 class NativeAppFactory(factory.Factory):
     class Meta:
         model = NativeApp
 
-    class Params:
-        manifest = factory.SubFactory(NativeAppManifestFactory)
-
+    # TODO: package and application should be none unless they specify it
+    # TODO: artifacts factory, should be PathMappingFactory?
+    # Should be exactly what's passed in, if with src, dest or just src, write src
+    # I dictate that interface for artifacts factory. artifacts__mapping: [{src: , dest:},{src:, dest:}] OR artifacts__paths: [src, src]
     name = factory.Faker("word")
     artifacts: list = []
+    bundle_root = None
+    deploy_root = None
+    generated_root = None
+    scratch_stage = None
     package = factory.SubFactory(PackageFactory)
     application = factory.SubFactory(ApplicationFactory)
 
@@ -110,47 +130,44 @@ class DefinitionV10Factory(ProjectDefinitionBaseFactory):
     definition_version = "1"
     native_app = factory.SubFactory(NativeAppFactory)
 
+    # @classmethod
+    # def _create_with_merge(cls, model_class, *args, **kwargs):
+    #     if "merge_project_definition" in kwargs:
+    #         merge_definition = kwargs.pop("merge_project_definition")
+    #     obj = cls._build(model_class, *args, **kwargs)
+    #     pdf_dict = obj.model_dump()
+    #     merge_left(pdf_dict, merge_definition)
+    #     with open("snowflake.yml", "w") as file:
+    #         yaml.dump(pdf_dict, file)
+    #     return cls._build(model_class, *args, pdf_dict)
 
-class DefinitionV11Factory(DefinitionV10Factory):
-    class Meta:
-        model = DefinitionV11
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        temp_dir = os.getcwd()
+        if "temp_dir" in kwargs:
+            temp_dir = kwargs.pop("temp_dir")
 
-    definition_version = "1.1"
-    env: dict[str, str] = {}
+        if "merge_project_definition" in kwargs:
+            merge_definition = kwargs.pop("merge_project_definition")
+        obj = cls._build(model_class, *args, **kwargs)
 
+        pdf_dict = obj.model_dump()
+        if merge_definition:
+            merge_left(pdf_dict, merge_definition)
+            pdf_dict = clear_none_values(pdf_dict)
+            # TODO: if we are to return a new instance with merged props, we need to figure this part out
+            obj = DefinitionV10.model_construct(values=pdf_dict)
+        with open(Path(temp_dir) / "snowflake.yml", "w") as file:
+            yaml.dump(pdf_dict, file)
 
-class DefinitionV20Factory(DefinitionV10Factory):
-    class Meta:
-        model = DefinitionV20
-
-    definition_version = "2.0"
-    entities: dict[str, Entity] = {}
-
-
-class ProjectDefinition(factory.declarations.BaseDeclaration):
-    SUB_FACTORIES = {
-        cast(ProjectDefinitionBaseFactory, cls).definition_version: factory.SubFactory(
-            cls
-        )
-        for cls in (
-            ProjectDefinitionBaseFactory,
-            DefinitionV10Factory,
-            DefinitionV11Factory,
-            DefinitionV20Factory,
-        )
-    }
-
-    def evaluate(self, instance, step, extra):
-        sub_factory = self.SUB_FACTORIES[instance.definition_version]
-        return sub_factory.evaluate(instance, step, extra)
+        return obj
 
 
-class ProjectPropertiesFactory(factory.Factory):
-    class Meta:
-        model = ProjectProperties
-
-    class Params:
-        definition_version = "1.1"  # PDF v1.1 is the latest public version
-
-    project_definition = ProjectDefinition()
-    project_context: Context = {}
+# TODO:
+# - artifacts Factory
+# - clean up
+# DONE - don't write null to yml
+# - rewrite some sample tests
+#  after POC todos:
+# - pdf v1.1
+# - pdf v2
