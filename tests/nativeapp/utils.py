@@ -67,17 +67,21 @@ TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO = f"{TEARDOWN_PROCESSOR}.get_existing_a
 TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO = (
     f"{TEARDOWN_PROCESSOR}.get_existing_app_pkg_info"
 )
-TEARDOWN_PROCESSOR_IS_CORRECT_OWNER = f"{TEARDOWN_MODULE}.ensure_correct_owner"
-TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT = f"{TEARDOWN_PROCESSOR}.drop_generic_object"
 
 RUN_PROCESSOR_GET_EXISTING_APP_INFO = f"{RUN_PROCESSOR}.get_existing_app_info"
 RUN_PROCESSOR_APP_POST_DEPLOY_HOOKS = f"{RUN_PROCESSOR}.app_post_deploy_hooks"
 
 FIND_VERSION_FROM_MANIFEST = f"{VERSION_MODULE}.find_version_info_in_manifest_file"
 
-APP_ENTITY = "snowflake.cli.api.entities.application_entity.ApplicationEntity"
+APP_ENTITY_MODULE = "snowflake.cli.api.entities.application_entity"
+APP_ENTITY = f"{APP_ENTITY_MODULE}.ApplicationEntity"
 APP_ENTITY_GET_EXISTING_APP_INFO = f"{APP_ENTITY}.get_existing_app_info"
 APP_ENTITY_GET_EXISTING_VERSION_INFO = f"{APP_ENTITY}.get_existing_version_info"
+APP_ENTITY_DROP_GENERIC_OBJECT = f"{APP_ENTITY_MODULE}.drop_generic_object"
+APP_ENTITY_IS_CORRECT_OWNER = f"{APP_ENTITY_MODULE}.ensure_correct_owner"
+APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION = (
+    f"{APP_ENTITY}.get_objects_owned_by_application"
+)
 
 APP_PACKAGE_ENTITY = (
     "snowflake.cli.api.entities.application_package_entity.ApplicationPackageEntity"
