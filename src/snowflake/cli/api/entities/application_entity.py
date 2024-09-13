@@ -170,8 +170,29 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             deploy_package=deploy_package,
         )
 
-    def action_drop(*args, **kwargs):
-        pass
+    def action_drop(
+        self,
+        ctx: ActionContext,
+        interactive: bool,
+        force_drop: bool = False,
+        cascade: Optional[bool] = None,
+        *args,
+        **kwargs,
+    ):
+        model = self._entity_model
+        app_name = model.fqn.identifier
+        if model.meta and model.meta.role:
+            app_role = model.meta.role
+        else:
+            app_role = ctx.default_role
+        self.drop(
+            console=ctx.console,
+            app_name=app_name,
+            app_role=app_role,
+            auto_yes=force_drop,
+            interactive=interactive,
+            cascade=cascade,
+        )
 
     @classmethod
     def drop(
