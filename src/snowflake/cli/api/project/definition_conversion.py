@@ -49,9 +49,7 @@ def convert_project_definition_to_v2(
     snowpark_data = convert_snowpark_to_v2_data(pd.snowpark) if pd.snowpark else {}
     streamlit_data = convert_streamlit_to_v2_data(pd.streamlit) if pd.streamlit else {}
     native_app_data = (
-        convert_native_app_to_v2_data(
-            project_root, pd.definition_version, pd.native_app
-        )
+        convert_native_app_to_v2_data(project_root, pd.native_app)
         if pd.native_app
         else {}
     )
@@ -171,7 +169,7 @@ def convert_streamlit_to_v2_data(streamlit: Streamlit) -> Dict[str, Any]:
 
 
 def convert_native_app_to_v2_data(
-    project_root, definition_version: str | int, native_app: NativeApp
+    project_root, native_app: NativeApp
 ) -> Dict[str, Any]:
     def _make_meta(obj: Application | Package):
         meta = {}
