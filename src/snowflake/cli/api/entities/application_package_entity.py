@@ -100,6 +100,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             prune=prune,
             recursive=recursive,
             paths=paths,
+            print_diff=True,
             validate=validate,
             stage_fqn=stage_fqn or f"{package_name}.{model.stage}",
             package_warehouse=(
@@ -192,6 +193,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         prune: bool,
         recursive: bool,
         paths: List[Path],
+        print_diff: bool,
         validate: bool,
         stage_fqn: str,
         post_deploy_hooks: list[PostDeployHook] | None,
@@ -239,7 +241,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 recursive=recursive,
                 stage_fqn=stage_fqn,
                 local_paths_to_sync=paths,
-                print_diff=True,
+                print_diff=print_diff,
             )
 
         if post_deploy_hooks:

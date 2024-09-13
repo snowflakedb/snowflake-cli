@@ -338,6 +338,7 @@ class NativeAppManager(SqlExecutionMixin):
             prune=prune,
             recursive=recursive,
             paths=local_paths_to_sync,
+            print_diff=print_diff,
             validate=validate,
             stage_fqn=stage_fqn or self.stage_fqn,
             package_warehouse=self.package_warehouse,
