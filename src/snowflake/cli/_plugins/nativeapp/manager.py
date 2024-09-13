@@ -20,7 +20,7 @@ from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import Generator, List, Optional, TypedDict
+from typing import Generator, List, Optional
 
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import (
@@ -38,6 +38,7 @@ from snowflake.cli._plugins.stage.diff import (
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.application_entity import (
     ApplicationEntity,
+    ApplicationOwnedObject,
 )
 from snowflake.cli.api.entities.application_package_entity import (
     ApplicationPackageEntity,
@@ -56,8 +57,6 @@ from snowflake.cli.api.project.util import (
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import DictCursor, ProgrammingError
-
-ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
 
 class NativeAppCommandProcessor(ABC):
@@ -246,32 +245,19 @@ class NativeAppManager(SqlExecutionMixin):
             package_role=self.package_role,
         )
 
-    def get_objects_owned_by_application(self) -> List[ApplicationOwnedObject]:
-        """
-        Returns all application objects owned by this application.
-        """
-        with self.use_role(self.app_role):
-            results = self._execute_query(
-                f"show objects owned by application {self.app_name}"
-            ).fetchall()
-            return [{"name": row[1], "type": row[2]} for row in results]
+    def get_objects_owned_by_application(self):
+        return ApplicationEntity.get_objects_owned_by_application(
+            app_name=self.app_name,
+            app_role=self.app_role,
+        )
 
     def _application_objects_to_str(
         self, application_objects: list[ApplicationOwnedObject]
     ) -> str:
-        """
-        Returns a list in an "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
-        (COMPUTE_POOL) POOL_NAME
-        (DATABASE) DB_NAME
-        (SCHEMA) DB_NAME.PUBLIC
-        ...
-        """
-        return "\n".join(
-            [self._application_object_to_str(obj) for obj in application_objects]
-        )
+        return ApplicationEntity.application_objects_to_str(application_objects)
 
-    def _application_object_to_str(self, obj: ApplicationOwnedObject) -> str:
-        return f"({obj['type']}) {obj['name']}"
+    def _application_object_to_str(self, obj: ApplicationOwnedObject):
+        return ApplicationEntity.application_object_to_str(obj)
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
