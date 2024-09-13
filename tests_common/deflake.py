@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import os
+import time
 from collections import deque
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import groupby
 from pathlib import Path
 from subprocess import run, PIPE
-from typing import Generator, cast
+from typing import Generator, cast, Any, TypedDict
 
 import pytest
 import requests
@@ -34,49 +36,77 @@ FLAKY_LABEL = "flaky-test"
 PHASES = ["setup", "call", "teardown"]
 
 
-@dataclass(frozen=True)
-class Span:
-    test_name: str
-    start: datetime
+class Span(TypedDict):
     meta: str
+    start: float
+    end: float | None
+    children: list[Span]
 
 
-@dataclass(frozen=True)
-class ClosedTrace(Span):
-    end: datetime
+SPAN_STACK: ContextVar[deque[Span]] = ContextVar("span_stack")
+ROOT_SPANS: list[Span] = []
 
-
-SPAN_STACK: deque[Span] = deque()
-CLOSED_TRACES: list[ClosedTrace] = []
-
-
-def pytest_terminal_summary(terminalreporter: TerminalReporter) -> None:
-    # Called at the end of the pytest run to print custom messages to the terminal
-    if not CLOSED_TRACES:
-        return
-    terminalreporter.write_sep("=", f"test traces")
-    sorted_traces = sorted(CLOSED_TRACES, key=lambda t: t.test_name)
-    grouped_by_test_name = groupby(sorted_traces, key=lambda t: t.test_name)
-    for test_name, traces in grouped_by_test_name:
-        terminalreporter.write_line(test_name)
-        for t in traces:
-            duration = (t.end - t.start).total_seconds()
-            terminalreporter.write_line(f"  {t.start} {duration:.02f} {t.meta}")
+WORKEROUTPUT: dict[str, Any] | None = None
 
 
 @contextmanager
 def trace(meta: str):
-    test_name = os.environ.get("PYTEST_CURRENT_TEST", "unknown")
-    start = datetime.now()
-    span = Span(test_name, start, meta)
-    SPAN_STACK.append(span)
+    start = time.time()
+    span = Span(meta=meta, start=start, end=None, children=[])
+    span_stack = SPAN_STACK.get(deque()).copy()
+    if span_stack:
+        span_stack[-1]["children"].append(span)
+    else:
+        ROOT_SPANS.append(span)
+    span_stack.append(span)
+    SPAN_STACK.set(span_stack)
     try:
         yield span
     finally:
-        end = datetime.now()
-        SPAN_STACK.pop()
-        if not SPAN_STACK:
-            CLOSED_TRACES.append(ClosedTrace(test_name, start, end=end, meta=meta))
+        span["end"] = time.time()
+        span_stack.pop()
+        SPAN_STACK.set(span_stack)
+
+
+@pytest.fixture(autouse=True)
+def root_span(request):
+    test_name = request.node.name
+    with trace(test_name) as root:
+        yield root
+
+
+def pytest_sessionfinish(session, exitstatus):
+    if WORKEROUTPUT is not None:
+        WORKEROUTPUT["root_spans"] = ROOT_SPANS
+
+
+def pytest_testnodedown(node, error):
+    """
+    Get statistic about memory usage for test cases from xdist nodes
+    and merge to master stats
+    """
+    node_root_spans = node.workeroutput.get("root_spans", [])
+    ROOT_SPANS.extend(node_root_spans)
+
+
+def pytest_terminal_summary(terminalreporter: TerminalReporter) -> None:
+    # Called at the end of the pytest run to print custom messages to the terminal
+    if not ROOT_SPANS:
+        return
+    terminalreporter.write_sep("=", f"test traces")
+    for span in sorted(ROOT_SPANS, key=lambda t: t["meta"]):
+        print_span(terminalreporter, span)
+
+
+def print_span(terminalreporter: TerminalReporter, span: Span, indent: int = 0):
+    assert span["end"] is not None
+    duration = span["end"] - span["start"]
+    indent_str = "  " * indent
+    terminalreporter.write_line(
+        f"{indent_str}{span['start']:.02f} {duration:.02f} {span['meta']}"
+    )
+    for child in span["children"]:
+        print_span(terminalreporter, child, indent + 1)
 
 
 class DeflakePlugin:
@@ -241,6 +271,10 @@ def pytest_configure(config: Config) -> None:
     # Register our plugin with pytest
     plugin = DeflakePlugin(config)
     config.pluginmanager.register(plugin, name=plugin.name)
+
+    if hasattr(config, "workeroutput"):
+        global WORKEROUTPUT
+        WORKEROUTPUT = config.workeroutput
 
 
 def pytest_addoption(parser: Parser):

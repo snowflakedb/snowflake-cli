@@ -39,6 +39,8 @@ from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
+from tests_common.deflake import trace
+
 
 class SqlExecutor:
     def __init__(self, connection: SnowflakeConnection | None = None):
@@ -70,10 +72,17 @@ class SqlExecutor:
         """
         self._log.debug("Executing %s", sql_text)
         stream = StringIO(sql_text)
-        stream_generator = self._conn.execute_stream(
-            stream, remove_comments=remove_comments, cursor_class=cursor_class, **kwargs
-        )
-        return stream_generator if return_cursors else list()
+        with trace(sql_text.splitlines()[0]):
+            stream_generator = self._conn.execute_stream(
+                stream,
+                remove_comments=remove_comments,
+                cursor_class=cursor_class,
+                **kwargs,
+            )
+            if not return_cursors:
+                return list()
+            yield from stream_generator
+        # return stream_generator if return_cursors else list()
 
     def _execute_query(self, query: str, **kwargs):
         *_, last_result = self._execute_queries(query, **kwargs)

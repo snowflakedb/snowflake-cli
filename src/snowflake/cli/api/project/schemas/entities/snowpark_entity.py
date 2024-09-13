@@ -31,8 +31,7 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 
 
 class PathMapping(UpdatableModel):
-    class Config:
-        frozen = True
+    model_config = dict(frozen=True)
 
     src: Path = Field(title="Source path (relative to project root)", default=None)
 
