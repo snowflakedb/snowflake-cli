@@ -75,7 +75,6 @@ from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
 )
 from snowflake.cli.api.exceptions import (
-    NoProjectDefinitionError,
     SecretsWithoutExternalAccessIntegrationError,
 )
 from snowflake.cli.api.identifiers import FQN
@@ -85,6 +84,9 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.project.definition_conversion import (
+    convert_project_definition_to_v2,
+)
 from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
     FunctionEntityModel,
     ProcedureEntityModel,
@@ -92,10 +94,6 @@ from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
-)
-from snowflake.cli.api.project.schemas.snowpark.callable import (
-    FunctionSchema,
-    ProcedureSchema,
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import DictCursor, ProgrammingError
@@ -123,7 +121,7 @@ LikeOption = like_option(
 )
 
 
-@app.command("deploy", requires_connection=True)
+@app.command("deploy", requires_connection=True, require_warehouse=True)
 @with_project_definition()
 def deploy(
     replace: bool = ReplaceOption(
@@ -445,66 +443,8 @@ def describe(
     )
 
 
-def migrate_v1_snowpark_to_v2(pd: ProjectDefinition):
-    if not pd.snowpark:
-        raise NoProjectDefinitionError(
-            project_type="snowpark", project_root=get_cli_context().project_root
-        )
-
-    artifact_mapping = {"src": pd.snowpark.src}
-    if pd.snowpark.project_name:
-        artifact_mapping["dest"] = pd.snowpark.project_name
-
-    snowpark_shared_mixin = "snowpark_shared"
-    data: dict = {
-        "definition_version": "2",
-        "mixins": {
-            snowpark_shared_mixin: {
-                "stage": pd.snowpark.stage_name,
-                "artifacts": [artifact_mapping],
-            }
-        },
-        "entities": {},
-    }
-
-    for index, entity in enumerate([*pd.snowpark.procedures, *pd.snowpark.functions]):
-        identifier = {"name": entity.name}
-        if entity.database is not None:
-            identifier["database"] = entity.database
-        if entity.schema_name is not None:
-            identifier["schema"] = entity.schema_name
-
-        if entity.name.startswith("<%") and entity.name.endswith("%>"):
-            entity_name = f"snowpark_entity_{index}"
-        else:
-            entity_name = entity.name
-
-        v2_entity = {
-            "type": "function" if isinstance(entity, FunctionSchema) else "procedure",
-            "stage": pd.snowpark.stage_name,
-            "handler": entity.handler,
-            "returns": entity.returns,
-            "signature": entity.signature,
-            "runtime": entity.runtime,
-            "external_access_integrations": entity.external_access_integrations,
-            "secrets": entity.secrets,
-            "imports": entity.imports,
-            "identifier": identifier,
-            "meta": {"use_mixins": [snowpark_shared_mixin]},
-        }
-        if isinstance(entity, ProcedureSchema):
-            v2_entity["execute_as_caller"] = entity.execute_as_caller
-
-        data["entities"][entity_name] = v2_entity
-
-    if hasattr(pd, "env") and pd.env:
-        data["env"] = {k: v for k, v in pd.env.items()}
-
-    return ProjectDefinitionV2(**data)
-
-
 def _get_v2_project_definition(cli_context) -> ProjectDefinitionV2:
     pd = cli_context.project_definition
     if not pd.meets_version_requirement("2"):
-        pd = migrate_v1_snowpark_to_v2(pd)
+        pd = convert_project_definition_to_v2(cli_context.project_root, pd)
     return pd

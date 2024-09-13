@@ -97,6 +97,13 @@ class SqlExecutor:
                 f"Could not use {object_type} {name}. Object does not exist, or operation cannot be performed."
             )
 
+    def current_role(self) -> str:
+        *_, cursor = self._execute_string(
+            "select current_role()", cursor_class=DictCursor
+        )
+        role_result = cursor.fetchone()
+        return role_result["CURRENT_ROLE()"]
+
     @contextmanager
     def use_role(self, new_role: str):
         """
@@ -116,6 +123,12 @@ class SqlExecutor:
         finally:
             if is_different_role:
                 self._execute_query(f"use role {prev_role}")
+
+    def session_has_warehouse(self) -> bool:
+        result = self._execute_query(
+            "select current_warehouse() is not null as result", cursor_class=DictCursor
+        ).fetchone()
+        return bool(result.get("RESULT"))
 
     @contextmanager
     def use_warehouse(self, new_wh: str):

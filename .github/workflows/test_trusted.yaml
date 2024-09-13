@@ -31,41 +31,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip hatch
           python -m hatch env create ${{ inputs.python-env }}
-
-      - name: Set up key (Ubuntu / MacOS)
-        if: inputs.runs-on == 'ubuntu-latest' || inputs.runs-on == 'macos-latest'
-        env:
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
-        run: |
-          PARENT_DIR=$(dirname "${{ github.workspace }}")
-          PRIVATE_KEY_PATH=$PARENT_DIR/.ssh/key.p8
-          echo "PARENT_DIR=$PARENT_DIR" >> $GITHUB_ENV
-          echo "PRIVATE_KEY_PATH=$PRIVATE_KEY_PATH" >> $GITHUB_ENV
-
-          mkdir $PARENT_DIR/.ssh
-          echo "${SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY}" > $PRIVATE_KEY_PATH
-          sudo chmod 600 $PRIVATE_KEY_PATH
-
-      - name: Set up key (Windows)
-        if: inputs.runs-on == 'windows-latest'
-        env:
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
-        run: |
-          $parentDir = Split-Path -Parent "${{ github.workspace }}"
-          $privateKeyPath = $parentDir + "\\ssh\\key.p8"
-          echo "PARENT_DIR=$parentDir" >> $env:GITHUB_ENV
-          echo "PRIVATE_KEY_PATH=$privateKeyPath" >> $env:GITHUB_ENV
-
-          mkdir $parentDir\\ssh
-          Set-Content -Path $privateKeyPath -Value $env:SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY
-        shell: pwsh
-
       - name: Run integration tests
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TERM: unknown
           SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR: SNOWFLAKE_JWT
           SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH: ${{ env.PRIVATE_KEY_PATH }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
         run: python -m hatch run ${{ inputs.hatch-run }}

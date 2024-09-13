@@ -238,6 +238,15 @@ def runner(test_snowcli_config):
     yield SnowCLIRunner(app, test_snowcli_config)
 
 
+@pytest.fixture(scope="function")
+def build_runner(test_snowcli_config):
+    def func():
+        app = app_factory()
+        return SnowCLIRunner(app, test_snowcli_config)
+
+    return func
+
+
 @pytest.fixture
 def temp_dir():
     initial_dir = os.getcwd()

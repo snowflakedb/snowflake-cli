@@ -1,7 +1,8 @@
 definition_version: 2
 
-defaults:
-  stage: "dev_deployment"
+mixins:
+  snowpark_shared:
+    stage: "dev_deployment"
 
 entities:
   hello_procedure:
@@ -24,6 +25,9 @@ entities:
     returns: string
     artifacts:
       - "app_2/"
+    meta:
+      use_mixins:
+        - "snowpark_shared"
 
   hello_function:
     type: "function"
@@ -34,3 +38,6 @@ entities:
     returns: string
     artifacts:
       - "c.py"
+    meta:
+      use_mixins:
+        - "snowpark_shared"

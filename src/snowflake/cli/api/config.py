@@ -80,7 +80,7 @@ class ConnectionConfig:
     warehouse: Optional[str] = None
     role: Optional[str] = None
     authenticator: Optional[str] = None
-    private_key_path: Optional[str] = None
+    private_key_file: Optional[str] = None
     token_file_path: Optional[str] = None
 
     _other_settings: dict = field(default_factory=lambda: {})
@@ -296,7 +296,7 @@ def _initialise_config(config_file: Path) -> None:
 
 
 def get_env_variable_name(*path, key: str) -> str:
-    return "SNOWFLAKE_" + "_".join(p.upper() for p in path) + f"_{key.upper()}"
+    return ("_".join(["snowflake", *path, key])).upper()
 
 
 def get_env_value(*path, key: str) -> str | None:

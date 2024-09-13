@@ -35,12 +35,18 @@ skip_python_3_12 = pytest.mark.skipif(
 )
 
 
+@pytest.mark.parametrize(
+    "stage_name, expected_stage_name",
+    [("stageName", "@stageName"), ("@stageName", "@stageName")],
+)
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
-def test_stage_list(mock_execute, runner, mock_cursor):
+def test_stage_list(mock_execute, runner, mock_cursor, stage_name, expected_stage_name):
     mock_execute.return_value = mock_cursor(["row"], [])
-    result = runner.invoke(["stage", "list-files", "-c", "empty", "stageName"])
+    result = runner.invoke(["stage", "list-files", "-c", "empty", stage_name])
     assert result.exit_code == 0, result.output
-    mock_execute.assert_called_once_with("ls @stageName", cursor_class=DictCursor)
+    mock_execute.assert_called_once_with(
+        f"ls {expected_stage_name}", cursor_class=DictCursor
+    )
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -748,15 +754,15 @@ def test_stage_internal_put_quoted_path(
 @pytest.mark.parametrize(
     "stage_path, expected_stage, expected_files",
     [
-        ("@exe", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/*", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/*.sql", "@exe", ["@exe/s1.sql", "@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/a", "@exe", ["@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/a/", "@exe", ["@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/a/*", "@exe", ["@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
-        ("exe/a/*.sql", "@exe", ["@exe/a/s3.sql", "@exe/a/b/s4.sql"]),
+        ("@exe", "@exe", ["@exe/s1.sql", "@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe", "@exe", ["@exe/s1.sql", "@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/", "@exe", ["@exe/s1.sql", "@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/*", "@exe", ["@exe/s1.sql", "@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/*.sql", "@exe", ["@exe/s1.sql", "@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/a", "@exe", ["@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/a/", "@exe", ["@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/a/*", "@exe", ["@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
+        ("exe/a/*.sql", "@exe", ["@exe/a/S3.sql", "@exe/a/b/s4.sql"]),
         ("exe/a/b", "@exe", ["@exe/a/b/s4.sql"]),
         ("exe/a/b/", "@exe", ["@exe/a/b/s4.sql"]),
         ("exe/a/b/*", "@exe", ["@exe/a/b/s4.sql"]),
@@ -768,7 +774,7 @@ def test_stage_internal_put_quoted_path(
             "@db.schema.exe",
             [
                 "@db.schema.exe/s1.sql",
-                "@db.schema.exe/a/s3.sql",
+                "@db.schema.exe/a/S3.sql",
                 "@db.schema.exe/a/b/s4.sql",
             ],
         ),
@@ -777,11 +783,14 @@ def test_stage_internal_put_quoted_path(
             "@db.schema.exe",
             [
                 "@db.schema.exe/s1.sql",
-                "@db.schema.exe/a/s3.sql",
+                "@db.schema.exe/a/S3.sql",
                 "@db.schema.exe/a/b/s4.sql",
             ],
         ),
         ("@db.schema.exe/s1.sql", "@db.schema.exe", ["@db.schema.exe/s1.sql"]),
+        ("@db.schema.exe/a/S3.sql", "@db.schema.exe", ["@db.schema.exe/a/S3.sql"]),
+        ("@DB.SCHEMA.EXE/s1.sql", "@DB.SCHEMA.EXE", ["@DB.SCHEMA.EXE/s1.sql"]),
+        ("@DB.schema.EXE/a/S3.sql", "@DB.schema.EXE", ["@DB.schema.EXE/a/S3.sql"]),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -796,7 +805,7 @@ def test_execute(
 ):
     mock_execute.return_value = mock_cursor(
         [
-            {"name": "exe/a/s3.sql"},
+            {"name": "exe/a/S3.sql"},
             {"name": "exe/a/b/s4.sql"},
             {"name": "exe/s1.sql"},
             {"name": "exe/s2"},
@@ -948,16 +957,17 @@ def test_execute_not_existing_stage(mock_execute, mock_cursor, runner):
         )
     ]
 
-    with pytest.raises(ProgrammingError) as e:
-        runner.invoke(["stage", "execute", stage_name])
+    result = runner.invoke(["stage", "execute", stage_name])
+
+    assert result.exit_code == 1
+    assert (
+        f"002003: 2003: Stage '{stage_name}' does not exist or not authorized."
+        in result.output
+    )
 
     assert mock_execute.mock_calls == [
         mock.call(f"ls @{stage_name}", cursor_class=DictCursor)
     ]
-    assert (
-        e.value.msg
-        == f"002003: 2003: Stage '{stage_name}' does not exist or not authorized."
-    )
 
 
 @pytest.mark.parametrize(
@@ -1007,8 +1017,8 @@ def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner
         ProgrammingError(error_message),
     ]
 
-    with pytest.raises(ProgrammingError) as e:
-        runner.invoke(["stage", "execute", "exe"])
+    result = runner.invoke(["stage", "execute", "exe"])
+    assert result.exit_code == 1
 
     assert mock_execute.mock_calls == [
         mock.call("ls @exe", cursor_class=DictCursor),
@@ -1019,7 +1029,7 @@ def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner
         mock.call("@exe/p1.py", {}),
         mock.call("@exe/p2.py", {}),
     ]
-    assert e.value.msg == error_message
+    assert error_message in result.output
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")

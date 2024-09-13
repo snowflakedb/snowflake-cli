@@ -20,6 +20,7 @@ from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import typer
+from click import ClickException
 from snowflake.cli.api.commands.decorators import (
     global_options,
     global_options_with_connection,
@@ -29,10 +30,11 @@ from snowflake.cli.api.commands.execution_metadata import (
     ExecutionStatus,
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
-from snowflake.cli.api.commands.typer_pre_execute import run_pre_execute_commands
 from snowflake.cli.api.exceptions import CommandReturnTypeError
 from snowflake.cli.api.output.types import CommandResult
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
+from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector import DatabaseError
 
 log = logging.getLogger(__name__)
 
@@ -71,6 +73,7 @@ class SnowTyper(typer.Typer):
         requires_global_options: bool = True,
         requires_connection: bool = False,
         is_enabled: Callable[[], bool] | None = None,
+        require_warehouse: bool = False,
         **kwargs,
     ):
         """
@@ -97,15 +100,15 @@ class SnowTyper(typer.Typer):
             def command_callable_decorator(*args, **kw):
                 """Wrapper around command callable. This is what happens at "runtime"."""
                 execution = ExecutionMetadata()
-                self.pre_execute(execution)
+                self.pre_execute(execution, require_warehouse=require_warehouse)
                 try:
                     result = command_callable(*args, **kw)
                     self.process_result(result)
                     execution.complete(ExecutionStatus.SUCCESS)
                 except Exception as err:
                     execution.complete(ExecutionStatus.FAILURE)
-                    self.exception_handler(err, execution)
-                    raise
+                    exception = self.exception_handler(err, execution)
+                    raise exception
                 finally:
                     self.post_execute(execution)
 
@@ -116,7 +119,7 @@ class SnowTyper(typer.Typer):
         return custom_command
 
     @staticmethod
-    def pre_execute(execution: ExecutionMetadata):
+    def pre_execute(execution: ExecutionMetadata, require_warehouse: bool = False):
         """
         Callback executed before running any command callable (after context execution).
         Pay attention to make this method safe to use if performed operations are not necessary
@@ -125,8 +128,11 @@ class SnowTyper(typer.Typer):
         from snowflake.cli._app.telemetry import log_command_usage
 
         log.debug("Executing command pre execution callback")
-        run_pre_execute_commands()
         log_command_usage(execution)
+        if require_warehouse and not SqlExecutionMixin().session_has_warehouse():
+            raise ClickException(
+                "The command requires warehouse. No warehouse found in current connection."
+            )
 
     @staticmethod
     def process_result(result):
@@ -150,6 +156,9 @@ class SnowTyper(typer.Typer):
 
         log.debug("Executing command exception callback")
         log_command_execution_error(exception, execution)
+        if isinstance(exception, DatabaseError):
+            return ClickException(exception.msg)
+        return exception
 
     @staticmethod
     def post_execute(execution: ExecutionMetadata):

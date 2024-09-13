@@ -184,3 +184,6 @@ class FQN:
         from snowflake.cli.api.cli_global_context import get_cli_context
 
         return self.using_connection(get_cli_context().connection)
+
+    def to_dict(self) -> dict:
+        return {"name": self.name, "schema": self.schema, "database": self.database}

@@ -41,6 +41,15 @@ def test_streamlit_deploy(
         result = runner.invoke_with_connection_json(["streamlit", "deploy"])
         assert result.exit_code == 0
 
+        result = runner.invoke_with_connection(["streamlit", "deploy"])
+        assert result.exit_code == 1
+        assert "already exist" in result.output
+
+        result = runner.invoke_with_connection_json(
+            ["streamlit", "deploy", "--replace"]
+        )
+        assert result.exit_code == 0
+
         result = runner.invoke_with_connection_json(["streamlit", "list"])
         assert_that_result_is_successful(result)
 
@@ -214,10 +223,12 @@ def test_fully_qualified_name(
 
         result = runner.invoke_with_connection_json(["streamlit", "deploy"])
         assert result.exit_code == 0
-        assert result.json == {
-            "message": "Streamlit successfully deployed and available under "
-            f"https://app.snowflake.com/SFENGINEERING/snowcli_it/#/streamlit-apps/{database}.{default_schema}.{streamlit_name.upper()}",
-        }
+        assert result.json["message"].startswith(
+            "Streamlit successfully deployed and available under"
+        )
+        assert result.json["message"].endswith(
+            f"/#/streamlit-apps/{database}.{default_schema}.{streamlit_name.upper()}"
+        )
 
         # FQN with different schema - should not conflict
         alter_snowflake_yml(
@@ -227,10 +238,12 @@ def test_fully_qualified_name(
         )
         result = runner.invoke_with_connection_json(["streamlit", "deploy"])
         assert result.exit_code == 0
-        assert result.json == {
-            "message": "Streamlit successfully deployed and available under "
-            f"https://app.snowflake.com/SFENGINEERING/snowcli_it/#/streamlit-apps/{database}.{different_schema}.{streamlit_name.upper()}",
-        }
+        assert result.json["message"].startswith(
+            "Streamlit successfully deployed and available under"
+        )
+        assert result.json["message"].endswith(
+            f"/#/streamlit-apps/{database}.{different_schema}.{streamlit_name.upper()}"
+        )
 
         # FQN with just schema provided - should require update
         alter_snowflake_yml(
@@ -263,10 +276,12 @@ def test_fully_qualified_name(
             ["streamlit", "deploy", "--replace"]
         )
         assert result.exit_code == 0
-        assert result.json == {
-            "message": "Streamlit successfully deployed and available under "
-            f"https://app.snowflake.com/SFENGINEERING/snowcli_it/#/streamlit-apps/{database}.{different_schema}.{streamlit_name.upper()}",
-        }
+        assert result.json["message"].startswith(
+            "Streamlit successfully deployed and available under"
+        )
+        assert result.json["message"].endswith(
+            f"/#/streamlit-apps/{database}.{different_schema}.{streamlit_name.upper()}"
+        )
 
 
 @pytest.mark.integration

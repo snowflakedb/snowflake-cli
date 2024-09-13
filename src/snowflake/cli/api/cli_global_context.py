@@ -14,358 +14,126 @@
 
 from __future__ import annotations
 
-import re
-import warnings
-from pathlib import Path
-from typing import Callable, Optional, Iterator, Self, Dict, Any
-from typing_extensions import TypedDict, NotRequired
-
-from contextvars import ContextVar
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, Optional
+from contextvars import ContextVar
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import TYPE_CHECKING, Iterator
 
-from snowflake.cli.api.exceptions import InvalidSchemaError
+from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
+from snowflake.cli.api.exceptions import MissingConfiguration
 from snowflake.cli.api.output.formats import OutputFormat
+from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 from snowflake.connector import SnowflakeConnection
-from snowflake.connector.compat import IS_WINDOWS
 
 if TYPE_CHECKING:
+    from snowflake.cli.api.project.definition_manager import DefinitionManager
     from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 
-schema_pattern = re.compile(r".+\..+")
+_CONNECTION_CACHE = OpenConnectionCache()
 
 
-class _ConnectionContext:
-    def __init__(self):
-        self._cached_connection: Optional[SnowflakeConnection] = None
-
-        self._connection_name: Optional[str] = None
-        self._account: Optional[str] = None
-        self._database: Optional[str] = None
-        self._role: Optional[str] = None
-        self._schema: Optional[str] = None
-        self._user: Optional[str] = None
-        self._password: Optional[str] = None
-        self._authenticator: Optional[str] = None
-        self._private_key_path: Optional[str] = None
-        self._warehouse: Optional[str] = None
-        self._mfa_passcode: Optional[str] = None
-        self._enable_diag: Optional[bool] = False
-        self._diag_log_path: Optional[Path] = None
-        self._diag_allowlist_path: Optional[Path] = None
-        self._temporary_connection: bool = False
-        self._session_token: Optional[str] = None
-        self._master_token: Optional[str] = None
-        self._token_file_path: Optional[Path] = None
-
-    def __setattr__(self, key, value):
-        """
-        We invalidate connection cache every time connection attributes change.
-        """
-        super().__setattr__(key, value)
-        if key != "_cached_connection":
-            self._cached_connection = None
-
-    @property
-    def connection_name(self) -> Optional[str]:
-        return self._connection_name
-
-    def set_connection_name(self, value: Optional[str]):
-        self._connection_name = value
-
-    @property
-    def account(self) -> Optional[str]:
-        return self._account
-
-    def set_account(self, value: Optional[str]):
-        self._account = value
-
-    @property
-    def database(self) -> Optional[str]:
-        return self._database
-
-    def set_database(self, value: Optional[str]):
-        self._database = value
-
-    @property
-    def role(self) -> Optional[str]:
-        return self._role
-
-    def set_role(self, value: Optional[str]):
-        self._role = value
-
-    @property
-    def schema(self) -> Optional[str]:
-        return self._schema
-
-    def set_schema(self, value: Optional[str]):
-        if (
-            value
-            and not (value.startswith('"') and value.endswith('"'))
-            # if schema is fully qualified name (db.schema)
-            and schema_pattern.match(value)
-        ):
-            raise InvalidSchemaError(value)
-        self._schema = value
-
-    @property
-    def user(self) -> Optional[str]:
-        return self._user
-
-    def set_user(self, value: Optional[str]):
-        self._user = value
-
-    @property
-    def password(self) -> Optional[str]:
-        return self._password
-
-    def set_password(self, value: Optional[str]):
-        self._password = value
-
-    @property
-    def authenticator(self) -> Optional[str]:
-        return self._authenticator
-
-    def set_authenticator(self, value: Optional[str]):
-        self._authenticator = value
-
-    @property
-    def private_key_path(self) -> Optional[str]:
-        return self._private_key_path
-
-    def set_private_key_path(self, value: Optional[str]):
-        self._private_key_path = value
-
-    @property
-    def warehouse(self) -> Optional[str]:
-        return self._warehouse
-
-    def set_warehouse(self, value: Optional[str]):
-        self._warehouse = value
-
-    @property
-    def mfa_passcode(self) -> Optional[str]:
-        return self._mfa_passcode
-
-    def set_mfa_passcode(self, value: Optional[str]):
-        self._mfa_passcode = value
-
-    @property
-    def enable_diag(self) -> Optional[bool]:
-        return self._enable_diag
-
-    def set_enable_diag(self, value: Optional[bool]):
-        self._enable_diag = value
-
-    @property
-    def diag_log_path(self) -> Optional[Path]:
-        return self._diag_log_path
-
-    def set_diag_log_path(self, value: Optional[Path]):
-        self._diag_log_path = value
-
-    @property
-    def diag_allowlist_path(self) -> Optional[Path]:
-        return self._diag_allowlist_path
-
-    def set_diag_allowlist_path(self, value: Optional[Path]):
-        self._diag_allowlist_path = value
-
-    @property
-    def temporary_connection(self) -> bool:
-        return self._temporary_connection
-
-    def set_temporary_connection(self, value: bool):
-        self._temporary_connection = value
-
-    @property
-    def session_token(self) -> Optional[str]:
-        return self._session_token
-
-    def set_session_token(self, value: Optional[str]):
-        self._session_token = value
-
-    @property
-    def master_token(self) -> Optional[str]:
-        return self._master_token
-
-    def set_master_token(self, value: Optional[str]):
-        self._master_token = value
-
-    @property
-    def token_file_path(self) -> Optional[Path]:
-        return self._token_file_path
-
-    def set_token_file_path(self, value: Optional[Path]):
-        self._token_file_path = value
-
-    @property
-    def connection(self) -> SnowflakeConnection:
-        if not self._cached_connection:
-            self._cached_connection = self._build_connection()
-        return self._cached_connection
-
-    def _collect_not_empty_connection_attributes(self):
-        return {
-            "account": self.account,
-            "user": self.user,
-            "password": self.password,
-            "authenticator": self.authenticator,
-            "private_key_path": self.private_key_path,
-            "database": self.database,
-            "schema": self.schema,
-            "role": self.role,
-            "warehouse": self.warehouse,
-            "session_token": self.session_token,
-            "master_token": self.master_token,
-            "token_file_path": self.token_file_path,
-        }
-
-    def _build_connection(self):
-        from snowflake.cli._app.snow_connector import connect_to_snowflake
-
-        # Ignore warnings about bad owner or permissions on Windows
-        # Telemetry omit our warning filter from config.py
-        if IS_WINDOWS:
-            warnings.filterwarnings(
-                action="ignore",
-                message="Bad owner or permissions.*",
-                module="snowflake.connector.config_manager",
-            )
-
-        return connect_to_snowflake(
-            temporary_connection=self.temporary_connection,
-            mfa_passcode=self._mfa_passcode,
-            enable_diag=self._enable_diag,
-            diag_log_path=self._diag_log_path,
-            diag_allowlist_path=self._diag_allowlist_path,
-            connection_name=self.connection_name,
-            **self._collect_not_empty_connection_attributes(),
-        )
-
-
+@dataclass
 class _CliGlobalContextManager:
-    def __init__(self):
-        self._connection_context = _ConnectionContext()
-        self._enable_tracebacks = True
-        self._output_format = OutputFormat.TABLE
-        self._verbose = False
-        self._experimental = False
-        self._project_definition = None
-        self._project_root = None
-        self._project_path_arg = None
-        self._project_env_overrides_args = {}
-        self._typer_pre_execute_commands = []
-        self._template_context = None
-        self._silent: bool = False
+    connection_context: ConnectionContext = field(default_factory=ConnectionContext)
+    connection_cache: OpenConnectionCache = (
+        _CONNECTION_CACHE  # by default, use global cache
+    )
+
+    output_format: OutputFormat = OutputFormat.TABLE
+    silent: bool = False
+    verbose: bool = False
+    experimental: bool = False
+    enable_tracebacks: bool = True
+
+    project_path_arg: str | None = None
+    project_is_optional: bool = True
+    project_env_overrides_args: dict[str, str] = field(default_factory=dict)
+
+    # FIXME: this property only exists to help implement
+    # nativeapp_definition_v2_to_v1. Consider changing the way
+    # this calculation is provided to commands in order to remove
+    # this logic (then make project_definition a non-cloned @property)
+    override_project_definition: ProjectDefinition | None = None
+
+    _definition_manager: DefinitionManager | None = None
+
+    # which properties invalidate our current DefinitionManager?
+    DEFINITION_MANAGER_DEPENDENCIES = [
+        "project_path_arg",
+        "project_is_optional",
+        "project_env_overrides_args",
+    ]
 
     def reset(self):
         self.__init__()
 
-    def clone(self) -> Self:
-        # TODO: there must be a better way to implement this...
-        x = _CliGlobalContextManager()
-        x._enable_tracebacks = self._enable_tracebacks
-        x._output_format = self._output_format
-        x._verbose = self._verbose
-        x._experimental = self._experimental
-        x._project_definition = self._project_definition
-        x._project_root = self._project_root
-        x._project_path_arg = self._project_path_arg
-        x._project_env_overrides_args = self._project_env_overrides_args
-        x._typer_pre_execute_commands = self._typer_pre_execute_commands
-        x._template_context = self._template_context
-        x._silent = self._silent
-        return x
+    def clone(self) -> _CliGlobalContextManager:
+        return replace(
+            self,
+            connection_context=self.connection_context.clone(),
+            project_env_overrides_args=self.project_env_overrides_args.copy(),
+        )
+
+    def __setattr__(self, prop, val):
+        if prop in self.DEFINITION_MANAGER_DEPENDENCIES:
+            self._clear_definition_manager()
+
+        super().__setattr__(prop, val)
 
     @property
-    def enable_tracebacks(self) -> bool:
-        return self._enable_tracebacks
+    def project_definition(self) -> ProjectDefinition | None:
+        if self.override_project_definition:
+            return self.override_project_definition
 
-    def set_enable_tracebacks(self, value: bool):
-        self._enable_tracebacks = value
-
-    @property
-    def output_format(self) -> OutputFormat:
-        return self._output_format
-
-    def set_output_format(self, value: OutputFormat):
-        self._output_format = value
+        return self._definition_manager_or_raise().project_definition
 
     @property
-    def verbose(self) -> bool:
-        return self._verbose
-
-    def set_verbose(self, value: bool):
-        self._verbose = value
-
-    @property
-    def experimental(self) -> bool:
-        return self._experimental
-
-    def set_experimental(self, value: bool):
-        self._experimental = value
-
-    @property
-    def project_definition(self) -> Optional[ProjectDefinition]:
-        return self._project_definition
-
-    def set_project_definition(self, value: ProjectDefinition):
-        self._project_definition = value
-
-    @property
-    def project_root(self):
-        return self._project_root
-
-    def set_project_root(self, project_root: Path):
-        self._project_root = project_root
-
-    @property
-    def project_path_arg(self) -> Optional[str]:
-        return self._project_path_arg
-
-    def set_project_path_arg(self, project_path_arg: str):
-        self._project_path_arg = project_path_arg
-
-    @property
-    def project_env_overrides_args(self) -> dict[str, str]:
-        return self._project_env_overrides_args
-
-    def set_project_env_overrides_args(
-        self, project_env_overrides_args: dict[str, str]
-    ):
-        self._project_env_overrides_args = project_env_overrides_args
+    def project_root(self) -> Path:
+        return Path(self._definition_manager_or_raise().project_root)
 
     @property
     def template_context(self) -> dict:
-        return self._template_context
-
-    def set_template_context(self, template_context: dict):
-        self._template_context = template_context
-
-    @property
-    def typer_pre_execute_commands(self) -> list[Callable[[], None]]:
-        return self._typer_pre_execute_commands
-
-    def add_typer_pre_execute_commands(
-        self, typer_pre_execute_command: Callable[[], None]
-    ):
-        self._typer_pre_execute_commands.append(typer_pre_execute_command)
-
-    @property
-    def connection_context(self) -> _ConnectionContext:
-        return self._connection_context
+        return self._definition_manager_or_raise().template_context
 
     @property
     def connection(self) -> SnowflakeConnection:
-        return self.connection_context.connection
+        """
+        Returns a connection for our configured context from the configured cache.
+        By default, this is the global _CONNECTION_CACHE. If a matching connection
+        does not already exist, creates a new connection and caches it.
+        """
+        self.connection_context.validate_and_complete()
+        return self.connection_cache[self.connection_context]
 
-    @property
-    def silent(self) -> bool:
-        return self._silent
+    def _definition_manager_or_raise(self) -> DefinitionManager:
+        """
+        (Re-)parses project definition based on project args (project_path_arg and
+        project_env_overrides_args). If we cannot provide a project definition
+        (i.e. no snowflake.yml) and require one, raises MissingConfiguration.
+        """
+        from snowflake.cli.api.project.definition_manager import DefinitionManager
 
-    def set_silent(self, value: bool):
-        self._silent = value
+        # don't need to re-parse definition if we already have one
+        if not self._definition_manager:
+            dm = DefinitionManager(
+                self.project_path_arg,
+                {CONTEXT_KEY: {"env": self.project_env_overrides_args}},
+            )
+            if not dm.has_definition_file and not self.project_is_optional:
+                raise MissingConfiguration(
+                    "Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
+                )
+            self._definition_manager = dm
+
+        return self._definition_manager
+
+    def _clear_definition_manager(self):
+        """
+        Force re-calculation of definition_manager and its dependent attributes
+        (template_context, project_definition, and project_root).
+        """
+        self._definition_manager = None
 
 
 class _CliGlobalContextAccess:
@@ -377,7 +145,7 @@ class _CliGlobalContextAccess:
         return self._manager.connection
 
     @property
-    def connection_context(self) -> _ConnectionContext:
+    def connection_context(self) -> ConnectionContext:
         return self._manager.connection_context
 
     @property
@@ -401,8 +169,8 @@ class _CliGlobalContextAccess:
         return self._manager.project_definition
 
     @property
-    def project_root(self) -> Path:
-        return Path(self._manager.project_root)
+    def project_root(self) -> Path | None:
+        return self._manager.project_root
 
     @property
     def template_context(self) -> dict:
@@ -420,66 +188,53 @@ class _CliGlobalContextAccess:
         return self._manager.output_format == OutputFormat.JSON
 
 
-_CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager | None] = ContextVar('cli_context', default=None)
+_CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager | None] = ContextVar(
+    "cli_context", default=None
+)
 
 
 def get_cli_context_manager() -> _CliGlobalContextManager:
-    global _CLI_CONTEXT_MANAGER
-    if _CLI_CONTEXT_MANAGER.get() is None:
-        _CLI_CONTEXT_MANAGER.set(_CliGlobalContextManager())
-    return _CLI_CONTEXT_MANAGER.get()
+    mgr = _CLI_CONTEXT_MANAGER.get()
+    if not mgr:
+        mgr = _CliGlobalContextManager()
+        _CLI_CONTEXT_MANAGER.set(mgr)
+    return mgr
 
 
 def get_cli_context() -> _CliGlobalContextAccess:
     return _CliGlobalContextAccess(get_cli_context_manager())
 
 
-ConnectionArgs = Dict[str, Any]  # FIXME: type the connection dict; see _ConnectionContext
-
-
-class CliContextArguments(TypedDict):
-    """
-    The arguments that can be passed to a workspace command.
-
-    """
-    connection: NotRequired[ConnectionArgs]  
-    project_path: NotRequired[str]
-    env: NotRequired[Dict[str, str]]
-
-
 @contextmanager
 def fork_cli_context(
-    **args: CliContextArguments,
+    connection_overrides: dict | None = None,
+    project_env_overrides: dict[str, str] | None = None,
+    project_is_optional: bool | None = None,
+    project_path: str | None = None,
 ) -> Iterator[_CliGlobalContextAccess]:
-    original_ctx = get_cli_context_manager()
-    new_manager =  get_cli_context_manager().clone()
+    """
+    Forks the global CLI context, making changes that are only visible
+    (e.g. via get_cli_context()) while inside this context manager.
 
-    # if connection arguments are supplied, we have a new connection to make (maybe)
-    if overrides := args["connection"]:
-        connection_args = dict()
-
-        # combine existing + overrides
-        if original_ctx.connection_context:
-            connection_args.update(original_ctx.connection_context._collect_not_empty_connection_attributes().items())
-        connection_args.update(overrides)
-
-        # create a new connection context from the args
-        for (key, value) in connection_args.items():
-            if hasattr(_ConnectionContext, key) and isinstance(getattr(_ConnectionContext, key), property):
-                setattr(new_manager.connection_context, f"_{key}", value)
-            else:
-                raise ValueError(f"Unknown connection argument key: {key}")
-
-        # loads the memoized connection, if it exists (keyed by args)
-        # FIXME: circular logic
-        new_manager.connection_context._cached_connection = None # open_and_memoize(connection_args)
-
-
-    # apply project path + env vars
-    # new_manager.set_project_path_arg
-
-    global _CLI_CONTEXT_MANAGER
+    Please note that environment variable changes are only visible through
+    the project definition; os.getenv / os.environ / get_env_value are not
+    affected by these new values.
+    """
+    old_manager = get_cli_context_manager()
+    new_manager = old_manager.clone()
     token = _CLI_CONTEXT_MANAGER.set(new_manager)
+
+    if connection_overrides:
+        new_manager.connection_context.update(**connection_overrides)
+
+    if project_env_overrides:
+        new_manager.project_env_overrides_args.update(project_env_overrides)
+
+    if project_is_optional is not None:
+        new_manager.project_is_optional = project_is_optional
+
+    if project_path:
+        new_manager.project_path_arg = project_path
+
     yield _CliGlobalContextAccess(new_manager)
     _CLI_CONTEXT_MANAGER.reset(token)
-    

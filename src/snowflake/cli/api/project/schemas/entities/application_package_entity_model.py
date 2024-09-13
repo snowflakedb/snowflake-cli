@@ -75,3 +75,20 @@ class ApplicationPackageEntityModel(EntityModelBase):
         if isinstance(input_value, Identifier):
             return input_value.model_copy(update=dict(name=with_suffix))
         return with_suffix
+
+    @field_validator("artifacts")
+    @classmethod
+    def transform_artifacts(
+        cls, orig_artifacts: List[Union[PathMapping, str]]
+    ) -> List[PathMapping]:
+        transformed_artifacts = []
+        if orig_artifacts is None:
+            return transformed_artifacts
+
+        for artifact in orig_artifacts:
+            if isinstance(artifact, PathMapping):
+                transformed_artifacts.append(artifact)
+            else:
+                transformed_artifacts.append(PathMapping(src=artifact))
+
+        return transformed_artifacts

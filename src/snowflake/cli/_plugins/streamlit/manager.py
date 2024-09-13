@@ -18,11 +18,13 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
+from click import ClickException
 from snowflake.cli._plugins.connection.util import (
     MissingConnectionAccountError,
     MissingConnectionRegionError,
     make_snowsight_url,
 )
+from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.commands.experimental_behaviour import (
     experimental_behaviour_enabled,
@@ -112,6 +114,13 @@ class StreamlitManager(SqlExecutionMixin):
 
     def deploy(self, streamlit: StreamlitEntityModel, replace: bool = False):
         streamlit_id = streamlit.fqn.using_connection(self._conn)
+        if (
+            ObjectManager().object_exists(object_type="streamlit", fqn=streamlit_id)
+            and not replace
+        ):
+            raise ClickException(
+                f"Streamlit {streamlit.fqn} already exist. If you want to replace it use --replace flag."
+            )
 
         # for backwards compatibility - quoted stage path might be case-sensitive
         # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers

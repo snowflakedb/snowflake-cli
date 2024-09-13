@@ -14,32 +14,20 @@
 
 from __future__ import annotations
 
-import json
 import time
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
 from typing import Generator, List, Optional, TypedDict
 
-from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
-    build_bundle,
-)
-from snowflake.cli._plugins.nativeapp.codegen.compiler import (
-    NativeAppCompiler,
-)
-from snowflake.cli._plugins.nativeapp.constants import (
-    NAME_COL,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
-    ApplicationPackageDoesNotExistError,
     NoEventTableForAccount,
-    SetupScriptFailedValidation,
 )
 from snowflake.cli._plugins.nativeapp.project_model import (
     NativeAppProjectModel,
@@ -47,8 +35,10 @@ from snowflake.cli._plugins.nativeapp.project_model import (
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
 )
-from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.entities.application_entity import (
+    ApplicationEntity,
+)
 from snowflake.cli.api.entities.application_package_entity import (
     ApplicationPackageEntity,
 )
@@ -57,10 +47,6 @@ from snowflake.cli.api.entities.utils import (
     generic_sql_error_handler,
     sync_deploy_root_with_stage,
 )
-from snowflake.cli.api.errno import (
-    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
-)
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
@@ -149,20 +135,8 @@ class NativeAppManager(SqlExecutionMixin):
     def application_warehouse(self) -> Optional[str]:
         return self.na_project.application_warehouse
 
-    @contextmanager
     def use_application_warehouse(self):
-        if self.application_warehouse:
-            with self.use_warehouse(self.application_warehouse):
-                yield
-        else:
-            raise ClickException(
-                dedent(
-                    f"""\
-                Application warehouse cannot be empty.
-                Please provide a value for it in your connection information or your project definition file.
-                """
-                )
-            )
+        return ApplicationEntity.use_application_warehouse(self.application_warehouse)
 
     @property
     def project_identifier(self) -> str:
@@ -227,10 +201,14 @@ class NativeAppManager(SqlExecutionMixin):
         """
         Populates the local deploy root from artifact sources.
         """
-        bundle_map = build_bundle(self.project_root, self.deploy_root, self.artifacts)
-        compiler = NativeAppCompiler(self.na_project.get_bundle_context())
-        compiler.compile_artifacts()
-        return bundle_map
+        return ApplicationPackageEntity.bundle(
+            project_root=self.project_root,
+            deploy_root=self.deploy_root,
+            bundle_root=self.bundle_root,
+            generated_root=self.generated_root,
+            package_name=self.package_name,
+            artifacts=self.artifacts,
+        )
 
     def sync_deploy_root_with_stage(
         self,
@@ -257,14 +235,10 @@ class NativeAppManager(SqlExecutionMixin):
         )
 
     def get_existing_app_info(self) -> Optional[dict]:
-        """
-        Check for an existing application object by the same name as in project definition, in account.
-        It executes a 'show applications like' query and returns the result as single row, if one exists.
-        """
-        with self.use_role(self.app_role):
-            return self.show_specific_object(
-                "applications", self.app_name, name_col=NAME_COL
-            )
+        return ApplicationEntity.get_existing_app_info(
+            app_name=self.app_name,
+            app_role=self.app_role,
+        )
 
     def get_existing_app_pkg_info(self) -> Optional[dict]:
         return ApplicationPackageEntity.get_existing_app_pkg_info(
@@ -381,59 +355,38 @@ class NativeAppManager(SqlExecutionMixin):
 
         return diff
 
+    def deploy_to_scratch_stage_fn(self):
+        bundle_map = self.build_bundle()
+        self.deploy(
+            bundle_map=bundle_map,
+            prune=True,
+            recursive=True,
+            stage_fqn=self.scratch_stage_fqn,
+            validate=False,
+            print_diff=False,
+        )
+
     def validate(self, use_scratch_stage: bool = False):
-        """Validates Native App setup script SQL."""
-        with cc.phase(f"Validating Snowflake Native App setup script."):
-            validation_result = self.get_validation_result(use_scratch_stage)
-
-            # First print warnings, regardless of the outcome of validation
-            for warning in validation_result.get("warnings", []):
-                cc.warning(_validation_item_to_str(warning))
-
-            # Then print errors
-            for error in validation_result.get("errors", []):
-                # Print them as warnings for now since we're going to be
-                # revamping CLI output soon
-                cc.warning(_validation_item_to_str(error))
-
-            # Then raise an exception if validation failed
-            if validation_result["status"] == "FAIL":
-                raise SetupScriptFailedValidation()
+        return ApplicationPackageEntity.validate_setup_script(
+            console=cc,
+            package_name=self.package_name,
+            package_role=self.package_role,
+            stage_fqn=self.stage_fqn,
+            use_scratch_stage=use_scratch_stage,
+            scratch_stage_fqn=self.scratch_stage_fqn,
+            deploy_to_scratch_stage_fn=self.deploy_to_scratch_stage_fn,
+        )
 
     def get_validation_result(self, use_scratch_stage: bool):
-        """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
-        stage_fqn = self.stage_fqn
-        if use_scratch_stage:
-            stage_fqn = self.scratch_stage_fqn
-            bundle_map = self.build_bundle()
-            self.deploy(
-                bundle_map=bundle_map,
-                prune=True,
-                recursive=True,
-                stage_fqn=stage_fqn,
-                validate=False,
-                print_diff=False,
-            )
-        prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
-        try:
-            cursor = self._execute_query(
-                f"call system$validate_native_app_setup('{prefixed_stage_fqn}')"
-            )
-        except ProgrammingError as err:
-            if err.errno == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
-                raise ApplicationPackageDoesNotExistError(self.package_name)
-            generic_sql_error_handler(err)
-        else:
-            if not cursor.rowcount:
-                raise SnowflakeSQLExecutionError()
-            return json.loads(cursor.fetchone()[0])
-        finally:
-            if use_scratch_stage:
-                cc.step(f"Dropping stage {self.scratch_stage_fqn}.")
-                with self.use_role(self.package_role):
-                    self._execute_query(
-                        f"drop stage if exists {self.scratch_stage_fqn}"
-                    )
+        return ApplicationPackageEntity.get_validation_result(
+            console=cc,
+            package_name=self.package_name,
+            package_role=self.package_role,
+            stage_fqn=self.stage_fqn,
+            use_scratch_stage=use_scratch_stage,
+            scratch_stage_fqn=self.scratch_stage_fqn,
+            deploy_to_scratch_stage_fn=self.deploy_to_scratch_stage_fn,
+        )
 
     def get_events(  # type: ignore [return]
         self,

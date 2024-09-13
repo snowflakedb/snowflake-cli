@@ -182,7 +182,7 @@ def test_port_has_cannot_be_float(runner):
 
 @pytest.mark.parametrize(
     "selected_option",
-    [9, 10],  # 9 - private_key_path prompt, 10 - token_file_path prompt
+    [9, 10],  # 9 - private_key_file prompt, 10 - token_file_path prompt
 )
 def test_file_paths_have_to_exist_when_given_in_prompt(selected_option, runner):
     result = _run_connection_add_with_path_provided_as_prompt(
@@ -195,7 +195,7 @@ def test_file_paths_have_to_exist_when_given_in_prompt(selected_option, runner):
 
 @pytest.mark.parametrize(
     "selected_option", [9, 10]
-)  # 9 - private_key_path prompt, 10 - token_file_path prompt
+)  # 9 - private_key_file prompt, 10 - token_file_path prompt
 def test_connection_can_be_added_with_existing_paths_in_prompt(selected_option, runner):
     with NamedTemporaryFile("w+") as tmp_path:
         result = _run_connection_add_with_path_provided_as_prompt(
@@ -327,6 +327,28 @@ def test_lists_connection_information(mock_get_default_conn_name, runner):
             "parameters": {"user": "python"},
             "is_default": False,
         },
+        {
+            "connection_name": "private_key_file",
+            "is_default": False,
+            "parameters": {
+                "authenticator": "SNOWFLAKE_JWT",
+                "private_key_file": "/private/key",
+            },
+        },
+        {
+            "connection_name": "private_key_path",
+            "is_default": False,
+            "parameters": {
+                "authenticator": "SNOWFLAKE_JWT",
+            },
+        },
+        {
+            "connection_name": "no_private_key",
+            "is_default": False,
+            "parameters": {
+                "authenticator": "SNOWFLAKE_JWT",
+            },
+        },
     ]
 
 
@@ -379,6 +401,28 @@ def test_connection_list_does_not_print_too_many_env_variables(
             "connection_name": "test_connections",
             "parameters": {"user": "python"},
             "is_default": False,
+        },
+        {
+            "connection_name": "private_key_file",
+            "is_default": False,
+            "parameters": {
+                "authenticator": "SNOWFLAKE_JWT",
+                "private_key_file": "/private/key",
+            },
+        },
+        {
+            "connection_name": "private_key_path",
+            "is_default": False,
+            "parameters": {
+                "authenticator": "SNOWFLAKE_JWT",
+            },
+        },
+        {
+            "connection_name": "no_private_key",
+            "is_default": False,
+            "parameters": {
+                "authenticator": "SNOWFLAKE_JWT",
+            },
         },
     ]
 
@@ -433,23 +477,9 @@ def test_connection_test(mock_connect, mock_om, runner):
 
     mock_connect.assert_called_with(
         temporary_connection=False,
-        mfa_passcode=None,
         enable_diag=False,
-        diag_log_path="/tmp",
-        diag_allowlist_path=None,
+        diag_log_path=Path("/tmp"),
         connection_name="full",
-        account=None,
-        user=None,
-        password=None,
-        authenticator=None,
-        private_key_path=None,
-        token_file_path=None,
-        session_token=None,
-        master_token=None,
-        database=None,
-        schema=None,
-        role=None,
-        warehouse=None,
     )
 
     conn = mock_connect.return_value
@@ -507,8 +537,13 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
     },
     clear=True,
 )
+@pytest.mark.parametrize(
+    "private_key_flag_name", ["--private-key-file", "--private-key-path"]
+)
 @mock.patch("snowflake.connector.connect")
-def test_key_pair_authentication(mock_connector, mock_ctx, runner):
+def test_key_pair_authentication(
+    mock_connector, mock_ctx, runner, private_key_flag_name
+):
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
@@ -555,7 +590,7 @@ def test_key_pair_authentication(mock_connector, mock_ctx, runner):
                 "snowcli_test",
                 "--authenticator",
                 "SNOWFLAKE_JWT",
-                "--private-key-path",
+                private_key_flag_name,
                 tmp_file.name,
                 "--warehouse",
                 "xsmall",
@@ -663,13 +698,14 @@ def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temp_dir):
     clear=True,
 )
 @mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector._load_pem_from_file")
 @mock.patch("snowflake.cli._app.snow_connector._load_pem_to_der")
 def test_key_pair_authentication_from_config(
-    mock_load, mock_connector, mock_ctx, temp_dir, runner
+    mock_convert, mock_load_file, mock_connector, mock_ctx, temp_dir, runner
 ):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    mock_load.return_value = "secret value"
+    mock_convert.return_value = "secret value"
 
     with NamedTemporaryFile("w+", suffix="toml") as tmp_file:
         tmp_file.write(
@@ -679,7 +715,7 @@ def test_key_pair_authentication_from_config(
                account = "my_account"
                user = "jdoe"
                authenticator = "SNOWFLAKE_JWT"
-               private_key_path = "~/sf_private_key.p8"
+               private_key_file = "~/sf_private_key.p8"
             """
             )
         )
@@ -691,7 +727,7 @@ def test_key_pair_authentication_from_config(
         )
 
     assert result.exit_code == 0, result.output
-    mock_load.assert_called_once_with("~/sf_private_key.p8")
+    mock_load_file.assert_called_once_with("~/sf_private_key.p8")
     mock_connector.assert_called_once_with(
         application="SNOWCLI.OBJECT.LIST",
         account="my_account",
@@ -976,24 +1012,23 @@ def test_connection_test_diag_report(mock_connect, mock_om, runner):
     assert "Diag Report" in result.output
     mock_connect.assert_called_once_with(
         temporary_connection=False,
-        mfa_passcode=None,
         enable_diag=True,
-        diag_log_path="/tmp",
-        diag_allowlist_path=None,
+        diag_log_path=Path("/tmp"),
         connection_name="full",
-        account=None,
-        user=None,
-        password=None,
-        authenticator=None,
-        private_key_path=None,
-        token_file_path=None,
-        session_token=None,
-        master_token=None,
-        database=None,
-        schema=None,
-        role=None,
-        warehouse=None,
     )
+
+
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
+def test_diag_log_path_default_is_actual_tempdir(mock_connect, mock_om, runner):
+    from snowflake.cli.api.commands.flags import _DIAG_LOG_DEFAULT_VALUE
+
+    result = runner.invoke(["connection", "test", "-c", "full", "--enable-diag"])
+    assert result.exit_code == 0, result.output
+    assert mock_connect.call_args.kwargs["diag_log_path"] not in [
+        _DIAG_LOG_DEFAULT_VALUE,
+        Path(_DIAG_LOG_DEFAULT_VALUE),
+    ]
 
 
 def _run_connection_add_with_path_provided_as_argument(

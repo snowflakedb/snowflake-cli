@@ -28,7 +28,11 @@ from uuid import uuid4
 import pytest
 import yaml
 
-from snowflake.cli.api.cli_global_context import get_cli_context_manager
+from snowflake.cli.api.cli_global_context import (
+    fork_cli_context,
+    get_cli_context_manager,
+)
+from snowflake.cli.api.connections import OpenConnectionCache
 from snowflake.cli._app.cli_app import app_factory
 from typer import Typer
 from typer.testing import CliRunner
@@ -43,6 +47,7 @@ from tests.testing_utils.files_and_dirs import merge_left
 
 pytest_plugins = [
     "tests_common",
+    "tests_common.deflake",
     "tests_integration.testing_utils",
     "tests_integration.snowflake_connector",
 ]
@@ -111,7 +116,19 @@ class SnowCLIRunner(CliRunner):
         if "catch_exceptions" not in kw:
             kw.update(catch_exceptions=False)
         kw = self._with_env_vars(kw)
-        return super().invoke(self.app, *a, **kw)
+
+        # between every invocation, we need to reset the CLI context
+        # and ensure no connections are cached going forward (to prevent
+        # test cases from impacting each other / align with CLI usage)
+        with fork_cli_context():
+            connection_cache = OpenConnectionCache()
+            cli_context_manager = get_cli_context_manager()
+            cli_context_manager.reset()
+            cli_context_manager.connection_cache = connection_cache
+            try:
+                return super().invoke(self.app, *a, **kw)
+            finally:
+                connection_cache.clear()
 
     def _with_env_vars(self, kw) -> dict:
         """

@@ -16,14 +16,17 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from textwrap import dedent
 from unittest import mock
 
 import pytest
+import yaml
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 
+from tests.nativeapp.patch_utils import mock_connection
 from tests.testing_utils.files_and_dirs import create_named_file
 from tests.workspace.utils import (
     APP_PACKAGE_ENTITY,
@@ -32,7 +35,8 @@ from tests.workspace.utils import (
 )
 
 
-def _get_ws_manager(pdf_content=MOCK_SNOWFLAKE_YML_FILE):
+@mock_connection()
+def _get_ws_manager(mock_connection, pdf_content=MOCK_SNOWFLAKE_YML_FILE):
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -82,31 +86,61 @@ def test_bundle_of_invalid_entity_type(temp_dir):
         ws_manager.perform_action("app", EntityActions.BUNDLE)
 
 
-@pytest.mark.parametrize(
-    "project_directory_name",
-    ["migration_streamlit_V1_to_V2", "migration_snowpark_V1_to_V2"],
-)
-def test_migration_v1_to_v2(
-    runner, project_directory, snapshot, project_directory_name
+def test_migration_already_v2(
+    runner,
+    project_directory,
 ):
-    with project_directory(project_directory_name):
-        result = runner.invoke(["ws", "migrate"])
-
-    assert result.exit_code == 0
-    assert "Project definition migrated to version 2." in result.output
-    assert Path("snowflake.yml").read_text() == snapshot
-    assert Path("snowflake_V1.yml").read_text() == snapshot
-
-
-@pytest.mark.parametrize(
-    "project_directory_name", ["migration_streamlit_V2", "migration_snowpark_V2"]
-)
-def test_migration_already_v2(runner, project_directory, project_directory_name):
-    with project_directory(project_directory_name):
+    with project_directory("migration_already_v2"):
         result = runner.invoke(["ws", "migrate"])
 
     assert result.exit_code == 0
     assert "Project definition is already at version 2." in result.output
+
+
+def test_migrations_with_multiple_entities(
+    runner, project_directory, os_agnostic_snapshot
+):
+    with project_directory("migration_multiple_entities"):
+        result = runner.invoke(["ws", "migrate"])
+    assert result.exit_code == 0
+    assert Path("snowflake.yml").read_text() == os_agnostic_snapshot
+    assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
+
+
+def test_migration_native_app_missing_manifest(runner, project_directory):
+    with project_directory("migration_multiple_entities") as project_dir:
+        (project_dir / "app" / "manifest.yml").unlink()
+        result = runner.invoke(["ws", "migrate"])
+    assert result.exit_code == 1
+    assert "manifest.yml file not found" in result.output
+
+
+def test_migration_native_app_no_artifacts(runner, project_directory):
+    with project_directory("migration_multiple_entities") as project_dir:
+        with (project_dir / "snowflake.yml").open("r+") as snowflake_yml:
+            pdf = yaml.safe_load(snowflake_yml)
+            pdf["native_app"]["artifacts"] = []
+            snowflake_yml.seek(0)
+            yaml.safe_dump(pdf, snowflake_yml)
+            snowflake_yml.truncate()
+        result = runner.invoke(["ws", "migrate"])
+    assert result.exit_code == 1
+    assert "No artifacts mapping found in project definition" in result.output
+    assert "Could not bundle Native App artifacts" in result.output
+
+
+def test_migration_native_app_package_scripts(runner, project_directory):
+    with project_directory("migration_package_scripts") as project_dir:
+        result = runner.invoke(["ws", "migrate"])
+        assert result.exit_code == 0
+        package_scripts_dir = project_dir / "package_scripts"
+        for file in package_scripts_dir.iterdir():
+            assert file.read_text() == dedent(
+                """\
+                -- Just a demo package script, won't actually be executed in tests
+                select * from <% ctx.entities.pkg.identifier %>.my_schema.my_table
+                """
+            )
 
 
 @pytest.mark.parametrize(
@@ -138,3 +172,52 @@ def test_if_template_raises_error_during_migrations(
         result = runner.invoke(["ws", "migrate"])
         assert result.exit_code == 1
         assert "Project definition contains templates" in result.output
+
+
+def test_migration_with_only_envs(project_directory, runner):
+    with project_directory("sql_templating"):
+        result = runner.invoke(["ws", "migrate"])
+
+    assert result.exit_code == 0
+
+
+@pytest.mark.parametrize(
+    "duplicated_entity",
+    [
+        """
+    - name: test
+      handler: "test"
+      signature: ""
+      returns: string
+      runtime: "3.10"
+    """,
+        """
+streamlit:
+  name: test
+  stage: streamlit
+  query_warehouse: test_warehouse
+  main_file: "streamlit_app.py"
+  title: "My Fancy Streamlit"
+    """,
+        """
+    - name: test
+      handler: "test"
+      signature: ""
+      returns: string
+      handler: test
+      runtime: "3.10"
+    """,
+    ],
+)
+def test_migrating_a_file_with_duplicated_keys_raises_an_error(
+    runner, project_directory, os_agnostic_snapshot, duplicated_entity
+):
+    with project_directory("snowpark_procedures") as pd:
+        definition_path = pd / "snowflake.yml"
+
+        with open(definition_path, "a") as definition_file:
+            definition_file.write(duplicated_entity)
+
+        result = runner.invoke(["ws", "migrate"])
+    assert result.exit_code == 1
+    assert result.output == os_agnostic_snapshot

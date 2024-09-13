@@ -27,8 +27,15 @@ if IS_WINDOWS:
     pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
 
 
+mock_session_has_warehouse = mock.patch(
+    "snowflake.cli.api.sql_execution.SqlExecutionMixin.session_has_warehouse",
+    lambda _: True,
+)
+
+
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
 def test_deploy_function(
     mock_object_manager,
     mock_connector,
@@ -72,6 +79,7 @@ def test_deploy_function(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
 def test_deploy_function_with_external_access(
     mock_object_manager,
     mock_connector,
@@ -122,6 +130,7 @@ def test_deploy_function_with_external_access(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
 def test_deploy_function_secrets_without_external_access(
     mock_object_manager,
     mock_conn,
@@ -150,6 +159,7 @@ def test_deploy_function_secrets_without_external_access(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock_session_has_warehouse
 def test_deploy_function_no_changes(
     mock_connector,
     runner,
@@ -190,6 +200,7 @@ def test_deploy_function_no_changes(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock_session_has_warehouse
 def test_deploy_function_needs_update_because_packages_changes(
     mock_connector,
     runner,
@@ -240,6 +251,7 @@ def test_deploy_function_needs_update_because_packages_changes(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock_session_has_warehouse
 def test_deploy_function_needs_update_because_handler_changes(
     mock_connector,
     runner,
@@ -293,6 +305,7 @@ def test_deploy_function_needs_update_because_handler_changes(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock_session_has_warehouse
 def test_deploy_function_fully_qualified_name_duplicated_database(
     mock_om_show,
     mock_om_describe,
@@ -318,6 +331,7 @@ def test_deploy_function_fully_qualified_name_duplicated_database(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock_session_has_warehouse
 def test_deploy_function_fully_qualified_name_duplicated_schema(
     mock_om_show,
     mock_om_describe,
@@ -348,6 +362,7 @@ def test_deploy_function_fully_qualified_name_duplicated_schema(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock_session_has_warehouse
 def test_deploy_function_fully_qualified_name(
     mock_om_show,
     mock_om_describe,

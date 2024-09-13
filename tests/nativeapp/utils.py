@@ -32,6 +32,9 @@ RUN_MODULE = "snowflake.cli._plugins.nativeapp.run_processor"
 VERSION_MODULE = "snowflake.cli._plugins.nativeapp.version.version_processor"
 ENTITIES_COMMON_MODULE = "snowflake.cli.api.entities.common"
 ENTITIES_UTILS_MODULE = "snowflake.cli.api.entities.utils"
+APPLICATION_PACKAGE_ENTITY_MODULE = (
+    "snowflake.cli.api.entities.application_package_entity"
+)
 
 CLI_GLOBAL_TEMPLATE_CONTEXT = (
     "snowflake.cli.api.cli_global_context._CliGlobalContextAccess.template_context"
@@ -72,17 +75,27 @@ RUN_PROCESSOR_APP_POST_DEPLOY_HOOKS = f"{RUN_PROCESSOR}.app_post_deploy_hooks"
 
 FIND_VERSION_FROM_MANIFEST = f"{VERSION_MODULE}.find_version_info_in_manifest_file"
 
+APP_ENTITY = "snowflake.cli.api.entities.application_entity.ApplicationEntity"
+APP_ENTITY_GET_EXISTING_APP_INFO = f"{APP_ENTITY}.get_existing_app_info"
+APP_ENTITY_GET_EXISTING_VERSION_INFO = f"{APP_ENTITY}.get_existing_version_info"
+
 APP_PACKAGE_ENTITY = (
     "snowflake.cli.api.entities.application_package_entity.ApplicationPackageEntity"
 )
 APP_PACKAGE_ENTITY_DISTRIBUTION_IN_SF = (
     f"{APP_PACKAGE_ENTITY}.get_app_pkg_distribution_in_snowflake"
 )
+APP_PACKAGE_ENTITY_DROP_GENERIC_OBJECT = (
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.drop_generic_object"
+)
 APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO = (
     f"{APP_PACKAGE_ENTITY}.get_existing_app_pkg_info"
 )
 APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME = (
     f"{APP_PACKAGE_ENTITY}.verify_project_distribution"
+)
+APP_PACKAGE_ENTITY_IS_CORRECT_OWNER = (
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ensure_correct_owner"
 )
 
 SQL_EXECUTOR_EXECUTE = f"{ENTITIES_COMMON_MODULE}.SqlExecutor._execute_query"

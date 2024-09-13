@@ -23,7 +23,13 @@ from click import UsageError
 from snowflake.cli._plugins.snowpark.models import Requirement
 from snowflake.cli._plugins.snowpark.snowpark_project_paths import Artefact
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.constants import (
+    INIT_TEMPLATE_VARIABLE_CLOSING,
+    INIT_TEMPLATE_VARIABLE_OPENING,
+    PROJECT_TEMPLATE_VARIABLE_CLOSING,
+    PROJECT_TEMPLATE_VARIABLE_OPENING,
+    ObjectType,
+)
 from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
     ProcedureEntityModel,
     SnowparkEntityModel,
@@ -250,3 +256,13 @@ def _compare_imports(
         }
 
     return project_imports != object_imports
+
+
+def is_name_a_templated_one(name: str) -> bool:
+    return (
+        PROJECT_TEMPLATE_VARIABLE_OPENING in name
+        and PROJECT_TEMPLATE_VARIABLE_CLOSING in name
+    ) or (
+        INIT_TEMPLATE_VARIABLE_OPENING in name
+        and INIT_TEMPLATE_VARIABLE_CLOSING in name
+    )

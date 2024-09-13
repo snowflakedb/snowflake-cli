@@ -1,0 +1,16 @@
+# This is the v2 version of the "integration_external" project definition
+
+manifest_version: 1
+
+version:
+  name: dev
+  label: "Dev Version"
+  comment: "Default version used for development. Override for actual deployment."
+
+artifacts:
+  setup_script: setup.sql
+  readme: README.md
+
+configuration:
+  log_level: INFO
+  trace_level: ALWAYS
