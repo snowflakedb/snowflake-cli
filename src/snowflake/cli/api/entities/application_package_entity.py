@@ -55,7 +55,7 @@ from snowflake.cli.api.rendering.jinja import (
     get_basic_jinja_env,
 )
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 
 class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
@@ -154,6 +154,15 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             deploy_to_scratch_stage_fn=deploy_to_scratch_stage_fn,
         )
         ctx.console.message("Setup script is valid")
+
+    def action_version_list(
+        self, ctx: ActionContext, *args, **kwargs
+    ) -> SnowflakeCursor:
+        model = self._entity_model
+        return self.version_list(
+            package_name=model.fqn.identifier,
+            package_role=(model.meta and model.meta.role) or ctx.default_role,
+        )
 
     @staticmethod
     def bundle(
@@ -265,6 +274,22 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
 
         return diff
+
+    @staticmethod
+    def version_list(package_name: str, package_role: str) -> SnowflakeCursor:
+        """
+        Get all existing versions, if defined, for an application package.
+        It executes a 'show versions in application package' query and returns all the results.
+        """
+        executor = get_sql_executor()
+        with executor.use_role(package_role):
+            show_obj_query = f"show versions in application package {package_name}"
+            show_obj_cursor = executor.execute_query(show_obj_query)
+
+            if show_obj_cursor.rowcount is None:
+                raise SnowflakeSQLExecutionError(show_obj_query)
+
+            return show_obj_cursor
 
     @staticmethod
     def get_existing_app_pkg_info(

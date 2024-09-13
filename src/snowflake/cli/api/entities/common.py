@@ -11,6 +11,8 @@ class EntityActions(str, Enum):
     DROP = "action_drop"
     VALIDATE = "action_validate"
 
+    VERSION_LIST = "action_version_list"
+
 
 T = TypeVar("T")
 
