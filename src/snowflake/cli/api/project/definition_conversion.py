@@ -20,9 +20,12 @@ from snowflake.cli.api.entities.utils import render_script_template
 from snowflake.cli.api.project.schemas.entities.common import (
     SqlScriptHookType,
 )
-from snowflake.cli.api.project.schemas.native_app.application import Application
+from snowflake.cli.api.project.schemas.native_app.application import (
+    Application,
+    ApplicationV11,
+)
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
-from snowflake.cli.api.project.schemas.native_app.package import Package
+from snowflake.cli.api.project.schemas.native_app.package import Package, PackageV11
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
@@ -206,6 +209,9 @@ def convert_native_app_to_v2_data(
         # which use POSIX paths as default values
         return manifest_path.as_posix()
 
+    def _make_template(template: str) -> str:
+        return f"{PROJECT_TEMPLATE_VARIABLE_OPENING} {template} {PROJECT_TEMPLATE_VARIABLE_CLOSING}"
+
     def _convert_package_script_files(package_scripts: list[str]):
         # PDFv2 doesn't support package scripts, only post-deploy scripts, so we
         # need to convert the Jinja syntax from {{ }} to <% %>
@@ -213,7 +219,9 @@ def convert_native_app_to_v2_data(
         # to v2 template syntax by running it though the template process with a fake
         # package name that's actually a valid v2 template, which will be evaluated
         # when the script is used as a post-deploy script
-        fake_package_replacement_template = f"{PROJECT_TEMPLATE_VARIABLE_OPENING} ctx.entities.{package_entity_name}.identifier {PROJECT_TEMPLATE_VARIABLE_CLOSING}"
+        fake_package_replacement_template = _make_template(
+            f"ctx.entities.{package_entity_name}.identifier"
+        )
         jinja_context = dict(package_name=fake_package_replacement_template)
         post_deploy_hooks = []
         for script_file in package_scripts:
@@ -225,13 +233,20 @@ def convert_native_app_to_v2_data(
         return post_deploy_hooks
 
     package_entity_name = "pkg"
+    if (
+        native_app.package
+        and native_app.package.name
+        and native_app.package.name != PackageV11.model_fields["name"].default
+    ):
+        package_identifier = native_app.package.name
+    else:
+        # Backport the PackageV11 default name template, updated for PDFv2
+        package_identifier = _make_template(
+            f"fn.concat_ids('{native_app.name}', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower)"
+        )
     package = {
         "type": "application package",
-        "identifier": (
-            native_app.package.name
-            if native_app.package and native_app.package.name
-            else f"{native_app.name}_pkg"
-        ),
+        "identifier": package_identifier,
         "manifest": _find_manifest(),
         "artifacts": native_app.artifacts,
         "bundle_root": native_app.bundle_root,
@@ -254,13 +269,20 @@ def convert_native_app_to_v2_data(
             package["meta"] = package_meta
 
     app_entity_name = "app"
+    if (
+        native_app.application
+        and native_app.application.name
+        and native_app.application.name != ApplicationV11.model_fields["name"].default
+    ):
+        app_identifier = native_app.application.name
+    else:
+        # Backport the ApplicationV11 default name template, updated for PDFv2
+        app_identifier = _make_template(
+            f"fn.concat_ids('{native_app.name}', '_', fn.sanitize_id(fn.get_username('unknown_user')) | lower)"
+        )
     app = {
         "type": "application",
-        "identifier": (
-            native_app.application.name
-            if native_app.application and native_app.application.name
-            else native_app.name
-        ),
+        "identifier": app_identifier,
         "from": {"target": package_entity_name},
     }
     if native_app.application:
