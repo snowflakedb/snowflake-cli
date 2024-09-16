@@ -16,12 +16,12 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from textwrap import dedent
 from typing import List
 from unittest import mock
 
 import pytest
 import yaml
-from nativeapp.factories import DefinitionV10Factory, DefinitionV11Factory
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli._plugins.nativeapp.project_model import (
     NativeAppProjectModel,
@@ -40,14 +40,13 @@ CURRENT_ROLE = "current_role"
 @pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 @mock.patch.dict(os.environ, {"USER": "test_user"}, clear=True)
-def test_project_model_all_defaults(mock_connect, mock_ctx):
+def test_project_model_all_defaults(
+    mock_connect, project_definition_files: List[Path], mock_ctx
+):
     ctx = mock_ctx()
     mock_connect.return_value = ctx
 
-    project_defn = DefinitionV10Factory(
-        native_app__name="minimal",
-        native_app__artifacts=["setup.sql", "README.md"],
-    )
+    project_defn = load_project(project_definition_files).project_definition
 
     project_dir = Path().resolve()
     project = NativeAppProjectModel(
@@ -114,21 +113,38 @@ def test_project_model_all_explicit(mock_connect, mock_ctx):
     ctx = mock_ctx()
     mock_connect.return_value = ctx
 
-    project_defn = DefinitionV11Factory(
-        native_app__name="minimal",
-        native_app__artifacts=["setup.sql", "README.md"],
-        native_app__package__name="minimal_test_pkg",
-        native_app__package__role="PkgRole",
-        native_app__package__distribution="external",
-        native_app__package__warehouse="PkgWarehouse",
-        native_app__package__scripts=["scripts/package_setup.sql"],
-        native_app__application__name="minimal_test_app",
-        native_app__application__warehouse="AppWarehouse",
-        native_app__application__role="AppRole",
-        native_app__application__debug=False,
-        native_app__application__post_deploy=[dict(sql_script="scripts/app_setup.sql")],
+    project_defition_file_yml = dedent(
+        f"""
+        definition_version: 1.1
+        native_app:
+          name: minimal
+          
+          artifacts:
+            - setup.sql
+            - README.md
+          
+          package:
+            name: minimal_test_pkg
+            role: PkgRole
+            distribution: external
+            warehouse: PkgWarehouse
+            scripts:
+              - scripts/package_setup.sql
+          
+          application:
+            name: minimal_test_app
+            warehouse: AppWarehouse
+            role: AppRole
+            debug: false
+            post_deploy:
+                - sql_script: scripts/app_setup.sql
+    
+    """
     )
 
+    project_defn = build_project_definition(
+        **yaml.load(project_defition_file_yml, Loader=yaml.BaseLoader)
+    )
     project_dir = Path().resolve()
     project = NativeAppProjectModel(
         project_definition=project_defn.native_app,

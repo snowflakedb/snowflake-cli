@@ -20,7 +20,6 @@ from typing import List
 from unittest import mock
 
 import pytest
-from nativeapp.factories import ProjectPropertiesFactory
 from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
@@ -31,7 +30,6 @@ from snowflake.cli.api.project.schemas.project_definition import (
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_napp_project_1(project_definition_files):
-    ProjectPropertiesFactory()
     project = load_project(project_definition_files).project_definition
     assert project.native_app.name == "myapp"
     assert project.native_app.deploy_root == "output/deploy/"

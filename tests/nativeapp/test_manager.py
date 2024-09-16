@@ -55,7 +55,6 @@ from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
-# from tests.nativeapp.factories import ProjectPropertiesFactory
 from tests.nativeapp.patch_utils import (
     mock_connection,
     mock_get_app_pkg_distribution_in_sf,
@@ -114,8 +113,6 @@ def test_sync_deploy_root_with_stage(
     mock_diff_result = DiffResult(different=[StagePath("setup.sql")])
     mock_compute_stage_diff.return_value = mock_diff_result
     mock_local_diff_with_stage.return_value = None
-
-    # ProjectPropertiesFactory(project_definition__foo="far")
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
