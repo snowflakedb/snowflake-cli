@@ -281,10 +281,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         Get all existing versions, if defined, for an application package.
         It executes a 'show versions in application package' query and returns all the results.
         """
-        executor = get_sql_executor()
-        with executor.use_role(package_role):
+        sql_executor = get_sql_executor()
+        with sql_executor.use_role(package_role):
             show_obj_query = f"show versions in application package {package_name}"
-            show_obj_cursor = executor.execute_query(show_obj_query)
+            show_obj_cursor = sql_executor.execute_query(show_obj_query)
 
             if show_obj_cursor.rowcount is None:
                 raise SnowflakeSQLExecutionError(show_obj_query)
