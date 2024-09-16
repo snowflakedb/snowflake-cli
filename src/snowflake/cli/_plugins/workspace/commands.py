@@ -178,7 +178,13 @@ def drop(
         help=f"""The ID of the entity you want to drop.""",
     ),
     # TODO The following options should be generated automatically, depending on the specified entity type
+    interactive: bool = InteractiveOption,
     force: Optional[bool] = ForceOption,
+    cascade: Optional[bool] = typer.Option(
+        None,
+        help=f"""Whether to drop all application objects owned by the application within the account. Default: false.""",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -194,6 +200,8 @@ def drop(
         entity_id,
         EntityActions.DROP,
         force_drop=force,
+        interactive=interactive,
+        cascade=cascade,
     )
 
 
