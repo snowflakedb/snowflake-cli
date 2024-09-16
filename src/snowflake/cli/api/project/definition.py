@@ -52,9 +52,6 @@ def _get_merged_definitions(paths: List[Path]) -> Optional[Definition]:
     loader.add_constructor(
         yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicates_constructor
     )
-    loader.add_constructor(
-        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicates_constructor
-    )
     loader.add_constructor("!override", _override_tag)
 
     with spaths[0].open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as base_yml:
