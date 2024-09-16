@@ -36,6 +36,8 @@ from snowflake.cli._plugins.nativeapp.policy import (
 )
 from snowflake.cli._plugins.nativeapp.run_processor import (
     NativeAppRunProcessor,
+)
+from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.stage.diff import DiffResult
@@ -54,9 +56,10 @@ from tests.nativeapp.patch_utils import (
     mock_connection,
 )
 from tests.nativeapp.utils import (
-    NATIVEAPP_MANAGER_EXECUTE,
+    APP_ENTITY_GET_EXISTING_APP_INFO,
+    APP_ENTITY_GET_EXISTING_VERSION_INFO,
     NATIVEAPP_MODULE,
-    RUN_PROCESSOR_GET_EXISTING_APP_INFO,
+    SQL_EXECUTOR_EXECUTE,
     TYPER_CONFIRM,
     mock_execute_helper,
     mock_snowflake_yml_file,
@@ -92,7 +95,7 @@ def _get_na_run_processor():
 
 
 # Test create_dev_app with exception thrown trying to use the warehouse
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 def test_create_dev_app_w_warehouse_access_exception(
     mock_conn, mock_execute, temp_dir, mock_cursor
@@ -150,8 +153,8 @@ def test_create_dev_app_w_warehouse_access_exception(
 
 
 # Test create_dev_app with no existing application AND create succeeds AND app role == package role
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 def test_create_dev_app_create_new_w_no_additional_privileges(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
@@ -204,8 +207,8 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
 
 
 # Test create_dev_app with no existing application AND create returns a warning
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @mock_connection()
 @pytest.mark.parametrize(
@@ -301,8 +304,8 @@ def test_create_or_upgrade_dev_app_with_warning(
 
 
 # Test create_dev_app with no existing application AND create succeeds AND app role != package role
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 def test_create_dev_app_create_new_with_additional_privileges(
     mock_conn,
@@ -379,8 +382,8 @@ def test_create_dev_app_create_new_with_additional_privileges(
 
 
 # Test create_dev_app with no existing application AND create throws an exception
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 def test_create_dev_app_create_new_w_missing_warehouse_exception(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
@@ -443,8 +446,8 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
 
 # Test create_dev_app with existing application AND bad comment AND good version
 # Test create_dev_app with existing application AND bad comment AND bad version
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
     "comment, version",
@@ -507,8 +510,8 @@ def test_create_dev_app_incorrect_properties(
 
 
 # Test create_dev_app with existing application AND incorrect owner
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 def test_create_dev_app_incorrect_owner(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
@@ -558,8 +561,8 @@ def test_create_dev_app_incorrect_owner(
 
 
 # Test create_dev_app with existing application AND diff has no changes
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 def test_create_dev_app_no_diff_changes(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
@@ -613,8 +616,8 @@ def test_create_dev_app_no_diff_changes(
 
 
 # Test create_dev_app with existing application AND diff has changes
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 def test_create_dev_app_w_diff_changes(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
@@ -668,8 +671,8 @@ def test_create_dev_app_w_diff_changes(
 
 
 # Test create_dev_app with existing application AND alter throws an error
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 def test_create_dev_app_recreate_w_missing_warehouse_exception(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
@@ -730,8 +733,8 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
 
 
 # Test create_dev_app with no existing application AND quoted name scenario 1
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 def test_create_dev_app_create_new_quoted(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
@@ -816,8 +819,8 @@ def test_create_dev_app_create_new_quoted(
 
 
 # Test create_dev_app with no existing application AND quoted name scenario 2
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 def test_create_dev_app_create_new_quoted_override(
     mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
@@ -879,8 +882,8 @@ def test_create_dev_app_create_new_quoted_override(
 # AND user wants to drop app
 # AND drop succeeds
 # AND app is created successfully.
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
 def test_create_dev_app_recreate_app_when_orphaned(
     mock_conn,
@@ -973,8 +976,8 @@ def test_create_dev_app_recreate_app_when_orphaned(
 # AND drop requires cascade
 # AND drop succeeds
 # AND app is created successfully.
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
 def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
     mock_conn,
@@ -1085,8 +1088,8 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
 # AND we can't see which objects are owned by the app
 # AND drop succeeds
 # AND app is created successfully.
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
 def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_objects(
     mock_conn,
@@ -1186,7 +1189,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
 
 
 # Test upgrade app method for release directives AND throws warehouse error
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
@@ -1240,8 +1243,8 @@ def test_upgrade_app_warehouse_error(
 
 
 # Test upgrade app method for release directives AND existing app info AND bad owner
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
@@ -1296,8 +1299,8 @@ def test_upgrade_app_incorrect_owner(
 
 
 # Test upgrade app method for release directives AND existing app info AND upgrade succeeds
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
@@ -1352,8 +1355,8 @@ def test_upgrade_app_succeeds(
 
 
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to generic error
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
@@ -1416,8 +1419,8 @@ def test_upgrade_app_fails_generic_error(
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is False AND --interactive is False
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is False AND --interactive is True AND  user does not want to proceed
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is True AND user does not want to proceed
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
 )
@@ -1485,8 +1488,8 @@ def test_upgrade_app_fails_upgrade_restriction_error(
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
 def test_versioned_app_upgrade_to_unversioned(
     mock_conn,
@@ -1585,8 +1588,8 @@ def test_versioned_app_upgrade_to_unversioned(
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is True AND drop fails
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is False AND --interactive is True AND user wants to proceed AND drop fails
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is True AND user wants to proceed AND drop fails
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
@@ -1659,8 +1662,8 @@ def test_upgrade_app_fails_drop_fails(
 
 
 # Test upgrade app method for release directives AND existing app info AND user wants to drop app AND drop succeeds AND app is created successfully.
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
@@ -1756,7 +1759,7 @@ def test_upgrade_app_recreate_app(
 
 # Test upgrade app method for version AND no existing version info
 @mock.patch(
-    "snowflake.cli._plugins.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
+    APP_ENTITY_GET_EXISTING_VERSION_INFO,
     return_value=None,
 )
 @pytest.mark.parametrize(
@@ -1785,7 +1788,7 @@ def test_upgrade_app_from_version_throws_usage_error_one(
 
 # Test upgrade app method for version AND no existing app package from version info
 @mock.patch(
-    "snowflake.cli._plugins.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
+    APP_ENTITY_GET_EXISTING_VERSION_INFO,
     side_effect=ApplicationPackageDoesNotExistError("app_pkg"),
 )
 @pytest.mark.parametrize(
@@ -1814,11 +1817,11 @@ def test_upgrade_app_from_version_throws_usage_error_two(
 
 # Test upgrade app method for version AND existing app info AND user wants to drop app AND drop succeeds AND app is created successfully
 @mock.patch(
-    "snowflake.cli._plugins.nativeapp.run_processor.NativeAppRunProcessor.get_existing_version_info",
+    APP_ENTITY_GET_EXISTING_VERSION_INFO,
     return_value={"key": "val"},
 )
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(RUN_PROCESSOR_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
@@ -1916,7 +1919,7 @@ def test_upgrade_app_recreate_app_from_version(
 
 
 # Test get_existing_version_info returns version info correctly
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_version_info(mock_execute, temp_dir, mock_cursor):
     version = "V1"
     side_effects, expected = mock_execute_helper(

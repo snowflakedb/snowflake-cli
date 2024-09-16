@@ -40,6 +40,7 @@ from snowflake.cli.api.rendering.sql_templates import (
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector import ProgrammingError
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 def generic_sql_error_handler(
@@ -303,27 +304,34 @@ def render_script_templates(
     - List of rendered scripts content
     Size of the return list is the same as the size of the input scripts list.
     """
-    scripts_contents = []
-    for relpath in scripts:
-        script_full_path = SecurePath(project_root) / relpath
-        try:
-            template_content = script_full_path.read_text(file_size_limit_mb=UNLIMITED)
-            env = override_env or choose_sql_jinja_env_based_on_template_syntax(
-                template_content, reference_name=relpath
-            )
-            result = env.from_string(template_content).render(jinja_context)
-            scripts_contents.append(result)
+    return [
+        render_script_template(project_root, jinja_context, script, override_env)
+        for script in scripts
+    ]
 
-        except FileNotFoundError as e:
-            raise MissingScriptError(relpath) from e
 
-        except jinja2.TemplateSyntaxError as e:
-            raise InvalidTemplateInFileError(relpath, e, e.lineno) from e
+def render_script_template(
+    project_root: Path,
+    jinja_context: dict[str, Any],
+    script: str,
+    override_env: Optional[jinja2.Environment] = None,
+) -> str:
+    script_full_path = SecurePath(project_root) / script
+    try:
+        template_content = script_full_path.read_text(file_size_limit_mb=UNLIMITED)
+        env = override_env or choose_sql_jinja_env_based_on_template_syntax(
+            template_content, reference_name=script
+        )
+        return env.from_string(template_content).render(jinja_context)
 
-        except jinja2.UndefinedError as e:
-            raise InvalidTemplateInFileError(relpath, e) from e
+    except FileNotFoundError as e:
+        raise MissingScriptError(script) from e
 
-    return scripts_contents
+    except jinja2.TemplateSyntaxError as e:
+        raise InvalidTemplateInFileError(script, e, e.lineno) from e
+
+    except jinja2.UndefinedError as e:
+        raise InvalidTemplateInFileError(script, e) from e
 
 
 def validation_item_to_str(item: dict[str, str | int]):
@@ -355,3 +363,19 @@ def drop_generic_object(
             raise SnowflakeSQLExecutionError(drop_query)
 
         console.message(f"Dropped {object_type} {object_name} successfully.")
+
+
+def print_messages(
+    console: AbstractConsole, create_or_upgrade_cursor: Optional[SnowflakeCursor]
+):
+    """
+    Shows messages in the console returned by the CREATE or UPGRADE
+    APPLICATION command.
+    """
+    if not create_or_upgrade_cursor:
+        return
+
+    messages = [row[0] for row in create_or_upgrade_cursor.fetchall()]
+    for message in messages:
+        console.warning(message)
+    console.message("")

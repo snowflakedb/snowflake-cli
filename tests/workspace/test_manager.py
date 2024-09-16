@@ -16,9 +16,11 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from textwrap import dedent
 from unittest import mock
 
 import pytest
+import yaml
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
@@ -105,6 +107,42 @@ def test_migrations_with_multiple_entities(
     assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
 
 
+def test_migration_native_app_missing_manifest(runner, project_directory):
+    with project_directory("migration_multiple_entities") as project_dir:
+        (project_dir / "app" / "manifest.yml").unlink()
+        result = runner.invoke(["ws", "migrate"])
+    assert result.exit_code == 1
+    assert "manifest.yml file not found" in result.output
+
+
+def test_migration_native_app_no_artifacts(runner, project_directory):
+    with project_directory("migration_multiple_entities") as project_dir:
+        with (project_dir / "snowflake.yml").open("r+") as snowflake_yml:
+            pdf = yaml.safe_load(snowflake_yml)
+            pdf["native_app"]["artifacts"] = []
+            snowflake_yml.seek(0)
+            yaml.safe_dump(pdf, snowflake_yml)
+            snowflake_yml.truncate()
+        result = runner.invoke(["ws", "migrate"])
+    assert result.exit_code == 1
+    assert "No artifacts mapping found in project definition" in result.output
+    assert "Could not bundle Native App artifacts" in result.output
+
+
+def test_migration_native_app_package_scripts(runner, project_directory):
+    with project_directory("migration_package_scripts") as project_dir:
+        result = runner.invoke(["ws", "migrate"])
+        assert result.exit_code == 0
+        package_scripts_dir = project_dir / "package_scripts"
+        for file in package_scripts_dir.iterdir():
+            assert file.read_text() == dedent(
+                """\
+                -- Just a demo package script, won't actually be executed in tests
+                select * from <% ctx.entities.pkg.identifier %>.my_schema.my_table
+                """
+            )
+
+
 @pytest.mark.parametrize(
     "project_directory_name", ["snowpark_templated_v1", "streamlit_templated_v1"]
 )
@@ -141,15 +179,6 @@ def test_migration_with_only_envs(project_directory, runner):
         result = runner.invoke(["ws", "migrate"])
 
     assert result.exit_code == 0
-
-
-def test_migrating_native_app_raises_error(
-    project_directory, runner, os_agnostic_snapshot
-):
-    with project_directory("napp_project_1") as pd:
-        result = runner.invoke(["ws", "migrate"])
-    assert result.exit_code == 1
-    assert result.output == os_agnostic_snapshot
 
 
 @pytest.mark.parametrize(
@@ -192,3 +221,31 @@ def test_migrating_a_file_with_duplicated_keys_raises_an_error(
         result = runner.invoke(["ws", "migrate"])
     assert result.exit_code == 1
     assert result.output == os_agnostic_snapshot
+
+
+@pytest.mark.parametrize("definition_version", [1, "1.1"])
+def test_migrate_nativeapp_fields_with_username(
+    runner, project_directory, definition_version
+):
+    with project_directory("integration") as pd:
+        definition_path = pd / "snowflake.yml"
+        with definition_path.open("r+") as f:
+            old_definition = yaml.safe_load(f)
+            old_definition["definition_version"] = definition_version
+            f.seek(0)
+            yaml.safe_dump(old_definition, f)
+            f.truncate()
+
+        result = runner.invoke(["ws", "migrate", "--accept-templates"])
+        assert result.exit_code == 0, result.output
+
+        with definition_path.open("r") as f:
+            new_definition = yaml.safe_load(f)
+        assert (
+            new_definition["entities"]["app"]["identifier"]
+            == "<% fn.concat_ids('integration', '_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>"
+        )
+        assert (
+            new_definition["entities"]["pkg"]["identifier"]
+            == "<% fn.concat_ids('integration', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>"
+        )

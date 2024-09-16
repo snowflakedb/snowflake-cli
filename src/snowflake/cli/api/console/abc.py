@@ -37,13 +37,15 @@ class AbstractConsole(ABC):
     """
 
     _print_fn: Callable[[str], None]
-    _cli_context: _CliGlobalContextAccess
     _in_phase: bool
 
     def __init__(self):
         super().__init__()
-        self._cli_context = get_cli_context()
         self._in_phase = False
+
+    @property
+    def _cli_context(self) -> _CliGlobalContextAccess:
+        return get_cli_context()
 
     @property
     def is_silent(self) -> bool:

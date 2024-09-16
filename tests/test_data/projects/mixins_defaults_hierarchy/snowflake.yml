@@ -18,12 +18,11 @@ entities:
     handler: app.hello2
     identifier: name
     returns: string
+    stage: baz
     signature:
     - name: name
       type: string
     type: function
-defaults:
-    stage: baz
 mixins:
   my_mixin:
     stage: foo

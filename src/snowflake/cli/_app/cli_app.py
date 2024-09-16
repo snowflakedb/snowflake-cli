@@ -38,6 +38,10 @@ from snowflake.cli._app.dev.pycharm_remote_debug import (
 )
 from snowflake.cli._app.main_typer import SnowCliMainTyper
 from snowflake.cli._app.printing import MessageResult, print_result
+from snowflake.cli._app.version_check import (
+    get_new_version_msg,
+    show_new_version_banner_callback,
+)
 from snowflake.cli.api import Api, api_provider
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.output.formats import OutputFormat
@@ -145,8 +149,13 @@ def _info_callback(value: bool):
 
 def app_factory() -> SnowCliMainTyper:
     app = SnowCliMainTyper()
+    new_version_msg = get_new_version_msg()
 
-    @app.callback(invoke_without_command=True)
+    @app.callback(
+        invoke_without_command=True,
+        epilog=new_version_msg,
+        result_callback=show_new_version_banner_callback(new_version_msg),
+    )
     def default(
         ctx: typer.Context,
         version: bool = typer.Option(

@@ -41,7 +41,7 @@ def test_nativeapp_open(
 
         mock_call = mock_typer_launch.call_args_list[0].args[0]
         assert re.match(
-            rf"https://app.snowflake.com/.*#/apps/application/{app_name}",
+            rf"https://.*app.snowflake.com/.*#/apps/application/{app_name}",
             mock_call,
             re.IGNORECASE,
         )

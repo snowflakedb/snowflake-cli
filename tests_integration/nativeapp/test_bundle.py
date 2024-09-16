@@ -32,6 +32,10 @@ from tests_integration.testing_utils import (
     ],
 )
 def template_setup(runner, nativeapp_project_directory, request):
+    """
+    Sets up a project directory and runs the bundle command on the application package.
+    Returns (project_root, execute_bundle_command, test_project)
+    """
     command, test_project = request.param
     with nativeapp_project_directory(test_project) as project_root:
         # Vanilla bundle on the unmodified template

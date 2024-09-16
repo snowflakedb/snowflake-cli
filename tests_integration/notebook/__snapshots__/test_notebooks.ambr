@@ -1,0 +1,13 @@
+# serializer version: 1
+# name: test_create_notebook
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ 100357 (P0000): 01b6c2fb-090b-2340-0001-c1be063161de: Python Interpreter     │
+  │ Error:                                                                       │
+  │ Exception: NameError: name 'fooBar' is not defined                           │
+  │ File "Cell [None]", line 1, in <module>                                      │
+  │     fooBar                                                                   │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---

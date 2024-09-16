@@ -24,6 +24,7 @@ import yaml
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
+    InteractiveOption,
     ValidateOption,
 )
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
@@ -53,13 +54,14 @@ def migrate(
     ),
     **options,
 ):
-    """Migrates the Snowpark and Streamlit project definition files from V1 to V2."""
-    pd = DefinitionManager().unrendered_project_definition
+    """Migrates the Snowpark, Streamlit, and Native App project definition files from V1 to V2."""
+    manager = DefinitionManager()
+    pd = manager.unrendered_project_definition
 
     if pd.meets_version_requirement("2"):
         return MessageResult("Project definition is already at version 2.")
 
-    pd_v2 = convert_project_definition_to_v2(pd, accept_templates)
+    pd_v2 = convert_project_definition_to_v2(manager.project_root, pd, accept_templates)
 
     SecurePath("snowflake.yml").rename("snowflake_V1.yml")
     with open("snowflake.yml", "w") as file:
@@ -70,16 +72,6 @@ def migrate(
             file,
         )
     return MessageResult("Project definition migrated to version 2.")
-
-
-@ws.command(requires_connection=True, hidden=True)
-@with_project_definition()
-def validate(
-    **options,
-):
-    """Validates the project definition file."""
-    # If we get to this point, @with_project_definition() has already validated the PDF schema
-    return MessageResult("Project definition is valid.")
 
 
 @ws.command(requires_connection=True, hidden=True)
@@ -104,7 +96,7 @@ def bundle(
     return MessageResult(f"Bundle generated at {bundle_map.deploy_root()}")
 
 
-@ws.command(requires_connection=True)
+@ws.command(requires_connection=True, hidden=True)
 @with_project_definition()
 def deploy(
     entity_id: str = typer.Option(
@@ -132,6 +124,15 @@ def deploy(
             unspecified, the command syncs all local changes to the stage."""
         ).strip(),
     ),
+    from_release_directive: Optional[bool] = typer.Option(
+        False,
+        "--from-release-directive",
+        help=f"""Creates or upgrades an application object to the version and patch specified by the release directive applicable to your Snowflake account.
+        The command fails if no release directive exists for your Snowflake account for a given application package, which is determined from the project definition file. Default: unset.""",
+        is_flag=True,
+    ),
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
     validate: bool = ValidateOption,
     **options,
 ):
@@ -163,24 +164,32 @@ def deploy(
         recursive=recursive,
         paths=paths,
         validate=validate,
+        from_release_directive=from_release_directive,
+        interactive=interactive,
+        force=force,
     )
     return MessageResult("Deployed successfully.")
 
 
-@ws.command(requires_connection=True)
+@ws.command(requires_connection=True, hidden=True)
 @with_project_definition()
 def drop(
     entity_id: str = typer.Option(
         help=f"""The ID of the entity you want to drop.""",
     ),
     # TODO The following options should be generated automatically, depending on the specified entity type
+    interactive: bool = InteractiveOption,
     force: Optional[bool] = ForceOption,
+    cascade: Optional[bool] = typer.Option(
+        None,
+        help=f"""Whether to drop all application objects owned by the application within the account. Default: false.""",
+        show_default=False,
+    ),
     **options,
 ):
     """
     Drops the specified entity.
     """
-
     cli_context = get_cli_context()
     ws = WorkspaceManager(
         project_definition=cli_context.project_definition,
@@ -191,4 +200,27 @@ def drop(
         entity_id,
         EntityActions.DROP,
         force_drop=force,
+        interactive=interactive,
+        cascade=cascade,
+    )
+
+
+@ws.command(requires_connection=True, hidden=True)
+@with_project_definition()
+def validate(
+    entity_id: str = typer.Option(
+        help=f"""The ID of the entity you want to validate.""",
+    ),
+    **options,
+):
+    """Validates the specified entity."""
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+
+    ws.perform_action(
+        entity_id,
+        EntityActions.VALIDATE,
     )

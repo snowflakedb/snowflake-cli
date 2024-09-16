@@ -1,0 +1,19 @@
+# This is the v2 version of the "integration_external" project definition
+definition_version: 2
+entities:
+  pkg:
+    type: application package
+    identifier: integration_external_pkg_<% ctx.env.USER %>
+    artifacts:
+      - src: app/*
+        dest: ./
+    manifest: app/manifest.yml
+    meta:
+      post_deploy:
+        - sql_script: package/001-shared.sql
+        - sql_script: package/002-shared.sql
+  app:
+    type: application
+    identifier: integration_external_<% ctx.env.USER %>
+    from:
+      target: pkg

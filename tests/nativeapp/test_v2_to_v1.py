@@ -30,6 +30,82 @@ from snowflake.cli.api.project.schemas.project_definition import (
 )
 
 
+def package_v2(entity_id: str):
+    return {
+        entity_id: {
+            "type": "application package",
+            "identifier": entity_id,
+            "artifacts": [{"src": "app/*", "dest": "./"}],
+            "manifest": "app/manifest.yml",
+            "stage": "app.stage",
+            "bundle_root": "bundle_root_path",
+            "generated_root": "generated_root_path",
+            "deploy_root": "deploy_root_path",
+            "scratch_stage": "scratch_stage_path",
+            "meta": {
+                "role": "pkg_role",
+                "warehouse": "pkg_wh",
+                "post_deploy": [
+                    {"sql_script": "scripts/script1.sql"},
+                    {"sql_script": "scripts/script2.sql"},
+                ],
+            },
+            "distribution": "external",
+        }
+    }
+
+
+def app_v2(entity_id: str, from_pkg: str):
+    return {
+        entity_id: {
+            "type": "application",
+            "identifier": entity_id,
+            "from": {"target": from_pkg},
+            "debug": True,
+            "meta": {
+                "role": "app_role",
+                "warehouse": "app_wh",
+                "post_deploy": [
+                    {"sql_script": "scripts/script3.sql"},
+                    {"sql_script": "scripts/script4.sql"},
+                ],
+            },
+        }
+    }
+
+
+def native_app_v1(name: str, pkg: str, app: str):
+    return {
+        "name": name,
+        "artifacts": [{"src": "app/*", "dest": "./"}],
+        "source_stage": "app.stage",
+        "bundle_root": "bundle_root_path",
+        "generated_root": "generated_root_path",
+        "deploy_root": "deploy_root_path",
+        "scratch_stage": "scratch_stage_path",
+        "package": {
+            "name": pkg,
+            "distribution": "external",
+            "role": "pkg_role",
+            "warehouse": "pkg_wh",
+            "post_deploy": [
+                {"sql_script": "scripts/script1.sql"},
+                {"sql_script": "scripts/script2.sql"},
+            ],
+        },
+        "application": {
+            "name": app,
+            "role": "app_role",
+            "debug": True,
+            "warehouse": "app_wh",
+            "post_deploy": [
+                {"sql_script": "scripts/script3.sql"},
+                {"sql_script": "scripts/script4.sql"},
+            ],
+        },
+    }
+
+
 @pytest.mark.parametrize(
     "pdfv2_input, expected_pdfv1, expected_error",
     [
@@ -37,18 +113,8 @@ from snowflake.cli.api.project.schemas.project_definition import (
             {
                 "definition_version": "2",
                 "entities": {
-                    "pkg1": {
-                        "type": "application package",
-                        "identifier": "pkg",
-                        "artifacts": [],
-                        "manifest": "",
-                    },
-                    "pkg2": {
-                        "type": "application package",
-                        "identifier": "pkg",
-                        "artifacts": [],
-                        "manifest": "",
-                    },
+                    **package_v2("pkg1"),
+                    **package_v2("pkg2"),
                 },
             },
             None,
@@ -58,22 +124,9 @@ from snowflake.cli.api.project.schemas.project_definition import (
             {
                 "definition_version": "2",
                 "entities": {
-                    "pkg": {
-                        "type": "application package",
-                        "identifier": "pkg",
-                        "artifacts": [],
-                        "manifest": "",
-                    },
-                    "app1": {
-                        "type": "application",
-                        "identifier": "pkg",
-                        "from": {"target": "pkg"},
-                    },
-                    "app2": {
-                        "type": "application",
-                        "identifier": "pkg",
-                        "from": {"target": "pkg"},
-                    },
+                    **package_v2("pkg"),
+                    **app_v2("app1", "pkg"),
+                    **app_v2("app2", "pkg"),
                 },
             },
             None,
@@ -83,73 +136,28 @@ from snowflake.cli.api.project.schemas.project_definition import (
             {
                 "definition_version": "2",
                 "entities": {
-                    "pkg": {
-                        "type": "application package",
-                        "identifier": "pkg_name",
-                        "artifacts": [{"src": "app/*", "dest": "./"}],
-                        "manifest": "",
-                        "stage": "app.stage",
-                        "bundle_root": "bundle_root_path",
-                        "generated_root": "generated_root_path",
-                        "deploy_root": "deploy_root_path",
-                        "scratch_stage": "scratch_stage_path",
-                        "meta": {
-                            "role": "pkg_role",
-                            "warehouse": "pkg_wh",
-                            "post_deploy": [
-                                {"sql_script": "scripts/script1.sql"},
-                                {"sql_script": "scripts/script2.sql"},
-                            ],
-                        },
-                        "distribution": "external",
-                    },
-                    "app": {
-                        "type": "application",
-                        "identifier": "app_name",
-                        "from": {"target": "pkg"},
-                        "debug": True,
-                        "meta": {
-                            "role": "app_role",
-                            "warehouse": "app_wh",
-                            "post_deploy": [
-                                {"sql_script": "scripts/script3.sql"},
-                                {"sql_script": "scripts/script4.sql"},
-                            ],
-                        },
-                    },
+                    **package_v2("pkg"),
+                    **app_v2("app", "pkg"),
                 },
             },
             {
                 "definition_version": "1.1",
-                "native_app": {
-                    "name": "app_name",
-                    "artifacts": [{"src": "app/*", "dest": "./"}],
-                    "source_stage": "app.stage",
-                    "bundle_root": "bundle_root_path",
-                    "generated_root": "generated_root_path",
-                    "deploy_root": "deploy_root_path",
-                    "scratch_stage": "scratch_stage_path",
-                    "package": {
-                        "name": "pkg_name",
-                        "distribution": "external",
-                        "role": "pkg_role",
-                        "warehouse": "pkg_wh",
-                        "post_deploy": [
-                            {"sql_script": "scripts/script1.sql"},
-                            {"sql_script": "scripts/script2.sql"},
-                        ],
-                    },
-                    "application": {
-                        "name": "app_name",
-                        "role": "app_role",
-                        "debug": True,
-                        "warehouse": "app_wh",
-                        "post_deploy": [
-                            {"sql_script": "scripts/script3.sql"},
-                            {"sql_script": "scripts/script4.sql"},
-                        ],
-                    },
+                "native_app": native_app_v1("app", "pkg", "app"),
+            },
+            None,
+        ],
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    **package_v2("pkg1"),
+                    **package_v2("pkg2"),
+                    **app_v2("app1", "pkg1"),
                 },
+            },
+            {
+                "definition_version": "1.1",
+                "native_app": native_app_v1("app1", "pkg1", "app1"),
             },
             None,
         ],
@@ -162,6 +170,103 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
             _pdf_v2_to_v1(pdfv2)
     else:
         pdfv1_actual = vars(_pdf_v2_to_v1(pdfv2))
+        pdfv1_expected = vars(DefinitionV11(**expected_pdfv1))
+
+        # Assert that the expected dict is a subset of the actual dict
+        assert {**pdfv1_actual, **pdfv1_expected} == pdfv1_actual
+
+
+@pytest.mark.parametrize(
+    "pdfv2_input, target_pkg, target_app, expected_pdfv1, expected_error",
+    [
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    **package_v2("pkg1"),
+                    **app_v2("app1", "pkg1"),
+                    **app_v2("app2", "pkg1"),
+                },
+            },
+            "",
+            "",
+            None,
+            "More than one application entity exists in the project definition file, "
+            "specify --app-entity-id to choose which one to operate on.",
+        ],
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    **package_v2("pkg1"),
+                    **package_v2("pkg2"),
+                    **app_v2("app2", "pkg1"),
+                },
+            },
+            "pkg2",
+            "app2",
+            None,
+            "The application entity app2 does not "
+            "target the application package entity pkg2.",
+        ],
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    **package_v2("pkg1"),
+                    **package_v2("pkg2"),
+                },
+            },
+            "",
+            "",
+            None,
+            "More than one application package entity exists in the project definition file, "
+            "specify --package-entity-id to choose which one to operate on.",
+        ],
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    **package_v2("pkg1"),
+                    **package_v2("pkg2"),
+                },
+            },
+            "pkg3",
+            "",
+            None,
+            f'Could not find an application package entity with ID "pkg3" in the project definition file.',
+        ],
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    **package_v2("pkg1"),
+                    **app_v2("app1", "pkg1"),
+                    **package_v2("pkg2"),
+                    **app_v2("app2", "pkg2"),
+                },
+            },
+            "pkg2",
+            "app2",
+            {
+                "definition_version": "1.1",
+                "native_app": native_app_v1("app2", "pkg2", "app2"),
+            },
+            None,
+        ],
+    ],
+)
+def test_v2_to_v1_conversions_with_multiple_entities(
+    pdfv2_input, target_pkg, target_app, expected_pdfv1, expected_error
+):
+    pdfv2 = DefinitionV20(**pdfv2_input)
+    if expected_error:
+        with pytest.raises(ClickException, match=expected_error) as err:
+            _pdf_v2_to_v1(pdfv2, package_entity_id=target_pkg, app_entity_id=target_app)
+    else:
+        pdfv1_actual = vars(
+            _pdf_v2_to_v1(pdfv2, package_entity_id=target_pkg, app_entity_id=target_app)
+        )
         pdfv1_expected = vars(DefinitionV11(**expected_pdfv1))
 
         # Assert that the expected dict is a subset of the actual dict
@@ -181,25 +286,8 @@ def test_decorator_error_when_no_project_exists():
             {
                 "definition_version": "2",
                 "entities": {
-                    "pkg": {
-                        "type": "application package",
-                        "identifier": "package_name",
-                        "artifacts": [{"src": "app/*", "dest": "./"}],
-                        "manifest": "",
-                        "stage": "app.stage",
-                    },
-                    "app": {
-                        "type": "application",
-                        "identifier": "application_name",
-                        "from": {"target": "pkg"},
-                        "meta": {
-                            "role": "app_role",
-                            "post_deploy": [
-                                {"sql_script": "scripts/script3.sql"},
-                                {"sql_script": "scripts/script4.sql"},
-                            ],
-                        },
-                    },
+                    **package_v2("pkg"),
+                    **app_v2("application_name", "pkg"),
                 },
             },
             "application_name",
@@ -209,13 +297,7 @@ def test_decorator_error_when_no_project_exists():
             {
                 "definition_version": "2",
                 "entities": {
-                    "pkg": {
-                        "type": "application package",
-                        "identifier": "package_name",
-                        "artifacts": [{"src": "app/*", "dest": "./"}],
-                        "manifest": "",
-                        "stage": "app.stage",
-                    },
+                    **package_v2("package_name"),
                 },
             },
             "package_name",
@@ -225,13 +307,7 @@ def test_decorator_error_when_no_project_exists():
             {
                 "definition_version": "2",
                 "entities": {
-                    "pkg": {
-                        "type": "application package",
-                        "identifier": "appname_pkg_username",
-                        "artifacts": [{"src": "app/*", "dest": "./"}],
-                        "manifest": "",
-                        "stage": "app.stage",
-                    },
+                    **package_v2("appname_pkg_username"),
                 },
             },
             "appname",
@@ -259,7 +335,7 @@ def test_decorator_skips_when_project_is_not_v2(mock_pdf_v2_to_v1):
             },
         },
     )
-    get_cli_context_manager().set_project_definition(pdfv1)
+    get_cli_context_manager().override_project_definition = pdfv1
 
     nativeapp_definition_v2_to_v1(lambda *args: None)()
 
