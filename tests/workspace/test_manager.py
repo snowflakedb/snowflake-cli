@@ -221,3 +221,31 @@ def test_migrating_a_file_with_duplicated_keys_raises_an_error(
         result = runner.invoke(["ws", "migrate"])
     assert result.exit_code == 1
     assert result.output == os_agnostic_snapshot
+
+
+@pytest.mark.parametrize("definition_version", [1, "1.1"])
+def test_migrate_nativeapp_fields_with_username(
+    runner, project_directory, definition_version
+):
+    with project_directory("integration") as pd:
+        definition_path = pd / "snowflake.yml"
+        with definition_path.open("r+") as f:
+            old_definition = yaml.safe_load(f)
+            old_definition["definition_version"] = definition_version
+            f.seek(0)
+            yaml.safe_dump(old_definition, f)
+            f.truncate()
+
+        result = runner.invoke(["ws", "migrate", "--accept-templates"])
+        assert result.exit_code == 0, result.output
+
+        with definition_path.open("r") as f:
+            new_definition = yaml.safe_load(f)
+        assert (
+            new_definition["entities"]["app"]["identifier"]
+            == "<% fn.concat_ids('integration', '_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>"
+        )
+        assert (
+            new_definition["entities"]["pkg"]["identifier"]
+            == "<% fn.concat_ids('integration', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>"
+        )
