@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -78,14 +79,10 @@ class PdfV10Factory(factory.DictFactory):
 
     @classmethod
     def _create(cls, model_class, *args, **kwargs):
-        temp_dir = os.getcwd()
-        merge_definition = None
-
-        if "temp_dir" in kwargs:
-            temp_dir = kwargs.pop("temp_dir")
-
-        if "merge_project_definition" in kwargs:
-            merge_definition = kwargs.pop("merge_project_definition")
+        temp_dir = kwargs.pop("temp_dir", os.getcwd())
+        merge_definition = kwargs.pop("merge_project_definition", None)
+        skip_write = kwargs.pop("skip_write", False)
+        return_string = kwargs.pop("return_string", False)
 
         pdf_dict = cls._build(model_class, *args, **kwargs)
 
@@ -93,11 +90,11 @@ class PdfV10Factory(factory.DictFactory):
             merge_left(pdf_dict, merge_definition)
             pdf_dict = clear_none_values(pdf_dict)
 
-        if "skip_write" not in kwargs:
+        if not skip_write:
             with open(Path(temp_dir) / "snowflake.yml", "w") as file:
                 yaml.dump(pdf_dict, file)
 
-        return pdf_dict
+        return json.dumps(pdf_dict) if return_string else pdf_dict
 
 
 # TODO:

@@ -26,12 +26,12 @@ from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 
+from tests.nativeapp.factories import PdfV10Factory
 from tests.nativeapp.patch_utils import mock_connection
 from tests.testing_utils.files_and_dirs import create_named_file
 from tests.workspace.utils import (
     APP_PACKAGE_ENTITY,
     MOCK_SNOWFLAKE_YML_FILE,
-    MOCK_SNOWFLAKE_YML_V1_FILE,
 )
 
 
@@ -51,8 +51,14 @@ def _get_ws_manager(mock_connection, pdf_content=MOCK_SNOWFLAKE_YML_FILE):
 
 
 def test_pdf_not_v2(temp_dir):
+    pdfv1_string = PdfV10Factory(
+        native_app__source_stage="app_src.stage",
+        native_app__artifacts=[{"src": "app/*", "dest": "./"}],
+        return_string=True,
+        skip_write=True,
+    )
     with pytest.raises(InvalidProjectDefinitionVersionError):
-        _get_ws_manager(pdf_content=MOCK_SNOWFLAKE_YML_V1_FILE)
+        _get_ws_manager(pdf_content=pdfv1_string)
 
 
 # Test that the same entity instance is returned for the same id
