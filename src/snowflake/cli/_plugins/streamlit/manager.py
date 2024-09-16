@@ -104,6 +104,9 @@ class StreamlitManager(SqlExecutionMixin):
         if streamlit.title:
             query.append(f"TITLE = '{streamlit.title}'")
 
+        if streamlit.comment:
+            query.append(f"COMMENT = '{streamlit.comment}'")
+
         if streamlit.external_access_integrations:
             query.append(streamlit.get_external_access_integrations_sql())
 

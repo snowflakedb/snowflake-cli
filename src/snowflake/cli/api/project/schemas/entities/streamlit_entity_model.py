@@ -31,6 +31,7 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel):
     title: Optional[str] = Field(
         title="Human-readable title for the Streamlit dashboard", default=None
     )
+    comment: Optional[str] = Field(title="Comment for the Streamlit app", default=None)
     query_warehouse: str = Field(
         title="Snowflake warehouse to host the app", default=None
     )

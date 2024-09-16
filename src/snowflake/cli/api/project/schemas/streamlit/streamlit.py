@@ -44,3 +44,4 @@ class Streamlit(UpdatableModel, ObjectIdentifierModel(object_name="Streamlit")):
     title: Optional[str] = Field(
         title="Human-readable title for the Streamlit dashboard", default=None
     )
+    comment: Optional[str] = Field(title="Comment for the Streamlit app", default=None)
