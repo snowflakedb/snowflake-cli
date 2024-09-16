@@ -18,156 +18,88 @@ from pathlib import Path
 
 import factory
 import yaml
-from snowflake.cli.api.project.schemas.native_app.application import Application
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
-from snowflake.cli.api.project.schemas.native_app.package import Package
-from snowflake.cli.api.project.schemas.project_definition import (
-    DefinitionV10,
-    _ProjectDefinitionBase,
-)
 
 from tests.testing_utils.files_and_dirs import clear_none_values, merge_left
 
 
-class FileFactory(factory.Factory):
-    filename = factory.Faker("file_name")
-    contents = factory.Faker("text")
-
+class FactoryNoEmptyDict(factory.DictFactory):
     @classmethod
-    def _build(cls, model_class, *args, **kwargs: str) -> str:
-        return kwargs["filename"]
-
-    @classmethod
-    def _create(cls, model_class, *args, **kwargs: str):
-        filename = cls._build(model_class, *args, **kwargs)
-        with open(filename, "w") as file:
-            file.write(kwargs["contents"])
-        return filename
-
-
-class NativeAppManifestVersionFactory(factory.DictFactory):
-    name = factory.Faker("word")
-    label = factory.Faker("word")
-    comment = factory.Faker("sentence")
-
-
-class NativeAppManifestArtifactsFactory(factory.DictFactory):
-    setup_script = factory.SubFactory(
-        FileFactory, filename="setup.sql", contents="select 1;"
-    )
-    readme = factory.SubFactory(FileFactory, filename="README.md")
-
-
-class NativeAppManifestConfigurationFactory(factory.DictFactory):
-    log_level = "INFO"
-    trace_level = "ALWAYS"
-
-
-class NativeAppManifestFactory(factory.DictFactory):
-    dump_filename = "manifest.yml"  # Where to save the manifest
-
-    manifest_version = "1"
-    version = factory.SubFactory(NativeAppManifestVersionFactory)
-    artifacts = factory.SubFactory(NativeAppManifestArtifactsFactory)
-    configuration = factory.SubFactory(NativeAppManifestConfigurationFactory)
-
-
-class PackageFactory(factory.Factory):
-    class Meta:
-        model = Package
-
-    # TODO: rewrite _create, no validation, and return none if no arguments are passed in
-    distribution = None
-
-    @classmethod
-    def _create(cls, model_class, *args, **kwargs):
-        if len(kwargs) == 1 and "distribution" in kwargs:
-            return None
-        return cls._build(model_class, *args, **kwargs)
-
-
-class ApplicationFactory(factory.Factory):
-    class Meta:
-        model = Application
-
-    # TODO: rewrite _create, no validation, and return none if no arguments are passed in
-    @classmethod
-    def _create(cls, model_class, *args, **kwargs):
+    def _create(cls, *args, **kwargs):
         if len(kwargs) == 0:
             return None
-        return cls._build(model_class, *args, **kwargs)
+        return cls._build(*args, **kwargs)
 
 
-class NativeAppFactory(factory.Factory):
-    class Meta:
-        model = NativeApp
+class PackageFactory(FactoryNoEmptyDict):
+    # Package has no required fields
+    # We can throw a warning here for keys that are not in the schema?!
+    pass
 
-    # TODO: package and application should be none unless they specify it
-    # TODO: artifacts factory, should be PathMappingFactory?
-    # Should be exactly what's passed in, if with src, dest or just src, write src
-    # I dictate that interface for artifacts factory. artifacts__mapping: [{src: , dest:},{src:, dest:}] OR artifacts__paths: [src, src]
+
+class ApplicationFactory(FactoryNoEmptyDict):
+    # We can throw a warning here for keys that are not in the schema
+    pass
+
+
+# TODO: artifacts factory
+# Should be exactly what's passed in, if with src, dest or just src, write src
+# I dictate that interface for artifacts factory. artifacts__mapping: [{src: , dest:},{src:, dest:}] OR artifacts__paths: [src, src]
+
+
+class NativeAppFactory(factory.DictFactory):
+
     name = factory.Faker("word")
     artifacts: list = []
-    bundle_root = None
-    deploy_root = None
-    generated_root = None
-    scratch_stage = None
     package = factory.SubFactory(PackageFactory)
     application = factory.SubFactory(ApplicationFactory)
 
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        if kwargs["package"] is None:
+            kwargs.pop("package")
+        if kwargs["application"] is None:
+            kwargs.pop("application")
+        return cls._build(model_class, *args, **kwargs)
 
-class ProjectDefinitionBaseFactory(factory.Factory):
-    class Meta:
-        model = _ProjectDefinitionBase
 
-    definition_version = "0"  # This will fail validation, so it needs to be overridden
-
-
-class DefinitionV10Factory(ProjectDefinitionBaseFactory):
-    class Meta:
-        model = DefinitionV10
+class PdfV10Factory(factory.DictFactory):
 
     definition_version = "1"
     native_app = factory.SubFactory(NativeAppFactory)
 
-    # @classmethod
-    # def _create_with_merge(cls, model_class, *args, **kwargs):
-    #     if "merge_project_definition" in kwargs:
-    #         merge_definition = kwargs.pop("merge_project_definition")
-    #     obj = cls._build(model_class, *args, **kwargs)
-    #     pdf_dict = obj.model_dump()
-    #     merge_left(pdf_dict, merge_definition)
-    #     with open("snowflake.yml", "w") as file:
-    #         yaml.dump(pdf_dict, file)
-    #     return cls._build(model_class, *args, pdf_dict)
-
     @classmethod
     def _create(cls, model_class, *args, **kwargs):
         temp_dir = os.getcwd()
+        merge_definition = None
+
         if "temp_dir" in kwargs:
             temp_dir = kwargs.pop("temp_dir")
 
         if "merge_project_definition" in kwargs:
             merge_definition = kwargs.pop("merge_project_definition")
-        obj = cls._build(model_class, *args, **kwargs)
 
-        pdf_dict = obj.model_dump()
+        pdf_dict = cls._build(model_class, *args, **kwargs)
+
         if merge_definition:
             merge_left(pdf_dict, merge_definition)
             pdf_dict = clear_none_values(pdf_dict)
-            # TODO: if we are to return a new instance with merged props, we need to figure this part out
-            obj = DefinitionV10.model_construct(values=pdf_dict)
+
         with open(Path(temp_dir) / "snowflake.yml", "w") as file:
             yaml.dump(pdf_dict, file)
 
-        return obj
+        return pdf_dict
 
 
 # TODO:
 # - artifacts Factory
 # - clean up
-# DONE - don't write null to yml
 # - rewrite some sample tests
-#  after POC todos:
+# - ensure works: names with spaces in them
+# - pass package or app as whole dicts
+
+# TODO after POC:
 # - pdf v1.1
 # - pdf v2
+
+# How to build a dict from factory
+# factory.build(dict, FACTORY_CLASS=UserFactory)
