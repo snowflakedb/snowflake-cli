@@ -664,6 +664,71 @@ def test_execute_new_git_repository_list_files(
     assert result.output == os_agnostic_snapshot
 
 
+@pytest.mark.parametrize(
+    "repository_path, expected_stage, expected_files",
+    [
+        (
+            '@repo/branches/"feature/commit"/',
+            '@repo/branches/"feature/commit"/',
+            [
+                '@repo/branches/"feature/commit"/s1.sql',
+                '@repo/branches/"feature/commit"/a/S3.sql',
+            ],
+        ),
+        (
+            '@repo/branches/"feature/commit"/s1.sql',
+            '@repo/branches/"feature/commit"/',
+            [
+                '@repo/branches/"feature/commit"/s1.sql',
+            ],
+        ),
+        (
+            '@repo/branches/"feature/commit"/a/',
+            '@repo/branches/"feature/commit"/',
+            [
+                '@repo/branches/"feature/commit"/a/S3.sql',
+            ],
+        ),
+        (
+            '@db.schema.repo/branches/"feature/commit"/',
+            '@db.schema.repo/branches/"feature/commit"/',
+            [
+                '@db.schema.repo/branches/"feature/commit"/s1.sql',
+                '@db.schema.repo/branches/"feature/commit"/a/S3.sql',
+            ],
+        ),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_slash_in_repository_name(
+    mock_execute,
+    mock_cursor,
+    runner,
+    repository_path,
+    expected_stage,
+    expected_files,
+    os_agnostic_snapshot,
+):
+    mock_execute.return_value = mock_cursor(
+        [
+            {"name": '/branches/"feature/commit"/a/S3.sql'},
+            {"name": '/branches/"feature/commit"/s1.sql'},
+            {"name": '/branches/"feature/commit"/s2'},
+        ],
+        [],
+    )
+
+    result = runner.invoke(["git", "execute", repository_path])
+
+    assert result.exit_code == 0, result.output
+    ls_call, *execute_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls '{expected_stage}'", cursor_class=DictCursor)
+    assert execute_calls == [
+        mock.call(f"execute immediate from '{p}'") for p in expected_files
+    ]
+    assert result.output == os_agnostic_snapshot
+
+
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_execute_with_variables(mock_execute, mock_cursor, runner):
     mock_execute.return_value = mock_cursor([{"name": "repo/branches/main/s1.sql"}], [])
@@ -693,6 +758,39 @@ def test_execute_with_variables(mock_execute, mock_cursor, runner):
             f"execute immediate from @repo/branches/main/s1.sql using (key1=>'string value', key2=>1, key3=>TRUE, key4=>NULL, key5=>'var=value')"
         ),
     ]
+
+
+@mock.patch(f"{STAGE_MANAGER}._execute_query")
+def test_execute_file_with_space_in_name(mock_execute, mock_cursor, runner):
+    mock_execute.return_value = mock_cursor(
+        [{"name": "repo/branches/main/Script 1.sql"}], []
+    )
+
+    result = runner.invoke(
+        [
+            "git",
+            "execute",
+            "@repo/branches/main/",
+        ]
+    )
+
+    assert result.exit_code == 0
+    assert mock_execute.mock_calls == [
+        mock.call("ls @repo/branches/main/", cursor_class=DictCursor),
+        mock.call(f"execute immediate from '@repo/branches/main/Script 1.sql'"),
+    ]
+
+
+def test_raise_error_for_invalid_quotes_number_in_path(runner):
+    with pytest.raises(ValueError) as e:
+        runner.invoke(
+            [
+                "git",
+                "execute",
+                '@repo/branches"/"ma"in/',
+            ]
+        )
+        assert e.value == 'Too much " in path, expected 2.'
 
 
 @mock.patch("snowflake.connector.connect")
