@@ -43,3 +43,30 @@ def test_my_factory_any_key(temp_dir):
         native_app__package__non_existent_key="some_value",
     )
     assert pdf_dict["native_app"]["package"]["non_existent_key"] == "some_value"
+
+
+# TODO: actually test no file written
+def test_my_factory_no_write(temp_dir):
+    pdf_dict = PdfV10Factory(
+        temp_dir=temp_dir,
+        skip_write=True,
+    )
+    assert 1 == 1
+
+
+def test_my_factory_artifacts_str(temp_dir):
+    pdf_dict = PdfV10Factory(
+        temp_dir=temp_dir,
+        native_app__artifacts=["some_value"],
+    )
+    assert pdf_dict["native_app"]["artifacts"] == ["some_value"]
+
+
+def test_my_factory_artifacts_mapping(temp_dir):
+    pdf_dict = PdfV10Factory(
+        temp_dir=temp_dir,
+        native_app__artifacts=[{"src": "some_src", "dest": "some_dest"}],
+    )
+    assert pdf_dict["native_app"]["artifacts"] == [
+        {"src": "some_src", "dest": "some_dest"}
+    ]

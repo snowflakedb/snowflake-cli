@@ -21,6 +21,11 @@ import yaml
 
 from tests.testing_utils.files_and_dirs import clear_none_values, merge_left
 
+# TODO
+# - Artifacts factory
+# - Write other files
+# - Some defaults
+
 
 class FactoryNoEmptyDict(factory.DictFactory):
     @classmethod
@@ -46,10 +51,14 @@ class ApplicationFactory(FactoryNoEmptyDict):
 # I dictate that interface for artifacts factory. artifacts__mapping: [{src: , dest:},{src:, dest:}] OR artifacts__paths: [src, src]
 
 
+class ArtifactFactory(factory.ListFactory):
+    pass
+
+
 class NativeAppFactory(factory.DictFactory):
 
     name = factory.Faker("word")
-    artifacts: list = []
+    artifacts = factory.List([], list_factory=ArtifactFactory)
     package = factory.SubFactory(PackageFactory)
     application = factory.SubFactory(ApplicationFactory)
 
@@ -84,8 +93,9 @@ class PdfV10Factory(factory.DictFactory):
             merge_left(pdf_dict, merge_definition)
             pdf_dict = clear_none_values(pdf_dict)
 
-        with open(Path(temp_dir) / "snowflake.yml", "w") as file:
-            yaml.dump(pdf_dict, file)
+        if "skip_write" not in kwargs:
+            with open(Path(temp_dir) / "snowflake.yml", "w") as file:
+                yaml.dump(pdf_dict, file)
 
         return pdf_dict
 
