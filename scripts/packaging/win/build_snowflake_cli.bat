@@ -12,9 +12,13 @@ echo %CLI_VERSION%
 
 set ENTRYPOINT=src\\snowflake\\cli\\_app\\__main__.py
 
+RMDIR /S /Q dist
+RMDIR /S /Q build
+
 @echo on
 python.exe -m hatch -e packaging run ^
   pyinstaller ^
+  --target-arch=64bit ^
   --name snow ^
   --onedir ^
   --clean ^
@@ -37,6 +41,7 @@ heat.exe dir dist\\snow\\_internal ^
 DIR .
 
 candle.exe ^
+  -arch x64 ^
   -dSnowflakeCLIVersion=%CLI_VERSION% ^
   -dSnowflakeCLIInternalFiles=dist\\snow\\_internal ^
   scripts\packaging\win\snowflake_cli.wxs ^
