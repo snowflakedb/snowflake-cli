@@ -32,7 +32,7 @@
     </DirectoryRef>
     <Feature Id="MainApplication" Title="Snowflake CLI" Level="1">
       <ComponentRef Id="snow.exe" />
-      <ComponentGroupRef Id="SnowflakeCLIIntenaleFiles" />
+      <ComponentGroupRef Id="SnowflakeCLIInternalFiles />
     </Feature>
     <Icon Id="icon.ico" SourceFile="scripts\packaging\win\snowflake_msi.ico" />
     <Property Id="ARPPRODUCTICON" Value="icon.ico" />
