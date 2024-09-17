@@ -28,10 +28,10 @@ from snowflake.cli._plugins.nativeapp.project_model import (
 )
 from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.schemas.entities.common import SqlScriptHookType
-from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 
 CURRENT_ROLE = "current_role"

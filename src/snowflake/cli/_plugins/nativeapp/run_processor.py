@@ -18,6 +18,12 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from snowflake.cli._plugins.nativeapp.application_entity import (
+    ApplicationEntity,
+)
+from snowflake.cli._plugins.nativeapp.application_package_entity import (
+    ApplicationPackageEntity,
+)
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppCommandProcessor,
@@ -28,12 +34,6 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.application_entity import (
-    ApplicationEntity,
-)
-from snowflake.cli.api.entities.application_package_entity import (
-    ApplicationPackageEntity,
-)
 from snowflake.cli.api.entities.utils import (
     generic_sql_error_handler,
 )
@@ -41,7 +41,7 @@ from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
 )
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
+from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 

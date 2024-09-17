@@ -17,17 +17,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Optional
 
+from snowflake.cli._plugins.nativeapp.application_entity import (
+    ApplicationEntity,
+)
+from snowflake.cli._plugins.nativeapp.application_package_entity import (
+    ApplicationPackageEntity,
+)
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppCommandProcessor,
     NativeAppManager,
 )
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.application_entity import (
-    ApplicationEntity,
-)
-from snowflake.cli.api.entities.application_package_entity import (
-    ApplicationPackageEntity,
-)
 
 
 class NativeAppTeardownProcessor(NativeAppManager, NativeAppCommandProcessor):
