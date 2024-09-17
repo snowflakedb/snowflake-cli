@@ -1,52 +1,78 @@
 # serializer version: 1
-# name: test_nativeapp_version_create_package_no_magic_comment[integration]
+# name: test_nativeapp_version_create_package_no_magic_comment[app version list-napp_init_v1]
   list([
     dict({
-      'comment': 'Default version used for development. Override for actual deployment.',
+      'comment': None,
       'dropped_on': None,
-      'label': 'Dev Version',
-      'log_level': 'INFO',
+      'label': None,
+      'log_level': 'OFF',
       'patch': 0,
       'review_status': 'NOT_REVIEWED',
       'state': 'READY',
-      'trace_level': 'ALWAYS',
+      'trace_level': 'OFF',
       'version': 'V1',
     }),
     dict({
-      'comment': 'Default version used for development. Override for actual deployment.',
+      'comment': None,
       'dropped_on': None,
-      'label': 'Dev Version',
-      'log_level': 'INFO',
+      'label': None,
+      'log_level': 'OFF',
       'patch': 1,
       'review_status': 'NOT_REVIEWED',
       'state': 'READY',
-      'trace_level': 'ALWAYS',
+      'trace_level': 'OFF',
       'version': 'V1',
     }),
   ])
 # ---
-# name: test_nativeapp_version_create_package_no_magic_comment[integration_v2]
+# name: test_nativeapp_version_create_package_no_magic_comment[app version list-napp_init_v2]
   list([
     dict({
-      'comment': 'Default version used for development. Override for actual deployment.',
+      'comment': None,
       'dropped_on': None,
-      'label': 'Dev Version',
-      'log_level': 'INFO',
+      'label': None,
+      'log_level': 'OFF',
       'patch': 0,
       'review_status': 'NOT_REVIEWED',
       'state': 'READY',
-      'trace_level': 'ALWAYS',
+      'trace_level': 'OFF',
       'version': 'V1',
     }),
     dict({
-      'comment': 'Default version used for development. Override for actual deployment.',
+      'comment': None,
       'dropped_on': None,
-      'label': 'Dev Version',
-      'log_level': 'INFO',
+      'label': None,
+      'log_level': 'OFF',
       'patch': 1,
       'review_status': 'NOT_REVIEWED',
       'state': 'READY',
-      'trace_level': 'ALWAYS',
+      'trace_level': 'OFF',
+      'version': 'V1',
+    }),
+  ])
+# ---
+# name: test_nativeapp_version_create_package_no_magic_comment[ws version list --entity-id=pkg-napp_init_v2]
+  list([
+    dict({
+      'comment': None,
+      'dropped_on': None,
+      'label': None,
+      'log_level': 'OFF',
+      'patch': 0,
+      'review_status': 'NOT_REVIEWED',
+      'state': 'READY',
+      'trace_level': 'OFF',
+      'version': 'V1',
+    }),
+    dict({
+      'comment': None,
+      'dropped_on': None,
+      'label': None,
+      'log_level': 'OFF',
+      'patch': 1,
+      'review_status': 'NOT_REVIEWED',
+      'state': 'READY',
+      'trace_level': 'OFF',
       'version': 'V1',
     }),
   ])

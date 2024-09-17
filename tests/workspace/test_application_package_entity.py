@@ -163,3 +163,26 @@ def test_deploy(
         package_warehouse="wh",
     )
     assert mock_execute.mock_calls == expected
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_version_list(mock_execute, mock_cursor):
+    package_role = "package_role"
+    package_name = "test_pkg"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
+                mock.call("select current_role()", cursor_class=DictCursor),
+            ),
+            (None, mock.call(f"use role {package_role}")),
+            (
+                mock_cursor([], []),
+                mock.call(f"show versions in application package {package_name}"),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+    ApplicationPackageEntity.version_list(package_name, package_role)
+    assert mock_execute.mock_calls == expected
