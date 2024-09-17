@@ -85,6 +85,14 @@ def app_factory(typer_cls):
     def cmd_witch_enabled_switch():
         return MessageResult("Enabled")
 
+    @app.command(
+        "interrupted_cmd",
+        requires_global_options=False,
+        requires_connection=False,
+    )
+    def interrupted_cmd(name: str = typer.Argument()):
+        raise KeyboardInterrupt("err")
+
     return app.create_instance()
 
 
@@ -128,6 +136,8 @@ def test_pre_callback_green_path(cli):
     assert pre_execute.called
     assert post_execute.called
     assert not exception_callback.called
+    # ensure duration metric captured is greater than 0
+    assert post_execute.call_args.args[0].get_duration() > 0
 
 
 def test_pre_callback_error_path(cli):
@@ -209,3 +219,31 @@ def test_snow_typer_result_callback_sends_telemetry(mock_print_result, cli):
     assert result.exit_code == 0
     assert mock_print_result.call_count == 1
     assert mock_print_result.call_args.args[0].message == "hello Norma"
+
+
+def test_snow_typer_with_keyboard_interrupt(cli):
+    pre_execute = MagicMock()
+    post_execute = MagicMock()
+    exception_callback = MagicMock()
+    result_handler = MagicMock()
+
+    result = cli(
+        app_factory(
+            class_factory(
+                pre_execute=pre_execute,
+                post_execute=post_execute,
+                exception_handler=exception_callback,
+                result_handler=result_handler,
+            )
+        )
+    )(["interrupted_cmd", "Norman"])
+    assert result.exit_code == 1, result.output
+
+    assert pre_execute.called
+    assert post_execute.called
+    assert not result_handler.called
+    assert exception_callback.called
+    assert len(exception_callback.call_args_list) == 1
+
+    # ensure duration metric captured is greater than 0
+    assert post_execute.call_args.args[0].get_duration() > 0
