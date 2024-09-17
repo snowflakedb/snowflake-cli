@@ -2,7 +2,7 @@
 set PATH=C:\Program Files\Python310\;c:\Program Files (x86)\Windows Kits\8.1\bin\x86\;%PATH%
 
 python.exe --version
-python.exe -c 'import platform as p; print(f"{p.system()=}, {p.architecture()=}")'
+python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}')"
 echo %PATH%
 python.exe -m pip install --upgrade pip uv hatch
 
