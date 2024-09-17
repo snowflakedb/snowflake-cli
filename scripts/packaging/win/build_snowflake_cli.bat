@@ -39,8 +39,6 @@ heat.exe dir dist\\snow\\_internal ^
   -sfrag ^
   -o _internal.wxs
 
-DIR .
-
 candle.exe ^
   -arch x64 ^
   -dSnowflakeCLIVersion=%CLI_VERSION% ^
@@ -48,9 +46,6 @@ candle.exe ^
   scripts\packaging\win\snowflake_cli.wxs ^
   scripts\packaging\win\snowflake_cli_exitdlg.wxs ^
   _internal.wxs
-
-DIR .
-DIR scripts\packaging\win
 
 light.exe ^
   -ext WixUIExtension ^
