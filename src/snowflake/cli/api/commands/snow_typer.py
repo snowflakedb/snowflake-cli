@@ -105,7 +105,7 @@ class SnowTyper(typer.Typer):
                     result = command_callable(*args, **kw)
                     self.process_result(result)
                     execution.complete(ExecutionStatus.SUCCESS)
-                except Exception as err:
+                except BaseException as err:
                     execution.complete(ExecutionStatus.FAILURE)
                     exception = self.exception_handler(err, execution)
                     raise exception
