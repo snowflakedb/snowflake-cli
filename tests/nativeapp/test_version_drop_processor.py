@@ -30,7 +30,6 @@ from snowflake.cli._plugins.nativeapp.version.version_processor import (
     NativeAppVersionDropProcessor,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
 from tests.nativeapp.utils import (
@@ -207,8 +206,8 @@ def test_process_drop_from_manifest(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -276,8 +275,8 @@ def test_process_drop_specific_version(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
