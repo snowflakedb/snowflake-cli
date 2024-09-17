@@ -50,5 +50,5 @@ light.exe ^
   -loc scripts\packaging\win\en-us.wxl ^
   -out snowflake-cli-%CLI_VERSION%.msi ^
   snowflake_cli.wixobj ^
-  snowflake_cli_exitdls.wixobj ^
+  snowflake_cli_exitdlg.wixobj ^
   _internal.wixobj
