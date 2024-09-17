@@ -5,11 +5,14 @@ from textwrap import dedent
 from typing import Callable, List, Optional
 
 import typer
-from click import ClickException
+from click import BadOptionUsage, ClickException
 from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
     ApplicationPackageEntityModel,
 )
-from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
+from snowflake.cli._plugins.nativeapp.artifacts import (
+    build_bundle,
+    find_version_info_in_manifest_file,
+)
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli._plugins.nativeapp.codegen.compiler import NativeAppCompiler
 from snowflake.cli._plugins.nativeapp.constants import (
@@ -19,7 +22,9 @@ from snowflake.cli._plugins.nativeapp.constants import (
     INTERNAL_DISTRIBUTION,
     NAME_COL,
     OWNER_COL,
+    PATCH_COL,
     SPECIAL_COMMENT,
+    VERSION_COL,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
@@ -56,10 +61,16 @@ from snowflake.cli.api.errno import (
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
-from snowflake.cli.api.project.util import extract_schema
+from snowflake.cli.api.project.util import (
+    extract_schema,
+    identifier_to_show_like_pattern,
+    to_identifier,
+    unquote_identifier,
+)
 from snowflake.cli.api.rendering.jinja import (
     get_basic_jinja_env,
 )
+from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
@@ -160,7 +171,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 recursive=True,
                 paths=[],
                 validate=False,
-                stage_fqn=model.scratch_stage,
+                stage_fqn=f"{package_name}.{model.scratch_stage}",
                 interactive=interactive,
                 force=force,
             )
@@ -171,7 +182,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             package_role=package_role,
             stage_fqn=stage_fqn,
             use_scratch_stage=True,
-            scratch_stage_fqn=model.scratch_stage,
+            scratch_stage_fqn=f"{package_name}.{model.scratch_stage}",
             deploy_to_scratch_stage_fn=deploy_to_scratch_stage_fn,
         )
         ctx.console.message("Setup script is valid")
@@ -183,6 +194,47 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         return self.version_list(
             package_name=model.fqn.identifier,
             package_role=(model.meta and model.meta.role) or ctx.default_role,
+        )
+
+    def action_version_create(
+        self,
+        ctx: ActionContext,
+        version: Optional[str],
+        patch: Optional[int],
+        skip_git_check: bool,
+        interactive: bool,
+        force: bool,
+        *args,
+        **kwargs,
+    ):
+        model = self._entity_model
+        package_name = model.fqn.identifier
+        return self.version_create(
+            console=ctx.console,
+            project_root=ctx.project_root,
+            deploy_root=Path(model.deploy_root),
+            bundle_root=Path(model.bundle_root),
+            generated_root=Path(model.generated_root),
+            artifacts=model.artifacts,
+            package_name=package_name,
+            package_role=(model.meta and model.meta.role) or ctx.default_role,
+            package_distribution=model.distribution,
+            prune=True,
+            recursive=True,
+            paths=None,
+            print_diff=True,
+            validate=True,
+            stage_fqn=f"{package_name}.{model.stage}",
+            package_warehouse=(
+                (model.meta and model.meta.warehouse) or ctx.default_warehouse
+            ),
+            post_deploy_hooks=model.meta and model.meta.post_deploy,
+            package_scripts=[],  # Package scripts are not supported in PDFv2
+            version=version,
+            patch=patch,
+            skip_git_check=skip_git_check,
+            force=force,
+            interactive=interactive,
         )
 
     @staticmethod
@@ -222,7 +274,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         package_warehouse: str | None,
         prune: bool,
         recursive: bool,
-        paths: List[Path],
+        paths: List[Path] | None,
         print_diff: bool,
         validate: bool,
         stage_fqn: str,
@@ -316,6 +368,343 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 raise SnowflakeSQLExecutionError(show_obj_query)
 
             return show_obj_cursor
+
+    @classmethod
+    def version_create(
+        cls,
+        console: AbstractConsole,
+        project_root: Path,
+        deploy_root: Path,
+        bundle_root: Path,
+        generated_root: Path,
+        artifacts: list[PathMapping],
+        package_name: str,
+        package_role: str,
+        package_distribution: str,
+        package_warehouse: str | None,
+        prune: bool,
+        recursive: bool,
+        paths: List[Path] | None,
+        print_diff: bool,
+        validate: bool,
+        stage_fqn: str,
+        post_deploy_hooks: list[PostDeployHook] | None,
+        package_scripts: List[str],
+        version: Optional[str],
+        patch: Optional[int],
+        force: bool,
+        interactive: bool,
+        skip_git_check: bool,
+    ):
+        """
+        Perform bundle, application package creation, stage upload, version and/or patch to an application package.
+        """
+        is_interactive = False
+        if force:
+            policy = AllowAlwaysPolicy()
+        elif interactive:
+            is_interactive = True
+            policy = AskAlwaysPolicy()
+        else:
+            policy = DenyAlwaysPolicy()
+
+        if skip_git_check:
+            git_policy = DenyAlwaysPolicy()
+        else:
+            git_policy = AllowAlwaysPolicy()
+
+        # Make sure version is not None before proceeding any further.
+        # This will raise an exception if version information is not found. Patch can be None.
+        if not version:
+            console.message(
+                "Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead."
+            )
+
+            version, patch = find_version_info_in_manifest_file(deploy_root)
+            if not version:
+                raise ClickException(
+                    "Manifest.yml file does not contain a value for the version field."
+                )
+
+        # Check if --patch needs to throw a bad option error, either if application package does not exist or if version does not exist
+        if patch is not None:
+            try:
+                if not cls.get_existing_version_info(
+                    version, package_name, package_role
+                ):
+                    raise BadOptionUsage(
+                        option_name="patch",
+                        message=f"Cannot create a custom patch when version {version} is not defined in the application package {package_name}. Try again without using --patch.",
+                    )
+            except ApplicationPackageDoesNotExistError as app_err:
+                raise BadOptionUsage(
+                    option_name="patch",
+                    message=f"Cannot create a custom patch when application package {package_name} does not exist. Try again without using --patch.",
+                )
+
+        if git_policy.should_proceed():
+            cls.check_index_changes_in_git_repo(
+                console=console,
+                project_root=project_root,
+                policy=policy,
+                is_interactive=is_interactive,
+            )
+
+        cls.deploy(
+            console=console,
+            project_root=project_root,
+            deploy_root=deploy_root,
+            bundle_root=bundle_root,
+            generated_root=generated_root,
+            artifacts=artifacts,
+            package_name=package_name,
+            package_role=package_role,
+            package_distribution=package_distribution,
+            prune=prune,
+            recursive=recursive,
+            paths=paths,
+            print_diff=print_diff,
+            validate=validate,
+            stage_fqn=stage_fqn,
+            package_warehouse=package_warehouse,
+            post_deploy_hooks=post_deploy_hooks,
+            package_scripts=package_scripts,
+            policy=policy,
+        )
+
+        # Warn if the version exists in a release directive(s)
+        existing_release_directives = (
+            cls.get_existing_release_directive_info_for_version(
+                package_name, package_role, version
+            )
+        )
+
+        if existing_release_directives:
+            release_directive_names = ", ".join(
+                row["name"] for row in existing_release_directives
+            )
+            console.warning(
+                dedent(
+                    f"""\
+                    Version {version} already defined in application package {package_name} and in release directive(s): {release_directive_names}.
+                    """
+                )
+            )
+
+            user_prompt = (
+                f"Are you sure you want to create a new patch for version {version} in application "
+                f"package {package_name}? Once added, this operation cannot be undone."
+            )
+            if not policy.should_proceed(user_prompt):
+                if is_interactive:
+                    console.message("Not creating a new patch.")
+                    raise typer.Exit(0)
+                else:
+                    console.message(
+                        "Cannot create a new patch non-interactively without --force."
+                    )
+                    raise typer.Exit(1)
+
+        # Define a new version in the application package
+        if not cls.get_existing_version_info(version, package_name, package_role):
+            cls.add_new_version(
+                console=console,
+                package_name=package_name,
+                package_role=package_role,
+                stage_fqn=stage_fqn,
+                version=version,
+            )
+            return  # A new version created automatically has patch 0, we do not need to further increment the patch.
+
+        # Add a new patch to an existing (old) version
+        cls.add_new_patch_to_version(
+            console=console,
+            package_name=package_name,
+            package_role=package_role,
+            stage_fqn=stage_fqn,
+            version=version,
+            patch=patch,
+        )
+
+    @staticmethod
+    def get_existing_version_info(
+        version: str,
+        package_name: str,
+        package_role: str,
+    ) -> Optional[dict]:
+        """
+        Get the latest patch on an existing version by name in the application package.
+        Executes 'show versions like ... in application package' query and returns
+        the latest patch in the version as a single row, if one exists. Otherwise,
+        returns None.
+        """
+        sql_executor = get_sql_executor()
+        with sql_executor.use_role(package_role):
+            try:
+                query = f"show versions like {identifier_to_show_like_pattern(version)} in application package {package_name}"
+                cursor = sql_executor.execute_query(query, cursor_class=DictCursor)
+
+                if cursor.rowcount is None:
+                    raise SnowflakeSQLExecutionError(query)
+
+                matching_rows = find_all_rows(
+                    cursor, lambda row: row[VERSION_COL] == unquote_identifier(version)
+                )
+
+                if not matching_rows:
+                    return None
+
+                return max(matching_rows, key=lambda row: row[PATCH_COL])
+
+            except ProgrammingError as err:
+                if err.msg.__contains__("does not exist or not authorized"):
+                    raise ApplicationPackageDoesNotExistError(package_name)
+                else:
+                    generic_sql_error_handler(err=err, role=package_role)
+                    return None
+
+    @classmethod
+    def get_existing_release_directive_info_for_version(
+        cls,
+        package_name: str,
+        package_role: str,
+        version: str,
+    ) -> List[dict]:
+        """
+        Get all existing release directives, if present, set on the version defined in an application package.
+        It executes a 'show release directives in application package' query and returns the filtered results, if they exist.
+        """
+        sql_executor = get_sql_executor()
+        with sql_executor.use_role(package_role):
+            show_obj_query = (
+                f"show release directives in application package {package_name}"
+            )
+            show_obj_cursor = sql_executor.execute_query(
+                show_obj_query, cursor_class=DictCursor
+            )
+
+            if show_obj_cursor.rowcount is None:
+                raise SnowflakeSQLExecutionError(show_obj_query)
+
+            show_obj_rows = find_all_rows(
+                show_obj_cursor,
+                lambda row: row[VERSION_COL] == unquote_identifier(version),
+            )
+
+            return show_obj_rows
+
+    @classmethod
+    def add_new_version(
+        cls,
+        console: AbstractConsole,
+        package_name: str,
+        package_role: str,
+        stage_fqn: str,
+        version: str,
+    ) -> None:
+        """
+        Defines a new version in an existing application package.
+        """
+        # Make the version a valid identifier, adding quotes if necessary
+        version = to_identifier(version)
+        sql_executor = get_sql_executor()
+        with sql_executor.use_role(package_role):
+            console.step(
+                f"Defining a new version {version} in application package {package_name}"
+            )
+            add_version_query = dedent(
+                f"""\
+                    alter application package {package_name}
+                        add version {version}
+                        using @{stage_fqn}
+                """
+            )
+            sql_executor.execute_query(add_version_query, cursor_class=DictCursor)
+            console.message(
+                f"Version {version} created for application package {package_name}."
+            )
+
+    @classmethod
+    def add_new_patch_to_version(
+        cls,
+        console: AbstractConsole,
+        package_name: str,
+        package_role: str,
+        stage_fqn: str,
+        version: str,
+        patch: Optional[int] = None,
+    ):
+        """
+        Add a new patch, optionally a custom one, to an existing version in an application package.
+        """
+        # Make the version a valid identifier, adding quotes if necessary
+        version = to_identifier(version)
+        sql_executor = get_sql_executor()
+        with sql_executor.use_role(package_role):
+            console.step(
+                f"Adding new patch to version {version} defined in application package {package_name}"
+            )
+            add_version_query = dedent(
+                f"""\
+                    alter application package {package_name}
+                        add patch {patch if patch else ""} for version {version}
+                        using @{stage_fqn}
+                """
+            )
+            result_cursor = sql_executor.execute_query(
+                add_version_query, cursor_class=DictCursor
+            )
+
+            show_row = result_cursor.fetchall()[0]
+            new_patch = show_row["patch"]
+            console.message(
+                f"Patch {new_patch} created for version {version} defined in application package {package_name}."
+            )
+
+    @classmethod
+    def check_index_changes_in_git_repo(
+        cls,
+        console: AbstractConsole,
+        project_root: Path,
+        policy: PolicyBase,
+        is_interactive: bool,
+    ) -> None:
+        """
+        Checks if the project root, i.e. the native apps project is a git repository. If it is a git repository,
+        it also checks if there any local changes to the directory that may not be on the application package stage.
+        """
+
+        from git import Repo
+        from git.exc import InvalidGitRepositoryError
+
+        try:
+            repo = Repo(project_root, search_parent_directories=True)
+            assert repo.git_dir is not None
+
+            # Check if the repo has any changes, including untracked files
+            if repo.is_dirty(untracked_files=True):
+                console.warning(
+                    "Changes detected in the git repository. "
+                    "(Rerun your command with --skip-git-check flag to ignore this check)"
+                )
+                repo.git.execute(["git", "status"])
+
+                user_prompt = (
+                    "You have local changes in this repository that are not part of a previous commit. "
+                    "Do you still want to continue?"
+                )
+                if not policy.should_proceed(user_prompt):
+                    if is_interactive:
+                        console.message("Not creating a new version.")
+                        raise typer.Exit(0)
+                    else:
+                        console.message(
+                            "Cannot create a new version non-interactively without --force."
+                        )
+                        raise typer.Exit(1)
+
+        except InvalidGitRepositoryError:
+            pass  # not a git repository, which is acceptable
 
     @staticmethod
     def get_existing_app_pkg_info(
