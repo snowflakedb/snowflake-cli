@@ -1,6 +1,8 @@
 @echo off
 set PATH=C:\Program Files\Python310\;c:\Program Files (x86)\Windows Kits\8.1\bin\x86\;%PATH%
 
+python.exe --version
+echo %PATH%
 python.exe -m pip install --upgrade pip uv hatch
 
 @echo off
