@@ -33,17 +33,12 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
     SetupScriptFailedValidation,
 )
-from snowflake.cli._plugins.nativeapp.policy import (
-    AllowAlwaysPolicy,
-    AskAlwaysPolicy,
-    DenyAlwaysPolicy,
-    PolicyBase,
-)
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.policy import PromptPolicy
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
@@ -180,11 +175,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         package_name = model.fqn.identifier
 
         if force:
-            policy = AllowAlwaysPolicy()
+            policy = PromptPolicy.ALLOW
         elif interactive:
-            policy = AskAlwaysPolicy()
+            policy = PromptPolicy.PROMPT
         else:
-            policy = DenyAlwaysPolicy()
+            policy = PromptPolicy.DENY
 
         return self.deploy(
             console=workspace_ctx.console,
@@ -234,11 +229,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         workspace_ctx = self._workspace_ctx
         package_name = model.fqn.identifier
         if force:
-            policy = AllowAlwaysPolicy()
+            policy = PromptPolicy.ALLOW
         elif interactive:
-            policy = AskAlwaysPolicy()
+            policy = PromptPolicy.PROMPT
         else:
-            policy = DenyAlwaysPolicy()
+            policy = PromptPolicy.DENY
 
         self.validate_setup_script(
             console=workspace_ctx.console,
@@ -388,7 +383,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         stage_fqn: str,
         post_deploy_hooks: list[PostDeployHook] | None,
         package_scripts: List[str],
-        policy: PolicyBase,
+        policy: PromptPolicy,
     ) -> DiffResult:
         # 1. Create a bundle if one wasn't passed in
         bundle_map = bundle_map or cls.bundle(
@@ -519,17 +514,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         """
         is_interactive = False
         if force:
-            policy = AllowAlwaysPolicy()
+            policy = PromptPolicy.ALLOW
         elif interactive:
             is_interactive = True
-            policy = AskAlwaysPolicy()
+            policy = PromptPolicy.PROMPT
         else:
-            policy = DenyAlwaysPolicy()
+            policy = PromptPolicy.DENY
 
         if skip_git_check:
-            git_policy = DenyAlwaysPolicy()
+            git_policy = PromptPolicy.DENY
         else:
-            git_policy = AllowAlwaysPolicy()
+            git_policy = PromptPolicy.ALLOW
 
         # Make sure version is not None before proceeding any further.
         # This will raise an exception if version information is not found. Patch can be None.
@@ -798,7 +793,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         cls,
         console: AbstractConsole,
         project_root: Path,
-        policy: PolicyBase,
+        policy: PromptPolicy,
         is_interactive: bool,
     ) -> None:
         """
@@ -859,9 +854,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         """
         if force:
             interactive = False
-            policy = AllowAlwaysPolicy()
+            policy = PromptPolicy.ALLOW
         else:
-            policy = AskAlwaysPolicy() if interactive else DenyAlwaysPolicy()
+            policy = PromptPolicy.PROMPT if interactive else PromptPolicy.DENY
 
         # 1. Check for existing an existing application package
         show_obj_row = cls.get_existing_app_pkg_info(package_name, package_role)
@@ -1191,7 +1186,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         stage_fqn: str,
         post_deploy_hooks: list[PostDeployHook] | None,
         package_scripts: List[str],
-        policy: PolicyBase,
+        policy: PromptPolicy,
         use_scratch_stage: bool,
         scratch_stage_fqn: str,
     ):
@@ -1252,7 +1247,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         stage_fqn: str,
         post_deploy_hooks: list[PostDeployHook] | None,
         package_scripts: List[str],
-        policy: PolicyBase,
+        policy: PromptPolicy,
         use_scratch_stage: bool,
         scratch_stage_fqn: str,
     ):

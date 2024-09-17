@@ -21,11 +21,6 @@ from click import ClickException
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
 )
-from snowflake.cli._plugins.nativeapp.policy import (
-    AllowAlwaysPolicy,
-    AskAlwaysPolicy,
-    DenyAlwaysPolicy,
-)
 from snowflake.cli._plugins.nativeapp.version.version_processor import (
     NativeAppVersionDropProcessor,
 )
@@ -43,10 +38,6 @@ from tests.nativeapp.utils import (
 from tests.testing_utils.files_and_dirs import create_named_file
 
 DROP_PROCESSOR = "NativeAppVersionDropProcessor"
-
-allow_always_policy = AllowAlwaysPolicy()
-ask_always_policy = AskAlwaysPolicy()
-deny_always_policy = DenyAlwaysPolicy()
 
 
 def _get_version_drop_processor():
@@ -135,9 +126,7 @@ def test_process_no_version_from_user_no_version_in_manifest(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
     return_value=("manifest_version", None),
 )
-@mock.patch(
-    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
-)
+@mock.patch(f"snowflake.cli.api.commands.policy.{TYPER_CONFIRM}", return_value=False)
 @pytest.mark.parametrize(
     "interactive, expected_code",
     [
@@ -187,9 +176,7 @@ def test_process_drop_cannot_complete(
     return_value=("manifest_version", None),
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(
-    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
-)
+@mock.patch(f"snowflake.cli.api.commands.policy.{TYPER_CONFIRM}", return_value=True)
 @pytest.mark.parametrize("force", [True, False])
 def test_process_drop_from_manifest(
     mock_typer_confirm,
@@ -244,9 +231,7 @@ def test_process_drop_from_manifest(
     return_value=None,
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(
-    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
-)
+@mock.patch(f"snowflake.cli.api.commands.policy.{TYPER_CONFIRM}", return_value=True)
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize(
     ["version", "version_identifier"],

@@ -27,10 +27,10 @@ from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppCommandProcessor,
     NativeAppManager,
 )
-from snowflake.cli._plugins.nativeapp.policy import PolicyBase
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
+from snowflake.cli.api.commands.policy import PromptPolicy
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.entities.utils import (
@@ -62,7 +62,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         )
 
     def drop_application_before_upgrade(
-        self, policy: PolicyBase, is_interactive: bool, cascade: bool = False
+        self, policy: PromptPolicy, is_interactive: bool, cascade: bool = False
     ):
         """
         This method will attempt to drop an application object if a previous upgrade fails.
@@ -112,7 +112,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
 
     def create_or_upgrade_app(
         self,
-        policy: PolicyBase,
+        policy: PromptPolicy,
         install_method: SameAccountInstallMethod,
         is_interactive: bool = False,
     ):
@@ -140,7 +140,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     def process(
         self,
         bundle_map: BundleMap,
-        policy: PolicyBase,
+        policy: PromptPolicy,
         version: Optional[str] = None,
         patch: Optional[int] = None,
         from_release_directive: bool = False,

@@ -31,18 +31,15 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
     NoEventTableForAccount,
 )
-from snowflake.cli._plugins.nativeapp.policy import (
-    AllowAlwaysPolicy,
-    AskAlwaysPolicy,
-    DenyAlwaysPolicy,
-    PolicyBase,
-)
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
-from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
+from snowflake.cli._plugins.nativeapp.utils import (
+    needs_confirmation,
+)
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.policy import PromptPolicy
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
@@ -163,12 +160,12 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         is_interactive = False
         if force:
-            policy = AllowAlwaysPolicy()
+            policy = PromptPolicy.ALLOW
         elif interactive:
             is_interactive = True
-            policy = AskAlwaysPolicy()
+            policy = PromptPolicy.PROMPT
         else:
-            policy = DenyAlwaysPolicy()
+            policy = PromptPolicy.DENY
 
         def deploy_package():
             package_entity.action_deploy(
@@ -420,7 +417,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         validate: bool,
         from_release_directive: bool,
         is_interactive: bool,
-        policy: PolicyBase,
+        policy: PromptPolicy,
         deploy_package: Callable,
         version: Optional[str] = None,
         patch: Optional[int] = None,
@@ -522,7 +519,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         stage_schema: Optional[str],
         stage_fqn: str,
         debug_mode: bool,
-        policy: PolicyBase,
+        policy: PromptPolicy,
         install_method: SameAccountInstallMethod,
         is_interactive: bool = False,
         post_deploy_hooks: Optional[List[PostDeployHook]] = None,

@@ -30,13 +30,13 @@ from snowflake.cli._plugins.nativeapp.entities.application import (
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
 )
-from snowflake.cli._plugins.nativeapp.policy import AllowAlwaysPolicy, PolicyBase
 from snowflake.cli._plugins.nativeapp.project_model import (
     NativeAppProjectModel,
 )
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
 )
+from snowflake.cli.api.commands.policy import PromptPolicy
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.utils import (
     execute_post_deploy_hooks,
@@ -289,7 +289,7 @@ class NativeAppManager:
         bundle_map: BundleMap,
         prune: bool,
         recursive: bool,
-        policy: PolicyBase,
+        policy: PromptPolicy,
         stage_fqn: Optional[str] = None,
         local_paths_to_sync: List[Path] | None = None,
         validate: bool = True,
@@ -336,7 +336,7 @@ class NativeAppManager:
             package_warehouse=self.package_warehouse,
             post_deploy_hooks=self.package_post_deploy_hooks,
             package_scripts=self.package_scripts,
-            policy=AllowAlwaysPolicy(),
+            policy=PromptPolicy.ALLOW,
             use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=self.scratch_stage_fqn,
         )
@@ -359,7 +359,7 @@ class NativeAppManager:
             package_warehouse=self.package_warehouse,
             post_deploy_hooks=self.package_post_deploy_hooks,
             package_scripts=self.package_scripts,
-            policy=AllowAlwaysPolicy(),
+            policy=PromptPolicy.ALLOW,
             use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=self.scratch_stage_fqn,
         )

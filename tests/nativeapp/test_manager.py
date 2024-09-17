@@ -40,11 +40,11 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppManager,
 )
-from snowflake.cli._plugins.nativeapp.policy import AllowAlwaysPolicy
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePath,
 )
+from snowflake.cli.api.commands.policy import PromptPolicy
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.utils import _get_stage_paths_to_sync
 from snowflake.cli.api.errno import (
@@ -1230,7 +1230,7 @@ def test_validate_use_scratch_stage(mock_execute, mock_deploy, temp_dir, mock_cu
         package_warehouse=native_app_manager.package_warehouse,
         post_deploy_hooks=native_app_manager.package_post_deploy_hooks,
         package_scripts=native_app_manager.package_scripts,
-        policy=AllowAlwaysPolicy(),
+        policy=PromptPolicy.ALLOW,
     )
     assert mock_execute.mock_calls == expected
 
@@ -1308,7 +1308,7 @@ def test_validate_failing_drops_scratch_stage(
         package_warehouse=native_app_manager.package_warehouse,
         post_deploy_hooks=native_app_manager.package_post_deploy_hooks,
         package_scripts=native_app_manager.package_scripts,
-        policy=AllowAlwaysPolicy(),
+        policy=PromptPolicy.ALLOW,
     )
     assert mock_execute.mock_calls == expected
 

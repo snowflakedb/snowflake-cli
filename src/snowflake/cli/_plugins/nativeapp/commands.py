@@ -33,11 +33,6 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
-from snowflake.cli._plugins.nativeapp.policy import (
-    AllowAlwaysPolicy,
-    AskAlwaysPolicy,
-    DenyAlwaysPolicy,
-)
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli._plugins.nativeapp.teardown_processor import (
     NativeAppTeardownProcessor,
@@ -57,6 +52,7 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
+from snowflake.cli.api.commands.policy import PromptPolicy
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import IncompatibleParametersError
@@ -175,12 +171,12 @@ def app_run(
 
     is_interactive = False
     if force:
-        policy = AllowAlwaysPolicy()
+        policy = PromptPolicy.ALLOW
     elif interactive:
         is_interactive = True
-        policy = AskAlwaysPolicy()
+        policy = PromptPolicy.PROMPT
     else:
-        policy = DenyAlwaysPolicy()
+        policy = PromptPolicy.DENY
 
     cli_context = get_cli_context()
     processor = NativeAppRunProcessor(
@@ -342,11 +338,11 @@ def app_deploy(
     assert_project_type("native_app")
 
     if force:
-        policy = AllowAlwaysPolicy()
+        policy = PromptPolicy.ALLOW
     elif interactive:
-        policy = AskAlwaysPolicy()
+        policy = PromptPolicy.PROMPT
     else:
-        policy = DenyAlwaysPolicy()
+        policy = PromptPolicy.DENY
 
     has_paths = paths is not None and len(paths) > 0
     if prune is None and recursive is None and not has_paths:

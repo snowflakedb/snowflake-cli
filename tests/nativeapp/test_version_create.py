@@ -26,11 +26,6 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
 )
-from snowflake.cli._plugins.nativeapp.policy import (
-    AllowAlwaysPolicy,
-    AskAlwaysPolicy,
-    DenyAlwaysPolicy,
-)
 from snowflake.cli._plugins.nativeapp.version.version_processor import (
     NativeAppVersionCreateProcessor,
 )
@@ -47,10 +42,6 @@ from tests.nativeapp.utils import (
 from tests.testing_utils.files_and_dirs import create_named_file
 
 CREATE_PROCESSOR = "NativeAppVersionCreateProcessor"
-
-allow_always_policy = AllowAlwaysPolicy()
-ask_always_policy = AskAlwaysPolicy()
-deny_always_policy = DenyAlwaysPolicy()
 
 
 def _get_version_create_processor():

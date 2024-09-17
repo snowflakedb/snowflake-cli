@@ -28,11 +28,6 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationCreatedExternallyError,
     ApplicationPackageDoesNotExistError,
 )
-from snowflake.cli._plugins.nativeapp.policy import (
-    AllowAlwaysPolicy,
-    AskAlwaysPolicy,
-    DenyAlwaysPolicy,
-)
 from snowflake.cli._plugins.nativeapp.run_processor import (
     NativeAppRunProcessor,
 )
@@ -40,6 +35,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.stage.diff import DiffResult
+from snowflake.cli.api.commands.policy import PromptPolicy
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
@@ -80,10 +76,6 @@ mock_project_definition_override = {
         },
     }
 }
-
-allow_always_policy = AllowAlwaysPolicy()
-ask_always_policy = AskAlwaysPolicy()
-deny_always_policy = DenyAlwaysPolicy()
 
 
 def _get_na_run_processor():
@@ -1201,7 +1193,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
-    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+    "policy_param", [PromptPolicy.ALLOW, PromptPolicy.PROMPT, PromptPolicy.DENY]
 )
 def test_upgrade_app_warehouse_error(
     mock_conn, mock_execute, policy_param, temp_dir, mock_cursor
@@ -1256,7 +1248,7 @@ def test_upgrade_app_warehouse_error(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
 @pytest.mark.parametrize(
-    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+    "policy_param", [PromptPolicy.ALLOW, PromptPolicy.PROMPT, PromptPolicy.DENY]
 )
 def test_upgrade_app_incorrect_owner(
     mock_conn,
@@ -1319,7 +1311,7 @@ def test_upgrade_app_incorrect_owner(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
 @pytest.mark.parametrize(
-    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+    "policy_param", [PromptPolicy.ALLOW, PromptPolicy.PROMPT, PromptPolicy.DENY]
 )
 def test_upgrade_app_succeeds(
     mock_conn,
@@ -1375,7 +1367,7 @@ def test_upgrade_app_succeeds(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
 @pytest.mark.parametrize(
-    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+    "policy_param", [PromptPolicy.ALLOW, PromptPolicy.PROMPT, PromptPolicy.DENY]
 )
 def test_upgrade_app_fails_generic_error(
     mock_conn,
@@ -1437,13 +1429,11 @@ def test_upgrade_app_fails_generic_error(
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is True AND user does not want to proceed
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
-@mock.patch(
-    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
-)
+@mock.patch(f"snowflake.cli.api.commands.policy.{TYPER_CONFIRM}", return_value=False)
 @mock_connection()
 @pytest.mark.parametrize(
     "policy_param, is_interactive_param, expected_code",
-    [(deny_always_policy, False, 1), (ask_always_policy, True, 0)],
+    [(PromptPolicy.DENY, False, 1), (PromptPolicy.PROMPT, True, 0)],
 )
 def test_upgrade_app_fails_upgrade_restriction_error(
     mock_conn,
@@ -1594,7 +1584,7 @@ def test_versioned_app_upgrade_to_unversioned(
 
     run_processor = _get_na_run_processor()
     run_processor.create_or_upgrade_app(
-        policy=AllowAlwaysPolicy(),
+        policy=PromptPolicy.ALLOW,
         is_interactive=False,
         install_method=SameAccountInstallMethod.unversioned_dev(),
     )
@@ -1606,13 +1596,11 @@ def test_versioned_app_upgrade_to_unversioned(
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is True AND user wants to proceed AND drop fails
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
-@mock.patch(
-    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
-)
+@mock.patch(f"snowflake.cli.api.commands.policy.{TYPER_CONFIRM}", return_value=True)
 @mock_connection()
 @pytest.mark.parametrize(
     "policy_param, is_interactive_param",
-    [(allow_always_policy, False), (ask_always_policy, True)],
+    [(PromptPolicy.ALLOW, False), (PromptPolicy.PROMPT, True)],
 )
 def test_upgrade_app_fails_drop_fails(
     mock_conn,
@@ -1680,11 +1668,9 @@ def test_upgrade_app_fails_drop_fails(
 # Test upgrade app method for release directives AND existing app info AND user wants to drop app AND drop succeeds AND app is created successfully.
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
-@mock.patch(
-    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
-)
+@mock.patch(f"snowflake.cli.api.commands.policy.{TYPER_CONFIRM}", return_value=True)
 @mock_connection()
-@pytest.mark.parametrize("policy_param", [allow_always_policy, ask_always_policy])
+@pytest.mark.parametrize("policy_param", [PromptPolicy.ALLOW, PromptPolicy.PROMPT])
 def test_upgrade_app_recreate_app(
     mock_conn,
     mock_typer_confirm,
@@ -1779,12 +1765,11 @@ def test_upgrade_app_recreate_app(
     return_value=None,
 )
 @pytest.mark.parametrize(
-    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+    "policy_param", [PromptPolicy.ALLOW, PromptPolicy.PROMPT, PromptPolicy.DENY]
 )
 def test_upgrade_app_from_version_throws_usage_error_one(
     mock_existing, policy_param, temp_dir, mock_bundle_map
 ):
-
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -1808,12 +1793,11 @@ def test_upgrade_app_from_version_throws_usage_error_one(
     side_effect=ApplicationPackageDoesNotExistError("app_pkg"),
 )
 @pytest.mark.parametrize(
-    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+    "policy_param", [PromptPolicy.ALLOW, PromptPolicy.PROMPT, PromptPolicy.DENY]
 )
 def test_upgrade_app_from_version_throws_usage_error_two(
     mock_existing, policy_param, temp_dir, mock_bundle_map
 ):
-
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -1838,11 +1822,9 @@ def test_upgrade_app_from_version_throws_usage_error_two(
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
-@mock.patch(
-    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
-)
+@mock.patch(f"snowflake.cli.api.commands.policy.{TYPER_CONFIRM}", return_value=True)
 @mock_connection()
-@pytest.mark.parametrize("policy_param", [allow_always_policy, ask_always_policy])
+@pytest.mark.parametrize("policy_param", [PromptPolicy.ALLOW, PromptPolicy.PROMPT])
 def test_upgrade_app_recreate_app_from_version(
     mock_conn,
     mock_typer_confirm,
