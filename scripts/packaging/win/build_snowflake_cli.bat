@@ -21,3 +21,32 @@ python.exe -m hatch -e packaging run ^
   %ENTRYPOINT%
 
 tar -a -c -f snowflake-cli-%CLI_VERSION%.zip dist\snow
+
+
+heat.exe dir dist\\snow\\_internal ^
+  -gg ^
+  -cg SnowflakeCLIInternalFiles ^
+  -dr TESTFILEPRODUCTDIR ^
+  -var var.SnowflakeCLIInternalFiles ^
+  -sfrag ^
+  -o _internal.wxs
+
+candle.exe ^
+  -dSnowflakeCLIVersion=%CLI_VERSION% ^
+  -dSnowflakeCLIInternalFiles=dist\\snow\\_internal ^
+  scripts\packaging\win\snowflake_cli.wxs ^
+  scripts\packaging\win\snowflake_cli_exitdls.wxs ^
+  _internal.wxs
+
+
+light.exe ^
+  -ext WixUIExtension ^
+  -ext WixUtilExtension ^
+  -cultures:en-us ^
+  -dcl:high ^
+  -dSnowflakeCLIVersion=%CLI_VERSION% ^
+  -dSnowflakeCLIInternalFiles=dist\\snow\\_internal ^
+  -out snowflake-cli-%CLI_VERSION%.msi ^
+  snowflake_cli.wixobj ^
+  snowflake_cli_exitdls.wixobj ^
+  _internal.wixobj
