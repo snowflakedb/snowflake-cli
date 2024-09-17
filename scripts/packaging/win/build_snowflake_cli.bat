@@ -37,7 +37,7 @@ candle.exe ^
   -dSnowflakeCLIVersion=%CLI_VERSION% ^
   -dSnowflakeCLIInternalFiles=dist\\snow\\_internal ^
   scripts\packaging\win\snowflake_cli.wxs ^
-  scripts\packaging\win\snowflake_cli_exitdls.wxs ^
+  scripts\packaging\win\snowflake_cli_exitdlg.wxs ^
   _internal.wxs
 
 DIR .
