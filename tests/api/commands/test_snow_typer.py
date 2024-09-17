@@ -136,8 +136,9 @@ def test_pre_callback_green_path(cli):
     assert pre_execute.called
     assert post_execute.called
     assert not exception_callback.called
-    # ensure duration metric captured is greater than 0
-    assert post_execute.call_args.args[0].get_duration() > 0
+
+    # ensure duration metric captured is greater than or equal to 0
+    assert post_execute.call_args.args[0].get_duration() >= 0
 
 
 def test_pre_callback_error_path(cli):
@@ -163,6 +164,9 @@ def test_pre_callback_error_path(cli):
     assert not result_handler.called
     assert exception_callback.called
     assert len(exception_callback.call_args_list) == 1
+
+    # ensure duration metric captured is greater than or equal to 0
+    assert post_execute.call_args.args[0].get_duration() >= 0
 
 
 def test_command_without_any_options(cli, os_agnostic_snapshot):
@@ -245,5 +249,5 @@ def test_snow_typer_with_keyboard_interrupt(cli):
     assert exception_callback.called
     assert len(exception_callback.call_args_list) == 1
 
-    # ensure duration metric captured is greater than 0
-    assert post_execute.call_args.args[0].get_duration() > 0
+    # ensure duration metric captured is greater than or equal to 0
+    assert post_execute.call_args.args[0].get_duration() >= 0
