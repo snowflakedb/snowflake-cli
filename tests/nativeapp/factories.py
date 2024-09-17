@@ -22,10 +22,22 @@ import yaml
 
 from tests.testing_utils.files_and_dirs import clear_none_values, merge_left
 
+# - rewrite some sample tests
+# - don't return tuple
+# - temp_dir pass-ins
+# - pdf path array return with local yml
+# - how do we do parametrization of multiple?
+# - move factories to proper files/directories
+# - temp_dir, yield and clean up in the factory?
+
 # TODO
-# - Artifacts factory
 # - Write other files
 # - Some defaults
+# - snowflake.local.yml support in V1.*
+
+# TODO after POC:
+# - pdf v1.1
+# - pdf v2
 
 
 class FactoryNoEmptyDict(factory.DictFactory):
@@ -43,13 +55,8 @@ class PackageFactory(FactoryNoEmptyDict):
 
 
 class ApplicationFactory(FactoryNoEmptyDict):
-    # We can throw a warning here for keys that are not in the schema
+    # We can throw a warning here for keys that are not in the schema?!
     pass
-
-
-# TODO: artifacts factory
-# Should be exactly what's passed in, if with src, dest or just src, write src
-# I dictate that interface for artifacts factory. artifacts__mapping: [{src: , dest:},{src:, dest:}] OR artifacts__paths: [src, src]
 
 
 class ArtifactFactory(factory.ListFactory):
@@ -94,19 +101,36 @@ class PdfV10Factory(factory.DictFactory):
             with open(Path(temp_dir) / "snowflake.yml", "w") as file:
                 yaml.dump(pdf_dict, file)
 
-        return json.dumps(pdf_dict) if return_string else pdf_dict
+        return (
+            json.dumps(pdf_dict) if return_string else pdf_dict,
+            Path(temp_dir) / "snowflake.yml",
+        )
 
 
-# TODO:
-# - artifacts Factory
-# - clean up
-# - rewrite some sample tests
-# - ensure works: names with spaces in them
-# - pass package or app as whole dicts
+class PackageV11Factory(PackageFactory):
+    pass
 
-# TODO after POC:
-# - pdf v1.1
-# - pdf v2
 
-# How to build a dict from factory
-# factory.build(dict, FACTORY_CLASS=UserFactory)
+class ApplicationV11Factory(PackageFactory):
+    pass
+
+
+class NativeAppV11Factory(NativeAppFactory):
+    package = factory.SubFactory(PackageV11Factory)
+    application = factory.SubFactory(ApplicationV11Factory)
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        return super()._create(model_class, *args, **kwargs)
+
+
+class PdfV11Factory(PdfV10Factory):
+    definition_version = "1.1"
+    native_app = factory.SubFactory(NativeAppV11Factory)
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        return super()._create(model_class, *args, **kwargs)
+
+
+# class ProjectFactory(factory.Factory):
