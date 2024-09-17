@@ -437,7 +437,7 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
     )
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
@@ -479,7 +479,7 @@ def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
@@ -596,7 +596,7 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
 @mock.patch("snowflake.cli._plugins.connection.util.get_context")
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
     "warehouse, fallback_warehouse_call, fallback_side_effect",
@@ -661,7 +661,7 @@ def test_get_snowsight_url_with_pdf_warehouse(
 @mock.patch("snowflake.cli._plugins.connection.util.get_context")
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
     "project_definition_files, warehouse, expected_calls, fallback_side_effect",
@@ -1701,61 +1701,3 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
         pass
     else:
         pytest.fail("stream_events didn't end when receiving a KeyboardInterrupt")
-
-
-@mock.patch.object(NativeAppManager, "validate")
-@mock.patch.object(NativeAppManager, "execute_package_post_deploy_hooks")
-@mock.patch.object(NativeAppManager, "sync_deploy_root_with_stage")
-@mock.patch.object(NativeAppManager, "_apply_package_scripts")
-@mock.patch.object(NativeAppManager, "create_app_package")
-@mock.patch.object(NativeAppManager, "use_role")
-@mock.patch.object(NativeAppManager, "use_package_warehouse")
-def test_deploy_with_package_post_deploy_hook(
-    mock_use_package_warehouse,
-    mock_use_role,
-    mock_create_app_package,
-    mock_apply_package_scripts,
-    mock_sync_deploy_root_with_stage,
-    mock_execute_package_post_deploy_hooks,
-    mock_validate,
-    temp_dir,
-):
-    # Setup
-    mock_diff_result = DiffResult(different=[StagePath("setup.sql")])
-    mock_sync_deploy_root_with_stage.return_value = mock_diff_result
-
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
-    )
-
-    # Create NativeAppManager instance
-    manager = _get_na_manager(temp_dir)
-
-    mock_bundle_map = mock.Mock(spec=BundleMap)
-    # Test with default parameters
-    result = manager.deploy(
-        bundle_map=mock_bundle_map,
-        prune=True,
-        recursive=True,
-    )
-
-    # Assertions
-    mock_create_app_package.assert_called_once()
-    mock_use_package_warehouse.assert_called_once()
-    mock_use_role.assert_called_once_with(manager.package_role)
-    mock_apply_package_scripts.assert_called_once()
-    mock_sync_deploy_root_with_stage.assert_called_once_with(
-        bundle_map=mock_bundle_map,
-        role=manager.package_role,
-        prune=True,
-        recursive=True,
-        stage_fqn=manager.stage_fqn,
-        local_paths_to_sync=None,
-        print_diff=True,
-    )
-    mock_execute_package_post_deploy_hooks.assert_called_once()
-    mock_validate.assert_called_once_with(use_scratch_stage=False)
-    assert result == mock_diff_result

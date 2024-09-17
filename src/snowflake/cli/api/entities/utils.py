@@ -40,6 +40,7 @@ from snowflake.cli.api.rendering.sql_templates import (
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector import ProgrammingError
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 def generic_sql_error_handler(
@@ -362,3 +363,19 @@ def drop_generic_object(
             raise SnowflakeSQLExecutionError(drop_query)
 
         console.message(f"Dropped {object_type} {object_name} successfully.")
+
+
+def print_messages(
+    console: AbstractConsole, create_or_upgrade_cursor: Optional[SnowflakeCursor]
+):
+    """
+    Shows messages in the console returned by the CREATE or UPGRADE
+    APPLICATION command.
+    """
+    if not create_or_upgrade_cursor:
+        return
+
+    messages = [row[0] for row in create_or_upgrade_cursor.fetchall()]
+    for message in messages:
+        console.warning(message)
+    console.message("")

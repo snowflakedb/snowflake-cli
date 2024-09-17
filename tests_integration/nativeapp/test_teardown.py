@@ -22,27 +22,65 @@ from tests_integration.test_utils import (
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize("orphan_app", [True, False])
 @pytest.mark.parametrize(
-    "command,expected_error",
+    "test_project,command,expected_error",
     [
-        # "snow app teardown --cascade" should drop both application and application objects
-        ["app teardown --cascade", None],
-        # "snow app teardown --force --no-cascade" should attempt to drop the application and fail
+        # "--cascade" should drop both application and application objects
         [
+            "napp_create_db_v1",
+            "app teardown --cascade",
+            None,
+        ],
+        [
+            "napp_create_db_v2",
+            "app teardown --cascade",
+            None,
+        ],
+        [
+            "napp_create_db_v2",
+            "ws drop --entity-id=app --cascade",
+            None,
+        ],
+        # "--force --no-cascade" should attempt to drop the application and fail
+        [
+            "napp_create_db_v1",
             "app teardown --force --no-cascade",
             "Could not successfully execute the Snowflake SQL statements",
         ],
-        # "snow app teardown" with owned application objects should abort the teardown
-        ["app teardown", "Aborted"],
+        [
+            "napp_create_db_v2",
+            "app teardown --force --no-cascade",
+            "Could not successfully execute the Snowflake SQL statements",
+        ],
+        [
+            "napp_create_db_v2",
+            "ws drop --entity-id=app --force --no-cascade",
+            "Could not successfully execute the Snowflake SQL statements",
+        ],
+        # teardown/drop with owned application objects should abort the teardown
+        [
+            "napp_create_db_v1",
+            "app teardown",
+            "Aborted",
+        ],
+        [
+            "napp_create_db_v2",
+            "app teardown",
+            "Aborted",
+        ],
+        [
+            "napp_create_db_v2",
+            "ws drop --entity-id=app",
+            "Aborted",
+        ],
     ],
 )
-@pytest.mark.parametrize("orphan_app", [True, False])
-@pytest.mark.parametrize("test_project", ["napp_create_db_v1", "napp_create_db_v2"])
 def test_nativeapp_teardown_cascade(
-    command,
-    expected_error,
     orphan_app,
     test_project,
+    command,
+    expected_error,
     nativeapp_project_directory,
     runner,
     snowflake_session,
@@ -131,12 +169,20 @@ def test_nativeapp_teardown_cascade(
 
 @pytest.mark.integration
 @pytest.mark.parametrize("force", [True, False])
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app teardown", "napp_init_v1"],
+        ["app teardown", "napp_init_v2"],
+        ["ws drop --entity-id=app", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_teardown_unowned_app(
     runner,
     default_username,
     resource_suffix,
     force,
+    command,
     test_project,
     nativeapp_project_directory,
 ):
@@ -152,10 +198,10 @@ def test_nativeapp_teardown_unowned_app(
         assert result.exit_code == 0
 
         if force:
-            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
+            result = runner.invoke_with_connection_json([*split(command), "--force"])
             assert result.exit_code == 0
         else:
-            result = runner.invoke_with_connection_json(["app", "teardown"])
+            result = runner.invoke_with_connection_json(split(command))
             assert result.exit_code == 1
 
 
