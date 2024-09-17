@@ -48,7 +48,7 @@ light.exe ^
   -ext WixUtilExtension ^
   -cultures:en-us ^
   -loc scripts\packaging\win\snowflake_cli_en-us.wxl ^
-  -out snowflake-cli-%CLI_VERSION%.msi ^
+  -out snowflake-cli-%CLI_VERSION%-x86_64.msi ^
   snowflake_cli.wixobj ^
   snowflake_cli_exitdlg.wixobj ^
   _internal.wixobj
