@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-# PJ - TODO: ADD TEST HERE
-
 from __future__ import annotations
 
 import os

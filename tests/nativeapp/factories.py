@@ -29,6 +29,7 @@ from tests.testing_utils.files_and_dirs import clear_none_values, merge_left
 # - how do we do parametrization of multiple?
 # - move factories to proper files/directories
 # - temp_dir, yield and clean up in the factory?
+# - Add test for space in the name
 
 # TODO
 # - Write other files
