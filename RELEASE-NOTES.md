@@ -44,6 +44,7 @@
 * Added templates expansion of arbitrary files for Native Apps through `templates` processor.
 * Added `SNOWFLAKE_..._PRIVATE_KEY_RAW` environment variable to pass private key as a raw string.
 * Added periodic check for newest version of Snowflake CLI. When new version is available, user will be notified.
+* Added support for `imports` in Streamlit app deployment.
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command.
