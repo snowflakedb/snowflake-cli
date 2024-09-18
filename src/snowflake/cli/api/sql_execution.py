@@ -119,9 +119,9 @@ class SqlExecutor:
 
     def session_has_warehouse(self) -> bool:
         result = self._execute_query(
-            "select current_warehouse() is not null as result", cursor_class=DictCursor
+            "select current_warehouse() is not null"
         ).fetchone()
-        return bool(result.get("RESULT"))
+        return bool(result[0])
 
     @contextmanager
     def use_warehouse(self, new_wh: str):
@@ -131,12 +131,10 @@ class SqlExecutor:
         If there is no default warehouse in the account, it will throw an error.
         """
 
-        wh_result = self._execute_query(
-            f"select current_warehouse()", cursor_class=DictCursor
-        ).fetchone()
+        wh_result = self._execute_query(f"select current_warehouse()").fetchone()
         # If user has an assigned default warehouse, prev_wh will contain a value even if the warehouse is suspended.
         try:
-            prev_wh = wh_result["CURRENT_WAREHOUSE()"]
+            prev_wh = wh_result[0]
         except:
             prev_wh = None
 
