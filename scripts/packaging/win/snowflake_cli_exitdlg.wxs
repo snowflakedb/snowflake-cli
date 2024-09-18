@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
         <UI>
@@ -13,14 +14,11 @@
                 <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
                 <Control Id="Description1" Type="Text" X="135" Y="60" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="1. Open a new terminal window."/>
                 <Control Id="Description2" Type="Text" X="135" Y="70" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="2. Execute the command to test your connection:"/>
-                <Control Id="Description3" Type="Text" X="135" Y="90" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="{\DlgMonoFont}snowsql -a &lt;account_name&gt; -u &lt;login_name&gt;"/>
-                <Control Id="Description4" Type="Text" X="135" Y="110" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="Enter your password when prompted."/>
-                <Control Id="Description5" Type="Text" X="135" Y="130" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="3. Add connection information to the ~/.snowsql/config file"/>
-                <Control Id="Description6" Type="Text" X="135" Y="150" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="{\DlgMonoFont}accountname = &lt;account_name&gt;"/>
-                <Control Id="Description7" Type="Text" X="135" Y="160" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="{\DlgMonoFont}username = &lt;account_name&gt;"/>
-                <Control Id="Description8" Type="Text" X="135" Y="170" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="{\DlgMonoFont}password = &lt;password&gt;"/>
-                <Control Id="Description9" Type="Text" X="135" Y="190" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="4. Execute the command to connect to Snowflake:"/>
-                <Control Id="DescriptionA" Type="Text" X="135" Y="210" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="{\DlgMonoFont}snowsql"/>
+                <Control Id="Description3" Type="Text" X="135" Y="90" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="{\DlgMonoFont}snow connection add"/>
+                <Control Id="Description4" Type="Text" X="135" Y="110" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="When prompted, supply the required connection, account, username parameters, and any desired optional parameters"/>
+                <Control Id="Description5" Type="Text" X="135" Y="190" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="3. Execute the command to connect to Snowflake:"/>
+                <Control Id="Description6" Type="Text" X="135" Y="210" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="{\DlgMonoFont}snow connection test"/>
+                <Control Id="Description7" Type="Text" X="135" Y="190" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="Explore all connection settings https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/connecting/connect"/>
                 <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="!(loc.ExitDialogTitle)" />
             </Dialog>
             <InstallUISequence>
