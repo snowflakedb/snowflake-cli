@@ -30,17 +30,17 @@ from snowflake.cli._plugins.nativeapp.common_flags import (
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import IncompatibleParametersError
-from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.output.types import MessageResult, QueryResult
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.secure_path import SecurePath
 
-ws = SnowTyper(
+ws = SnowTyperFactory(
     name="ws",
     help="Deploy and interact with snowflake.yml-based entities.",
 )
@@ -224,3 +224,31 @@ def validate(
         entity_id,
         EntityActions.VALIDATE,
     )
+
+
+version = SnowTyperFactory(
+    name="version",
+    help="Manages versions for project entities.",
+)
+ws.add_typer(version)
+
+
+@version.command(name="list", requires_connection=True, hidden=True)
+@with_project_definition()
+def version_list(
+    entity_id: str = typer.Option(
+        help="The ID of the entity you want to list versions for.",
+    ),
+    **options,
+):
+    """Lists the versions of the specified entity."""
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    cursor = ws.perform_action(
+        entity_id,
+        EntityActions.VERSION_LIST,
+    )
+    return QueryResult(cursor)

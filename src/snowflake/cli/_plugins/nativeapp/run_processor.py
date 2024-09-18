@@ -31,6 +31,9 @@ from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.application_entity import (
     ApplicationEntity,
 )
+from snowflake.cli.api.entities.application_package_entity import (
+    ApplicationPackageEntity,
+)
 from snowflake.cli.api.entities.utils import (
     generic_sql_error_handler,
 )
@@ -38,7 +41,6 @@ from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
 )
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -49,18 +51,9 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         super().__init__(project_definition, project_root)
 
     def get_all_existing_versions(self) -> SnowflakeCursor:
-        """
-        Get all existing versions, if defined, for an application package.
-        It executes a 'show versions in application package' query and returns all the results.
-        """
-        with self.use_role(self.package_role):
-            show_obj_query = f"show versions in application package {self.package_name}"
-            show_obj_cursor = self._execute_query(show_obj_query)
-
-            if show_obj_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_obj_query)
-
-            return show_obj_cursor
+        return ApplicationPackageEntity.version_list(
+            self.package_name, self.package_role
+        )
 
     def get_existing_version_info(self, version: str) -> Optional[dict]:
         return ApplicationEntity.get_existing_version_info(
