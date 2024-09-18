@@ -17,6 +17,8 @@ from unittest import mock
 
 import pytest
 
+from tests_integration.testing_utils import ObjectNameProvider
+
 
 @pytest.mark.integration
 def test_query_parameter(runner, snowflake_session):
@@ -158,3 +160,21 @@ def test_sql_execute_query_prints_query(runner):
     assert result.exit_code == 0, result.output
     assert "select 1 as A" in result.output
     assert "select 2 as B" in result.output
+
+
+@pytest.mark.integration_experimental
+def test_sql_large_lobs_in_memory_tables(runner):
+    table_name = ObjectNameProvider(
+        "table_with_default"
+    ).create_and_get_next_object_name()
+    result = runner.invoke_with_connection(
+        [
+            "sql",
+            "-q",
+            f"create or replace table {table_name}(x int, v text default x::varchar);"
+            f"select get_ddl('table', '{table_name}');"
+            f"drop table {table_name};",
+        ]
+    )
+
+    assert "VARCHAR(134217728)" in result.output
