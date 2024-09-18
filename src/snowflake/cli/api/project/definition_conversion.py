@@ -162,6 +162,7 @@ def convert_streamlit_to_v2_data(streamlit: Streamlit) -> Dict[str, Any]:
                 "pages_dir": str(streamlit.pages_dir),
                 "stage": streamlit.stage,
                 "artifacts": artifacts,
+                "imports": streamlit.imports,
             }
         }
     }

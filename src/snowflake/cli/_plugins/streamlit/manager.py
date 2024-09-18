@@ -110,6 +110,10 @@ class StreamlitManager(SqlExecutionMixin):
         if streamlit.secrets:
             query.append(streamlit.get_secrets_sql())
 
+        if streamlit.imports:
+            imports_str = ", ".join(f"'{imp}'" for imp in streamlit.imports)
+            query.append(f"IMPORTS = ({imports_str})")
+
         self._execute_query("\n".join(query))
 
     def deploy(self, streamlit: StreamlitEntityModel, replace: bool = False):

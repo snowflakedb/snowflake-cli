@@ -47,6 +47,10 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel):
         "Main file needs to be included in the artifacts.",
         default=None,
     )
+    imports: Optional[List[str]] = Field(
+        title="List of imports for the Streamlit app",
+        default=None,
+    )
 
     @model_validator(mode="after")
     def main_file_must_be_in_artifacts(self):
