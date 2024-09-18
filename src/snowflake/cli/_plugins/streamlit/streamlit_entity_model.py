@@ -67,7 +67,7 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel):
 
         for artifact in self.artifacts:
 
-            if artifact.is_file() and not artifact.exists():
+            if "*" not in artifact.name and not artifact.exists():
                 raise ValueError(
                     f"Specified artifact {artifact} does not exist locally."
                 )
