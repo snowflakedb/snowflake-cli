@@ -17,7 +17,9 @@
     <WixVariable Id="WixUIDialogBmp" Value="scripts\packaging\win\snowflake_msi_background.png" />
     <WixVariable Id="WixUIBannerBmp" Value="scripts\packaging\win\snowflake_msi_banner.png" />
     <Media Id="1" Cabinet="snowflakecli.cab" EmbedCab="yes" />
-    <MajorUpgrade AllowDowngrades="yes" />
+    <MajorUpgrade
+      AllowSameVersionUpgrades="no"
+      DowngradeErrorMessage="A newer version of Snowflake CLI is already installed.  If you are sure you want to downgrade, remove the existing installation via the Control Panel" />
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFiles64Folder" Name="PFiles">
         <Directory Id="TESTFILEPRODUCTDIR" Name="Snowflake CLI" />
