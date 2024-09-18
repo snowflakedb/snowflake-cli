@@ -5,9 +5,9 @@ packaging
 rich==13.8.1
 requests==2.32.3
 requirements-parser==0.11.0
-setuptools==74.1.2
+setuptools==75.1.0
 snowflake.core==0.12.1; python_version < "3.12"
-snowflake-connector-python[secure-local-storage]==3.12.1
+snowflake-connector-python[secure-local-storage]==3.12.2
 snowflake-snowpark-python>=1.15.0;python_version < "3.12"
 tomlkit==0.13.2
 typer==0.12.5
@@ -17,6 +17,6 @@ pip
 pydantic==2.9.1
 coverage==7.6.1
 pre-commit>=3.5.0
-pytest==8.3.2
+pytest==8.3.3
 pytest-randomly==3.15.0
 syrupy==4.7.1
