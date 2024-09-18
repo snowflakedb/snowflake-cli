@@ -1,4 +1,4 @@
-from tests.nativeapp.factories import PdfV11Factory
+from tests.nativeapp.factories import PdfV11Factory, ProjectV11Factory
 
 
 def test_factory(temp_dir):
@@ -78,3 +78,14 @@ def test_artifacts_mapping(temp_dir):
     assert pdf_res.yml["native_app"]["artifacts"] == [
         {"src": "some_src", "dest": "some_dest"}
     ]
+
+
+def test_project_factory(temp_dir):
+    ProjectV11Factory(
+        artifact_files=[
+            {"filename": "README.md", "contents": ""},
+            {"filename": "setup.sql", "contents": "select 1;"},
+        ],
+        extra_files=[{"filename": "app/some_file.py", "contents": ""}],
+    )
+    assert 1 == 1

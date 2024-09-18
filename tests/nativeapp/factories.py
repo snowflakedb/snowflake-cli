@@ -92,6 +92,7 @@ class PdfV10Factory(factory.DictFactory):
 
     definition_version = "1"
     native_app = factory.SubFactory(NativeAppFactory)
+    env = factory.SubFactory(FactoryNoEmptyDict)
 
     @classmethod
     def _create(cls, model_class, *args, **kwargs) -> PdfV10Result:
@@ -169,7 +170,6 @@ class FileFactory(factory.DictFactory):
         return output_file
 
 
-# TODO: when V1.1 and V2.* - use one factory and pick based on definition version 🤔
 class ProjectV10FactoryModel:
     def __init__(self, pdf, artifact_files, extra_files):
         self.artifact_files = artifact_files
@@ -186,6 +186,41 @@ class ProjectV10Factory(factory.Factory):
     # TODO rewrite this to allow src/dest pairs for artifacts writing in pdf
     pdf = factory.SubFactory(
         PdfV10Factory,
+        native_app__artifacts=factory.LazyAttribute(
+            lambda pd: list(
+                map(
+                    lambda file: file["filename"],
+                    pd.factory_parent.factory_parent.artifact_files,
+                )
+            )
+            if pd.factory_parent.factory_parent.artifact_files
+            else []
+        ),
+    )
+
+    # TODO: MAYBE - should be able to specifiy a file on disk to reference here? would make it easier to not have to specify content?
+
+    extra_files: list[FileModel] = []
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        for artifact in kwargs["artifact_files"]:
+            FileFactory(filename=artifact["filename"], contents=artifact["contents"])
+        for file in kwargs["extra_files"]:
+            FileFactory(filename=file["filename"], contents=file["contents"])
+        return super()._create(model_class, *args, **kwargs)
+
+
+# TODO: use one factory and pick based on definition version
+class ProjectV11Factory(factory.Factory):
+    class Meta:
+        model = ProjectV10FactoryModel
+
+    artifact_files: list[FileModel] = []
+
+    # TODO rewrite this to allow src/dest pairs for artifacts writing in pdf
+    pdf = factory.SubFactory(
+        PdfV11Factory,
         native_app__artifacts=factory.LazyAttribute(
             lambda pd: list(
                 map(

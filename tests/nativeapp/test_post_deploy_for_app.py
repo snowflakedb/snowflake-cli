@@ -25,6 +25,7 @@ from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 
+from tests.nativeapp.factories import ProjectV11Factory
 from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (
     CLI_GLOBAL_TEMPLATE_CONTEXT,
@@ -56,35 +57,49 @@ def test_sql_scripts(
     mock_cli_ctx,
     mock_execute_queries,
     mock_execute_query,
-    project_directory,
+    temp_dir,
 ):
     mock_conn.return_value = MockConnectionCtx()
     mock_cli_ctx.return_value = {
         "ctx": {"native_app": {"name": "myapp"}, "env": {"foo": "bar"}}
     }
-    with project_directory("napp_post_deploy") as project_dir:
-        processor = _get_run_processor(str(project_dir))
+    post_deploy_1 = dedent(
+        """\
+            -- app post-deploy script (1/2)
 
-        processor.execute_app_post_deploy_hooks()
+            select myapp;
+            select bar;
+            """
+    )
+    post_deploy_2 = "-- app post-deploy script (2/2)\n"
 
-        assert mock_execute_query.mock_calls == [
-            mock.call("use database myapp_test_user"),
-            mock.call("use database myapp_test_user"),
-        ]
-        assert mock_execute_queries.mock_calls == [
-            # Verify template variables were expanded correctly
-            mock.call(
-                dedent(
-                    """\
-                -- app post-deploy script (1/2)
+    output = ProjectV11Factory(
+        pdf__native_app__artifacts=[{"src": "app/*", "dest": "./"}],
+        pdf__native_app__name="myapp",
+        pdf__native_app__application__post_deploy=[
+            {"sql_script": "scripts/app_post_deploy1.sql"},
+            {"sql_script": "scripts/app_post_deploy2.sql"},
+        ],
+        pdf__env__foo="bar",
+        pdf__env__package_foo="package_bar",
+        extra_files=[
+            {"filename": "scripts/app_post_deploy1.sql", "contents": post_deploy_1},
+            {"filename": "scripts/app_post_deploy2.sql", "contents": post_deploy_2},
+        ],
+    )
 
-                select myapp;
-                select bar;
-                """
-                )
-            ),
-            mock.call("-- app post-deploy script (2/2)\n"),
-        ]
+    processor = _get_run_processor(str(temp_dir))
+
+    processor.execute_app_post_deploy_hooks()
+
+    assert mock_execute_query.mock_calls == [
+        mock.call("use database myapp_test_user"),
+        mock.call("use database myapp_test_user"),
+    ]
+    assert mock_execute_queries.mock_calls == [
+        mock.call(post_deploy_1),
+        mock.call(post_deploy_2),
+    ]
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
