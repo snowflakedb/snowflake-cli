@@ -993,6 +993,31 @@ def test_snowpark_flow_v2(
         )
 
 
+@pytest.mark.integration
+def test_snowpark_with_glob_patterns(
+    _test_steps, project_directory, alter_snowflake_yml, test_database
+):
+    database = test_database.upper()
+    with project_directory("snowpark_glob_patterns") as tmp_dir:
+        _test_steps.snowpark_build_should_zip_files(
+            additional_files=[Path("app_1.zip"), Path("app_2.zip")]
+        )
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": f"{database}.PUBLIC.hello_procedure(name string)",
+                    "status": "created",
+                    "type": "procedure",
+                }
+            ]
+        )
+        _test_steps.snowpark_execute_should_return_expected_value(
+            object_type="procedure",
+            identifier="hello_procedure('foo')",
+            expected_value="Hello foo" + "Test procedure",
+        )
+
+
 @pytest.fixture
 def _test_setup(
     runner,

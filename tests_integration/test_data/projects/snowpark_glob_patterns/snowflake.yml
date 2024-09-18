@@ -1,0 +1,43 @@
+definition_version: 2
+
+mixins:
+  snowpark_shared:
+    stage: "dev_deployment"
+
+entities:
+  hello_procedure:
+    type: "procedure"
+    stage: "stage_a"
+    identifier:
+      name: "hello_procedure"
+    handler: "a.hello_procedure"
+    signature:
+      - name: "name"
+        type: "string"
+    returns: string
+    artifacts:
+      - "app_1/"
+
+  test:
+    type: "procedure"
+    handler: "b.test_procedure"
+    signature: ""
+    returns: string
+    artifacts:
+      - "app_2/"
+    meta:
+      use_mixins:
+        - "snowpark_shared"
+
+  hello_function:
+    type: "function"
+    handler: "c.hello_function"
+    signature:
+      - name: "name"
+        type: "string"
+    returns: string
+    artifacts:
+      - "c.py"
+    meta:
+      use_mixins:
+        - "snowpark_shared"
