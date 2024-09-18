@@ -15,11 +15,10 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Generic, List, Optional, TypeVar, Union
+from typing import Dict, Generic, List, Optional, TypeVar, Union
 
 from pydantic import Field, PrivateAttr, field_validator
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.schemas.identifier_model import Identifier
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
@@ -59,6 +58,12 @@ class MetaField(UpdatableModel):
         if isinstance(mixins, str):
             return [mixins]
         return mixins
+
+
+class Identifier(UpdatableModel):
+    name: str = Field(title="Entity name")
+    schema_: Optional[str] = Field(title="Entity schema", alias="schema", default=None)
+    database: Optional[str] = Field(title="Entity database", default=None)
 
 
 class EntityModelBase(ABC, UpdatableModel):
@@ -110,11 +115,6 @@ class TargetField(UpdatableModel, Generic[TargetType]):
         them in __pydantic_generic_metadata__
         """
         return self.__pydantic_generic_metadata__["args"][0]
-
-
-from typing import Dict, List, Optional
-
-from pydantic import Field
 
 
 class ExternalAccessBaseModel:

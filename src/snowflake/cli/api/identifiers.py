@@ -18,8 +18,7 @@ import re
 
 from click import ClickException
 from snowflake.cli.api.exceptions import FQNInconsistencyError, FQNNameError
-from snowflake.cli.api.project.schemas.identifier_model import (
-    Identifier,
+from snowflake.cli.api.project.schemas.v1.identifier_model import (
     ObjectIdentifierBaseModel,
 )
 from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, identifier_for_url
@@ -142,8 +141,10 @@ class FQN:
         return fqn.set_database(model.database).set_schema(model.schema_name)
 
     @classmethod
-    def from_identifier_model_v2(cls, model: Identifier) -> "FQN":
+    def from_identifier_model_v2(cls, model) -> "FQN":
         """Create an instance from object model."""
+        from snowflake.cli.api.project.schemas.entities.common import Identifier
+
         if not isinstance(model, Identifier):
             raise ClickException(f"Expected {type(Identifier).__name__}, got {model}.")
 
