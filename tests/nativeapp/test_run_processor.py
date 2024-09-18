@@ -108,8 +108,8 @@ def test_create_dev_app_w_warehouse_access_exception(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (
                 ProgrammingError(
@@ -167,8 +167,8 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -273,8 +273,8 @@ def test_create_or_upgrade_dev_app_with_warning(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             *create_or_upgrade_calls,
@@ -322,8 +322,8 @@ def test_create_dev_app_create_new_with_additional_privileges(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -396,8 +396,8 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -479,8 +479,8 @@ def test_create_dev_app_incorrect_properties(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (None, mock.call("use warehouse old_wh")),
@@ -530,8 +530,8 @@ def test_create_dev_app_incorrect_owner(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (None, mock.call("use warehouse old_wh")),
@@ -581,8 +581,8 @@ def test_create_dev_app_no_diff_changes(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -636,8 +636,8 @@ def test_create_dev_app_w_diff_changes(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -691,8 +691,8 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -747,8 +747,8 @@ def test_create_dev_app_create_new_quoted(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -833,8 +833,8 @@ def test_create_dev_app_create_new_quoted_override(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -906,8 +906,8 @@ def test_create_dev_app_recreate_app_when_orphaned(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -1000,8 +1000,8 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -1112,8 +1112,8 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -1205,8 +1205,8 @@ def test_upgrade_app_warehouse_error(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (
                 ProgrammingError(
@@ -1270,8 +1270,8 @@ def test_upgrade_app_incorrect_owner(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (None, mock.call("use warehouse old_wh")),
@@ -1326,8 +1326,8 @@ def test_upgrade_app_succeeds(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (None, mock.call("alter application myapp upgrade ")),
@@ -1382,8 +1382,8 @@ def test_upgrade_app_fails_generic_error(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -1453,8 +1453,8 @@ def test_upgrade_app_fails_upgrade_restriction_error(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -1516,8 +1516,8 @@ def test_versioned_app_upgrade_to_unversioned(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -1621,8 +1621,8 @@ def test_upgrade_app_fails_drop_fails(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -1691,8 +1691,8 @@ def test_upgrade_app_recreate_app(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
@@ -1851,8 +1851,8 @@ def test_upgrade_app_recreate_app_from_version(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([("old_wh",)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
