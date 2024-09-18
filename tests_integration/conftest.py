@@ -57,6 +57,11 @@ DEFAULT_TEST_CONFIG = "connection_configs.toml"
 WORLD_READABLE_CONFIG = "world_readable.toml"
 
 
+@pytest.fixture(autouse=True)
+def autouse_tmp_path(tmp_path):
+    yield tmp_path
+
+
 @dataclass
 class CommandResult:
     exit_code: int

@@ -43,6 +43,11 @@ pytest_plugins = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def autouse_tmp_path(tmp_path):
+    yield tmp_path
+
+
 class CustomSnapshotExtension(AmberSnapshotExtension):
     def matches(
         self,
