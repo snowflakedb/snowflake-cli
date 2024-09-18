@@ -51,14 +51,14 @@ def _get_ws_manager(mock_connection, pdf_content=MOCK_SNOWFLAKE_YML_FILE):
 
 
 def test_pdf_not_v2(temp_dir):
-    pdfv1_string = PdfV10Factory(
+    pdfv1 = PdfV10Factory(
         native_app__source_stage="app_src.stage",
         native_app__artifacts=[{"src": "app/*", "dest": "./"}],
         return_string=True,
         skip_write=True,
     )
     with pytest.raises(InvalidProjectDefinitionVersionError):
-        _get_ws_manager(pdf_content=pdfv1_string)
+        _get_ws_manager(pdf_content=pdfv1.yml)
 
 
 # Test that the same entity instance is returned for the same id

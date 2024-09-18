@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Union
 
 import factory
 import yaml
@@ -23,20 +25,16 @@ import yaml
 from tests.testing_utils.files_and_dirs import clear_none_values, merge_left
 
 # TODO:
-# - refactor temp_dir
+# - don't like temp_dir - refactor
 # - rewrite a few more sample tests
-# - don't return tuple
 # - pdf path array return with local yml
-# - how do we do parametrization of multiple?
+# - how do we  parametrize multiple configs?
 # - move factories to proper files/directories
-# - temp_dir, yield and clean up in the factory?
-# - Add test for space in the name
+# - write src/dest pair to pdf from project factory
 # - manifest factory
 # - add util to make readme and setup.sql with defaults?
-# - write src/dest pair to pdf from project factory
 
 # TODO
-# - Some defaults
 # - snowflake.local.yml support in V1.*
 
 # TODO after POC:
@@ -82,13 +80,21 @@ class NativeAppFactory(factory.DictFactory):
         return cls._build(model_class, *args, **kwargs)
 
 
+# TODO: can add utils to this class (to get yml parent path etc)
+@dataclass
+class PdfV10Result:
+    def __init__(self, yml: Union[dict, str], path: Path):
+        self.yml = yml
+        self.path = path
+
+
 class PdfV10Factory(factory.DictFactory):
 
     definition_version = "1"
     native_app = factory.SubFactory(NativeAppFactory)
 
     @classmethod
-    def _create(cls, model_class, *args, **kwargs):
+    def _create(cls, model_class, *args, **kwargs) -> PdfV10Result:
         temp_dir = kwargs.pop("temp_dir", os.getcwd())
         merge_definition = kwargs.pop("merge_project_definition", None)
         skip_write = kwargs.pop("skip_write", False)
@@ -104,9 +110,9 @@ class PdfV10Factory(factory.DictFactory):
             with open(Path(temp_dir) / "snowflake.yml", "w") as file:
                 yaml.dump(pdf_dict, file)
 
-        return (
-            json.dumps(pdf_dict) if return_string else pdf_dict,
-            Path(temp_dir) / "snowflake.yml",
+        return PdfV10Result(
+            yml=json.dumps(pdf_dict) if return_string else pdf_dict,
+            path=Path(temp_dir) / "snowflake.yml",
         )
 
 
@@ -163,7 +169,7 @@ class FileFactory(factory.DictFactory):
         return output_file
 
 
-# TODO: use one factory and pick based on definition version
+# TODO: when V1.1 and V2.* - use one factory and pick based on definition version 🤔
 class ProjectV10FactoryModel:
     def __init__(self, pdf, artifact_files, extra_files):
         self.artifact_files = artifact_files
@@ -176,8 +182,6 @@ class ProjectV10Factory(factory.Factory):
         model = ProjectV10FactoryModel
 
     artifact_files: list[FileModel] = []
-    # TODO: revisit this:
-    # artifact_facts = factory.List([factory.SubFactory(FileFactory, filename=fn, contents=ct) for fn, ct in list(factory.SelfAttribute('artifact_files'))])
 
     # TODO rewrite this to allow src/dest pairs for artifacts writing in pdf
     pdf = factory.SubFactory(

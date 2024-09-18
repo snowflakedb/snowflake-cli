@@ -38,7 +38,8 @@ CURRENT_ROLE = "current_role"
 
 
 def use_minimal_project_definition():
-    return PdfV10Factory(native_app__artifacts=["setup.sql", "README.md"])
+    pdf_res = PdfV10Factory(native_app__artifacts=["setup.sql", "README.md"])
+    return pdf_res.yml, pdf_res.path
 
 
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
@@ -46,9 +47,9 @@ def use_minimal_project_definition():
 def test_project_model_all_defaults(mock_connect, mock_ctx, temp_dir):
     ctx = mock_ctx()
     mock_connect.return_value = ctx
-    minimal_project, project_path = use_minimal_project_definition()
-    name = minimal_project["native_app"]["name"]
-    project_defn = load_project([project_path]).project_definition
+    minimal_yml, pdf_path = use_minimal_project_definition()
+    name = minimal_yml["native_app"]["name"]
+    project_defn = load_project([pdf_path]).project_definition
 
     project_dir = Path().resolve()
     project = NativeAppProjectModel(
@@ -95,7 +96,7 @@ def test_project_model_default_package_app_name_with_suffix(
 ):
     ctx = mock_ctx()
     mock_connect.return_value = ctx
-    minimal_project, project_path = use_minimal_project_definition(temp_dir=temp_dir)
+    minimal_project, project_path = use_minimal_project_definition()
     name = minimal_project["native_app"]["name"]
 
     project_defn = load_project([project_path]).project_definition
@@ -244,7 +245,7 @@ def test_project_model_falls_back_to_current_role(
         cursor=mock_cursor([{"CURRENT_ROLE()": CURRENT_ROLE}], []), role=None
     )
     mock_connect.return_value = ctx
-    _, pdf_path = use_minimal_project_definition(temp_dir=temp_dir)
+    _, pdf_path = use_minimal_project_definition()
     project_defn = load_project([pdf_path]).project_definition
 
     project_dir = Path().resolve()
@@ -258,7 +259,7 @@ def test_project_model_falls_back_to_current_role(
 
 
 def test_bundle_context_from_project_model(temp_dir):
-    _, pdf_path = use_minimal_project_definition(temp_dir=temp_dir)
+    _, pdf_path = use_minimal_project_definition()
     project_defn = load_project([pdf_path]).project_definition
 
     project_dir = Path().resolve()
