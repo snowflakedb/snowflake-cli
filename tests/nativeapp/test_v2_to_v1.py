@@ -28,6 +28,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV11,
     DefinitionV20,
 )
+from snowflake.cli.api.utils.definition_rendering import render_definition_template
 
 
 def package_v2(entity_id: str):
@@ -75,7 +76,7 @@ def app_v2(entity_id: str, from_pkg: str):
 
 
 def native_app_v1(name: str, pkg: str, app: str):
-    return {
+    napp = {
         "name": name,
         "artifacts": [{"src": "app/*", "dest": "./"}],
         "source_stage": "app.stage",
@@ -93,7 +94,9 @@ def native_app_v1(name: str, pkg: str, app: str):
                 {"sql_script": "scripts/script2.sql"},
             ],
         },
-        "application": {
+    }
+    if app:
+        napp["application"] = {
             "name": app,
             "role": "app_role",
             "debug": True,
@@ -102,13 +105,26 @@ def native_app_v1(name: str, pkg: str, app: str):
                 {"sql_script": "scripts/script3.sql"},
                 {"sql_script": "scripts/script4.sql"},
             ],
-        },
-    }
+        }
+    return napp
 
 
 @pytest.mark.parametrize(
     "pdfv2_input, expected_pdfv1, expected_error",
     [
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    **package_v2("pkg"),
+                },
+            },
+            {
+                "definition_version": "1.1",
+                "native_app": native_app_v1("pkg", "pkg", ""),
+            },
+            None,
+        ],
         [
             {
                 "definition_version": "2",
@@ -119,18 +135,6 @@ def native_app_v1(name: str, pkg: str, app: str):
             },
             None,
             "More than one application package entity exists",
-        ],
-        [
-            {
-                "definition_version": "2",
-                "entities": {
-                    **package_v2("pkg"),
-                    **app_v2("app1", "pkg"),
-                    **app_v2("app2", "pkg"),
-                },
-            },
-            None,
-            "More than one application entity exists",
         ],
         [
             {
@@ -170,7 +174,9 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
             _pdf_v2_to_v1(pdfv2)
     else:
         pdfv1_actual = vars(_pdf_v2_to_v1(pdfv2))
-        pdfv1_expected = vars(DefinitionV11(**expected_pdfv1))
+        pdfv1_expected = vars(
+            render_definition_template(expected_pdfv1, {}).project_definition
+        )
 
         # Assert that the expected dict is a subset of the actual dict
         assert {**pdfv1_actual, **pdfv1_expected} == pdfv1_actual
@@ -223,7 +229,23 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
             "",
             True,
             None,
-            f"Could not find an application entity in the project definition file.",
+            "Could not find an application entity in the project definition file.",
+        ],
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    **package_v2("pkg"),
+                    **app_v2("app1", "pkg"),
+                    **app_v2("app2", "pkg"),
+                },
+            },
+            "",
+            "",
+            True,
+            None,
+            "More than one application entity exists in the project definition file, "
+            "specify --app-entity-id to choose which one to operate on.",
         ],
         [
             {
@@ -287,7 +309,7 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
             "",
             False,
             None,
-            f'Could not find an application package entity with ID "pkg3" in the project definition file.',
+            'Could not find an application package entity with ID "pkg3" in the project definition file.',
         ],
         [
             {
@@ -331,7 +353,9 @@ def test_v2_to_v1_conversions_with_multiple_entities(
                 app_required=app_required,
             )
         )
-        pdfv1_expected = vars(DefinitionV11(**expected_pdfv1))
+        pdfv1_expected = vars(
+            render_definition_template(expected_pdfv1, {}).project_definition
+        )
 
         # Assert that the expected dict is a subset of the actual dict
         assert {**pdfv1_actual, **pdfv1_expected} == pdfv1_actual
