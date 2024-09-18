@@ -69,6 +69,68 @@ def test_nativeapp_version_create_and_drop(
         assert len(actual.json) == 0
 
 
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "test_project",
+    [
+        "napp_init_v1",
+        "napp_init_v2",
+    ],
+)
+def test_nativeapp_version_drop_from_non_owner_role(
+    runner,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+    nativeapp_project_directory,
+    test_role,
+    test_project,
+):
+    project_name = "myapp"
+    with nativeapp_project_directory(test_project):
+        result_create = runner.invoke_with_connection_json(["app", "deploy"])
+        assert result_create.exit_code == 0
+
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+        # package exist
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show application packages like '{package_name}'",
+                )
+            ),
+            dict(name=package_name),
+        )
+
+        result_grant = runner.invoke_with_connection_json(
+            [
+                "sql",
+                "-q",
+                f"grant manage versions on application package {package_name} to role {test_role}",
+            ]
+        )
+        assert result_grant.exit_code == 0
+
+        result_create = runner.invoke_with_connection_json(
+            ["app", "version", "create", "v1", "--force", "--skip-git-check"]
+        )
+        assert result_create.exit_code == 0
+
+        # app package contains version v1
+        expect = snowflake_session.execute_string(
+            f"show versions in application package {package_name}"
+        )
+        actual = runner.invoke_with_connection_json(["app", "version", "list"])
+        assert actual.json == row_from_snowflake_session(expect)
+
+        result_drop = runner.invoke_with_connection_json(
+            ["app", "version", "drop", "v1", "--force", "--role", test_role]
+        )
+        assert result_drop.exit_code == 0
+        actual = runner.invoke_with_connection_json(["app", "version", "list"])
+        assert len(actual.json) == 0
+
+
 # Tests upgrading an app from an existing loose files installation to versioned installation.
 @pytest.mark.integration
 @pytest.mark.parametrize(
