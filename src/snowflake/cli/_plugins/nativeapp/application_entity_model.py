@@ -17,14 +17,14 @@ from __future__ import annotations
 from typing import Literal, Optional
 
 from pydantic import Field, field_validator
-from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
+from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
     ApplicationPackageEntityModel,
 )
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
+    Identifier,
     TargetField,
 )
-from snowflake.cli.api.project.schemas.identifier_model import Identifier
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
 )

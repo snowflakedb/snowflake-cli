@@ -19,8 +19,8 @@ from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinitionV1,
     build_project_definition,
 )
-from snowflake.cli.api.project.schemas.snowpark.argument import Argument
-from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
+from snowflake.cli.api.project.schemas.v1.snowpark.argument import Argument
+from snowflake.cli.api.project.schemas.v1.snowpark.callable import FunctionSchema
 
 
 def test_if_fields_are_updated_correctly_by_assignment(argument_instance: Argument):

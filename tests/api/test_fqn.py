@@ -18,7 +18,7 @@ from unittest.mock import MagicMock
 import pytest
 from snowflake.cli.api.exceptions import FQNInconsistencyError, FQNNameError
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
+from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
 
 
 def test_attributes():

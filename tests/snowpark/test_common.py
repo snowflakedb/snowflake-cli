@@ -24,7 +24,7 @@ from snowflake.cli._plugins.snowpark.common import (
     _sql_to_python_return_type_mapper,
     is_name_a_templated_one,
 )
-from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
+from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     ProcedureEntityModel,
 )
 

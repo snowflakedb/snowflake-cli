@@ -22,10 +22,10 @@ from unittest import mock
 import pytest
 from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.errors import SchemaValidationError
-from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)

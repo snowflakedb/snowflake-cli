@@ -1,10 +1,10 @@
 from typing import Generic, TypeVar
 
-from snowflake.cli.api.entities.common import EntityBase
-from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
+from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     FunctionEntityModel,
     ProcedureEntityModel,
 )
+from snowflake.cli.api.entities.common import EntityBase
 
 T = TypeVar("T")
 

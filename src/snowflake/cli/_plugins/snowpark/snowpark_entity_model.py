@@ -23,11 +23,11 @@ from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     ExternalAccessBaseModel,
 )
-from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
     UpdatableModel,
 )
+from snowflake.cli.api.project.schemas.v1.snowpark.argument import Argument
 
 
 class PathMapping(UpdatableModel):

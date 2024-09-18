@@ -14,6 +14,10 @@
 from pathlib import Path
 
 import pytest
+from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
+    PathMapping,
+    SnowparkEntityModel,
+)
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
 )
@@ -25,14 +29,10 @@ from snowflake.cli.api.project.schemas.entities.entities import (
     v2_entity_model_to_entity_map,
     v2_entity_model_types_map,
 )
-from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
-    PathMapping,
-    SnowparkEntityModel,
-)
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV20,
 )
-from snowflake.cli.api.project.schemas.snowpark.callable import _CallableBase
+from snowflake.cli.api.project.schemas.v1.snowpark.callable import _CallableBase
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 
 
