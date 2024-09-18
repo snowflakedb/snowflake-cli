@@ -45,10 +45,7 @@ from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePath,
 )
-from snowflake.cli.api.entities.utils import (
-    _get_stage_paths_to_sync,
-    ensure_correct_owner,
-)
+from snowflake.cli.api.entities.utils import _get_stage_paths_to_sync
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
@@ -716,20 +713,6 @@ def test_get_snowsight_url_without_pdf_warehouse(
         assert "Application warehouse cannot be empty." in err.value.message
 
     assert mock_execute_query.mock_calls == expected_calls
-
-
-def test_ensure_correct_owner():
-    test_row = {"name": "some_name", "owner": "some_role", "comment": "some_comment"}
-    assert (
-        ensure_correct_owner(row=test_row, role="some_role", obj_name="some_name")
-        is None
-    )
-
-
-def test_is_correct_owner_bad_owner():
-    test_row = {"name": "some_name", "owner": "wrong_role", "comment": "some_comment"}
-    with pytest.raises(UnexpectedOwnerError):
-        ensure_correct_owner(row=test_row, role="right_role", obj_name="some_name")
 
 
 # Test create_app_package() with no existing package available

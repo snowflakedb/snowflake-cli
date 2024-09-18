@@ -48,7 +48,6 @@ from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
-    ensure_correct_owner,
     execute_post_deploy_hooks,
     generic_sql_error_handler,
     print_messages,
@@ -220,9 +219,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 f"Role {app_role} does not own any application object with the name {app_name}, or the application object does not exist."
             )
             return
-
-        # 2. Check for the right owner
-        ensure_correct_owner(row=show_obj_row, role=app_role, obj_name=app_name)
 
         # 3. Check if created by the Snowflake CLI
         row_comment = show_obj_row[COMMENT_COL]

@@ -37,7 +37,6 @@ from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
-    ensure_correct_owner,
     execute_post_deploy_hooks,
     generic_sql_error_handler,
     render_script_templates,
@@ -449,11 +448,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
         if show_obj_row:
-            # 1. Check for the right owner role
-            ensure_correct_owner(
-                row=show_obj_row, role=package_role, obj_name=package_name
-            )
-
             # 2. Check distribution of the existing application package
             actual_distribution = cls.get_app_pkg_distribution_in_snowflake(
                 package_name=package_name,
@@ -605,9 +599,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 f"Role {package_role} does not own any application package with the name {package_name}, or the application package does not exist."
             )
             return
-
-        # 2. Check for the right owner
-        ensure_correct_owner(row=show_obj_row, role=package_role, obj_name=package_name)
 
         with sql_executor.use_role(package_role):
             # 3. Check for versions in the application package
