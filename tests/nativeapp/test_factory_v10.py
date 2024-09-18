@@ -1,7 +1,7 @@
-from tests.nativeapp.factories import PdfV10Factory
+from tests.nativeapp.factories import PdfV10Factory, ProjectV10Factory
 
 
-def test_factory(temp_dir):
+def test_pdf_factory(temp_dir):
     pdf_dict, _ = PdfV10Factory(native_app__name="myapp_")
     assert pdf_dict["native_app"]["name"] == "myapp_"
 
@@ -73,3 +73,14 @@ def test_artifacts_mapping(temp_dir):
     assert pdf_dict["native_app"]["artifacts"] == [
         {"src": "some_src", "dest": "some_dest"}
     ]
+
+
+def test_project_factory(temp_dir):
+    ProjectV10Factory(
+        artifact_files=[
+            {"filename": "README.md", "contents": ""},
+            {"filename": "setup.sql", "contents": "select 1;"},
+        ],
+        extra_files=[{"filename": "app/some_file.py", "contents": ""}],
+    )
+    assert 1 == 1

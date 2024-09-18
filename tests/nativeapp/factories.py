@@ -22,22 +22,24 @@ import yaml
 
 from tests.testing_utils.files_and_dirs import clear_none_values, merge_left
 
-# - rewrite some sample tests
+# TODO:
+# - refactor temp_dir
+# - rewrite a few more sample tests
 # - don't return tuple
-# - temp_dir pass-ins
 # - pdf path array return with local yml
 # - how do we do parametrization of multiple?
 # - move factories to proper files/directories
 # - temp_dir, yield and clean up in the factory?
 # - Add test for space in the name
+# - manifest factory
+# - add util to make readme and setup.sql with defaults?
+# - write src/dest pair to pdf from project factory
 
 # TODO
-# - Write other files
 # - Some defaults
 # - snowflake.local.yml support in V1.*
 
 # TODO after POC:
-# - pdf v1.1
 # - pdf v2
 
 
@@ -134,4 +136,72 @@ class PdfV11Factory(PdfV10Factory):
         return super()._create(model_class, *args, **kwargs)
 
 
-# class ProjectFactory(factory.Factory):
+class FileModel:
+    def __init__(self, filename, contents):
+        self.filename = filename
+        self.contents = contents
+
+
+class FileFactory(factory.DictFactory):
+    class Meta:
+        model = FileModel
+
+    filename = factory.Faker("file_name")
+    contents = factory.Faker("text")
+
+    @classmethod
+    def _build(cls, model_class, *args, **kwargs):
+        return kwargs["filename"]
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        filename = cls._build(model_class, *args, **kwargs)
+        output_file = Path(filename)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_file, "w") as file:
+            file.write(kwargs["contents"])
+        return output_file
+
+
+# TODO: use one factory and pick based on definition version
+class ProjectV10FactoryModel:
+    def __init__(self, pdf, artifact_files, extra_files):
+        self.artifact_files = artifact_files
+        self.pdf = pdf
+        self.extra_files = extra_files
+
+
+class ProjectV10Factory(factory.Factory):
+    class Meta:
+        model = ProjectV10FactoryModel
+
+    artifact_files: list[FileModel] = []
+    # TODO: revisit this:
+    # artifact_facts = factory.List([factory.SubFactory(FileFactory, filename=fn, contents=ct) for fn, ct in list(factory.SelfAttribute('artifact_files'))])
+
+    # TODO rewrite this to allow src/dest pairs for artifacts writing in pdf
+    pdf = factory.SubFactory(
+        PdfV10Factory,
+        native_app__artifacts=factory.LazyAttribute(
+            lambda pd: list(
+                map(
+                    lambda file: file["filename"],
+                    pd.factory_parent.factory_parent.artifact_files,
+                )
+            )
+            if pd.factory_parent.factory_parent.artifact_files
+            else []
+        ),
+    )
+
+    # TODO: MAYBE - should be able to specifiy a file on disk to reference here? would make it easier to not have to specify content?
+
+    extra_files: list[FileModel] = []
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        for artifact in kwargs["artifact_files"]:
+            FileFactory(filename=artifact["filename"], contents=artifact["contents"])
+        for file in kwargs["extra_files"]:
+            FileFactory(filename=file["filename"], contents=file["contents"])
+        return super()._create(model_class, *args, **kwargs)
