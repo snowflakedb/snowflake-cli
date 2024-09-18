@@ -35,8 +35,8 @@ from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
-from snowflake.cli.api.project.schemas.snowpark.argument import Argument
-from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
+from snowflake.cli.api.project.schemas.v1.snowpark.argument import Argument
+from snowflake.cli.api.project.schemas.v1.snowpark.callable import FunctionSchema
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 from typer import Typer

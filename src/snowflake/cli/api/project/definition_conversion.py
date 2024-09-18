@@ -20,22 +20,22 @@ from snowflake.cli.api.entities.utils import render_script_template
 from snowflake.cli.api.project.schemas.entities.common import (
     SqlScriptHookType,
 )
-from snowflake.cli.api.project.schemas.native_app.application import (
-    Application,
-    ApplicationV11,
-)
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
-from snowflake.cli.api.project.schemas.native_app.package import Package, PackageV11
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
 )
-from snowflake.cli.api.project.schemas.snowpark.callable import (
+from snowflake.cli.api.project.schemas.v1.native_app.application import (
+    Application,
+    ApplicationV11,
+)
+from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
+from snowflake.cli.api.project.schemas.v1.native_app.package import Package, PackageV11
+from snowflake.cli.api.project.schemas.v1.snowpark.callable import (
     FunctionSchema,
     ProcedureSchema,
 )
-from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
-from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
+from snowflake.cli.api.project.schemas.v1.snowpark.snowpark import Snowpark
+from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
 from snowflake.cli.api.rendering.jinja import get_basic_jinja_env
 
 log = logging.getLogger(__name__)

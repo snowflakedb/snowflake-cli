@@ -19,14 +19,7 @@ from typing import Optional, cast
 from pydantic import Field
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
-    UpdatableModel,
 )
-
-
-class Identifier(UpdatableModel):
-    name: str = Field(title="Entity name")
-    schema_: Optional[str] = Field(title="Entity schema", alias="schema", default=None)
-    database: Optional[str] = Field(title="Entity database", default=None)
 
 
 class ObjectIdentifierBaseModel:

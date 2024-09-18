@@ -4,7 +4,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
-from snowflake.cli.api.project.schemas.entities.streamlit_entity_model import (
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 

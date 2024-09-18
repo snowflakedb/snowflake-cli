@@ -75,8 +75,8 @@ def test_drop_generic_object_success(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (None, mock.call("drop application myapp")),
@@ -111,18 +111,18 @@ def test_drop_generic_object_failure_w_exception(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call.execute_sql("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
-            (None, mock.call.execute_sql("use role package_role")),
+            (None, mock.call("use role package_role")),
             (
                 ProgrammingError(
                     msg="Object does not exist, or operation cannot be performed.",
                     errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
                 ),
-                mock.call.execute_sql("drop application package app_pkg"),
+                mock.call("drop application package app_pkg"),
             ),
-            (None, mock.call.execute_sql("use role old_role")),
+            (None, mock.call("use role old_role")),
         ]
     )
     mock_execute.side_effect = side_effects
@@ -264,8 +264,8 @@ def test_drop_application_has_special_comment_and_quoted_name(
         [
             # Show apps
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (
@@ -287,8 +287,8 @@ def test_drop_application_has_special_comment_and_quoted_name(
             (None, mock.call("use role old_role")),
             # Drop app
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (None, mock.call('drop application "My Application"')),
@@ -389,8 +389,8 @@ def test_drop_application_user_allows_drop(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (None, mock.call("use role old_role")),
@@ -530,8 +530,8 @@ def test_show_versions_failure_w_exception(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (
@@ -585,8 +585,8 @@ def test_drop_package_no_mismatch_no_drop(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -652,8 +652,8 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -725,8 +725,8 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -780,8 +780,8 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
         [
             # Show app pkg
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -803,8 +803,8 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
             (None, mock.call("use role old_role")),
             # Show versions
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -817,8 +817,8 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
             (None, mock.call("use role old_role")),
             # Drop app pkg
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (None, mock.call('drop application package "My Package"')),
@@ -880,8 +880,8 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -950,8 +950,8 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_allows_drop(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -1002,8 +1002,8 @@ def test_drop_package_idempotent(
     side_effects_for_execute, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (

@@ -38,7 +38,7 @@ from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.utils import ensure_correct_owner
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
+from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
 from snowflake.cli.api.project.util import to_identifier, unquote_identifier
 from snowflake.cli.api.utils.cursor import (
     find_all_rows,

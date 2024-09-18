@@ -19,10 +19,10 @@ from typing import Any, Dict, List, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
-from snowflake.cli.api.project.errors import SchemaValidationError
-from snowflake.cli.api.project.schemas.entities.application_entity_model import (
+from snowflake.cli._plugins.nativeapp.application_entity_model import (
     ApplicationEntityModel,
 )
+from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import (
     TargetField,
 )
@@ -30,13 +30,13 @@ from snowflake.cli.api.project.schemas.entities.entities import (
     EntityModel,
     v2_entity_model_types_map,
 )
-from snowflake.cli.api.project.schemas.native_app.native_app import (
+from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
+from snowflake.cli.api.project.schemas.v1.native_app.native_app import (
     NativeApp,
     NativeAppV11,
 )
-from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
-from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
-from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
+from snowflake.cli.api.project.schemas.v1.snowpark.snowpark import Snowpark
+from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
 from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
 

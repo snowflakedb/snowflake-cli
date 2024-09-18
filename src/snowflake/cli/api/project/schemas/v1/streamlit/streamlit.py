@@ -18,8 +18,8 @@ from pathlib import Path
 from typing import List, Optional
 
 from pydantic import Field
-from snowflake.cli.api.project.schemas.identifier_model import ObjectIdentifierModel
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
+from snowflake.cli.api.project.schemas.v1.identifier_model import ObjectIdentifierModel
 
 
 class Streamlit(UpdatableModel, ObjectIdentifierModel(object_name="Streamlit")):  # type: ignore
