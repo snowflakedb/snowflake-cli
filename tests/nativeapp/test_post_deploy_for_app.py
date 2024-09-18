@@ -73,7 +73,7 @@ def test_sql_scripts(
     )
     post_deploy_2 = "-- app post-deploy script (2/2)\n"
 
-    output = ProjectV11Factory(
+    ProjectV11Factory(
         pdf__native_app__artifacts=[{"src": "app/*", "dest": "./"}],
         pdf__native_app__name="myapp",
         pdf__native_app__application__post_deploy=[
