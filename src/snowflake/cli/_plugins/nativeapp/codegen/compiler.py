@@ -34,7 +34,9 @@ from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor impo
     TemplatesProcessor,
 )
 from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     ProcessorMapping,
 )
@@ -75,6 +77,10 @@ class NativeAppCompiler:
 
         if not self._should_invoke_processors():
             return
+
+        metrics = get_cli_context().metrics
+        metrics.set_counter(CLICounterField.TEMPLATES_PROCESSOR, 0)
+        metrics.set_counter(CLICounterField.SNOWPARK_PROCESSOR, 0)
 
         with cc.phase("Invoking artifact processors"):
             if self._bundle_ctx.generated_root.exists():

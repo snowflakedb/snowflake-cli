@@ -14,12 +14,20 @@
 
 import typer
 from snowflake.cli._plugins.nativeapp.utils import is_tty_interactive
+from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.metrics import CLICounterField
 
 
 def interactive_callback(val):
     if val is None:
         return is_tty_interactive()
     return val
+
+
+def validate_callback(val: bool) -> None:
+    get_cli_context().metrics.set_counter(
+        CLICounterField.VALIDATE_SETUP_SCRIPT, int(val)
+    )
 
 
 InteractiveOption = typer.Option(
@@ -41,4 +49,5 @@ ValidateOption = typer.Option(
     "--validate/--no-validate",
     help="""When enabled, this option triggers validation of a deployed Snowflake Native App's setup script SQL""",
     is_flag=True,
+    callback=validate_callback,
 )

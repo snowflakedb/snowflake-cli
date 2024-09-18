@@ -33,6 +33,7 @@ from snowflake.cli.api.errno import (
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.rendering.sql_templates import (
@@ -260,8 +261,13 @@ def execute_post_deploy_hooks(
     While executing SQL post deploy hooks, it first switches to the database provided in the input.
     All post deploy scripts templates will first be expanded using the global template context.
     """
+    metrics = get_cli_context().metrics
+    metrics.set_counter(CLICounterField.POST_DEPLOY_SCRIPTS, 0)
+
     if not post_deploy_hooks:
         return
+
+    metrics.set_counter(CLICounterField.POST_DEPLOY_SCRIPTS, 1)
 
     with console.phase(f"Executing {deployed_object_type} post-deploy actions"):
         sql_scripts_paths = []
