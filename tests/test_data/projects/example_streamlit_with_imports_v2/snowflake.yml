@@ -1,0 +1,15 @@
+definition_version: "2"
+entities:
+  streamlit:
+    type: "streamlit"
+    identifier: "test_streamlit_deploy_snowcli"
+    title: "My Streamlit App with Imports"
+    stage: "MockDatabase.MockSchema.streamlit"
+    main_file: "streamlit_app.py"
+    query_warehouse: "test_warehouse"
+    artifacts:
+      - streamlit_app.py
+      - utils/
+      - environment.yml
+    imports:
+      - "utils/helper.py"

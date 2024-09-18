@@ -90,3 +90,47 @@ def test_deploy_streamlit_with_api_integrations(
         secrets=('my_secret'=SecretOfTheSecrets, 'other'=other_secret)"""
         )
     )
+
+
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.get_url")
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager._execute_query")
+@mock_streamlit_exists
+def test_deploy_streamlit_with_imports(
+    mock_execute_query, _, mock_stage_manager, temp_dir
+):
+    mock_stage_manager().get_standard_stage_prefix.return_value = "stage_root"
+
+    main_file = Path(temp_dir) / "main.py"
+    main_file.touch()
+
+    # Simulate the import files
+    utils_file = Path(temp_dir) / "utils/helper.py"
+    utils_file.parent.mkdir(parents=True, exist_ok=True)
+    utils_file.touch()
+
+    st = StreamlitEntityModel(
+        type="streamlit",
+        identifier="my_streamlit_app",
+        title="MyStreamlit",
+        query_warehouse="My_WH",
+        main_file=str(main_file),
+        artifacts=[main_file, utils_file],
+        imports=["utils/helper.py"],
+    )
+
+    StreamlitManager(MagicMock(database="DB", schema="SH")).deploy(
+        streamlit=st, replace=False
+    )
+
+    mock_execute_query.assert_called_once_with(
+        dedent(
+            f"""\
+            CREATE STREAMLIT IDENTIFIER('DB.SH.my_streamlit_app')
+            ROOT_LOCATION = 'stage_root'
+            MAIN_FILE = '{main_file}'
+            QUERY_WAREHOUSE = My_WH
+            TITLE = 'MyStreamlit'
+            IMPORTS = ('utils/helper.py')"""
+        )
+    )
