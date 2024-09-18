@@ -32,7 +32,7 @@ PROJECT_TEMPLATE_START = "<%"
 
 
 def _is_templated(info: ValidationInfo, value: Any) -> bool:
-    return (
+    return bool(
         info.context
         and info.context.get("skip_validation_on_templates", False)
         and isinstance(value, str)
@@ -90,9 +90,14 @@ class UpdatableModel(BaseModel):
         if not isinstance(field, FieldInfo) or not field.json_schema_extra:
             return False
 
-        return (
-            "is_discriminator_field" in field.json_schema_extra
-            and field.json_schema_extra["is_discriminator_field"]
+        json_schema_extra = (
+            field.json_schema_extra()
+            if callable(field.json_schema_extra)
+            else field.json_schema_extra
+        )
+        return bool(
+            "is_discriminator_field" in json_schema_extra
+            and json_schema_extra["is_discriminator_field"]
         )
 
     @classmethod
