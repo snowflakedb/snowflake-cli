@@ -23,6 +23,13 @@ from textwrap import dedent
 from typing import Generator, List, Optional
 
 from snowflake.cli._plugins.connection.util import make_snowsight_url
+from snowflake.cli._plugins.nativeapp.application_entity import (
+    ApplicationEntity,
+    ApplicationOwnedObject,
+)
+from snowflake.cli._plugins.nativeapp.application_package_entity import (
+    ApplicationPackageEntity,
+)
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
 )
@@ -36,21 +43,14 @@ from snowflake.cli._plugins.stage.diff import (
     DiffResult,
 )
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.application_entity import (
-    ApplicationEntity,
-    ApplicationOwnedObject,
-)
-from snowflake.cli.api.entities.application_package_entity import (
-    ApplicationPackageEntity,
-)
 from snowflake.cli.api.entities.utils import (
     execute_post_deploy_hooks,
     generic_sql_error_handler,
     sync_deploy_root_with_stage,
 )
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
-from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     identifier_for_url,
     unquote_identifier,

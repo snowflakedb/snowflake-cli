@@ -26,15 +26,15 @@ from snowflake.cli._plugins.connection.util import (
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
+    StreamlitEntityModel,
+)
 from snowflake.cli.api.commands.experimental_behaviour import (
     experimental_behaviour_enabled,
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.schemas.entities.streamlit_entity_model import (
-    StreamlitEntityModel,
-)
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError

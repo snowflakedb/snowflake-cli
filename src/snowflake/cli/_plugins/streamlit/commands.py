@@ -26,6 +26,9 @@ from snowflake.cli._plugins.object.command_aliases import (
     scope_option,
 )
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
+    StreamlitEntityModel,
+)
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_experimental_behaviour,
@@ -48,9 +51,6 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
-)
-from snowflake.cli.api.project.schemas.entities.streamlit_entity_model import (
-    StreamlitEntityModel,
 )
 
 app = SnowTyperFactory(

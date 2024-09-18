@@ -5,6 +5,15 @@ from typing import Callable, List, Optional, TypedDict
 
 import typer
 from click import ClickException, UsageError
+from snowflake.cli._plugins.nativeapp.application_entity_model import (
+    ApplicationEntityModel,
+)
+from snowflake.cli._plugins.nativeapp.application_package_entity import (
+    ApplicationPackageEntity,
+)
+from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -36,9 +45,6 @@ from snowflake.cli._plugins.nativeapp.utils import (
 )
 from snowflake.cli._plugins.workspace.action_context import ActionContext
 from snowflake.cli.api.console.abc import AbstractConsole
-from snowflake.cli.api.entities.application_package_entity import (
-    ApplicationPackageEntity,
-)
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -55,12 +61,6 @@ from snowflake.cli.api.errno import (
     ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
-from snowflake.cli.api.project.schemas.entities.application_entity_model import (
-    ApplicationEntityModel,
-)
-from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
-    ApplicationPackageEntityModel,
-)
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.util import (
     extract_schema,

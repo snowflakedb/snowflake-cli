@@ -28,10 +28,10 @@ from snowflake.cli._plugins.nativeapp.project_model import (
 )
 from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.schemas.entities.common import SqlScriptHookType
-from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 
 CURRENT_ROLE = "current_role"
@@ -242,9 +242,7 @@ def test_project_model_explicit_package_app_name_with_suffix(
 def test_project_model_falls_back_to_current_role(
     mock_connect, project_definition_files: List[Path], mock_ctx, mock_cursor
 ):
-    ctx = mock_ctx(
-        cursor=mock_cursor([{"CURRENT_ROLE()": CURRENT_ROLE}], []), role=None
-    )
+    ctx = mock_ctx(cursor=mock_cursor([(CURRENT_ROLE,)], []), role=None)
     mock_connect.return_value = ctx
 
     project_defn = load_project(project_definition_files).project_definition

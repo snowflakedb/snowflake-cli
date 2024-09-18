@@ -6,6 +6,9 @@ from typing import Callable, List, Optional
 
 import typer
 from click import ClickException
+from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli._plugins.nativeapp.codegen.compiler import NativeAppCompiler
@@ -45,11 +48,8 @@ from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
 )
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
-from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
-    ApplicationPackageEntityModel,
-)
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
-from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import extract_schema
 from snowflake.cli.api.rendering.jinja import (
     get_basic_jinja_env,

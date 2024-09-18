@@ -17,11 +17,11 @@ from __future__ import annotations
 from typing import List, Optional
 
 from pydantic import Field
-from snowflake.cli.api.project.schemas.snowpark.callable import (
+from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
+from snowflake.cli.api.project.schemas.v1.snowpark.callable import (
     FunctionSchema,
     ProcedureSchema,
 )
-from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
 
 class Snowpark(UpdatableModel):

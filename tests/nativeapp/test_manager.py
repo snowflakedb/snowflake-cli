@@ -109,7 +109,7 @@ def test_sync_deploy_root_with_stage(
     temp_dir,
     mock_cursor,
 ):
-    mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
     mock_diff_result = DiffResult(different=[StagePath("setup.sql")])
     mock_compute_stage_diff.return_value = mock_diff_result
     mock_local_diff_with_stage.return_value = None
@@ -132,7 +132,7 @@ def test_sync_deploy_root_with_stage(
     )
 
     expected = [
-        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("select current_role()"),
         mock.call("use role new_role"),
         mock.call(f"create schema if not exists app_pkg.app_src"),
         mock.call(
@@ -218,8 +218,8 @@ def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_curs
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -259,8 +259,8 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -297,8 +297,8 @@ def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (mock_cursor([], []), mock.call("describe application package app_pkg")),
@@ -329,8 +329,8 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -442,8 +442,8 @@ def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (
@@ -484,8 +484,8 @@ def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_c
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (
@@ -515,8 +515,8 @@ def test_get_existing_app_pkg_info_app_pkg_exists(mock_execute, temp_dir, mock_c
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -562,8 +562,8 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -640,8 +640,8 @@ def test_get_snowsight_url_with_pdf_warehouse(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": warehouse}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([(warehouse,)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
         ]
@@ -669,7 +669,7 @@ def test_get_snowsight_url_with_pdf_warehouse(
         (
             "napp_project_1",
             "MockWarehouse",
-            [mock.call("select current_warehouse()", cursor_class=DictCursor)],
+            [mock.call("select current_warehouse()")],
             [None],
         ),
         (
@@ -701,7 +701,7 @@ def test_get_snowsight_url_without_pdf_warehouse(
     working_dir: Path = project_definition_files[0].parent
 
     mock_execute_query.side_effect = [
-        mock_cursor([{"CURRENT_WAREHOUSE()": warehouse}], [])
+        mock_cursor([(warehouse,)], [])
     ] + fallback_side_effect
 
     native_app_manager = _get_na_manager(str(working_dir))
@@ -741,8 +741,8 @@ def test_create_app_pkg_no_existing_package(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -1162,8 +1162,8 @@ def test_validate_use_scratch_stage(
                 ),
             ),
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -1224,8 +1224,8 @@ def test_validate_failing_drops_scratch_stage(
                 ),
             ),
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (

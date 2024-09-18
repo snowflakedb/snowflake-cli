@@ -17,17 +17,17 @@ from pathlib import Path
 from unittest import mock
 
 import yaml
+from snowflake.cli._plugins.nativeapp.application_package_entity import (
+    ApplicationPackageEntity,
+)
+from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
 )
 from snowflake.cli._plugins.workspace.action_context import ActionContext
-from snowflake.cli.api.entities.application_package_entity import (
-    ApplicationPackageEntity,
-)
-from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
-    ApplicationPackageEntityModel,
-)
 from snowflake.cli.api.project.schemas.entities.common import SqlScriptHookType
 from snowflake.connector.cursor import DictCursor
 
@@ -83,8 +83,8 @@ def test_deploy(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (
@@ -106,8 +106,8 @@ def test_deploy(
             ),
             (None, mock.call("use role old_role")),
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (
@@ -123,8 +123,8 @@ def test_deploy(
             ),
             (None, mock.call("use role old_role")),
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (None, mock.call("use role old_role")),
@@ -172,8 +172,8 @@ def test_version_list(mock_execute, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call(f"use role {package_role}")),
             (
