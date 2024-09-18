@@ -27,6 +27,7 @@ class CLICounterField(Enum):
     SNOWPARK_PROCESSOR = f"{_FEATURES_PREFIX}.{_APP_PREFIX}.snowpark_processor"
     POST_DEPLOY_SCRIPTS = f"{_FEATURES_PREFIX}.{_APP_PREFIX}.post_deploy_scripts"
     VALIDATE_SETUP_SCRIPT = f"{_FEATURES_PREFIX}.{_APP_PREFIX}.validate_setup_script"
+    PDF_V2 = f"{_FEATURES_PREFIX}.pdf_v2"
 
     def __str__(self):
         return self.value
