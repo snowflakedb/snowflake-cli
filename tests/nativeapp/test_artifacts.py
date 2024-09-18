@@ -32,7 +32,7 @@ from snowflake.cli._plugins.nativeapp.artifacts import (
     symlink_or_copy,
 )
 from snowflake.cli.api.project.definition import load_project
-from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 
 from tests.nativeapp.utils import (
     assert_dir_snapshot,

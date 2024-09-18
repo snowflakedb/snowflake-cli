@@ -20,22 +20,22 @@ from typing import Any, Dict, Optional, Union
 
 import typer
 from click import ClickException
+from snowflake.cli._plugins.nativeapp.application_entity_model import (
+    ApplicationEntityModel,
+)
+from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli.api.cli_global_context import (
     get_cli_context,
     get_cli_context_manager,
 )
 from snowflake.cli.api.commands.decorators import _options_decorator_factory
-from snowflake.cli.api.project.schemas.entities.application_entity_model import (
-    ApplicationEntityModel,
-)
-from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
-    ApplicationPackageEntityModel,
-)
-from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV11,
     DefinitionV20,
 )
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 
 

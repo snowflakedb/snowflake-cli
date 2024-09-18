@@ -28,8 +28,8 @@ from snowflake.cli.api.project.definition import (
     default_role,
 )
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
-from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     append_test_resource_suffix,
     extract_schema,

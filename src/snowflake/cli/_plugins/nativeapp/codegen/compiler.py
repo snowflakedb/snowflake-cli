@@ -35,7 +35,7 @@ from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor impo
 )
 from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.project.schemas.native_app.path_mapping import (
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
     ProcessorMapping,
 )
 

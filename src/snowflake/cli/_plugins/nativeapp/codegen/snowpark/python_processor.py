@@ -49,7 +49,7 @@ from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
 )
 from snowflake.cli._plugins.stage.diff import to_stage_path
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.project.schemas.native_app.path_mapping import (
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
     PathMapping,
     ProcessorMapping,
 )

@@ -16,23 +16,26 @@ from __future__ import annotations
 
 from typing import Dict, List, Union, get_args
 
-from snowflake.cli.api.entities.application_entity import ApplicationEntity
-from snowflake.cli.api.entities.application_package_entity import (
-    ApplicationPackageEntity,
-)
-from snowflake.cli.api.entities.snowpark_entity import FunctionEntity, ProcedureEntity
-from snowflake.cli.api.entities.streamlit_entity import StreamlitEntity
-from snowflake.cli.api.project.schemas.entities.application_entity_model import (
+from snowflake.cli._plugins.nativeapp.application_entity import ApplicationEntity
+from snowflake.cli._plugins.nativeapp.application_entity_model import (
     ApplicationEntityModel,
 )
-from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
+from snowflake.cli._plugins.nativeapp.application_package_entity import (
+    ApplicationPackageEntity,
+)
+from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
     ApplicationPackageEntityModel,
 )
-from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
+from snowflake.cli._plugins.snowpark.snowpark_entity import (
+    FunctionEntity,
+    ProcedureEntity,
+)
+from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     FunctionEntityModel,
     ProcedureEntityModel,
 )
-from snowflake.cli.api.project.schemas.entities.streamlit_entity_model import (
+from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 
