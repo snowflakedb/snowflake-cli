@@ -101,6 +101,9 @@ class PdfV10Factory(factory.DictFactory):
         skip_write = kwargs.pop("skip_write", False)
         return_string = kwargs.pop("return_string", False)
 
+        if kwargs["env"] is None:
+            kwargs.pop("env")
+
         pdf_dict = cls._build(model_class, *args, **kwargs)
 
         if merge_definition:
