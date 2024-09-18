@@ -29,7 +29,6 @@ from snowflake.cli.api.errno import (
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (
@@ -58,13 +57,13 @@ def _get_na_manager(working_dir):
         (
             "napp_project_1",  # With connection warehouse, without PDF warehouse
             [
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock.call("select current_warehouse()"),
             ],
         ),
         (
             "napp_project_with_pkg_warehouse",  # With connection warehouse, with PDF warehouse
             [
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock.call("select current_warehouse()"),
                 mock.call("use warehouse myapp_pkg_warehouse"),
                 mock.call("use warehouse MockWarehouse"),
             ],
@@ -83,9 +82,7 @@ def test_package_scripts_with_conn_info(
     mock_conn.return_value = MockConnectionCtx()
     working_dir: Path = project_definition_files[0].parent
     # Only consequential for "select current_warehouse()"
-    mock_execute_query.return_value = mock_cursor(
-        [{"CURRENT_WAREHOUSE()": "MockWarehouse"}], []
-    )
+    mock_execute_query.return_value = mock_cursor([("MockWarehouse",)], [])
     native_app_manager = _get_na_manager(str(working_dir))
     native_app_manager._apply_package_scripts()  # noqa: SLF001
     assert mock_execute_query.mock_calls == expected_calls
@@ -132,7 +129,7 @@ def test_package_scripts_without_conn_info_throws_error(
 ):
     mock_conn.return_value = MockConnectionCtx(warehouse=None)
     working_dir: Path = project_definition_files[0].parent
-    mock_execute_query.return_value = mock_cursor([{"CURRENT_WAREHOUSE()": None}], [])
+    mock_execute_query.return_value = mock_cursor([(None,)], [])
     native_app_manager = _get_na_manager(str(working_dir))
     with pytest.raises(ClickException) as err:
         native_app_manager._apply_package_scripts()  # noqa: SLF001
@@ -158,12 +155,12 @@ def test_package_scripts_without_conn_info_succeeds(
 ):
     mock_conn.return_value = MockConnectionCtx(warehouse=None)
     working_dir: Path = project_definition_files[0].parent
-    mock_execute_query.return_value = mock_cursor([{"CURRENT_WAREHOUSE()": None}], [])
+    mock_execute_query.return_value = mock_cursor([(None,)], [])
     native_app_manager = _get_na_manager(str(working_dir))
     native_app_manager._apply_package_scripts()  # noqa: SLF001
 
     assert mock_execute_query.mock_calls == [
-        mock.call("select current_warehouse()", cursor_class=DictCursor),
+        mock.call("select current_warehouse()"),
         mock.call("use warehouse myapp_pkg_warehouse"),
     ]
     assert mock_execute_queries.mock_calls == [
@@ -258,7 +255,12 @@ def test_package_scripts_w_missing_warehouse_exception(
 ):
     mock_conn.return_value = MockConnectionCtx()
     mock_execute_query.side_effect = [
-        mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
+        mock_cursor(
+            [
+                ("old_wh"),
+            ],
+            [],
+        ),
         None,
         None,
     ]
@@ -287,7 +289,12 @@ def test_package_scripts_w_warehouse_access_exception(
     mock_cursor,
 ):
     side_effects = [
-        mock_cursor([{"CURRENT_WAREHOUSE()": "old_wh"}], []),
+        mock_cursor(
+            [
+                ("old_wh"),
+            ],
+            [],
+        ),
         ProgrammingError(
             msg="Object does not exist, or operation cannot be performed.",
             errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,

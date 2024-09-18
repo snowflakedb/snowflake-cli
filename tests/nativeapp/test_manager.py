@@ -640,8 +640,8 @@ def test_get_snowsight_url_with_pdf_warehouse(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": warehouse}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([(warehouse,)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
         ]
@@ -669,7 +669,7 @@ def test_get_snowsight_url_with_pdf_warehouse(
         (
             "napp_project_1",
             "MockWarehouse",
-            [mock.call("select current_warehouse()", cursor_class=DictCursor)],
+            [mock.call("select current_warehouse()")],
             [None],
         ),
         (
@@ -701,7 +701,7 @@ def test_get_snowsight_url_without_pdf_warehouse(
     working_dir: Path = project_definition_files[0].parent
 
     mock_execute_query.side_effect = [
-        mock_cursor([{"CURRENT_WAREHOUSE()": warehouse}], [])
+        mock_cursor([(warehouse,)], [])
     ] + fallback_side_effect
 
     native_app_manager = _get_na_manager(str(working_dir))
