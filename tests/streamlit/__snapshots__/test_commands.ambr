@@ -6,10 +6,11 @@
   | were encountered:                                                            |
   | For field entities.my_streamlit.streamlit you provided '{'artifacts':        |
   | ['streamlit_app.py', 'foo_bar.py', 'pages/', 'environment.yml'],             |
-  | 'identifier': 'test_streamlit_deploy_snowcli', 'main_file':                  |
-  | 'streamlit_app.py', 'query_warehouse': 'xsmall', 'stage': 'streamlit',       |
-  | 'title': 'My Fancy Streamlit', 'type': 'streamlit'}'. This caused: Value     |
-  | error, Specified artifact foo_bar.py does not exist locally.                 |
+  | 'identifier': 'test_streamlit_deploy_snowcli', 'imports': ['@stage/foo.py',  |
+  | '@stage/bar.py'], 'main_file': 'streamlit_app.py', 'query_warehouse':        |
+  | 'xsmall', 'stage': 'streamlit', 'title': 'My Fancy Streamlit', 'type':       |
+  | 'streamlit'}'. This caused: Value error, Specified artifact foo_bar.py does  |
+  | not exist locally.                                                           |
   +------------------------------------------------------------------------------+
   
   '''
@@ -21,10 +22,11 @@
   | were encountered:                                                            |
   | For field entities.my_streamlit.streamlit you provided '{'artifacts':        |
   | ['streamlit_app.py', 'utils/utils.py', 'pages/', 'environment.yml'],         |
-  | 'identifier': 'test_streamlit_deploy_snowcli', 'main_file': 'foo_bar.py',    |
-  | 'query_warehouse': 'xsmall', 'stage': 'streamlit', 'title': 'My Fancy        |
-  | Streamlit', 'type': 'streamlit'}'. This caused: Value error, Specified main  |
-  | file foo_bar.py is not included in artifacts.                                |
+  | 'identifier': 'test_streamlit_deploy_snowcli', 'imports': ['@stage/foo.py',  |
+  | '@stage/bar.py'], 'main_file': 'foo_bar.py', 'query_warehouse': 'xsmall',    |
+  | 'stage': 'streamlit', 'title': 'My Fancy Streamlit', 'type': 'streamlit'}'.  |
+  | This caused: Value error, Specified main file foo_bar.py is not included in  |
+  | artifacts.                                                                   |
   +------------------------------------------------------------------------------+
   
   '''

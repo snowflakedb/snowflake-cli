@@ -117,6 +117,20 @@ class TargetField(UpdatableModel, Generic[TargetType]):
         return self.__pydantic_generic_metadata__["args"][0]
 
 
+
+class ImportsBaseModel:
+    imports: Optional[List[str]] = Field(
+        title="Stage and path to previously uploaded files you want to import",
+        default=[],
+    )
+
+    def get_imports_sql(self) -> str | None:
+        if not self.imports:
+            return None
+        imports = ", ".join(f"'{i}'" for i in self.imports)
+        return f"IMPORTS = ({imports})"
+
+
 class ExternalAccessBaseModel:
     external_access_integrations: Optional[List[str]] = Field(
         title="Names of external access integrations needed for this entity to access external networks",

@@ -30,6 +30,7 @@ def test_deploy_streamlit(mock_execute_query, _, mock_stage_manager, temp_dir):
         title="MyStreamlit",
         query_warehouse="My_WH",
         main_file=str(main_file),
+        imports=["@stage/foo.py", "@stage/bar.py"],
         # Possibly can be PathMapping
         artifacts=[main_file],
     )
@@ -44,6 +45,7 @@ def test_deploy_streamlit(mock_execute_query, _, mock_stage_manager, temp_dir):
         CREATE STREAMLIT IDENTIFIER('DB.SH.my_streamlit_app')
         ROOT_LOCATION = 'stage_root'
         MAIN_FILE = '{main_file}'
+        IMPORTS = ('@stage/foo.py', '@stage/bar.py')
         QUERY_WAREHOUSE = My_WH
         TITLE = 'MyStreamlit'"""
         )
