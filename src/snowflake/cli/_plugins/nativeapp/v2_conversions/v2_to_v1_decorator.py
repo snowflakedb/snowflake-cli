@@ -167,6 +167,20 @@ def find_entity(
     disambiguation_option: str,
     required: bool,
 ) -> T | None:
+    """
+    Find an entity of the specified type in the project definition file.
+
+    If an ID is passed, only that entity will be considered,
+    otherwise look for a single entity of the specified type.
+
+    If there are multiple entities of the specified type,
+    the user must specify which one to use using the CLI option
+    named in the disambiguation_option parameter.
+
+    If no entity is found, an error is raised if required is True,
+    otherwise None is returned.
+    """
+
     entity_type = entity_class.get_type()
     entities = project_definition.get_entities_by_type(entity_type)
 
