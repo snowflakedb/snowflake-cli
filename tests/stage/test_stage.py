@@ -859,7 +859,7 @@ def test_execute_from_user_stage(
     ls_call, *execute_calls = mock_execute.mock_calls
     assert ls_call == mock.call(f"ls '@~'", cursor_class=DictCursor)
     assert execute_calls == [
-        mock.call(f"execute immediate from {p}") for p in expected_files
+        mock.call(f"execute immediate from '{p}'") for p in expected_files
     ]
     assert result.output == snapshot
 

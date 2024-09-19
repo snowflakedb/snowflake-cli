@@ -14,10 +14,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from textwrap import dedent
 from typing import List
 
+from click import UsageError
 from snowflake.cli._plugins.stage.manager import (
     USER_STAGE_PREFIX,
     StageManager,
@@ -27,16 +28,22 @@ from snowflake.cli._plugins.stage.manager import (
 from snowflake.cli.api.identifiers import FQN
 from snowflake.connector.cursor import SnowflakeCursor
 
+# Replace magic numbers with constants
+OMIT_FIRST = slice(1, None)
+OMIT_STAGE = slice(3, None)
+OMIT_STAGE_IN_NEW_LIST_FILES = slice(2, None)
+ONLY_STAGE = slice(3)
+
 
 class GitStagePathParts(StagePathParts):
     def __init__(self, stage_path: str):
         self.stage = GitManager.get_stage_from_path(stage_path)
-        stage_path_parts = Path(stage_path).parts
+        stage_path_parts = GitManager.split_git_path(stage_path)
         git_repo_name = stage_path_parts[0].split(".")[-1]
         if git_repo_name.startswith("@"):
-            git_repo_name = git_repo_name[1:]
+            git_repo_name = git_repo_name[OMIT_FIRST]
         self.stage_name = "/".join([git_repo_name, *stage_path_parts[1:3], ""])
-        self.directory = "/".join(stage_path_parts[3:])
+        self.directory = "/".join(stage_path_parts[OMIT_STAGE])
         self.is_directory = True if stage_path.endswith("/") else False
 
     @property
@@ -45,7 +52,12 @@ class GitStagePathParts(StagePathParts):
 
     @classmethod
     def get_directory(cls, stage_path: str) -> str:
-        return "/".join(Path(stage_path).parts[3:])
+        git_path_parts = GitManager.split_git_path(stage_path)
+        # New file list does not have a stage name at the beginning
+        if stage_path.startswith("/"):
+            return "/".join(git_path_parts[OMIT_STAGE_IN_NEW_LIST_FILES])
+        else:
+            return "/".join(git_path_parts[OMIT_STAGE])
 
     @property
     def full_path(self) -> str:
@@ -53,7 +65,7 @@ class GitStagePathParts(StagePathParts):
 
     def replace_stage_prefix(self, file_path: str) -> str:
         stage = Path(self.stage).parts[0]
-        file_path_without_prefix = Path(file_path).parts[1:]
+        file_path_without_prefix = Path(file_path).parts[OMIT_FIRST]
         return f"{stage}/{'/'.join(file_path_without_prefix)}"
 
     def add_stage_prefix(self, file_path: str) -> str:
@@ -95,7 +107,8 @@ class GitManager(StageManager):
         Returns stage name from potential path on stage. For example
         repo/branches/main/foo/bar -> repo/branches/main/
         """
-        return f"{'/'.join(Path(path).parts[0:3])}/"
+        path_parts = GitManager.split_git_path(path)
+        return f"{'/'.join(path_parts[ONLY_STAGE])}/"
 
     @staticmethod
     def _stage_path_part_factory(stage_path: str) -> StagePathParts:
@@ -103,3 +116,36 @@ class GitManager(StageManager):
         if stage_path.startswith(USER_STAGE_PREFIX):
             return UserStagePathParts(stage_path)
         return GitStagePathParts(stage_path)
+
+    @staticmethod
+    def split_git_path(path: str):
+        # Check if path contains quotes and split it accordingly
+        if '/"' in path and '"/' in path:
+            if path.count('"') > 2:
+                raise UsageError(
+                    f'Invalid string {path}, too much " in path, expected 2.'
+                )
+
+            path_parts = path.split('"')
+            before_quoted_part = GitManager._split_path_without_empty_parts(
+                path_parts[0]
+            )
+
+            if path_parts[2] == "/":
+                after_quoted_part = []
+            else:
+                after_quoted_part = GitManager._split_path_without_empty_parts(
+                    path_parts[2]
+                )
+
+            return [
+                *before_quoted_part,
+                f'"{path_parts[1]}"',
+                *after_quoted_part,
+            ]
+        else:
+            return GitManager._split_path_without_empty_parts(path)
+
+    @staticmethod
+    def _split_path_without_empty_parts(path: str):
+        return [e for e in PurePosixPath(path).parts if e != "/"]
