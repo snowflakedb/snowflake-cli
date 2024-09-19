@@ -12,24 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum, unique
-from typing import Dict
+from typing import Dict, Union
+
+from virtualenv.config.convert import NoneType
 
 _FEATURES_PREFIX = "features"
 _APP_PREFIX = "app"
 
 
-@unique
-class CLICounterField(Enum):
+class CLICounterField:
     TEMPLATES_PROCESSOR = f"{_FEATURES_PREFIX}.templates_processor"
     SQL_TEMPLATES = f"{_FEATURES_PREFIX}.sql_templates"
     PDF_TEMPLATES = f"{_FEATURES_PREFIX}.pdf_templates"
     SNOWPARK_PROCESSOR = f"{_FEATURES_PREFIX}.{_APP_PREFIX}.snowpark_processor"
     POST_DEPLOY_SCRIPTS = f"{_FEATURES_PREFIX}.{_APP_PREFIX}.post_deploy_scripts"
-    PDF_V2 = f"{_FEATURES_PREFIX}.pdf_v2"
-
-    def __str__(self):
-        return self.value
 
 
 class CLIMetrics:
@@ -39,6 +35,9 @@ class CLIMetrics:
 
     def __init__(self):
         self._counters: Dict[str, int] = {}
+
+    def get_counter(self, name: str) -> Union[int, NoneType]:
+        return self._counters.get(name)
 
     def set_counter(self, name: str, value: int) -> None:
         self._counters[name] = value

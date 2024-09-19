@@ -345,9 +345,14 @@ def render_definition_template(
     has_user_referenced_vars = (
         len(_get_referenced_vars_in_definition(template_env, definition)) > 0
     )
-    get_cli_context().metrics.set_counter(
-        CLICounterField.PDF_TEMPLATES, int(has_user_referenced_vars)
-    )
+    metrics = get_cli_context().metrics
+
+    # this function is run multiple times both by the user and by us,
+    # so we should only overwrite if templates were not found at any point
+    if metrics.get_counter(CLICounterField.PDF_TEMPLATES) != 1:
+        metrics.set_counter(
+            CLICounterField.PDF_TEMPLATES, int(has_user_referenced_vars)
+        )
 
     definition = _add_defaults_to_definition(definition)
     project_context = {CONTEXT_KEY: definition}

@@ -28,7 +28,6 @@ from snowflake.cli.api.cli_global_context import (
 )
 from snowflake.cli.api.commands.execution_metadata import ExecutionMetadata
 from snowflake.cli.api.config import get_feature_flags_section
-from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
 from snowflake.connector.telemetry import (
@@ -81,8 +80,6 @@ def _get_command_metrics() -> TelemetryDict:
     return {
         CLITelemetryField.COUNTERS: {
             **cli_context.metrics.counters,
-            # duplicating this here so that building dashboards are simpler
-            CLICounterField.PDF_V2: int(str(_get_definition_version()).startswith("2")),
         }
     }
 

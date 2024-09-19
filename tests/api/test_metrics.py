@@ -24,6 +24,7 @@ def test_metrics_no_counters():
 
     # then
     assert metrics.counters == expected
+    assert metrics.get_counter("counter1") is None
 
 
 def test_metrics_set_one_counter():
@@ -36,6 +37,7 @@ def test_metrics_set_one_counter():
 
     # then
     assert metrics.counters == expected
+    assert metrics.get_counter("counter1") == expected["counter1"]
 
 
 def test_metrics_add_new_counter():
@@ -48,6 +50,7 @@ def test_metrics_add_new_counter():
 
     # then
     assert metrics.counters == expected
+    assert metrics.get_counter("counter1") == expected["counter1"]
 
 
 def test_metrics_add_existing_counter():
@@ -61,6 +64,7 @@ def test_metrics_add_existing_counter():
 
     # then
     assert metrics.counters == expected
+    assert metrics.get_counter("counter1") == expected["counter1"]
 
 
 def test_metrics_set_multiple_counters():
@@ -75,3 +79,5 @@ def test_metrics_set_multiple_counters():
 
     # then
     assert metrics.counters == expected
+    assert metrics.get_counter("counter1") == expected["counter1"]
+    assert metrics.get_counter("counter2") == expected["counter2"]

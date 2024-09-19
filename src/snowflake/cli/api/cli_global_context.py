@@ -47,7 +47,7 @@ class _CliGlobalContextManager:
     experimental: bool = False
     enable_tracebacks: bool = True
 
-    metrics: CLIMetrics = CLIMetrics()
+    metrics: CLIMetrics = field(default_factory=CLIMetrics)
 
     project_path_arg: str | None = None
     project_is_optional: bool = True
