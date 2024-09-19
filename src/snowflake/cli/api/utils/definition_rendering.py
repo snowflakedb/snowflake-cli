@@ -19,8 +19,10 @@ from typing import Any, Optional
 
 from jinja2 import Environment, TemplateSyntaxError, nodes
 from packaging.version import Version
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
+from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectProperties,
     build_project_definition,
@@ -339,6 +341,13 @@ def render_definition_template(
         project_context = {CONTEXT_KEY: definition}
         project_context[CONTEXT_KEY]["env"] = environment_overrides
         return ProjectProperties(project_definition, project_context)
+
+    has_user_referenced_vars = (
+        len(_get_referenced_vars_in_definition(template_env, definition)) > 0
+    )
+    get_cli_context().metrics.set_counter(
+        CLICounterField.PDF_TEMPLATES, int(has_user_referenced_vars)
+    )
 
     definition = _add_defaults_to_definition(definition)
     project_context = {CONTEXT_KEY: definition}
