@@ -911,3 +911,46 @@ def test_multiple_streamlit_raise_error_if_multiple_entities(
 
     assert result.exit_code == 2, result.output
     assert result.output == os_agnostic_snapshot
+
+
+@mock.patch("snowflake.connector.connect")
+def test_deploy_streamlit_with_comment_v2(
+    mock_connector, mock_cursor, runner, mock_ctx, project_directory
+):
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"REGIONLESS": "false"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
+    mock_connector.return_value = ctx
+
+    with project_directory("example_streamlit_with_comment_v2"):
+        result = runner.invoke(["streamlit", "deploy", "--replace"])
+
+    root_path = f"@MockDatabase.MockSchema.streamlit/test_streamlit_deploy_snowcli"
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [
+        f"describe streamlit IDENTIFIER('MockDatabase.MockSchema.test_streamlit_deploy_snowcli')",
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
+        _put_query("streamlit_app.py", root_path),
+        _put_query("pages/*", f"{root_path}/pages"),
+        _put_query("environment.yml", root_path),
+        dedent(
+            f"""
+            CREATE OR REPLACE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.test_streamlit_deploy_snowcli')
+            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/test_streamlit_deploy_snowcli'
+            MAIN_FILE = 'streamlit_app.py'
+            QUERY_WAREHOUSE = xsmall
+            TITLE = 'My Streamlit App with Comment'
+            COMMENT = 'This is a test comment'
+            """
+        ).strip(),
+        "select system$get_snowsight_host()",
+        REGIONLESS_QUERY,
+        "select current_account_name()",
+    ]

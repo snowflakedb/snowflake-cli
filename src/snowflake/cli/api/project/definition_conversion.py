@@ -157,6 +157,7 @@ def convert_streamlit_to_v2_data(streamlit: Streamlit) -> Dict[str, Any]:
                 "type": "streamlit",
                 "identifier": identifier,
                 "title": streamlit.title,
+                "comment": streamlit.comment,
                 "query_warehouse": streamlit.query_warehouse,
                 "main_file": str(streamlit.main_file),
                 "pages_dir": str(streamlit.pages_dir),
