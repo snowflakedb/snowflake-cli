@@ -22,6 +22,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     ExternalAccessBaseModel,
+    ImportsBaseModel,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
@@ -43,7 +44,7 @@ class PathMapping(UpdatableModel):
     )
 
 
-class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel):
+class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseModel):
     handler: str = Field(
         title="Function’s or procedure’s implementation of the object inside source module",
         examples=["functions.hello_function"],
@@ -56,10 +57,6 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel):
     )
     runtime: Optional[Union[str, float]] = Field(
         title="Python version to use when executing ", default=None
-    )
-    imports: Optional[List[str]] = Field(
-        title="Stage and path to previously uploaded files you want to import",
-        default=[],
     )
     stage: str = Field(title="Stage in which artifacts will be stored")
     artifacts: List[Union[PathMapping, str]] = Field(title="List of required sources")
