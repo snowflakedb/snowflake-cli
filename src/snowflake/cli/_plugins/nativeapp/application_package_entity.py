@@ -601,7 +601,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             return
 
         with sql_executor.use_role(package_role):
-            # 3. Check for versions in the application package
+            # 2. Check for versions in the application package
             show_versions_query = f"show versions in application package {package_name}"
             show_versions_cursor = sql_executor.execute_query(
                 show_versions_query, cursor_class=DictCursor
@@ -616,7 +616,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                         "Drop versions first, or use --force to override."
                     )
 
-        # 4. Check distribution of the existing application package
+        # 3. Check distribution of the existing application package
         actual_distribution = cls.get_app_pkg_distribution_in_snowflake(
             package_name=package_name,
             package_role=package_role,
@@ -631,7 +631,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 f"Dropping application package {package_name} with distribution '{actual_distribution}'."
             )
 
-        # 5. If distribution is internal, check if created by the Snowflake CLI
+        # 4. If distribution is internal, check if created by the Snowflake CLI
         row_comment = show_obj_row[COMMENT_COL]
         if actual_distribution == INTERNAL_DISTRIBUTION:
             if row_comment in ALLOWED_SPECIAL_COMMENTS:

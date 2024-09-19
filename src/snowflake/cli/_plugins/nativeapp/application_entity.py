@@ -220,7 +220,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             )
             return
 
-        # 3. Check if created by the Snowflake CLI
+        # 2. Check if created by the Snowflake CLI
         row_comment = show_obj_row[COMMENT_COL]
         if row_comment not in ALLOWED_SPECIAL_COMMENTS and needs_confirmation(
             needs_confirm, auto_yes
@@ -247,7 +247,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 # leave behind an orphan app when we get to dropping the package
                 raise typer.Abort()
 
-        # 4. Check for application objects owned by the application
+        # 3. Check for application objects owned by the application
         # This query will fail if the application package has already been dropped, so handle this case gracefully
         has_objects_to_drop = False
         message_prefix = ""
@@ -325,7 +325,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             # If there's nothing to drop, set cascade to an explicit False value
             cascade = False
 
-        # 5. All validations have passed, drop object
+        # 4. All validations have passed, drop object
         drop_generic_object(
             console=console,
             object_type="application",
