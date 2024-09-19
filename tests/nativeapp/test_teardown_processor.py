@@ -167,7 +167,7 @@ def test_drop_application_no_existing_application(
     )
 
 
-# Test drop_application() when it has a different owner role that is not allowed to drop it
+# Test drop_application() when the current role is not allowed to drop it
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(
     APP_ENTITY_DROP_GENERIC_OBJECT,
@@ -181,7 +181,7 @@ def test_drop_application_no_existing_application(
     "auto_yes_param",
     [True, False],  # This should have no effect on the test
 )
-def test_drop_application_incorrect_owner(
+def test_drop_application_current_role_is_not_owner(
     mock_get_objects_owned_by_application,
     mock_drop_generic_object,
     mock_get_existing_app_info,
@@ -481,7 +481,7 @@ def test_drop_package_no_existing_application(
     )
 
 
-# Test drop_package() when it has a different owner role that prevents it from being dropped
+# Test drop_package() when the current role is not allowed to drop it
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(
@@ -497,7 +497,7 @@ def test_drop_package_no_existing_application(
     "auto_yes_param",
     [True, False],  # This should have no effect on the test
 )
-def test_drop_package_incorrect_owner(
+def test_drop_package_current_role_is_not_owner(
     mock_is_distribution_same,
     mock_get_distribution,
     mock_drop_generic_object,

@@ -789,7 +789,7 @@ def test_create_app_pkg_different_owner(
     )
 
     native_app_manager = _get_na_manager()
-    # Invoke create when the package already exists, but the owner if the current role.
+    # Invoke create when the package already exists, but the owner is the current role.
     # This is expected to succeed with no warnings.
     native_app_manager.create_app_package()
 
