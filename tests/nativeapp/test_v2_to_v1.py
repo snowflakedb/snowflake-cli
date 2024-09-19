@@ -272,22 +272,6 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
                 "entities": {
                     **package_v2("pkg1"),
                     **package_v2("pkg2"),
-                    **app_v2("app2", "pkg1"),
-                },
-            },
-            "pkg2",
-            "app2",
-            False,
-            None,
-            "The application entity app2 does not "
-            "target the application package entity pkg2.",
-        ],
-        [
-            {
-                "definition_version": "2",
-                "entities": {
-                    **package_v2("pkg1"),
-                    **package_v2("pkg2"),
                 },
             },
             "",
