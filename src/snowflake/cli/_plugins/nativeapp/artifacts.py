@@ -735,7 +735,7 @@ def find_setup_script_file(deploy_root: Path) -> Path:
 
 def find_version_info_in_manifest_file(
     deploy_root: Path,
-) -> Tuple[Optional[str], Optional[str]]:
+) -> Tuple[Optional[str], Optional[int]]:
     """
     Find version and patch, if available, in the manifest.yml file.
     """
@@ -745,13 +745,13 @@ def find_version_info_in_manifest_file(
     manifest_content = find_and_read_manifest_file(deploy_root=deploy_root)
 
     version_name: Optional[str] = None
-    patch_name: Optional[str] = None
+    patch_number: Optional[int] = None
 
     version_info = manifest_content.get("version", None)
     if version_info:
         if name_field in version_info:
             version_name = to_identifier(str(version_info[name_field]))
         if patch_field in version_info:
-            patch_name = to_identifier(str(version_info[patch_field]))
+            patch_number = int(version_info[patch_field])
 
-    return version_name, patch_name
+    return version_name, patch_number

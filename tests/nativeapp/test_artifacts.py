@@ -1365,9 +1365,9 @@ def test_symlink_or_copy_with_symlinks_in_project_root(os_agnostic_snapshot):
             assert_dir_snapshot(Path("./output/deploy"), os_agnostic_snapshot)
 
 
-@pytest.mark.parametrize("patch_name", [None, "1", "42", "foo"])
+@pytest.mark.parametrize("patch_name", [None, "1", 42])
 @pytest.mark.parametrize(
-    "version_name", [None, "v1", "1", "1.2", "1.2.3", "0.x", "foo", "abc def"]
+    "version_name", [None, "v1", "1", 2, "1.2", 1.3, "1.2.3", "0.x", "foo", "abc def"]
 )
 def test_find_version_info_in_manifest_file(version_name, patch_name):
     manifest_contents = {"manifest_version": 1, "version": {}}
@@ -1386,9 +1386,9 @@ def test_find_version_info_in_manifest_file(version_name, patch_name):
         if version_name is None:
             assert v is None
         else:
-            assert v == to_identifier(version_name)
+            assert v == to_identifier(str(version_name))
 
         if patch_name is None:
             assert p is None
         else:
-            assert p == to_identifier(patch_name)
+            assert p == int(patch_name)

@@ -12,9 +12,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from shlex import split
+from typing import Any, Optional
 
+from yaml import safe_dump, safe_load
+
+from snowflake.cli.api.project.util import (
+    is_valid_unquoted_identifier,
+    to_identifier,
+    unquote_identifier,
+)
 from tests.project.fixtures import *
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
+
+
+def set_version_in_app_manifest(manifest_path: Path, version: Any, patch: Any = None):
+    with open(manifest_path, "r") as f:
+        manifest = safe_load(f)
+
+    version_info = manifest.setdefault("version", {})
+    version_info["name"] = version
+    if patch is not None:
+        version_info["patch"] = patch
+    else:
+        version_info.pop("patch", None)
+
+    with open(manifest_path, "w") as f:
+        f.write(safe_dump(manifest))
+
+
+def normalize_identifier(identifier: str) -> str:
+    id_str = str(identifier)
+    if is_valid_unquoted_identifier(str(id_str)):
+        return id_str.upper()
+    else:
+        return unquote_identifier(to_identifier(id_str))
 
 
 # Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
@@ -329,3 +360,78 @@ def test_nativeapp_version_create_package_no_magic_comment(
             # Remove date field
             row.pop("created_on", None)
         assert actual.json == snapshot
+
+
+# Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "test_project",
+    [
+        "napp_init_v1",
+        "napp_init_v2",
+    ],
+)
+def test_nativeapp_version_create_and_drop_from_manifest(
+    runner,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+    nativeapp_project_directory,
+    test_project,
+):
+    project_name = "myapp"
+    with nativeapp_project_directory(test_project) as project_dir:
+        # not using pytest parameterization here because we need
+        # to guarantee that the initial version gets created before the patches
+
+        VERSIONS = [7, "v1", "1.0", "version 1"]
+        PATCHES = [None, 10, "12"]
+
+        for version_name in VERSIONS:
+            manifest_path = project_dir / "app/manifest.yml"
+            set_version_in_app_manifest(manifest_path, version_name)
+
+            result_create = runner.invoke_with_connection_json(
+                ["app", "version", "create", "--force", "--skip-git-check"]
+            )
+            assert result_create.exit_code == 0
+
+            # app package contains version v1
+            actual = runner.invoke_with_connection_json(["app", "version", "list"])
+            assert contains_row_with(
+                actual.json, {"version": normalize_identifier(version_name), "patch": 0}
+            )
+
+            result_drop = runner.invoke_with_connection_json(
+                ["app", "version", "drop", "--force"]
+            )
+            assert result_drop.exit_code == 0
+            actual = runner.invoke_with_connection_json(["app", "version", "list"])
+            assert len(actual.json) == 0
+
+        version_name = "V2"
+        for patch_name in PATCHES:
+            manifest_path = project_dir / "app/manifest.yml"
+            set_version_in_app_manifest(manifest_path, version_name, patch_name)
+
+            result_create = runner.invoke_with_connection_json(
+                ["app", "version", "create", "--force", "--skip-git-check"]
+            )
+            assert result_create.exit_code == 0
+
+            # app package contains version v1
+            actual = runner.invoke_with_connection_json(["app", "version", "list"])
+            assert contains_row_with(
+                actual.json,
+                {
+                    "version": version_name,
+                    "patch": int(patch_name) if patch_name else 0,
+                },
+            )
+
+        result_drop = runner.invoke_with_connection_json(
+            ["app", "version", "drop", version_name, "--force"]
+        )
+        assert result_drop.exit_code == 0
+        actual = runner.invoke_with_connection_json(["app", "version", "list"])
+        assert len(actual.json) == 0
