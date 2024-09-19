@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from shlex import split
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from yaml import safe_dump, safe_load
 
@@ -40,7 +40,7 @@ def set_version_in_app_manifest(manifest_path: Path, version: Any, patch: Any = 
         f.write(safe_dump(manifest))
 
 
-def normalize_identifier(identifier: str) -> str:
+def normalize_identifier(identifier: Union[str, int]) -> str:
     id_str = str(identifier)
     if is_valid_unquoted_identifier(str(id_str)):
         return id_str.upper()
