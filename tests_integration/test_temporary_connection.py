@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import tempfile
-
 import pytest
 import os
 from unittest import mock
@@ -20,27 +19,18 @@ from unittest import mock
 
 @pytest.mark.integration
 @pytest.mark.no_qa
-@mock.patch.dict(
-    os.environ,
-    {
-        "SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT": os.environ.get(
-            "SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT", None
-        ),
-        "SNOWFLAKE_CONNECTIONS_INTEGRATION_USER": os.environ.get(
-            "SNOWFLAKE_CONNECTIONS_INTEGRATION_USER", None
-        ),
-        "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW": os.environ.get(
-            "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW",
-        ),
-    },
-    clear=True,
-)
-def test_temporary_connection(runner, snapshot):
-
+def test_temporary_connection(runner, _temporary_connection_env, snapshot):
     with tempfile.TemporaryDirectory() as tmp_dir:
-        private_key_path = os.path.join(tmp_dir, "private_key.p8")
-        with open(private_key_path, "w") as f:
-            f.write(os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW"])
+        if os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE", None):
+            private_key_path = os.environ.get(
+                "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE"
+            )
+        else:
+            private_key_path = str(os.path.join(tmp_dir, "private_key.p8"))
+            with open(private_key_path, "w") as f:
+                f.write(
+                    os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW")
+                )
 
         result = runner.invoke(
             [
@@ -55,8 +45,40 @@ def test_temporary_connection(runner, snapshot):
                 "--user",
                 os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"],
                 "--private-key-file",
-                str(private_key_path),
+                private_key_path,
             ]
         )
         assert result.exit_code == 0
         assert result.output == snapshot
+
+
+@pytest.fixture
+def _temporary_connection_env():
+    private_key_file = os.environ.get(
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE",
+        os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH", None),
+    )
+    private_key_raw = os.environ.get(
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW", None
+    )
+
+    if not private_key_file and not private_key_raw:
+        pytest.fail(
+            "One of SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE or SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW must be set"
+        )
+
+    env = {
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT": os.environ[
+            "SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"
+        ],
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_USER": os.environ[
+            "SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"
+        ],
+    }
+    if private_key_file:
+        env["SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE"] = private_key_file
+    if private_key_raw:
+        env["SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW"] = private_key_raw
+
+    with mock.patch.dict(os.environ, env, clear=True):
+        yield env
