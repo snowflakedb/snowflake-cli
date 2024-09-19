@@ -932,6 +932,40 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
         )
 
 
+# Test create_app_package() with existing package without special comment
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
+@mock_get_app_pkg_distribution_in_sf()
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_existing_app_pkg_without_special_comment(
+    mock_execute,
+    mock_get_existing_app_pkg_info,
+    mock_get_distribution,
+    mock_is_distribution_same,
+    temp_dir,
+    mock_cursor,
+):
+    mock_get_existing_app_pkg_info.return_value = {
+        "name": "APP_PKG",
+        "comment": "NOT_SPECIAL_COMMENT",
+        "version": LOOSE_FILES_MAGIC_VERSION,
+        "owner": "package_role",
+    }
+    mock_get_distribution.return_value = "internal"
+    mock_is_distribution_same.return_value = True
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    native_app_manager = _get_na_manager()
+    with pytest.raises(ApplicationPackageAlreadyExistsError):
+        native_app_manager.create_app_package()
+
+
 @pytest.mark.parametrize(
     "paths_to_sync,expected_result",
     [
