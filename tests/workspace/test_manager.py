@@ -91,7 +91,7 @@ def test_migration_already_v2(
     project_directory,
 ):
     with project_directory("migration_already_v2"):
-        result = runner.invoke(["ws", "migrate"])
+        result = runner.invoke(["migrate-definition"])
 
     assert result.exit_code == 0
     assert "Project definition is already at version 2." in result.output
@@ -101,7 +101,7 @@ def test_migrations_with_multiple_entities(
     runner, project_directory, os_agnostic_snapshot
 ):
     with project_directory("migration_multiple_entities"):
-        result = runner.invoke(["ws", "migrate"])
+        result = runner.invoke(["migrate-definition"])
     assert result.exit_code == 0
     assert Path("snowflake.yml").read_text() == os_agnostic_snapshot
     assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
@@ -110,7 +110,7 @@ def test_migrations_with_multiple_entities(
 def test_migration_native_app_missing_manifest(runner, project_directory):
     with project_directory("migration_multiple_entities") as project_dir:
         (project_dir / "app" / "manifest.yml").unlink()
-        result = runner.invoke(["ws", "migrate"])
+        result = runner.invoke(["migrate-definition"])
     assert result.exit_code == 1
     assert "manifest.yml file not found" in result.output
 
@@ -123,7 +123,7 @@ def test_migration_native_app_no_artifacts(runner, project_directory):
             snowflake_yml.seek(0)
             yaml.safe_dump(pdf, snowflake_yml)
             snowflake_yml.truncate()
-        result = runner.invoke(["ws", "migrate"])
+        result = runner.invoke(["migrate-definition"])
     assert result.exit_code == 1
     assert "No artifacts mapping found in project definition" in result.output
     assert "Could not bundle Native App artifacts" in result.output
@@ -131,7 +131,7 @@ def test_migration_native_app_no_artifacts(runner, project_directory):
 
 def test_migration_native_app_package_scripts(runner, project_directory):
     with project_directory("migration_package_scripts") as project_dir:
-        result = runner.invoke(["ws", "migrate"])
+        result = runner.invoke(["migrate-definition"])
         assert result.exit_code == 0
         package_scripts_dir = project_dir / "package_scripts"
         for file in package_scripts_dir.iterdir():
@@ -151,7 +151,7 @@ def test_if_template_is_not_rendered_during_migration_with_option_checked(
 ):
     with project_directory(project_directory_name):
         with caplog.at_level(logging.WARNING):
-            result = runner.invoke(["ws", "migrate", "--accept-templates"])
+            result = runner.invoke(["migrate-definition", "--accept-templates"])
 
     assert result.exit_code == 0
     assert Path("snowflake.yml").read_text() == os_agnostic_snapshot
@@ -169,14 +169,14 @@ def test_if_template_raises_error_during_migrations(
     runner, project_directory, project_directory_name, os_agnostic_snapshot
 ):
     with project_directory(project_directory_name):
-        result = runner.invoke(["ws", "migrate"])
+        result = runner.invoke(["migrate-definition"])
         assert result.exit_code == 1
         assert "Project definition contains templates" in result.output
 
 
 def test_migration_with_only_envs(project_directory, runner):
     with project_directory("sql_templating"):
-        result = runner.invoke(["ws", "migrate"])
+        result = runner.invoke(["migrate-definition"])
 
     assert result.exit_code == 0
 
@@ -218,7 +218,7 @@ def test_migrating_a_file_with_duplicated_keys_raises_an_error(
         with open(definition_path, "a") as definition_file:
             definition_file.write(duplicated_entity)
 
-        result = runner.invoke(["ws", "migrate"])
+        result = runner.invoke(["migrate-definition"])
     assert result.exit_code == 1
     assert result.output == os_agnostic_snapshot
 
@@ -236,7 +236,7 @@ def test_migrate_nativeapp_fields_with_username(
             yaml.safe_dump(old_definition, f)
             f.truncate()
 
-        result = runner.invoke(["ws", "migrate", "--accept-templates"])
+        result = runner.invoke(["migrate-definition", "--accept-templates"])
         assert result.exit_code == 0, result.output
 
         with definition_path.open("r") as f:

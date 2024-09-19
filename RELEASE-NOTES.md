@@ -39,7 +39,7 @@
 * Added support for external access (api integrations and secrets) in Streamlit.
 * Added support for `<% ... %>` syntax in SQL templating.
 * Support multiple Streamlit application in single snowflake.yml project definition file.
-* Added `snow ws migrate` command to migrate `snowflake.yml` file from V1 to V2.
+* Added `snow migrate-defintion` command to migrate `snowflake.yml` file from V1 to V2.
 * Added `--package-entity-id` and `--app-entity-id` options to `snow app` commands to allow targeting specific entities when the `definition_version` in `snowflake.yml` is `2` or higher and it contains multiple `application package` or `application` entities.
 * Added templates expansion of arbitrary files for Native Apps through `templates` processor.
 * Added `SNOWFLAKE_..._PRIVATE_KEY_RAW` environment variable to pass private key as a raw string.
