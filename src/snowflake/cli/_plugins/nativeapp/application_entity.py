@@ -107,9 +107,9 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         app_name = model.fqn.identifier
         debug_mode = model.debug
         if model.meta:
-            app_role = getattr(model.meta, "role", ctx.default_role)
-            app_warehouse = getattr(model.meta, "warehouse", ctx.default_warehouse)
-            post_deploy_hooks = getattr(model.meta, "post_deploy", None)
+            app_role = model.meta.role or ctx.default_role
+            app_warehouse = model.meta.warehouse or ctx.default_warehouse
+            post_deploy_hooks = model.meta.post_deploy
         else:
             app_role = ctx.default_role
             app_warehouse = ctx.default_warehouse
