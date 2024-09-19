@@ -14,10 +14,11 @@
 
 from __future__ import annotations
 
+import json
 import contextlib
 import logging
 import os
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import snowflake.connector
 from click.exceptions import ClickException
@@ -295,3 +296,27 @@ def prepare_private_key(private_key_pem, private_key_passphrase=None):
         format=PrivateFormat.PKCS8,
         encryption_algorithm=NoEncryption(),
     )
+
+#########
+
+# FIXME: circular logic
+# _MEMOIZED_CONNECTIONS: Dict[str, SnowflakeConnection] = {}
+
+# def open_and_memoize(args: ConnectionArgs = {}):
+#     """
+#     Finds an existing open connection, or connects to Snowflake with a given set of connection parameters.
+#     Connections are treated as temporary unless otherwise specified in the connection arguments.
+#     """
+#     key = json.dumps(args)
+#     if key not in _MEMOIZED_CONNECTIONS:
+#         _MEMOIZED_CONNECTIONS[key] = connect_to_snowflake(temporary_connection=True, **args)
+#     return _MEMOIZED_CONNECTIONS[key]
+
+
+# def close_memoized_connections():
+#     """
+#     Closes and forgets all connections made through get_memoized_connection.
+#     """
+#     for key in _MEMOIZED_CONNECTIONS.keys():
+#         _MEMOIZED_CONNECTIONS[key].close()
+#         del _MEMOIZED_CONNECTIONS[key]

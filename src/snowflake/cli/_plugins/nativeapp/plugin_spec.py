@@ -17,8 +17,11 @@ from snowflake.cli.api.plugins.command import (
     SNOWCLI_ROOT_COMMAND_PATH,
     CommandSpec,
     CommandType,
+    lsp_plugin_hook_impl,
     plugin_hook_impl,
 )
+from snowflake.cli._plugins.nativeapp import commands
+from snowflake.cli._plugins.nativeapp.lsp_commands import nade_lsp_plugin
 
 
 @plugin_hook_impl
@@ -28,3 +31,8 @@ def command_spec():
         command_type=CommandType.COMMAND_GROUP,
         typer_instance=commands.app.create_instance(),
     )
+
+
+@lsp_plugin_hook_impl
+def lsp_spec():
+    return nade_lsp_plugin

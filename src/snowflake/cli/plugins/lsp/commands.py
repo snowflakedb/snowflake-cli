@@ -14,24 +14,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Callable, Optional
+import logging
 
-from snowflake.cli.api.plugins.command import CommandSpec
+from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.plugins.lsp.server import (
+    start_lsp_server,
+)
 
+app = SnowTyper(name="lsp", help="Manages a Snowflake LSP server.", hidden=True)
 
-@dataclass
-class LoadedCommandPlugin:
-    plugin_name: str
-    command_spec: CommandSpec
-    lsp_spec: Optional[Callable] = None
-
-
-@dataclass
-class LoadedBuiltInCommandPlugin(LoadedCommandPlugin):
-    pass
+log = logging.getLogger(__name__)
 
 
-@dataclass
-class LoadedExternalCommandPlugin(LoadedCommandPlugin):
-    pass
+@app.command("start")
+def lsp_start(
+    **options,
+) -> CommandResult:
+    """
+    Starts the LSP language server in the foreground.
+    """
+    start_lsp_server()
+    return MessageResult(f"LSP server process ended.")

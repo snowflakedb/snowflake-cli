@@ -118,10 +118,10 @@ class CommandPluginsLoader:
         self, plugin_name: str, plugin
     ) -> Optional[LoadedCommandPlugin]:
         command_spec = self._load_command_spec(plugin_name, plugin)
+        lsp_spec = self._load_lsp_spec(plugin_name, plugin)
         if command_spec:
             return LoadedBuiltInCommandPlugin(
-                plugin_name=plugin_name,
-                command_spec=command_spec,
+                plugin_name=plugin_name, command_spec=command_spec, lsp_spec=lsp_spec
             )
         else:
             return None
@@ -152,6 +152,19 @@ class CommandPluginsLoader:
     @staticmethod
     def _is_external_plugin(plugin) -> bool:
         return isinstance(plugin, LoadedExternalCommandPlugin)
+
+    @staticmethod
+    def _load_lsp_spec(plugin_name: str, plugin) -> Optional[CommandSpec]:
+        try:
+            if getattr(plugin, "lsp_spec", None) is not None:
+                return plugin.lsp_spec()
+            return None
+        except Exception as ex:
+            log_exception(
+                f"Cannot load lsp specification from plugin [{plugin_name}]: {ex.__str__()}",
+                ex,
+            )
+            return None
 
 
 def load_only_builtin_command_plugins() -> List[LoadedCommandPlugin]:

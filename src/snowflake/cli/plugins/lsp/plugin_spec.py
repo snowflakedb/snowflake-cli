@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli.api.plugins.command import lsp_plugin_hook_spec, plugin_hook_spec
+from snowflake.cli.api.plugins.command import (
+    SNOWCLI_ROOT_COMMAND_PATH,
+    CommandSpec,
+    CommandType,
+    plugin_hook_impl,
+)
+from snowflake.cli.plugins.lsp import commands
 
 
-@plugin_hook_spec
+@plugin_hook_impl
 def command_spec():
-    """Command spec"""
-    pass
-
-
-@lsp_plugin_hook_spec
-def lsp_spec():
-    """LSP spec"""
-    pass
+    return CommandSpec(
+        parent_command_path=SNOWCLI_ROOT_COMMAND_PATH,
+        command_type=CommandType.COMMAND_GROUP,
+        typer_instance=commands.app,
+    )

@@ -16,6 +16,7 @@ from snowflake.cli._plugins.connection import plugin_spec as connection_plugin_s
 from snowflake.cli._plugins.cortex import plugin_spec as cortex_plugin_spec
 from snowflake.cli._plugins.git import plugin_spec as git_plugin_spec
 from snowflake.cli._plugins.init import plugin_spec as init_plugin_spec
+from snowflake.cli._plugins.lsp import plugin_spec as lsp_plugin_spec
 from snowflake.cli._plugins.nativeapp import plugin_spec as nativeapp_plugin_spec
 from snowflake.cli._plugins.notebook import plugin_spec as notebook_plugin_spec
 from snowflake.cli._plugins.object import plugin_spec as object_plugin_spec
@@ -34,6 +35,7 @@ def get_builtin_plugin_name_to_plugin_spec():
         "spcs": spcs_plugin_spec,
         "nativeapp": nativeapp_plugin_spec,
         "object": object_plugin_spec,
+        "lsp": lsp_plugin_spec,
         "snowpark": snowpark_plugin_spec,
         "stage": stage_plugin_spec,
         "sql": sql_plugin_spec,
