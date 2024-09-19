@@ -419,7 +419,7 @@ def test_nativeapp_version_create_and_drop_from_manifest(
             )
             assert result_create.exit_code == 0
 
-            # app package contains version v1
+            # app package contains version V2
             actual = runner.invoke_with_connection_json(["app", "version", "list"])
             assert contains_row_with(
                 actual.json,
