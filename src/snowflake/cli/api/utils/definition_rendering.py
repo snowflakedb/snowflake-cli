@@ -347,7 +347,7 @@ def render_definition_template(
     )
     metrics = get_cli_context().metrics
 
-    # this function is run multiple times both by the user and by us,
+    # this function is invoked multiple times both by the user and by us,
     # so we should only overwrite if templates were not found at any point
     if metrics.get_counter(CLICounterField.PDF_TEMPLATES) != 1:
         metrics.set_counter(

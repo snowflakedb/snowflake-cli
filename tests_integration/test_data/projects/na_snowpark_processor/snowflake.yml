@@ -1,0 +1,18 @@
+definition_version: 1
+
+native_app:
+  name: codegen_nativeapp
+  artifacts:
+    - src: root_files/README.md
+      dest: README.md
+    - src: resources/*
+    - src: root_files/_manifest.yml
+      dest: manifest.yml
+    - src: root_files/setup_scripts/*
+      dest: setup_scripts/
+    - src: python/user_gen/echo.py
+      dest: user_gen/echo.py
+    - src: python/cli_gen/*
+      dest: cli_gen/
+      processors: 
+        - snowpark
