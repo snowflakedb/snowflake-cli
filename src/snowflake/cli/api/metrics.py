@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, Union
-
-from virtualenv.config.convert import NoneType
+from typing import Dict, Optional
 
 _FEATURES_PREFIX = "features"
 _APP_PREFIX = "app"
@@ -36,7 +34,7 @@ class CLIMetrics:
     def __init__(self):
         self._counters: Dict[str, int] = {}
 
-    def get_counter(self, name: str) -> Union[int, NoneType]:
+    def get_counter(self, name: str) -> Optional[int]:
         return self._counters.get(name)
 
     def set_counter(self, name: str, value: int) -> None:
