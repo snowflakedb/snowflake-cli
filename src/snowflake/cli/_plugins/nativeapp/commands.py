@@ -26,6 +26,9 @@ from click import ClickException
 from snowflake.cli._plugins.nativeapp.application_entity_model import (
     ApplicationEntityModel,
 )
+from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -338,27 +341,40 @@ def app_teardown(
         processor.process(interactive, force, cascade)
     else:
         # New behaviour, multi-app aware so teardown all the apps created from the package
-        # in the project definition by copying the implementation of `snow ws drop`
+        # Determine the package entity to drop, there must be one
+        app_package_definition: Optional[ApplicationPackageEntityModel] = None
+        packages: dict[
+            str, ApplicationPackageEntityModel
+        ] = project.get_entities_by_type(ApplicationPackageEntityModel.get_type())
+        if package_entity_id:
+            # If the user specified a package entity ID (or we inferred one from the app entity), use that one directly
+            app_package_definition = packages.get(package_entity_id)
+        elif len(packages) == 1:
+            # Otherwise, if there is only one package entity, fall back to that one
+            app_package_definition = next(iter(packages.values()))
+        elif len(packages) > 1:
+            # If there are multiple package entities, the user must specify which one to use
+            raise ClickException(
+                "More than one application package entity exists in the project definition file, "
+                "specify --package-entity-id to choose which one to operate on."
+            )
+
+        # If we don't have a package entity to convert, error out since it's not optional
+        if not app_package_definition:
+            with_id = f'with ID "{package_entity_id}" ' if package_entity_id else ""
+            raise ClickException(
+                f"Could not find an application package entity {with_id}in the project definition file."
+            )
+
         ws = WorkspaceManager(
             project_definition=cli_context.project_definition,
             project_root=cli_context.project_root,
         )
-        try:
-            # Make sure the package entity exists in the project definition
-            ws.get_entity(package_entity_id)
-        except ValueError:
-            # Same as what @nativeapp_definition_v2_to_v1 does
-            raise ClickException(
-                f'Could not find an application package entity with ID "{package_entity_id}" '
-                f"in the project definition file."
-            )
-        for app_model in project.get_entities_by_type(
-            ApplicationEntityModel.get_type()
-        ):
+        for app_id in project.get_entities_by_type(ApplicationEntityModel.get_type()):
             # Drop each app
-            if app_model.from_.target == package_entity_id:
+            if app_id.from_.target == app_package_definition.entity_id:
                 ws.perform_action(
-                    app_model.entity_id,
+                    app_id,
                     EntityActions.DROP,
                     force_drop=force,
                     interactive=interactive,
@@ -366,7 +382,7 @@ def app_teardown(
                 )
         # Then drop the package
         ws.perform_action(
-            package_entity_id,
+            app_package_definition.entity_id,
             EntityActions.DROP,
             force_drop=force,
             interactive=interactive,
