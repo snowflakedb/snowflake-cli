@@ -51,7 +51,7 @@ log = logging.getLogger(__name__)
 
 @app.command(requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1()
 def create(
     version: Optional[str] = typer.Argument(
         None,
@@ -117,7 +117,7 @@ def create(
 
 @app.command("list", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1()
 def version_list(
     **options,
 ) -> CommandResult:
@@ -138,7 +138,7 @@ def version_list(
 
 @app.command(requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1()
 def drop(
     version: Optional[str] = typer.Argument(
         None,

@@ -812,11 +812,6 @@
   |                                                    operate when              |
   |                                                    definition_version is 2   |
   |                                                    or higher.                |
-  | --app-entity-id                              TEXT  The ID of the application |
-  |                                                    entity on which to        |
-  |                                                    operate when              |
-  |                                                    definition_version is 2   |
-  |                                                    or higher.                |
   | --project            -p                      TEXT  Path where Snowflake      |
   |                                                    project resides. Defaults |
   |                                                    to current working        |
