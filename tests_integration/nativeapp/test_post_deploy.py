@@ -14,8 +14,13 @@ from tests_integration.testing_utils.working_directory_utils import (
 
 
 def run(runner, base_command, args):
-    # TODO Run "ws deploy --entity-id=app" once ApplicationEntity deploy is implemented
-    result = runner.invoke_with_connection_json(["app", "run"] + args)
+    if base_command == "ws":
+        result = runner.invoke_with_connection_json(
+            ["ws", "deploy", "--entity-id", "app"] + args
+        )
+    else:
+        result = runner.invoke_with_connection_json(["app", "run"] + args)
+
     assert result.exit_code == 0
 
 
