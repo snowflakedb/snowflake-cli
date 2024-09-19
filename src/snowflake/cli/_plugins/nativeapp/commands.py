@@ -350,6 +350,8 @@ def app_deploy(
             unspecified, the command syncs all local changes to the stage."""
         ).strip(),
     ),
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
     validate: bool = ValidateOption,
     **options,
 ) -> CommandResult:
@@ -359,6 +361,13 @@ def app_deploy(
     """
 
     assert_project_type("native_app")
+
+    if force:
+        policy = AllowAlwaysPolicy()
+    elif interactive:
+        policy = AskAlwaysPolicy()
+    else:
+        policy = DenyAlwaysPolicy()
 
     has_paths = paths is not None and len(paths) > 0
     if prune is None and recursive is None and not has_paths:
@@ -386,6 +395,7 @@ def app_deploy(
         recursive=recursive,
         local_paths_to_sync=paths,
         validate=validate,
+        policy=policy,
     )
 
     return MessageResult(

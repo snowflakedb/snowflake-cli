@@ -27,12 +27,19 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
     SetupScriptFailedValidation,
 )
+from snowflake.cli._plugins.nativeapp.policy import (
+    AllowAlwaysPolicy,
+    AskAlwaysPolicy,
+    DenyAlwaysPolicy,
+    PolicyBase,
+)
 from snowflake.cli._plugins.nativeapp.utils import (
     needs_confirmation,
 )
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
@@ -80,12 +87,22 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         recursive: bool,
         paths: List[Path],
         validate: bool,
+        interactive: bool,
+        force: bool,
         stage_fqn: Optional[str] = None,
         *args,
         **kwargs,
     ):
         model = self._entity_model
         package_name = model.fqn.identifier
+
+        if force:
+            policy = AllowAlwaysPolicy()
+        elif interactive:
+            policy = AskAlwaysPolicy()
+        else:
+            policy = DenyAlwaysPolicy()
+
         return self.deploy(
             console=ctx.console,
             project_root=ctx.project_root,
@@ -107,6 +124,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             ),
             post_deploy_hooks=model.meta and model.meta.post_deploy,
             package_scripts=[],  # Package scripts are not supported in PDFv2
+            policy=policy,
         )
 
     def action_drop(self, ctx: ActionContext, force_drop: bool, *args, **kwargs):
@@ -206,6 +224,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         stage_fqn: str,
         post_deploy_hooks: list[PostDeployHook] | None,
         package_scripts: List[str],
+        policy: PolicyBase,
     ) -> DiffResult:
         # 1. Create a bundle
         bundle_map = cls.bundle(
@@ -218,13 +237,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
         # 2. Create an empty application package, if none exists
-        cls.create_app_package(
-            console=console,
-            package_name=package_name,
-            package_role=package_role,
-            package_distribution=package_distribution,
-        )
-
+        try:
+            cls.create_app_package(
+                console=console,
+                package_name=package_name,
+                package_role=package_role,
+                package_distribution=package_distribution,
+            )
+        except ApplicationPackageAlreadyExistsError as e:
+            cc.warning(e.message)
+            if not policy.should_proceed("Proceed with using this package?"):
+                raise typer.Abort() from e
         with get_sql_executor().use_role(package_role):
             if package_scripts:
                 cls.apply_package_scripts(
