@@ -343,25 +343,27 @@ def app_teardown(
         # New behaviour, multi-app aware so teardown all the apps created from the package
 
         # Determine the package entity to drop, there must be one
-        app_package_definition = find_entity(
+        app_package_entity = find_entity(
             project,
             ApplicationPackageEntityModel,
             package_entity_id,
             disambiguation_option="--package-entity-id",
             required=True,
         )
-        assert app_package_definition is not None  # satisfy mypy
+        assert app_package_entity is not None  # satisfy mypy
 
         # Same implementation as `snow ws drop`
         ws = WorkspaceManager(
             project_definition=cli_context.project_definition,
             project_root=cli_context.project_root,
         )
-        for app_id in project.get_entities_by_type(ApplicationEntityModel.get_type()):
+        for app_entity in project.get_entities_by_type(
+            ApplicationEntityModel.get_type()
+        ).values():
             # Drop each app
-            if app_id.from_.target == app_package_definition.entity_id:
+            if app_entity.from_.target == app_package_entity.entity_id:
                 ws.perform_action(
-                    app_id,
+                    app_entity.entity_id,
                     EntityActions.DROP,
                     force_drop=force,
                     interactive=interactive,
@@ -369,7 +371,7 @@ def app_teardown(
                 )
         # Then drop the package
         ws.perform_action(
-            app_package_definition.entity_id,
+            app_package_entity.entity_id,
             EntityActions.DROP,
             force_drop=force,
             interactive=interactive,
