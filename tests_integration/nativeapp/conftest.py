@@ -70,12 +70,19 @@ def nativeapp_teardown(runner: SnowCLIRunner):
                 project_yml = yaml.safe_load(f)
             packages = [
                 entity_id
-                for entity_id, entity in project_yml["entities"].items()
+                for entity_id, entity in project_yml.get("entities", {}).items()
                 if entity["type"] == "application package"
             ]
-            for package in packages:
+            if packages:
+                for package in packages:
+                    result = runner.invoke_with_connection(
+                        ["app", "teardown", *args, "--package-entity-id", package],
+                        **kwargs,
+                    )
+                    assert result.exit_code == 0
+            else:
                 result = runner.invoke_with_connection(
-                    ["app", "teardown", *args, "--package-entity-id", package], **kwargs
+                    ["app", "teardown", *args], **kwargs
                 )
                 assert result.exit_code == 0
 
