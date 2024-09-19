@@ -98,7 +98,8 @@ class StreamlitManager(SqlExecutionMixin):
             query.append(f"ROOT_LOCATION = '{from_stage_name}'")
 
         query.append(f"MAIN_FILE = '{streamlit.main_file}'")
-
+        if streamlit.imports:
+            query.append(streamlit.get_imports_sql())
         if streamlit.query_warehouse:
             query.append(f"QUERY_WAREHOUSE = {streamlit.query_warehouse}")
         if streamlit.title:

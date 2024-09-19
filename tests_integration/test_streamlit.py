@@ -107,6 +107,35 @@ def test_streamlit_deploy(
 
 
 @pytest.mark.integration
+def test_streamlit_deploy_with_imports(
+    runner,
+    snowflake_session,
+    test_database,
+    _new_streamlit_role,
+    project_directory,
+    alter_snowflake_yml,
+):
+
+    # This work because uploading the imports artifact because
+    # deploying streamlit does not start the app.
+    with project_directory(f"streamlit_v2"):
+        alter_snowflake_yml(
+            "snowflake.yml",
+            "entities.my_streamlit.imports",
+            ["@stage/foo.py", "@stage/bar.py"],
+        )
+        result = runner.invoke_with_connection_json(
+            ["streamlit", "deploy", "--replace"]
+        )
+        assert result.exit_code == 0
+
+        result = runner.invoke_with_connection_json(
+            ["streamlit", "describe", "test_streamlit_deploy_snowcli"]
+        )
+        assert result.json[0]["import_urls"] == '["@stage/foo.py","@stage/bar.py"]'
+
+
+@pytest.mark.integration
 @pytest.mark.skip(
     reason="only works in accounts with experimental checkout behavior enabled"
 )
