@@ -45,6 +45,7 @@
 * Added `SNOWFLAKE_..._PRIVATE_KEY_RAW` environment variable to pass private key as a raw string.
 * Added periodic check for newest version of Snowflake CLI. When new version is available, user will be notified.
 * Added support for `imports` in Streamlit definition.
+* Added `snow streamlit execute app-name` command to run Streamlit apps in a Snowflake environment in headless mode.
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command.
