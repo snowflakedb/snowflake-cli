@@ -55,6 +55,7 @@
 * Fixed SQL error when running `snow app version create` and `snow app version drop` with a version name that isn't a valid Snowflake unquoted identifier
 * Duplicated keys in `snowflake.yml` are now detected and reported.
 * `snow streamlit deploy` will check for existing streamlit instance before deploying anything.
+* Fixed `snow git execute` with `/` in name of the branch.
 
 # v2.8.1
 ## Backward incompatibility
