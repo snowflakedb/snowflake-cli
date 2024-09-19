@@ -97,6 +97,12 @@ def test_nativeapp_post_deploy(
     is_versioned,
     with_project_flag,
 ):
+
+    if base_command == "ws" and is_versioned:
+        pytest.skip(
+            "TODO: ws commands do not support deploying applications from versions yet"
+        )
+
     version = "v1"
     project_name = "myapp"
     app_name = f"{project_name}_{default_username}{resource_suffix}"
