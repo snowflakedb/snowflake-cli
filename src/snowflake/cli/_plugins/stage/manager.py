@@ -57,6 +57,7 @@ EXECUTE_SUPPORTED_FILES_FORMATS = (
     ".py",
 )  # tuple to preserve order but it's a set
 
+# Replace magic numbers with constants
 OMIT_FIRST = slice(1, None)
 
 

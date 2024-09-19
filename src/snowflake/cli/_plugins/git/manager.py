@@ -18,6 +18,7 @@ from pathlib import Path, PurePosixPath
 from textwrap import dedent
 from typing import List
 
+from click import UsageError
 from snowflake.cli._plugins.stage.manager import (
     USER_STAGE_PREFIX,
     StageManager,
@@ -27,6 +28,7 @@ from snowflake.cli._plugins.stage.manager import (
 from snowflake.cli.api.identifiers import FQN
 from snowflake.connector.cursor import SnowflakeCursor
 
+# Replace magic numbers with constants
 OMIT_FIRST = slice(1, None)
 OMIT_STAGE = slice(3, None)
 OMIT_STAGE_IN_NEW_LIST_FILES = slice(2, None)
@@ -120,19 +122,21 @@ class GitManager(StageManager):
         # Check if path contains quotes and split it accordingly
         if '/"' in path and '"/' in path:
             if path.count('"') > 2:
-                raise ValueError('Too much " in path, expected 2.')
+                raise UsageError(
+                    f'Invalid string {path}, too much " in path, expected 2.'
+                )
 
             path_parts = path.split('"')
             before_quoted_part = GitManager._split_path_without_empty_parts(
                 path_parts[0]
             )
 
-            if path_parts[2] and path_parts[2] != "/":
+            if path_parts[2] == "/":
+                after_quoted_part = []
+            else:
                 after_quoted_part = GitManager._split_path_without_empty_parts(
                     path_parts[2]
                 )
-            else:
-                after_quoted_part = []
 
             return [
                 *before_quoted_part,

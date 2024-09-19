@@ -782,15 +782,18 @@ def test_execute_file_with_space_in_name(mock_execute, mock_cursor, runner):
 
 
 def test_raise_error_for_invalid_quotes_number_in_path(runner):
-    with pytest.raises(ValueError) as e:
-        runner.invoke(
-            [
-                "git",
-                "execute",
-                '@repo/branches"/"ma"in/',
-            ]
-        )
-        assert e.value == 'Too much " in path, expected 2.'
+    result = runner.invoke(
+        [
+            "git",
+            "execute",
+            '@repo/branches"/"ma"in/',
+        ]
+    )
+    assert result.exit_code == 2
+    assert (
+        'Invalid string @repo/branches"/"ma"in/, too much " in path, expected 2.'
+        in result.output
+    )
 
 
 @mock.patch("snowflake.connector.connect")
