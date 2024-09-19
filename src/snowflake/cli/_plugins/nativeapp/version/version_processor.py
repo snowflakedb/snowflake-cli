@@ -193,7 +193,7 @@ class NativeAppVersionCreateProcessor(NativeAppRunProcessor):
                 )
 
         # Check if --patch needs to throw a bad option error, either if application package does not exist or if version does not exist
-        if patch:
+        if patch is not None:
             try:
                 if not self.get_existing_version_info(version):
                     raise BadOptionUsage(
