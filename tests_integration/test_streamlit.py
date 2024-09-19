@@ -129,6 +129,11 @@ def test_streamlit_deploy_with_imports(
         )
         assert result.exit_code == 0
 
+        result = runner.invoke_with_connection_json(
+            ["streamlit", "describe", "test_streamlit_deploy_snowcli"]
+        )
+        assert result.json[0]["import_urls"] == '["@stage/foo.py","@stage/bar.py"]'
+
 
 @pytest.mark.integration
 @pytest.mark.skip(
