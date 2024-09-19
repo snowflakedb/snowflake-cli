@@ -34,6 +34,11 @@ class CLIMetrics:
     def __init__(self):
         self._counters: Dict[str, int] = {}
 
+    def __eq__(self, other):
+        if isinstance(other, CLIMetrics):
+            return self._counters == other._counters
+        return False
+
     def get_counter(self, name: str) -> Optional[int]:
         return self._counters.get(name)
 
