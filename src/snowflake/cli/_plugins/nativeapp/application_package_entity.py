@@ -142,7 +142,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             force_drop=force_drop,
         )
 
-    def action_validate(self, ctx: ActionContext, *args, **kwargs):
+    def action_validate(
+        self, ctx: ActionContext, interactive: bool, force: bool, *args, **kwargs
+    ):
         model = self._entity_model
         package_name = model.fqn.identifier
         stage_fqn = f"{package_name}.{model.stage}"
@@ -159,6 +161,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 paths=[],
                 validate=False,
                 stage_fqn=model.scratch_stage,
+                interactive=interactive,
+                force=force,
             )
 
         self.validate_setup_script(

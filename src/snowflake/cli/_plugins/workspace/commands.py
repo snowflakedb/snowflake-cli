@@ -211,6 +211,8 @@ def validate(
     entity_id: str = typer.Option(
         help=f"""The ID of the entity you want to validate.""",
     ),
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
     **options,
 ):
     """Validates the specified entity."""
@@ -223,6 +225,8 @@ def validate(
     ws.perform_action(
         entity_id,
         EntityActions.VALIDATE,
+        interactive=interactive,
+        force=force,
     )
 
 

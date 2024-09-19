@@ -335,7 +335,7 @@ class NativeAppManager(SqlExecutionMixin):
             policy=policy,
         )
 
-    def deploy_to_scratch_stage_fn(self):
+    def deploy_to_scratch_stage_fn(self, policy):
         bundle_map = self.build_bundle()
         self.deploy(
             bundle_map=bundle_map,
@@ -344,9 +344,10 @@ class NativeAppManager(SqlExecutionMixin):
             stage_fqn=self.scratch_stage_fqn,
             validate=False,
             print_diff=False,
+            policy=policy,
         )
 
-    def validate(self, use_scratch_stage: bool = False):
+    def validate(self, policy, use_scratch_stage: bool = False):
         return ApplicationPackageEntity.validate_setup_script(
             console=cc,
             package_name=self.package_name,
@@ -354,10 +355,12 @@ class NativeAppManager(SqlExecutionMixin):
             stage_fqn=self.stage_fqn,
             use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=self.scratch_stage_fqn,
-            deploy_to_scratch_stage_fn=self.deploy_to_scratch_stage_fn,
+            deploy_to_scratch_stage_fn=lambda *args: self.deploy_to_scratch_stage_fn(
+                policy, *args
+            ),
         )
 
-    def get_validation_result(self, use_scratch_stage: bool):
+    def get_validation_result(self, policy, use_scratch_stage: bool):
         return ApplicationPackageEntity.get_validation_result(
             console=cc,
             package_name=self.package_name,
@@ -365,7 +368,9 @@ class NativeAppManager(SqlExecutionMixin):
             stage_fqn=self.stage_fqn,
             use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=self.scratch_stage_fqn,
-            deploy_to_scratch_stage_fn=self.deploy_to_scratch_stage_fn,
+            deploy_to_scratch_stage_fn=lambda *args: self.deploy_to_scratch_stage_fn(
+                policy, *args
+            ),
         )
 
     def get_events(  # type: ignore [return]
