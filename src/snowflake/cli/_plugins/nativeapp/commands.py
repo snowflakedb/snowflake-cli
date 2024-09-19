@@ -22,6 +22,10 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
+from click import ClickException
+from snowflake.cli._plugins.nativeapp.application_entity_model import (
+    ApplicationEntityModel,
+)
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -54,11 +58,13 @@ from snowflake.cli._plugins.stage.diff import (
     compute_stage_diff,
 )
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
+from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
@@ -69,6 +75,7 @@ from snowflake.cli.api.output.types import (
     StreamResult,
 )
 from snowflake.cli.api.project.project_verification import assert_project_type
+from snowflake.cli.api.project.schemas.project_definition import ProjectDefinitionV1
 from snowflake.cli.api.secure_path import SecurePath
 from typing_extensions import Annotated
 
@@ -299,7 +306,9 @@ def app_open(
 
 @app.command("teardown", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1(app_required=False)
+# This command doesn't use @nativeapp_definition_v2_to_v1() because it needs to
+# be aware of PDFv2 definitions that have multiple apps created from the same package,
+# which all need to be torn down.
 def app_teardown(
     force: Optional[bool] = ForceOption,
     cascade: Optional[bool] = typer.Option(
@@ -308,20 +317,62 @@ def app_teardown(
         show_default=False,
     ),
     interactive: bool = InteractiveOption,
+    # From nativeapp_definition_v2_to_v1
+    package_entity_id: Optional[str] = typer.Option(
+        default="",
+        help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
+    ),
     **options,
 ) -> CommandResult:
     """
     Attempts to drop both the application object and application package as defined in the project definition file.
     """
-
-    assert_project_type("native_app")
-
     cli_context = get_cli_context()
-    processor = NativeAppTeardownProcessor(
-        project_definition=cli_context.project_definition.native_app,
-        project_root=cli_context.project_root,
-    )
-    processor.process(interactive, force, cascade)
+    project = cli_context.project_definition
+    if isinstance(project, ProjectDefinitionV1):
+        # Old behaviour, not multi-app aware so we can use the old processor
+        processor = NativeAppTeardownProcessor(
+            project_definition=cli_context.project_definition.native_app,
+            project_root=cli_context.project_root,
+        )
+        processor.process(interactive, force, cascade)
+    else:
+        # New behaviour, multi-app aware so teardown all the apps created from the package
+        # in the project definition by copying the implementation of `snow ws drop`
+        ws = WorkspaceManager(
+            project_definition=cli_context.project_definition,
+            project_root=cli_context.project_root,
+        )
+        try:
+            # Make sure the package entity exists in the project definition
+            ws.get_entity(package_entity_id)
+        except ValueError:
+            # Same as _pdf_v2_to_v1
+            raise ClickException(
+                f'Could not find an application package entity with ID "{package_entity_id}" '
+                f"in the project definition file."
+            )
+        for app_model in project.get_entities_by_type(
+            ApplicationEntityModel.get_type()
+        ):
+            # Drop each app
+            if app_model.from_.target == package_entity_id:
+                ws.perform_action(
+                    app_model.entity_id,
+                    EntityActions.DROP,
+                    force_drop=force,
+                    interactive=interactive,
+                    cascade=cascade,
+                )
+        # Then drop the package
+        ws.perform_action(
+            package_entity_id,
+            EntityActions.DROP,
+            force_drop=force,
+            interactive=interactive,
+            cascade=cascade,
+        )
+
     return MessageResult(f"Teardown is now complete.")
 
 
