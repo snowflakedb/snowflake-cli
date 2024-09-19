@@ -22,7 +22,6 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
-from click import ClickException
 from snowflake.cli._plugins.nativeapp.application_entity_model import (
     ApplicationEntityModel,
 )
@@ -53,6 +52,7 @@ from snowflake.cli._plugins.nativeapp.utils import (
     shallow_git_clone,
 )
 from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+    find_entity,
     nativeapp_definition_v2_to_v1,
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
@@ -341,31 +341,18 @@ def app_teardown(
         processor.process(interactive, force, cascade)
     else:
         # New behaviour, multi-app aware so teardown all the apps created from the package
+
         # Determine the package entity to drop, there must be one
-        app_package_definition: Optional[ApplicationPackageEntityModel] = None
-        packages: dict[
-            str, ApplicationPackageEntityModel
-        ] = project.get_entities_by_type(ApplicationPackageEntityModel.get_type())
-        if package_entity_id:
-            # If the user specified a package entity ID (or we inferred one from the app entity), use that one directly
-            app_package_definition = packages.get(package_entity_id)
-        elif len(packages) == 1:
-            # Otherwise, if there is only one package entity, fall back to that one
-            app_package_definition = next(iter(packages.values()))
-        elif len(packages) > 1:
-            # If there are multiple package entities, the user must specify which one to use
-            raise ClickException(
-                "More than one application package entity exists in the project definition file, "
-                "specify --package-entity-id to choose which one to operate on."
-            )
+        app_package_definition = find_entity(
+            project,
+            ApplicationPackageEntityModel,
+            package_entity_id,
+            disambiguation_option="--package-entity-id",
+            required=True,
+        )
+        assert app_package_definition is not None, "package entity is required"
 
-        # If we don't have a package entity to convert, error out since it's not optional
-        if not app_package_definition:
-            with_id = f'with ID "{package_entity_id}" ' if package_entity_id else ""
-            raise ClickException(
-                f"Could not find an application package entity {with_id}in the project definition file."
-            )
-
+        # Same implementation as `snow ws drop`
         ws = WorkspaceManager(
             project_definition=cli_context.project_definition,
             project_root=cli_context.project_root,
