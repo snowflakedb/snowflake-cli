@@ -97,7 +97,7 @@ def _pdf_v2_to_v1(
         disambiguation_option="--package-entity-id",
         required=True,
     )
-    assert app_package_definition is not None, "package entity is required"
+    assert app_package_definition is not None  # satisfy mypy
 
     # NativeApp
     if app_definition and app_definition.fqn.identifier:

@@ -350,7 +350,7 @@ def app_teardown(
             disambiguation_option="--package-entity-id",
             required=True,
         )
-        assert app_package_definition is not None, "package entity is required"
+        assert app_package_definition is not None  # satisfy mypy
 
         # Same implementation as `snow ws drop`
         ws = WorkspaceManager(
