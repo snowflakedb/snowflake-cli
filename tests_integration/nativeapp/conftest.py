@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 from tests_integration.conftest import SnowCLIRunner
 
@@ -60,7 +61,22 @@ def nativeapp_teardown(runner: SnowCLIRunner):
             kwargs: dict[str, Any] = {}
             if env:
                 kwargs["env"] = env
-            result = runner.invoke_with_connection(["app", "teardown", *args], **kwargs)
-            assert result.exit_code == 0
+
+            # `snow app teardown` can only teardown one package at a time for safety,
+            # so when cleaning up PDFv2 tests, we need to iterate all the package entities
+            # and teardown each one individually.
+            snowflake_yml = (project_dir or Path.cwd()) / "snowflake.yml"
+            with open(snowflake_yml, "r") as f:
+                project_yml = yaml.safe_load(f)
+            packages = [
+                entity_id
+                for entity_id, entity in project_yml["entities"].items()
+                if entity["type"] == "application package"
+            ]
+            for package in packages:
+                result = runner.invoke_with_connection(
+                    ["app", "teardown", *args, "--package-entity-id", package], **kwargs
+                )
+                assert result.exit_code == 0
 
     return _nativeapp_teardown

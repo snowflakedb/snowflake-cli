@@ -75,7 +75,8 @@ def _pdf_v2_to_v1(
         if package_entity_id:
             # If the user specified a package entity ID,
             # check that the app entity targets the user-specified package entity
-            if target_package != package_entity_id:
+            # if the app entity is used by the command being run
+            if target_package != package_entity_id and app_required:
                 raise ClickException(
                     f"The application entity {app_definition.entity_id} does not "
                     f"target the application package entity {package_entity_id}. Either"
