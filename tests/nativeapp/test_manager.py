@@ -36,7 +36,6 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
     NoEventTableForAccount,
     SetupScriptFailedValidation,
-    UnexpectedOwnerError,
 )
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppManager,
@@ -45,11 +44,10 @@ from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePath,
 )
-from snowflake.cli.api.entities.utils import (
-    _get_stage_paths_to_sync,
-    ensure_correct_owner,
+from snowflake.cli.api.entities.utils import _get_stage_paths_to_sync
+from snowflake.cli.api.errno import (
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
 )
-from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
@@ -718,20 +716,6 @@ def test_get_snowsight_url_without_pdf_warehouse(
     assert mock_execute_query.mock_calls == expected_calls
 
 
-def test_ensure_correct_owner():
-    test_row = {"name": "some_name", "owner": "some_role", "comment": "some_comment"}
-    assert (
-        ensure_correct_owner(row=test_row, role="some_role", obj_name="some_name")
-        is None
-    )
-
-
-def test_is_correct_owner_bad_owner():
-    test_row = {"name": "some_name", "owner": "wrong_role", "comment": "some_comment"}
-    with pytest.raises(UnexpectedOwnerError):
-        ensure_correct_owner(row=test_row, role="right_role", obj_name="some_name")
-
-
 # Test create_app_package() with no existing package available
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO, return_value=None)
@@ -775,15 +759,27 @@ def test_create_app_pkg_no_existing_package(
     mock_get_existing_app_pkg_info.assert_called_once()
 
 
-# Test create_app_package() with incorrect owner
+# Test create_app_package() with a different owner
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
-def test_create_app_pkg_incorrect_owner(mock_get_existing_app_pkg_info, temp_dir):
+@mock_get_app_pkg_distribution_in_sf()
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME, return_value=True)
+def test_create_app_pkg_different_owner(
+    mock_is_distribution_same,
+    mock_get_distribution,
+    mock_get_existing_app_pkg_info,
+    mock_execute,
+    temp_dir,
+    mock_cursor,
+):
     mock_get_existing_app_pkg_info.return_value = {
         "name": "APP_PKG",
         "comment": SPECIAL_COMMENT,
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "wrong_owner",
+        "distribution": "internal",
     }
+    mock_get_distribution.return_value = "internal"
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -792,9 +788,12 @@ def test_create_app_pkg_incorrect_owner(mock_get_existing_app_pkg_info, temp_dir
         contents=[mock_snowflake_yml_file],
     )
 
-    with pytest.raises(UnexpectedOwnerError):
-        native_app_manager = _get_na_manager()
-        native_app_manager.create_app_package()
+    native_app_manager = _get_na_manager()
+    # Invoke create when the package already exists, but the owner is the current role.
+    # This is expected to succeed with no warnings.
+    native_app_manager.create_app_package()
+
+    mock_execute.assert_not_called()
 
 
 # Test create_app_package() with distribution external AND variable mismatch

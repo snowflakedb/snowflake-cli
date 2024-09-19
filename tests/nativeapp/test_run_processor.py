@@ -27,7 +27,6 @@ from snowflake.cli._plugins.nativeapp.constants import (
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationCreatedExternallyError,
     ApplicationPackageDoesNotExistError,
-    UnexpectedOwnerError,
 )
 from snowflake.cli._plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
@@ -46,6 +45,7 @@ from snowflake.cli.api.errno import (
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
     CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
@@ -520,7 +520,7 @@ def test_create_dev_app_incorrect_owner(
         "name": "MYAPP",
         "comment": SPECIAL_COMMENT,
         "version": LOOSE_FILES_MAGIC_VERSION,
-        "owner": "accountadmin_or_something",
+        "owner": "wrong_owner",
     }
     side_effects, expected = mock_execute_helper(
         [
@@ -534,6 +534,15 @@ def test_create_dev_app_incorrect_owner(
                 mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
+            (
+                ProgrammingError(
+                    msg="Insufficient privileges to operate on database",
+                    errno=INSUFFICIENT_PRIVILEGES,
+                ),
+                mock.call(
+                    "alter application myapp upgrade using @app_pkg.app_src.stage"
+                ),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -549,7 +558,7 @@ def test_create_dev_app_incorrect_owner(
         contents=[mock_snowflake_yml_file],
     )
 
-    with pytest.raises(UnexpectedOwnerError):
+    with pytest.raises(ProgrammingError):
         run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
         run_processor.create_or_upgrade_app(
@@ -1274,6 +1283,13 @@ def test_upgrade_app_incorrect_owner(
                 mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
+            (
+                ProgrammingError(
+                    msg="Insufficient privileges to operate on database",
+                    errno=INSUFFICIENT_PRIVILEGES,
+                ),
+                mock.call("alter application myapp upgrade "),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -1289,7 +1305,7 @@ def test_upgrade_app_incorrect_owner(
     )
 
     run_processor = _get_na_run_processor()
-    with pytest.raises(UnexpectedOwnerError):
+    with pytest.raises(ProgrammingError):
         run_processor.create_or_upgrade_app(
             policy=policy_param,
             is_interactive=True,

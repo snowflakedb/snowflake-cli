@@ -36,7 +36,6 @@ from snowflake.cli._plugins.nativeapp.manager import (
 from snowflake.cli._plugins.nativeapp.policy import PolicyBase
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.utils import ensure_correct_owner
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
 from snowflake.cli.api.project.util import to_identifier, unquote_identifier
@@ -295,12 +294,7 @@ class NativeAppVersionDropProcessor(NativeAppManager, NativeAppCommandProcessor)
 
         # 1. Check for existing an existing application package
         show_obj_row = self.get_existing_app_pkg_info()
-        if show_obj_row:
-            # Check for the right owner role
-            ensure_correct_owner(
-                row=show_obj_row, role=self.package_role, obj_name=self.package_name
-            )
-        else:
+        if not show_obj_row:
             raise ApplicationPackageDoesNotExistError(self.package_name)
 
         # 2. Check distribution of the existing application package
