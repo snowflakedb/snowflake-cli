@@ -51,17 +51,6 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBase
     )
 
     @model_validator(mode="after")
-    def main_file_must_be_in_artifacts(self):
-        if not self.artifacts:
-            return self
-
-        if Path(self.main_file) not in self.artifacts:
-            raise ValueError(
-                f"Specified main file {self.main_file} is not included in artifacts."
-            )
-        return self
-
-    @model_validator(mode="after")
     def artifacts_must_exists(self):
         if not self.artifacts:
             return self
