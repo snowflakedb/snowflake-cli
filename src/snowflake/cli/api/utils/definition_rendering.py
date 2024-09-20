@@ -307,7 +307,7 @@ def _update_metrics(template_env: TemplatedEnvironment, definition: Definition):
     metrics.add_counter(CLICounterField.PDF_TEMPLATES, 0)
 
     if _has_referenced_vars_in_definition(template_env, definition):
-        metrics.set_counter(CLICounterField, 1)
+        metrics.set_counter(CLICounterField.PDF_TEMPLATES, 1)
 
 
 def render_definition_template(
