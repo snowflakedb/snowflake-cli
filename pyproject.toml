@@ -119,8 +119,9 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
-test = ["pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/spcs"]
+test = ["pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/spcs --ignore=tests_integration/nativeapp"]
 test-spcs = ["pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs"]
+test-nativeapp = ["pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/nativeapp"]
 test_qa = ["pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration"]
 
 [[tool.hatch.envs.local.matrix]]
