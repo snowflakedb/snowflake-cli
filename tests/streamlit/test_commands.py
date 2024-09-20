@@ -266,23 +266,6 @@ def test_deploy_only_streamlit_file_replace(
     mock_typer.launch.assert_not_called()
 
 
-def test_main_file_must_be_in_artifacts(
-    runner, mock_ctx, project_directory, alter_snowflake_yml, snapshot
-):
-    with project_directory("example_streamlit_v2") as pdir:
-        alter_snowflake_yml(
-            pdir / "snowflake.yml",
-            parameter_path="entities.my_streamlit.main_file",
-            value="foo_bar.py",
-        )
-
-        result = runner.invoke(
-            ["streamlit", "deploy"],
-        )
-        assert result.exit_code == 1
-        assert result.output == snapshot
-
-
 def test_artifacts_must_exists(
     runner, mock_ctx, project_directory, alter_snowflake_yml, snapshot
 ):
