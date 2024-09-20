@@ -577,3 +577,155 @@ def test_nativeapp_deploy_validate_failing(
         assert result.exit_code == 1, result.output
         assert "Snowflake Native App setup script failed validation." in result.output
         assert "syntax error" in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "test_project",
+    [
+        "napp_init_v1",
+        "napp_init_v2",
+    ],
+)
+def test_nativeapp_deploy_package_no_magic_comment(
+    runner,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+    nativeapp_teardown,
+    snapshot,
+    nativeapp_project_directory,
+    test_project,
+):
+    project_name = "myapp"
+    with nativeapp_project_directory(test_project):
+        result_create_abort = runner.invoke_with_connection_json(["app", "deploy"])
+        assert result_create_abort.exit_code == 0
+
+        # package exists
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show application packages like '{package_name}'",
+                )
+            ),
+            dict(name=package_name),
+        )
+
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"alter application package {package_name} set comment = 'not the magic comment'"
+                )
+            ),
+            dict(status="Statement executed successfully."),
+        )
+
+        # app command - say no
+        result_create_abort = runner.invoke_with_connection(
+            ["app", "deploy", "--interactive"],
+            input="n\n",
+        )
+        assert result_create_abort.exit_code == 1
+        assert (
+            f"An Application Package {package_name} already exists in account "
+            "that may have been created without Snowflake CLI.".upper()
+            in result_create_abort.output.upper()
+        )
+        assert "Aborted." in result_create_abort.output
+
+        # app command - say yes
+        result_create_yes = runner.invoke_with_connection(
+            ["app", "deploy", "--interactive"],
+            input="y\n",
+        )
+        assert result_create_yes.exit_code == 0
+        assert (
+            f"An Application Package {package_name} already exists in account "
+            "that may have been created without Snowflake CLI.".upper()
+            in result_create_yes.output.upper()
+        )
+
+        # app command - force
+        result_create_force = runner.invoke_with_connection(
+            ["app", "deploy", "--force"]
+        )
+        assert result_create_force.exit_code == 0
+        assert (
+            f"An Application Package {package_name} already exists in account "
+            "that may have been created without Snowflake CLI.".upper()
+            in result_create_force.output.upper()
+        )
+
+
+@pytest.mark.integration
+def test_ws_deploy_package_no_magic_comment(
+    runner,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+    nativeapp_teardown,
+    snapshot,
+    nativeapp_project_directory,
+):
+    project_name = "myapp"
+    with nativeapp_project_directory("napp_init_v2"):
+        result_create_abort = runner.invoke_with_connection_json(["app", "deploy"])
+        assert result_create_abort.exit_code == 0
+
+        # package exists
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show application packages like '{package_name}'",
+                )
+            ),
+            dict(name=package_name),
+        )
+
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"alter application package {package_name} set comment = 'not the magic comment'"
+                )
+            ),
+            dict(status="Statement executed successfully."),
+        )
+
+        # ws command - say no
+        result_create_abort = runner.invoke_with_connection(
+            ["ws", "deploy", "--entity-id=pkg", "--interactive"],
+            input="n\n",
+        )
+        assert result_create_abort.exit_code == 1
+        assert (
+            f"An Application Package {package_name} already exists in account "
+            "that may have been created without Snowflake CLI.".upper()
+            in result_create_abort.output.upper()
+        )
+        assert "Aborted." in result_create_abort.output
+
+        # ws command - say yes
+        result_create_yes = runner.invoke_with_connection(
+            ["ws", "deploy", "--entity-id=pkg", "--interactive"],
+            input="y\n",
+        )
+        assert result_create_yes.exit_code == 0
+        assert (
+            f"An Application Package {package_name} already exists in account "
+            "that may have been created without Snowflake CLI.".upper()
+            in result_create_yes.output.upper()
+        )
+
+        # ws command - force
+        result_create_force = runner.invoke_with_connection(
+            ["ws", "deploy", "--entity-id=pkg", "--force"]
+        )
+        assert result_create_force.exit_code == 0
+        assert (
+            f"An Application Package {package_name} already exists in account "
+            "that may have been created without Snowflake CLI.".upper()
+            in result_create_force.output.upper()
+        )

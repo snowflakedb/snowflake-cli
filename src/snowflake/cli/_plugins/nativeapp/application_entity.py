@@ -146,6 +146,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 paths=[],
                 validate=validate,
                 stage_fqn=stage_fqn,
+                interactive=interactive,
+                force=force,
             )
 
         self.deploy(

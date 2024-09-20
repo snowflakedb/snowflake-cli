@@ -36,6 +36,7 @@ from snowflake.cli._plugins.nativeapp.artifacts import (
 from snowflake.cli._plugins.nativeapp.exceptions import (
     NoEventTableForAccount,
 )
+from snowflake.cli._plugins.nativeapp.policy import AllowAlwaysPolicy, PolicyBase
 from snowflake.cli._plugins.nativeapp.project_model import (
     NativeAppProjectModel,
 )
@@ -306,6 +307,7 @@ class NativeAppManager(SqlExecutionMixin):
         bundle_map: BundleMap,
         prune: bool,
         recursive: bool,
+        policy: PolicyBase,
         stage_fqn: Optional[str] = None,
         local_paths_to_sync: List[Path] | None = None,
         validate: bool = True,
@@ -330,6 +332,7 @@ class NativeAppManager(SqlExecutionMixin):
             package_warehouse=self.package_warehouse,
             post_deploy_hooks=self.package_post_deploy_hooks,
             package_scripts=self.package_scripts,
+            policy=policy,
         )
 
     def deploy_to_scratch_stage_fn(self):
@@ -341,6 +344,7 @@ class NativeAppManager(SqlExecutionMixin):
             stage_fqn=self.scratch_stage_fqn,
             validate=False,
             print_diff=False,
+            policy=AllowAlwaysPolicy(),
         )
 
     def validate(self, use_scratch_stage: bool = False):
