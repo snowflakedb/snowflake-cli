@@ -113,11 +113,8 @@ def test_nativeapp_feature_counter_has_expected_value(
         runner.invoke_with_connection(split(command), env=local_test_env)
 
         # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
-        message = next(
-            args.args[0].to_dict()["message"]
-            for args in mock_telemetry.call_args_list
-            if args.args[0].to_dict().get("message").get("type")
-            == "result_executing_command"
+        message = _extract_first_result_executing_command_telemetry_message(
+            mock_telemetry
         )
 
         assert message["counters"] == expected_counters

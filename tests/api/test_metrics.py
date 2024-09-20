@@ -17,45 +17,41 @@ from snowflake.cli.api.metrics import CLIMetrics
 
 def test_metrics_no_counters():
     # given
-    expected = {}
     metrics = CLIMetrics()
 
     # when
 
     # then
-    assert metrics.counters == expected
+    assert metrics.counters == {}
     assert metrics.get_counter("counter1") is None
 
 
 def test_metrics_set_one_counter():
     # given
-    expected = {"counter1": 1}
     metrics = CLIMetrics()
 
     # when
     metrics.set_counter("counter1", 1)
 
     # then
-    assert metrics.counters == expected
-    assert metrics.get_counter("counter1") == expected["counter1"]
+    assert metrics.counters == {"counter1": 1}
+    assert metrics.get_counter("counter1") == 1
 
 
 def test_metrics_add_new_counter():
     # given
-    expected = {"counter1": 2}
     metrics = CLIMetrics()
 
     # when
     metrics.add_counter("counter1", 2)
 
     # then
-    assert metrics.counters == expected
-    assert metrics.get_counter("counter1") == expected["counter1"]
+    assert metrics.counters == {"counter1": 2}
+    assert metrics.get_counter("counter1") == 2
 
 
 def test_metrics_add_existing_counter():
     # given
-    expected = {"counter1": 3}
     metrics = CLIMetrics()
 
     # when
@@ -63,13 +59,12 @@ def test_metrics_add_existing_counter():
     metrics.add_counter(name="counter1", value=1)
 
     # then
-    assert metrics.counters == expected
-    assert metrics.get_counter("counter1") == expected["counter1"]
+    assert metrics.counters == {"counter1": 3}
+    assert metrics.get_counter("counter1") == 3
 
 
 def test_metrics_set_multiple_counters():
     # given
-    expected = {"counter1": 1, "counter2": 2}
     metrics = CLIMetrics()
 
     # when
@@ -78,6 +73,6 @@ def test_metrics_set_multiple_counters():
     metrics.set_counter(name="counter2", value=2)
 
     # then
-    assert metrics.counters == expected
-    assert metrics.get_counter("counter1") == expected["counter1"]
-    assert metrics.get_counter("counter2") == expected["counter2"]
+    assert metrics.counters == {"counter1": 1, "counter2": 2}
+    assert metrics.get_counter("counter1") == 1
+    assert metrics.get_counter("counter2") == 2
