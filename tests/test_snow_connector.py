@@ -16,6 +16,7 @@ import os
 from unittest import mock
 
 import pytest
+from snowflake.cli._app.secret import SecretType
 
 
 # Used as a solution to syrupy having some problems with comparing multilines string
@@ -118,9 +119,10 @@ def test_private_key_loading_and_aliases(
         else:
             overrides[user_input] = override_value
 
+    key = SecretType(b"bytes")
     mock_command_info.return_value = "SNOWCLI.SQL"
-    mock_load_pem_from_file.return_value = b"bytes"
-    mock_load_pem_to_der.return_value = b"bytes"
+    mock_load_pem_from_file.return_value = key
+    mock_load_pem_to_der.return_value = key
 
     conn_dict = get_connection_dict(connection_name)
     default_value = conn_dict.get("private_key_file", None) or conn_dict.get(
@@ -135,7 +137,7 @@ def test_private_key_loading_and_aliases(
         expected_private_key_args = (
             {}
             if expected_private_key_file_value is None
-            else dict(private_key=mock_load_pem_to_der.return_value)
+            else dict(private_key=b"bytes")
         )
         mock_connect.assert_called_once_with(
             application=mock_command_info.return_value,
@@ -145,7 +147,7 @@ def test_private_key_loading_and_aliases(
         )
         if expected_private_key_file_value is not None:
             mock_load_pem_from_file.assert_called_with(expected_private_key_file_value)
-            mock_load_pem_to_der.assert_called_with(b"bytes")
+            mock_load_pem_to_der.assert_called_with(key)
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
