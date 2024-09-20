@@ -187,21 +187,21 @@ def find_entity(
 
     entity: Optional[T] = None
 
-    # Determine the package entity to convert, there must be one
     if entity_id:
-        # If the user specified a package entity ID (or we inferred one from the app entity), use that one directly
+        # If we're looking for a specific entity, use that one directly
         entity = entities.get(entity_id)
     elif len(entities) == 1:
-        # Otherwise, if there is only one package entity, fall back to that one
+        # Otherwise, if there is only one entity, fall back to that one
         entity = next(iter(entities.values()))
-    elif len(entities) > 1:
-        # If there are multiple package entities, the user must specify which one to use
+    elif len(entities) > 1 and required:
+        # If there are multiple entities and it's required,
+        # the user must specify which one to use
         raise ClickException(
             f"More than one {entity_type} entity exists in the project definition file, "
             f"specify {disambiguation_option} to choose which one to operate on."
         )
 
-    # If we don't have a package entity to convert, error out since it's not optional
+    # If we don't have a package entity to convert, error out if it's required
     if not entity and required:
         with_id = f'with ID "{entity_id}" ' if entity_id else ""
         raise ClickException(
