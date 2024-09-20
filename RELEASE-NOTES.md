@@ -57,6 +57,7 @@
 * `snow streamlit deploy` will check for existing streamlit instance before deploying anything.
 * Fixed `snow git execute` with `/` in name of the branch.
 * `snow app` commands don't enforce ownership of the objects they manage, and rely on RBAC instead.
+* `snow app deploy` for package entity now allows operating on application packages created outside the CLI
 
 # v2.8.1
 ## Backward incompatibility

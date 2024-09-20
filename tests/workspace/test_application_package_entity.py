@@ -135,7 +135,13 @@ def test_deploy(
     app_pkg, bundle_ctx, mock_console = _get_app_pkg_entity(project_directory)
 
     app_pkg.action_deploy(
-        bundle_ctx, prune=False, recursive=False, paths=["a/b", "c"], validate=True
+        bundle_ctx,
+        prune=False,
+        recursive=False,
+        paths=["a/b", "c"],
+        validate=True,
+        interactive=False,
+        force=False,
     )
 
     mock_sync.assert_called_once_with(

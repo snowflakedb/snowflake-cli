@@ -151,7 +151,11 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     ):
         def deploy_package():
             self.deploy(
-                bundle_map=bundle_map, prune=True, recursive=True, validate=validate
+                bundle_map=bundle_map,
+                prune=True,
+                recursive=True,
+                validate=validate,
+                policy=policy,
             )
 
         def drop_app():
