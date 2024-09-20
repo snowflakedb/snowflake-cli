@@ -40,11 +40,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppManager,
 )
-from snowflake.cli._plugins.nativeapp.policy import (
-    AllowAlwaysPolicy,
-    AskAlwaysPolicy,
-    DenyAlwaysPolicy,
-)
+from snowflake.cli._plugins.nativeapp.policy import AllowAlwaysPolicy
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePath,
@@ -995,11 +991,8 @@ def test_get_paths_to_sync(
     assert result.sort() == [StagePath(p) for p in expected_result].sort()
 
 
-@pytest.mark.parametrize(
-    "policy", [AllowAlwaysPolicy(), DenyAlwaysPolicy(), AskAlwaysPolicy()]
-)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_validate_passing(mock_execute, policy, temp_dir, mock_cursor):
+def test_validate_passing(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
@@ -1020,18 +1013,15 @@ def test_validate_passing(mock_execute, policy, temp_dir, mock_cursor):
     mock_execute.side_effect = side_effects
 
     native_app_manager = _get_na_manager()
-    native_app_manager.validate(policy)
+    native_app_manager.validate()
 
     assert mock_execute.mock_calls == expected
 
 
-@pytest.mark.parametrize(
-    "policy", [AllowAlwaysPolicy(), DenyAlwaysPolicy(), AskAlwaysPolicy()]
-)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 def test_validate_passing_with_warnings(
-    mock_warning, mock_execute, policy, temp_dir, mock_cursor
+    mock_warning, mock_execute, temp_dir, mock_cursor
 ):
     create_named_file(
         file_name="snowflake.yml",
@@ -1063,19 +1053,16 @@ def test_validate_passing_with_warnings(
     mock_execute.side_effect = side_effects
 
     native_app_manager = _get_na_manager()
-    native_app_manager.validate(policy=policy)
+    native_app_manager.validate()
 
     warn_message = f"{warning['message']} (error code {warning['errorCode']})"
     mock_warning.assert_called_once_with(warn_message)
     assert mock_execute.mock_calls == expected
 
 
-@pytest.mark.parametrize(
-    "policy", [AllowAlwaysPolicy(), DenyAlwaysPolicy(), AskAlwaysPolicy()]
-)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
-def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor, policy):
+def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
@@ -1120,7 +1107,7 @@ def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor, pol
         SetupScriptFailedValidation,
         match="Snowflake Native App setup script failed validation.",
     ):
-        native_app_manager.validate(policy=policy)
+        native_app_manager.validate()
 
     warn_message = f"{warning['message']} (error code {warning['errorCode']})"
     error_message = f"{error['message']} (error code {error['errorCode']})"
@@ -1130,11 +1117,8 @@ def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor, pol
     assert mock_execute.mock_calls == expected
 
 
-@pytest.mark.parametrize(
-    "policy", [AllowAlwaysPolicy(), DenyAlwaysPolicy(), AskAlwaysPolicy()]
-)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_validate_query_error(mock_execute, policy, temp_dir, mock_cursor):
+def test_validate_query_error(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
@@ -1155,16 +1139,13 @@ def test_validate_query_error(mock_execute, policy, temp_dir, mock_cursor):
 
     native_app_manager = _get_na_manager()
     with pytest.raises(SnowflakeSQLExecutionError):
-        native_app_manager.validate(policy=policy)
+        native_app_manager.validate()
 
     assert mock_execute.mock_calls == expected
 
 
-@pytest.mark.parametrize(
-    "policy", [AllowAlwaysPolicy(), DenyAlwaysPolicy(), AskAlwaysPolicy()]
-)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_validate_not_deployed(mock_execute, policy, temp_dir, mock_cursor):
+def test_validate_not_deployed(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
@@ -1188,19 +1169,16 @@ def test_validate_not_deployed(mock_execute, policy, temp_dir, mock_cursor):
 
     native_app_manager = _get_na_manager()
     with pytest.raises(ApplicationPackageDoesNotExistError, match="app_pkg"):
-        native_app_manager.validate(policy=policy)
+        native_app_manager.validate()
 
     assert mock_execute.mock_calls == expected
 
 
-@pytest.mark.parametrize(
-    "policy", [AllowAlwaysPolicy(), DenyAlwaysPolicy(), AskAlwaysPolicy()]
-)
 @mock.patch(NATIVEAPP_MANAGER_BUILD_BUNDLE)
 @mock.patch(NATIVEAPP_MANAGER_DEPLOY)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_validate_use_scratch_stage(
-    mock_execute, mock_deploy, mock_build_bundle, temp_dir, mock_cursor, policy
+    mock_execute, mock_deploy, mock_build_bundle, temp_dir, mock_cursor
 ):
     create_named_file(
         file_name="snowflake.yml",
@@ -1234,7 +1212,7 @@ def test_validate_use_scratch_stage(
     mock_execute.side_effect = side_effects
 
     native_app_manager = _get_na_manager()
-    native_app_manager.validate(policy=policy, use_scratch_stage=True)
+    native_app_manager.validate(use_scratch_stage=True)
 
     mock_build_bundle.assert_called_once()
     mock_deploy.assert_called_with(
@@ -1244,19 +1222,16 @@ def test_validate_use_scratch_stage(
         stage_fqn=native_app_manager.scratch_stage_fqn,
         validate=False,
         print_diff=False,
-        policy=policy,
+        policy=AllowAlwaysPolicy(),
     )
     assert mock_execute.mock_calls == expected
 
 
-@pytest.mark.parametrize(
-    "policy", [AllowAlwaysPolicy(), DenyAlwaysPolicy(), AskAlwaysPolicy()]
-)
 @mock.patch(NATIVEAPP_MANAGER_BUILD_BUNDLE)
 @mock.patch(NATIVEAPP_MANAGER_DEPLOY)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_validate_failing_drops_scratch_stage(
-    mock_execute, mock_deploy, mock_build_bundle, temp_dir, mock_cursor, policy
+    mock_execute, mock_deploy, mock_build_bundle, temp_dir, mock_cursor
 ):
     create_named_file(
         file_name="snowflake.yml",
@@ -1304,7 +1279,7 @@ def test_validate_failing_drops_scratch_stage(
         SetupScriptFailedValidation,
         match="Snowflake Native App setup script failed validation.",
     ):
-        native_app_manager.validate(policy=policy, use_scratch_stage=True)
+        native_app_manager.validate(use_scratch_stage=True)
 
     mock_build_bundle.assert_called_once()
     mock_deploy.assert_called_with(
@@ -1314,16 +1289,13 @@ def test_validate_failing_drops_scratch_stage(
         stage_fqn=native_app_manager.scratch_stage_fqn,
         validate=False,
         print_diff=False,
-        policy=policy,
+        policy=AllowAlwaysPolicy(),
     )
     assert mock_execute.mock_calls == expected
 
 
-@pytest.mark.parametrize(
-    "policy", [AllowAlwaysPolicy(), DenyAlwaysPolicy(), AskAlwaysPolicy()]
-)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_validate_raw_returns_data(mock_execute, policy, temp_dir, mock_cursor):
+def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
@@ -1365,7 +1337,7 @@ def test_validate_raw_returns_data(mock_execute, policy, temp_dir, mock_cursor):
 
     native_app_manager = _get_na_manager()
     assert (
-        native_app_manager.get_validation_result(policy=policy, use_scratch_stage=False)
+        native_app_manager.get_validation_result(use_scratch_stage=False)
         == failure_data
     )
     assert mock_execute.mock_calls == expected

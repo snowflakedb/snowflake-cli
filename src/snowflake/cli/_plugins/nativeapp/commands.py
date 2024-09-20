@@ -486,11 +486,9 @@ def app_validate(
         project_root=cli_context.project_root,
     )
     if cli_context.output_format == OutputFormat.JSON:
-        return ObjectResult(
-            manager.get_validation_result(policy=policy, use_scratch_stage=True)
-        )
+        return ObjectResult(manager.get_validation_result(use_scratch_stage=True))
 
-    manager.validate(policy=policy, use_scratch_stage=True)
+    manager.validate(use_scratch_stage=True)
     return MessageResult("Snowflake Native App validation succeeded.")
 
 
