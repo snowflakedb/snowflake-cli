@@ -299,6 +299,17 @@ def _add_defaults_to_definition(original_definition: Definition) -> Definition:
     return definition_with_defaults
 
 
+def _update_metrics(template_env: TemplatedEnvironment, definition: Definition):
+    metrics = get_cli_context().metrics
+
+    # render_definition_template is invoked multiple times both by the user
+    # and by us so we should make sure we don't overwrite a 1 with a 0 here
+    metrics.add_counter(CLICounterField.PDF_TEMPLATES, 0)
+
+    if _has_referenced_vars_in_definition(template_env, definition):
+        metrics.set_counter(CLICounterField, 1)
+
+
 def render_definition_template(
     original_definition: Optional[Definition], context_overrides: Context
 ) -> ProjectProperties:
@@ -347,14 +358,7 @@ def render_definition_template(
 
     # need to have the metrics added here since we add defaults to the
     # definition that the user might not have added themselves later
-    metrics = get_cli_context().metrics
-
-    # render_definition_template is invoked multiple times both by the user,
-    # and by us so we should make sure we don't overwrite a 1 with a 0 here
-    metrics.add_counter(CLICounterField.PDF_TEMPLATES, 0)
-
-    if _has_referenced_vars_in_definition(template_env, definition):
-        metrics.set_counter(CLICounterField, 1)
+    _update_metrics(template_env, definition)
 
     definition = _add_defaults_to_definition(definition)
     project_context = {CONTEXT_KEY: definition}
