@@ -463,8 +463,6 @@ def app_deploy(
 @with_project_definition()
 @nativeapp_definition_v2_to_v1()
 def app_validate(
-    interactive: bool = InteractiveOption,
-    force: Optional[bool] = ForceOption,
     **options,
 ):
     """
@@ -472,13 +470,6 @@ def app_validate(
     """
 
     assert_project_type("native_app")
-
-    if force:
-        policy = AllowAlwaysPolicy()
-    elif interactive:
-        policy = AskAlwaysPolicy()
-    else:
-        policy = DenyAlwaysPolicy()
 
     cli_context = get_cli_context()
     manager = NativeAppManager(
