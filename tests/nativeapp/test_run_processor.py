@@ -57,7 +57,7 @@ from tests.nativeapp.patch_utils import (
 )
 from tests.nativeapp.utils import (
     APP_ENTITY_GET_EXISTING_APP_INFO,
-    APP_ENTITY_GET_EXISTING_VERSION_INFO,
+    APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
     NATIVEAPP_MODULE,
     SQL_EXECUTOR_EXECUTE,
     TYPER_CONFIRM,
@@ -1775,7 +1775,7 @@ def test_upgrade_app_recreate_app(
 
 # Test upgrade app method for version AND no existing version info
 @mock.patch(
-    APP_ENTITY_GET_EXISTING_VERSION_INFO,
+    APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
     return_value=None,
 )
 @pytest.mark.parametrize(
@@ -1804,7 +1804,7 @@ def test_upgrade_app_from_version_throws_usage_error_one(
 
 # Test upgrade app method for version AND no existing app package from version info
 @mock.patch(
-    APP_ENTITY_GET_EXISTING_VERSION_INFO,
+    APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
     side_effect=ApplicationPackageDoesNotExistError("app_pkg"),
 )
 @pytest.mark.parametrize(
@@ -1833,7 +1833,7 @@ def test_upgrade_app_from_version_throws_usage_error_two(
 
 # Test upgrade app method for version AND existing app info AND user wants to drop app AND drop succeeds AND app is created successfully
 @mock.patch(
-    APP_ENTITY_GET_EXISTING_VERSION_INFO,
+    APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
     return_value={"key": "val"},
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)

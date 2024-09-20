@@ -82,35 +82,17 @@ def create(
     if version is None and patch is not None:
         raise MissingParameter("Cannot provide a patch without version!")
 
-    is_interactive = False
-    if force:
-        policy = AllowAlwaysPolicy()
-    elif interactive:
-        is_interactive = True
-        policy = AskAlwaysPolicy()
-    else:
-        policy = DenyAlwaysPolicy()
-
-    if skip_git_check:
-        git_policy = DenyAlwaysPolicy()
-    else:
-        git_policy = AllowAlwaysPolicy()
-
     cli_context = get_cli_context()
     processor = NativeAppVersionCreateProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
     )
-
-    # We need build_bundle() to (optionally) find version in manifest.yml and create an application package
-    bundle_map = processor.build_bundle()
     processor.process(
-        bundle_map=bundle_map,
         version=version,
         patch=patch,
-        policy=policy,
-        git_policy=git_policy,
-        is_interactive=is_interactive,
+        force=force,
+        interactive=interactive,
+        skip_git_check=skip_git_check,
     )
     return MessageResult(f"Version create is now complete.")
 

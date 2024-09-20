@@ -56,7 +56,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         )
 
     def get_existing_version_info(self, version: str) -> Optional[dict]:
-        return ApplicationEntity.get_existing_version_info(
+        return ApplicationPackageEntity.get_existing_version_info(
             version=version,
             package_name=self.package_name,
             package_role=self.package_role,
