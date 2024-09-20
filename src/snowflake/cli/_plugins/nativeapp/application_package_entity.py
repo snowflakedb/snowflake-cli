@@ -10,6 +10,7 @@ from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
     ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.nativeapp.artifacts import (
+    BundleMap,
     build_bundle,
     find_version_info_in_manifest_file,
 )
@@ -121,6 +122,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             bundle_root=Path(model.bundle_root),
             generated_root=Path(model.generated_root),
             artifacts=model.artifacts,
+            bundle_map=None,
             package_name=package_name,
             package_role=(model.meta and model.meta.role) or ctx.default_role,
             package_distribution=model.distribution,
@@ -268,6 +270,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         bundle_root: Path,
         generated_root: Path,
         artifacts: list[PathMapping],
+        bundle_map: BundleMap | None,
         package_name: str,
         package_role: str,
         package_distribution: str,
@@ -282,8 +285,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         package_scripts: List[str],
         policy: PolicyBase,
     ) -> DiffResult:
-        # 1. Create a bundle
-        bundle_map = cls.bundle(
+        # 1. Create a bundle if one wasn't passed in
+        bundle_map = bundle_map or cls.bundle(
             project_root=project_root,
             deploy_root=deploy_root,
             bundle_root=bundle_root,
@@ -415,11 +418,24 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         # Make sure version is not None before proceeding any further.
         # This will raise an exception if version information is not found. Patch can be None.
+        bundle_map = None
         if not version:
             console.message(
-                "Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead."
+                dedent(
+                    f"""\
+                        Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
+                        This step will bundle your app artifacts to determine the location of the manifest.yml file.
+                    """
+                )
             )
-
+            bundle_map = cls.bundle(
+                project_root=project_root,
+                deploy_root=deploy_root,
+                bundle_root=bundle_root,
+                generated_root=generated_root,
+                artifacts=artifacts,
+                package_name=package_name,
+            )
             version, patch = find_version_info_in_manifest_file(deploy_root)
             if not version:
                 raise ClickException(
@@ -457,6 +473,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             bundle_root=bundle_root,
             generated_root=generated_root,
             artifacts=artifacts,
+            bundle_map=bundle_map,
             package_name=package_name,
             package_role=package_role,
             package_distribution=package_distribution,

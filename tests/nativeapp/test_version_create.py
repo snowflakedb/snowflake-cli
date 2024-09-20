@@ -265,6 +265,10 @@ def test_add_new_patch_custom(
 
 # Test version create when user did not pass in a version AND we could not find a version in the manifest file either
 @mock.patch(
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    return_value=None,
+)
+@mock.patch(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
     return_value=(None, None),
 )
@@ -273,6 +277,7 @@ def test_add_new_patch_custom(
 @pytest.mark.parametrize("skip_git_check", [True, False])
 def test_process_no_version_from_user_no_version_in_manifest(
     mock_version_info_in_manifest,
+    mock_bundle,
     force,
     interactive,
     skip_git_check,

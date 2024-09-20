@@ -320,6 +320,7 @@ class NativeAppManager(SqlExecutionMixin):
             bundle_root=self.bundle_root,
             generated_root=self.generated_root,
             artifacts=self.artifacts,
+            bundle_map=bundle_map,
             package_name=self.package_name,
             package_role=self.package_role,
             package_distribution=self.package_distribution,
