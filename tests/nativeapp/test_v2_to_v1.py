@@ -206,6 +206,24 @@ def test_v2_to_v1_conversions(pdfv2_input, expected_pdfv1, expected_error):
                 "definition_version": "2",
                 "entities": {
                     **package_v2("pkg1"),
+                    **app_v2("app1", "pkg1"),
+                    **app_v2("app2", "pkg1"),
+                },
+            },
+            "",
+            "",
+            False,
+            {
+                "definition_version": "1.1",
+                "native_app": native_app_v1("pkg1", "pkg1", ""),
+            },
+            None,
+        ],
+        [
+            {
+                "definition_version": "2",
+                "entities": {
+                    **package_v2("pkg1"),
                     **package_v2("pkg2"),
                     **app_v2("app2", "pkg1"),
                 },
