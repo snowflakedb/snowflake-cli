@@ -34,7 +34,7 @@ def iter_through_all_commands(command_groups_only: bool = False):
     Generator iterating through all commands.
     Paths are yielded as List[str]
     """
-    ignore_plugins = ["render", "cortex", "workspace"]
+    ignore_plugins = ["helpers", "cortex", "workspace"]
 
     no_command: List[str] = []
     yield no_command
@@ -67,7 +67,7 @@ def test_help_messages(runner, snapshot, command):
     Check help messages against the snapshot
     """
     result = runner.invoke(command + ["--help"])
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert result.output == snapshot
 
 
