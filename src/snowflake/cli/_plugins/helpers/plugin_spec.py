@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli._plugins.migrate import commands
+from snowflake.cli._plugins.helpers import commands
 from snowflake.cli.api.plugins.command import (
     SNOWCLI_ROOT_COMMAND_PATH,
     CommandSpec,
@@ -25,6 +25,6 @@ from snowflake.cli.api.plugins.command import (
 def command_spec():
     return CommandSpec(
         parent_command_path=SNOWCLI_ROOT_COMMAND_PATH,
-        command_type=CommandType.SINGLE_COMMAND,
+        command_type=CommandType.COMMAND_GROUP,
         typer_instance=commands.app.create_instance(),
     )

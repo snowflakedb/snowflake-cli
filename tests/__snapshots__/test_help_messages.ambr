@@ -21,21 +21,20 @@
   | --help                -h            Show this message and exit.              |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | app                  Manages a Snowflake Native App                          |
-  | connection           Manages connections to Snowflake.                       |
-  | cortex               Provides access to Snowflake Cortex.                    |
-  | git                  Manages git repositories in Snowflake.                  |
-  | init                 Creates project directory from template.                |
-  | migrate-definition   Migrates the Snowpark, Streamlit, and Native App        |
-  |                      project definition files from V1 to V2.                 |
-  | notebook             Manages notebooks in Snowflake.                         |
-  | object               Manages Snowflake objects like warehouses and stages    |
-  | snowpark             Manages procedures and functions.                       |
-  | spcs                 Manages Snowpark Container Services compute pools,      |
-  |                      services, image registries, and image repositories.     |
-  | sql                  Executes Snowflake query.                               |
-  | stage                Manages stages.                                         |
-  | streamlit            Manages a Streamlit app in Snowflake.                   |
+  | app          Manages a Snowflake Native App                                  |
+  | connection   Manages connections to Snowflake.                               |
+  | cortex       Provides access to Snowflake Cortex.                            |
+  | git          Manages git repositories in Snowflake.                          |
+  | helpers      Helper commands.                                                |
+  | init         Creates project directory from template.                        |
+  | notebook     Manages notebooks in Snowflake.                                 |
+  | object       Manages Snowflake objects like warehouses and stages            |
+  | snowpark     Manages procedures and functions.                               |
+  | spcs         Manages Snowpark Container Services compute pools, services,    |
+  |              image registries, and image repositories.                       |
+  | sql          Executes Snowflake query.                                       |
+  | stage        Manages stages.                                                 |
+  | streamlit    Manages a Streamlit app in Snowflake.                           |
   +------------------------------------------------------------------------------+
   
   
@@ -2421,32 +2420,6 @@
   |                                  variables will not be prompted for.         |
   | --no-interactive                 Disable prompting.                          |
   | --help             -h            Show this message and exit.                 |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels info    |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels debug   |
-  |                                  and higher; debug logs contains additional  |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[migrate-definition]
-  '''
-                                                                                  
-   Usage: default migrate-definition [OPTIONS]                                    
-                                                                                  
-   Migrates the Snowpark, Streamlit, and Native App project definition files from 
-   V1 to V2.                                                                      
-                                                                                  
-  +- Options --------------------------------------------------------------------+
-  | --accept-templates  -t        Allows the migration of templates.             |
-  | --help              -h        Show this message and exit.                    |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -8107,21 +8080,20 @@
   | --help                -h            Show this message and exit.              |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | app                  Manages a Snowflake Native App                          |
-  | connection           Manages connections to Snowflake.                       |
-  | cortex               Provides access to Snowflake Cortex.                    |
-  | git                  Manages git repositories in Snowflake.                  |
-  | init                 Creates project directory from template.                |
-  | migrate-definition   Migrates the Snowpark, Streamlit, and Native App        |
-  |                      project definition files from V1 to V2.                 |
-  | notebook             Manages notebooks in Snowflake.                         |
-  | object               Manages Snowflake objects like warehouses and stages    |
-  | snowpark             Manages procedures and functions.                       |
-  | spcs                 Manages Snowpark Container Services compute pools,      |
-  |                      services, image registries, and image repositories.     |
-  | sql                  Executes Snowflake query.                               |
-  | stage                Manages stages.                                         |
-  | streamlit            Manages a Streamlit app in Snowflake.                   |
+  | app          Manages a Snowflake Native App                                  |
+  | connection   Manages connections to Snowflake.                               |
+  | cortex       Provides access to Snowflake Cortex.                            |
+  | git          Manages git repositories in Snowflake.                          |
+  | helpers      Helper commands.                                                |
+  | init         Creates project directory from template.                        |
+  | notebook     Manages notebooks in Snowflake.                                 |
+  | object       Manages Snowflake objects like warehouses and stages            |
+  | snowpark     Manages procedures and functions.                               |
+  | spcs         Manages Snowpark Container Services compute pools, services,    |
+  |              image registries, and image repositories.                       |
+  | sql          Executes Snowflake query.                                       |
+  | stage        Manages stages.                                                 |
+  | streamlit    Manages a Streamlit app in Snowflake.                           |
   +------------------------------------------------------------------------------+
   
   

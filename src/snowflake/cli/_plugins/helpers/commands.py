@@ -24,11 +24,14 @@ from snowflake.cli.api.project.definition_conversion import (
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.secure_path import SecurePath
 
-app = SnowTyperFactory()
+app = SnowTyperFactory(
+    name="helpers",
+    help="Helper commands.",
+)
 
 
-@app.command()
-def migrate_definition(
+@app.command(no_args_is_help=True)
+def v1_to_v2(
     accept_templates: bool = typer.Option(
         False, "-t", "--accept-templates", help="Allows the migration of templates."
     ),
