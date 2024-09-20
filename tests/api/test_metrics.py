@@ -38,29 +38,29 @@ def test_metrics_set_one_counter():
     assert metrics.get_counter("counter1") == 1
 
 
-def test_metrics_add_new_counter():
+def test_metrics_increment_new_counter():
     # given
     metrics = CLIMetrics()
 
     # when
-    metrics.add_counter("counter1", 2)
+    metrics.increment_counter("counter1")
 
     # then
-    assert metrics.counters == {"counter1": 2}
-    assert metrics.get_counter("counter1") == 2
+    assert metrics.counters == {"counter1": 1}
+    assert metrics.get_counter("counter1") == 1
 
 
-def test_metrics_add_existing_counter():
+def test_metrics_increment_existing_counter():
     # given
     metrics = CLIMetrics()
 
     # when
     metrics.set_counter("counter1", 2)
-    metrics.add_counter(name="counter1", value=1)
+    metrics.increment_counter(name="counter1", value=2)
 
     # then
-    assert metrics.counters == {"counter1": 3}
-    assert metrics.get_counter("counter1") == 3
+    assert metrics.counters == {"counter1": 4}
+    assert metrics.get_counter("counter1") == 4
 
 
 def test_metrics_set_multiple_counters():

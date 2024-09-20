@@ -304,7 +304,7 @@ def _update_metrics(template_env: TemplatedEnvironment, definition: Definition):
 
     # render_definition_template is invoked multiple times both by the user
     # and by us so we should make sure we don't overwrite a 1 with a 0 here
-    metrics.add_counter(CLICounterField.PDF_TEMPLATES, 0)
+    metrics.increment_counter(CLICounterField.PDF_TEMPLATES, 0)
 
     if _has_referenced_vars_in_definition(template_env, definition):
         metrics.set_counter(CLICounterField.PDF_TEMPLATES, 1)

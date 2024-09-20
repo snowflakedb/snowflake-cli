@@ -18,6 +18,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from snowflake.cli.api.metrics import CLICounterField
 
 from tests_e2e.conftest import subprocess_check_output, subprocess_run
 
@@ -69,7 +70,7 @@ def assert_snapshot_match_with_query_result(output: str, snapshot) -> bool:
 
 @pytest.mark.e2e
 def test_full_lifecycle_with_codegen(
-    snowcli, test_root_path, project_directory, snapshot
+    snowcli, test_root_path, project_directory, snapshot, mock_telemetry
 ):
     config_path = test_root_path / "config" / "config.toml"
     # FYI: when testing locally and you want to quickly get this running without all the setup,
@@ -127,6 +128,15 @@ def test_full_lifecycle_with_codegen(
             )
 
             assert result.returncode == 0
+
+            telemetry_message = (
+                mock_telemetry.extract_first_result_executing_command_telemetry_message()
+            )
+
+            assert telemetry_message["counters"] == {
+                CLICounterField.SNOWPARK_PROCESSOR: 1,
+                CLICounterField.TEMPLATES_PROCESSOR: 0,
+            }
 
             app_name_and_schema = f"{app_name}.ext_code_schema"
 

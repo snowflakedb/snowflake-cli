@@ -14,5 +14,6 @@
 import platform
 
 from tests_common.path_utils import *
+from tests_common.telemetry_utils import *
 
 IS_WINDOWS = platform.system() == "Windows"

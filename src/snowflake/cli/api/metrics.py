@@ -45,7 +45,7 @@ class CLIMetrics:
     def set_counter(self, name: str, value: int) -> None:
         self._counters[name] = value
 
-    def add_counter(self, name: str, value: int) -> None:
+    def increment_counter(self, name: str, value: int = 1) -> None:
         if name not in self._counters:
             self.set_counter(name, value)
         else:

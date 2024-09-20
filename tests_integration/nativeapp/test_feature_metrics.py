@@ -13,22 +13,9 @@
 # limitations under the License.
 from shlex import split
 from typing import Dict
-from unittest import mock
-from unittest.mock import MagicMock
 
 from snowflake.cli.api.metrics import CLICounterField
 from tests.project.fixtures import *
-
-
-def _extract_first_result_executing_command_telemetry_message(
-    mock_telemetry: MagicMock,
-):
-    return next(
-        args.args[0].to_dict()["message"]
-        for args in mock_telemetry.call_args_list
-        if args.args[0].to_dict().get("message").get("type")
-        == "result_executing_command"
-    )
 
 
 @pytest.mark.integration
@@ -48,18 +35,17 @@ def _extract_first_result_executing_command_telemetry_message(
         (["sql", "-q", "select 'string'"], 0),
     ],
 )
-@mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
 def test_sql_templating_emits_counter_one(
-    mock_telemetry,
     command: List[str],
     expected_counter,
     runner,
+    mock_telemetry,
 ):
     result = runner.invoke_with_connection_json(command)
 
     assert result.exit_code == 0
 
-    message = _extract_first_result_executing_command_telemetry_message(mock_telemetry)
+    message = mock_telemetry.extract_first_result_executing_command_telemetry_message()
 
     assert message["counters"][CLICounterField.SQL_TEMPLATES] == expected_counter
 
@@ -82,17 +68,8 @@ def test_sql_templating_emits_counter_one(
                 CLICounterField.PDF_TEMPLATES: 1,
             },
         ),
-        (
-            "app run",
-            "na_snowpark_processor",
-            {
-                CLICounterField.SNOWPARK_PROCESSOR: 1,
-                CLICounterField.TEMPLATES_PROCESSOR: 0,
-            },
-        ),
     ],
 )
-@mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
 def test_nativeapp_feature_counter_has_expected_value(
     mock_telemetry,
     runner,
@@ -113,8 +90,8 @@ def test_nativeapp_feature_counter_has_expected_value(
         runner.invoke_with_connection(split(command), env=local_test_env)
 
         # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
-        message = _extract_first_result_executing_command_telemetry_message(
-            mock_telemetry
+        message = (
+            mock_telemetry.extract_first_result_executing_command_telemetry_message()
         )
 
         assert message["counters"] == expected_counters
