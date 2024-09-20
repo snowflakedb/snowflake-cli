@@ -81,9 +81,12 @@ def test_nativeapp_init_run_multiple_pdf_entities(
     resource_suffix,
 ):
     project_name = "myapp"
-    entity_id_selector = ["--package-entity-id", "pkg2", "--app-entity-id", "app2"]
-    with nativeapp_project_directory(test_project, teardown_args=entity_id_selector):
-        result = runner.invoke_with_connection_json(["app", "run"] + entity_id_selector)
+    with nativeapp_project_directory(
+        test_project, teardown_args=["--package-entity-id", "pkg2"]
+    ):
+        result = runner.invoke_with_connection_json(
+            ["app", "run", "--package-entity-id", "pkg2", "--app-entity-id", "app2"]
+        )
         assert result.exit_code == 0
 
         # app + package exist

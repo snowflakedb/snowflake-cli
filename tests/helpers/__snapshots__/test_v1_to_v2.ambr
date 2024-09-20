@@ -1,0 +1,324 @@
+# serializer version: 1
+# name: test_if_template_is_not_rendered_during_migration_with_option_checked[snowpark_templated_v1]
+  '''
+  definition_version: '2'
+  entities:
+    hello_function:
+      artifacts:
+      - dest: <! project_name | to_snowflake_identifier !>
+        src: <% ctx.env.project_source %>
+      external_access_integrations: []
+      handler: functions.hello_function
+      identifier:
+        name: hello_function
+      imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
+      returns: string
+      secrets: {}
+      signature:
+      - name: name
+        type: string
+      stage: <! stage | to_snowflake_identifier !>
+      type: function
+    hello_procedure:
+      artifacts:
+      - dest: <! project_name | to_snowflake_identifier !>
+        src: <% ctx.env.project_source %>
+      execute_as_caller: false
+      external_access_integrations: []
+      handler: procedures.hello_procedure
+      identifier:
+        name: hello_procedure
+      imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
+      returns: string
+      secrets: {}
+      signature:
+      - name: name
+        type: string
+      stage: <! stage | to_snowflake_identifier !>
+      type: procedure
+    test_procedure:
+      artifacts:
+      - dest: <! project_name | to_snowflake_identifier !>
+        src: <% ctx.env.project_source %>
+      execute_as_caller: false
+      external_access_integrations: []
+      handler: procedures.test_procedure
+      identifier:
+        name: test_procedure
+      imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
+      returns: string
+      secrets: {}
+      signature: ''
+      stage: <! stage | to_snowflake_identifier !>
+      type: procedure
+  env:
+    project_source: app/
+  mixins:
+    snowpark_shared:
+      artifacts:
+      - dest: <! project_name | to_snowflake_identifier !>
+        src: <% ctx.env.project_source %>
+      stage: <! stage | to_snowflake_identifier !>
+  
+  '''
+# ---
+# name: test_if_template_is_not_rendered_during_migration_with_option_checked[snowpark_templated_v1].1
+  '''
+  definition_version: "1.1"
+  snowpark:
+    project_name: "<! project_name | to_snowflake_identifier !>"
+    stage_name: "<! stage | to_snowflake_identifier !>"
+    src: <% ctx.env.project_source %>
+    functions:
+      - name: hello_function
+        handler: "functions.hello_function"
+        signature:
+          - name: "name"
+            type: "string"
+        returns: string
+    procedures:
+      - name: hello_procedure
+        handler: "procedures.hello_procedure"
+        signature:
+          - name: "name"
+            type: "string"
+        returns: string
+      - name: test_procedure
+        handler: "procedures.test_procedure"
+        signature: ""
+        returns: string
+  env:
+    project_source: "app/"
+  
+  '''
+# ---
+# name: test_if_template_is_not_rendered_during_migration_with_option_checked[streamlit_templated_v1]
+  '''
+  definition_version: '2'
+  entities:
+    streamlit_entity_1:
+      artifacts:
+      - streamlit_app.py
+      - environment.yml
+      - pages
+      - common/hello.py
+      identifier:
+        name: <! name | to_snowflake_identifier !>
+      main_file: streamlit_app.py
+      pages_dir: pages
+      query_warehouse: <! query_warehouse | to_snowflake_identifier !>
+      stage: <! stage | to_snowflake_identifier !>
+      title: <% ctx.env.streamlit_title %>
+      type: streamlit
+  env:
+    streamlit_title: My Fancy Streamlit
+  
+  '''
+# ---
+# name: test_if_template_is_not_rendered_during_migration_with_option_checked[streamlit_templated_v1].1
+  '''
+  definition_version: "1.1"
+  streamlit:
+    name: <! name | to_snowflake_identifier !>
+    stage: <! stage | to_snowflake_identifier !>
+    query_warehouse: <! query_warehouse | to_snowflake_identifier !>
+    main_file: streamlit_app.py
+    env_file: environment.yml
+    pages_dir: pages/
+    title: <% ctx.env.streamlit_title %>
+    additional_source_files:
+      - common/hello.py
+  env:
+    streamlit_title: "My Fancy Streamlit"
+  
+  '''
+# ---
+# name: test_migrating_a_file_with_duplicated_keys_raises_an_error[\n    - name: test\n      handler: "test"\n      signature: ""\n      returns: string\n      handler: test\n      runtime: "3.10"\n    ]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | While loading the project definition file, duplicate key was found: handler  |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_migrating_a_file_with_duplicated_keys_raises_an_error[\n    - name: test\n      handler: "test"\n      signature: ""\n      returns: string\n      runtime: "3.10"\n    ]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Entity with name test seems to be duplicated. Please rename it and try       |
+  | again.                                                                       |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_migrating_a_file_with_duplicated_keys_raises_an_error[\nstreamlit:\n  name: test\n  stage: streamlit\n  query_warehouse: test_warehouse\n  main_file: "streamlit_app.py"\n  title: "My Fancy Streamlit"\n    ]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | In your project, streamlit and snowpark entities share the same name. Please |
+  | rename them and try again.                                                   |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_migrations_with_multiple_entities
+  '''
+  definition_version: '2'
+  entities:
+    app:
+      from:
+        target: pkg
+      identifier: myapp_app
+      meta:
+        warehouse: app_wh
+      type: application
+    func1:
+      artifacts:
+      - dest: my_snowpark_project
+        src: app
+      external_access_integrations: []
+      handler: app.func1_handler
+      identifier:
+        name: func1
+      imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
+      returns: string
+      runtime: '3.10'
+      secrets: {}
+      signature:
+      - default: default value
+        name: a
+        type: string
+      - name: b
+        type: variant
+      stage: dev_deployment
+      type: function
+    pkg:
+      artifacts:
+      - dest: ./
+        src: app/*
+      - dest: ./
+        processors:
+        - name: native app setup
+        - name: templates
+          properties:
+            foo: bar
+        src: to_process/*
+      bundle_root: output/bundle/
+      deploy_root: output/deploy/
+      distribution: external
+      generated_root: __generated/
+      identifier: <% fn.concat_ids('myapp', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user'))
+        | lower) %>
+      manifest: app/manifest.yml
+      meta:
+        role: pkg_role
+      scratch_stage: app_src.scratch
+      stage: app_src.stage
+      type: application package
+    procedureName:
+      artifacts:
+      - dest: my_snowpark_project
+        src: app
+      execute_as_caller: false
+      external_access_integrations: []
+      handler: hello
+      identifier:
+        name: procedureName
+      imports: []
+      meta:
+        use_mixins:
+        - snowpark_shared
+      returns: string
+      secrets: {}
+      signature:
+      - name: name
+        type: string
+      stage: dev_deployment
+      type: procedure
+    test_streamlit:
+      artifacts:
+      - streamlit_app.py
+      - environment.yml
+      - pages
+      identifier:
+        name: test_streamlit
+      main_file: streamlit_app.py
+      pages_dir: None
+      query_warehouse: test_warehouse
+      stage: streamlit
+      title: My Fancy Streamlit
+      type: streamlit
+  mixins:
+    snowpark_shared:
+      artifacts:
+      - dest: my_snowpark_project
+        src: app/
+      stage: dev_deployment
+  
+  '''
+# ---
+# name: test_migrations_with_multiple_entities.1
+  '''
+  definition_version: 1
+  streamlit:
+    name: test_streamlit
+    stage: streamlit
+    query_warehouse: test_warehouse
+    main_file: "streamlit_app.py"
+    title: "My Fancy Streamlit"
+  snowpark:
+    project_name: "my_snowpark_project"
+    stage_name: "dev_deployment"
+    src: "app/"
+    functions:
+      - name: func1
+        handler: "app.func1_handler"
+        signature:
+          - name: "a"
+            type: "string"
+            default: "default value"
+          - name: "b"
+            type: "variant"
+        returns: string
+        runtime: 3.10
+    procedures:
+      - name: procedureName
+        handler: "hello"
+        signature:
+          - name: "name"
+            type: "string"
+        returns: string
+  native_app:
+    name: myapp
+    source_stage: app_src.stage
+    scratch_stage: app_src.scratch
+    artifacts:
+      - src: app/*
+        dest: ./
+      - src: to_process/*
+        dest: ./
+        processors:
+          - native app setup
+          - name: templates
+            properties:
+              foo: bar
+    package:
+      role: pkg_role
+      distribution: external
+    application:
+      name: myapp_app
+      warehouse: app_wh
+      debug: true
+  
+  '''
+# ---

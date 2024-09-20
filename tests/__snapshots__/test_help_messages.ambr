@@ -25,6 +25,7 @@
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
+  | helpers      Helper commands.                                                |
   | init         Creates project directory from template.                        |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
@@ -34,7 +35,6 @@
   | sql          Executes Snowflake query.                                       |
   | stage        Manages stages.                                                 |
   | streamlit    Manages a Streamlit app in Snowflake.                           |
-  | ws           Deploy and interact with snowflake.yml-based entities.          |
   +------------------------------------------------------------------------------+
   
   
@@ -785,11 +785,6 @@
   |                                                    environment, and False    |
   |                                                    otherwise.                |
   | --package-entity-id                          TEXT  The ID of the package     |
-  |                                                    entity on which to        |
-  |                                                    operate when              |
-  |                                                    definition_version is 2   |
-  |                                                    or higher.                |
-  | --app-entity-id                              TEXT  The ID of the application |
   |                                                    entity on which to        |
   |                                                    operate when              |
   |                                                    definition_version is 2   |
@@ -8089,6 +8084,7 @@
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
+  | helpers      Helper commands.                                                |
   | init         Creates project directory from template.                        |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
@@ -8098,7 +8094,6 @@
   | sql          Executes Snowflake query.                                       |
   | stage        Manages stages.                                                 |
   | streamlit    Manages a Streamlit app in Snowflake.                           |
-  | ws           Deploy and interact with snowflake.yml-based entities.          |
   +------------------------------------------------------------------------------+
   
   
