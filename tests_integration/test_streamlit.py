@@ -136,6 +136,27 @@ def test_streamlit_deploy_with_imports(
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize("pattern", ["*.py", "*"])
+def test_streamlit_deploy_with_glob_patterns(
+    pattern,
+    runner,
+    snowflake_session,
+    test_database,
+    _new_streamlit_role,
+    project_directory,
+    alter_snowflake_yml,
+):
+    with project_directory(f"streamlit_v2"):
+        alter_snowflake_yml(
+            "snowflake.yml", "entities.my_streamlit.artifacts", [pattern]
+        )
+        result = runner.invoke_with_connection_json(
+            ["streamlit", "deploy", "--replace"]
+        )
+        assert result.exit_code == 0
+
+
+@pytest.mark.integration
 @pytest.mark.skip(
     reason="only works in accounts with experimental checkout behavior enabled"
 )
