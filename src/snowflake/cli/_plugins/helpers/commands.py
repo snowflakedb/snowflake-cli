@@ -30,7 +30,7 @@ app = SnowTyperFactory(
 )
 
 
-@app.command(no_args_is_help=True)
+@app.command()
 def v1_to_v2(
     accept_templates: bool = typer.Option(
         False, "-t", "--accept-templates", help="Allows the migration of templates."
