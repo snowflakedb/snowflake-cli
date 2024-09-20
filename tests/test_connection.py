@@ -21,6 +21,7 @@ from unittest import mock
 
 import pytest
 import tomlkit
+from snowflake.cli._app.secret import SecretType
 from snowflake.cli.api.constants import ObjectType
 
 from tests_common import IS_WINDOWS
@@ -705,7 +706,7 @@ def test_key_pair_authentication_from_config(
 ):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    mock_convert.return_value = "secret value"
+    mock_convert.return_value = SecretType("secret value")
 
     with NamedTemporaryFile("w+", suffix="toml") as tmp_file:
         tmp_file.write(
