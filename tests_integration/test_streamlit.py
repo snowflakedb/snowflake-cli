@@ -385,41 +385,34 @@ def _execute_streamlit_failure(runner, streamlit_name):
 
 
 @pytest.mark.integration
-def test_execute_streamlit(runner, snowflake_session, test_database):
-    stage_name = "streamlit_stage"
-    snowflake_session.execute_string(f"create stage {stage_name};")
+def test_streamlit_execute_in_headless_mode(
+    runner,
+    snowflake_session,
+    project_directory,
+):
+    streamlit_name = "test_streamlit_deploy_snowcli"
 
-    # Create a Streamlit app and upload it to the stage
-    streamlit_app = Path("test_streamlit_app.py")
+    with project_directory("streamlit_v2"):
+        # First, deploy the Streamlit app
+        result = runner.invoke_with_connection_json(
+            ["streamlit", "deploy", "--replace"]
+        )
+        assert result.exit_code == 0, f"Streamlit deploy failed: {result.output}"
 
-    _create_streamlit(
-        streamlit=streamlit_app,
-        runner=runner,
-        snowflake_session=snowflake_session,
-        stage_name=stage_name,
-    )
+        # Execute the Streamlit app in headless mode
+        result = runner.invoke_with_connection_json(
+            ["streamlit", "execute", streamlit_name]
+        )
+        assert result.exit_code == 0, f"Streamlit execute failed: {result.output}"
+        assert result.json == {"message": f"Streamlit {streamlit_name} executed."}
 
-    # Test successful and failure executions
-    _execute_streamlit(runner, streamlit_app.stem)
-    _execute_streamlit_failure(runner, "nonexistent_app")
+        expect = snowflake_session.execute_string(
+            f"SHOW STREAMLITS LIKE '{streamlit_name}'"
+        )
+        assert contains_row_with(
+            result.json, row_from_snowflake_session(expect)[0]
+        ), "Streamlit app not found in Snowflake after execution."
 
-
-def _create_streamlit(local_streamlit_file, runner, snowflake_session, stage_name):
-    streamlit_name = local_streamlit_file.stem
-    stage_path = f"@{stage_name}/{local_streamlit_file.name}"
-    snowflake_session.execute_string(
-        f"put file://{local_streamlit_file.absolute()} @{stage_name} AUTO_COMPRESS=FALSE;"
-    )
-    command = (
-        "streamlit",
-        "create",
-        streamlit_name,
-        "--streamlit-file",
-        stage_path,
-        "--format",
-        "json",
-    )
-    result = runner.invoke_with_connection_json(command)
-    assert result.exit_code == 0
-    message: str = result.json.get("message", "")
-    assert message.endswith(streamlit_name.upper())
+    result = runner.invoke_with_connection_json(["streamlit", "drop", streamlit_name])
+    assert result.exit_code == 0, f"Streamlit drop failed: {result.output}"
+    assert result.json == {"status": f"{streamlit_name.upper()} successfully dropped."}
