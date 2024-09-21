@@ -408,7 +408,10 @@ def test_streamlit_execute_in_headless_mode(
 
         print(f"Execution result: {result.output}")
 
-    # Clean up by dropping the app
     result = runner.invoke_with_connection_json(["streamlit", "drop", streamlit_name])
     assert result.exit_code == 0, f"Streamlit drop failed: {result.output}"
-    assert result.json == {"status": f"{streamlit_name.upper()} successfully dropped."}
+
+    # Fix: Handle list of dictionaries
+    assert result.json[0] == {
+        "status": f"{streamlit_name.upper()} successfully dropped."
+    }
