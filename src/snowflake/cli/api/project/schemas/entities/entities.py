@@ -26,7 +26,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 )
 from snowflake.cli._plugins.notebook.notebook_entity import NotebookEntity
 from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntityModel
-from snowflake.cli.api.project.schemas.entities.project_entity_model import (
+from snowflake.cli._plugins.project.project_entity_model import (
     ProjectEntityModel,
 )
 from snowflake.cli._plugins.snowpark.snowpark_entity import (

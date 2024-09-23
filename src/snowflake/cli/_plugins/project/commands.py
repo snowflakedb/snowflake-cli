@@ -16,6 +16,9 @@ import logging
 
 import typer
 from snowflake.cli._plugins.project.manager import ProjectManager
+from snowflake.cli._plugins.project.project_entity_model import (
+    ProjectEntityModel,
+)
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
@@ -25,9 +28,6 @@ from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import MessageResult
-from snowflake.cli.api.project.schemas.entities.project_entity_model import (
-    ProjectEntityModel,
-)
 
 app = SnowTyperFactory(
     name="project",

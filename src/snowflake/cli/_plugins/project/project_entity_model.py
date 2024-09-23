@@ -19,7 +19,6 @@ from pydantic import Field
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
 )
-from snowflake.cli.api.project.schemas.entities.snowpark_entity import PathMapping
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
 )
@@ -30,4 +29,5 @@ class ProjectEntityModel(EntityModelBase):
     stage: Optional[str] = Field(
         title="Stage in which the project artifacts will be stored", default=None
     )
-    artifacts: List[Union[PathMapping, str]] = Field(title="List of required sources")
+    main_file: Optional[str] = Field(title="Path to the main file of the project")
+    artifacts: List[Union[str]] = Field(title="List of required sources")
