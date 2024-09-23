@@ -227,10 +227,10 @@ def test_create(object_type, object_definition, runner, test_database):
 
 @pytest.mark.integration
 def test_create_error_unauthorized(runner, test_database, caplog):
-    # conflict - an object already exists
+    # 401 unauthorized - role does not have permissions to create
     database_name = "database_noble_knight"
     result = runner.invoke_with_connection(
-        ["object", "create", "schema", f"name={database_name}", "--role", "public"]
+        ["object", "create", "database", f"name={database_name}", "--role", "public"]
     )
     assert result.exit_code == 1
     assert "Error" in result.output
@@ -244,7 +244,7 @@ def test_create_error_unauthorized(runner, test_database, caplog):
 
 @pytest.mark.integration
 def test_create_error_conflict(runner, test_database, caplog):
-    # conflict - an object already exists
+    # 409 conflict - an object already exists
     schema_name = "schema_noble_knight"
     result = runner.invoke_with_connection(
         ["object", "create", "schema", f"name={schema_name}"]
@@ -263,7 +263,7 @@ def test_create_error_conflict(runner, test_database, caplog):
 
 @pytest.mark.integration
 def test_create_error_misspelled_argument(runner, test_database, caplog):
-    # misspelled argument
+    # 400 bad request - misspelled argument
     schema_name = "another_schema_name"
     result = runner.invoke_with_connection(
         ["object", "create", "schema", f"named={schema_name}"]
