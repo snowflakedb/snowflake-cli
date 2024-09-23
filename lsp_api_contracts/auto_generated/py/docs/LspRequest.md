@@ -6,7 +6,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **context** | [**Context**](Context.md) |  | 
-**cmd** | [**Cmd**](Cmd.md) |  | 
+**cmd** | [**LspRequestCmd**](LspRequestCmd.md) |  | 
 
 ## Example
 

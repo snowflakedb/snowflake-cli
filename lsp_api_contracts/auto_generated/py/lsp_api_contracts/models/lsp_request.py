@@ -19,8 +19,8 @@ import json
 
 from pydantic import BaseModel, ConfigDict
 from typing import Any, ClassVar, Dict, List
-from lsp_api_contracts.models.cmd import Cmd
 from lsp_api_contracts.models.context import Context
+from lsp_api_contracts.models.lsp_request_cmd import LspRequestCmd
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -29,7 +29,7 @@ class LspRequest(BaseModel):
     LspRequest
     """ # noqa: E501
     context: Context
-    cmd: Cmd
+    cmd: LspRequestCmd
     __properties: ClassVar[List[str]] = ["context", "cmd"]
 
     model_config = ConfigDict(
@@ -90,7 +90,7 @@ class LspRequest(BaseModel):
 
         _obj = cls.model_validate({
             "context": Context.from_dict(obj["context"]) if obj.get("context") is not None else None,
-            "cmd": Cmd.from_dict(obj["cmd"]) if obj.get("cmd") is not None else None
+            "cmd": LspRequestCmd.from_dict(obj["cmd"]) if obj.get("cmd") is not None else None
         })
         return _obj
 

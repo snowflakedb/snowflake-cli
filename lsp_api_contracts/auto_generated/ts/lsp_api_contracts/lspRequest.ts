@@ -11,12 +11,12 @@
  */
 
 import { RequestFile } from './models';
-import { Cmd } from './cmd';
 import { Context } from './context';
+import { LspRequestCmd } from './lspRequestCmd';
 
 export class LspRequest {
     'context': Context;
-    'cmd': Cmd;
+    'cmd': LspRequestCmd;
 
     static discriminator: string | undefined = undefined;
 
@@ -29,7 +29,7 @@ export class LspRequest {
         {
             "name": "cmd",
             "baseName": "cmd",
-            "type": "Cmd"
+            "type": "LspRequestCmd"
         }    ];
 
     static getAttributeTypeMap() {
