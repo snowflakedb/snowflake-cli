@@ -17,6 +17,8 @@ import uuid
 from pathlib import Path
 from textwrap import dedent
 
+import pytest
+
 from tests_e2e.conftest import subprocess_check_output, subprocess_run
 
 
@@ -65,10 +67,11 @@ def assert_snapshot_match_with_query_result(output: str, snapshot) -> bool:
     return snapshot.assert_match(myjson.values())
 
 
+@pytest.mark.e2e
 def test_full_lifecycle_with_codegen(
     snowcli, test_root_path, project_directory, snapshot
 ):
-    config_path = Path("/Users/mchok/Library/Application Support/snowflake/config.toml")
+    config_path = test_root_path / "config" / "config.toml"
     # FYI: when testing locally and you want to quickly get this running without all the setup,
     # remove the e2e marker and reroute the config path to the config.toml on your filesystem.
 
