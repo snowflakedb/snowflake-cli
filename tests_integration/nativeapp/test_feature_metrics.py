@@ -35,7 +35,7 @@ from tests.project.fixtures import *
         (["sql", "-q", "select 'string'"], 0),
     ],
 )
-def test_sql_templating_emits_counter_one(
+def test_sql_templating_emits_counter(
     command: List[str],
     expected_counter,
     runner,
