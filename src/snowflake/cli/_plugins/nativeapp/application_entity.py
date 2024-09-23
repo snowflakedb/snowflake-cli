@@ -528,14 +528,13 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                                 )
 
                         # hooks always executed after a create or upgrade
-                        if post_deploy_hooks:
-                            cls.execute_post_deploy_hooks(
-                                console=console,
-                                project_root=project_root,
-                                post_deploy_hooks=post_deploy_hooks,
-                                app_name=app_name,
-                                app_warehouse=app_warehouse,
-                            )
+                        cls.execute_post_deploy_hooks(
+                            console=console,
+                            project_root=project_root,
+                            post_deploy_hooks=post_deploy_hooks,
+                            app_name=app_name,
+                            app_warehouse=app_warehouse,
+                        )
                         return
 
                     except ProgrammingError as err:
@@ -587,14 +586,13 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     print_messages(console, create_cursor)
 
                     # hooks always executed after a create or upgrade
-                    if post_deploy_hooks:
-                        cls.execute_post_deploy_hooks(
-                            console=console,
-                            project_root=project_root,
-                            post_deploy_hooks=post_deploy_hooks,
-                            app_name=app_name,
-                            app_warehouse=app_warehouse,
-                        )
+                    cls.execute_post_deploy_hooks(
+                        console=console,
+                        project_root=project_root,
+                        post_deploy_hooks=post_deploy_hooks,
+                        app_name=app_name,
+                        app_warehouse=app_warehouse,
+                    )
 
                 except ProgrammingError as err:
                     generic_sql_error_handler(err)

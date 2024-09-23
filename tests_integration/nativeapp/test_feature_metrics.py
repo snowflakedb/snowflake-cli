@@ -83,6 +83,16 @@ def test_sql_templating_emits_counter(
                 CLICounterField.PDF_TEMPLATES: 1,
             },
         ),
+        (
+            "app run",
+            "napp_templates_processors_v1",
+            {
+                CLICounterField.SNOWPARK_PROCESSOR: 0,
+                CLICounterField.TEMPLATES_PROCESSOR: 1,
+                CLICounterField.PDF_TEMPLATES: 0,
+                CLICounterField.POST_DEPLOY_SCRIPTS: 0,
+            },
+        ),
     ],
 )
 @mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
