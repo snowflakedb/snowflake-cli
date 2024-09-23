@@ -92,6 +92,9 @@ class ObjectManager(SqlExecutionMixin):
                     raise ClickException(
                         "401 unauthorized: role you are using does not have permissions to create this object."
                     )
+                # error 403 should be handled by connector
+                # error 404 is handled by logic above
+                # error 405 should not happen under assumption that "all listable objects can be created"
                 case 408:
                     raise ClickException(
                         "408 timeout: the request timed out and was not completed by the server."
@@ -100,6 +103,7 @@ class ObjectManager(SqlExecutionMixin):
                     raise ClickException(
                         "409 conflict: object you're trying to create already exists."
                     )
+                # error 410 is a network maintenance debugging - should not happen to the user
                 case 429:
                     raise ClickException(
                         "429 too many requests. The number of requests hit the rate limit."
