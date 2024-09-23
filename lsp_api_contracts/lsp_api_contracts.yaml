@@ -1,0 +1,74 @@
+openapi: 3.0.0
+info:
+  title: LSP Contracts
+  version: 1.0.0
+paths:
+  /not_an_api:
+    post:
+      summary: Mock api to allow openapi-generator-cli to work with this file
+      responses:
+        '500':
+          description: not a real implementation
+components:
+  schemas:
+    Connection:
+      type: object
+      properties:
+        account:
+          type: string
+        user:
+          type: string
+    EnvOverrides:
+      type: object
+      additionalProperties:
+        type: string
+    Context:
+      type: object
+      properties:
+        connection:
+          $ref: '#/components/schemas/Connection'
+        env:
+          $ref: '#/components/schemas/EnvOverrides'
+        project_path:
+          type: string
+    Cmd:
+      type: object
+      required:
+        - type_name
+      properties:
+        type_name:
+          type: string
+    CmdNativeAppOpen:
+      allOf:
+        -  $ref: '#/components/schemas/Cmd'
+        - type: object
+          properties:
+            type_name:
+              type: "string"
+              enum:
+                - CmdNativeAppOpen
+            open_input_1:
+              type: string
+            open_input_2:
+              type: string
+    CmdNativeAppDelete:
+      allOf:
+        - $ref: '#/components/schemas/Cmd'
+        - type: object
+          properties:
+            type_name:
+              type: "string"
+              enum:
+                - CmdNativeAppDelete
+            delete_input_1:
+              type: string
+    LspRequest:
+      type: object
+      required:
+        - context
+        - cmd
+      properties:
+        context:
+          $ref: '#/components/schemas/Context'
+        cmd:
+          $ref: '#/components/schemas/Cmd'

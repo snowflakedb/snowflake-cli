@@ -18,7 +18,7 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.plugins.lsp.server import lsp_plugin
-from snowflake.cli.plugins.nativeapp.manager import NativeAppManagern
+from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
 
 
 @lsp_plugin(
@@ -42,7 +42,6 @@ def nade_lsp_plugin(server: LanguageServer):
         manager = NativeAppManager(
             project_definition=project_definition,
             project_root=project_root,
-            connection=ctx.connection,
         )
         if manager.get_existing_app_info():
             url = manager.get_snowsight_url()
