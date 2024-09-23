@@ -767,14 +767,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         """
         Drops a version defined in an application package. If --force is provided, then no user prompts will be executed.
         """
-        is_interactive = False
         if force:
+            interactive = False
             policy = AllowAlwaysPolicy()
-        elif interactive:
-            is_interactive = True
-            policy = AskAlwaysPolicy()
         else:
-            policy = DenyAlwaysPolicy()
+            policy = AskAlwaysPolicy() if interactive else DenyAlwaysPolicy()
 
         # 1. Check for existing an existing application package
         show_obj_row = cls.get_existing_app_pkg_info(package_name, package_role)
@@ -835,7 +832,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             f"Once dropped, this operation cannot be undone."
         )
         if not policy.should_proceed(user_prompt):
-            if is_interactive:
+            if interactive:
                 console.message("Not dropping version.")
                 raise typer.Exit(0)
             else:
