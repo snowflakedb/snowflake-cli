@@ -27,7 +27,7 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.output.types import MessageResult, SingleQueryResult
 
 app = SnowTyperFactory(
     name="project",
@@ -49,7 +49,7 @@ def execute(
     Executes a project.
     """
     result = ProjectManager().execute(project_name=identifier, version=version)
-    return result
+    return SingleQueryResult(result)
 
 
 @app.command(requires_connection=True)
@@ -64,7 +64,7 @@ def validate(
     result = ProjectManager().execute(
         project_name=identifier, version=version, dry_run=True
     )
-    return result
+    return SingleQueryResult(result)
 
 
 @app.command(requires_connection=True)
