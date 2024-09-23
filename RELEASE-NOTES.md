@@ -14,7 +14,7 @@
  limitations under the License.
  -->
 
-# Unreleased version
+# v3.0.0
 
 ## Backward incompatibility
 * Dropped support for Python below 3.10 version.
