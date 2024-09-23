@@ -271,3 +271,36 @@ def version_create(
         interactive=interactive,
         force=force,
     )
+
+
+@version.command(name="drop", requires_connection=True, hidden=True)
+@with_project_definition()
+def version_drop(
+    entity_id: str = typer.Option(
+        help="The ID of the entity you want to create a version for.",
+    ),
+    version: Optional[str] = typer.Argument(
+        None,
+        help=f"""Version to define in your application package. If the version already exists, an auto-incremented patch is added to the version instead. Defaults to the version specified in the `manifest.yml` file.""",
+    ),
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
+    **options,
+):
+    """
+    Drops a version defined for your entity. Versions can either be passed in as an argument to the command or read from the `manifest.yml` file.
+    Dropping patches is not allowed.
+    """
+
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    ws.perform_action(
+        entity_id,
+        EntityActions.VERSION_CREATE,
+        version=version,
+        interactive=interactive,
+        force=force,
+    )
