@@ -241,6 +241,32 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             interactive=interactive,
         )
 
+    def action_version_drop(
+        self,
+        ctx: ActionContext,
+        version: Optional[str],
+        interactive: bool,
+        force: bool,
+        *args,
+        **kwargs,
+    ):
+        model = self._entity_model
+        package_name = model.fqn.identifier
+        return self.version_drop(
+            console=ctx.console,
+            project_root=ctx.project_root,
+            deploy_root=Path(model.deploy_root),
+            bundle_root=Path(model.bundle_root),
+            generated_root=Path(model.generated_root),
+            artifacts=model.artifacts,
+            package_name=package_name,
+            package_role=(model.meta and model.meta.role) or ctx.default_role,
+            package_distribution=model.distribution,
+            version=version,
+            force=force,
+            interactive=interactive,
+        )
+
     @staticmethod
     def bundle(
         project_root: Path,
@@ -306,7 +332,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 package_distribution=package_distribution,
             )
         except ApplicationPackageAlreadyExistsError as e:
-            cc.warning(e.message)
+            console.warning(e.message)
             if not policy.should_proceed("Proceed with using this package?"):
                 raise typer.Abort() from e
         with get_sql_executor().use_role(package_role):
@@ -727,6 +753,113 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         except InvalidGitRepositoryError:
             pass  # not a git repository, which is acceptable
+
+    @classmethod
+    def version_drop(
+        cls,
+        console: AbstractConsole,
+        project_root: Path,
+        deploy_root: Path,
+        bundle_root: Path,
+        generated_root: Path,
+        artifacts: list[PathMapping],
+        package_name: str,
+        package_role: str,
+        package_distribution: str,
+        version: Optional[str],
+        force: bool,
+        interactive: bool,
+    ):
+        """
+        Drops a version defined in an application package. If --force is provided, then no user prompts will be executed.
+        """
+        if force:
+            interactive = False
+            policy = AllowAlwaysPolicy()
+        else:
+            policy = AskAlwaysPolicy() if interactive else DenyAlwaysPolicy()
+
+        # 1. Check for existing an existing application package
+        show_obj_row = cls.get_existing_app_pkg_info(package_name, package_role)
+        if not show_obj_row:
+            raise ApplicationPackageDoesNotExistError(package_name)
+
+        # 2. Check distribution of the existing application package
+        actual_distribution = cls.get_app_pkg_distribution_in_snowflake(
+            package_name, package_role
+        )
+        if not cls.verify_project_distribution(
+            console=console,
+            package_name=package_name,
+            package_role=package_role,
+            package_distribution=package_distribution,
+            expected_distribution=actual_distribution,
+        ):
+            console.warning(
+                f"Continuing to execute version drop on application package "
+                f"{package_name} with distribution '{actual_distribution}'."
+            )
+
+        # 3. If the user did not pass in a version string, determine from manifest.yml
+        if not version:
+            console.message(
+                dedent(
+                    f"""\
+                        Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
+                        This step will bundle your app artifacts to determine the location of the manifest.yml file.
+                    """
+                )
+            )
+            cls.bundle(
+                project_root=project_root,
+                deploy_root=deploy_root,
+                bundle_root=bundle_root,
+                generated_root=generated_root,
+                artifacts=artifacts,
+                package_name=package_name,
+            )
+            version, _ = find_version_info_in_manifest_file(deploy_root)
+            if not version:
+                raise ClickException(
+                    "Manifest.yml file does not contain a value for the version field."
+                )
+
+        # Make the version a valid identifier, adding quotes if necessary
+        version = to_identifier(version)
+
+        console.step(
+            f"About to drop version {version} in application package {package_name}."
+        )
+
+        # If user did not provide --force, ask for confirmation
+        user_prompt = (
+            f"Are you sure you want to drop version {version} "
+            f"in application package {package_name}? "
+            f"Once dropped, this operation cannot be undone."
+        )
+        if not policy.should_proceed(user_prompt):
+            if interactive:
+                console.message("Not dropping version.")
+                raise typer.Exit(0)
+            else:
+                console.message(
+                    "Cannot drop version non-interactively without --force."
+                )
+                raise typer.Exit(1)
+
+        # Drop the version
+        sql_executor = get_sql_executor()
+        with sql_executor.use_role(package_role):
+            try:
+                sql_executor.execute_query(
+                    f"alter application package {package_name} drop version {version}"
+                )
+            except ProgrammingError as err:
+                raise err  # e.g. version is referenced in a release directive(s)
+
+        console.message(
+            f"Version {version} in application package {package_name} dropped successfully."
+        )
 
     @staticmethod
     def get_existing_app_pkg_info(
