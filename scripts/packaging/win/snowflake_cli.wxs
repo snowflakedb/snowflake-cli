@@ -44,7 +44,7 @@
     <Property Id="ARPURLINFOABOUT">https://snowflake.com/</Property>
     <Property Id="WIXUI_INSTALLDIR" Value="TESTFILEPRODUCTDIR" />
     <UIRef Id="WixUI_InstallDir2" />
-    <Property Id="ApplicationFolderName" Value="Snowflake SQL" />
+    <Property Id="ApplicationFolderName" Value="Snowflake CLI" />
     <Property Id="WixAppFolder" Value="WixUISupportPerUser" />
     <CustomActionRef Id="WixBroadcastSettingChange" />
     <CustomActionRef Id="WixBroadcastEnvironmentChange" />
