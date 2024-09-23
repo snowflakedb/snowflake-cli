@@ -14,20 +14,15 @@ body {
 <ol>
     <li>Open a new terminal window.</li>
     <li>Execute the following command to test your connection:<br/>
-        <span class="monospace">snowsql -a &lt;account_name&gt; -u &lt;login_name&gt;</span><br/>
-        Enter your password when prompted. Enter !quit to quit the connection.
+        <span class="monospace">snow connection add</span><br/>
     </li>
-    <li>Add your connection information to the <span class="monospace">~/.snowsql/config</span> file:<br/>
-        <span class="monospace">accountname = &lt;account_name&gt;</span><br/>
-        <span class="monospace">username = &lt;user_name&gt;</span><br/>
-        <span class="monospace">password = &lt;password&gt;</span>
+    <li>When prompted, supply the required connection, account, username parameters, and any desired optional parameters.<br/>
     </li>
     <li>Execute the following command to connect to Snowflake:<br/>
-        <span class="monospace">snowsql</span><br/>
-        or double click the <span class="monospace">SnowSQL</span> application icon in the <span class="monospace">Applications</span> directory.
+        <span class="monospace">snow connection test</span><br/>
     </li>
 </ol>
 <br/>
-<p>See the Snowflake documentation <a href="https://docs.snowflake.net/manuals/user-guide/snowsql.html">https://docs.snowflake.net/manuals/user-guide/snowsql.html</a> for more information.</p>
+<p>See the Snowflake documentation <a href="https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/index">https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/index</a> for more information.</p>
 </body>
 </html>
