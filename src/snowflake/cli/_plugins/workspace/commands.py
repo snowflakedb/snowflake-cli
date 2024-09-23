@@ -20,6 +20,7 @@ from textwrap import dedent
 from typing import List, Optional
 
 import typer
+from click import MissingParameter
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
@@ -224,3 +225,49 @@ def version_list(
         EntityActions.VERSION_LIST,
     )
     return QueryResult(cursor)
+
+
+@version.command(name="create", requires_connection=True, hidden=True)
+@with_project_definition()
+def version_create(
+    entity_id: str = typer.Option(
+        help="The ID of the entity you want to create a version for.",
+    ),
+    version: Optional[str] = typer.Argument(
+        None,
+        help=f"""Version to define in your application package. If the version already exists, an auto-incremented patch is added to the version instead. Defaults to the version specified in the `manifest.yml` file.""",
+    ),
+    patch: Optional[int] = typer.Option(
+        None,
+        "--patch",
+        help=f"""The patch number you want to create for an existing version.
+        Defaults to undefined if it is not set, which means the Snowflake CLI either uses the patch specified in the `manifest.yml` file or automatically generates a new patch number.""",
+    ),
+    skip_git_check: Optional[bool] = typer.Option(
+        False,
+        "--skip-git-check",
+        help="When enabled, the Snowflake CLI skips checking if your project has any untracked or stages files in git. Default: unset.",
+        is_flag=True,
+    ),
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
+    **options,
+):
+    """Creates a new version for the specified entity."""
+    if version is None and patch is not None:
+        raise MissingParameter("Cannot provide a patch without version!")
+
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    ws.perform_action(
+        entity_id,
+        EntityActions.VERSION_CREATE,
+        version=version,
+        patch=patch,
+        skip_git_check=skip_git_check,
+        interactive=interactive,
+        force=force,
+    )
