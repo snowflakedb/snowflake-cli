@@ -2,6 +2,10 @@ from snowflake.cli.__about__ import VERSION
 
 
 def parse_version_for_windows_build() -> list[str]:
+    """Convert sematntic version to windows installer acceptable version.
+
+    Windows installer internal version is in the format of 4 integers separated by dots.
+    """
     version = VERSION.split(".")
     *msv, last = version
 
