@@ -370,20 +370,6 @@ def _new_streamlit_role(snowflake_session, test_database):
     )
 
 
-def _execute_streamlit(runner, streamlit_name):
-    result = runner.invoke_with_connection_json(
-        ["streamlit", "execute", streamlit_name, "--format", "json"]
-    )
-    assert result.exit_code == 0
-    assert result.json == {"message": f"Streamlit {streamlit_name} executed."}
-
-
-def _execute_streamlit_failure(runner, streamlit_name):
-    result = runner.invoke_with_connection(["streamlit", "execute", streamlit_name])
-    assert result.exit_code == 1
-    assert f"NameError: name {streamlit_name} is not defined" in result.output
-
-
 @pytest.mark.integration
 def test_streamlit_execute_in_headless_mode(
     runner,
