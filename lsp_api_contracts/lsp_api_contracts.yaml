@@ -40,7 +40,7 @@ components:
           type: string
     CmdNativeAppOpen:
       allOf:
-        -  $ref: '#/components/schemas/Cmd'
+        - $ref: '#/components/schemas/Cmd'
         - type: object
           properties:
             type_name:
@@ -71,4 +71,8 @@ components:
         context:
           $ref: '#/components/schemas/Context'
         cmd:
-          $ref: '#/components/schemas/Cmd'
+          oneOf:
+            - $ref: '#/components/schemas/CmdNativeAppOpen'
+            - $ref: '#/components/schemas/CmdNativeAppDelete'
+          discriminator:
+              propertyName: type_name
