@@ -45,6 +45,7 @@ from snowflake.cli._plugins.nativeapp.utils import (
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
@@ -60,6 +61,7 @@ from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
 )
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
@@ -334,13 +336,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 print_diff=print_diff,
             )
 
-        cls.execute_post_deploy_hooks(
-            console=console,
-            project_root=project_root,
-            post_deploy_hooks=post_deploy_hooks,
-            package_name=package_name,
-            package_warehouse=package_warehouse,
+        get_cli_context().metrics.increment_counter(
+            CLICounterField.POST_DEPLOY_SCRIPTS, 0
         )
+        if post_deploy_hooks:
+            cls.execute_post_deploy_hooks(
+                console=console,
+                project_root=project_root,
+                post_deploy_hooks=post_deploy_hooks,
+                package_name=package_name,
+                package_warehouse=package_warehouse,
+            )
 
         if validate:
             cls.validate_setup_script(

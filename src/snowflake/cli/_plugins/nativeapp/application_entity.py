@@ -42,6 +42,7 @@ from snowflake.cli._plugins.nativeapp.utils import (
     needs_confirmation,
 )
 from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
@@ -57,6 +58,7 @@ from snowflake.cli.api.errno import (
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
     ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
+from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.util import (
     extract_schema,
@@ -528,13 +530,17 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                                 )
 
                         # hooks always executed after a create or upgrade
-                        cls.execute_post_deploy_hooks(
-                            console=console,
-                            project_root=project_root,
-                            post_deploy_hooks=post_deploy_hooks,
-                            app_name=app_name,
-                            app_warehouse=app_warehouse,
+                        get_cli_context().metrics.increment_counter(
+                            CLICounterField.POST_DEPLOY_SCRIPTS, 0
                         )
+                        if post_deploy_hooks:
+                            cls.execute_post_deploy_hooks(
+                                console=console,
+                                project_root=project_root,
+                                post_deploy_hooks=post_deploy_hooks,
+                                app_name=app_name,
+                                app_warehouse=app_warehouse,
+                            )
                         return
 
                     except ProgrammingError as err:
@@ -586,13 +592,17 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     print_messages(console, create_cursor)
 
                     # hooks always executed after a create or upgrade
-                    cls.execute_post_deploy_hooks(
-                        console=console,
-                        project_root=project_root,
-                        post_deploy_hooks=post_deploy_hooks,
-                        app_name=app_name,
-                        app_warehouse=app_warehouse,
+                    get_cli_context().metrics.increment_counter(
+                        CLICounterField.POST_DEPLOY_SCRIPTS, 0
                     )
+                    if post_deploy_hooks:
+                        cls.execute_post_deploy_hooks(
+                            console=console,
+                            project_root=project_root,
+                            post_deploy_hooks=post_deploy_hooks,
+                            app_name=app_name,
+                            app_warehouse=app_warehouse,
+                        )
 
                 except ProgrammingError as err:
                     generic_sql_error_handler(err)

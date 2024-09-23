@@ -247,13 +247,10 @@ def execute_post_deploy_hooks(
     While executing SQL post deploy hooks, it first switches to the database provided in the input.
     All post deploy scripts templates will first be expanded using the global template context.
     """
-    metrics = get_cli_context().metrics
-    metrics.set_counter(CLICounterField.POST_DEPLOY_SCRIPTS, 0)
-
     if not post_deploy_hooks:
         return
 
-    metrics.set_counter(CLICounterField.POST_DEPLOY_SCRIPTS, 1)
+    get_cli_context().metrics.set_counter(CLICounterField.POST_DEPLOY_SCRIPTS, 1)
 
     with console.phase(f"Executing {deployed_object_type} post-deploy actions"):
         sql_scripts_paths = []
