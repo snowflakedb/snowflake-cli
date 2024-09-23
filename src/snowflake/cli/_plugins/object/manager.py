@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-from textwrap import dedent
 from typing import Any, Dict, Optional, Tuple, Union
 
 from click import ClickException
@@ -28,6 +27,7 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import BadRequest
+from snowflake.connector.vendored.requests.exceptions import HTTPError
 
 
 def _get_object_names(object_type: str) -> ObjectNames:
@@ -80,18 +80,31 @@ class ObjectManager(SqlExecutionMixin):
 
         try:
             response = rest.send_rest_request(url=url, method="post", data=object_data)
-            # workaround as SnowflakeRestful class ignores some errors, dropping their info and returns {} instead.
-            if not response:
-                raise ClickException(
-                    dedent(
-                        """                An unexpected error occurred while creating the object. Try again with --debug for more info.
-                Most probable reasons:
-                  * object you are trying to create already exists
-                  * role you are using do not have permissions to create this object"""
-                    )
-                )
             return response["status"]
         except BadRequest:
             raise ClickException(
-                "Incorrect object definition (arguments misspelled or malformatted)."
+                "400 bad request: Incorrect object definition (arguments misspelled or malformatted)."
             )
+        except HTTPError as err:
+            # according to https://docs.snowflake.com/developer-guide/snowflake-rest-api/reference/
+            match err_code := err.response.status_code:
+                case 401:
+                    raise ClickException(
+                        "401 unauthorized: role you are using does not have permissions to create this object."
+                    )
+                case 408:
+                    raise ClickException(
+                        "408 timeout: the request timed out and was not completed by the server."
+                    )
+                case 409:
+                    raise ClickException(
+                        "409 conflict: object you're trying to create already exists."
+                    )
+                case 429:
+                    raise ClickException(
+                        "429 too many requests. The number of requests hit the rate limit."
+                    )
+                case 500 | 503 | 504:
+                    raise ClickException(f"{err_code} internal server error.")
+                case _:
+                    raise
