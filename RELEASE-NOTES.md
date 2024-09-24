@@ -23,6 +23,7 @@
 
 ## Fixes and improvements
 * Fixes `snow connection add` behavior when `connections.toml` file exists.
+* Add more readable error messages in `snow object create` command.
 
 # v3.0.0
 
@@ -68,6 +69,7 @@
 * Fixed `snow git execute` with `/` in name of the branch.
 * `snow app` commands don't enforce ownership of the objects they manage, and rely on RBAC instead.
 * `snow app deploy` for package entity now allows operating on application packages created outside the CLI
+
 
 # v2.8.1
 ## Backward incompatibility
