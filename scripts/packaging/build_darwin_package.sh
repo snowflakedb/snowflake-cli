@@ -74,6 +74,8 @@ chmod +x $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
 
 tree -d $DIST_DIR
 
+security -v unlock-keychain -p $MAC_USERNAME_PASSWORD login.keychain-db
+
 loginfo "---------------------------------"
 security find-identity -v -p codesigning
 loginfo "---------------------------------"
