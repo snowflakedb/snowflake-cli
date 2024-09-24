@@ -77,38 +77,42 @@ class ObjectManager(SqlExecutionMixin):
     def create(self, object_type: str, object_data: Dict[str, Any]) -> str:
         rest = RestApi(self._conn)
         url = rest.determine_url_for_create_query(object_type=object_type)
-
         try:
             response = rest.send_rest_request(url=url, method="post", data=object_data)
-            return response["status"]
-        except BadRequest:
-            raise ClickException(
-                "400 bad request: Incorrect object definition (arguments misspelled or malformatted)."
-            )
-        except HTTPError as err:
-            # according to https://docs.snowflake.com/developer-guide/snowflake-rest-api/reference/
-            match err_code := err.response.status_code:
-                case 401:
-                    raise ClickException(
-                        "401 unauthorized: role you are using does not have permissions to create this object."
-                    )
-                # error 403 should be handled by connector
-                # error 404 is handled by logic above
-                # error 405 should not happen under assumption that "all listable objects can be created"
-                case 408:
-                    raise ClickException(
-                        "408 timeout: the request timed out and was not completed by the server."
-                    )
-                case 409:
-                    raise ClickException(
-                        "409 conflict: object you're trying to create already exists."
-                    )
-                # error 410 is a network maintenance debugging - should not happen to the user
-                case 429:
-                    raise ClickException(
-                        "429 too many requests. The number of requests hit the rate limit."
-                    )
-                case 500 | 503 | 504:
-                    raise ClickException(f"{err_code} internal server error.")
-                case _:
-                    raise
+        except Exception as err:
+            _handle_create_error_codes(err)
+        return response["status"]
+
+
+def _handle_create_error_codes(err: Exception) -> None:
+    # according to https://docs.snowflake.com/developer-guide/snowflake-rest-api/reference/
+    if isinstance(err, BadRequest):
+        raise ClickException(
+            "400 bad request: Incorrect object definition (arguments misspelled or malformatted)."
+        )
+    if isinstance(err, HTTPError):
+        match err_code := err.response.status_code:
+            case 401:
+                raise ClickException(
+                    "401 unauthorized: role you are using does not have permissions to create this object."
+                )
+            # error 403 should be handled by connector
+            # error 404 is handled by determine-url logic
+            # error 405 should not happen under assumption that "all listable objects can be created"
+            case 408:
+                raise ClickException(
+                    "408 timeout: the request timed out and was not completed by the server."
+                )
+            case 409:
+                raise ClickException(
+                    "409 conflict: object you're trying to create already exists."
+                )
+            # error 410 is a network maintenance debugging - should not happen to the user
+            case 429:
+                raise ClickException(
+                    "429 too many requests. The number of requests hit the rate limit."
+                )
+            case 500 | 503 | 504:
+                raise ClickException(f"{err_code} internal server error.")
+            case _:
+                raise err
