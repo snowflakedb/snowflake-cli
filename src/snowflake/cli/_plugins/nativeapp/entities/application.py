@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import time
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
-from typing import Callable, List, Literal, Optional, TypedDict
+from typing import Callable, Generator, List, Literal, Optional, TypedDict
 
 import typer
 from click import ClickException, UsageError
@@ -26,6 +28,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
+    NoEventTableForAccount,
 )
 from snowflake.cli._plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
@@ -62,8 +65,12 @@ from snowflake.cli.api.project.schemas.entities.common import (
     TargetField,
 )
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
-from snowflake.cli.api.project.util import append_test_resource_suffix, extract_schema
-from snowflake.connector import ProgrammingError
+from snowflake.cli.api.project.util import (
+    append_test_resource_suffix,
+    extract_schema,
+    unquote_identifier,
+)
+from snowflake.connector import DictCursor, ProgrammingError
 
 # Reasons why an `alter application ... upgrade` might fail
 UPGRADE_RESTRICTION_CODES = {
@@ -683,3 +690,181 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             return sql_executor.show_specific_object(
                 "applications", app_name, name_col=NAME_COL
             )
+
+    @classmethod
+    def get_events(
+        cls,
+        app_name: str,
+        package_name: str,
+        since: str | datetime | None = None,
+        until: str | datetime | None = None,
+        record_types: list[str] | None = None,
+        scopes: list[str] | None = None,
+        consumer_org: str = "",
+        consumer_account: str = "",
+        consumer_app_hash: str = "",
+        first: int = -1,
+        last: int = -1,
+    ):
+
+        record_types = record_types or []
+        scopes = scopes or []
+
+        if first >= 0 and last >= 0:
+            raise ValueError("first and last cannot be used together")
+
+        account_event_table = cls.get_account_event_table()
+        if not account_event_table:
+            raise NoEventTableForAccount()
+
+        # resource_attributes uses the unquoted/uppercase app and package name
+        app_name = unquote_identifier(app_name)
+        package_name = unquote_identifier(package_name)
+        org_name = unquote_identifier(consumer_org)
+        account_name = unquote_identifier(consumer_account)
+
+        # Filter on record attributes
+        if consumer_org and consumer_account:
+            # Look for events shared from a consumer account
+            app_clause = (
+                f"resource_attributes:\"snow.application.package.name\" = '{package_name}' "
+                f"and resource_attributes:\"snow.application.consumer.organization\" = '{org_name}' "
+                f"and resource_attributes:\"snow.application.consumer.name\" = '{account_name}'"
+            )
+            if consumer_app_hash:
+                # If the user has specified a hash of a specific app installation
+                # in the consumer account, filter events to that installation only
+                app_clause += f" and resource_attributes:\"snow.database.hash\" = '{consumer_app_hash.lower()}'"
+        else:
+            # Otherwise look for events from an app installed in the same account as the package
+            app_clause = f"resource_attributes:\"snow.database.name\" = '{app_name}'"
+
+        # Filter on event time
+        if isinstance(since, datetime):
+            since_clause = f"and timestamp >= '{since}'"
+        elif isinstance(since, str) and since:
+            since_clause = f"and timestamp >= sysdate() - interval '{since}'"
+        else:
+            since_clause = ""
+        if isinstance(until, datetime):
+            until_clause = f"and timestamp <= '{until}'"
+        elif isinstance(until, str) and until:
+            until_clause = f"and timestamp <= sysdate() - interval '{until}'"
+        else:
+            until_clause = ""
+
+        # Filter on event type (log, span, span_event)
+        type_in_values = ",".join(f"'{v}'" for v in record_types)
+        types_clause = (
+            f"and record_type in ({type_in_values})" if type_in_values else ""
+        )
+
+        # Filter on event scope (e.g. the logger name)
+        scope_in_values = ",".join(f"'{v}'" for v in scopes)
+        scopes_clause = (
+            f"and scope:name in ({scope_in_values})" if scope_in_values else ""
+        )
+
+        # Limit event count
+        first_clause = f"limit {first}" if first >= 0 else ""
+        last_clause = f"limit {last}" if last >= 0 else ""
+
+        query = dedent(
+            f"""\
+            select * from (
+                select timestamp, value::varchar value
+                from {account_event_table}
+                where ({app_clause})
+                {since_clause}
+                {until_clause}
+                {types_clause}
+                {scopes_clause}
+                order by timestamp desc
+                {last_clause}
+            ) order by timestamp asc
+            {first_clause}
+            """
+        )
+        sql_executor = get_sql_executor()
+        try:
+            return sql_executor.execute_query(query, cursor_class=DictCursor).fetchall()
+        except ProgrammingError as err:
+            generic_sql_error_handler(err)
+
+    @classmethod
+    def stream_events(
+        cls,
+        app_name: str,
+        package_name: str,
+        interval_seconds: int,
+        since: str | datetime | None = None,
+        record_types: list[str] | None = None,
+        scopes: list[str] | None = None,
+        consumer_org: str = "",
+        consumer_account: str = "",
+        consumer_app_hash: str = "",
+        last: int = -1,
+    ) -> Generator[dict, None, None]:
+        try:
+            events = cls.get_events(
+                app_name=app_name,
+                package_name=package_name,
+                since=since,
+                record_types=record_types,
+                scopes=scopes,
+                consumer_org=consumer_org,
+                consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
+                last=last,
+            )
+            yield from events  # Yield the initial batch of events
+            last_event_time = events[-1]["TIMESTAMP"] if events else None
+
+            while True:  # Then infinite poll for new events
+                time.sleep(interval_seconds)
+                previous_events = events
+                events = cls.get_events(
+                    app_name=app_name,
+                    package_name=package_name,
+                    since=last_event_time,
+                    record_types=record_types,
+                    scopes=scopes,
+                    consumer_org=consumer_org,
+                    consumer_account=consumer_account,
+                    consumer_app_hash=consumer_app_hash,
+                )
+                if not events:
+                    continue
+
+                yield from _new_events_only(previous_events, events)
+                last_event_time = events[-1]["TIMESTAMP"]
+        except KeyboardInterrupt:
+            return
+
+    @staticmethod
+    def get_account_event_table():
+        query = "show parameters like 'event_table' in account"
+        sql_executor = get_sql_executor()
+        results = sql_executor.execute_query(query, cursor_class=DictCursor)
+        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
+
+
+def _new_events_only(previous_events: list[dict], new_events: list[dict]) -> list[dict]:
+    # The timestamp that overlaps between both sets of events
+    overlap_time = new_events[0]["TIMESTAMP"]
+
+    # Remove all the events from the new result set
+    # if they were already printed. We iterate and remove
+    # instead of filtering in order to handle duplicates
+    # (i.e. if an event is present 3 times in new_events
+    # but only once in previous_events, it should still
+    # appear twice in new_events at the end
+    new_events = new_events.copy()
+    for event in reversed(previous_events):
+        if event["TIMESTAMP"] < overlap_time:
+            break
+        # No need to handle ValueError here since we know
+        # that events that pass the above if check will
+        # either be in both lists or in new_events only
+        new_events.remove(event)
+    return new_events
