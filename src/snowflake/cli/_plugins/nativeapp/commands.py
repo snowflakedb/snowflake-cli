@@ -22,16 +22,14 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
-from snowflake.cli._plugins.nativeapp.application_entity_model import (
-    ApplicationEntityModel,
-)
-from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
-    ApplicationPackageEntityModel,
-)
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
     ValidateOption,
+)
+from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.nativeapp.init import (
     OFFICIAL_TEMPLATES_GITHUB_URL,

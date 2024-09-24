@@ -19,9 +19,10 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.rest_api import CannotDetermineCreateURLException, RestApi
-from snowflake.connector.errors import InterfaceError
+from snowflake.connector.vendored.requests.exceptions import HTTPError
 
 _DUMMY_SERVER_URL = "https://DUMMY_SERVER_URL"
+_mock_error_404 = HTTPError(response=mock.MagicMock(status_code=404))
 
 
 @dataclass
@@ -74,13 +75,13 @@ def mock_rest_connection():
 
 
 @pytest.mark.parametrize(
-    "return_value,expected",
-    [([], True), (["an object"], True), ({"some": "data"}, True), ({}, False)],
+    "return_value",
+    [[], ["an object"], {"some": "data"}, {}],
 )
-def test_endpoint_exists(mock_rest_connection, return_value, expected):
+def test_endpoint_exists(mock_rest_connection, return_value):
     mock_rest_connection.setup(fetch_return_value=return_value)
     rest_api = RestApi(mock_rest_connection)
-    assert rest_api.get_endpoint_exists("/dummy_url") == expected
+    assert rest_api.get_endpoint_exists("/dummy_url")
     mock_rest_connection.assert_rest_fetch_calls_matches(
         [_RestApiCallMatch(url=f"{_DUMMY_SERVER_URL}/dummy_url", method="get")]
     )
@@ -89,7 +90,7 @@ def test_endpoint_exists(mock_rest_connection, return_value, expected):
 def test_endpoint_exists_handles_404(
     mock_rest_connection,
 ):
-    mock_rest_connection.setup(fetch_side_effects=[InterfaceError("404 Not Found")])
+    mock_rest_connection.setup(fetch_side_effects=[_mock_error_404])
     rest_api = RestApi(mock_rest_connection)
     assert not rest_api.get_endpoint_exists("/dummy_url")
     mock_rest_connection.assert_rest_fetch_calls_matches(
@@ -99,7 +100,7 @@ def test_endpoint_exists_handles_404(
 
 @pytest.mark.parametrize("number_of_fails", range(4))
 def test_determine_create_url(mock_rest_connection, number_of_fails):
-    fetch_side_effects = [InterfaceError("404 Not Found")] * number_of_fails + [[]]
+    fetch_side_effects = [_mock_error_404] * number_of_fails + [[]]
     mock_rest_connection.setup(fetch_side_effects=fetch_side_effects)
     mock_rest_connection.connection.database = "DB"
     mock_rest_connection.connection.schema = "SCHEMA"

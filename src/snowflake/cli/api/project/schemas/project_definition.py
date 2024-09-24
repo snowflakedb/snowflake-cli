@@ -19,9 +19,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
-from snowflake.cli._plugins.nativeapp.application_entity_model import (
-    ApplicationEntityModel,
-)
+from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import (
     TargetField,

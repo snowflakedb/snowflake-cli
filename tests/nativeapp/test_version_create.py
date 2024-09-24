@@ -19,10 +19,10 @@ from unittest import mock
 import pytest
 import typer
 from click import BadOptionUsage, ClickException
-from snowflake.cli._plugins.nativeapp.application_package_entity import (
+from snowflake.cli._plugins.nativeapp.constants import SPECIAL_COMMENT
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
 )
-from snowflake.cli._plugins.nativeapp.constants import SPECIAL_COMMENT
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
 )
