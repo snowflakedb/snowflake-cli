@@ -59,13 +59,12 @@ from tests.nativeapp.patch_utils import (
     mock_get_app_pkg_distribution_in_sf,
 )
 from tests.nativeapp.utils import (
+    APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
     APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
     ENTITIES_UTILS_MODULE,
-    NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE,
     NATIVEAPP_MANAGER_BUILD_BUNDLE,
     NATIVEAPP_MANAGER_DEPLOY,
-    NATIVEAPP_MANAGER_EXECUTE,
     NATIVEAPP_MODULE,
     SQL_EXECUTOR_EXECUTE,
     mock_execute_helper,
@@ -1343,7 +1342,7 @@ def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_account_event_table(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
@@ -1369,7 +1368,7 @@ def test_account_event_table(mock_execute, temp_dir, mock_cursor):
     assert native_app_manager.account_event_table == event_table
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
@@ -1470,11 +1469,10 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     ],
 )
 @mock.patch(
-    NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE,
+    APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
     return_value="db.schema.event_table",
-    new_callable=mock.PropertyMock,
 )
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_events(
     mock_execute,
     mock_account_event_table,
@@ -1556,11 +1554,10 @@ def test_get_events(
 
 
 @mock.patch(
-    NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE,
+    APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
     return_value="db.schema.event_table",
-    new_callable=mock.PropertyMock,
 )
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_events_quoted_app_name(
     mock_execute, mock_account_event_table, temp_dir, mock_cursor
 ):
@@ -1610,9 +1607,8 @@ def test_get_events_quoted_app_name(
 
 
 @mock.patch(
-    NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE,
+    APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
     return_value=None,
-    new_callable=mock.PropertyMock,
 )
 def test_get_events_no_event_table(mock_account_event_table, temp_dir, mock_cursor):
     create_named_file(
@@ -1627,11 +1623,10 @@ def test_get_events_no_event_table(mock_account_event_table, temp_dir, mock_curs
 
 
 @mock.patch(
-    NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE,
+    APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
     return_value="db.schema.event_table",
-    new_callable=mock.PropertyMock,
 )
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
