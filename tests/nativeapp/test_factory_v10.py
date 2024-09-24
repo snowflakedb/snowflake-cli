@@ -83,7 +83,7 @@ def test_pdf_and_local_yml(temp_dir):
         ],
     )
     PdfV10Factory.with_filename("snowflake.local.yml")(
-        pdf__native_app__name="myapp",
+        native_app__name="myapp",
     )
 
     assert Path(Path(temp_dir) / "snowflake.yml").exists()
