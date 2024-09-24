@@ -42,7 +42,7 @@ cat > $APP_NAME/Contents/Info.plist <<INFO_PLIST
     <key>CFBundleDisplayName</key>
     <string>SnowflakeCLI</string>
     <key>CFBundleIdentifier</key>
-    <string>com.snowflake.snowflake-cli</string>
+    <string>net.snowflake.snowflake-cli</string>
     <key>CFBundleVersion</key>
     <string>$CLI_VERSION</string>
     <key>CFBundleShortVersionString</key>
@@ -183,7 +183,7 @@ loginfo "---------------------------------"
 loginfo "Package build $DIST_DIR/snowflake-cli-${SYSTEM}.unsigned.pkg "
 loginfo "---------------------------------"
 pkgbuild \
-  --identifier com.snowflake.snowflake-cli \
+  --identifier net.snowflake.snowflake-cli \
   --install-location '/Applications' \
   --version $CLI_VERSION \
   --scripts $APP_SCRIPTS \
