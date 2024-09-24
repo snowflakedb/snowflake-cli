@@ -83,6 +83,7 @@ code_sign() {
   loginfo "---------------------------------"
   loginfo "Code signing $1"
   loginfo "---------------------------------"
+  ls -l $1
   codesign \
     --timestamp \
     --deep \
