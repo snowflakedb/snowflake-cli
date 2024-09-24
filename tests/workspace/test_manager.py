@@ -48,7 +48,7 @@ def _get_ws_manager(mock_connection, pdf_content=MOCK_SNOWFLAKE_YML_FILE):
 
 
 def test_pdf_not_v2(temp_dir):
-    pdfv1 = PdfV10Factory(
+    pdfv1 = PdfV10Factory.build(
         native_app__source_stage="app_src.stage",
         native_app__artifacts=[{"src": "app/*", "dest": "./"}],
     )

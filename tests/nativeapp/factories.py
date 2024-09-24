@@ -36,9 +36,13 @@ class FactoryNoEmptyDict(factory.DictFactory):
     """
 
     @classmethod
-    def _create(cls, *args, **kwargs):
+    def _build(cls, model_class, *args, **kwargs):
         if len(kwargs) == 0:
             return None
+        return super()._build(model_class, *args, **kwargs)
+
+    @classmethod
+    def _create(cls, *args, **kwargs):
         return cls._build(*args, **kwargs)
 
 
@@ -102,18 +106,22 @@ class NativeAppFactory(factory.DictFactory):
     application = factory.SubFactory(ApplicationFactory)
 
     @classmethod
-    def _create(cls, model_class, *args, **kwargs):
+    def _build(cls, model_class, *args, **kwargs):
         if kwargs["package"] is None:
             kwargs.pop("package")
         if kwargs["application"] is None:
             kwargs.pop("application")
+        return super()._build(model_class, *args, **kwargs)
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
         return cls._build(model_class, *args, **kwargs)
 
 
 @dataclass
 class PdfFactoryResult:
     yml: dict
-    path: Path
+    path: Path = Path()
 
     def __str__(self):
         return json.dumps(self.yml)
@@ -159,19 +167,20 @@ class PdfV10Factory(factory.DictFactory):
     def _build(cls, model_class, *args, **kwargs):
         if kwargs["env"] is None:
             kwargs.pop("env")
-        return super()._build(model_class, *args, **kwargs)
+        yml = super()._build(model_class, *args, **kwargs)
+        return PdfFactoryResult(yml=yml)
 
     @classmethod
     def _create(cls, model_class, *args, **kwargs) -> PdfFactoryResult:
         temp_dir = os.getcwd()
 
-        yml = cls._build(model_class, *args, **kwargs)
+        res = cls._build(model_class, *args, **kwargs)
 
         with open(Path(temp_dir) / cls._filename, "w") as file:
-            yaml.dump(yml, file)
+            yaml.dump(res.yml, file)
 
         return PdfFactoryResult(
-            yml=yml,
+            yml=res.yml,
             path=Path(temp_dir) / cls._filename,
         )
 
