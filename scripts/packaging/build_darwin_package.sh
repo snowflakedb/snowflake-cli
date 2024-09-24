@@ -63,7 +63,7 @@ cat >$APP_NAME/Contents/Info.plist <<INFO_PLIST
 </plist>
 INFO_PLIST
 
-cp -r $DIST_DIR/snow $APP_NAME/Contents/MacOS/snow
+cp -r $DIST_DIR/snow/* $APP_NAME/Contents/MacOS/
 cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns $APP_NAME/Contents/Resources/SnowflakeCLI.icns
 cp -r $PACKAGING_DIR/macos/SnowflakeCLI.bash $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
 chmod +x $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
@@ -170,7 +170,7 @@ POSTINSTALL
 
 ls -l $DIST_DIR
 
-chmod +x $DIST_DIR/scripts/postinstall
+chmod +x $APP_SCRIPTS/postinstall
 loginfo "---------------------------------"
 loginfo "Package build $DIST_DIR/snowflake-cli-${SYSTEM}.unsigned.pkg "
 loginfo "---------------------------------"
