@@ -19,10 +19,8 @@ from typing import Any, Dict, List, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
+from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
 from snowflake.cli.api.project.errors import SchemaValidationError
-from snowflake.cli.api.project.schemas.entities.application_entity_model import (
-    ApplicationEntityModel,
-)
 from snowflake.cli.api.project.schemas.entities.common import (
     TargetField,
 )
@@ -30,13 +28,13 @@ from snowflake.cli.api.project.schemas.entities.entities import (
     EntityModel,
     v2_entity_model_types_map,
 )
-from snowflake.cli.api.project.schemas.native_app.native_app import (
+from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
+from snowflake.cli.api.project.schemas.v1.native_app.native_app import (
     NativeApp,
     NativeAppV11,
 )
-from snowflake.cli.api.project.schemas.snowpark.snowpark import Snowpark
-from snowflake.cli.api.project.schemas.streamlit.streamlit import Streamlit
-from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
+from snowflake.cli.api.project.schemas.v1.snowpark.snowpark import Snowpark
+from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
 from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
 
@@ -60,6 +58,11 @@ class ProjectProperties:
 
     project_definition: ProjectDefinition
     project_context: Context
+
+
+@dataclass
+class YamlOverride:
+    data: dict | list
 
 
 class _ProjectDefinitionBase(UpdatableModel):
@@ -196,7 +199,11 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     @classmethod
     def _merge_mixins_with_entity(
-        cls, entity_id: str, entity: dict, entity_mixins_names: list, mixin_defs: dict
+        cls,
+        entity_id: str,
+        entity: dict,
+        entity_mixins_names: list,
+        mixin_defs: dict,
     ) -> dict:
         # Validate mixins
         for mixin_name in entity_mixins_names:
@@ -215,8 +222,10 @@ class DefinitionV20(_ProjectDefinitionBase):
                 )
 
             entity_value = entity.get(key)
-            if entity_value is not None and not isinstance(
-                entity_value, type(override_value)
+            if (
+                entity_value is not None
+                and not isinstance(entity_value, YamlOverride)
+                and not isinstance(entity_value, type(override_value))
             ):
                 raise ValueError(
                     f"Value from mixins for property {key} is of type '{type(override_value).__name__}' "
@@ -231,13 +240,16 @@ class DefinitionV20(_ProjectDefinitionBase):
     def _merge_data(
         cls,
         left: dict | list | scalar | None,
-        right: dict | list | scalar | None,
+        right: dict | list | scalar | None | YamlOverride,
     ):
         """
         Merges right data into left. Right and left is expected to be of the same type, if not right is returned.
         If left is sequence then missing elements from right are appended.
         If left is dictionary then we update it with data from right. The update is done recursively key by key.
         """
+        if isinstance(right, YamlOverride):
+            return right.data
+
         if left is None:
             return right
 
@@ -300,6 +312,9 @@ def get_allowed_fields_for_entity(entity: Dict[str, Any]) -> List[str]:
     Get the allowed fields for the given entity.
     """
     entity_type = entity.get("type")
+    if entity_type is None:
+        raise ValueError("Entity is missing type declaration.")
+
     if entity_type not in v2_entity_model_types_map:
         return []
 

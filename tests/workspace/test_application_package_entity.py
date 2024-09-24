@@ -21,13 +21,11 @@ from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
 )
-from snowflake.cli._plugins.workspace.action_context import ActionContext
-from snowflake.cli.api.entities.application_package_entity import (
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
-)
-from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
     ApplicationPackageEntityModel,
 )
+from snowflake.cli._plugins.workspace.action_context import ActionContext
 from snowflake.cli.api.project.schemas.entities.common import SqlScriptHookType
 from snowflake.connector.cursor import DictCursor
 
@@ -52,6 +50,7 @@ def _get_app_pkg_entity(project_directory):
                 project_root=project_root,
                 default_role="app_role",
                 default_warehouse="wh",
+                get_entity=lambda *args: None,
             )
             return ApplicationPackageEntity(model), action_ctx, mock_console
 
@@ -82,8 +81,8 @@ def test_deploy(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (
@@ -105,8 +104,8 @@ def test_deploy(
             ),
             (None, mock.call("use role old_role")),
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (
@@ -122,8 +121,8 @@ def test_deploy(
             ),
             (None, mock.call("use role old_role")),
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (None, mock.call("use role old_role")),
@@ -134,7 +133,13 @@ def test_deploy(
     app_pkg, bundle_ctx, mock_console = _get_app_pkg_entity(project_directory)
 
     app_pkg.action_deploy(
-        bundle_ctx, prune=False, recursive=False, paths=["a/b", "c"], validate=True
+        bundle_ctx,
+        prune=False,
+        recursive=False,
+        paths=["a/b", "c"],
+        validate=True,
+        interactive=False,
+        force=False,
     )
 
     mock_sync.assert_called_once_with(
@@ -161,4 +166,27 @@ def test_deploy(
         package_name="pkg",
         package_warehouse="wh",
     )
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_version_list(mock_execute, mock_cursor):
+    package_role = "package_role"
+    package_name = "test_pkg"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (None, mock.call(f"use role {package_role}")),
+            (
+                mock_cursor([], []),
+                mock.call(f"show versions in application package {package_name}"),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+    ApplicationPackageEntity.version_list(package_name, package_role)
     assert mock_execute.mock_calls == expected

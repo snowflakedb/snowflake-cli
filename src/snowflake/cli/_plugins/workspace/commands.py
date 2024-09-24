@@ -20,57 +20,27 @@ from textwrap import dedent
 from typing import List, Optional
 
 import typer
-import yaml
+from click import MissingParameter
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
+    InteractiveOption,
     ValidateOption,
 )
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
-from snowflake.cli.api.commands.snow_typer import SnowTyper
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import IncompatibleParametersError
-from snowflake.cli.api.output.types import MessageResult
-from snowflake.cli.api.project.definition_conversion import (
-    convert_project_definition_to_v2,
-)
-from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.output.types import MessageResult, QueryResult
 
-ws = SnowTyper(
+ws = SnowTyperFactory(
     name="ws",
     help="Deploy and interact with snowflake.yml-based entities.",
+    is_hidden=lambda: True,
 )
 log = logging.getLogger(__name__)
-
-
-@ws.command()
-def migrate(
-    accept_templates: bool = typer.Option(
-        False, "-t", "--accept-templates", help="Allows the migration of templates."
-    ),
-    **options,
-):
-    """Migrates the Snowpark, Streamlit, and Native App project definition files from V1 to V2."""
-    manager = DefinitionManager()
-    pd = manager.unrendered_project_definition
-
-    if pd.meets_version_requirement("2"):
-        return MessageResult("Project definition is already at version 2.")
-
-    pd_v2 = convert_project_definition_to_v2(manager.project_root, pd, accept_templates)
-
-    SecurePath("snowflake.yml").rename("snowflake_V1.yml")
-    with open("snowflake.yml", "w") as file:
-        yaml.dump(
-            pd_v2.model_dump(
-                exclude_unset=True, exclude_none=True, mode="json", by_alias=True
-            ),
-            file,
-        )
-    return MessageResult("Project definition migrated to version 2.")
 
 
 @ws.command(requires_connection=True, hidden=True)
@@ -123,6 +93,15 @@ def deploy(
             unspecified, the command syncs all local changes to the stage."""
         ).strip(),
     ),
+    from_release_directive: Optional[bool] = typer.Option(
+        False,
+        "--from-release-directive",
+        help=f"""Creates or upgrades an application object to the version and patch specified by the release directive applicable to your Snowflake account.
+        The command fails if no release directive exists for your Snowflake account for a given application package, which is determined from the project definition file. Default: unset.""",
+        is_flag=True,
+    ),
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
     validate: bool = ValidateOption,
     **options,
 ):
@@ -154,6 +133,9 @@ def deploy(
         recursive=recursive,
         paths=paths,
         validate=validate,
+        from_release_directive=from_release_directive,
+        interactive=interactive,
+        force=force,
     )
     return MessageResult("Deployed successfully.")
 
@@ -165,7 +147,13 @@ def drop(
         help=f"""The ID of the entity you want to drop.""",
     ),
     # TODO The following options should be generated automatically, depending on the specified entity type
+    interactive: bool = InteractiveOption,
     force: Optional[bool] = ForceOption,
+    cascade: Optional[bool] = typer.Option(
+        None,
+        help=f"""Whether to drop all application objects owned by the application within the account. Default: false.""",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -181,6 +169,8 @@ def drop(
         entity_id,
         EntityActions.DROP,
         force_drop=force,
+        interactive=interactive,
+        cascade=cascade,
     )
 
 
@@ -190,6 +180,8 @@ def validate(
     entity_id: str = typer.Option(
         help=f"""The ID of the entity you want to validate.""",
     ),
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
     **options,
 ):
     """Validates the specified entity."""
@@ -202,4 +194,113 @@ def validate(
     ws.perform_action(
         entity_id,
         EntityActions.VALIDATE,
+        interactive=interactive,
+        force=force,
+    )
+
+
+version = SnowTyperFactory(
+    name="version",
+    help="Manages versions for project entities.",
+)
+ws.add_typer(version)
+
+
+@version.command(name="list", requires_connection=True, hidden=True)
+@with_project_definition()
+def version_list(
+    entity_id: str = typer.Option(
+        help="The ID of the entity you want to list versions for.",
+    ),
+    **options,
+):
+    """Lists the versions of the specified entity."""
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    cursor = ws.perform_action(
+        entity_id,
+        EntityActions.VERSION_LIST,
+    )
+    return QueryResult(cursor)
+
+
+@version.command(name="create", requires_connection=True, hidden=True)
+@with_project_definition()
+def version_create(
+    entity_id: str = typer.Option(
+        help="The ID of the entity you want to create a version for.",
+    ),
+    version: Optional[str] = typer.Argument(
+        None,
+        help=f"""Version to define in your application package. If the version already exists, an auto-incremented patch is added to the version instead. Defaults to the version specified in the `manifest.yml` file.""",
+    ),
+    patch: Optional[int] = typer.Option(
+        None,
+        "--patch",
+        help=f"""The patch number you want to create for an existing version.
+        Defaults to undefined if it is not set, which means the Snowflake CLI either uses the patch specified in the `manifest.yml` file or automatically generates a new patch number.""",
+    ),
+    skip_git_check: Optional[bool] = typer.Option(
+        False,
+        "--skip-git-check",
+        help="When enabled, the Snowflake CLI skips checking if your project has any untracked or stages files in git. Default: unset.",
+        is_flag=True,
+    ),
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
+    **options,
+):
+    """Creates a new version for the specified entity."""
+    if version is None and patch is not None:
+        raise MissingParameter("Cannot provide a patch without version!")
+
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    ws.perform_action(
+        entity_id,
+        EntityActions.VERSION_CREATE,
+        version=version,
+        patch=patch,
+        skip_git_check=skip_git_check,
+        interactive=interactive,
+        force=force,
+    )
+
+
+@version.command(name="drop", requires_connection=True, hidden=True)
+@with_project_definition()
+def version_drop(
+    entity_id: str = typer.Option(
+        help="The ID of the entity you want to create a version for.",
+    ),
+    version: Optional[str] = typer.Argument(
+        None,
+        help=f"""Version to define in your application package. If the version already exists, an auto-incremented patch is added to the version instead. Defaults to the version specified in the `manifest.yml` file.""",
+    ),
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
+    **options,
+):
+    """
+    Drops a version defined for your entity. Versions can either be passed in as an argument to the command or read from the `manifest.yml` file.
+    Dropping patches is not allowed.
+    """
+
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    ws.perform_action(
+        entity_id,
+        EntityActions.VERSION_CREATE,
+        version=version,
+        interactive=interactive,
+        force=force,
     )

@@ -12,3 +12,8 @@ entities:
       post_deploy:
         - sql_script: package/001-shared.sql
         - sql_script: package/002-shared.sql
+  app:
+    type: application
+    identifier: integration_<% ctx.env.USER %>
+    from:
+      target: pkg

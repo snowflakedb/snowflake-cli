@@ -16,24 +16,27 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import Generator, List, Optional, TypedDict
+from typing import Generator, List, Optional
 
-from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
 )
-from snowflake.cli._plugins.nativeapp.constants import (
-    NAME_COL,
+from snowflake.cli._plugins.nativeapp.entities.application import (
+    ApplicationEntity,
+    ApplicationOwnedObject,
+)
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntity,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
     NoEventTableForAccount,
 )
+from snowflake.cli._plugins.nativeapp.policy import AllowAlwaysPolicy, PolicyBase
 from snowflake.cli._plugins.nativeapp.project_model import (
     NativeAppProjectModel,
 )
@@ -41,25 +44,20 @@ from snowflake.cli._plugins.stage.diff import (
     DiffResult,
 )
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.application_package_entity import (
-    ApplicationPackageEntity,
-)
 from snowflake.cli.api.entities.utils import (
     execute_post_deploy_hooks,
     generic_sql_error_handler,
     sync_deploy_root_with_stage,
 )
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
-from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
-from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     identifier_for_url,
     unquote_identifier,
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import DictCursor, ProgrammingError
-
-ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
 
 class NativeAppCommandProcessor(ABC):
@@ -137,20 +135,8 @@ class NativeAppManager(SqlExecutionMixin):
     def application_warehouse(self) -> Optional[str]:
         return self.na_project.application_warehouse
 
-    @contextmanager
     def use_application_warehouse(self):
-        if self.application_warehouse:
-            with self.use_warehouse(self.application_warehouse):
-                yield
-        else:
-            raise ClickException(
-                dedent(
-                    f"""\
-                Application warehouse cannot be empty.
-                Please provide a value for it in your connection information or your project definition file.
-                """
-                )
-            )
+        return ApplicationEntity.use_application_warehouse(self.application_warehouse)
 
     @property
     def project_identifier(self) -> str:
@@ -249,14 +235,10 @@ class NativeAppManager(SqlExecutionMixin):
         )
 
     def get_existing_app_info(self) -> Optional[dict]:
-        """
-        Check for an existing application object by the same name as in project definition, in account.
-        It executes a 'show applications like' query and returns the result as single row, if one exists.
-        """
-        with self.use_role(self.app_role):
-            return self.show_specific_object(
-                "applications", self.app_name, name_col=NAME_COL
-            )
+        return ApplicationEntity.get_existing_app_info(
+            app_name=self.app_name,
+            app_role=self.app_role,
+        )
 
     def get_existing_app_pkg_info(self) -> Optional[dict]:
         return ApplicationPackageEntity.get_existing_app_pkg_info(
@@ -264,32 +246,19 @@ class NativeAppManager(SqlExecutionMixin):
             package_role=self.package_role,
         )
 
-    def get_objects_owned_by_application(self) -> List[ApplicationOwnedObject]:
-        """
-        Returns all application objects owned by this application.
-        """
-        with self.use_role(self.app_role):
-            results = self._execute_query(
-                f"show objects owned by application {self.app_name}"
-            ).fetchall()
-            return [{"name": row[1], "type": row[2]} for row in results]
+    def get_objects_owned_by_application(self):
+        return ApplicationEntity.get_objects_owned_by_application(
+            app_name=self.app_name,
+            app_role=self.app_role,
+        )
 
     def _application_objects_to_str(
         self, application_objects: list[ApplicationOwnedObject]
     ) -> str:
-        """
-        Returns a list in an "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
-        (COMPUTE_POOL) POOL_NAME
-        (DATABASE) DB_NAME
-        (SCHEMA) DB_NAME.PUBLIC
-        ...
-        """
-        return "\n".join(
-            [self._application_object_to_str(obj) for obj in application_objects]
-        )
+        return ApplicationEntity.application_objects_to_str(application_objects)
 
-    def _application_object_to_str(self, obj: ApplicationOwnedObject) -> str:
-        return f"({obj['type']}) {obj['name']}"
+    def _application_object_to_str(self, obj: ApplicationOwnedObject):
+        return ApplicationEntity.application_object_to_str(obj)
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
@@ -338,40 +307,34 @@ class NativeAppManager(SqlExecutionMixin):
         bundle_map: BundleMap,
         prune: bool,
         recursive: bool,
+        policy: PolicyBase,
         stage_fqn: Optional[str] = None,
         local_paths_to_sync: List[Path] | None = None,
         validate: bool = True,
         print_diff: bool = True,
     ) -> DiffResult:
-        """app deploy process"""
-
-        # 1. Create an empty application package, if none exists
-        self.create_app_package()
-
-        with self.use_role(self.package_role):
-            # 2. now that the application package exists, create shared data
-            self._apply_package_scripts()
-
-            # 3. Upload files from deploy root local folder to the above stage
-            stage_fqn = stage_fqn or self.stage_fqn
-            diff = self.sync_deploy_root_with_stage(
-                bundle_map=bundle_map,
-                role=self.package_role,
-                prune=prune,
-                recursive=recursive,
-                stage_fqn=stage_fqn,
-                local_paths_to_sync=local_paths_to_sync,
-                print_diff=print_diff,
-            )
-
-            # 4. Execute post-deploy hooks
-            with self.use_package_warehouse():
-                self.execute_package_post_deploy_hooks()
-
-        if validate:
-            self.validate(use_scratch_stage=False)
-
-        return diff
+        return ApplicationPackageEntity.deploy(
+            console=cc,
+            project_root=self.project_root,
+            deploy_root=self.deploy_root,
+            bundle_root=self.bundle_root,
+            generated_root=self.generated_root,
+            artifacts=self.artifacts,
+            bundle_map=bundle_map,
+            package_name=self.package_name,
+            package_role=self.package_role,
+            package_distribution=self.package_distribution,
+            prune=prune,
+            recursive=recursive,
+            paths=local_paths_to_sync,
+            print_diff=print_diff,
+            validate=validate,
+            stage_fqn=stage_fqn or self.stage_fqn,
+            package_warehouse=self.package_warehouse,
+            post_deploy_hooks=self.package_post_deploy_hooks,
+            package_scripts=self.package_scripts,
+            policy=policy,
+        )
 
     def deploy_to_scratch_stage_fn(self):
         bundle_map = self.build_bundle()
@@ -382,6 +345,7 @@ class NativeAppManager(SqlExecutionMixin):
             stage_fqn=self.scratch_stage_fqn,
             validate=False,
             print_diff=False,
+            policy=AllowAlwaysPolicy(),
         )
 
     def validate(self, use_scratch_stage: bool = False):

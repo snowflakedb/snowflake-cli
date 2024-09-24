@@ -774,6 +774,7 @@
         'utils/utils.py',
         'extra_file.py',
       ]),
+      'comment': None,
       'database': None,
       'env_file': 'environment.yml',
       'main_file': 'streamlit_app.py',

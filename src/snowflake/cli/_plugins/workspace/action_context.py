@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from snowflake.cli.api.console.abc import AbstractConsole
 
@@ -15,3 +15,4 @@ class ActionContext:
     project_root: Path
     default_role: str
     default_warehouse: Optional[str]
+    get_entity: Callable

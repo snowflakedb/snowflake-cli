@@ -19,7 +19,7 @@ import snowflake.cli._plugins.nativeapp.codegen.snowpark.extension_function_util
 from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
     NativeAppExtensionFunction,
 )
-from snowflake.cli.api.project.schemas.snowpark.argument import Argument
+from snowflake.cli.api.project.schemas.v1.snowpark.argument import Argument
 
 
 @pytest.mark.parametrize(

@@ -64,6 +64,7 @@ class WorkspaceManager:
                 project_root=self.project_root(),
                 default_role=self._default_role,
                 default_warehouse=self.default_warehouse,
+                get_entity=self.get_entity,
             )
             return entity.perform(action, action_ctx, *args, **kwargs)
         else:

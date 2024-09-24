@@ -36,20 +36,19 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
     NoEventTableForAccount,
     SetupScriptFailedValidation,
-    UnexpectedOwnerError,
 )
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppManager,
 )
+from snowflake.cli._plugins.nativeapp.policy import AllowAlwaysPolicy
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePath,
 )
-from snowflake.cli.api.entities.utils import (
-    _get_stage_paths_to_sync,
-    ensure_correct_owner,
+from snowflake.cli.api.entities.utils import _get_stage_paths_to_sync
+from snowflake.cli.api.errno import (
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
 )
-from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
@@ -109,7 +108,7 @@ def test_sync_deploy_root_with_stage(
     temp_dir,
     mock_cursor,
 ):
-    mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
     mock_diff_result = DiffResult(different=[StagePath("setup.sql")])
     mock_compute_stage_diff.return_value = mock_diff_result
     mock_local_diff_with_stage.return_value = None
@@ -132,7 +131,7 @@ def test_sync_deploy_root_with_stage(
     )
 
     expected = [
-        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("select current_role()"),
         mock.call("use role new_role"),
         mock.call(f"create schema if not exists app_pkg.app_src"),
         mock.call(
@@ -218,8 +217,8 @@ def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_curs
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -259,8 +258,8 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -297,8 +296,8 @@ def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (mock_cursor([], []), mock.call("describe application package app_pkg")),
@@ -329,8 +328,8 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -437,13 +436,13 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
     )
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (
@@ -479,13 +478,13 @@ def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (
@@ -515,8 +514,8 @@ def test_get_existing_app_pkg_info_app_pkg_exists(mock_execute, temp_dir, mock_c
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -562,8 +561,8 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -596,7 +595,7 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
 @mock.patch("snowflake.cli._plugins.connection.util.get_context")
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
     "warehouse, fallback_warehouse_call, fallback_side_effect",
@@ -640,8 +639,8 @@ def test_get_snowsight_url_with_pdf_warehouse(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_WAREHOUSE()": warehouse}], []),
-                mock.call("select current_warehouse()", cursor_class=DictCursor),
+                mock_cursor([(warehouse,)], []),
+                mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
         ]
@@ -661,7 +660,7 @@ def test_get_snowsight_url_with_pdf_warehouse(
 @mock.patch("snowflake.cli._plugins.connection.util.get_context")
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize(
     "project_definition_files, warehouse, expected_calls, fallback_side_effect",
@@ -669,7 +668,7 @@ def test_get_snowsight_url_with_pdf_warehouse(
         (
             "napp_project_1",
             "MockWarehouse",
-            [mock.call("select current_warehouse()", cursor_class=DictCursor)],
+            [mock.call("select current_warehouse()")],
             [None],
         ),
         (
@@ -701,7 +700,7 @@ def test_get_snowsight_url_without_pdf_warehouse(
     working_dir: Path = project_definition_files[0].parent
 
     mock_execute_query.side_effect = [
-        mock_cursor([{"CURRENT_WAREHOUSE()": warehouse}], [])
+        mock_cursor([(warehouse,)], [])
     ] + fallback_side_effect
 
     native_app_manager = _get_na_manager(str(working_dir))
@@ -718,20 +717,6 @@ def test_get_snowsight_url_without_pdf_warehouse(
     assert mock_execute_query.mock_calls == expected_calls
 
 
-def test_ensure_correct_owner():
-    test_row = {"name": "some_name", "owner": "some_role", "comment": "some_comment"}
-    assert (
-        ensure_correct_owner(row=test_row, role="some_role", obj_name="some_name")
-        is None
-    )
-
-
-def test_is_correct_owner_bad_owner():
-    test_row = {"name": "some_name", "owner": "wrong_role", "comment": "some_comment"}
-    with pytest.raises(UnexpectedOwnerError):
-        ensure_correct_owner(row=test_row, role="right_role", obj_name="some_name")
-
-
 # Test create_app_package() with no existing package available
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO, return_value=None)
@@ -741,8 +726,8 @@ def test_create_app_pkg_no_existing_package(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -775,15 +760,27 @@ def test_create_app_pkg_no_existing_package(
     mock_get_existing_app_pkg_info.assert_called_once()
 
 
-# Test create_app_package() with incorrect owner
+# Test create_app_package() with a different owner
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
-def test_create_app_pkg_incorrect_owner(mock_get_existing_app_pkg_info, temp_dir):
+@mock_get_app_pkg_distribution_in_sf()
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME, return_value=True)
+def test_create_app_pkg_different_owner(
+    mock_is_distribution_same,
+    mock_get_distribution,
+    mock_get_existing_app_pkg_info,
+    mock_execute,
+    temp_dir,
+    mock_cursor,
+):
     mock_get_existing_app_pkg_info.return_value = {
         "name": "APP_PKG",
         "comment": SPECIAL_COMMENT,
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "wrong_owner",
+        "distribution": "internal",
     }
+    mock_get_distribution.return_value = "internal"
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -792,9 +789,12 @@ def test_create_app_pkg_incorrect_owner(mock_get_existing_app_pkg_info, temp_dir
         contents=[mock_snowflake_yml_file],
     )
 
-    with pytest.raises(UnexpectedOwnerError):
-        native_app_manager = _get_na_manager()
-        native_app_manager.create_app_package()
+    native_app_manager = _get_na_manager()
+    # Invoke create when the package already exists, but the owner is the current role.
+    # This is expected to succeed with no warnings.
+    native_app_manager.create_app_package()
+
+    mock_execute.assert_not_called()
 
 
 # Test create_app_package() with distribution external AND variable mismatch
@@ -926,6 +926,40 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
         mock_warning.assert_called_once_with(
             "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
         )
+
+
+# Test create_app_package() with existing package without special comment
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
+@mock_get_app_pkg_distribution_in_sf()
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_existing_app_pkg_without_special_comment(
+    mock_execute,
+    mock_get_existing_app_pkg_info,
+    mock_get_distribution,
+    mock_is_distribution_same,
+    temp_dir,
+    mock_cursor,
+):
+    mock_get_existing_app_pkg_info.return_value = {
+        "name": "APP_PKG",
+        "comment": "NOT_SPECIAL_COMMENT",
+        "version": LOOSE_FILES_MAGIC_VERSION,
+        "owner": "package_role",
+    }
+    mock_get_distribution.return_value = "internal"
+    mock_is_distribution_same.return_value = True
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file],
+    )
+
+    native_app_manager = _get_na_manager()
+    with pytest.raises(ApplicationPackageAlreadyExistsError):
+        native_app_manager.create_app_package()
 
 
 @pytest.mark.parametrize(
@@ -1162,8 +1196,8 @@ def test_validate_use_scratch_stage(
                 ),
             ),
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -1188,6 +1222,7 @@ def test_validate_use_scratch_stage(
         stage_fqn=native_app_manager.scratch_stage_fqn,
         validate=False,
         print_diff=False,
+        policy=AllowAlwaysPolicy(),
     )
     assert mock_execute.mock_calls == expected
 
@@ -1224,8 +1259,8 @@ def test_validate_failing_drops_scratch_stage(
                 ),
             ),
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -1254,6 +1289,7 @@ def test_validate_failing_drops_scratch_stage(
         stage_fqn=native_app_manager.scratch_stage_fqn,
         validate=False,
         print_diff=False,
+        policy=AllowAlwaysPolicy(),
     )
     assert mock_execute.mock_calls == expected
 
@@ -1701,61 +1737,3 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
         pass
     else:
         pytest.fail("stream_events didn't end when receiving a KeyboardInterrupt")
-
-
-@mock.patch.object(NativeAppManager, "validate")
-@mock.patch.object(NativeAppManager, "execute_package_post_deploy_hooks")
-@mock.patch.object(NativeAppManager, "sync_deploy_root_with_stage")
-@mock.patch.object(NativeAppManager, "_apply_package_scripts")
-@mock.patch.object(NativeAppManager, "create_app_package")
-@mock.patch.object(NativeAppManager, "use_role")
-@mock.patch.object(NativeAppManager, "use_package_warehouse")
-def test_deploy_with_package_post_deploy_hook(
-    mock_use_package_warehouse,
-    mock_use_role,
-    mock_create_app_package,
-    mock_apply_package_scripts,
-    mock_sync_deploy_root_with_stage,
-    mock_execute_package_post_deploy_hooks,
-    mock_validate,
-    temp_dir,
-):
-    # Setup
-    mock_diff_result = DiffResult(different=[StagePath("setup.sql")])
-    mock_sync_deploy_root_with_stage.return_value = mock_diff_result
-
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
-    )
-
-    # Create NativeAppManager instance
-    manager = _get_na_manager(temp_dir)
-
-    mock_bundle_map = mock.Mock(spec=BundleMap)
-    # Test with default parameters
-    result = manager.deploy(
-        bundle_map=mock_bundle_map,
-        prune=True,
-        recursive=True,
-    )
-
-    # Assertions
-    mock_create_app_package.assert_called_once()
-    mock_use_package_warehouse.assert_called_once()
-    mock_use_role.assert_called_once_with(manager.package_role)
-    mock_apply_package_scripts.assert_called_once()
-    mock_sync_deploy_root_with_stage.assert_called_once_with(
-        bundle_map=mock_bundle_map,
-        role=manager.package_role,
-        prune=True,
-        recursive=True,
-        stage_fqn=manager.stage_fqn,
-        local_paths_to_sync=None,
-        print_diff=True,
-    )
-    mock_execute_package_post_deploy_hooks.assert_called_once()
-    mock_validate.assert_called_once_with(use_scratch_stage=False)
-    assert result == mock_diff_result

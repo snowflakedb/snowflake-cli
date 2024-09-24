@@ -13,6 +13,8 @@
 # limitations under the License.
 from shlex import split
 
+import yaml
+
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
     contains_row_with,
@@ -22,27 +24,65 @@ from tests_integration.test_utils import (
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize("orphan_app", [True, False])
 @pytest.mark.parametrize(
-    "command,expected_error",
+    "test_project,command,expected_error",
     [
-        # "snow app teardown --cascade" should drop both application and application objects
-        ["app teardown --cascade", None],
-        # "snow app teardown --force --no-cascade" should attempt to drop the application and fail
+        # "--cascade" should drop both application and application objects
         [
+            "napp_create_db_v1",
+            "app teardown --cascade",
+            None,
+        ],
+        [
+            "napp_create_db_v2",
+            "app teardown --cascade",
+            None,
+        ],
+        [
+            "napp_create_db_v2",
+            "ws drop --entity-id=app --cascade",
+            None,
+        ],
+        # "--force --no-cascade" should attempt to drop the application and fail
+        [
+            "napp_create_db_v1",
             "app teardown --force --no-cascade",
             "Could not successfully execute the Snowflake SQL statements",
         ],
-        # "snow app teardown" with owned application objects should abort the teardown
-        ["app teardown", "Aborted"],
+        [
+            "napp_create_db_v2",
+            "app teardown --force --no-cascade",
+            "Could not successfully execute the Snowflake SQL statements",
+        ],
+        [
+            "napp_create_db_v2",
+            "ws drop --entity-id=app --force --no-cascade",
+            "Could not successfully execute the Snowflake SQL statements",
+        ],
+        # teardown/drop with owned application objects should abort the teardown
+        [
+            "napp_create_db_v1",
+            "app teardown",
+            "Aborted",
+        ],
+        [
+            "napp_create_db_v2",
+            "app teardown",
+            "Aborted",
+        ],
+        [
+            "napp_create_db_v2",
+            "ws drop --entity-id=app",
+            "Aborted",
+        ],
     ],
 )
-@pytest.mark.parametrize("orphan_app", [True, False])
-@pytest.mark.parametrize("test_project", ["napp_create_db_v1", "napp_create_db_v2"])
 def test_nativeapp_teardown_cascade(
-    command,
-    expected_error,
     orphan_app,
     test_project,
+    command,
+    expected_error,
     nativeapp_project_directory,
     runner,
     snowflake_session,
@@ -131,12 +171,20 @@ def test_nativeapp_teardown_cascade(
 
 @pytest.mark.integration
 @pytest.mark.parametrize("force", [True, False])
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app teardown", "napp_init_v1"],
+        ["app teardown", "napp_init_v2"],
+        ["ws drop --entity-id=app", "napp_init_v2"],
+    ],
+)
 def test_nativeapp_teardown_unowned_app(
     runner,
     default_username,
     resource_suffix,
     force,
+    command,
     test_project,
     nativeapp_project_directory,
 ):
@@ -152,10 +200,10 @@ def test_nativeapp_teardown_unowned_app(
         assert result.exit_code == 0
 
         if force:
-            result = runner.invoke_with_connection_json(["app", "teardown", "--force"])
+            result = runner.invoke_with_connection_json([*split(command), "--force"])
             assert result.exit_code == 0
         else:
-            result = runner.invoke_with_connection_json(["app", "teardown"])
+            result = runner.invoke_with_connection_json(split(command))
             assert result.exit_code == 1
 
 
@@ -215,3 +263,122 @@ def test_nativeapp_teardown_pkg_versions(
         # either way, we can now tear down the application package
         result = runner.invoke_with_connection(split(command) + teardown_args)
         assert result.exit_code == 0
+
+
+def test_nativeapp_teardown_multiple_apps_using_snow_app(
+    runner,
+    nativeapp_project_directory,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+):
+    test_project = "napp_init_v2"
+    project_name = "myapp"
+    pkg_name = f"{project_name}_pkg_{default_username}{resource_suffix}"
+    app_name_1 = f"{project_name}_{default_username}{resource_suffix}".upper()
+    app_name_2 = f"{project_name}2_{default_username}{resource_suffix}".upper()
+
+    with nativeapp_project_directory(test_project) as project_dir:
+        # Add a second app to the project
+        snowflake_yml = project_dir / "snowflake.yml"
+        with open(snowflake_yml, "r") as file:
+            project_yml = yaml.safe_load(file)
+        project_yml["entities"]["app2"] = project_yml["entities"]["app"] | dict(
+            identifier="myapp2_<% ctx.env.USER %>"
+        )
+        with open(snowflake_yml, "w") as file:
+            yaml.dump(project_yml, file)
+
+        # Create the package and both apps
+        result = runner.invoke_with_connection_json(
+            ["app", "run", "--app-entity-id", "app"]
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            ["app", "run", "--app-entity-id", "app2"]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Run the teardown command
+        result = runner.invoke_with_connection_json(["app", "teardown"])
+        assert result.exit_code == 0, result.output
+
+        # Verify the package is dropped
+        assert not_contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show application packages like '{pkg_name}'",
+                )
+            ),
+            dict(name=pkg_name),
+        )
+
+        # Verify the apps are dropped
+        for app_name in [app_name_1, app_name_2]:
+            assert not_contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show applications like '{app_name}'",
+                    )
+                ),
+                dict(name=app_name),
+            )
+
+
+def test_nativeapp_teardown_multiple_packages_using_snow_app_must_choose(
+    runner,
+    nativeapp_project_directory,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+):
+    test_project = "napp_init_v2"
+    project_name = "myapp"
+    pkgs = {
+        "pkg": f"{project_name}_pkg_{default_username}{resource_suffix}",
+        "pkg2": f"{project_name}_pkg2_{default_username}{resource_suffix}",
+    }
+
+    with nativeapp_project_directory(test_project) as project_dir:
+        # Add a second package to the project
+        snowflake_yml = project_dir / "snowflake.yml"
+        with open(snowflake_yml, "r") as file:
+            project_yml = yaml.safe_load(file)
+        project_yml["entities"]["pkg2"] = project_yml["entities"]["pkg"] | dict(
+            identifier="myapp_pkg2_<% ctx.env.USER %>"
+        )
+        with open(snowflake_yml, "w") as file:
+            yaml.dump(project_yml, file)
+
+        # Create both packages
+        for entity_id in pkgs:
+            result = runner.invoke_with_connection_json(
+                ["app", "deploy", "--package-entity-id", entity_id]
+            )
+            assert result.exit_code == 0, result.output
+
+        # Run the teardown command without specifying a package, it should fail
+        result = runner.invoke_with_connection_json(["app", "teardown"])
+        assert result.exit_code == 1, result.output
+        assert (
+            "More than one application package entity exists in the project definition"
+            in result.output
+        )
+
+        # Run the teardown command on each package
+        for entity_id, pkg_name in pkgs.items():
+            result = runner.invoke_with_connection_json(
+                ["app", "teardown", "--package-entity-id", entity_id]
+            )
+            assert result.exit_code == 0, result.output
+
+            # Verify the package is dropped
+            assert not_contains_row_with(
+                row_from_snowflake_session(
+                    snowflake_session.execute_string(
+                        f"show application packages like '{pkg_name}'",
+                    )
+                ),
+                dict(name=pkg_name),
+            )

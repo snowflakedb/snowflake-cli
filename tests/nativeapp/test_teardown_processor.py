@@ -24,14 +24,15 @@ from snowflake.cli._plugins.nativeapp.constants import (
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
-    UnexpectedOwnerError,
 )
 from snowflake.cli._plugins.nativeapp.teardown_processor import (
     NativeAppTeardownProcessor,
 )
+from snowflake.cli.api.entities.utils import drop_generic_object
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    INSUFFICIENT_PRIVILEGES,
 )
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
@@ -40,17 +41,15 @@ from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
 from tests.nativeapp.utils import (
+    APP_ENTITY_DROP_GENERIC_OBJECT,
+    APP_ENTITY_GET_EXISTING_APP_INFO,
+    APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION,
+    APP_ENTITY_MODULE,
     APP_PACKAGE_ENTITY_DROP_GENERIC_OBJECT,
     APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
-    APP_PACKAGE_ENTITY_IS_CORRECT_OWNER,
     APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
-    NATIVEAPP_MANAGER_EXECUTE,
-    NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION,
     SQL_EXECUTOR_EXECUTE,
     TEARDOWN_MODULE,
-    TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT,
-    TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO,
-    TEARDOWN_PROCESSOR_IS_CORRECT_OWNER,
     TYPER_CONFIRM,
     TYPER_PROMPT,
     mock_execute_helper,
@@ -74,8 +73,8 @@ def test_drop_generic_object_success(mock_execute, temp_dir, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (None, mock.call("drop application myapp")),
@@ -91,9 +90,11 @@ def test_drop_generic_object_success(mock_execute, temp_dir, mock_cursor):
         contents=[mock_snowflake_yml_file],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_generic_object(
-        object_type="application", object_name="myapp", role="app_role"
+    drop_generic_object(
+        console=mock.Mock(),
+        object_type="application",
+        object_name="myapp",
+        role="app_role",
     )
     assert mock_execute.mock_calls == expected
 
@@ -108,18 +109,18 @@ def test_drop_generic_object_failure_w_exception(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call.execute_sql("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
-            (None, mock.call.execute_sql("use role package_role")),
+            (None, mock.call("use role package_role")),
             (
                 ProgrammingError(
                     msg="Object does not exist, or operation cannot be performed.",
                     errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
                 ),
-                mock.call.execute_sql("drop application package app_pkg"),
+                mock.call("drop application package app_pkg"),
             ),
-            (None, mock.call.execute_sql("use role old_role")),
+            (None, mock.call("use role old_role")),
         ]
     )
     mock_execute.side_effect = side_effects
@@ -131,9 +132,9 @@ def test_drop_generic_object_failure_w_exception(
         contents=[mock_snowflake_yml_file],
     )
 
-    teardown_processor = _get_na_teardown_processor()
     with pytest.raises(SnowflakeSQLExecutionError):
-        teardown_processor.drop_generic_object(
+        drop_generic_object(
+            console=mock.Mock(),
             object_type="application package",
             object_name="app_pkg",
             role="package_role",
@@ -142,7 +143,7 @@ def test_drop_generic_object_failure_w_exception(
 
 
 # Test drop_application() when no application exists
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(f"{TEARDOWN_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "auto_yes_param",
@@ -166,19 +167,31 @@ def test_drop_application_no_existing_application(
     )
 
 
-# Test drop_application() when it has a different owner role
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO)
+# Test drop_application() when the current role is not allowed to drop it
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(
+    APP_ENTITY_DROP_GENERIC_OBJECT,
+    side_effect=ProgrammingError(
+        msg="Insufficient privileges to operate on application",
+        errno=INSUFFICIENT_PRIVILEGES,
+    ),
+)
+@mock.patch(APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param",
     [True, False],  # This should have no effect on the test
 )
-def test_drop_application_incorrect_owner(
-    mock_get_existing_app_info, auto_yes_param, temp_dir
+def test_drop_application_current_role_is_not_owner(
+    mock_get_objects_owned_by_application,
+    mock_drop_generic_object,
+    mock_get_existing_app_info,
+    auto_yes_param,
+    temp_dir,
 ):
     mock_get_existing_app_info.return_value = {
         "name": "myapp",
         "owner": "different_owner",
-        "comment": "some_comment",
+        "comment": SPECIAL_COMMENT,
     }
 
     current_working_directory = os.getcwd()
@@ -189,16 +202,15 @@ def test_drop_application_incorrect_owner(
     )
 
     teardown_processor = _get_na_teardown_processor()
-    with pytest.raises(UnexpectedOwnerError):
+    with pytest.raises(ProgrammingError):
         teardown_processor.drop_application(auto_yes_param)
     mock_get_existing_app_info.assert_called_once()
 
 
 # Test drop_application() successfully when it has special comment
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO)
-@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
-@mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
-@mock.patch(NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(APP_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param, special_comment",  # auto_yes should have no effect on the test
     [
@@ -211,7 +223,6 @@ def test_drop_application_incorrect_owner(
 def test_drop_application_has_special_comment(
     mock_get_objects_owned_by_application,
     mock_drop_generic_object,
-    mock_is_correct_owner,
     mock_get_existing_app_info,
     auto_yes_param,
     special_comment,
@@ -233,13 +244,12 @@ def test_drop_application_has_special_comment(
     teardown_processor = _get_na_teardown_processor()
     teardown_processor.drop_application(auto_yes_param)
     mock_get_existing_app_info.assert_called_once()
-    mock_is_correct_owner.assert_called_once()
     mock_drop_generic_object.assert_called_once()
 
 
 # Test drop_application() successfully when it has special comment but is a quoted string
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
+@mock.patch(APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param, special_comment",  # auto_yes should have no effect on the test
     [
@@ -261,8 +271,8 @@ def test_drop_application_has_special_comment_and_quoted_name(
         [
             # Show apps
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (
@@ -284,8 +294,8 @@ def test_drop_application_has_special_comment_and_quoted_name(
             (None, mock.call("use role old_role")),
             # Drop app
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (None, mock.call('drop application "My Application"')),
@@ -308,20 +318,18 @@ def test_drop_application_has_special_comment_and_quoted_name(
 
     teardown_processor = _get_na_teardown_processor()
     teardown_processor.drop_application(auto_yes_param)
-    mock_execute.mock_calls == expected
+    assert mock_execute.mock_calls == expected
 
 
 # Test drop_application() without special comment AND auto_yes is False AND should_drop is False
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO)
-@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
-@mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
-@mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=False)
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(APP_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(f"{APP_ENTITY_MODULE}.{TYPER_CONFIRM}", return_value=False)
 @mock.patch(f"{TEARDOWN_MODULE}.cc.message")
 def test_drop_application_user_prohibits_drop(
     mock_message,
     mock_confirm,
     mock_drop_generic_object,
-    mock_is_correct_owner,
     mock_get_existing_app_info,
     temp_dir,
 ):
@@ -346,19 +354,16 @@ def test_drop_application_user_prohibits_drop(
     with pytest.raises(typer.Abort):
         teardown_processor.drop_application(auto_yes=False)
     mock_get_existing_app_info.assert_called_once()
-    mock_is_correct_owner.assert_called_once()
     mock_drop_generic_object.assert_not_called()
     mock_message.assert_called_once_with("Did not drop application object myapp.")
 
 
 # Test drop_application() without special comment AND auto_yes is False AND should_drop is True
 # Test drop_application() without special comment AND auto_yes is True
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO)
-@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
-@mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
-@mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=True)
-@mock.patch(NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(APP_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(f"{APP_ENTITY_MODULE}.{TYPER_CONFIRM}", return_value=True)
+@mock.patch(APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param",
     [False, True],
@@ -366,9 +371,7 @@ def test_drop_application_user_prohibits_drop(
 def test_drop_application_user_allows_drop(
     mock_get_objects_owned_by_application,
     mock_confirm,
-    mock_execute,
     mock_drop_generic_object,
-    mock_is_correct_owner,
     mock_get_existing_app_info,
     auto_yes_param,
     temp_dir,
@@ -383,17 +386,6 @@ def test_drop_application_user_allows_drop(
         "version": "dummy",
         "patch": "dummy",
     }
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
-            ),
-            (None, mock.call("use role app_role")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
-    mock_execute.side_effect = side_effects
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -405,16 +397,13 @@ def test_drop_application_user_allows_drop(
     teardown_processor = _get_na_teardown_processor()
     teardown_processor.drop_application(auto_yes_param)
     mock_get_existing_app_info.assert_called_once()
-    mock_is_correct_owner.assert_called_once()
     mock_drop_generic_object.assert_called_once()
-    mock_execute.mock_calls == expected
 
 
 # Test idempotent drop_application()
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO)
-@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
-@mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
-@mock.patch(NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(APP_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
 @pytest.mark.parametrize(
     "auto_yes_param",
     [False, True],  # This should have no effect on the test
@@ -422,7 +411,6 @@ def test_drop_application_user_allows_drop(
 def test_drop_application_idempotent(
     mock_get_objects_owned_by_application,
     mock_drop_generic_object,
-    mock_is_correct_owner,
     mock_get_existing_app_info,
     auto_yes_param,
     temp_dir,
@@ -446,8 +434,7 @@ def test_drop_application_idempotent(
     teardown_processor.drop_application(auto_yes_param)
     teardown_processor.drop_application(auto_yes_param)
 
-    mock_get_existing_app_info.call_count == 3
-    mock_is_correct_owner.assert_called_once()
+    assert mock_get_existing_app_info.call_count == 3
     mock_drop_generic_object.assert_called_once()
 
 
@@ -480,20 +467,54 @@ def test_drop_package_no_existing_application(
     )
 
 
-# Test drop_package() when it has a different owner role
+# Test drop_package() when the current role is not allowed to drop it
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(
+    APP_PACKAGE_ENTITY_DROP_GENERIC_OBJECT,
+    side_effect=ProgrammingError(
+        msg="Insufficient privileges to operate on application_package",
+        errno=INSUFFICIENT_PRIVILEGES,
+    ),
+)
+@mock_get_app_pkg_distribution_in_sf()
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME, return_value=True)
 @pytest.mark.parametrize(
     "auto_yes_param",
     [True, False],  # This should have no effect on the test
 )
-def test_drop_package_incorrect_owner(
-    mock_get_existing_app_pkg_info, auto_yes_param, temp_dir
+def test_drop_package_current_role_is_not_owner(
+    mock_is_distribution_same,
+    mock_get_distribution,
+    mock_drop_generic_object,
+    mock_execute,
+    mock_get_existing_app_pkg_info,
+    auto_yes_param,
+    temp_dir,
+    mock_cursor,
 ):
     mock_get_existing_app_pkg_info.return_value = {
         "name": "app_pkg",
         "owner": "different_owner",
-        "comment": "some_comment",
+        "comment": SPECIAL_COMMENT,
     }
+    mock_get_distribution.return_value = "internal"
+
+    side_effects_for_execute, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (None, mock.call("use role package_role")),
+            (
+                mock_cursor([], []),
+                mock.call("show versions in application package app_pkg"),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects_for_execute
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -503,18 +524,16 @@ def test_drop_package_incorrect_owner(
     )
 
     teardown_processor = _get_na_teardown_processor()
-    with pytest.raises(UnexpectedOwnerError):
+    with pytest.raises(ProgrammingError):
         teardown_processor.drop_package(auto_yes_param)
     mock_get_existing_app_pkg_info.assert_called_once()
 
 
 # Test drop_package when the package has more than 0 existing versions
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_show_versions_failure_w_exception(
     mock_execute,
-    mock_is_correct_owner,
     mock_get_existing_app_pkg_info,
     temp_dir,
     mock_cursor,
@@ -527,8 +546,8 @@ def test_show_versions_failure_w_exception(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
             (
@@ -550,23 +569,20 @@ def test_show_versions_failure_w_exception(
     teardown_processor = _get_na_teardown_processor()
     with pytest.raises(CouldNotDropApplicationPackageWithVersions):
         teardown_processor.drop_package(auto_yes=False)
-    mock_is_correct_owner.assert_called_once()
     mock_get_existing_app_pkg_info.assert_called_once()
 
 
 # Test drop_package when there is no distribution mismatch AND distribution = external AND auto_yes is False AND should_drop is False
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME, return_value=True)
-@mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=False)
+@mock.patch(f"{APP_ENTITY_MODULE}.{TYPER_CONFIRM}", return_value=False)
 def test_drop_package_no_mismatch_no_drop(
     mock_confirm,
     mock_is_distribution_same,
     mock_get_distribution,
     mock_execute,
-    mock_is_correct_owner,
     mock_get_existing_app_pkg_info,
     temp_dir,
     mock_cursor,
@@ -582,13 +598,16 @@ def test_drop_package_no_mismatch_no_drop(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
                 mock_cursor([], []),
-                mock.call("show versions in application package app_pkg"),
+                mock.call(
+                    "show versions in application package app_pkg",
+                    cursor_class=DictCursor,
+                ),
             ),
             (None, mock.call("use role old_role")),
         ]
@@ -604,7 +623,7 @@ def test_drop_package_no_mismatch_no_drop(
 
     teardown_processor = _get_na_teardown_processor()
     teardown_processor.drop_package(auto_yes=False)
-    mock_execute.mock_calls == expected
+    assert mock_execute.mock_calls == expected
 
 
 # Test drop_package when there is no distribution mismatch AND distribution = external AND auto_yes is False AND should_drop is True
@@ -612,12 +631,11 @@ def test_drop_package_no_mismatch_no_drop(
 # Test drop_package when there is distribution mismatch AND distribution = external AND auto_yes is False AND should_drop is True
 # Test drop_package when there is distribution mismatch AND distribution = external AND auto_yes is True
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(f"{TEARDOWN_MODULE}.cc.warning")
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
-@mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=True)
+@mock.patch(f"{APP_ENTITY_MODULE}.{TYPER_CONFIRM}", return_value=True)
 @mock.patch(APP_PACKAGE_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
 @pytest.mark.parametrize(
     "auto_yes_param, is_pkg_distribution_same",
@@ -630,7 +648,6 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
     mock_get_distribution,
     mock_warning,
     mock_execute,
-    mock_is_correct_owner,
     mock_get_existing_app_pkg_info,
     auto_yes_param,
     is_pkg_distribution_same,
@@ -649,13 +666,16 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
                 mock_cursor([], []),
-                mock.call("show versions in application package app_pkg"),
+                mock.call(
+                    "show versions in application package app_pkg",
+                    cursor_class=DictCursor,
+                ),
             ),
             (None, mock.call("use role old_role")),
         ]
@@ -671,7 +691,7 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
 
     teardown_processor = _get_na_teardown_processor()
     teardown_processor.drop_package(auto_yes_param)
-    mock_execute.mock_calls == expected
+    assert mock_execute.mock_calls == expected
     if not is_pkg_distribution_same:
         mock_warning.assert_any_call(
             "Dropping application package app_pkg with distribution 'external'."
@@ -686,7 +706,6 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
 # Test drop_package when there is no distribution mismatch AND distribution = internal AND special comment is True
 # Test drop_package when there is distribution mismatch AND distribution = internal AND special comment is True
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
@@ -702,7 +721,6 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
     mock_is_distribution_same,
     mock_get_distribution,
     mock_execute,
-    mock_is_correct_owner,
     mock_get_existing_app_pkg_info,
     auto_yes_param,
     is_pkg_distribution_same,
@@ -722,13 +740,16 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
                 mock_cursor([], []),
-                mock.call("show versions in application package app_pkg"),
+                mock.call(
+                    "show versions in application package app_pkg",
+                    cursor_class=DictCursor,
+                ),
             ),
             (None, mock.call("use role old_role")),
         ]
@@ -744,7 +765,7 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
 
     teardown_processor = _get_na_teardown_processor()
     teardown_processor.drop_package(auto_yes_param)
-    mock_execute.mock_calls == expected
+    assert mock_execute.mock_calls == expected
     mock_drop_generic_object.assert_called_once()
     if not is_pkg_distribution_same:
         mock_warning.assert_any_call(
@@ -777,8 +798,8 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
         [
             # Show app pkg
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -800,8 +821,8 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
             (None, mock.call("use role old_role")),
             # Show versions
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
@@ -814,8 +835,8 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
             (None, mock.call("use role old_role")),
             # Drop app pkg
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (None, mock.call('drop application package "My Package"')),
@@ -839,17 +860,16 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
 
     teardown_processor = _get_na_teardown_processor()
     teardown_processor.drop_package(auto_yes_param)
-    mock_execute.mock_calls == expected
+    assert mock_execute.mock_calls == expected
 
 
 # Test drop_package when there is no distribution mismatch AND distribution = internal AND without special comment AND auto_yes is False AND should_drop is False
 # Test drop_package when there is distribution mismatch AND distribution = internal AND without special comment AND auto_yes is False AND should_drop is False
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
-@mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=False)
+@mock.patch(f"{APP_ENTITY_MODULE}.{TYPER_CONFIRM}", return_value=False)
 @mock.patch(f"{TEARDOWN_MODULE}.cc.warning")
 @pytest.mark.parametrize("is_pkg_distribution_same", [True, False])
 def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
@@ -858,7 +878,6 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
     mock_is_distribution_same,
     mock_get_distribution,
     mock_execute,
-    mock_is_correct_owner,
     mock_get_existing_app_pkg_info,
     is_pkg_distribution_same,
     temp_dir,
@@ -877,13 +896,16 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
                 mock_cursor([], []),
-                mock.call("show versions in application package app_pkg"),
+                mock.call(
+                    "show versions in application package app_pkg",
+                    cursor_class=DictCursor,
+                ),
             ),
             (None, mock.call("use role old_role")),
         ]
@@ -899,7 +921,7 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
 
     teardown_processor = _get_na_teardown_processor()
     teardown_processor.drop_package(auto_yes=False)
-    mock_execute.mock_calls == expected
+    assert mock_execute.mock_calls == expected
     if not is_pkg_distribution_same:
         mock_warning.assert_any_call(
             "Dropping application package app_pkg with distribution 'internal'."
@@ -911,11 +933,10 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
 # Test drop_package when there is distribution mismatch AND distribution = internal AND without special comment AND auto_yes is False AND should_drop is True
 # Test drop_package when there is distribution mismatch AND distribution = internal AND without special comment AND auto_yes is True
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
-@mock.patch(f"{TEARDOWN_MODULE}.{TYPER_CONFIRM}", return_value=True)
+@mock.patch(f"{APP_ENTITY_MODULE}.{TYPER_CONFIRM}", return_value=True)
 @mock.patch(APP_PACKAGE_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
 @pytest.mark.parametrize(
     "auto_yes_param, is_pkg_distribution_same",  # auto_yes_param should have no effect on the test
@@ -927,7 +948,6 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_allows_drop(
     mock_is_distribution_same,
     mock_get_distribution,
     mock_execute,
-    mock_is_correct_owner,
     mock_get_existing_app_pkg_info,
     auto_yes_param,
     is_pkg_distribution_same,
@@ -947,13 +967,16 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_allows_drop(
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
                 mock_cursor([], []),
-                mock.call("show versions in application package app_pkg"),
+                mock.call(
+                    "show versions in application package app_pkg",
+                    cursor_class=DictCursor,
+                ),
             ),
             (None, mock.call("use role old_role")),
         ]
@@ -969,13 +992,12 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_allows_drop(
 
     teardown_processor = _get_na_teardown_processor()
     teardown_processor.drop_package(auto_yes_param)
-    mock_execute.mock_calls == expected
+    assert mock_execute.mock_calls == expected
     mock_drop_generic_object.assert_called_once()
 
 
 # Test idempotent drop_package()
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
-@mock.patch(APP_PACKAGE_ENTITY_IS_CORRECT_OWNER, return_value=True)
 @mock.patch(APP_PACKAGE_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_get_app_pkg_distribution_in_sf()
@@ -989,7 +1011,6 @@ def test_drop_package_idempotent(
     mock_get_app_pkg_distribution,
     mock_execute,
     mock_drop_generic_object,
-    mock_is_correct_owner,
     mock_get_existing_app_pkg_info,
     auto_yes_param,
     temp_dir,
@@ -999,13 +1020,16 @@ def test_drop_package_idempotent(
     side_effects_for_execute, expected = mock_execute_helper(
         [
             (
-                mock_cursor([{"CURRENT_ROLE()": "old_role"}], []),
-                mock.call("select current_role()", cursor_class=DictCursor),
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
             ),
             (None, mock.call("use role package_role")),
             (
                 mock_cursor([], []),
-                mock.call("show versions in application package app_pkg"),
+                mock.call(
+                    "show versions in application package app_pkg",
+                    cursor_class=DictCursor,
+                ),
             ),
             (None, mock.call("use role old_role")),
         ]
@@ -1033,17 +1057,15 @@ def test_drop_package_idempotent(
     teardown_processor.drop_package(auto_yes_param)
     teardown_processor.drop_package(auto_yes_param)
 
-    mock_get_existing_app_pkg_info.call_count == 3
-    mock_is_correct_owner.assert_called_once()
+    assert mock_get_existing_app_pkg_info.call_count == 3
     mock_drop_generic_object.assert_called_once()
-    mock_execute.mock_calls == expected
+    assert mock_execute.mock_calls == expected
 
 
-@mock.patch(f"{TEARDOWN_MODULE}.{TYPER_PROMPT}")
-@mock.patch(TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO)
-@mock.patch(TEARDOWN_PROCESSOR_IS_CORRECT_OWNER, return_value=True)
-@mock.patch(TEARDOWN_PROCESSOR_DROP_GENERIC_OBJECT, return_value=None)
-@mock.patch(NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION)
+@mock.patch(f"{APP_ENTITY_MODULE}.{TYPER_PROMPT}")
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(APP_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
+@mock.patch(APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION)
 @pytest.mark.parametrize(
     "cascade,application_objects,interactive_response,expected_cascade",
     [
@@ -1071,7 +1093,6 @@ def test_drop_package_idempotent(
 def test_drop_application_cascade(
     mock_get_objects_owned_by_application,
     mock_drop_generic_object,
-    mock_is_correct_owner,
     mock_get_existing_app_info,
     mock_typer_prompt,
     cascade,
@@ -1107,6 +1128,7 @@ def test_drop_application_cascade(
     else:
         teardown_processor.drop_application(False, interactive, cascade)
         mock_drop_generic_object.assert_called_once_with(
+            console=mock.ANY,
             object_type="application",
             object_name="myapp",
             role="app_role",

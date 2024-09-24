@@ -21,8 +21,10 @@ from unittest import mock
 
 import pytest
 import tomlkit
+from snowflake.cli._app.secret import SecretType
 from snowflake.cli.api.constants import ObjectType
 
+from tests.testing_utils.files_and_dirs import pushd
 from tests_common import IS_WINDOWS
 
 if IS_WINDOWS:
@@ -705,7 +707,7 @@ def test_key_pair_authentication_from_config(
 ):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    mock_convert.return_value = "secret value"
+    mock_convert.return_value = SecretType("secret value")
 
     with NamedTemporaryFile("w+", suffix="toml") as tmp_file:
         tmp_file.write(
@@ -1071,3 +1073,59 @@ def _run_connection_add_with_path_provided_as_prompt(
         )
 
     return result
+
+
+def test_new_connection_is_added_to_connections_toml(
+    runner, os_agnostic_snapshot, named_temporary_file, snowflake_home
+):
+
+    connections_toml = Path(snowflake_home) / "connections.toml"
+    connections_toml.touch()
+    connections_toml.write_text(
+        dedent(
+            """
+        [a]
+        account = "A"
+        
+        [b]
+        account = "B"
+        """
+        )
+    )
+
+    with pushd(snowflake_home):
+        result = runner.super_invoke(
+            [
+                "connection",
+                "add",
+                "--connection-name",
+                "new_one",
+                "--username",
+                "user1",
+                "--password",
+                "password1",
+                "--account",
+                "account1",
+                "--port",
+                "8080",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert f"Wrote new connection new_one to {connections_toml}" in result.output
+
+    assert connections_toml.read_text() == dedent(
+        """\
+        [a]
+        account = "A"
+        
+        [b]
+        account = "B"
+        
+        [new_one]
+        account = "account1"
+        user = "user1"
+        password = "password1"
+        port = "8080"
+    """
+    )

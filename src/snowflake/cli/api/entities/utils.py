@@ -9,11 +9,9 @@ from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
     resolve_without_follow,
 )
-from snowflake.cli._plugins.nativeapp.constants import OWNER_COL
 from snowflake.cli._plugins.nativeapp.exceptions import (
     InvalidTemplateInFileError,
     MissingScriptError,
-    UnexpectedOwnerError,
 )
 from snowflake.cli._plugins.nativeapp.utils import verify_exists, verify_no_directories
 from snowflake.cli._plugins.stage.diff import (
@@ -34,12 +32,12 @@ from snowflake.cli.api.errno import (
 )
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
-from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.rendering.sql_templates import (
     choose_sql_jinja_env_based_on_template_syntax,
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector import ProgrammingError
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 def generic_sql_error_handler(
@@ -77,17 +75,6 @@ def generic_sql_error_handler(
             )
         )
     raise err
-
-
-def ensure_correct_owner(row: dict, role: str, obj_name: str) -> None:
-    """
-    Check if an object has the right owner role
-    """
-    actual_owner = row[
-        OWNER_COL
-    ].upper()  # Because unquote_identifier() always returns uppercase str
-    if actual_owner != unquote_identifier(role):
-        raise UnexpectedOwnerError(obj_name, role, actual_owner)
 
 
 def _get_stage_paths_to_sync(
@@ -362,3 +349,19 @@ def drop_generic_object(
             raise SnowflakeSQLExecutionError(drop_query)
 
         console.message(f"Dropped {object_type} {object_name} successfully.")
+
+
+def print_messages(
+    console: AbstractConsole, create_or_upgrade_cursor: Optional[SnowflakeCursor]
+):
+    """
+    Shows messages in the console returned by the CREATE or UPGRADE
+    APPLICATION command.
+    """
+    if not create_or_upgrade_cursor:
+        return
+
+    messages = [row[0] for row in create_or_upgrade_cursor.fetchall()]
+    for message in messages:
+        console.warning(message)
+    console.message("")

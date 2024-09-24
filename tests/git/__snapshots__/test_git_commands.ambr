@@ -117,3 +117,51 @@
   
   '''
 # ---
+# name: test_execute_slash_in_repository_name[@db.schema.repo/branches/"feature/commit"/-@db.schema.repo/branches/"feature/commit"/-expected_files3]
+  '''
+  SUCCESS - @db.schema.repo/branches/"feature/commit"/s1.sql
+  SUCCESS - @db.schema.repo/branches/"feature/commit"/a/S3.sql
+  +----------------------------------------------------------------------+
+  | File                                               | Status  | Error |
+  |----------------------------------------------------+---------+-------|
+  | @db.schema.repo/branches/"feature/commit"/s1.sql   | SUCCESS | None  |
+  | @db.schema.repo/branches/"feature/commit"/a/S3.sql | SUCCESS | None  |
+  +----------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_execute_slash_in_repository_name[@repo/branches/"feature/commit"/-@repo/branches/"feature/commit"/-expected_files0]
+  '''
+  SUCCESS - @repo/branches/"feature/commit"/s1.sql
+  SUCCESS - @repo/branches/"feature/commit"/a/S3.sql
+  +------------------------------------------------------------+
+  | File                                     | Status  | Error |
+  |------------------------------------------+---------+-------|
+  | @repo/branches/"feature/commit"/s1.sql   | SUCCESS | None  |
+  | @repo/branches/"feature/commit"/a/S3.sql | SUCCESS | None  |
+  +------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_execute_slash_in_repository_name[@repo/branches/"feature/commit"/a/-@repo/branches/"feature/commit"/-expected_files2]
+  '''
+  SUCCESS - @repo/branches/"feature/commit"/a/S3.sql
+  +------------------------------------------------------------+
+  | File                                     | Status  | Error |
+  |------------------------------------------+---------+-------|
+  | @repo/branches/"feature/commit"/a/S3.sql | SUCCESS | None  |
+  +------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_execute_slash_in_repository_name[@repo/branches/"feature/commit"/s1.sql-@repo/branches/"feature/commit"/-expected_files1]
+  '''
+  SUCCESS - @repo/branches/"feature/commit"/s1.sql
+  +----------------------------------------------------------+
+  | File                                   | Status  | Error |
+  |----------------------------------------+---------+-------|
+  | @repo/branches/"feature/commit"/s1.sql | SUCCESS | None  |
+  +----------------------------------------------------------+
+  
+  '''
+# ---

@@ -26,15 +26,15 @@ from snowflake.cli._plugins.connection.util import (
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
+    StreamlitEntityModel,
+)
 from snowflake.cli.api.commands.experimental_behaviour import (
     experimental_behaviour_enabled,
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.schemas.entities.streamlit_entity_model import (
-    StreamlitEntityModel,
-)
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
@@ -98,11 +98,15 @@ class StreamlitManager(SqlExecutionMixin):
             query.append(f"ROOT_LOCATION = '{from_stage_name}'")
 
         query.append(f"MAIN_FILE = '{streamlit.main_file}'")
-
+        if streamlit.imports:
+            query.append(streamlit.get_imports_sql())
         if streamlit.query_warehouse:
             query.append(f"QUERY_WAREHOUSE = {streamlit.query_warehouse}")
         if streamlit.title:
             query.append(f"TITLE = '{streamlit.title}'")
+
+        if streamlit.comment:
+            query.append(f"COMMENT = '{streamlit.comment}'")
 
         if streamlit.external_access_integrations:
             query.append(streamlit.get_external_access_integrations_sql())

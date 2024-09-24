@@ -28,11 +28,14 @@ from snowflake.cli._plugins.nativeapp.artifacts import (
     SourceNotFoundError,
     TooManyFilesError,
     build_bundle,
+    find_version_info_in_manifest_file,
     resolve_without_follow,
     symlink_or_copy,
 )
 from snowflake.cli.api.project.definition import load_project
-from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.util import to_identifier
+from yaml import safe_dump
 
 from tests.nativeapp.utils import (
     assert_dir_snapshot,
@@ -1360,3 +1363,32 @@ def test_symlink_or_copy_with_symlinks_in_project_root(os_agnostic_snapshot):
             )
 
             assert_dir_snapshot(Path("./output/deploy"), os_agnostic_snapshot)
+
+
+@pytest.mark.parametrize("patch_name", [None, "1", 42])
+@pytest.mark.parametrize(
+    "version_name", [None, "v1", "1", 2, "1.2", 1.3, "1.2.3", "0.x", "foo", "abc def"]
+)
+def test_find_version_info_in_manifest_file(version_name, patch_name):
+    manifest_contents = {"manifest_version": 1, "version": {}}
+
+    if version_name is None and patch_name is None:
+        manifest_contents.pop("version")
+    if version_name is not None:
+        manifest_contents["version"]["name"] = version_name
+    if patch_name is not None:
+        manifest_contents["version"]["patch"] = patch_name
+
+    deploy_root_structure = {"manifest.yml": safe_dump(manifest_contents)}
+    with temp_local_dir(deploy_root_structure) as deploy_root:
+        v, p = find_version_info_in_manifest_file(deploy_root=deploy_root)
+
+        if version_name is None:
+            assert v is None
+        else:
+            assert v == to_identifier(str(version_name))
+
+        if patch_name is None:
+            assert p is None
+        else:
+            assert p == int(patch_name)

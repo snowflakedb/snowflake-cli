@@ -35,8 +35,8 @@ from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
-from snowflake.cli.api.project.schemas.snowpark.argument import Argument
-from snowflake.cli.api.project.schemas.snowpark.callable import FunctionSchema
+from snowflake.cli.api.project.schemas.v1.snowpark.argument import Argument
+from snowflake.cli.api.project.schemas.v1.snowpark.callable import FunctionSchema
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 from typer import Typer
@@ -236,6 +236,15 @@ def package_file():
 def runner(test_snowcli_config):
     app = app_factory()
     yield SnowCLIRunner(app, test_snowcli_config)
+
+
+@pytest.fixture(scope="function")
+def build_runner(test_snowcli_config):
+    def func():
+        app = app_factory()
+        return SnowCLIRunner(app, test_snowcli_config)
+
+    return func
 
 
 @pytest.fixture

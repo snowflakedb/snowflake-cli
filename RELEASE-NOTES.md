@@ -15,6 +15,16 @@
  -->
 
 # Unreleased version
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Fixes `snow connection add` behavior when `connections.toml` file exists.
+
+# v3.0.0
 
 ## Backward incompatibility
 * Dropped support for Python below 3.10 version.
@@ -39,10 +49,12 @@
 * Added support for external access (api integrations and secrets) in Streamlit.
 * Added support for `<% ... %>` syntax in SQL templating.
 * Support multiple Streamlit application in single snowflake.yml project definition file.
-* Added `snow ws migrate` command to migrate `snowflake.yml` file from V1 to V2.
+* Added `snow helpers v1-to-v2` command to migrate `snowflake.yml` file from V1 to V2.
 * Added `--package-entity-id` and `--app-entity-id` options to `snow app` commands to allow targeting specific entities when the `definition_version` in `snowflake.yml` is `2` or higher and it contains multiple `application package` or `application` entities.
 * Added templates expansion of arbitrary files for Native Apps through `templates` processor.
 * Added `SNOWFLAKE_..._PRIVATE_KEY_RAW` environment variable to pass private key as a raw string.
+* Added periodic check for newest version of Snowflake CLI. When new version is available, user will be notified.
+* Added support for `imports` in Streamlit definition.
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command.
@@ -53,6 +65,9 @@
 * Fixed SQL error when running `snow app version create` and `snow app version drop` with a version name that isn't a valid Snowflake unquoted identifier
 * Duplicated keys in `snowflake.yml` are now detected and reported.
 * `snow streamlit deploy` will check for existing streamlit instance before deploying anything.
+* Fixed `snow git execute` with `/` in name of the branch.
+* `snow app` commands don't enforce ownership of the objects they manage, and rely on RBAC instead.
+* `snow app deploy` for package entity now allows operating on application packages created outside the CLI
 
 # v2.8.1
 ## Backward incompatibility
@@ -87,7 +102,6 @@
 
 # v2.7.0
 
-# Unreleased version
 ## Backward incompatibility
 
 ## Deprecations

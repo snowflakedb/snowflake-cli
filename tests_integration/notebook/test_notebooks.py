@@ -27,16 +27,13 @@ def _execute_notebook(runner, notebook_name):
 
 
 def _execute_notebook_failure(runner, notebook_name):
-    with pytest.raises(ProgrammingError) as err:
-        result = runner.invoke_with_connection_json(
-            ["notebook", "execute", notebook_name, "--format", "json"]
-        )
-        assert result.exit_code == 1
-        assert "invalid identifier 'FOO'" in err
+    result = runner.invoke_with_connection(["notebook", "execute", notebook_name])
+    assert result.exit_code == 1
+    assert "NameError: name 'fooBar' is not defined" in result.output
 
 
 @pytest.mark.integration
-def test_create_notebook(runner, test_database, snowflake_session):
+def test_create_notebook(runner, test_database, snowflake_session, snapshot):
     stage_name = "notebook_stage"
     snowflake_session.execute_string(f"create stage {stage_name};")
 

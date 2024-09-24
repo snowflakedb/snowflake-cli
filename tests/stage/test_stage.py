@@ -642,11 +642,11 @@ def test_stage_print_result_for_get_all_files_from_stage_recursive(
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_internal_remove(mock_execute, mock_cursor):
-    mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
     sm = StageManager()
     sm.remove("stageName", "my/file/foo.csv", "new_role")
     expected = [
-        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("select current_role()"),
         mock.call("use role new_role"),
         mock.call("remove @stageName/my/file/foo.csv"),
         mock.call("use role old_role"),
@@ -656,11 +656,11 @@ def test_stage_internal_remove(mock_execute, mock_cursor):
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_internal_remove_quoted(mock_execute, mock_cursor):
-    mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
     sm = StageManager()
     sm.remove('"stage name"', "my/file/foo.csv", "new_role")
     expected = [
-        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("select current_role()"),
         mock.call("use role new_role"),
         mock.call("remove '@\"stage name\"/my/file/foo.csv'"),
         mock.call("use role old_role"),
@@ -670,11 +670,11 @@ def test_stage_internal_remove_quoted(mock_execute, mock_cursor):
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_internal_remove_no_role_change(mock_execute, mock_cursor):
-    mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
     sm = StageManager()
     sm.remove("stageName", "my/file/foo.csv", "old_role")
     expected = [
-        mock.call("select current_role()", cursor_class=DictCursor),
+        mock.call("select current_role()"),
         mock.call("remove @stageName/my/file/foo.csv"),
     ]
     assert mock_execute.mock_calls == expected
@@ -682,12 +682,12 @@ def test_stage_internal_remove_no_role_change(mock_execute, mock_cursor):
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_internal_put(mock_execute, mock_cursor):
-    mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
     with TemporaryDirectory() as tmp_dir:
         sm = StageManager()
         sm.put(Path(tmp_dir).resolve(), "stageName", role="new_role")
         expected = [
-            mock.call("select current_role()", cursor_class=DictCursor),
+            mock.call("select current_role()"),
             mock.call("use role new_role"),
             mock.call(
                 f"put file://{Path(tmp_dir).resolve()} @stageName auto_compress=false parallel=4 overwrite=False"
@@ -699,12 +699,12 @@ def test_stage_internal_put(mock_execute, mock_cursor):
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 def test_stage_internal_put_quoted_stage(mock_execute, mock_cursor):
-    mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
     with TemporaryDirectory() as tmp_dir:
         sm = StageManager()
         sm.put(Path(tmp_dir).resolve(), '"stage name"', role="new_role")
         expected = [
-            mock.call("select current_role()", cursor_class=DictCursor),
+            mock.call("select current_role()"),
             mock.call("use role new_role"),
             mock.call(
                 f"put file://{Path(tmp_dir).resolve()} '@\"stage name\"' auto_compress=false parallel=4 overwrite=False"
@@ -733,7 +733,7 @@ def test_stage_internal_put_quoted_stage(mock_execute, mock_cursor):
 def test_stage_internal_put_quoted_path(
     mock_execute, mock_cursor, raw_path, expected_uri
 ):
-    mock_execute.return_value = mock_cursor([{"CURRENT_ROLE()": "old_role"}], [])
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
     with TemporaryDirectory() as tmp_dir:
         sm = StageManager()
         tmp_dir = Path(tmp_dir).resolve()
@@ -741,7 +741,7 @@ def test_stage_internal_put_quoted_path(
         src_uri = expected_uri.replace("{}", str(tmp_dir))
         sm.put(src_path, "stageName", role="new_role")
         expected = [
-            mock.call("select current_role()", cursor_class=DictCursor),
+            mock.call("select current_role()"),
             mock.call("use role new_role"),
             mock.call(
                 f"put {src_uri} @stageName auto_compress=false parallel=4 overwrite=False"
@@ -859,7 +859,7 @@ def test_execute_from_user_stage(
     ls_call, *execute_calls = mock_execute.mock_calls
     assert ls_call == mock.call(f"ls '@~'", cursor_class=DictCursor)
     assert execute_calls == [
-        mock.call(f"execute immediate from {p}") for p in expected_files
+        mock.call(f"execute immediate from '{p}'") for p in expected_files
     ]
     assert result.output == snapshot
 
@@ -957,16 +957,17 @@ def test_execute_not_existing_stage(mock_execute, mock_cursor, runner):
         )
     ]
 
-    with pytest.raises(ProgrammingError) as e:
-        runner.invoke(["stage", "execute", stage_name])
+    result = runner.invoke(["stage", "execute", stage_name])
+
+    assert result.exit_code == 1
+    assert (
+        f"002003: 2003: Stage '{stage_name}' does not exist or not authorized."
+        in result.output
+    )
 
     assert mock_execute.mock_calls == [
         mock.call(f"ls @{stage_name}", cursor_class=DictCursor)
     ]
-    assert (
-        e.value.msg
-        == f"002003: 2003: Stage '{stage_name}' does not exist or not authorized."
-    )
 
 
 @pytest.mark.parametrize(
@@ -1016,8 +1017,8 @@ def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner
         ProgrammingError(error_message),
     ]
 
-    with pytest.raises(ProgrammingError) as e:
-        runner.invoke(["stage", "execute", "exe"])
+    result = runner.invoke(["stage", "execute", "exe"])
+    assert result.exit_code == 1
 
     assert mock_execute.mock_calls == [
         mock.call("ls @exe", cursor_class=DictCursor),
@@ -1028,7 +1029,7 @@ def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner
         mock.call("@exe/p1.py", {}),
         mock.call("@exe/p2.py", {}),
     ]
-    assert e.value.msg == error_message
+    assert error_message in result.output
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")

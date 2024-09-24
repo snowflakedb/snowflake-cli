@@ -57,6 +57,9 @@ EXECUTE_SUPPORTED_FILES_FORMATS = (
     ".py",
 )  # tuple to preserve order but it's a set
 
+# Replace magic numbers with constants
+OMIT_FIRST = slice(1, None)
+
 
 @dataclass
 class StagePathParts:
@@ -67,7 +70,7 @@ class StagePathParts:
 
     @classmethod
     def get_directory(cls, stage_path: str) -> str:
-        return "/".join(Path(stage_path).parts[1:])
+        return "/".join(Path(stage_path).parts[OMIT_FIRST])
 
     @property
     def path(self) -> str:
@@ -119,7 +122,9 @@ class DefaultStagePathParts(StagePathParts):
         self.directory = self.get_directory(stage_path)
         self.stage = StageManager.get_stage_from_path(stage_path)
         stage_name = self.stage.split(".")[-1]
-        stage_name = stage_name[1:] if stage_name.startswith("@") else stage_name
+        stage_name = (
+            stage_name[OMIT_FIRST] if stage_name.startswith("@") else stage_name
+        )
         self.stage_name = stage_name
         self.is_directory = True if stage_path.endswith("/") else False
 
@@ -133,7 +138,7 @@ class DefaultStagePathParts(StagePathParts):
 
     def replace_stage_prefix(self, file_path: str) -> str:
         stage = Path(self.stage).parts[0]
-        file_path_without_prefix = Path(file_path).parts[1:]
+        file_path_without_prefix = Path(file_path).parts[OMIT_FIRST]
         return f"{stage}/{'/'.join(file_path_without_prefix)}"
 
     def add_stage_prefix(self, file_path: str) -> str:
@@ -461,7 +466,7 @@ class StageManager(SqlExecutionMixin):
         on_error: OnErrorType,
     ) -> Dict:
         try:
-            query = f"execute immediate from {file_stage_path}"
+            query = f"execute immediate from {self.quote_stage_name(file_stage_path)}"
             if variables:
                 query += variables
             self._execute_query(query)
