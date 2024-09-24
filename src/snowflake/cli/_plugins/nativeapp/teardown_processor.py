@@ -17,10 +17,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Optional
 
-from snowflake.cli._plugins.nativeapp.application_entity import (
-    ApplicationEntity,
-)
-from snowflake.cli._plugins.nativeapp.application_package_entity import (
+from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntity
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
 )
 from snowflake.cli._plugins.nativeapp.manager import (

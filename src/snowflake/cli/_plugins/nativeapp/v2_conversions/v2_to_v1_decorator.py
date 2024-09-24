@@ -20,10 +20,8 @@ from typing import Any, Dict, Optional, Type, TypeVar, Union
 
 import typer
 from click import ClickException
-from snowflake.cli._plugins.nativeapp.application_entity_model import (
-    ApplicationEntityModel,
-)
-from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
+from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
 from snowflake.cli.api.cli_global_context import (

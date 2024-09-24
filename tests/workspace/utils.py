@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from textwrap import dedent
 
-APP_PACKAGE_ENTITY = "snowflake.cli._plugins.nativeapp.application_package_entity.ApplicationPackageEntity"
+APP_PACKAGE_ENTITY = "snowflake.cli._plugins.nativeapp.entities.application_package.ApplicationPackageEntity"
 
 MOCK_SNOWFLAKE_YML_FILE = dedent(
     """\
