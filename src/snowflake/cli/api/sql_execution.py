@@ -46,7 +46,7 @@ class SqlExecutor:
         self._connection = connection
 
     @property
-    def _conn(self) -> SnowflakeConnection:
+    def conn(self) -> SnowflakeConnection:
         if self._connection:
             return self._connection
         return get_cli_context().connection
@@ -70,7 +70,7 @@ class SqlExecutor:
         """
         self._log.debug("Executing %s", sql_text)
         stream = StringIO(sql_text)
-        stream_generator = self._conn.execute_stream(
+        stream_generator = self.conn.execute_stream(
             stream, remove_comments=remove_comments, cursor_class=cursor_class, **kwargs
         )
         return stream_generator if return_cursors else list()
@@ -186,7 +186,7 @@ class SqlExecutor:
         """
         Checks if a database and schema are provided, either through the connection context or a qualified name.
         """
-        fqn = FQN.from_string(name).using_connection(self._conn)
+        fqn = FQN.from_string(name).using_connection(self.conn)
         if not fqn.database:
             raise DatabaseNotProvidedError()
         if not fqn.schema:
@@ -269,7 +269,7 @@ class SqlExecutionMixin(SqlExecutor):
             from snowflake.snowpark.session import Session
 
             self._snowpark_session = Session.builder.configs(
-                {"connection": self._conn}
+                {"connection": self.conn}
             ).create()
         return self._snowpark_session
 

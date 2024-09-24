@@ -145,7 +145,7 @@ def test_create_repository_already_exists(mock_handle, mock_execute):
     "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager._execute_query"
 )
 @mock.patch(
-    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"
+    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager.conn"
 )
 @mock.patch(
     "snowflake.cli._plugins.spcs.image_registry.commands.RegistryManager.login_to_registry"
@@ -184,7 +184,7 @@ def test_list_images(
     "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_query"
 )
 @mock.patch(
-    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"
+    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager.conn"
 )
 @mock.patch(
     "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.login_to_registry"
@@ -272,7 +272,7 @@ def test_get_repository_url_no_scheme(mock_get_row):
 
 
 @mock.patch(
-    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager.conn"
 )
 @mock.patch(
     "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager.show_specific_object"
@@ -293,7 +293,7 @@ def test_get_repository_url_no_repo_found(mock_get_row, mock_conn):
 
 
 @mock.patch(
-    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager.conn"
 )
 def test_get_repository_url_no_database_provided(mock_conn):
     mock_conn.database = None
@@ -302,7 +302,7 @@ def test_get_repository_url_no_database_provided(mock_conn):
 
 
 @mock.patch(
-    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager._conn"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager.conn"
 )
 def test_get_repository_url_no_schema_provided(mock_conn):
     mock_conn.database = "DB"

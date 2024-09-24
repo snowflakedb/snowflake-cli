@@ -852,9 +852,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         name = identifier_for_url(app_name)
         with cls.use_application_warehouse(app_warehouse):
             sql_executor = get_sql_executor()
-            return make_snowsight_url(
-                sql_executor._conn, f"/#/apps/application/{name}"  # noqa: SLF001
-            )
+            return make_snowsight_url(sql_executor.conn, f"/#/apps/application/{name}")
 
 
 def _new_events_only(previous_events: list[dict], new_events: list[dict]) -> list[dict]:

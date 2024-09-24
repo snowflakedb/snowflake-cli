@@ -29,9 +29,9 @@ class NotebookManager(SqlExecutionMixin):
         return self._execute_query(query=query)
 
     def get_url(self, notebook_name: FQN):
-        fqn = notebook_name.using_connection(self._conn)
+        fqn = notebook_name.using_connection(self.conn)
         return make_snowsight_url(
-            self._conn,
+            self.conn,
             f"/#/notebooks/{fqn.url_identifier}",
         )
 
@@ -51,7 +51,7 @@ class NotebookManager(SqlExecutionMixin):
         notebook_name: FQN,
         notebook_file: NotebookStagePath,
     ) -> str:
-        notebook_fqn = notebook_name.using_connection(self._conn)
+        notebook_fqn = notebook_name.using_connection(self.conn)
         stage_path = self.parse_stage_as_path(notebook_file)
 
         queries = dedent(
@@ -67,5 +67,5 @@ class NotebookManager(SqlExecutionMixin):
         self._execute_queries(queries=queries)
 
         return make_snowsight_url(
-            self._conn, f"/#/notebooks/{notebook_fqn.url_identifier}"
+            self.conn, f"/#/notebooks/{notebook_fqn.url_identifier}"
         )

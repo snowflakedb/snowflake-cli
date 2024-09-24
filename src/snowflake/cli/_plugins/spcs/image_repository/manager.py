@@ -23,13 +23,13 @@ from snowflake.connector.errors import ProgrammingError
 
 class ImageRepositoryManager(SqlExecutionMixin):
     def get_database(self):
-        return self._conn.database
+        return self.conn.database
 
     def get_schema(self):
-        return self._conn.schema
+        return self.conn.schema
 
     def get_role(self):
-        return self._conn.role
+        return self.conn.role
 
     def get_repository_url(self, repo_name: str, with_scheme: bool = True):
 
@@ -37,7 +37,7 @@ class ImageRepositoryManager(SqlExecutionMixin):
             "image repositories", repo_name, check_schema=True
         )
         if repo_row is None:
-            fqn = FQN.from_string(repo_name).using_connection(self._conn)
+            fqn = FQN.from_string(repo_name).using_connection(self.conn)
             raise ProgrammingError(
                 f"Image repository '{fqn.identifier}' does not exist or not authorized."
             )

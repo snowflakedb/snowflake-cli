@@ -40,11 +40,11 @@ class RegistryManager(SqlExecutionMixin):
             "alter session set PYTHON_CONNECTOR_QUERY_RESULT_FORMAT = 'json'"
         ).fetchall()
         # disable session deletion
-        self._conn._all_async_queries_finished = lambda: False  # noqa: SLF001
-        if self._conn._rest is None:  # noqa: SLF001
+        self.conn._all_async_queries_finished = lambda: False  # noqa: SLF001
+        if self.conn._rest is None:  # noqa: SLF001
             raise Exception("Failed to connect to Snowflake to retrieve token.")
         # obtain and create the token
-        token_data = self._conn._rest._token_request("ISSUE")  # noqa: SLF001
+        token_data = self.conn._rest._token_request("ISSUE")  # noqa: SLF001
 
         return {
             "token": token_data["data"]["sessionToken"],

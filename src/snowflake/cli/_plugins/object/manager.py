@@ -75,7 +75,7 @@ class ObjectManager(SqlExecutionMixin):
             return False
 
     def create(self, object_type: str, object_data: Dict[str, Any]) -> str:
-        rest = RestApi(self._conn)
+        rest = RestApi(self.conn)
         url = rest.determine_url_for_create_query(object_type=object_type)
         try:
             response = rest.send_rest_request(url=url, method="post", data=object_data)

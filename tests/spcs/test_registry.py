@@ -25,7 +25,7 @@ from snowflake.cli._plugins.spcs.image_registry.manager import (
 from snowflake.connector.cursor import DictCursor
 
 
-@mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._conn")
+@mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.conn")
 @mock.patch(
     "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._execute_query"
 )
@@ -56,7 +56,7 @@ MOCK_REPO_COLUMNS = [
 ]
 
 
-@mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._conn")
+@mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.conn")
 @mock.patch(
     "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._execute_query"
 )
@@ -82,7 +82,7 @@ def test_get_registry_url(mock_execute, mock_conn, mock_cursor):
     assert result == "orgname-alias.registry.snowflakecomputing.com"
 
 
-@mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._conn")
+@mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.conn")
 @mock.patch(
     "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._execute_query"
 )

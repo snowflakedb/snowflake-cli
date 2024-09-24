@@ -82,7 +82,7 @@ class StreamlitManager(SqlExecutionMixin):
         experimental: Optional[bool] = None,
         from_stage_name: Optional[str] = None,
     ):
-        streamlit_id = streamlit.fqn.using_connection(self._conn)
+        streamlit_id = streamlit.fqn.using_connection(self.conn)
         cli_console.step(f"Creating {streamlit_id} Streamlit")
         query = []
         if replace:
@@ -121,7 +121,7 @@ class StreamlitManager(SqlExecutionMixin):
         self._execute_query("\n".join(query))
 
     def deploy(self, streamlit: StreamlitEntityModel, replace: bool = False):
-        streamlit_id = streamlit.fqn.using_connection(self._conn)
+        streamlit_id = streamlit.fqn.using_connection(self.conn)
         if (
             ObjectManager().object_exists(object_type="streamlit", fqn=streamlit_id)
             and not replace
@@ -189,7 +189,7 @@ class StreamlitManager(SqlExecutionMixin):
             stage_manager = StageManager()
 
             stage_name = streamlit.stage or "streamlit"
-            stage_name = FQN.from_string(stage_name).using_connection(self._conn)
+            stage_name = FQN.from_string(stage_name).using_connection(self.conn)
 
             cli_console.step(f"Creating {stage_name} stage")
             stage_manager.create(fqn=stage_name)
@@ -211,9 +211,9 @@ class StreamlitManager(SqlExecutionMixin):
 
     def get_url(self, streamlit_name: FQN) -> str:
         try:
-            fqn = streamlit_name.using_connection(self._conn)
+            fqn = streamlit_name.using_connection(self.conn)
             return make_snowsight_url(
-                self._conn,
+                self.conn,
                 f"/#/streamlit-apps/{fqn.url_identifier}",
             )
         except (MissingConnectionRegionError, MissingConnectionAccountError) as e:

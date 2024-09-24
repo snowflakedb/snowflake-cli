@@ -65,6 +65,9 @@ class Identifier(UpdatableModel):
     schema_: Optional[str] = Field(title="Entity schema", alias="schema", default=None)
     database: Optional[str] = Field(title="Entity database", default=None)
 
+    def __str__(self):
+        return f"{self.database}.{self.schema_}.{self.name}"
+
 
 class EntityModelBase(ABC, UpdatableModel):
     @classmethod

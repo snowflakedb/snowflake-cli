@@ -34,7 +34,7 @@ def test_execute(mock_execute):
 def test_get_url(mock_url):
     mock_url.return_value = "my_url"
     conn_mock = MagicMock(database="nb_database", schema="nb_schema")
-    with mock.patch.object(NotebookManager, "_conn", conn_mock):
+    with mock.patch.object(NotebookManager, "conn", conn_mock):
         result = NotebookManager().get_url(notebook_name=FQN.from_string("MY_NOTEBOOK"))
 
     assert result == "my_url"
@@ -51,7 +51,7 @@ def test_create(mock_ctx, mock_execute, mock_url):
     mock_url.return_value = "nb_url"
     cn_mock = MagicMock(database="nb_db", schema="nb_schema")
 
-    with mock.patch.object(NotebookManager, "_conn", cn_mock):
+    with mock.patch.object(NotebookManager, "conn", cn_mock):
         _ = NotebookManager().create(
             notebook_name=FQN.from_string("MY_NOTEBOOK"),
             notebook_file="@stage/nb file.ipynb",
