@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from __future__ import annotations
 
 import json
@@ -21,8 +22,18 @@ from pathlib import Path
 import factory
 import yaml
 
+"""
+Factories to configure project definitions and write PDF and other files on disk for testing
+
+
+"""
+
 
 class FactoryNoEmptyDict(factory.DictFactory):
+    """
+    Dict Factory that returns None if empty, instead of {}
+    """
+
     @classmethod
     def _create(cls, *args, **kwargs):
         if len(kwargs) == 0:
@@ -31,20 +42,58 @@ class FactoryNoEmptyDict(factory.DictFactory):
 
 
 class PackageFactory(FactoryNoEmptyDict):
-    # Package has no required fields
+    """
+    Package V1.* Factory for creating dict representing package in PDF.
+
+    Usage: PackageFactory(name="pkg_name", role="package_role")
+
+    Package model has no required fields, therefore this is a simple NoEmptyDict factory.
+    """
+
     pass
 
 
 class ApplicationFactory(FactoryNoEmptyDict):
-    # Application has no required fields
+    """
+    Application V1.* Factory for creating dict representing application in PDF.
+
+    Usage: ApplicationFactory(name="my_app", role="app_role")
+
+    Application model has no required fields, therefore this is a simple NoEmptyDict factory.
+    """
+
     pass
 
 
 class ArtifactFactory(factory.ListFactory):
+    """
+    List Factory for creating an artifact list.
+
+    Usage:
+        - ArtifactFactory(["setup.sql", "README.md"])
+        - ArtifactFactory([
+                {"src": "app/*", "dest": "./", "processors":["processor1"]},
+                {"src": "setup.sql", "dest": "setup.sql"}
+        ])
+    """
+
     pass
 
 
 class NativeAppFactory(factory.DictFactory):
+    """
+    Factory for preparing native app dict.
+
+    Usage:
+        Create a native app with a faker-generated name and an empty artifacts list:
+        - NativeAppFactory()
+
+        Create a native app with the given name and artifacts list:
+        - NativeAppFactory(name="my_app", artifacts=[{"src": "app/*", "dest": "./"}])
+
+        Creates a native app dict with package role set to "pkg_role":
+        - NativeAppFactory(name="my_app", artifacts=["setup.sql", "README.md"], package__role="pkg_role")
+    """
 
     name = factory.Faker("word")
     artifacts = factory.List([], list_factory=ArtifactFactory)
@@ -71,6 +120,27 @@ class PdfFactoryResult:
 
 
 class PdfV10Factory(factory.DictFactory):
+    """
+    Prepare PDF V1 dict and write to file.
+
+    Returns:
+        PdfFactoryResult
+
+    Usage:
+        Create a pdf dict with definition_version: "1", native_app with faker-generated name and an empty artifacts list and
+          write to snowflake.yml in current directory:
+        - PdfV10Factory()
+
+        Create snowflake.local.yml and write to file
+        - PdfV10Factory.with_filename("snowflake.local.yml")(native_app__name="my_local_name")
+
+        Build and return yml but do not write to file:
+        - PdfV10Factory.build(
+            native_app__name="my_app",
+            native_app__artifacts=["setup.sql", "README.md"],
+            native_app__package__role="pkg_role"
+        )
+    """
 
     definition_version = "1"
     native_app = factory.SubFactory(NativeAppFactory)
@@ -144,12 +214,15 @@ class ProjectFactoryModel:
 
 
 class ProjectV10Factory(factory.Factory):
+    """
+    Factory to create PDF dict, and write in working directory PDF to snowflake.yml file, and other optional files.
+    """
+
     class Meta:
         model = ProjectFactoryModel
 
     pdf = factory.SubFactory(PdfV10Factory)
 
-    # TODO: Should be able to specifiy a file on disk to reference here?
     # TODO: filename: content dictionary instead?
     files: list[FileModel] = []
 
