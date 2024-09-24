@@ -78,6 +78,10 @@ loginfo "---------------------------------"
 security find-identity -v -p codesigning
 loginfo "---------------------------------"
 
+loginfo "---------------------------------"
+security find-identity -p codesigning
+loginfo "---------------------------------"
+
 code_sign() {
   ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
   loginfo "---------------------------------"
