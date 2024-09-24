@@ -212,7 +212,6 @@ def create_native_app_project_model(
     )
 
 
-# workaround for src/dest artifacts, put them in extra_files
 def use_integration_project():
     package_script_1 = dedent(
         """\
@@ -299,9 +298,7 @@ def use_integration_project():
             "package/001-shared.sql",
             "package/002-shared.sql",
         ],
-        manifest__version__name="dev",
-        # Should we be able to specify just a file on disk? read contents from a file on disk?
-        extra_files=[
+        files=[
             {"filename": "package/001-shared.sql", "contents": package_script_1},
             {"filename": "package/002-shared.sql", "contents": package_script_2},
             {"filename": "app/setup.sql", "contents": setup_script},

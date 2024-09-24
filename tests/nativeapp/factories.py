@@ -21,18 +21,6 @@ from pathlib import Path
 import factory
 import yaml
 
-# TODO:
-# For integration tests: editing files after creation
-
-# TODO:
-# - manifest factory
-# - add util to make readme and setup.sql with defaults?
-
-# TODO: Support for non-required nested fields
-
-# TODO after POC:
-# - pdf v2
-
 
 class FactoryNoEmptyDict(factory.DictFactory):
     @classmethod
@@ -72,7 +60,6 @@ class NativeAppFactory(factory.DictFactory):
         return cls._build(model_class, *args, **kwargs)
 
 
-# TODO: can add utils to this class (to get yml parent path etc)
 @dataclass
 class PdfFactoryResult:
     def __init__(self, yml: dict, path: Path):
@@ -97,9 +84,7 @@ class PdfV10Factory(factory.DictFactory):
             cls._filename = filename
 
         return PdfV10FactoryWithFilename
-        # return type(f"{cls.__name__}WithFilename", (cls,), {"_filename": filename})
 
-    ## A with_files() like the above for writing files to disk
     @classmethod
     def _build(cls, model_class, *args, **kwargs):
         if kwargs["env"] is None:

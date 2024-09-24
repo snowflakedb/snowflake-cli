@@ -1,4 +1,6 @@
-from tests.nativeapp.factories import PackageFactory, PdfV10Factory, ProjectV10Factory
+from pathlib import Path
+
+from tests.nativeapp.factories import PdfV10Factory, ProjectV10Factory
 
 
 def test_pdf_factory(temp_dir):
@@ -55,17 +57,33 @@ def test_artifacts_mapping(temp_dir):
     ]
 
 
-def test_project_factory(temp_dir):
-    ProjectV10Factory(
+def test_project_factory_create(temp_dir):
+    pdf_res = ProjectV10Factory(
+        pdf__native_app__artifacts=["README.md", "setup.sql"],
         files=[
             {"filename": "README.md", "contents": ""},
             {"filename": "setup.sql", "contents": "select 1;"},
             {"filename": "app/some_file.py", "contents": ""},
         ],
     )
-    assert 1 == 1
+    assert pdf_res.pdf.yml["native_app"]["artifacts"] == ["README.md", "setup.sql"]
+    assert Path(Path(temp_dir) / "snowflake.yml").exists()
+    assert Path(Path(temp_dir) / "setup.sql").exists()
+    assert Path(Path(temp_dir) / "README.md").exists()
+    assert Path(Path(temp_dir) / "app/some_file.py").exists()
 
 
-def test_package_nested(temp_dir):
-    package_sample = PackageFactory(foo="baz")
-    package_sample
+def test_pdf_and_local_yml(temp_dir):
+    ProjectV10Factory(
+        pdf__native_app__artifacts=["README.md", "setup.sql"],
+        files=[
+            {"filename": "README.md", "contents": ""},
+            {"filename": "setup.sql", "contents": "select 1;"},
+        ],
+    )
+    PdfV10Factory.with_filename("snowflake.local.yml")(
+        pdf__native_app__name="myapp",
+    )
+
+    assert Path(Path(temp_dir) / "snowflake.yml").exists()
+    assert Path(Path(temp_dir) / "snowflake.local.yml").exists()
