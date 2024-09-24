@@ -72,7 +72,7 @@ cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns $APP_NAME/Contents/Resources/Sn
 cp -r $PACKAGING_DIR/macos/SnowflakeCLI.bash $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
 chmod +x $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
 
-tree $DIST_DIR
+tree -d $DIST_DIR
 
 loginfo "---------------------------------"
 security find-identity -v -p codesigning
