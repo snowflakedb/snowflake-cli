@@ -226,35 +226,55 @@ def test_create(object_type, object_definition, runner, test_database):
 
 
 @pytest.mark.integration
+def test_create_error_unauthorized(runner, test_database, caplog):
+    # 401 unauthorized - role does not have permissions to create
+    database_name = "database_noble_knight"
+    result = runner.invoke_with_connection(
+        ["object", "create", "database", f"name={database_name}", "--role", "public"]
+    )
+    assert result.exit_code == 1
+    assert "Error" in result.output
+    assert (
+        "401 unauthorized: role you are using does not have permissions to create"
+        in result.output
+    )
+    assert "this object." in result.output
+    caplog.clear()
+
+
+@pytest.mark.integration
 def test_create_error_conflict(runner, test_database, caplog):
-    # conflict - an object already exists
+    # 409 conflict - an object already exists
     schema_name = "schema_noble_knight"
     result = runner.invoke_with_connection(
         ["object", "create", "schema", f"name={schema_name}"]
     )
     assert result.exit_code == 0, result.output
     result = runner.invoke_with_connection(
-        ["object", "create", "schema", f"name={schema_name}", "--debug"]
+        ["object", "create", "schema", f"name={schema_name}"]
     )
     assert result.exit_code == 1
-    assert "An unexpected error occurred while creating the object." in result.output
-    assert "object you are trying to create already exists" in result.output
-    assert "409 Conflict" in caplog.text
+    assert "Error" in result.output
+    assert (
+        "409 conflict: object you're trying to create already exists." in result.output
+    )
     caplog.clear()
 
 
 @pytest.mark.integration
 def test_create_error_misspelled_argument(runner, test_database, caplog):
-    # misspelled argument
+    # 400 bad request - misspelled argument
     schema_name = "another_schema_name"
     result = runner.invoke_with_connection(
-        ["object", "create", "schema", f"named={schema_name}", "--debug"]
+        ["object", "create", "schema", f"named={schema_name}"]
     )
     assert result.exit_code == 1
+    assert "Error" in result.output
     assert (
-        "Incorrect object definition (arguments misspelled or malformatted)."
+        "400 bad request: Incorrect object definition (arguments misspelled or"
         in result.output
     )
+    assert "malformatted)" in result.output
     assert "HTTP 400: Bad Request" in caplog.text
     caplog.clear()
 
