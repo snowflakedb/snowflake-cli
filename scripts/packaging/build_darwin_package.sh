@@ -140,47 +140,13 @@ done
 
 
 # POSTINSTALL SCRIPT
-rm -rf $APP_SCRIPTS || true
-mkdir -p $APP_SCRIPTS || true
-cat >$APP_SCRIPTS/postinstall <<POSTINSTALL
-#!/bin/bash -e
-#
-# $2 is the install location
-#
-SNOWFLAKE_CLI_COMMENT="# added by Snowflake SnowflakeCLI installer v1.2"
-
-function add_dest_path_to_profile() {
-    local dest=$1
-    local profile=$2
-    echo "Updating $profile to have $dest in PATH"
-    touch $profile
-    cp -p $profile "$profile-snowflake.bak" || true
-    echo "
-$SNOWFLAKE_CLI_COMMENT
-export PATH=$dest:\$PATH" >> $profile
+prepare_postinstall_script() {
+  rm -rf $APP_SCRIPTS || true
+  mkdir -p $APP_SCRIPTS || true
+  cp -r $PACKAGING_DIR/macos/postinstall $APP_SCRIPTS/postinstall
 }
 
-echo "[DEBUG] Parameters: $1 $2"
-SNOWFLAKE_CLI_DEST=$2/${APP_NAME}/Contents/MacOS
-
-SNOWFLAKE_CLI_LOGIN_SHELL=~/.profile
-if [[ -e ~/.zprofile ]]; then
-    SNOWFLAKE_CLI_LOGIN_SHELL=~/.zprofile
-elif [[ -e ~/.zshrc ]]; then
-    SNOWFLAKE_CLI_LOGIN_SHELL=~/.zshrc
-elif [[ -e ~/.profile ]]; then
-    SNOWFLAKE_CLI_LOGIN_SHELL=~/.profile
-elif [[ -e ~/.bash_profile ]]; then
-    SNOWFLAKE_CLI_LOGIN_SHELL=~/.bash_profile
-elif [[ -e ~/.bashrc ]]; then
-    SNOWFLAKE_CLI_LOGIN_SHELL=~/.bashrc
-fi
-
-if ! grep -q -E "^$SNOWFLAKE_CLI_COMMENT" $SNOWFLAKE_CLI_LOGIN_SHELL; then
-    add_dest_path_to_profile $SNOWFLAKE_CLI_DEST $SNOWFLAKE_CLI_LOGIN_SHELL
-fi
-POSTINSTALL
-cp -r $PACKAGING_DIR/macos/postinstall $APP_SCRIPTS/postinstall
+prepare_postinstall_script
 
 ls -l $DIST_DIR
 
