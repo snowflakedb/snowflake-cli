@@ -33,7 +33,7 @@ from snowflake.cli.api.commands.flags import (
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import (
     ConnectionConfig,
-    add_connection,
+    add_connection_to_proper_file,
     connection_exists,
     get_all_connections,
     get_connection_dict,
@@ -49,7 +49,7 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
 )
 from snowflake.connector import ProgrammingError
-from snowflake.connector.config_manager import CONFIG_MANAGER
+from snowflake.connector.constants import CONNECTIONS_FILE
 
 app = SnowTyperFactory(
     name="connection",
@@ -91,6 +91,11 @@ def list_connections(**options) -> CommandResult:
         }
         for connection_name, connection_config in connections.items()
     )
+
+    if CONNECTIONS_FILE.exists():
+        cli_console.warning(
+            f"Reading connections from {CONNECTIONS_FILE}. Entries from config.toml are ignored."
+        )
     return CollectionResult(result)
 
 
@@ -255,7 +260,7 @@ def add(
     if connection_exists(connection_name):
         raise ClickException(f"Connection {connection_name} already exists")
 
-    add_connection(
+    connections_file = add_connection_to_proper_file(
         connection_name,
         ConnectionConfig(
             account=account,
@@ -279,7 +284,7 @@ def add(
         )
 
     return MessageResult(
-        f"Wrote new connection {connection_name} to {CONFIG_MANAGER.file_path}"
+        f"Wrote new connection {connection_name} to {connections_file}"
     )
 
 

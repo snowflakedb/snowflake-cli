@@ -15,6 +15,16 @@
  -->
 
 # Unreleased version
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Add more readable error messages in `snow object create` command.
+
+# v3.0.0
 
 ## Backward incompatibility
 * Dropped support for Python below 3.10 version.
@@ -58,7 +68,7 @@
 * Fixed `snow git execute` with `/` in name of the branch.
 * `snow app` commands don't enforce ownership of the objects they manage, and rely on RBAC instead.
 * `snow app deploy` for package entity now allows operating on application packages created outside the CLI
-* Add more readable error messages in `snow object create` command.
+* Fixes `snow connection add` behavior when `connections.toml` file exists.
 
 
 # v2.8.1
@@ -94,7 +104,6 @@
 
 # v2.7.0
 
-# Unreleased version
 ## Backward incompatibility
 
 ## Deprecations
