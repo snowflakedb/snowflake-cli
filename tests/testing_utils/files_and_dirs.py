@@ -92,15 +92,6 @@ def merge_left(target: Dict, source: Dict) -> None:
             target[k] = v
 
 
-def clear_none_values(d: Dict) -> Dict:
-    """
-    Recursively removes keys with None values from a dictionary.
-    """
-    if d and isinstance(d, dict):
-        return {k: clear_none_values(v) for k, v in d.items() if v is not None}
-    return d
-
-
 # Borrowed from tests_integration/test_utils.py
 # TODO: remove from here when testing utils become shared
 # TODO: contextlib.chdir isn't available before Python 3.11, so this is an alternative for older versions

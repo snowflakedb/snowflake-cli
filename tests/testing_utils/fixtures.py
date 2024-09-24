@@ -247,7 +247,7 @@ def build_runner(test_snowcli_config):
     return func
 
 
-@pytest.fixture
+@pytest.fixture()
 def temp_dir():
     initial_dir = os.getcwd()
     tmp = tempfile.TemporaryDirectory()

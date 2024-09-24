@@ -18,6 +18,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Union
 
 import factory
 import yaml
@@ -111,11 +112,10 @@ class NativeAppFactory(factory.DictFactory):
 
 @dataclass
 class PdfFactoryResult:
-    def __init__(self, yml: dict, path: Path):
-        self.yml = yml
-        self.path = path
+    yml: dict
+    path: Path
 
-    def get_yml_string(self):
+    def __str__(self):
         return json.dumps(self.yml)
 
 
@@ -151,7 +151,7 @@ class PdfV10Factory(factory.DictFactory):
     @classmethod
     def with_filename(cls, filename):
         class PdfV10FactoryWithFilename(cls):
-            cls._filename = filename
+            _filename = filename
 
         return PdfV10FactoryWithFilename
 
@@ -180,10 +180,10 @@ class PdfV11Factory(PdfV10Factory):
     definition_version = "1.1"
 
 
+@dataclass
 class FileModel:
-    def __init__(self, filename, contents):
-        self.filename = filename
-        self.contents = contents
+    filename: Union[str, Path]
+    contents: str
 
 
 class FileFactory(factory.DictFactory):
@@ -207,10 +207,11 @@ class FileFactory(factory.DictFactory):
         return output_file
 
 
+@dataclass
 class ProjectFactoryModel:
-    def __init__(self, pdf, files):
-        self.pdf = pdf
-        self.files = files
+
+    pdf: dict
+    files: list[FileModel]
 
 
 class ProjectV10Factory(factory.Factory):

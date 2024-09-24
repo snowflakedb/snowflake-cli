@@ -81,7 +81,6 @@ def test_sql_scripts(
             {"sql_script": "scripts/app_post_deploy2.sql"},
         ],
         pdf__env__foo="bar",
-        pdf__env__package_foo="package_bar",
         files=[
             {"filename": "scripts/app_post_deploy1.sql", "contents": post_deploy_1},
             {"filename": "scripts/app_post_deploy2.sql", "contents": post_deploy_2},
