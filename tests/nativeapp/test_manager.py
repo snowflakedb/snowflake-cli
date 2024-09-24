@@ -45,6 +45,7 @@ from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePath,
 )
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.utils import _get_stage_paths_to_sync
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
@@ -60,11 +61,10 @@ from tests.nativeapp.patch_utils import (
 )
 from tests.nativeapp.utils import (
     APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
+    APP_PACKAGE_ENTITY_DEPLOY,
     APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
     ENTITIES_UTILS_MODULE,
-    NATIVEAPP_MANAGER_BUILD_BUNDLE,
-    NATIVEAPP_MANAGER_DEPLOY,
     NATIVEAPP_MODULE,
     SQL_EXECUTOR_EXECUTE,
     mock_execute_helper,
@@ -1173,12 +1173,9 @@ def test_validate_not_deployed(mock_execute, temp_dir, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_BUILD_BUNDLE)
-@mock.patch(NATIVEAPP_MANAGER_DEPLOY)
+@mock.patch(APP_PACKAGE_ENTITY_DEPLOY)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_validate_use_scratch_stage(
-    mock_execute, mock_deploy, mock_build_bundle, temp_dir, mock_cursor
-):
+def test_validate_use_scratch_stage(mock_execute, mock_deploy, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
@@ -1213,24 +1210,35 @@ def test_validate_use_scratch_stage(
     native_app_manager = _get_na_manager()
     native_app_manager.validate(use_scratch_stage=True)
 
-    mock_build_bundle.assert_called_once()
     mock_deploy.assert_called_with(
-        bundle_map=mock_build_bundle.return_value,
+        console=cc,
+        project_root=native_app_manager.project_root,
+        deploy_root=native_app_manager.deploy_root,
+        bundle_root=native_app_manager.bundle_root,
+        generated_root=native_app_manager.generated_root,
+        artifacts=native_app_manager.artifacts,
+        bundle_map=None,
+        package_name=native_app_manager.package_name,
+        package_role=native_app_manager.package_role,
+        package_distribution=native_app_manager.package_distribution,
         prune=True,
         recursive=True,
-        stage_fqn=native_app_manager.scratch_stage_fqn,
-        validate=False,
+        paths=[],
         print_diff=False,
+        validate=False,
+        stage_fqn=native_app_manager.scratch_stage_fqn,
+        package_warehouse=native_app_manager.package_warehouse,
+        post_deploy_hooks=native_app_manager.package_post_deploy_hooks,
+        package_scripts=native_app_manager.package_scripts,
         policy=AllowAlwaysPolicy(),
     )
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(NATIVEAPP_MANAGER_BUILD_BUNDLE)
-@mock.patch(NATIVEAPP_MANAGER_DEPLOY)
+@mock.patch(APP_PACKAGE_ENTITY_DEPLOY)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_validate_failing_drops_scratch_stage(
-    mock_execute, mock_deploy, mock_build_bundle, temp_dir, mock_cursor
+    mock_execute, mock_deploy, temp_dir, mock_cursor
 ):
     create_named_file(
         file_name="snowflake.yml",
@@ -1280,14 +1288,26 @@ def test_validate_failing_drops_scratch_stage(
     ):
         native_app_manager.validate(use_scratch_stage=True)
 
-    mock_build_bundle.assert_called_once()
     mock_deploy.assert_called_with(
-        bundle_map=mock_build_bundle.return_value,
+        console=cc,
+        project_root=native_app_manager.project_root,
+        deploy_root=native_app_manager.deploy_root,
+        bundle_root=native_app_manager.bundle_root,
+        generated_root=native_app_manager.generated_root,
+        artifacts=native_app_manager.artifacts,
+        bundle_map=None,
+        package_name=native_app_manager.package_name,
+        package_role=native_app_manager.package_role,
+        package_distribution=native_app_manager.package_distribution,
         prune=True,
         recursive=True,
-        stage_fqn=native_app_manager.scratch_stage_fqn,
-        validate=False,
+        paths=[],
         print_diff=False,
+        validate=False,
+        stage_fqn=native_app_manager.scratch_stage_fqn,
+        package_warehouse=native_app_manager.package_warehouse,
+        post_deploy_hooks=native_app_manager.package_post_deploy_hooks,
+        package_scripts=native_app_manager.package_scripts,
         policy=AllowAlwaysPolicy(),
     )
     assert mock_execute.mock_calls == expected
