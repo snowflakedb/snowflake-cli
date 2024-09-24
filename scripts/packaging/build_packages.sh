@@ -4,8 +4,8 @@ set -o pipefail
 git config --global --add safe.directory /snowflake-cli
 
 ROOT_DIR="$(git rev-parse --show-toplevel)"
-# THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 THIS_DIR=$(dirname $(readlink -f $0))
+DIST_DIR="${ROOT_DIR}/dist"
 ARCH="$(uname -m)"
 PKG_NAME="snowflake-cli"
 VERSION=$(hatch version)
@@ -16,11 +16,15 @@ echo "-*-*-*- build variables -*-*-*-"
 echo ${VERSION}
 echo ${THIS_DIR}
 echo ${ROOT_DIR}
+echo ${DIST_DIR}
 echo ${ARCH}
 echo ${PKG_NAME}
 echo ${DEB_PGK_FILE_NAME}
 echo ${RPM_PGK_FILE_NAME}
 echo "-*-*-*- build variables -*-*-*-"
+
+cd $DIST_DIR
+./snow
 
 cd ${ROOT_DIR}
 
