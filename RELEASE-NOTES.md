@@ -15,6 +15,16 @@
  -->
 
 # Unreleased version
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v3.0.0
 
 ## Backward incompatibility
 * Dropped support for Python below 3.10 version.
@@ -93,7 +103,6 @@
 
 # v2.7.0
 
-# Unreleased version
 ## Backward incompatibility
 
 ## Deprecations
