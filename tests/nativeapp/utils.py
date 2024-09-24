@@ -46,12 +46,9 @@ TEARDOWN_PROCESSOR = f"{TEARDOWN_MODULE}.NativeAppTeardownProcessor"
 NATIVEAPP_MANAGER = f"{NATIVEAPP_MODULE}.NativeAppManager"
 RUN_PROCESSOR = f"{RUN_MODULE}.NativeAppRunProcessor"
 
-NATIVEAPP_MANAGER_EXECUTE = f"{NATIVEAPP_MANAGER}._execute_query"
-NATIVEAPP_MANAGER_EXECUTE_QUERIES = f"{NATIVEAPP_MANAGER}._execute_queries"
 NATIVEAPP_MANAGER_APP_PKG_DISTRIBUTION_IN_SF = (
     f"{NATIVEAPP_MANAGER}.get_app_pkg_distribution_in_snowflake"
 )
-NATIVEAPP_MANAGER_ACCOUNT_EVENT_TABLE = f"{NATIVEAPP_MANAGER}.account_event_table"
 NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME = (
     f"{NATIVEAPP_MANAGER}.verify_project_distribution"
 )
@@ -82,6 +79,7 @@ APP_ENTITY_DROP_GENERIC_OBJECT = f"{APP_ENTITY_MODULE}.drop_generic_object"
 APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION = (
     f"{APP_ENTITY}.get_objects_owned_by_application"
 )
+APP_ENTITY_GET_ACCOUNT_EVENT_TABLE = f"{APP_ENTITY}.get_account_event_table"
 
 APP_PACKAGE_ENTITY = "snowflake.cli._plugins.nativeapp.entities.application_package.ApplicationPackageEntity"
 APP_PACKAGE_ENTITY_DISTRIBUTION_IN_SF = (
