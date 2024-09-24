@@ -15,11 +15,11 @@
 from typing import Dict, Optional
 
 
-class _CLICounterTypePrefix:
+class _CLITypePrefix:
     FEATURES = "features"
 
 
-class _CLICounterDomainPrefix:
+class _CLIDomainPrefix:
     GLOBAL = "global"
     APP = "app"
 
@@ -27,11 +27,11 @@ class _CLICounterDomainPrefix:
 class CLICounterField:
     """
     for each counter field we're adopting a convention of
-    <type>.<scope/domain>.<name>
+    <type>.<domain>.<name>
     for example, if we're tracking a global feature, then the field name would be
     features.global.feature_name
 
-    The metrics API is implemented to be generic, but NADE is adopting a convention
+    The metrics API is implemented to be generic, but we are adopting a convention
     for feature tracking with the following model for a given command execution:
     * counter not present -> feature is not available
     * counter == 0 -> feature is available, but not used
@@ -39,11 +39,17 @@ class CLICounterField:
     this makes it easy to compute percentages for feature dashboards in Snowsight
     """
 
-    TEMPLATES_PROCESSOR = f"{_CLICounterTypePrefix.FEATURES}.{_CLICounterDomainPrefix.GLOBAL}.templates_processor"
-    SQL_TEMPLATES = f"{_CLICounterTypePrefix.FEATURES}.{_CLICounterDomainPrefix.GLOBAL}.sql_templates"
-    PDF_TEMPLATES = f"{_CLICounterTypePrefix.FEATURES}.{_CLICounterDomainPrefix.GLOBAL}.pdf_templates"
-    SNOWPARK_PROCESSOR = f"{_CLICounterTypePrefix.FEATURES}.{_CLICounterDomainPrefix.APP}.snowpark_processor"
-    POST_DEPLOY_SCRIPTS = f"{_CLICounterTypePrefix.FEATURES}.{_CLICounterDomainPrefix.APP}.post_deploy_scripts"
+    TEMPLATES_PROCESSOR = (
+        f"{_CLITypePrefix.FEATURES}.{_CLIDomainPrefix.GLOBAL}.templates_processor"
+    )
+    SQL_TEMPLATES = f"{_CLITypePrefix.FEATURES}.{_CLIDomainPrefix.GLOBAL}.sql_templates"
+    PDF_TEMPLATES = f"{_CLITypePrefix.FEATURES}.{_CLIDomainPrefix.GLOBAL}.pdf_templates"
+    SNOWPARK_PROCESSOR = (
+        f"{_CLITypePrefix.FEATURES}.{_CLIDomainPrefix.APP}.snowpark_processor"
+    )
+    POST_DEPLOY_SCRIPTS = (
+        f"{_CLITypePrefix.FEATURES}.{_CLIDomainPrefix.APP}.post_deploy_scripts"
+    )
 
 
 class CLIMetrics:
