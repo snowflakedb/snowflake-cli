@@ -80,6 +80,7 @@ def test_cortex_complete_for_conversation(runner):
 
 
 @pytest.mark.integration
+@pytest.mark.no_qa
 def test_cortex_extract_answer(runner):
     result = runner.invoke_with_connection(
         [
@@ -93,6 +94,7 @@ def test_cortex_extract_answer(runner):
 
 
 @pytest.mark.integration
+@pytest.mark.no_qa
 def test_cortex_sentiment(runner):
     result = runner.invoke_with_connection(
         [
@@ -125,6 +127,7 @@ def test_cortex_summarize(runner):
 
 
 @pytest.mark.integration
+@pytest.mark.no_qa
 def test_cortex_translate_from_detected_language(runner):
     result = runner.invoke_with_connection(
         [
@@ -139,6 +142,7 @@ def test_cortex_translate_from_detected_language(runner):
 
 
 @pytest.mark.integration
+@pytest.mark.no_qa
 def test_cortex_translate_from_chosen_language(runner):
     result = runner.invoke_with_connection(
         [

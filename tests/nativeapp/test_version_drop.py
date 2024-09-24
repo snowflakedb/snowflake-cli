@@ -33,10 +33,10 @@ from snowflake.cli.api.project.definition_manager import DefinitionManager
 
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
 from tests.nativeapp.utils import (
-    FIND_VERSION_FROM_MANIFEST,
-    NATIVEAPP_MANAGER_EXECUTE,
+    APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
+    APPLICATION_PACKAGE_ENTITY_MODULE,
+    SQL_EXECUTOR_EXECUTE,
     TYPER_CONFIRM,
-    VERSION_MODULE,
     mock_execute_helper,
     mock_snowflake_yml_file,
 )
@@ -59,13 +59,12 @@ def _get_version_drop_processor():
 
 
 # Test version drop process when there is no existing application package
-@mock.patch(
-    f"{VERSION_MODULE}.{DROP_PROCESSOR}.get_existing_app_pkg_info", return_value=None
-)
-@pytest.mark.parametrize(
-    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
-)
-def test_process_has_no_existing_app_pkg(mock_get_existing, policy_param, temp_dir):
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO, return_value=None)
+@pytest.mark.parametrize("force", [True, False])
+@pytest.mark.parametrize("interactive", [True, False])
+def test_process_has_no_existing_app_pkg(
+    mock_get_existing, force, interactive, temp_dir
+):
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -76,28 +75,32 @@ def test_process_has_no_existing_app_pkg(mock_get_existing, policy_param, temp_d
 
     processor = _get_version_drop_processor()
     with pytest.raises(ApplicationPackageDoesNotExistError):
-        processor.process(
-            version="some_version", policy=policy_param, is_interactive=True
-        )  # last two don't matter here
+        processor.process(version="some_version", force=force, interactive=interactive)
 
 
 # Test version drop process when user did not pass in a version AND we could not find a version in the manifest file either
 @mock.patch(
-    f"{VERSION_MODULE}.{DROP_PROCESSOR}.get_existing_app_pkg_info",
+    APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     return_value={"owner": "package_role"},
 )
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
-@mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=(None, None))
-@pytest.mark.parametrize(
-    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
+@mock.patch(
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    return_value=None,
 )
+@mock.patch(
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
+    return_value=(None, None),
+)
+@pytest.mark.parametrize("force", [True, False])
+@pytest.mark.parametrize("interactive", [True, False])
 def test_process_no_version_from_user_no_version_in_manifest(
     mock_version_info_in_manifest,
     mock_build_bundle,
     mock_distribution,
     mock_get_existing,
-    policy_param,
+    force,
+    interactive,
     temp_dir,
 ):
 
@@ -111,9 +114,7 @@ def test_process_no_version_from_user_no_version_in_manifest(
 
     processor = _get_version_drop_processor()
     with pytest.raises(ClickException):
-        processor.process(
-            version=None, policy=policy_param, is_interactive=True
-        )  # last two don't matter here
+        processor.process(version=None, force=force, interactive=interactive)
     mock_build_bundle.assert_called_once()
     mock_version_info_in_manifest.assert_called_once()
 
@@ -122,21 +123,26 @@ def test_process_no_version_from_user_no_version_in_manifest(
 # Test version drop process when user did not pass in a version AND manifest file has a version in it AND --force is False AND interactive mode is False AND --interactive is True AND user does not want to proceed
 # Test version drop process when user did not pass in a version AND manifest file has a version in it AND --force is False AND interactive mode is True AND user does not want to proceed
 @mock.patch(
-    f"{VERSION_MODULE}.{DROP_PROCESSOR}.get_existing_app_pkg_info",
+    APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     return_value={"owner": "package_role"},
 )
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
-@mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
+@mock.patch(
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    return_value=None,
+)
+@mock.patch(
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
+    return_value=("manifest_version", None),
+)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
 )
 @pytest.mark.parametrize(
-    "policy_param, is_interactive_param, expected_code",
+    "interactive, expected_code",
     [
-        (deny_always_policy, False, 1),
-        (ask_always_policy, True, 0),
-        (ask_always_policy, True, 0),
+        (False, 1),
+        (True, 0),
     ],
 )
 def test_process_drop_cannot_complete(
@@ -145,8 +151,7 @@ def test_process_drop_cannot_complete(
     mock_build_bundle,
     mock_distribution,
     mock_get_existing,
-    policy_param,
-    is_interactive_param,
+    interactive,
     expected_code,
     temp_dir,
 ):
@@ -161,9 +166,7 @@ def test_process_drop_cannot_complete(
 
     processor = _get_version_drop_processor()
     with pytest.raises(typer.Exit):
-        result = processor.process(
-            version=None, policy=policy_param, is_interactive=is_interactive_param
-        )
+        result = processor.process(version=None, force=False, interactive=interactive)
         assert result.exit_code == expected_code
 
 
@@ -171,24 +174,23 @@ def test_process_drop_cannot_complete(
 # Test version drop process when user did not pass in a version AND manifest file has a version in it AND --force is False AND interactive mode is False AND --interactive is True AND user wants to proceed
 # Test version drop process when user did not pass in a version AND manifest file has a version in it AND --force is False AND interactive mode is True AND user wants to proceed
 @mock.patch(
-    f"{VERSION_MODULE}.{DROP_PROCESSOR}.get_existing_app_pkg_info",
+    APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     return_value={"owner": "package_role"},
 )
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
-@mock.patch(FIND_VERSION_FROM_MANIFEST, return_value=("manifest_version", None))
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    return_value=None,
+)
+@mock.patch(
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
+    return_value=("manifest_version", None),
+)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
-@pytest.mark.parametrize(
-    "policy_param, is_interactive_param",
-    [
-        (allow_always_policy, False),
-        (ask_always_policy, True),
-        (ask_always_policy, True),
-    ],
-)
+@pytest.mark.parametrize("force", [True, False])
 def test_process_drop_from_manifest(
     mock_typer_confirm,
     mock_execute,
@@ -196,8 +198,7 @@ def test_process_drop_from_manifest(
     mock_build_bundle,
     mock_distribution,
     mock_get_existing,
-    policy_param,
-    is_interactive_param,
+    force,
     temp_dir,
     mock_cursor,
 ):
@@ -229,30 +230,24 @@ def test_process_drop_from_manifest(
     )
 
     processor = _get_version_drop_processor()
-    processor.process(
-        version=None, policy=policy_param, is_interactive=is_interactive_param
-    )
+    processor.process(version=None, force=force, interactive=True)
     assert mock_execute.mock_calls == expected
 
 
 @mock.patch(
-    f"{VERSION_MODULE}.{DROP_PROCESSOR}.get_existing_app_pkg_info",
+    APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     return_value={"owner": "package_role"},
 )
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(f"{VERSION_MODULE}.{DROP_PROCESSOR}.build_bundle", return_value=None)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    return_value=None,
+)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
-@pytest.mark.parametrize(
-    "policy_param, is_interactive_param",
-    [
-        (allow_always_policy, False),
-        (ask_always_policy, True),
-        (ask_always_policy, True),
-    ],
-)
+@pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize(
     ["version", "version_identifier"],
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
@@ -263,8 +258,7 @@ def test_process_drop_specific_version(
     mock_build_bundle,
     mock_distribution,
     mock_get_existing,
-    policy_param,
-    is_interactive_param,
+    force,
     temp_dir,
     mock_cursor,
     version,
@@ -298,7 +292,5 @@ def test_process_drop_specific_version(
     )
 
     processor = _get_version_drop_processor()
-    processor.process(
-        version=version, policy=policy_param, is_interactive=is_interactive_param
-    )
+    processor.process(version=version, force=force, interactive=True)
     assert mock_execute.mock_calls == expected

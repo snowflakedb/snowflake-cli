@@ -16,14 +16,12 @@ from __future__ import annotations
 
 from typing import Dict, List, Union, get_args
 
-from snowflake.cli._plugins.nativeapp.application_entity import ApplicationEntity
-from snowflake.cli._plugins.nativeapp.application_entity_model import (
+from snowflake.cli._plugins.nativeapp.entities.application import (
+    ApplicationEntity,
     ApplicationEntityModel,
 )
-from snowflake.cli._plugins.nativeapp.application_package_entity import (
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
-)
-from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
     ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.snowpark.snowpark_entity import (

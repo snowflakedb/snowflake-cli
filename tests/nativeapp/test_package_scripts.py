@@ -32,8 +32,6 @@ from snowflake.connector import ProgrammingError
 
 from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (
-    NATIVEAPP_MANAGER_EXECUTE,
-    NATIVEAPP_MANAGER_EXECUTE_QUERIES,
     SQL_EXECUTOR_EXECUTE,
     SQL_EXECUTOR_EXECUTE_QUERIES,
 )
@@ -116,8 +114,8 @@ def test_package_scripts_with_conn_info(
 
 
 # Without connection warehouse, without PDF warehouse
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE)
+@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_package_scripts_without_conn_info_throws_error(
@@ -192,7 +190,7 @@ def test_package_scripts_without_conn_info_succeeds(
     ]
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
+@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 @mock_connection()
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_missing_package_script(mock_conn, mock_execute, project_definition_files):
@@ -207,7 +205,7 @@ def test_missing_package_script(mock_conn, mock_execute, project_definition_file
     assert mock_execute.mock_calls == []
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
+@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 @mock_connection()
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_invalid_package_script(mock_conn, mock_execute, project_definition_files):
@@ -224,7 +222,7 @@ def test_invalid_package_script(mock_conn, mock_execute, project_definition_file
     assert mock_execute.mock_calls == []
 
 
-@mock.patch(NATIVEAPP_MANAGER_EXECUTE_QUERIES)
+@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 @mock_connection()
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
 def test_undefined_var_package_script(
