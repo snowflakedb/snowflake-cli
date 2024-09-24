@@ -1,0 +1,36 @@
+#!/bin/bash -e
+#
+# $2 is the install location
+#
+SNOWFLAKE_CLI_COMMENT="# added by Snowflake SnowflakeCLI installer v1.2"
+
+function add_dest_path_to_profile() {
+  local dest=$1
+  local profile=$2
+  echo "Updating $profile to have $dest in PATH"
+  touch $profile
+  cp -p $profile "$profile-snowflake.bak" || true
+  echo "
+$SNOWFLAKE_CLI_COMMENT
+export PATH=$dest:\$PATH" >>$profile
+}
+
+echo "[DEBUG] Parameters: $1 $2"
+SNOWFLAKE_CLI_DEST=$2/SnowflakeCLI.app/Contents/MacOS
+
+SNOWFLAKE_CLI_LOGIN_SHELL=~/.profile
+if [[ -e ~/.zprofile ]]; then
+  SNOWFLAKE_CLI_LOGIN_SHELL=~/.zprofile
+elif [[ -e ~/.zshrc ]]; then
+  SNOWFLAKE_CLI_LOGIN_SHELL=~/.zshrc
+elif [[ -e ~/.profile ]]; then
+  SNOWFLAKE_CLI_LOGIN_SHELL=~/.profile
+elif [[ -e ~/.bash_profile ]]; then
+  SNOWFLAKE_CLI_LOGIN_SHELL=~/.bash_profile
+elif [[ -e ~/.bashrc ]]; then
+  SNOWFLAKE_CLI_LOGIN_SHELL=~/.bashrc
+fi
+
+if ! grep -q -E "^$SNOWFLAKE_CLI_COMMENT" $SNOWFLAKE_CLI_LOGIN_SHELL; then
+  add_dest_path_to_profile $SNOWFLAKE_CLI_DEST $SNOWFLAKE_CLI_LOGIN_SHELL
+fi

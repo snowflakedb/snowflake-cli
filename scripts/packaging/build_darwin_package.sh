@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -o pipefail
+set -xeuo pipefail
 
 git config --global --add safe.directory /snowflake-cli
 
@@ -22,13 +22,16 @@ loginfo() {
 
 loginfo "Building darwin package for version ${CLI_VERSION}"
 
-rm -rf $APP_DIR || true
-mkdir -p $APP_DIR || true
+setup_app_dir() {
+  rm -rf $APP_DIR || true
+  mkdir -p $APP_DIR/$APP_NAME/Contents/{MacOS,Resources} || true
+  tree $APP_DIR
+}
+
+setup_app_dir
 cd $APP_DIR
 
-mkdir -p $APP_NAME/Contents/{MacOS,Resources}
-
-cat >$APP_NAME/Contents/Info.plist <<INFO_PLIST
+cat > $APP_NAME/Contents/Info.plist <<INFO_PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -167,6 +170,7 @@ if ! grep -q -E "^$SNOWFLAKE_CLI_COMMENT" $SNOWFLAKE_CLI_LOGIN_SHELL; then
     add_dest_path_to_profile $SNOWFLAKE_CLI_DEST $SNOWFLAKE_CLI_LOGIN_SHELL
 fi
 POSTINSTALL
+cp -r $PACKAGING_DIR/macos/postinstall $APP_SCRIPTS/postinstall
 
 ls -l $DIST_DIR
 
