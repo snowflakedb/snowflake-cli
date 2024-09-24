@@ -2,6 +2,7 @@
 set -xeuo pipefail
 
 git config --global --add safe.directory /snowflake-cli
+brew install -q tree
 
 ROOT_DIR=$(git rev-parse --show-toplevel)
 PACKAGING_DIR=$ROOT_DIR/scripts/packaging
