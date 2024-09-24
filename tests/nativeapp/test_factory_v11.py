@@ -52,10 +52,7 @@ def test_any_key(temp_dir):
 
 # TODO: actually test no file written
 def test_no_write(temp_dir):
-    pdf_res = PdfV11Factory(
-        temp_dir=temp_dir,
-        skip_write=True,
-    )
+    pdf_res = PdfV11Factory.build()
     assert 1 == 1
 
 

@@ -17,25 +17,18 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
 
 import factory
 import yaml
 
-from tests.testing_utils.files_and_dirs import clear_none_values, merge_left
+# TODO:
+# For integration tests: editing files after creation
 
 # TODO:
-# - don't like temp_dir - refactor
-# - rewrite a few more sample tests
-# - pdf path array return with local yml
-# - how do we  parametrize multiple configs?
-# - move factories to proper files/directories
-# - write src/dest pair to pdf from project factory
 # - manifest factory
 # - add util to make readme and setup.sql with defaults?
 
-# TODO
-# - snowflake.local.yml support in V1.*
+# TODO: Support for non-required nested fields
 
 # TODO after POC:
 # - pdf v2
@@ -51,12 +44,11 @@ class FactoryNoEmptyDict(factory.DictFactory):
 
 class PackageFactory(FactoryNoEmptyDict):
     # Package has no required fields
-    # We can throw a warning here for keys that are not in the schema?!
     pass
 
 
 class ApplicationFactory(FactoryNoEmptyDict):
-    # We can throw a warning here for keys that are not in the schema?!
+    # Application has no required fields
     pass
 
 
@@ -82,10 +74,13 @@ class NativeAppFactory(factory.DictFactory):
 
 # TODO: can add utils to this class (to get yml parent path etc)
 @dataclass
-class PdfV10Result:
-    def __init__(self, yml: Union[dict, str], path: Path):
+class PdfFactoryResult:
+    def __init__(self, yml: dict, path: Path):
         self.yml = yml
         self.path = path
+
+    def get_yml_string(self):
+        return json.dumps(self.yml)
 
 
 class PdfV10Factory(factory.DictFactory):
@@ -93,57 +88,41 @@ class PdfV10Factory(factory.DictFactory):
     definition_version = "1"
     native_app = factory.SubFactory(NativeAppFactory)
     env = factory.SubFactory(FactoryNoEmptyDict)
+    _filename = "snowflake.yml"
 
+    # for snowflake.local.yml
     @classmethod
-    def _create(cls, model_class, *args, **kwargs) -> PdfV10Result:
-        temp_dir = kwargs.pop("temp_dir", os.getcwd())
-        merge_definition = kwargs.pop("merge_project_definition", None)
-        skip_write = kwargs.pop("skip_write", False)
-        return_string = kwargs.pop("return_string", False)
+    def with_filename(cls, filename):
+        class PdfV10FactoryWithFilename(cls):
+            cls._filename = filename
 
+        return PdfV10FactoryWithFilename
+        # return type(f"{cls.__name__}WithFilename", (cls,), {"_filename": filename})
+
+    ## A with_files() like the above for writing files to disk
+    @classmethod
+    def _build(cls, model_class, *args, **kwargs):
         if kwargs["env"] is None:
             kwargs.pop("env")
-
-        pdf_dict = cls._build(model_class, *args, **kwargs)
-
-        if merge_definition:
-            merge_left(pdf_dict, merge_definition)
-            pdf_dict = clear_none_values(pdf_dict)
-
-        if not skip_write:
-            with open(Path(temp_dir) / "snowflake.yml", "w") as file:
-                yaml.dump(pdf_dict, file)
-
-        return PdfV10Result(
-            yml=json.dumps(pdf_dict) if return_string else pdf_dict,
-            path=Path(temp_dir) / "snowflake.yml",
-        )
-
-
-class PackageV11Factory(PackageFactory):
-    pass
-
-
-class ApplicationV11Factory(PackageFactory):
-    pass
-
-
-class NativeAppV11Factory(NativeAppFactory):
-    package = factory.SubFactory(PackageV11Factory)
-    application = factory.SubFactory(ApplicationV11Factory)
+        return super()._build(model_class, *args, **kwargs)
 
     @classmethod
-    def _create(cls, model_class, *args, **kwargs):
-        return super()._create(model_class, *args, **kwargs)
+    def _create(cls, model_class, *args, **kwargs) -> PdfFactoryResult:
+        temp_dir = os.getcwd()
+
+        yml = cls._build(model_class, *args, **kwargs)
+
+        with open(Path(temp_dir) / cls._filename, "w") as file:
+            yaml.dump(yml, file)
+
+        return PdfFactoryResult(
+            yml=yml,
+            path=Path(temp_dir) / cls._filename,
+        )
 
 
 class PdfV11Factory(PdfV10Factory):
     definition_version = "1.1"
-    native_app = factory.SubFactory(NativeAppV11Factory)
-
-    @classmethod
-    def _create(cls, model_class, *args, **kwargs):
-        return super()._create(model_class, *args, **kwargs)
 
 
 class FileModel:
@@ -173,77 +152,30 @@ class FileFactory(factory.DictFactory):
         return output_file
 
 
-class ProjectV10FactoryModel:
-    def __init__(self, pdf, artifact_files, extra_files):
-        self.artifact_files = artifact_files
+class ProjectFactoryModel:
+    def __init__(self, pdf, files):
         self.pdf = pdf
-        self.extra_files = extra_files
+        self.files = files
 
 
 class ProjectV10Factory(factory.Factory):
     class Meta:
-        model = ProjectV10FactoryModel
+        model = ProjectFactoryModel
 
-    artifact_files: list[FileModel] = []
+    pdf = factory.SubFactory(PdfV10Factory)
 
-    # TODO rewrite this to allow src/dest pairs for artifacts writing in pdf
-    pdf = factory.SubFactory(
-        PdfV10Factory,
-        native_app__artifacts=factory.LazyAttribute(
-            lambda pd: list(
-                map(
-                    lambda file: file["filename"],
-                    pd.factory_parent.factory_parent.artifact_files,
-                )
-            )
-            if pd.factory_parent.factory_parent.artifact_files
-            else []
-        ),
-    )
-
-    # TODO: MAYBE - should be able to specifiy a file on disk to reference here? would make it easier to not have to specify content?
-
-    extra_files: list[FileModel] = []
+    # TODO: Should be able to specifiy a file on disk to reference here?
+    # TODO: filename: content dictionary instead?
+    files: list[FileModel] = []
 
     @classmethod
     def _create(cls, model_class, *args, **kwargs):
-        for artifact in kwargs["artifact_files"]:
-            FileFactory(filename=artifact["filename"], contents=artifact["contents"])
-        for file in kwargs["extra_files"]:
+        for file in kwargs["files"]:
             FileFactory(filename=file["filename"], contents=file["contents"])
         return super()._create(model_class, *args, **kwargs)
 
 
 # TODO: use one factory and pick based on definition version
-class ProjectV11Factory(factory.Factory):
-    class Meta:
-        model = ProjectV10FactoryModel
+class ProjectV11Factory(ProjectV10Factory):
 
-    artifact_files: list[FileModel] = []
-
-    # TODO rewrite this to allow src/dest pairs for artifacts writing in pdf
-    pdf = factory.SubFactory(
-        PdfV11Factory,
-        native_app__artifacts=factory.LazyAttribute(
-            lambda pd: list(
-                map(
-                    lambda file: file["filename"],
-                    pd.factory_parent.factory_parent.artifact_files,
-                )
-            )
-            if pd.factory_parent.factory_parent.artifact_files
-            else []
-        ),
-    )
-
-    # TODO: MAYBE - should be able to specifiy a file on disk to reference here? would make it easier to not have to specify content?
-
-    extra_files: list[FileModel] = []
-
-    @classmethod
-    def _create(cls, model_class, *args, **kwargs):
-        for artifact in kwargs["artifact_files"]:
-            FileFactory(filename=artifact["filename"], contents=artifact["contents"])
-        for file in kwargs["extra_files"]:
-            FileFactory(filename=file["filename"], contents=file["contents"])
-        return super()._create(model_class, *args, **kwargs)
+    pdf = factory.SubFactory(PdfV11Factory)

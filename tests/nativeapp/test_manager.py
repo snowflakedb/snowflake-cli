@@ -72,6 +72,7 @@ from tests.nativeapp.utils import (
     mock_snowflake_yml_file,
     quoted_override_yml_file,
     touch,
+    use_integration_project,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
 from tests.testing_utils.fixtures import MockConnectionCtx
@@ -1737,3 +1738,8 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
         pass
     else:
         pytest.fail("stream_events didn't end when receiving a KeyboardInterrupt")
+
+
+def test_integration_factory(temp_dir):
+    use_integration_project()
+    assert 1 == 1

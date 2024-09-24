@@ -51,11 +51,9 @@ def test_pdf_not_v2(temp_dir):
     pdfv1 = PdfV10Factory(
         native_app__source_stage="app_src.stage",
         native_app__artifacts=[{"src": "app/*", "dest": "./"}],
-        return_string=True,
-        skip_write=True,
-    )
+    ).get_yml_string()
     with pytest.raises(InvalidProjectDefinitionVersionError):
-        _get_ws_manager(pdf_content=pdfv1.yml)
+        _get_ws_manager(pdf_content=pdfv1)
 
 
 # Test that the same entity instance is returned for the same id
