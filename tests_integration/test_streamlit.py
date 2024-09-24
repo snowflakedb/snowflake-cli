@@ -392,8 +392,6 @@ def test_streamlit_execute_in_headless_mode(
         assert result.exit_code == 0, f"Streamlit execute failed: {result.output}"
         assert result.json == {"message": f"Streamlit {streamlit_name} executed."}
 
-        print(f"Execution result: {result.output}")
-
     result = runner.invoke_with_connection_json(["streamlit", "drop", streamlit_name])
     assert result.exit_code == 0, f"Streamlit drop failed: {result.output}"
 
