@@ -20,11 +20,6 @@ from typing import Optional
 import typer
 from click import MissingParameter
 from snowflake.cli._plugins.nativeapp.common_flags import ForceOption, InteractiveOption
-from snowflake.cli._plugins.nativeapp.policy import (
-    AllowAlwaysPolicy,
-    AskAlwaysPolicy,
-    DenyAlwaysPolicy,
-)
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
     nativeapp_definition_v2_to_v1,
@@ -137,19 +132,10 @@ def drop(
 
     assert_project_type("native_app")
 
-    is_interactive = False
-    if force:
-        policy = AllowAlwaysPolicy()
-    elif interactive:
-        is_interactive = True
-        policy = AskAlwaysPolicy()
-    else:
-        policy = DenyAlwaysPolicy()
-
     cli_context = get_cli_context()
     processor = NativeAppVersionDropProcessor(
         project_definition=cli_context.project_definition.native_app,
         project_root=cli_context.project_root,
     )
-    processor.process(version, policy, is_interactive)
+    processor.process(version, force, interactive)
     return MessageResult(f"Version drop is now complete.")
