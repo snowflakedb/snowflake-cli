@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from tests.nativeapp.factories import PdfV10Factory, ProjectV10Factory
+from tests.nativeapp.utils import use_integration_project
 
 
 def test_pdf_factory(temp_dir):
@@ -87,3 +88,9 @@ def test_pdf_and_local_yml(temp_dir):
 
     assert Path(Path(temp_dir) / "snowflake.yml").exists()
     assert Path(Path(temp_dir) / "snowflake.local.yml").exists()
+
+
+# PoC for sample project in test_data/projects/integration
+def test_integration_factory(temp_dir):
+    use_integration_project()
+    assert 1 == 1

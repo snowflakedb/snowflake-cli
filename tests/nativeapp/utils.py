@@ -212,6 +212,7 @@ def create_native_app_project_model(
     )
 
 
+# POC to replicate tests/test_data/projects/integration sample project
 def use_integration_project():
     package_script_1 = dedent(
         """\
