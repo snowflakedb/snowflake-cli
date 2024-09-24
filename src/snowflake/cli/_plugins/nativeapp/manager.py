@@ -23,15 +23,15 @@ from textwrap import dedent
 from typing import Generator, List, Optional
 
 from snowflake.cli._plugins.connection.util import make_snowsight_url
-from snowflake.cli._plugins.nativeapp.application_entity import (
+from snowflake.cli._plugins.nativeapp.artifacts import (
+    BundleMap,
+)
+from snowflake.cli._plugins.nativeapp.entities.application import (
     ApplicationEntity,
     ApplicationOwnedObject,
 )
-from snowflake.cli._plugins.nativeapp.application_package_entity import (
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
-)
-from snowflake.cli._plugins.nativeapp.artifacts import (
-    BundleMap,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
     NoEventTableForAccount,
