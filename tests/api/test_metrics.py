@@ -76,3 +76,26 @@ def test_metrics_set_multiple_counters():
     assert metrics.counters == {"counter1": 1, "counter2": 2}
     assert metrics.get_counter("counter1") == 1
     assert metrics.get_counter("counter2") == 2
+
+
+def test_metrics_set_default_new_counter():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    metrics.set_counter_default("c1", 3)
+
+    # then
+    assert metrics.counters == {"c1": 3}
+
+
+def test_metrics_set_default_existing_counter():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    metrics.set_counter("c2", 2)
+    metrics.set_counter_default("c2", 1)
+
+    # then
+    assert metrics.counters == {"c2": 2}

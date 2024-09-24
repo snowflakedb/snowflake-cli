@@ -74,13 +74,12 @@ class NativeAppCompiler:
         Go through every artifact object in the project definition of a native app, and execute processors in order of specification for each of the artifact object.
         May have side-effects on the filesystem by either directly editing source files or the deploy root.
         """
+        metrics = get_cli_context().metrics
+        metrics.set_counter_default(CLICounterField.TEMPLATES_PROCESSOR, 0)
+        metrics.set_counter_default(CLICounterField.SNOWPARK_PROCESSOR, 0)
 
         if not self._should_invoke_processors():
             return
-
-        metrics = get_cli_context().metrics
-        metrics.set_counter(CLICounterField.TEMPLATES_PROCESSOR, 0)
-        metrics.set_counter(CLICounterField.SNOWPARK_PROCESSOR, 0)
 
         with cc.phase("Invoking artifact processors"):
             if self._bundle_ctx.generated_root.exists():

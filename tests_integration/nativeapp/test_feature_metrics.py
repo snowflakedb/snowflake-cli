@@ -69,11 +69,19 @@ def test_sql_templating_emits_counter(
 @pytest.mark.parametrize(
     "command," "test_project," "expected_counters",
     [
+        # ensure that post deploy scripts are picked up for v1
         (
             "app deploy",
             "napp_application_post_deploy_v1",
-            {CLICounterField.PDF_TEMPLATES: 0, CLICounterField.POST_DEPLOY_SCRIPTS: 1},
+            {
+                CLICounterField.SNOWPARK_PROCESSOR: 0,
+                CLICounterField.TEMPLATES_PROCESSOR: 0,
+                CLICounterField.PDF_TEMPLATES: 0,
+                CLICounterField.POST_DEPLOY_SCRIPTS: 1,
+                CLICounterField.PACKAGE_SCRIPTS: 0,
+            },
         ),
+        # post deploy scripts should not be available for bundling since there is no deploy
         (
             "ws bundle --entity-id=pkg",
             "napp_templates_processors_v2",
@@ -83,6 +91,7 @@ def test_sql_templating_emits_counter(
                 CLICounterField.PDF_TEMPLATES: 1,
             },
         ),
+        # ensure that templates processor is picked up
         (
             "app run",
             "napp_templates_processors_v1",
@@ -91,6 +100,31 @@ def test_sql_templating_emits_counter(
                 CLICounterField.TEMPLATES_PROCESSOR: 1,
                 CLICounterField.PDF_TEMPLATES: 0,
                 CLICounterField.POST_DEPLOY_SCRIPTS: 0,
+                CLICounterField.PACKAGE_SCRIPTS: 0,
+            },
+        ),
+        # ensure that package scripts are picked up
+        (
+            "app deploy",
+            "integration_external",
+            {
+                CLICounterField.SNOWPARK_PROCESSOR: 0,
+                CLICounterField.TEMPLATES_PROCESSOR: 0,
+                CLICounterField.POST_DEPLOY_SCRIPTS: 0,
+                CLICounterField.PACKAGE_SCRIPTS: 1,
+            },
+        ),
+        # ensure post deploy scripts are picked up for v2
+        # and package scripts are not available in v2
+        (
+            "app deploy",
+            "integration_external_v2",
+            {
+                CLICounterField.SNOWPARK_PROCESSOR: 0,
+                CLICounterField.TEMPLATES_PROCESSOR: 0,
+                CLICounterField.PDF_TEMPLATES: 1,
+                CLICounterField.POST_DEPLOY_SCRIPTS: 1,
+                CLICounterField.PACKAGE_SCRIPTS: 0,
             },
         ),
     ],

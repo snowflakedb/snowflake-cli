@@ -15,13 +15,14 @@
 from typing import Dict, Optional
 
 
-class _CLITypePrefix:
+class _TypePrefix:
     FEATURES = "features"
 
 
-class _CLIDomainPrefix:
+class _DomainPrefix:
     GLOBAL = "global"
     APP = "app"
+    SQL = "sql"
 
 
 class CLICounterField:
@@ -40,16 +41,17 @@ class CLICounterField:
     """
 
     TEMPLATES_PROCESSOR = (
-        f"{_CLITypePrefix.FEATURES}.{_CLIDomainPrefix.GLOBAL}.templates_processor"
+        f"{_TypePrefix.FEATURES}.{_DomainPrefix.GLOBAL}.templates_processor"
     )
-    SQL_TEMPLATES = f"{_CLITypePrefix.FEATURES}.{_CLIDomainPrefix.GLOBAL}.sql_templates"
-    PDF_TEMPLATES = f"{_CLITypePrefix.FEATURES}.{_CLIDomainPrefix.GLOBAL}.pdf_templates"
+    SQL_TEMPLATES = f"{_TypePrefix.FEATURES}.{_DomainPrefix.SQL}.sql_templates"
+    PDF_TEMPLATES = f"{_TypePrefix.FEATURES}.{_DomainPrefix.GLOBAL}.pdf_templates"
     SNOWPARK_PROCESSOR = (
-        f"{_CLITypePrefix.FEATURES}.{_CLIDomainPrefix.APP}.snowpark_processor"
+        f"{_TypePrefix.FEATURES}.{_DomainPrefix.APP}.snowpark_processor"
     )
     POST_DEPLOY_SCRIPTS = (
-        f"{_CLITypePrefix.FEATURES}.{_CLIDomainPrefix.APP}.post_deploy_scripts"
+        f"{_TypePrefix.FEATURES}.{_DomainPrefix.APP}.post_deploy_scripts"
     )
+    PACKAGE_SCRIPTS = f"{_TypePrefix.FEATURES}.{_DomainPrefix.APP}.package_scripts"
 
 
 class CLIMetrics:
@@ -70,6 +72,13 @@ class CLIMetrics:
 
     def set_counter(self, name: str, value: int) -> None:
         self._counters[name] = value
+
+    def set_counter_default(self, name: str, value: int) -> None:
+        """
+        sets the counter if it does not already exist
+        """
+        if name not in self._counters:
+            self.set_counter(name, value)
 
     def increment_counter(self, name: str, value: int = 1) -> None:
         if name not in self._counters:

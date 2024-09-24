@@ -403,15 +403,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             if not policy.should_proceed("Proceed with using this package?"):
                 raise typer.Abort() from e
         with get_sql_executor().use_role(package_role):
-            if package_scripts:
-                cls.apply_package_scripts(
-                    console=console,
-                    package_scripts=package_scripts,
-                    package_warehouse=package_warehouse,
-                    project_root=project_root,
-                    package_role=package_role,
-                    package_name=package_name,
-                )
+            cls.apply_package_scripts(
+                console=console,
+                package_scripts=package_scripts,
+                package_warehouse=package_warehouse,
+                project_root=project_root,
+                package_role=package_role,
+                package_name=package_name,
+            )
 
             # 3. Upload files from deploy root local folder to the above stage
             stage_schema = extract_schema(stage_fqn)
@@ -429,17 +428,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 print_diff=print_diff,
             )
 
-        get_cli_context().metrics.increment_counter(
-            CLICounterField.POST_DEPLOY_SCRIPTS, 0
+        cls.execute_post_deploy_hooks(
+            console=console,
+            project_root=project_root,
+            post_deploy_hooks=post_deploy_hooks,
+            package_name=package_name,
+            package_warehouse=package_warehouse,
         )
-        if post_deploy_hooks:
-            cls.execute_post_deploy_hooks(
-                console=console,
-                project_root=project_root,
-                post_deploy_hooks=post_deploy_hooks,
-                package_name=package_name,
-                package_warehouse=package_warehouse,
-            )
 
         if validate:
             cls.validate_setup_script(
@@ -1042,10 +1037,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         applies all package scripts in-order to the application package.
         """
 
-        if package_scripts:
-            console.warning(
-                "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
-            )
+        metrics = get_cli_context().metrics
+        metrics.set_counter_default(CLICounterField.PACKAGE_SCRIPTS, 0)
+
+        if not package_scripts:
+            return
+
+        metrics.set_counter(CLICounterField.PACKAGE_SCRIPTS, 1)
+
+        console.warning(
+            "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
+        )
 
         queued_queries = render_script_templates(
             project_root,
@@ -1134,14 +1136,19 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         package_name: str,
         package_warehouse: Optional[str],
     ):
-        with cls.use_package_warehouse(package_warehouse):
-            execute_post_deploy_hooks(
-                console=console,
-                project_root=project_root,
-                post_deploy_hooks=post_deploy_hooks,
-                deployed_object_type="application package",
-                database_name=package_name,
-            )
+        get_cli_context().metrics.set_counter_default(
+            CLICounterField.POST_DEPLOY_SCRIPTS, 0
+        )
+
+        if post_deploy_hooks:
+            with cls.use_package_warehouse(package_warehouse):
+                execute_post_deploy_hooks(
+                    console=console,
+                    project_root=project_root,
+                    post_deploy_hooks=post_deploy_hooks,
+                    deployed_object_type="application package",
+                    database_name=package_name,
+                )
 
     @classmethod
     def validate_setup_script(
