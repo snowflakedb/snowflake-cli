@@ -85,21 +85,6 @@ def test_does_not_accept_unknown_fields(project_definition_files):
     )
 
 
-# fixtures
-def minimal():
-    return dict(foo="bar")
-
-
-# fixtures
-def minimal_with_fsdf():
-    return dict(foo__fsdf="sgfsfs")
-
-
-# fixtures
-def maximal(minimal):
-    return minimal | dict(bar__hfghgf="1234")
-
-
 @pytest.mark.parametrize(
     "project_definition_files",
     [
