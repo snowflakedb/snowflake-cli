@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -oeux pipefail
 
+brew install -q tree
+
 git config --global --add safe.directory /snowflake-cli
 
 ROOT_DIR="$(git rev-parse --show-toplevel)"
@@ -16,6 +18,8 @@ hatch -e packaging run pyinstaller \
   --noconfirm \
   --contents-directory=snowflake-cli-${VERSION} \
   ${ENTRY_POINT}
+
+tree $DIST_DIR
 
 cd $DIST_DIR/snow
 ./snow
