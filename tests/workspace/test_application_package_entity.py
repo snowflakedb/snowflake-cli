@@ -17,15 +17,13 @@ from pathlib import Path
 from unittest import mock
 
 import yaml
-from snowflake.cli._plugins.nativeapp.application_package_entity import (
-    ApplicationPackageEntity,
-)
-from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
-    ApplicationPackageEntityModel,
-)
 from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
+)
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntity,
+    ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.workspace.action_context import ActionContext
 from snowflake.cli.api.project.schemas.entities.common import SqlScriptHookType

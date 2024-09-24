@@ -1,19 +1,13 @@
+from __future__ import annotations
+
 from contextlib import contextmanager
 from pathlib import Path
 from textwrap import dedent
-from typing import Callable, List, Optional, TypedDict
+from typing import Callable, List, Literal, Optional, TypedDict
 
 import typer
 from click import ClickException, UsageError
-from snowflake.cli._plugins.nativeapp.application_entity_model import (
-    ApplicationEntityModel,
-)
-from snowflake.cli._plugins.nativeapp.application_package_entity import (
-    ApplicationPackageEntity,
-)
-from snowflake.cli._plugins.nativeapp.application_package_entity_model import (
-    ApplicationPackageEntityModel,
-)
+from pydantic import Field, field_validator
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -25,6 +19,10 @@ from snowflake.cli._plugins.nativeapp.constants import (
     NAME_COL,
     OWNER_COL,
     SPECIAL_COMMENT,
+)
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntity,
+    ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
@@ -38,9 +36,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
-from snowflake.cli._plugins.nativeapp.utils import (
-    needs_confirmation,
-)
+from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.action_context import ActionContext
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
@@ -57,10 +53,14 @@ from snowflake.cli.api.errno import (
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
     ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
-from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
-from snowflake.cli.api.project.util import (
-    extract_schema,
+from snowflake.cli.api.project.schemas.entities.common import (
+    EntityModelBase,
+    Identifier,
+    PostDeployHook,
+    TargetField,
 )
+from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
+from snowflake.cli.api.project.util import append_test_resource_suffix, extract_schema
 from snowflake.connector import ProgrammingError
 
 # Reasons why an `alter application ... upgrade` might fail
@@ -72,7 +72,33 @@ UPGRADE_RESTRICTION_CODES = {
     APPLICATION_NO_LONGER_AVAILABLE,
 }
 
+
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
+
+
+class ApplicationEntityModel(EntityModelBase):
+    type: Literal["application"] = DiscriminatorField()  # noqa A003
+    from_: TargetField[ApplicationPackageEntityModel] = Field(
+        alias="from",
+        title="An application package this entity should be created from",
+    )
+    debug: Optional[bool] = Field(
+        title="Whether to enable debug mode when using a named stage to create an application object",
+        default=None,
+    )
+
+    @field_validator("identifier")
+    @classmethod
+    def append_test_resource_suffix_to_identifier(
+        cls, input_value: Identifier | str
+    ) -> Identifier | str:
+        identifier = (
+            input_value.name if isinstance(input_value, Identifier) else input_value
+        )
+        with_suffix = append_test_resource_suffix(identifier)
+        if isinstance(input_value, Identifier):
+            return input_value.model_copy(update=dict(name=with_suffix))
+        return with_suffix
 
 
 class ApplicationEntity(EntityBase[ApplicationEntityModel]):
