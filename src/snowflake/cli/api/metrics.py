@@ -14,16 +14,36 @@
 
 from typing import Dict, Optional
 
-_FEATURES_PREFIX = "features"
-_APP_PREFIX = "app"
+
+class _CLICounterTypePrefix:
+    FEATURES = "features"
+
+
+class _CLICounterDomainPrefix:
+    GLOBAL = "global"
+    APP = "app"
 
 
 class CLICounterField:
-    TEMPLATES_PROCESSOR = f"{_FEATURES_PREFIX}.templates_processor"
-    SQL_TEMPLATES = f"{_FEATURES_PREFIX}.sql_templates"
-    PDF_TEMPLATES = f"{_FEATURES_PREFIX}.pdf_templates"
-    SNOWPARK_PROCESSOR = f"{_FEATURES_PREFIX}.{_APP_PREFIX}.snowpark_processor"
-    POST_DEPLOY_SCRIPTS = f"{_FEATURES_PREFIX}.{_APP_PREFIX}.post_deploy_scripts"
+    """
+    for each counter field we're adopting a convention of
+    <type>.<scope/domain>.<name>
+    for example, if we're tracking a global feature, then the field name would be
+    features.global.feature_name
+
+    The metrics API is implemented to be generic, but NADE is adopting a convention
+    for feature tracking with the following model for a given command execution:
+    * counter not present -> feature is not available
+    * counter == 0 -> feature is available, but not used
+    * counter == 1 -> feature is used
+    this makes it easy to compute percentages for feature dashboards in Snowsight
+    """
+
+    TEMPLATES_PROCESSOR = f"{_CLICounterTypePrefix.FEATURES}.{_CLICounterDomainPrefix.GLOBAL}.templates_processor"
+    SQL_TEMPLATES = f"{_CLICounterTypePrefix.FEATURES}.{_CLICounterDomainPrefix.GLOBAL}.sql_templates"
+    PDF_TEMPLATES = f"{_CLICounterTypePrefix.FEATURES}.{_CLICounterDomainPrefix.GLOBAL}.pdf_templates"
+    SNOWPARK_PROCESSOR = f"{_CLICounterTypePrefix.FEATURES}.{_CLICounterDomainPrefix.APP}.snowpark_processor"
+    POST_DEPLOY_SCRIPTS = f"{_CLICounterTypePrefix.FEATURES}.{_CLICounterDomainPrefix.APP}.post_deploy_scripts"
 
 
 class CLIMetrics:
