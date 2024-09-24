@@ -3,6 +3,11 @@ set -oeux pipefail
 
 brew install -q tree
 
+penv rehash
+pyenv versions
+pyenv shell 3.11
+python --version
+
 git config --global --add safe.directory /snowflake-cli
 
 ROOT_DIR="$(git rev-parse --show-toplevel)"
