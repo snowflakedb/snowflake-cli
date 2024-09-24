@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -o pipefail
+set -oxeu pipefail
 
 git config --global --add safe.directory /snowflake-cli
 
@@ -23,7 +23,7 @@ echo ${DEB_PGK_FILE_NAME}
 echo ${RPM_PGK_FILE_NAME}
 echo "-*-*-*- build variables -*-*-*-"
 
-cd $DIST_DIR
+cd $DIST_DIR/snow
 ./snow
 
 cd ${ROOT_DIR}
