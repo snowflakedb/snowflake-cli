@@ -1,8 +1,14 @@
 @echo on
 
+REM replace with one from environment
+set RELEASE_TYPE=dev
+
+aws s3 ls %STAGE_URL% --recursive
+
 heat.exe /?
 candle.exe /?
 light.exe /?
+
 
 REM heat.exe dir dist\\snow\\_internal ^
 REM   -gg ^
