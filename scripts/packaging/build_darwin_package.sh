@@ -23,6 +23,8 @@ loginfo() {
   logger -s -p INFO -- $1
 }
 
+$DIST_DIR/snow/snow --help
+
 loginfo "Building darwin package for version ${CLI_VERSION}"
 
 setup_app_dir() {
@@ -69,7 +71,7 @@ cat > $APP_NAME/Contents/Info.plist <<INFO_PLIST
 </plist>
 INFO_PLIST
 
-cp -r $DIST_DIR/snow/* $APP_NAME/Contents/MacOS/
+cp -r $DIST_DIR/snow $APP_NAME/Contents/MacOS/
 cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns $APP_NAME/Contents/Resources/SnowflakeCLI.icns
 cp -r $PACKAGING_DIR/macos/SnowflakeCLI.bash $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
 chmod +x $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
