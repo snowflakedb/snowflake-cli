@@ -10,6 +10,7 @@ from typing import Callable, Generator, List, Literal, Optional, TypedDict
 import typer
 from click import ClickException, UsageError
 from pydantic import Field, field_validator
+from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -68,6 +69,7 @@ from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 from snowflake.cli.api.project.util import (
     append_test_resource_suffix,
     extract_schema,
+    identifier_for_url,
     unquote_identifier,
 )
 from snowflake.connector import DictCursor, ProgrammingError
@@ -843,6 +845,16 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         sql_executor = get_sql_executor()
         results = sql_executor.execute_query(query, cursor_class=DictCursor)
         return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
+
+    @classmethod
+    def get_snowsight_url(cls, app_name: str, app_warehouse: str | None) -> str:
+        """Returns the URL that can be used to visit this app via Snowsight."""
+        name = identifier_for_url(app_name)
+        with cls.use_application_warehouse(app_warehouse):
+            sql_executor = get_sql_executor()
+            return make_snowsight_url(
+                sql_executor._conn, f"/#/apps/application/{name}"  # noqa: SLF001
+            )
 
 
 def _new_events_only(previous_events: list[dict], new_events: list[dict]) -> list[dict]:
