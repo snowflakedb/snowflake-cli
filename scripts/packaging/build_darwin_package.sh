@@ -220,6 +220,8 @@ validate_installation() {
   SUDO_ASKPASS=./asker.sh sudo -A installer -pkg $pkg_name -target /
   ls -la /Applications/SnowflakeCLI.app
 
+  ls -la ~/
+
   bash --rcfile <(echo 'source ~/.bashrc; snow --help; exit')
   rm -rf /Applications/SnowflakeCLI.app || true
 }
