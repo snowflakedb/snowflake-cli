@@ -84,10 +84,6 @@ loginfo "---------------------------------"
 security find-identity -v -p codesigning
 loginfo "---------------------------------"
 
-loginfo "---------------------------------"
-security find-identity -p codesigning
-loginfo "---------------------------------"
-
 code_sign() {
   ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
   loginfo "---------------------------------"
@@ -104,7 +100,7 @@ code_sign() {
     $1
 }
 
-code_sign_nrt() {
+code_sign_no_runtime() {
   ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
   loginfo "---------------------------------"
   loginfo "Code signing $1 no runtime"
@@ -122,10 +118,7 @@ code_sign_validate() {
   loginfo "---------------------------------"
   loginfo "Validating code signing for $1"
   loginfo "---------------------------------"
-  codesign \
-    -dvvv \
-    --force \
-    $1
+  codesign -dvvv --force $1
 }
 
 APP_CONTENTS=$APP_NAME/Contents/MacOS/snow
@@ -135,12 +128,12 @@ code_sign $APP_CONTENTS
 code_sign_validate $APP_CONTENTS
 
 for l in $(find . -name '*.so'); do
-  code_sign_nrt $l
+  code_sign_no_runtime $l
   code_sign_validate $l
 done
 
 for l in $(find . -name '*.dylib'); do
-  code_sign_nrt $l
+  code_sign_no_runtime $l
   code_sign_validate $l
 done
 
@@ -199,8 +192,6 @@ productsign \
   --sign "Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)" \
   $DIST_DIR/snowflake-cli-${SYSTEM}-${MACHINE}.unsigned.pkg \
   $DIST_DIR/snowflake-cli-${SYSTEM}-${MACHINE}.pkg
-
-ls -l $DIST_DIR
 
 cp -p \
   $DIST_DIR/snowflake-cli-${SYSTEM}-${MACHINE}.pkg \
