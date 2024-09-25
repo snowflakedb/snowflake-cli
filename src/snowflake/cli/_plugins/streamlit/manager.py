@@ -43,6 +43,10 @@ log = logging.getLogger(__name__)
 
 
 class StreamlitManager(SqlExecutionMixin):
+    def execute(self, app_name: FQN):
+        query = f"EXECUTE STREAMLIT {app_name.sql_identifier}()"
+        return self._execute_query(query=query)
+
     def share(self, streamlit_name: FQN, to_role: str) -> SnowflakeCursor:
         return self._execute_query(
             f"grant usage on streamlit {streamlit_name.sql_identifier} to role {to_role}"
