@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 set -oeux pipefail
 
-brew install -q tree
-
-penv rehash
-pyenv versions
-pyenv shell 3.11
-python --version
-
 git config --global --add safe.directory /snowflake-cli
 
 ROOT_DIR="$(git rev-parse --show-toplevel)"
@@ -24,9 +17,9 @@ hatch -e packaging run pyinstaller \
   --contents-directory=snowflake-cli-${VERSION} \
   ${ENTRY_POINT}
 
-tree $DIST_DIR
+execute_build() {
+  cd $DIST_DIR/snow && ./snow
+  cd -
+}
 
-cd $DIST_DIR/snow
-./snow
-
-cd $ROOT_DIR
+execute_build
