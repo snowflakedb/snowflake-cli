@@ -32,6 +32,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.entities.utils import (
     generic_sql_error_handler,
 )
@@ -98,7 +99,8 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             cascade_msg = " (cascade)" if cascade else ""
             cc.step(f"Dropping application object {self.app_name}{cascade_msg}.")
             cascade_sql = " cascade" if cascade else ""
-            self._execute_query(f"drop application {self.app_name}{cascade_sql}")
+            sql_executor = get_sql_executor()
+            sql_executor.execute_query(f"drop application {self.app_name}{cascade_sql}")
         except ProgrammingError as err:
             if err.errno == APPLICATION_OWNS_EXTERNAL_OBJECTS and not cascade:
                 # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
