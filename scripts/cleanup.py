@@ -34,7 +34,7 @@ def remove_resource(resource_type: str, item, role: str):
             session.sql(
                 f"GRANT OWNERSHIP ON {resource_type} {item.name} TO ROLE {role}"
             )
-            session.sql(f"drop {resource_type} {item.name}").collect()
+            session.sql(f'drop {resource_type} "{item.name}"').collect()
             print("SUCCESS", msg, f"created at {item.created_on}")
     except Exception as err:
         print("ERROR", msg)
@@ -56,13 +56,13 @@ if __name__ == "__main__":
         "host": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST"),
         "account": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"),
         "user": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"),
-        "private_key_file": os.getenv(
-            "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE",
-            os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH"),
+        "private_key_raw": os.getenv(
+            "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW"
         ),
         "database": "SNOWCLI_DB",
         "role": role,
     }
+    config = {k: v for k, v in config.items() if v is not None}
     update_connection_details_with_private_key(config)
     session = Session.builder.configs(config).create()
 
