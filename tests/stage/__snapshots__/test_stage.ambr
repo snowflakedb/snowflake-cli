@@ -34,17 +34,6 @@
   
   '''
 # ---
-# name: test_execute[@DB.SCHEMA.EXE/s1.sql-@db.schema.exe-expected_files19]
-  '''
-  SUCCESS - @db.schema.exe/s1.sql
-  +-----------------------------------------+
-  | File                  | Status  | Error |
-  |-----------------------+---------+-------|
-  | @db.schema.exe/s1.sql | SUCCESS | None  |
-  +-----------------------------------------+
-  
-  '''
-# ---
 # name: test_execute[@DB.schema.EXE/a/S3.sql-@DB.schema.EXE-expected_files20]
   '''
   SUCCESS - @DB.schema.EXE/a/S3.sql
@@ -52,17 +41,6 @@
   | File                    | Status  | Error |
   |-------------------------+---------+-------|
   | @DB.schema.EXE/a/S3.sql | SUCCESS | None  |
-  +-------------------------------------------+
-  
-  '''
-# ---
-# name: test_execute[@DB.schema.EXE/a/S3.sql-@db.schema.exe-expected_files20]
-  '''
-  SUCCESS - @db.schema.exe/a/S3.sql
-  +-------------------------------------------+
-  | File                    | Status  | Error |
-  |-------------------------+---------+-------|
-  | @db.schema.exe/a/S3.sql | SUCCESS | None  |
   +-------------------------------------------+
   
   '''

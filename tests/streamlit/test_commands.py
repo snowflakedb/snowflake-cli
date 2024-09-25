@@ -18,6 +18,8 @@ from unittest import mock
 
 import pytest
 from snowflake.cli._plugins.connection.util import REGIONLESS_QUERY
+from snowflake.cli._plugins.streamlit.manager import StreamlitManager
+from snowflake.cli.api.identifiers import FQN
 
 STREAMLIT_NAME = "test_streamlit"
 TEST_WAREHOUSE = "test_warehouse"
@@ -549,12 +551,15 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     )
     mock_connector.return_value = ctx
 
-    with mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
-        return_value=enable_streamlit_versioned_stage,
-    ), mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled",
-        return_value=enable_streamlit_no_checkouts,
+    with (
+        mock.patch(
+            "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
+            return_value=enable_streamlit_versioned_stage,
+        ),
+        mock.patch(
+            "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled",
+            return_value=enable_streamlit_no_checkouts,
+        ),
     ):
         with project_directory("example_streamlit"):
             result = runner.invoke(["streamlit", "deploy", "--experimental"])
@@ -937,3 +942,12 @@ def test_deploy_streamlit_with_comment_v2(
         REGIONLESS_QUERY,
         "select current_account_name()",
     ]
+
+
+@mock.patch.object(StreamlitManager, "execute")
+def test_execute_streamlit(mock_execute, runner):
+    result = runner.invoke(["streamlit", "execute", STREAMLIT_NAME])
+
+    assert result.exit_code == 0, result.output
+    assert result.output == f"Streamlit {STREAMLIT_NAME} executed.\n"
+    mock_execute.assert_called_once_with(app_name=FQN.from_string(STREAMLIT_NAME))
