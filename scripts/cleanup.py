@@ -56,9 +56,8 @@ if __name__ == "__main__":
         "host": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST"),
         "account": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"),
         "user": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"),
-        "private_key_file": os.getenv(
-            "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE",
-            os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH"),
+        "private_key_raw": os.getenv(
+            "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW"
         ),
         "database": "SNOWCLI_DB",
         "role": role,
