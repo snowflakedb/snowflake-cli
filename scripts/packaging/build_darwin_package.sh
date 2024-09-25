@@ -217,7 +217,7 @@ validate_installation() {
   local pkg_name=$1
   ls -la $pkg_name
 
-  SUDO_ASKPASS=./asker.sh sudo -A installer -pkg $pkg_name
+  SUDO_ASKPASS=./asker.sh sudo -A installer -pkg $pkg_name -target /
   ls -la /Applications/SnowflakeCLI.app
 
   bash --rcfile <(echo 'source ~/.bashrc; snow --help; exit')
