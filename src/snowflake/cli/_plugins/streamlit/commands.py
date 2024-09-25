@@ -81,6 +81,18 @@ add_object_command_aliases(
 )
 
 
+@app.command(requires_connection=True)
+def execute(
+    name: FQN = StreamlitNameArgument,
+    **options,
+):
+    """
+    Executes a streamlit in a headless mode.
+    """
+    _ = StreamlitManager().execute(app_name=name)
+    return MessageResult(f"Streamlit {name} executed.")
+
+
 @app.command("share", requires_connection=True)
 def streamlit_share(
     name: FQN = StreamlitNameArgument,

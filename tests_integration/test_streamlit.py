@@ -23,6 +23,7 @@ from tests_integration.test_utils import (
     rows_from_snowflake_session,
 )
 from tests_integration.testing_utils import assert_that_result_is_successful
+from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 
 
 @pytest.mark.integration
@@ -367,3 +368,34 @@ def _new_streamlit_role(snowflake_session, test_database):
         row_from_snowflake_session(result),
         {"status": f"{role_name.upper()} successfully dropped."},
     )
+
+
+@pytest.mark.integration
+def test_streamlit_execute_in_headless_mode(
+    runner,
+    snowflake_session,
+    project_directory,
+):
+    streamlit_name = "test_streamlit_deploy_snowcli"
+
+    # Deploy the Streamlit app
+    with project_directory("streamlit_v2"):
+        result = runner.invoke_with_connection_json(
+            ["streamlit", "deploy", "--replace"]
+        )
+        assert result.exit_code == 0, f"Streamlit deploy failed: {result.output}"
+
+        # Execute the Streamlit app in headless mode
+        result = runner.invoke_with_connection_json(
+            ["streamlit", "execute", streamlit_name]
+        )
+        assert result.exit_code == 0, f"Streamlit execute failed: {result.output}"
+        assert result.json == {"message": f"Streamlit {streamlit_name} executed."}
+
+    result = runner.invoke_with_connection_json(["streamlit", "drop", streamlit_name])
+    assert result.exit_code == 0, f"Streamlit drop failed: {result.output}"
+
+    # Fix: Handle list of dictionaries
+    assert result.json[0] == {
+        "status": f"{streamlit_name.upper()} successfully dropped."
+    }
