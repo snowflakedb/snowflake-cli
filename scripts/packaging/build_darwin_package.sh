@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -xeuo pipefail
 
-env | sort
-
 git config --global --add safe.directory /snowflake-cli
 brew install -q tree
 
