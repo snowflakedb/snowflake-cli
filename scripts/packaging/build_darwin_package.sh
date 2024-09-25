@@ -215,16 +215,13 @@ ASKPASS
 
 validate_installation() {
   local pkg_name=$1
-  local dest=/tmp/sf_cli
-
-  mkdir -p $dest || true
   ls -la $pkg_name
 
-  SUDO_ASKPASS=./asker.sh sudo -A installer -pkg $pkg_name -target /tmp/sf_cli
-  ls -la $dest
+  SUDO_ASKPASS=./asker.sh sudo -A installer -pkg $pkg_name
+  ls -la /Applications/SnowflakeCLI.app
 
   bash --rcfile <(echo 'source ~/.bashrc; snow --help; exit')
-  rm -rf $dest || true
+  rm -rf /Applications/SnowflakeCLI.app || true
 }
 
 validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
