@@ -21,6 +21,8 @@ from snowflake.cli.api.commands.decorators import (
 
 _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "connection",
+    "host",
+    "port",
     "account",
     "user",
     "password",
