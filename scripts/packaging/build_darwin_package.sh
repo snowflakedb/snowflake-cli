@@ -208,11 +208,11 @@ cp -p \
 ls -l $DIST_DIR
 
 
-valide_installation() {
+validate_installation() {
   local pkg_name=$1
   installer -pkg $pkg_name -target CurrentUserHomeDirectory -dumplog
   ls -la ~
   bash --rcfile <(echo 'source ~/.bashrc; snow --help; exit')
   rm -rf ~/Applications/SnowflakeCLI.app
 }
-valid_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
+validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
