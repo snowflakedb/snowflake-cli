@@ -36,7 +36,7 @@ setup_app_dir() {
 setup_app_dir
 cd $APP_DIR
 
-cat > $APP_NAME/Contents/Info.plist <<INFO_PLIST
+cat >$APP_NAME/Contents/Info.plist <<INFO_PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -103,6 +103,7 @@ code_sign() {
     --sign "Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
     $1
 }
+
 code_sign_nrt() {
   ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
   loginfo "---------------------------------"
@@ -114,8 +115,9 @@ code_sign_nrt() {
     --force \
     --entitlements $ENTITLEMENTS \
     --sign "Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
-    $1 # --options=runtime \
+    $1
 }
+
 code_sign_validate() {
   loginfo "---------------------------------"
   loginfo "Validating code signing for $1"
@@ -123,7 +125,7 @@ code_sign_validate() {
   codesign \
     -dvvv \
     --force \
-   $1
+    $1
 }
 
 APP_CONTENTS=$APP_NAME/Contents/MacOS/snow
@@ -141,7 +143,6 @@ for l in $(find . -name '*.dylib'); do
   code_sign_nrt $l
   code_sign_validate $l
 done
-
 
 # POSTINSTALL SCRIPT
 prepare_postinstall_script() {
@@ -205,10 +206,9 @@ cp -p \
   $DIST_DIR/snowflake-cli-${SYSTEM}-${MACHINE}.pkg \
   $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
 
-
 ls -l $DIST_DIR
 
-cat <<ASKPASS > ./asker.sh
+cat <<ASKPASS >./asker.sh
   #!/bin/bash
   printf "%s\n" "$MAC_USERNAME_PASSWORD"
 ASKPASS
@@ -217,13 +217,15 @@ validate_installation() {
   local pkg_name=$1
   ls -la $pkg_name
 
-  SUDO_ASKPASS=./asker.sh sudo -A installer -pkg $pkg_name -target /
+  export SUDO_ASKPASS=./asker.sh
+  sudo -A installer -pkg $pkg_name -target /
   ls -la /Applications/SnowflakeCLI.app
 
   ls -la ~/
 
-  bash --rcfile <(echo 'source ~/.bashrc; snow --help; exit')
-  rm -rf /Applications/SnowflakeCLI.app || true
+  cat ~/.profile
+  bash --rcfile <(echo 'source ~/.profile; snow --help; exit')
+  sudo rm -rf /Applications/SnowflakeCLI.app || true
 }
 
 validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
