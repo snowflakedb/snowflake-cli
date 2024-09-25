@@ -516,12 +516,18 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
             "test_dv",
             "--schema",
             "PUBLIC",
+            "--host",
+            "snowcli_test_host",
+            "--port",
+            "123456789",
         ],
     )
 
     assert result.exit_code == 0
     mock_connector.assert_called_once_with(
         application="SNOWCLI.OBJECT.LIST",
+        host="snowcli_test_host",
+        port=123456789,
         account="test_account",
         user="snowcli_test",
         password="top_secret",
