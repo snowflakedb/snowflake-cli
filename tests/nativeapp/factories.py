@@ -223,6 +223,9 @@ class ProjectFactoryModel:
     files: list[FileModel]
 
 
+ProjectFiles = dict[str | Path, str]
+
+
 class ProjectV10Factory(factory.Factory):
     """
     Factory to create PDF dict, and write in working directory PDF to snowflake.yml file, and other optional files.
@@ -234,12 +237,12 @@ class ProjectV10Factory(factory.Factory):
     pdf = factory.SubFactory(PdfV10Factory)
 
     # TODO: filename: content dictionary instead?
-    files: list[FileModel] = []
+    files: ProjectFiles = {}
 
     @classmethod
     def _create(cls, model_class, *args, **kwargs):
-        for file in kwargs["files"]:
-            FileFactory(filename=file["filename"], contents=file["contents"])
+        for filename, contents in kwargs["files"].items():
+            FileFactory(filename=filename, contents=contents)
         return super()._create(model_class, *args, **kwargs)
 
 

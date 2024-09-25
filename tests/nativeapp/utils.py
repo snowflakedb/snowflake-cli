@@ -297,11 +297,11 @@ def use_integration_project():
             "package/001-shared.sql",
             "package/002-shared.sql",
         ],
-        files=[
-            {"filename": "package/001-shared.sql", "contents": package_script_1},
-            {"filename": "package/002-shared.sql", "contents": package_script_2},
-            {"filename": "app/setup.sql", "contents": setup_script},
-            {"filename": "app/README.md", "contents": readme_contents},
-            {"filename": "app/manifest.yml", "contents": manifest_contents},
-        ],
+        files={
+            "package/001-shared.sql": package_script_1,
+            "package/002-shared.sql": package_script_2,
+            "app/setup.sql": setup_script,
+            "app/README.md": readme_contents,
+            "app/manifest.yml": manifest_contents,
+        },
     )

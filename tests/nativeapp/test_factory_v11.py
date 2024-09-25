@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from snowflake.cli.api.project.definition_manager import DefinitionManager
+
 from tests.nativeapp.factories import PdfV11Factory, ProjectV11Factory
 
 
@@ -60,14 +62,25 @@ def test_artifacts_mapping(temp_dir):
 def test_project_factory(temp_dir):
     pdf_res = ProjectV11Factory(
         pdf__native_app__artifacts=["README.md", "setup.sql"],
-        files=[
-            {"filename": "README.md", "contents": ""},
-            {"filename": "setup.sql", "contents": "select 1;"},
-            {"filename": "app/some_file.py", "contents": ""},
-        ],
+        files={
+            "README.md": "",
+            "setup.sql": "select 1;",
+            "app/some_file.py": "",
+        },
     )
     assert pdf_res.pdf.yml["native_app"]["artifacts"] == ["README.md", "setup.sql"]
-    assert Path(Path(temp_dir) / "snowflake.yml").exists()
-    assert Path(Path(temp_dir) / "setup.sql").exists()
-    assert Path(Path(temp_dir) / "README.md").exists()
-    assert Path(Path(temp_dir) / "app/some_file.py").exists()
+    assert (Path(temp_dir) / "snowflake.yml").exists()
+    assert (Path(temp_dir) / "setup.sql").exists()
+    assert (Path(temp_dir) / "README.md").exists()
+    assert (Path(temp_dir) / "app/some_file.py").exists()
+
+
+def test_templates(temp_dir):
+    PdfV11Factory(
+        native_app__name="myapp_<% ctx.env.FOO %>",
+        env__FOO="bar",
+    )
+    assert (Path(temp_dir) / "snowflake.yml").exists()
+    dm = DefinitionManager(temp_dir)
+    assert dm.project_definition.native_app.name == "myapp_bar"
+    assert dm.project_definition.env["FOO"] == "bar"

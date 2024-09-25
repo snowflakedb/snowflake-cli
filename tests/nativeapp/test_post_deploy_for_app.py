@@ -81,10 +81,10 @@ def test_sql_scripts(
             {"sql_script": "scripts/app_post_deploy2.sql"},
         ],
         pdf__env__foo="bar",
-        files=[
-            {"filename": "scripts/app_post_deploy1.sql", "contents": post_deploy_1},
-            {"filename": "scripts/app_post_deploy2.sql", "contents": post_deploy_2},
-        ],
+        files={
+            "scripts/app_post_deploy1.sql": post_deploy_1,
+            "scripts/app_post_deploy2.sql": post_deploy_2,
+        },
     )
 
     processor = _get_run_processor(str(temp_dir))

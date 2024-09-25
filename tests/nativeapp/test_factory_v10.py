@@ -61,33 +61,33 @@ def test_artifacts_mapping(temp_dir):
 def test_project_factory_create(temp_dir):
     pdf_res = ProjectV10Factory(
         pdf__native_app__artifacts=["README.md", "setup.sql"],
-        files=[
-            {"filename": "README.md", "contents": ""},
-            {"filename": "setup.sql", "contents": "select 1;"},
-            {"filename": "app/some_file.py", "contents": ""},
-        ],
+        files={
+            "README.md": "",
+            "setup.sql": "select 1;",
+            "app/some_file.py": "contents",
+        },
     )
     assert pdf_res.pdf.yml["native_app"]["artifacts"] == ["README.md", "setup.sql"]
-    assert Path(Path(temp_dir) / "snowflake.yml").exists()
-    assert Path(Path(temp_dir) / "setup.sql").exists()
-    assert Path(Path(temp_dir) / "README.md").exists()
-    assert Path(Path(temp_dir) / "app/some_file.py").exists()
+    assert (Path(temp_dir) / "snowflake.yml").exists()
+    assert (Path(temp_dir) / "setup.sql").exists()
+    assert (Path(temp_dir) / "README.md").exists()
+    assert (Path(temp_dir) / "app/some_file.py").exists()
 
 
 def test_pdf_and_local_yml(temp_dir):
     ProjectV10Factory(
         pdf__native_app__artifacts=["README.md", "setup.sql"],
-        files=[
-            {"filename": "README.md", "contents": ""},
-            {"filename": "setup.sql", "contents": "select 1;"},
-        ],
+        files={
+            "README.md": "",
+            "setup.sql": "select 1;",
+        },
     )
     PdfV10Factory.with_filename("snowflake.local.yml")(
         native_app__name="myapp",
     )
 
-    assert Path(Path(temp_dir) / "snowflake.yml").exists()
-    assert Path(Path(temp_dir) / "snowflake.local.yml").exists()
+    assert (Path(temp_dir) / "snowflake.yml").exists()
+    assert (Path(temp_dir) / "snowflake.local.yml").exists()
 
 
 # PoC for sample project in test_data/projects/integration
