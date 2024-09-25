@@ -62,6 +62,7 @@ if __name__ == "__main__":
         "database": "SNOWCLI_DB",
         "role": role,
     }
+    config = {k: v for k, v in config.items() if v is not None}
     update_connection_details_with_private_key(config)
     session = Session.builder.configs(config).create()
 
