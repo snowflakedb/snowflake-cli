@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* Add `--host` and `--port` to connection flags.
 
 ## Fixes and improvements
 * Fixes `snow connection add` behavior when `connections.toml` file exists.
