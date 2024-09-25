@@ -210,10 +210,21 @@ ls -l $DIST_DIR
 
 validate_installation() {
   local pkg_name=$1
-  ls -ls $pkg_name
-  installer -pkg $pkg_name -target ~/Applications -dumplog
-  ls -la ~
+  local dest=/tmp/sf_cli
+
+  mkdir -p $dest || true
+  ls -la $pkg_name
+
+  cat <<ASKPASS > ./asker.sh
+    #!/bin/bash
+    printf "%s\n" "$MAC_USERNAME_PASSWORD"
+  ASKPASS
+
+  SUDO_ASKPASS=./asker.sh sudo -A installer -pkg $pkg_name -target /tmp/sf_cli
+  ls -la $dest
+
   bash --rcfile <(echo 'source ~/.bashrc; snow --help; exit')
-  rm -rf ~/Applications/SnowflakeCLI.app
+  rm -rf $dest || true
 }
+
 validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
