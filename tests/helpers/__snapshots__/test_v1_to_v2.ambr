@@ -3,71 +3,71 @@
   '''
   definition_version: '2'
   entities:
-    hello_function:
-      artifacts:
-      - dest: <! project_name | to_snowflake_identifier !>
-        src: <% ctx.env.project_source %>
-      external_access_integrations: []
-      handler: functions.hello_function
-      identifier:
-        name: hello_function
+    hello_procedure:
       imports: []
+      external_access_integrations: []
+      secrets: {}
       meta:
         use_mixins:
         - snowpark_shared
-      returns: string
-      secrets: {}
-      signature:
-      - name: name
-        type: string
-      stage: <! stage | to_snowflake_identifier !>
-      type: function
-    hello_procedure:
-      artifacts:
-      - dest: <! project_name | to_snowflake_identifier !>
-        src: <% ctx.env.project_source %>
-      execute_as_caller: false
-      external_access_integrations: []
-      handler: procedures.hello_procedure
       identifier:
         name: hello_procedure
-      imports: []
-      meta:
-        use_mixins:
-        - snowpark_shared
+      handler: procedures.hello_procedure
       returns: string
-      secrets: {}
       signature:
       - name: name
         type: string
       stage: <! stage | to_snowflake_identifier !>
-      type: procedure
-    test_procedure:
       artifacts:
-      - dest: <! project_name | to_snowflake_identifier !>
-        src: <% ctx.env.project_source %>
+      - src: <% ctx.env.project_source %>
+        dest: <! project_name | to_snowflake_identifier !>
+      type: procedure
       execute_as_caller: false
-      external_access_integrations: []
-      handler: procedures.test_procedure
-      identifier:
-        name: test_procedure
+    test_procedure:
       imports: []
+      external_access_integrations: []
+      secrets: {}
       meta:
         use_mixins:
         - snowpark_shared
+      identifier:
+        name: test_procedure
+      handler: procedures.test_procedure
       returns: string
-      secrets: {}
       signature: ''
       stage: <! stage | to_snowflake_identifier !>
+      artifacts:
+      - src: <% ctx.env.project_source %>
+        dest: <! project_name | to_snowflake_identifier !>
       type: procedure
+      execute_as_caller: false
+    hello_function:
+      imports: []
+      external_access_integrations: []
+      secrets: {}
+      meta:
+        use_mixins:
+        - snowpark_shared
+      identifier:
+        name: hello_function
+      handler: functions.hello_function
+      returns: string
+      signature:
+      - name: name
+        type: string
+      stage: <! stage | to_snowflake_identifier !>
+      artifacts:
+      - src: <% ctx.env.project_source %>
+        dest: <! project_name | to_snowflake_identifier !>
+      type: function
   env:
     project_source: app/
   mixins:
     snowpark_shared:
-      artifacts:
-      - dest: <! project_name | to_snowflake_identifier !>
-        src: <% ctx.env.project_source %>
       stage: <! stage | to_snowflake_identifier !>
+      artifacts:
+      - src: <% ctx.env.project_source %>
+        dest: <! project_name | to_snowflake_identifier !>
   
   '''
 # ---
@@ -106,19 +106,19 @@
   definition_version: '2'
   entities:
     streamlit_entity_1:
+      identifier:
+        name: <! name | to_snowflake_identifier !>
+      type: streamlit
+      title: <% ctx.env.streamlit_title %>
+      query_warehouse: <! query_warehouse | to_snowflake_identifier !>
+      main_file: streamlit_app.py
+      pages_dir: pages
+      stage: <! stage | to_snowflake_identifier !>
       artifacts:
       - streamlit_app.py
       - environment.yml
       - pages
       - common/hello.py
-      identifier:
-        name: <! name | to_snowflake_identifier !>
-      main_file: streamlit_app.py
-      pages_dir: pages
-      query_warehouse: <! query_warehouse | to_snowflake_identifier !>
-      stage: <! stage | to_snowflake_identifier !>
-      title: <% ctx.env.streamlit_title %>
-      type: streamlit
   env:
     streamlit_title: My Fancy Streamlit
   
@@ -172,97 +172,97 @@
   '''
   definition_version: '2'
   entities:
-    app:
-      from:
-        target: pkg
-      identifier: myapp_app
-      meta:
-        warehouse: app_wh
-      type: application
-    func1:
-      artifacts:
-      - dest: my_snowpark_project
-        src: app
-      external_access_integrations: []
-      handler: app.func1_handler
-      identifier:
-        name: func1
+    procedureName:
       imports: []
+      external_access_integrations: []
+      secrets: {}
       meta:
         use_mixins:
         - snowpark_shared
+      identifier:
+        name: procedureName
+      handler: hello
       returns: string
-      runtime: '3.10'
-      secrets: {}
       signature:
-      - default: default value
-        name: a
+      - name: name
         type: string
+      stage: dev_deployment
+      artifacts:
+      - src: app
+        dest: my_snowpark_project
+      type: procedure
+      execute_as_caller: false
+    func1:
+      imports: []
+      external_access_integrations: []
+      secrets: {}
+      meta:
+        use_mixins:
+        - snowpark_shared
+      identifier:
+        name: func1
+      handler: app.func1_handler
+      returns: string
+      signature:
+      - name: a
+        type: string
+        default: default value
       - name: b
         type: variant
+      runtime: '3.10'
       stage: dev_deployment
-      type: function
-    pkg:
       artifacts:
-      - dest: ./
-        src: app/*
-      - dest: ./
+      - src: app
+        dest: my_snowpark_project
+      type: function
+    test_streamlit:
+      identifier:
+        name: test_streamlit
+      type: streamlit
+      title: My Fancy Streamlit
+      query_warehouse: test_warehouse
+      main_file: streamlit_app.py
+      pages_dir: None
+      stage: streamlit
+      artifacts:
+      - streamlit_app.py
+      - environment.yml
+      - pages
+    pkg:
+      meta:
+        role: pkg_role
+      identifier: <% fn.concat_ids('myapp', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>
+      type: application package
+      artifacts:
+      - src: app/*
+        dest: ./
+      - src: to_process/*
+        dest: ./
         processors:
         - name: native app setup
         - name: templates
           properties:
             foo: bar
-        src: to_process/*
       bundle_root: output/bundle/
       deploy_root: output/deploy/
-      distribution: external
       generated_root: __generated/
-      identifier: <% fn.concat_ids('myapp', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>
-      manifest: app/manifest.yml
-      meta:
-        role: pkg_role
-      scratch_stage: app_src.scratch
       stage: app_src.stage
-      type: application package
-    procedureName:
-      artifacts:
-      - dest: my_snowpark_project
-        src: app
-      execute_as_caller: false
-      external_access_integrations: []
-      handler: hello
-      identifier:
-        name: procedureName
-      imports: []
+      scratch_stage: app_src.scratch
+      distribution: external
+      manifest: app/manifest.yml
+    app:
       meta:
-        use_mixins:
-        - snowpark_shared
-      returns: string
-      secrets: {}
-      signature:
-      - name: name
-        type: string
-      stage: dev_deployment
-      type: procedure
-    test_streamlit:
-      artifacts:
-      - streamlit_app.py
-      - environment.yml
-      - pages
-      identifier:
-        name: test_streamlit
-      main_file: streamlit_app.py
-      pages_dir: None
-      query_warehouse: test_warehouse
-      stage: streamlit
-      title: My Fancy Streamlit
-      type: streamlit
+        warehouse: app_wh
+      identifier: myapp_app
+      type: application
+      from:
+        target: pkg
   mixins:
     snowpark_shared:
-      artifacts:
-      - dest: my_snowpark_project
-        src: app/
       stage: dev_deployment
+      artifacts:
+      - src: app/
+        dest: my_snowpark_project
   
   '''
 # ---
