@@ -34,7 +34,7 @@ def remove_resource(resource_type: str, item, role: str):
             session.sql(
                 f"GRANT OWNERSHIP ON {resource_type} {item.name} TO ROLE {role}"
             )
-            session.sql(f"drop {resource_type} {item.name}").collect()
+            session.sql(f'drop {resource_type} "{item.name}"').collect()
             print("SUCCESS", msg, f"created at {item.created_on}")
     except Exception as err:
         print("ERROR", msg)
