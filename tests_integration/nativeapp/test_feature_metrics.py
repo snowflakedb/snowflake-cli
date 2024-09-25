@@ -115,7 +115,6 @@ def test_sql_templating_emits_counter(
             },
         ),
         # ensure post deploy scripts are picked up for v2
-        # and package scripts are not available in v2
         (
             "app deploy",
             "integration_external_v2",
