@@ -19,8 +19,10 @@ from typing import Any, Optional
 
 from jinja2 import Environment, TemplateSyntaxError, nodes
 from packaging.version import Version
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
+from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectProperties,
     build_project_definition,
@@ -266,6 +268,12 @@ def _get_referenced_vars_in_definition(
     return referenced_vars
 
 
+def _has_referenced_vars_in_definition(
+    template_env: TemplatedEnvironment, definition: Definition
+) -> bool:
+    return len(_get_referenced_vars_in_definition(template_env, definition)) > 0
+
+
 def _template_version_warning():
     cc.warning(
         "Ignoring template pattern in project definition file. "
@@ -289,6 +297,17 @@ def _add_defaults_to_definition(original_definition: Definition) -> Definition:
     # that Pydantic would have performed are undone.
     deep_merge_dicts(definition_with_defaults, original_definition)
     return definition_with_defaults
+
+
+def _update_metrics(template_env: TemplatedEnvironment, definition: Definition):
+    metrics = get_cli_context().metrics
+
+    # render_definition_template is invoked multiple times both by the user
+    # and by us so we should make sure we don't overwrite a 1 with a 0 here
+    metrics.set_counter_default(CLICounterField.PDF_TEMPLATES, 0)
+
+    if _has_referenced_vars_in_definition(template_env, definition):
+        metrics.set_counter(CLICounterField.PDF_TEMPLATES, 1)
 
 
 def render_definition_template(
@@ -326,10 +345,7 @@ def render_definition_template(
         definition["definition_version"]
     ) < Version("1.1"):
         try:
-            referenced_vars = _get_referenced_vars_in_definition(
-                template_env, definition
-            )
-            if referenced_vars:
+            if _has_referenced_vars_in_definition(template_env, definition):
                 _template_version_warning()
         except Exception:
             # also warn on Exception, as it means the user is incorrectly attempting to use templating
@@ -339,6 +355,10 @@ def render_definition_template(
         project_context = {CONTEXT_KEY: definition}
         project_context[CONTEXT_KEY]["env"] = environment_overrides
         return ProjectProperties(project_definition, project_context)
+
+    # need to have the metrics added here since we add defaults to the
+    # definition that the user might not have added themselves later
+    _update_metrics(template_env, definition)
 
     definition = _add_defaults_to_definition(definition)
     project_context = {CONTEXT_KEY: definition}
