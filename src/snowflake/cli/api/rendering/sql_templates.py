@@ -21,6 +21,7 @@ from jinja2 import Environment, StrictUndefined, loaders, meta
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.exceptions import InvalidTemplate
+from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.rendering.jinja import (
     CONTEXT_KEY,
     FUNCTION_KEY,
@@ -96,4 +97,9 @@ def snowflake_sql_jinja_render(content: str, data: Dict | None = None) -> str:
     context_data = get_cli_context().template_context
     context_data.update(data)
     env = choose_sql_jinja_env_based_on_template_syntax(content)
+
+    get_cli_context().metrics.set_counter(
+        CLICounterField.SQL_TEMPLATES, int(has_sql_templates(content))
+    )
+
     return env.from_string(content).render(context_data)
