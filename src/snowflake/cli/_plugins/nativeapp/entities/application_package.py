@@ -4,7 +4,7 @@ import json
 from contextlib import contextmanager
 from pathlib import Path
 from textwrap import dedent
-from typing import Callable, List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
 import typer
 from click import BadOptionUsage, ClickException
@@ -229,32 +229,35 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     ):
         model = self._entity_model
         package_name = model.fqn.identifier
-        stage_fqn = f"{package_name}.{model.stage}"
-        if model.meta and model.meta.role:
-            package_role = model.meta.role
+        if force:
+            policy = AllowAlwaysPolicy()
+        elif interactive:
+            policy = AskAlwaysPolicy()
         else:
-            package_role = ctx.default_role
-
-        def deploy_to_scratch_stage_fn():
-            self.action_deploy(
-                ctx=ctx,
-                prune=True,
-                recursive=True,
-                paths=[],
-                validate=False,
-                stage_fqn=f"{package_name}.{model.scratch_stage}",
-                interactive=interactive,
-                force=force,
-            )
+            policy = DenyAlwaysPolicy()
 
         self.validate_setup_script(
             console=ctx.console,
+            project_root=ctx.project_root,
+            deploy_root=Path(model.deploy_root),
+            bundle_root=Path(model.bundle_root),
+            generated_root=Path(model.generated_root),
+            artifacts=model.artifacts,
             package_name=package_name,
-            package_role=package_role,
-            stage_fqn=stage_fqn,
+            package_role=(model.meta and model.meta.role) or ctx.default_role,
+            package_distribution=model.distribution,
+            prune=True,
+            recursive=True,
+            paths=[],
+            stage_fqn=f"{package_name}.{model.stage}",
+            package_warehouse=(
+                (model.meta and model.meta.warehouse) or ctx.default_warehouse
+            ),
+            post_deploy_hooks=model.meta and model.meta.post_deploy,
+            package_scripts=[],  # Package scripts are not supported in PDFv2
+            policy=policy,
             use_scratch_stage=True,
             scratch_stage_fqn=f"{package_name}.{model.scratch_stage}",
-            deploy_to_scratch_stage_fn=deploy_to_scratch_stage_fn,
         )
         ctx.console.message("Setup script is valid")
 
@@ -439,12 +442,24 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         if validate:
             cls.validate_setup_script(
                 console=console,
+                project_root=project_root,
+                deploy_root=deploy_root,
+                bundle_root=bundle_root,
+                generated_root=generated_root,
+                artifacts=artifacts,
                 package_name=package_name,
                 package_role=package_role,
+                package_distribution=package_distribution,
+                prune=prune,
+                recursive=recursive,
+                paths=paths,
                 stage_fqn=stage_fqn,
+                package_warehouse=package_warehouse,
+                post_deploy_hooks=post_deploy_hooks,
+                package_scripts=package_scripts,
+                policy=policy,
                 use_scratch_stage=False,
                 scratch_stage_fqn="",
-                deploy_to_scratch_stage_fn=lambda *args: None,
             )
 
         return diff
@@ -1154,23 +1169,47 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def validate_setup_script(
         cls,
         console: AbstractConsole,
+        project_root: Path,
+        deploy_root: Path,
+        bundle_root: Path,
+        generated_root: Path,
+        artifacts: list[PathMapping],
         package_name: str,
         package_role: str,
+        package_distribution: str,
+        package_warehouse: str | None,
+        prune: bool,
+        recursive: bool,
+        paths: List[Path] | None,
         stage_fqn: str,
+        post_deploy_hooks: list[PostDeployHook] | None,
+        package_scripts: List[str],
+        policy: PolicyBase,
         use_scratch_stage: bool,
         scratch_stage_fqn: str,
-        deploy_to_scratch_stage_fn: Callable,
     ):
         """Validates Native App setup script SQL."""
         with console.phase(f"Validating Snowflake Native App setup script."):
             validation_result = cls.get_validation_result(
                 console=console,
+                project_root=project_root,
+                deploy_root=deploy_root,
+                bundle_root=bundle_root,
+                generated_root=generated_root,
+                artifacts=artifacts,
                 package_name=package_name,
                 package_role=package_role,
+                package_distribution=package_distribution,
+                prune=prune,
+                recursive=recursive,
+                paths=paths,
                 stage_fqn=stage_fqn,
+                package_warehouse=package_warehouse,
+                post_deploy_hooks=post_deploy_hooks,
+                package_scripts=package_scripts,
+                policy=policy,
                 use_scratch_stage=use_scratch_stage,
                 scratch_stage_fqn=scratch_stage_fqn,
-                deploy_to_scratch_stage_fn=deploy_to_scratch_stage_fn,
             )
 
             # First print warnings, regardless of the outcome of validation
@@ -1187,20 +1226,54 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             if validation_result["status"] == "FAIL":
                 raise SetupScriptFailedValidation()
 
-    @staticmethod
+    @classmethod
     def get_validation_result(
+        cls,
         console: AbstractConsole,
+        project_root: Path,
+        deploy_root: Path,
+        bundle_root: Path,
+        generated_root: Path,
+        artifacts: list[PathMapping],
         package_name: str,
         package_role: str,
+        package_distribution: str,
+        package_warehouse: str | None,
+        prune: bool,
+        recursive: bool,
+        paths: List[Path] | None,
         stage_fqn: str,
+        post_deploy_hooks: list[PostDeployHook] | None,
+        package_scripts: List[str],
+        policy: PolicyBase,
         use_scratch_stage: bool,
         scratch_stage_fqn: str,
-        deploy_to_scratch_stage_fn: Callable,
     ):
         """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
         if use_scratch_stage:
             stage_fqn = scratch_stage_fqn
-            deploy_to_scratch_stage_fn()
+            cls.deploy(
+                console=console,
+                project_root=project_root,
+                deploy_root=deploy_root,
+                bundle_root=bundle_root,
+                generated_root=generated_root,
+                artifacts=artifacts,
+                bundle_map=None,
+                package_name=package_name,
+                package_role=package_role,
+                package_distribution=package_distribution,
+                prune=prune,
+                recursive=recursive,
+                paths=paths,
+                print_diff=False,
+                validate=False,
+                stage_fqn=stage_fqn,
+                package_warehouse=package_warehouse,
+                post_deploy_hooks=post_deploy_hooks,
+                package_scripts=package_scripts,
+                policy=policy,
+            )
         prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
         sql_executor = get_sql_executor()
         try:
