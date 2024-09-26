@@ -92,7 +92,8 @@ log = logging.getLogger(__name__)
 @app.command("init", hidden=True)
 def app_init(**options):
     """
-    *** Deprecated ***
+    *** Deprecated. Use snow init instead ***
+
     Initializes a Snowflake Native App project.
     """
 
