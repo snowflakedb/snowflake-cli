@@ -318,38 +318,50 @@ class NativeAppManager:
             policy=policy,
         )
 
-    def deploy_to_scratch_stage_fn(self):
-        bundle_map = self.build_bundle()
-        self.deploy(
-            bundle_map=bundle_map,
-            prune=True,
-            recursive=True,
-            stage_fqn=self.scratch_stage_fqn,
-            validate=False,
-            print_diff=False,
-            policy=AllowAlwaysPolicy(),
-        )
-
     def validate(self, use_scratch_stage: bool = False):
         return ApplicationPackageEntity.validate_setup_script(
             console=cc,
+            project_root=self.project_root,
+            deploy_root=self.deploy_root,
+            bundle_root=self.bundle_root,
+            generated_root=self.generated_root,
+            artifacts=self.artifacts,
             package_name=self.package_name,
             package_role=self.package_role,
+            package_distribution=self.package_distribution,
+            prune=True,
+            recursive=True,
+            paths=[],
             stage_fqn=self.stage_fqn,
+            package_warehouse=self.package_warehouse,
+            post_deploy_hooks=self.package_post_deploy_hooks,
+            package_scripts=self.package_scripts,
+            policy=AllowAlwaysPolicy(),
             use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=self.scratch_stage_fqn,
-            deploy_to_scratch_stage_fn=self.deploy_to_scratch_stage_fn,
         )
 
-    def get_validation_result(self, use_scratch_stage: bool):
+    def get_validation_result(self, use_scratch_stage: bool = False):
         return ApplicationPackageEntity.get_validation_result(
             console=cc,
+            project_root=self.project_root,
+            deploy_root=self.deploy_root,
+            bundle_root=self.bundle_root,
+            generated_root=self.generated_root,
+            artifacts=self.artifacts,
             package_name=self.package_name,
             package_role=self.package_role,
+            package_distribution=self.package_distribution,
+            prune=True,
+            recursive=True,
+            paths=[],
             stage_fqn=self.stage_fqn,
+            package_warehouse=self.package_warehouse,
+            post_deploy_hooks=self.package_post_deploy_hooks,
+            package_scripts=self.package_scripts,
+            policy=AllowAlwaysPolicy(),
             use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=self.scratch_stage_fqn,
-            deploy_to_scratch_stage_fn=self.deploy_to_scratch_stage_fn,
         )
 
     def get_events(  # type: ignore
