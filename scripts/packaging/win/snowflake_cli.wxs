@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+  xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <Product
+    Id="*"
+    Name="Snowflake CLI"
+    Language="1033"
+    Version="$(var.SnowflakeCLIVersion)"
+    Manufacturer="Snowflake, Inc."
+    UpgradeCode="74BDE2A7-BA7F-3B99-A9C9-67B28155C13A">
+    <Package Id="*"
+      InstallerVersion="405"
+      Compressed="yes"
+      InstallScope="perMachine"
+      Manufacturer="Snowflake, Inc."
+      Platform="x64" />
+    <WixVariable Id="WixUIDialogBmp" Value="scripts\packaging\win\snowflake_msi_background.png" />
+    <WixVariable Id="WixUIBannerBmp" Value="scripts\packaging\win\snowflake_msi_banner.png" />
+    <Media Id="1" Cabinet="snowflakecli.cab" EmbedCab="yes" />
+    <MajorUpgrade
+      AllowSameVersionUpgrades="no"
+      DowngradeErrorMessage="A newer version of Snowflake CLI is already installed.  If you are sure you want to downgrade, remove the existing installation via the Control Panel" />
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder" Name="PFiles">
+        <Directory Id="TESTFILEPRODUCTDIR" Name="Snowflake CLI" />
+      </Directory>
+    </Directory>
+    <DirectoryRef Id="TESTFILEPRODUCTDIR">
+      <Component Id="snow.exe" Guid="7B9FD196-2A31-3192-BFEF-4660DA5962AD" Win64="yes">
+        <Environment Id="PATH" Name="PATH" Value="[TESTFILEPRODUCTDIR]" Permanent="no" Part="last"
+          Action="set" System="yes" />
+        <File Id="snow.exe" Source="dist\snow\snow.exe" KeyPath="yes" Checksum="yes" />
+      </Component>
+    </DirectoryRef>
+    <Feature Id="MainApplication" Title="Snowflake CLI" Level="1">
+      <ComponentRef Id="snow.exe" />
+      <ComponentGroupRef Id="SnowflakeCLIInternalFiles" />
+    </Feature>
+    <Icon Id="icon.ico" SourceFile="scripts\packaging\win\snowflake_msi.ico" />
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+    <Property Id="ARPHELPLINK"
+      Value="https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/index" />
+    <Property Id="ARPNOMODIFY" Value="yes" Secure="yes" />
+    <Property Id="ARPURLINFOABOUT">https://snowflake.com/</Property>
+    <Property Id="WIXUI_INSTALLDIR" Value="TESTFILEPRODUCTDIR" />
+    <UIRef Id="WixUI_InstallDir2" />
+    <Property Id="ApplicationFolderName" Value="Snowflake CLI" />
+    <Property Id="WixAppFolder" Value="WixUISupportPerUser" />
+    <CustomActionRef Id="WixBroadcastSettingChange" />
+    <CustomActionRef Id="WixBroadcastEnvironmentChange" />
+  </Product>
+  <Fragment>
+    <UI Id="WixUI_InstallDir2">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
+
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      <Property Id="WixUI_Mode" Value="InstallDir" />
+      <DialogRef Id="BrowseDlg" />
+      <DialogRef Id="DiskCostDlg" />
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+      <DialogRef Id="SnowflakeCLIExitDlg" />
+
+      <Publish Dialog="BrowseDlg" Control="OK" Event="DoAction" Value="WixUIValidatePath" Order="3">
+        1</Publish>
+      <Publish Dialog="BrowseDlg" Control="OK" Event="SpawnDialog" Value="InvalidDirDlg" Order="4"><![CDATA[WIXUI_INSTALLDIR_VALID<>"1"]]></Publish>
+
+      <Publish Dialog="SnowflakeCLIExitDlg" Control="Finish" Event="EndDialog" Value="Return"
+        Order="999">
+        1</Publish>
+
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg">NOT
+        Installed</Publish>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">Installed
+        AND PATCH</Publish>
+
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg">1</Publish>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="SetTargetPath"
+        Value="[WIXUI_INSTALLDIR]" Order="1">1</Publish>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="DoAction" Value="WixUIValidatePath"
+        Order="2">NOT WIXUI_DONTVALIDATEPATH</Publish>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="SpawnDialog" Value="InvalidDirDlg"
+        Order="3"><![CDATA[NOT WIXUI_DONTVALIDATEPATH AND WIXUI_INSTALLDIR_VALID<>"1"]]></Publish>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg"
+        Order="4">WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID="1"</Publish>
+      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Property="_BrowseProperty"
+        Value="[WIXUI_INSTALLDIR]" Order="1">1</Publish>
+      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Event="SpawnDialog" Value="BrowseDlg"
+        Order="2">1</Publish>
+
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="InstallDirDlg"
+        Order="1">NOT Installed</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg"
+        Order="2">Installed AND NOT PATCH</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2">Installed
+        AND PATCH</Publish>
+
+      <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog"
+        Value="MaintenanceTypeDlg">1</Publish>
+
+      <Publish Dialog="MaintenanceTypeDlg" Control="RepairButton" Event="NewDialog"
+        Value="VerifyReadyDlg">1</Publish>
+      <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog"
+        Value="VerifyReadyDlg">1</Publish>
+      <Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog"
+        Value="MaintenanceWelcomeDlg">1</Publish>
+    </UI>
+    <UIRef Id="WixUI_Common" />
+  </Fragment>
+</Wix>

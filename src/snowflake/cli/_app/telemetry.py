@@ -38,12 +38,19 @@ from snowflake.connector.time_util import get_time_millis
 
 
 @unique
+class CLIInstallationSource(Enum):
+    BINARY = "binary"
+    PYPI = "pypi"
+
+
+@unique
 class CLITelemetryField(Enum):
     # Basic information
     SOURCE = "source"
     VERSION_CLI = "version_cli"
     VERSION_PYTHON = "version_python"
     VERSION_OS = "version_os"
+    INSTALLATION_SOURCE = "installation_source"
     # Command execution context
     COMMAND = "command"
     COMMAND_GROUP = "command_group"
@@ -109,6 +116,12 @@ def _get_definition_version() -> str | None:
     return None
 
 
+def _get_installation_source() -> CLIInstallationSource:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return CLIInstallationSource.BINARY
+    return CLIInstallationSource.PYPI
+
+
 def command_info() -> str:
     info = _find_command_info()
     command = ".".join(info[CLITelemetryField.COMMAND])
@@ -131,6 +144,7 @@ class CLITelemetryClient:
     ) -> Dict[str, Any]:
         data = {
             CLITelemetryField.SOURCE: PARAM_APPLICATION_NAME,
+            CLITelemetryField.INSTALLATION_SOURCE: _get_installation_source().value,
             CLITelemetryField.VERSION_CLI: VERSION,
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
