@@ -88,7 +88,7 @@ def app_init(**options):
     Initializes a Snowflake Native App project.
     """
 
-    raise ClickException("This command is deprecated. Use `snow init` instead.")
+    raise ClickException("This command has been removed. Use `snow init` instead.")
 
 
 @app.command("bundle")
