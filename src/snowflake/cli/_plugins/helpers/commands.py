@@ -53,6 +53,7 @@ def v1_to_v2(
                 exclude_unset=True, exclude_none=True, mode="json", by_alias=True
             ),
             file,
+            sort_keys=False,
             width=float("inf"),  # Don't break lines
         )
     return MessageResult("Project definition migrated to version 2.")
