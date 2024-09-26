@@ -17,6 +17,8 @@ from pygls.server import LanguageServer
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.plugins.lsp.models.cmd_poc_input import CmdPocInput
+from snowflake.cli.plugins.lsp.models.cmd_poc_output import CmdPocOutput
 from snowflake.cli.plugins.lsp.server import lsp_plugin
 from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
 
@@ -50,3 +52,10 @@ def nade_lsp_plugin(server: LanguageServer):
             return MessageResult(
                 'Snowflake Native App not yet deployed! Please run "runApplication" first.'
             )
+
+    @workspace_command(server, "poc_cmd")
+    def poc_cmd(input: CmdPocInput) -> CmdPocOutput:
+        return CmdPocOutput(
+            output_1=input.input_1,
+            output_2=input.input_2,
+        )

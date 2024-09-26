@@ -15,24 +15,11 @@
 import inspect
 from typing import Any, Callable, Dict, List, Optional, Union, get_type_hints, is_typeddict
 from pydantic import TypeAdapter, ValidationError
-from typing_extensions import TypedDict, NotRequired
 from snowflake.cli.api.cli_global_context import CliContextArguments, fork_cli_context
 
 from pygls.server import LanguageServer
 
-
-ORIGINAL_FUNCTION_KEY = "__lsp_original_function__"
-
-
-TypeDef = Dict[str, Union[str, 'TypeDef']]
-
-class CommandArguments(CliContextArguments):
-    """
-    The arguments that can be passed to a workspace command.
-
-    """
-    args: NotRequired[List[Any]]
-    kwargs: NotRequired[Dict[str, Any]]
+from snowflake.cli.plugins.snowflake.cli.plugins.lsp.models.context import Context
 
 
 def workspace_command(
@@ -47,30 +34,51 @@ def workspace_command(
     (if required) as well as ensuring arguments are in the required format.
     """
     def _decorator(func):
+        """
+        validate once during load time that func
+        - contains 0 or 1 argument
+            - must be typed and contain a "from_dict" method
+        """
+        sig = inspect.signature(func)
+        func_params = list(sig.parameters.values())
+        if len(func_params) > 1:
+            raise TypeError("func is not expected to have more than 1 argument")
+
+        input_cmd_model_type = None
+        if len(func_params) == 1:
+            input_cmd_model_type = func_params[0].annotation
+            if not hasattr(input_cmd_model_type, "from_dict"):
+                raise TypeError("func argument is expected to have a from_dict method")
+
         @server.command(name)
-        def wrapper(params: List[CommandArguments]):
-            if len(params) > 1:
+        def wrapper(arguments: List[Dict]):
+            if len(arguments) > 1:
                 raise ValueError("Expected exactly one CommandArguments object")
 
             try:
-                args = TypeAdapter(CommandArguments).validate_python(params[0] if len(params) == 1 else {})
+                lsp_raw_payload = arguments[0]
+                context = Context.from_dict(lsp_raw_payload["context"])
 
-                if requires_connection and "connection" not in args:
+                if requires_connection and not context.connection:
                     raise ValueError("connection missing, but requires_connection=True")
                 
-                if requires_project and "project_path" not in args:
+                if requires_project and not context.project_path:
                     raise ValueError("project_path missing, but requires_connection=True")
 
                 # TODO: validation of args.args / args.kwargs based on shape of actual command...
 
-                with fork_cli_context(**args):
-                    return func(*args.get("args", []), **args.get("kwargs", {}))
+                with fork_cli_context(
+                    connection_overrides=context.connection,
+                    project_env_overrides=context.env,
+                    project_path=context.project_path,
+                ):
+                    if input_cmd_model_type:
+                        return func(input_cmd_model_type.from_dict(lsp_raw_payload["cmd"]))
+                    return func()
                 
             except ValidationError as exc: 
                 raise ValueError(f"ERROR: Invalid schema: {exc}")
-            
 
-        setattr(wrapper, ORIGINAL_FUNCTION_KEY, func)
         return wrapper
 
     return _decorator
