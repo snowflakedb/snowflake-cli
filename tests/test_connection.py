@@ -521,14 +521,16 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
 
     assert result.exit_code == 0
     mock_connector.assert_called_once_with(
-        application="SNOWCLI.OBJECT.LIST",
+        internal_application_name="Snowflake_CLI",
+        internal_application_version="0.0.0-test_patched",
+        application="Snowflake CLI",
         account="test_account",
         user="snowcli_test",
         password="top_secret",
         database="test_dv",
         schema="PUBLIC",
         warehouse="xsmall",
-        application_name="snowcli",
+        application_name="Snowflake_CLI",
     )
 
 
@@ -605,7 +607,9 @@ def test_key_pair_authentication(
 
     assert result.exit_code == 0
     mock_connector.assert_called_once_with(
-        application="SNOWCLI.OBJECT.LIST",
+        internal_application_name="Snowflake_CLI",
+        internal_application_version="0.0.0-test_patched",
+        application="Snowflake CLI",
         private_key=private_key,
         account="test_account",
         user="snowcli_test",
@@ -613,7 +617,7 @@ def test_key_pair_authentication(
         database="test_dv",
         schema="PUBLIC",
         warehouse="xsmall",
-        application_name="snowcli",
+        application_name="Snowflake_CLI",
     )
 
 
@@ -651,7 +655,9 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
 
     assert result.exit_code == 0
     mock_connector.assert_called_once_with(
-        application="SNOWCLI.OBJECT.LIST",
+        internal_application_name="Snowflake_CLI",
+        internal_application_version="0.0.0-test_patched",
+        application="Snowflake CLI",
         session_token=session_token,
         master_token=master_token,
         account="test_account",
@@ -661,7 +667,7 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
         schema="PUBLIC",
         warehouse="xsmall",
         server_session_keep_alive=True,
-        application_name="snowcli",
+        application_name="Snowflake_CLI",
     )
 
 
@@ -686,9 +692,11 @@ def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temp_dir):
 
     assert result.exit_code == 0
     mock_connector.assert_called_once_with(
-        application="SNOWCLI.OBJECT.LIST",
+        internal_application_name="Snowflake_CLI",
+        internal_application_version="0.0.0-test_patched",
+        application="Snowflake CLI",
         token_file_path=str(token_file),
-        application_name="snowcli",
+        application_name="Snowflake_CLI",
     )
 
 
@@ -731,12 +739,14 @@ def test_key_pair_authentication_from_config(
     assert result.exit_code == 0, result.output
     mock_load_file.assert_called_once_with("~/sf_private_key.p8")
     mock_connector.assert_called_once_with(
-        application="SNOWCLI.OBJECT.LIST",
+        internal_application_name="Snowflake_CLI",
+        internal_application_version="0.0.0-test_patched",
+        application="Snowflake CLI",
         account="my_account",
         user="jdoe",
         authenticator="SNOWFLAKE_JWT",
         private_key="secret value",
-        application_name="snowcli",
+        application_name="Snowflake_CLI",
     )
 
 
@@ -867,13 +877,15 @@ def test_connection_details_are_resolved_using_environment_variables(
         _, kwargs = mock_connect.call_args
         assert kwargs == {
             "account": "some_account",
-            "application": "SNOWCLI.SQL",
+            "application": "Snowflake CLI",
+            "application_name": "Snowflake_CLI",
+            "internal_application_name": "Snowflake_CLI",
+            "internal_application_version": "0.0.0-test_patched",
             "database": "test_database",
             "warehouse": "large",
             "schema": "my_schema",
             "role": "role",
             "password": "dummy",
-            "application_name": "snowcli",
         }
 
 
@@ -926,13 +938,15 @@ def test_flags_take_precedence_before_environment_variables(
         _, kwargs = mock_connect.call_args
         assert kwargs == {
             "account": "account_from_flag",
-            "application": "SNOWCLI.SQL",
+            "application": "Snowflake CLI",
+            "application_name": "Snowflake_CLI",
             "database": "database_from_flag",
+            "internal_application_name": "Snowflake_CLI",
+            "internal_application_version": "0.0.0-test_patched",
             "warehouse": "large",
             "schema": "schema_from_flag",
             "password": "password_from_flag",
             "role": "role_from_flag",
-            "application_name": "snowcli",
         }
 
 
@@ -966,10 +980,12 @@ def test_source_precedence(mock_connect, runner):
     assert kwargs == {
         "user": "python",  # from config
         "account": "account_from_flag",
-        "application": "SNOWCLI.SQL",
+        "application": "Snowflake CLI",
+        "application_name": "Snowflake_CLI",
+        "internal_application_name": "Snowflake_CLI",
+        "internal_application_version": "0.0.0-test_patched",
         "database": "database_from_connection_env",
         "role": "role_from_global_env",
-        "application_name": "snowcli",
     }
 
 

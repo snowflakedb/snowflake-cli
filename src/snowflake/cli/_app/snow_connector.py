@@ -158,7 +158,7 @@ def connect_to_snowflake(
         with contextlib.redirect_stdout(None), contextlib.redirect_stderr(None):
             return snowflake.connector.connect(
                 internal_application_name=PARAM_APPLICATION_NAME,
-                interbal_application_version=VERSION,
+                internal_application_version=VERSION,
                 application="Snowflake CLI",
                 **connection_parameters,
             )

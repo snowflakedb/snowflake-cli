@@ -104,7 +104,7 @@ def test_private_key_loading_and_aliases(
         )
         mock_connect.assert_called_once_with(
             internal_application_name="Snowflake_CLI",
-            interbal_application_version="0.0.0-test_patched",
+            internal_application_version="0.0.0-test_patched",
             application="Snowflake CLI",
             authenticator="SNOWFLAKE_JWT",
             application_name="Snowflake_CLI",
