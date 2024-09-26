@@ -54,6 +54,7 @@ def test_executing_command_sends_telemetry_usage_data(
             "version_cli": "0.0.0-test_patched",
             "version_os": "FancyOS",
             "version_python": "2.3.4",
+            "installation_source": "pypi",
             "command": ["connection", "test"],
             "command_group": "connection",
             "command_execution_id": "8a2225b3800c4017a4a9eab941db58fa",

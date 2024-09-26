@@ -63,6 +63,7 @@ development = [
   "pytest-randomly==3.15.0",
   "syrupy==4.7.1",
 ]
+packaging = ["pyinstaller~=6.10"]
 
 [project.urls]
 "Source code" = "https://github.com/snowflakedb/snowflake-cli"
@@ -84,6 +85,7 @@ exclude = ["/.github"]
 packages = ["src/snowflake"]
 
 [tool.hatch.envs.default]
+python = "3.10"
 features = ["development"]
 
 [tool.hatch.envs.default.scripts]
@@ -93,6 +95,20 @@ test-cov = [
   "coverage run --source=snowflake.cli --module pytest -m loaded_modules tests/ ",
   "coverage report",
 ]
+
+[tool.hatch.envs.packaging]
+python = "3.11"
+features = ["development", "packaging"]
+
+[tool.hatch.envs.packaging.scripts]
+build-binaries = ["./scripts/packaging/build_binaries.sh"]
+build-packages = ["./scripts/packaging/build_packages.sh"]
+package-darwin-binaries = ["./scripts/packaging/build_darwin_package.sh"]
+build-all = [
+  "./scripts/packaging/build_binaries.sh",
+  "./scripts/packaging/build_packages.sh",
+]
+win-build-version = ["python ./scripts/packaging/win/build_version.py"]
 
 [tool.hatch.envs.e2e]
 template = "e2e"
@@ -119,9 +135,15 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
-test = ["pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/spcs"]
-test-spcs = ["pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs"]
-test_qa = ["pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration"]
+test = [
+  "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/spcs",
+]
+test-spcs = [
+  "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs",
+]
+test_qa = [
+  "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration",
+]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.10", "3.11", "3.12"]
@@ -161,4 +183,4 @@ markers = [
 
 
 [tool.codespell]
-skip = 'tests/*'
+skip = 'tests/*,snow.spec'

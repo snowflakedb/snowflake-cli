@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<installer-gui-script minSpecVersion="1">
+    <title>Snowflake CLI</title>
+    <pkg-ref id="com.snowflake.snowflake-cli"/>
+    <options customize="never" require-scripts="false"/>
+    <welcome file="snowflake-cli_welcome.html" mime-type="text/html" />
+    <conclusion file="snowflake-cli_get_started.html" mime-type="text/html" />
+    <background file="snowflake_darwin_background.png" scaling="proportional" alignment="topleft"/>
+    <choices-outline>
+        <line choice="default">
+            <line choice="com.snowflake.snowflake-cli"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="com.snowflake.snowflake-cli" visible="false">
+        <pkg-ref id="com.snowflake.snowflake-cli"/>
+    </choice>
+    <pkg-ref id="com.snowflake.snowflake-cli" version="0" onConclusion="none">snowflake-cli-darwin.pkg</pkg-ref>
+    <domains enable_anywhere="false" enable_currentUserHome="true" enable_localSystem="true"/>
+</installer-gui-script>

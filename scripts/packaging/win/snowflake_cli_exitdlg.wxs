@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Fragment>
+        <UI>
+            <TextStyle Id="DlgMonoFont" FaceName="Courier" Size="8" Bold="yes" />
+            <Dialog Id="SnowflakeCLIExitDlg"
+                Width="370"
+                Height="270"
+                Title="Getting Started">
+                <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="!(loc.WixUIFinish)" />
+                <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.WixUICancel)" />
+                <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="!(loc.ExitDialogBitmap)" />
+                <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.WixUIBack)" />
+                <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+                <Control Id="Description1" Type="Text" X="135" Y="60" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="1. Open a new terminal window."/>
+                <Control Id="Description2" Type="Text" X="135" Y="70" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="2. Execute the command to test your connection:"/>
+                <Control Id="Description3" Type="Text" X="135" Y="90" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="{\DlgMonoFont}snow connection add"/>
+                <Control Id="Description4" Type="Text" X="135" Y="110" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="When prompted, supply the required connection, account, username parameters, and any desired optional parameters"/>
+                <Control Id="Description5" Type="Text" X="135" Y="190" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="3. Execute the command to connect to Snowflake:"/>
+                <Control Id="Description6" Type="Text" X="135" Y="210" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="{\DlgMonoFont}snow connection test"/>
+                <Control Id="Description7" Type="Text" X="135" Y="190" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="Explore all connection settings https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/connecting/connect"/>
+                <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="!(loc.ExitDialogTitle)" />
+            </Dialog>
+            <InstallUISequence>
+                <Show Dialog="SnowflakeCLIExitDlg"
+                    OnExit="success"/>
+            </InstallUISequence>
+            <AdminUISequence>
+                <Show Dialog="SnowflakeCLIExitDlg" OnExit="success"/>
+            </AdminUISequence>
+        </UI>
+    </Fragment>
+</Wix>
