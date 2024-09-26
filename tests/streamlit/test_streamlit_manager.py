@@ -7,6 +7,7 @@ from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
+from snowflake.cli.api.identifiers import FQN
 
 mock_streamlit_exists = mock.patch(
     "snowflake.cli._plugins.streamlit.manager.ObjectManager.object_exists",
@@ -130,4 +131,16 @@ def test_deploy_streamlit_with_comment(
             TITLE = 'MyStreamlit'
             COMMENT = 'This is a test comment'"""
         )
+    )
+
+
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager._execute_query")
+@mock_streamlit_exists
+def test_execute_streamlit(mock_execute_query):
+    app_name = FQN(database="DB", schema="SH", name="my_streamlit_app")
+
+    StreamlitManager(MagicMock()).execute(app_name=app_name)
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE STREAMLIT IDENTIFIER('DB.SH.my_streamlit_app')()"
     )

@@ -31,6 +31,7 @@ from snowflake.cli.api.errno import (
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.rendering.sql_templates import (
     choose_sql_jinja_env_based_on_template_syntax,
@@ -248,6 +249,8 @@ def execute_post_deploy_hooks(
     """
     if not post_deploy_hooks:
         return
+
+    get_cli_context().metrics.set_counter(CLICounterField.POST_DEPLOY_SCRIPTS, 1)
 
     with console.phase(f"Executing {deployed_object_type} post-deploy actions"):
         sql_scripts_paths = []

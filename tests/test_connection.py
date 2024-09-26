@@ -516,6 +516,10 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
             "test_dv",
             "--schema",
             "PUBLIC",
+            "--host",
+            "snowcli_test_host",
+            "--port",
+            "123456789",
         ],
     )
 
@@ -524,6 +528,8 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
         internal_application_name="Snowflake_CLI",
         internal_application_version="0.0.0-test_patched",
         application="Snowflake CLI",
+        host="snowcli_test_host",
+        port=123456789,
         account="test_account",
         user="snowcli_test",
         password="top_secret",

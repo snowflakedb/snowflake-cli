@@ -36,6 +36,8 @@ schema_pattern = re.compile(r".+\..+")
 class ConnectionContext:
     # FIXME: can reduce duplication using config.ConnectionConfig
     connection_name: Optional[str] = None
+    host: Optional[str] = None
+    port: Optional[int] = None
     account: Optional[str] = None
     database: Optional[str] = None
     role: Optional[str] = None
@@ -71,7 +73,7 @@ class ConnectionContext:
         Raises KeyError if a non-property is specified as a key.
         """
         field_map = {field.name: field for field in fields(self)}
-        for (key, value) in updates.items():
+        for key, value in updates.items():
             # ensure key represents a property
             if key not in field_map:
                 raise KeyError(f"{key} is not a field of {self.__class__.__name__}")

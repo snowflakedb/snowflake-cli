@@ -10,6 +10,7 @@ from typing import Callable, Generator, List, Literal, Optional, TypedDict
 import typer
 from click import ClickException, UsageError
 from pydantic import Field, field_validator
+from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -41,6 +42,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 )
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
@@ -56,6 +58,7 @@ from snowflake.cli.api.errno import (
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
     ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
+from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
@@ -66,6 +69,7 @@ from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 from snowflake.cli.api.project.util import (
     append_test_resource_suffix,
     extract_schema,
+    identifier_for_url,
     unquote_identifier,
 )
 from snowflake.connector import DictCursor, ProgrammingError
@@ -78,7 +82,6 @@ UPGRADE_RESTRICTION_CODES = {
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
     APPLICATION_NO_LONGER_AVAILABLE,
 }
-
 
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
@@ -561,14 +564,13 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                                 )
 
                         # hooks always executed after a create or upgrade
-                        if post_deploy_hooks:
-                            cls.execute_post_deploy_hooks(
-                                console=console,
-                                project_root=project_root,
-                                post_deploy_hooks=post_deploy_hooks,
-                                app_name=app_name,
-                                app_warehouse=app_warehouse,
-                            )
+                        cls.execute_post_deploy_hooks(
+                            console=console,
+                            project_root=project_root,
+                            post_deploy_hooks=post_deploy_hooks,
+                            app_name=app_name,
+                            app_warehouse=app_warehouse,
+                        )
                         return
 
                     except ProgrammingError as err:
@@ -620,14 +622,13 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     print_messages(console, create_cursor)
 
                     # hooks always executed after a create or upgrade
-                    if post_deploy_hooks:
-                        cls.execute_post_deploy_hooks(
-                            console=console,
-                            project_root=project_root,
-                            post_deploy_hooks=post_deploy_hooks,
-                            app_name=app_name,
-                            app_warehouse=app_warehouse,
-                        )
+                    cls.execute_post_deploy_hooks(
+                        console=console,
+                        project_root=project_root,
+                        post_deploy_hooks=post_deploy_hooks,
+                        app_name=app_name,
+                        app_warehouse=app_warehouse,
+                    )
 
                 except ProgrammingError as err:
                     generic_sql_error_handler(err)
@@ -641,14 +642,19 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         app_name: str,
         app_warehouse: Optional[str],
     ):
-        with cls.use_application_warehouse(app_warehouse):
-            execute_post_deploy_hooks(
-                console=console,
-                project_root=project_root,
-                post_deploy_hooks=post_deploy_hooks,
-                deployed_object_type="application",
-                database_name=app_name,
-            )
+        get_cli_context().metrics.set_counter_default(
+            CLICounterField.POST_DEPLOY_SCRIPTS, 0
+        )
+
+        if post_deploy_hooks:
+            with cls.use_application_warehouse(app_warehouse):
+                execute_post_deploy_hooks(
+                    console=console,
+                    project_root=project_root,
+                    post_deploy_hooks=post_deploy_hooks,
+                    deployed_object_type="application",
+                    database_name=app_name,
+                )
 
     @staticmethod
     @contextmanager
@@ -839,6 +845,16 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         sql_executor = get_sql_executor()
         results = sql_executor.execute_query(query, cursor_class=DictCursor)
         return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
+
+    @classmethod
+    def get_snowsight_url(cls, app_name: str, app_warehouse: str | None) -> str:
+        """Returns the URL that can be used to visit this app via Snowsight."""
+        name = identifier_for_url(app_name)
+        with cls.use_application_warehouse(app_warehouse):
+            sql_executor = get_sql_executor()
+            return make_snowsight_url(
+                sql_executor._conn, f"/#/apps/application/{name}"  # noqa: SLF001
+            )
 
 
 def _new_events_only(previous_events: list[dict], new_events: list[dict]) -> list[dict]:

@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* Add `--host` and `--port` to connection flags.
 
 ## Fixes and improvements
 * Fixes `snow connection add` behavior when `connections.toml` file exists.
@@ -40,6 +41,7 @@
      every Snowpark stage specified in project definition.
   * The changes are compatible with V1 projects definition though the result state (file layout) is different.
   * `snow snowpark package` commands no longer fallback to Anaconda Channel metadata when fetching available packages info fails.
+  * Added `snow streamlit execute app-name` command to run Streamlit apps in a Snowflake environment in headless mode.
 
 ## Deprecations
 * Renamed `private-key-path` flag to `private-key-file`, added `private-key-path` as an alias for backward compatibility.
@@ -56,6 +58,7 @@
 * Added `SNOWFLAKE_..._PRIVATE_KEY_RAW` environment variable to pass private key as a raw string.
 * Added periodic check for newest version of Snowflake CLI. When new version is available, user will be notified.
 * Added support for `imports` in Streamlit definition.
+
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command.
