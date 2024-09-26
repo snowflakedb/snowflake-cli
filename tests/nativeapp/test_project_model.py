@@ -19,6 +19,7 @@ from pathlib import Path
 from textwrap import dedent
 from unittest import mock
 
+import pytest
 import yaml
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli._plugins.nativeapp.project_model import (
@@ -37,17 +38,18 @@ from tests.nativeapp.factories import PdfV10Factory
 CURRENT_ROLE = "current_role"
 
 
-def use_minimal_project_definition():
+@pytest.fixture
+def minimal_project_definition(temp_dir):
     pdf_res = PdfV10Factory(native_app__artifacts=["setup.sql", "README.md"])
     return pdf_res.yml, pdf_res.path
 
 
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 @mock.patch.dict(os.environ, {"USER": "test_user"}, clear=True)
-def test_project_model_all_defaults(mock_connect, mock_ctx, temp_dir):
+def test_project_model_all_defaults(mock_connect, mock_ctx, minimal_project_definition):
     ctx = mock_ctx()
     mock_connect.return_value = ctx
-    minimal_yml, pdf_path = use_minimal_project_definition()
+    minimal_yml, pdf_path = minimal_project_definition
     name = minimal_yml["native_app"]["name"]
     project_defn = load_project([pdf_path]).project_definition
 
@@ -92,11 +94,11 @@ def test_project_model_all_defaults(mock_connect, mock_ctx, temp_dir):
     clear=True,
 )
 def test_project_model_default_package_app_name_with_suffix(
-    mock_connect, mock_ctx, temp_dir
+    mock_connect, mock_ctx, minimal_project_definition
 ):
     ctx = mock_ctx()
     mock_connect.return_value = ctx
-    minimal_project, project_path = use_minimal_project_definition()
+    minimal_project, project_path = minimal_project_definition
     name = minimal_project["native_app"]["name"]
 
     project_defn = load_project([project_path]).project_definition
@@ -239,11 +241,11 @@ def test_project_model_explicit_package_app_name_with_suffix(mock_connect, mock_
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 @mock.patch.dict(os.environ, {"USER": "test_user"}, clear=True)
 def test_project_model_falls_back_to_current_role(
-    mock_connect, mock_ctx, mock_cursor, temp_dir
+    mock_connect, mock_ctx, mock_cursor, minimal_project_definition
 ):
     ctx = mock_ctx(cursor=mock_cursor([(CURRENT_ROLE,)], []), role=None)
     mock_connect.return_value = ctx
-    _, pdf_path = use_minimal_project_definition()
+    _, pdf_path = minimal_project_definition
     project_defn = load_project([pdf_path]).project_definition
 
     project_dir = Path().resolve()
@@ -256,8 +258,8 @@ def test_project_model_falls_back_to_current_role(
     assert project.package_role == CURRENT_ROLE
 
 
-def test_bundle_context_from_project_model(temp_dir):
-    _, pdf_path = use_minimal_project_definition()
+def test_bundle_context_from_project_model(minimal_project_definition):
+    _, pdf_path = minimal_project_definition
     project_defn = load_project([pdf_path]).project_definition
 
     project_dir = Path().resolve()

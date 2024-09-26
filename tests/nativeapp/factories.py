@@ -123,7 +123,7 @@ class PdfFactoryResult:
     yml: dict
     path: Path = Path()
 
-    def __str__(self):
+    def as_json_str(self):
         return json.dumps(self.yml)
 
 
@@ -236,7 +236,6 @@ class ProjectV10Factory(factory.Factory):
 
     pdf = factory.SubFactory(PdfV10Factory)
 
-    # TODO: filename: content dictionary instead?
     files: ProjectFiles = {}
 
     @classmethod
@@ -246,7 +245,6 @@ class ProjectV10Factory(factory.Factory):
         return super()._create(model_class, *args, **kwargs)
 
 
-# TODO: use one factory and pick based on definition version
 class ProjectV11Factory(ProjectV10Factory):
 
     pdf = factory.SubFactory(PdfV11Factory)

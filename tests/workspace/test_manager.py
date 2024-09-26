@@ -53,7 +53,7 @@ def test_pdf_not_v2(temp_dir):
         native_app__artifacts=[{"src": "app/*", "dest": "./"}],
     )
     with pytest.raises(InvalidProjectDefinitionVersionError):
-        _get_ws_manager(pdf_content=str(pdfv1))
+        _get_ws_manager(pdf_content=pdfv1.as_json_str())
 
 
 # Test that the same entity instance is returned for the same id

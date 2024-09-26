@@ -93,4 +93,9 @@ def test_pdf_and_local_yml(temp_dir):
 # PoC for sample project in test_data/projects/integration
 def test_integration_factory(temp_dir):
     use_integration_project()
-    assert 1 == 1
+    assert (Path(temp_dir) / "snowflake.yml").exists()
+    assert (Path(temp_dir) / "package" / "001-shared.sql").exists()
+    assert (Path(temp_dir) / "package" / "002-shared.sql").exists()
+    assert (Path(temp_dir) / "app" / "setup.sql").exists()
+    assert (Path(temp_dir) / "app" / "README.md").exists()
+    assert (Path(temp_dir) / "app" / "manifest.yml").exists()
