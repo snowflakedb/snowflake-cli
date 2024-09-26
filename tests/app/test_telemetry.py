@@ -50,7 +50,7 @@ def test_executing_command_sends_telemetry_usage_data(
         "message": {
             "driver_type": "PythonConnector",
             "driver_version": ".".join(str(s) for s in DRIVER_VERSION[:3]),
-            "source": "snowcli",
+            "source": "Snowflake_CLI",
             "version_cli": "0.0.0-test_patched",
             "version_os": "FancyOS",
             "version_python": "2.3.4",

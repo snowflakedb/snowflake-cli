@@ -73,12 +73,9 @@ def test_clone_connection_context():
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli._app.snow_connector.command_info")
 def test_connection_cache_caches(
-    mock_command_info, mock_connect, local_connection_cache, test_snowcli_config
+    mock_connect, local_connection_cache, test_snowcli_config
 ):
-    mock_command_info.return_value = "application"
-
     from snowflake.cli.api.config import config_init
 
     config_init(test_snowcli_config)
@@ -90,11 +87,13 @@ def test_connection_cache_caches(
     local_connection_cache[ctx]
 
     mock_connect.assert_called_once_with(
-        application=mock_command_info.return_value,
+        application="Snowflake CLI",
+        internal_application_name="Snowflake_CLI",
+        internal_application_version="0.0.0-test_patched",
         database="db_for_test",
         schema="test_public",
         role="test_role",
         warehouse="xs",
         password="dummy_password",
-        application_name="snowcli",
+        application_name="Snowflake_CLI",
     )

@@ -56,13 +56,15 @@ def test_custom_config_path(mock_conn, runner, mock_cursor):
     )
     assert result.exit_code == 0, result.output
     mock_conn.assert_called_once_with(
-        application="SNOWCLI.OBJECT.LIST",
+        application="Snowflake CLI",
+        internal_application_name="Snowflake_CLI",
+        internal_application_version="0.0.0-test_patched",
         database="db_for_test",
         schema="test_public",
         role="test_role",
         warehouse="xs",
         password="dummy_password",
-        application_name="snowcli",
+        application_name="Snowflake_CLI",
     )
 
 
