@@ -32,9 +32,6 @@ from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEnt
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
-from snowflake.cli._plugins.nativeapp.init import (
-    OFFICIAL_TEMPLATES_GITHUB_URL,
-)
 from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
 from snowflake.cli._plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
@@ -44,10 +41,6 @@ from snowflake.cli._plugins.nativeapp.policy import (
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli._plugins.nativeapp.teardown_processor import (
     NativeAppTeardownProcessor,
-)
-from snowflake.cli._plugins.nativeapp.utils import (
-    get_first_paragraph_from_markdown_file,
-    shallow_git_clone,
 )
 from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
     find_entity,
@@ -69,7 +62,6 @@ from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
-    CollectionResult,
     CommandResult,
     MessageResult,
     ObjectResult,
@@ -77,7 +69,6 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinitionV1
-from snowflake.cli.api.secure_path import SecurePath
 from typing_extensions import Annotated
 
 app = SnowTyperFactory(
@@ -98,45 +89,6 @@ def app_init(**options):
     """
 
     raise ClickException("This command is deprecated. Use `snow init` instead.")
-
-
-@app.command("list-templates", hidden=True)
-def app_list_templates(**options) -> CommandResult:
-    """
-    Prints information regarding the official templates that can be used with snow app init.
-    """
-    with SecurePath.temporary_directory() as temp_path:
-        from git import rmtree as git_rmtree
-
-        repo = shallow_git_clone(OFFICIAL_TEMPLATES_GITHUB_URL, temp_path.path)
-
-        # Mark a directory as a template if a project definition jinja template is inside
-        template_directories = [
-            entry.name
-            for entry in repo.head.commit.tree
-            if (temp_path / entry.name / "snowflake.yml.jinja").exists()
-        ]
-
-        # get the template descriptions from the README.md in its directory
-        template_descriptions = [
-            get_first_paragraph_from_markdown_file(
-                (temp_path / directory / "README.md").path
-            )
-            for directory in template_directories
-        ]
-
-        result = (
-            {"template": directory, "description": description}
-            for directory, description in zip(
-                template_directories, template_descriptions
-            )
-        )
-
-        # proactively clean up here to avoid permission issues on Windows
-        repo.close()
-        git_rmtree(temp_path.path)
-
-        return CollectionResult(result)
 
 
 @app.command("bundle")
