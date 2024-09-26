@@ -18,7 +18,6 @@ from unittest import mock
 
 
 @pytest.mark.integration
-@pytest.mark.no_qa
 def test_temporary_connection(runner, _temporary_connection_env, snapshot):
     with tempfile.TemporaryDirectory() as tmp_dir:
         if os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE", None):
@@ -31,13 +30,14 @@ def test_temporary_connection(runner, _temporary_connection_env, snapshot):
                 f.write(
                     os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW")
                 )
-
         result = runner.invoke(
             [
                 "sql",
                 "-q",
                 "select 1",
                 "--temporary-connection",
+                "--host",
+                os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST"],
                 "--authenticator",
                 "SNOWFLAKE_JWT",
                 "--account",
@@ -73,6 +73,9 @@ def _temporary_connection_env():
         ],
         "SNOWFLAKE_CONNECTIONS_INTEGRATION_USER": os.environ[
             "SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"
+        ],
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST": os.environ[
+            "SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST"
         ],
     }
     if private_key_file:
