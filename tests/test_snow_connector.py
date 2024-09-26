@@ -34,6 +34,42 @@ MOCK_CONNECTION = {
 
 
 @pytest.mark.parametrize(
+    "cmd,expected",
+    [
+        ("snow sql", "SNOWCLI.SQL"),
+        ("snow show warehouses", "SNOWCLI.SHOW.WAREHOUSES"),
+    ],
+)
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+def test_command_context_is_passed_to_snowflake_connection(
+    mock_command_info, mock_connect, cmd, expected, test_snowcli_config
+):
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    mock_ctx = mock.Mock()
+    mock_ctx.command_path = cmd
+    mock_command_info.return_value = expected
+
+    connect_to_snowflake(connection_name="default")
+
+    mock_connect.assert_called_once_with(
+        application=expected,
+        internal_application_name="Snowflake_CLI",
+        internal_application_version="0.0.0-test_patched",
+        database="db_for_test",
+        schema="test_public",
+        role="test_role",
+        warehouse="xs",
+        password="dummy_password",
+        application_name="snowcli",
+    )
+
+
+@pytest.mark.parametrize(
     "connection_name, user_input, should_override",
     [
         ("private_key_file", None, False),
@@ -54,11 +90,13 @@ MOCK_CONNECTION = {
     ],
 )
 @mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
 @mock.patch("snowflake.cli._app.snow_connector._load_pem_to_der")
 @mock.patch("snowflake.cli._app.snow_connector._load_pem_from_file")
 def test_private_key_loading_and_aliases(
     mock_load_pem_from_file,
     mock_load_pem_to_der,
+    mock_command_info,
     mock_connect,
     test_snowcli_config,
     connection_name,
@@ -84,6 +122,7 @@ def test_private_key_loading_and_aliases(
             overrides[user_input] = override_value
 
     key = SecretType(b"bytes")
+    mock_command_info.return_value = "SNOWCLI.SQL"
     mock_load_pem_from_file.return_value = key
     mock_load_pem_to_der.return_value = key
 
@@ -103,11 +142,11 @@ def test_private_key_loading_and_aliases(
             else dict(private_key=b"bytes")
         )
         mock_connect.assert_called_once_with(
+            application=mock_command_info.return_value,
             internal_application_name="Snowflake_CLI",
             internal_application_version="0.0.0-test_patched",
-            application="Snowflake CLI",
             authenticator="SNOWFLAKE_JWT",
-            application_name="Snowflake_CLI",
+            application_name="snowcli",
             **expected_private_key_args,
         )
         if expected_private_key_file_value is not None:

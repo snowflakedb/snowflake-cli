@@ -16,4 +16,5 @@ from __future__ import annotations
 
 from typing import Literal
 
-PARAM_APPLICATION_NAME: Literal["Snowflake_CLI"] = "Snowflake_CLI"
+PARAM_APPLICATION_NAME: Literal["snowcli"] = "snowcli"
+INTERNAL_APPLICATION_NAME: Literal["Snowflake_CLI"] = "Snowflake_CLI"
