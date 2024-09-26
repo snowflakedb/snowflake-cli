@@ -100,6 +100,24 @@ TemporaryConnectionOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+HostOption = typer.Option(
+    None,
+    "--host",
+    help="Host address for the connection. Overrides the value specified for the connection.",
+    callback=_connection_callback("host"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+PortOption = typer.Option(
+    None,
+    "--port",
+    help="Port for the connection. Overrides the value specified for the connection.",
+    callback=_connection_callback("port"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
 AccountOption = typer.Option(
     None,
     "--account",

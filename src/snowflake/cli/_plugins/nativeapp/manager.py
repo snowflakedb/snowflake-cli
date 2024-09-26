@@ -20,7 +20,6 @@ from functools import cached_property
 from pathlib import Path
 from typing import Generator, List, Optional
 
-from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
 )
@@ -46,10 +45,6 @@ from snowflake.cli.api.entities.utils import (
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
-from snowflake.cli.api.project.util import (
-    identifier_for_url,
-)
-from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 
 class NativeAppCommandProcessor(ABC):
@@ -58,7 +53,7 @@ class NativeAppCommandProcessor(ABC):
         pass
 
 
-class NativeAppManager(SqlExecutionMixin):
+class NativeAppManager:
     """
     Base class with frequently used functionality already implemented and ready to be used by related subclasses.
     """
@@ -126,9 +121,6 @@ class NativeAppManager(SqlExecutionMixin):
     @property
     def application_warehouse(self) -> Optional[str]:
         return self.na_project.application_warehouse
-
-    def use_application_warehouse(self):
-        return ApplicationEntity.use_application_warehouse(self.application_warehouse)
 
     @property
     def project_identifier(self) -> str:
@@ -252,9 +244,9 @@ class NativeAppManager(SqlExecutionMixin):
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
-        name = identifier_for_url(self.app_name)
-        with self.use_application_warehouse():
-            return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
+        return ApplicationEntity.get_snowsight_url(
+            self.app_name, self.application_warehouse
+        )
 
     def create_app_package(self) -> None:
         return ApplicationPackageEntity.create_app_package(

@@ -13,6 +13,8 @@
       --model <model>
       --file <file>
       --connection <connection>
+      --host <host>
+      --port <port>
       --account <account>
       --user <user>
       --password <password>
@@ -50,6 +52,12 @@
   
   :samp:`--connection, -c, --environment {TEXT}`
     Name of the connection, as defined in your ``config.toml``. Default: ``default``.
+  
+  :samp:`--host {TEXT}`
+    Host address for the connection. Overrides the value specified for the connection.
+  
+  :samp:`--port {INTEGER}`
+    Port for the connection. Overrides the value specified for the connection.
   
   :samp:`--account, --accountname {TEXT}`
     Name assigned to your Snowflake account. Overrides the value specified for the connection.
