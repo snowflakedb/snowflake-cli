@@ -22,6 +22,7 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
+from click.exceptions import ClickException
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -33,7 +34,6 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 )
 from snowflake.cli._plugins.nativeapp.init import (
     OFFICIAL_TEMPLATES_GITHUB_URL,
-    nativeapp_init,
 )
 from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
 from snowflake.cli._plugins.nativeapp.policy import (
@@ -89,42 +89,14 @@ app.add_typer(versions_app)
 log = logging.getLogger(__name__)
 
 
-@app.command("init")
-def app_init(
-    path: str = typer.Argument(
-        ...,
-        help=f"""Directory to be initialized with the Snowflake Native App project. This directory must not already exist.""",
-        show_default=False,
-    ),
-    name: str = typer.Option(
-        None,
-        help=f"""The name of the Snowflake Native App project to include in snowflake.yml. When not specified, it is
-        generated from the name of the directory. Names are assumed to be unquoted identifiers whenever possible, but
-        can be forced to be quoted by including the surrounding quote characters in the provided value.""",
-    ),
-    template_repo: str = typer.Option(
-        None,
-        help=f"""Specifies the git URL to a template repository, which can be a template itself or contain many templates inside it,
-        such as https://github.com/snowflakedb/native-apps-templates.git for all official Snowflake Native App with Snowflake CLI templates.
-        If using a private Github repo, you might be prompted to enter your Github username and password.
-        Please use your personal access token in the password prompt, and refer to
-        https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls for information on currently recommended modes of authentication.""",
-    ),
-    template: str = typer.Option(
-        None,
-        help="A specific template name within the template repo to use as template for the Snowflake Native App project. Example: Default is basic if `--template-repo` is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
-    ),
-    **options,
-) -> CommandResult:
+@app.command("init", hidden=True)
+def app_init(**options):
     """
+    *** Deprecated ***
     Initializes a Snowflake Native App project.
     """
-    project = nativeapp_init(
-        path=path, name=name, git_url=template_repo, template=template
-    )
-    return MessageResult(
-        f"Snowflake Native App project {project.name} has been created at: {path}"
-    )
+
+    raise ClickException("This command is deprecated. Use `snow init` instead.")
 
 
 @app.command("list-templates", hidden=True)
