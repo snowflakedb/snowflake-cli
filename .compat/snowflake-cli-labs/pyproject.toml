@@ -24,7 +24,7 @@ dynamic = ["version"]
 requires-python = ">=3.10"
 description = "Snowflake CLI"
 readme = "README.md"
-dependencies = ["snowflake-cli==3.0.0rc2"]
+dependencies = ["snowflake-cli==2.8.2"]
 classifiers = ["Development Status :: 7 - Inactive"]
 
 [project.urls]
