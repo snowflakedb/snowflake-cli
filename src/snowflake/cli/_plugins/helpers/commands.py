@@ -44,7 +44,9 @@ def v1_to_v2(
     if pd.meets_version_requirement("2"):
         return MessageResult("Project definition is already at version 2.")
 
-    pd_v2 = convert_project_definition_to_v2(manager.project_root, pd, accept_templates)
+    pd_v2 = convert_project_definition_to_v2(
+        manager.project_root, pd, accept_templates, manager.template_context
+    )
 
     SecurePath("snowflake.yml").rename("snowflake_V1.yml")
     with open("snowflake.yml", "w") as file:

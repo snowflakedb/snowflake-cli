@@ -27,6 +27,16 @@ def test_migrations_with_multiple_entities(
     assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
 
 
+def test_migrations_with_all_app_entities(
+    runner, project_directory, os_agnostic_snapshot
+):
+    with project_directory("migration_all_app_entities"):
+        result = runner.invoke(["helpers", "v1-to-v2"])
+    assert result.exit_code == 0
+    assert Path("snowflake.yml").read_text() == os_agnostic_snapshot
+    assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
+
+
 def test_migration_native_app_missing_manifest(runner, project_directory):
     with project_directory("migration_multiple_entities") as project_dir:
         (project_dir / "app" / "manifest.yml").unlink()
