@@ -24,6 +24,16 @@
 ## Fixes and improvements
 
 
+# v2.8.2
+## Backward incompatibility
+
+## Deprecations
+* Changing package name from `snowflake-cli-labs` to `snowflake-cli`. `Snowflake-cli-labs` will be pointing to the corresponding version of `snowflake-cli`.
+## New additions
+
+## Fixes and improvements
+
+
 # v2.8.1
 ## Backward incompatibility
 
