@@ -295,6 +295,17 @@
   
   '''
 # ---
+# name: test_nativeapp_deploy_prune[ws deploy --entity-id=pkg --no-validate-contains0-not_contains0-napp_init_v2]
+  '''
+  Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
+  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Deleted paths to be removed from your stage:
+    deleted:  README.md
+  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Deployed successfully.
+  
+  '''
+# ---
 # name: test_nativeapp_deploy_prune[ws deploy --entity-id=pkg --no-validate-contains5-not_contains5-napp_init_v2]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
