@@ -106,7 +106,7 @@ def test_if_template_raises_error_during_migrations(
 
 def test_migration_with_only_envs(project_directory, runner):
     with project_directory("sql_templating"):
-        result = runner.invoke(["helpers", "v1-to-v2"])
+        result = runner.invoke(["helpers", "v1-to-v2", "--no-migrate-local-overrides"])
 
     assert result.exit_code == 0
 
@@ -157,13 +157,24 @@ def test_migrating_a_file_with_duplicated_keys_raises_an_error(
 def test_migrating_with_local_yml(
     runner, project_directory, os_agnostic_snapshot, migrate_local_yml
 ):
-    with project_directory("migration_local_yml") as pd:
-        cmd = ["helpers", "v1-to-v2"]
-        if migrate_local_yml:
-            cmd.append("--migrate-local-override")
-        result = runner.invoke(cmd)
-        assert result.exit_code == 0
+    with project_directory("migration_local_yml"):
+        flag = (
+            "--migrate-local-overrides"
+            if migrate_local_yml
+            else "--no-migrate-local-overrides"
+        )
+        result = runner.invoke(["helpers", "v1-to-v2", flag])
+        assert result.exit_code == 0, result.output
         assert Path("snowflake_V1.local.yml").exists()
         with Path("snowflake.yml").open() as f:
             pdf = yaml.safe_load(f)
             assert pdf["env"]["foo"] == "bar_local" if migrate_local_yml else "bar"
+
+
+def test_migrating_with_local_yml_no_flag(
+    runner, project_directory, os_agnostic_snapshot
+):
+    with project_directory("migration_local_yml"):
+        result = runner.invoke(["helpers", "v1-to-v2"])
+        assert result.exit_code == 1, result.output
+        assert "please specify --migrate-local-overrides" in result.output
