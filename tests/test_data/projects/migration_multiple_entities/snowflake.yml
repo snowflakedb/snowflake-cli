@@ -29,22 +29,10 @@ snowpark:
       returns: string
 native_app:
   name: myapp
-  source_stage: app_src.stage
-  scratch_stage: app_src.scratch
   artifacts:
     - src: app/*
       dest: ./
-    - src: to_process/*
-      dest: ./
-      processors:
-        - native app setup
-        - name: templates
-          properties:
-            foo: bar
   package:
     role: pkg_role
-    distribution: external
   application:
     name: myapp_app
-    warehouse: app_wh
-    debug: true
