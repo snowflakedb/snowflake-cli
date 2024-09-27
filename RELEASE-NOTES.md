@@ -31,7 +31,7 @@
 ## Backward incompatibility
 * Dropped support for Python below 3.10 version.
 * `snow object stage` commands are removed in favour of `snow stage`.
-* `snow snowpark init` and `snow streamlit init` commands are removed in favor of `snow init` command.
+* `snow snowpark init`, `snow streamlit init`, and `snow app init` commands are removed in favor of `snow init` command.
 * Removed deprecated flags from `snow snowpark` commands.
 * Default Python version for Snowpark functions and procedures was bumped to 3.10 from 3.8.
 * Snowpark commands
@@ -42,6 +42,7 @@
   * The changes are compatible with V1 projects definition though the result state (file layout) is different.
   * `snow snowpark package` commands no longer fallback to Anaconda Channel metadata when fetching available packages info fails.
   * Added `snow streamlit execute app-name` command to run Streamlit apps in a Snowflake environment in headless mode.
+
 
 ## Deprecations
 * Renamed `private-key-path` flag to `private-key-file`, added `private-key-path` as an alias for backward compatibility.
