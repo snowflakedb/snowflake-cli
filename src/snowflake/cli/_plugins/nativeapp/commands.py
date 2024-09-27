@@ -22,6 +22,7 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
+from click.exceptions import ClickException
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -30,10 +31,6 @@ from snowflake.cli._plugins.nativeapp.common_flags import (
 from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
-)
-from snowflake.cli._plugins.nativeapp.init import (
-    OFFICIAL_TEMPLATES_GITHUB_URL,
-    nativeapp_init,
 )
 from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
 from snowflake.cli._plugins.nativeapp.policy import (
@@ -44,10 +41,6 @@ from snowflake.cli._plugins.nativeapp.policy import (
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli._plugins.nativeapp.teardown_processor import (
     NativeAppTeardownProcessor,
-)
-from snowflake.cli._plugins.nativeapp.utils import (
-    get_first_paragraph_from_markdown_file,
-    shallow_git_clone,
 )
 from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
     find_entity,
@@ -69,7 +62,6 @@ from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
-    CollectionResult,
     CommandResult,
     MessageResult,
     ObjectResult,
@@ -77,7 +69,6 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinitionV1
-from snowflake.cli.api.secure_path import SecurePath
 from typing_extensions import Annotated
 
 app = SnowTyperFactory(
@@ -89,81 +80,15 @@ app.add_typer(versions_app)
 log = logging.getLogger(__name__)
 
 
-@app.command("init")
-def app_init(
-    path: str = typer.Argument(
-        ...,
-        help=f"""Directory to be initialized with the Snowflake Native App project. This directory must not already exist.""",
-        show_default=False,
-    ),
-    name: str = typer.Option(
-        None,
-        help=f"""The name of the Snowflake Native App project to include in snowflake.yml. When not specified, it is
-        generated from the name of the directory. Names are assumed to be unquoted identifiers whenever possible, but
-        can be forced to be quoted by including the surrounding quote characters in the provided value.""",
-    ),
-    template_repo: str = typer.Option(
-        None,
-        help=f"""Specifies the git URL to a template repository, which can be a template itself or contain many templates inside it,
-        such as https://github.com/snowflakedb/native-apps-templates.git for all official Snowflake Native App with Snowflake CLI templates.
-        If using a private Github repo, you might be prompted to enter your Github username and password.
-        Please use your personal access token in the password prompt, and refer to
-        https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls for information on currently recommended modes of authentication.""",
-    ),
-    template: str = typer.Option(
-        None,
-        help="A specific template name within the template repo to use as template for the Snowflake Native App project. Example: Default is basic if `--template-repo` is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
-    ),
-    **options,
-) -> CommandResult:
+@app.command("init", hidden=True)
+def app_init(**options):
     """
+    *** Deprecated. Use snow init instead ***
+
     Initializes a Snowflake Native App project.
     """
-    project = nativeapp_init(
-        path=path, name=name, git_url=template_repo, template=template
-    )
-    return MessageResult(
-        f"Snowflake Native App project {project.name} has been created at: {path}"
-    )
 
-
-@app.command("list-templates", hidden=True)
-def app_list_templates(**options) -> CommandResult:
-    """
-    Prints information regarding the official templates that can be used with snow app init.
-    """
-    with SecurePath.temporary_directory() as temp_path:
-        from git import rmtree as git_rmtree
-
-        repo = shallow_git_clone(OFFICIAL_TEMPLATES_GITHUB_URL, temp_path.path)
-
-        # Mark a directory as a template if a project definition jinja template is inside
-        template_directories = [
-            entry.name
-            for entry in repo.head.commit.tree
-            if (temp_path / entry.name / "snowflake.yml.jinja").exists()
-        ]
-
-        # get the template descriptions from the README.md in its directory
-        template_descriptions = [
-            get_first_paragraph_from_markdown_file(
-                (temp_path / directory / "README.md").path
-            )
-            for directory in template_directories
-        ]
-
-        result = (
-            {"template": directory, "description": description}
-            for directory, description in zip(
-                template_directories, template_descriptions
-            )
-        )
-
-        # proactively clean up here to avoid permission issues on Windows
-        repo.close()
-        git_rmtree(temp_path.path)
-
-        return CollectionResult(result)
+    raise ClickException("This command has been removed. Use `snow init` instead.")
 
 
 @app.command("bundle")

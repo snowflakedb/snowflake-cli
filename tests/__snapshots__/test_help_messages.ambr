@@ -486,48 +486,13 @@
 # name: test_help_messages[app.init]
   '''
                                                                                   
-   Usage: default app init [OPTIONS] PATH                                         
+   Usage: default app init [OPTIONS]                                              
                                                                                   
+   *** Deprecated. Use snow init instead ***                                      
    Initializes a Snowflake Native App project.                                    
                                                                                   
-  +- Arguments ------------------------------------------------------------------+
-  | *    path      TEXT  Directory to be initialized with the Snowflake Native   |
-  |                      App project. This directory must not already exist.     |
-  |                      [required]                                              |
-  +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --name                   TEXT  The name of the Snowflake Native App project  |
-  |                                to include in snowflake.yml. When not         |
-  |                                specified, it is generated from the name of   |
-  |                                the directory. Names are assumed to be        |
-  |                                unquoted identifiers whenever possible, but   |
-  |                                can be forced to be quoted by including the   |
-  |                                surrounding quote characters in the provided  |
-  |                                value.                                        |
-  |                                [default: None]                               |
-  | --template-repo          TEXT  Specifies the git URL to a template           |
-  |                                repository, which can be a template itself or |
-  |                                contain many templates inside it, such as     |
-  |                                https://github.com/snowflakedb/native-apps-t… |
-  |                                for all official Snowflake Native App with    |
-  |                                Snowflake CLI templates. If using a private   |
-  |                                Github repo, you might be prompted to enter   |
-  |                                your Github username and password. Please use |
-  |                                your personal access token in the password    |
-  |                                prompt, and refer to                          |
-  |                                https://docs.github.com/en/get-started/getti… |
-  |                                for information on currently recommended      |
-  |                                modes of authentication.                      |
-  |                                [default: None]                               |
-  | --template               TEXT  A specific template name within the template  |
-  |                                repo to use as template for the Snowflake     |
-  |                                Native App project. Example: Default is basic |
-  |                                if --template-repo is                         |
-  |                                https://github.com/snowflakedb/native-apps-t… |
-  |                                and None if any other --template-repo is      |
-  |                                specified.                                    |
-  |                                [default: None]                               |
-  | --help           -h            Show this message and exit.                   |
+  | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -1490,7 +1455,6 @@
   |            --recursive.                                                      |
   | events     Fetches events for this app from the event table configured in    |
   |            Snowflake.                                                        |
-  | init       Initializes a Snowflake Native App project.                       |
   | open       Opens the Snowflake Native App inside of your browser, once it    |
   |            has been installed in your account.                               |
   | run        Creates an application package in your Snowflake account, uploads |
@@ -9459,7 +9423,6 @@
   |            --recursive.                                                      |
   | events     Fetches events for this app from the event table configured in    |
   |            Snowflake.                                                        |
-  | init       Initializes a Snowflake Native App project.                       |
   | open       Opens the Snowflake Native App inside of your browser, once it    |
   |            has been installed in your account.                               |
   | run        Creates an application package in your Snowflake account, uploads |
