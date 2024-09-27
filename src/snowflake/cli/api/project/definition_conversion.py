@@ -41,15 +41,41 @@ from snowflake.cli.api.rendering.jinja import get_basic_jinja_env
 log = logging.getLogger(__name__)
 
 
+def _is_field_defined(template_context: Optional[Dict[str, Any]], *path: str) -> bool:
+    """
+    Determines if a field is defined in the provided template context. For example,
+
+    _is_field_defined({"ctx": {"native_app": {"bundle_root": "my_root"}}}, "ctx", "native_app", "bundle_root")
+
+    returns True. If the provided template context is None, this function returns True for all paths.
+
+    """
+    if template_context is None:
+        return True  # No context, so assume that all variables are defined
+
+    current_dict = template_context
+    for key in path:
+        if not isinstance(current_dict, dict):
+            return False
+        if key not in current_dict:
+            return False
+        current_dict = current_dict[key]
+
+    return True
+
+
 def convert_project_definition_to_v2(
-    project_root: Path, pd: ProjectDefinition, accept_templates: bool = False
+    project_root: Path,
+    pd: ProjectDefinition,
+    accept_templates: bool = False,
+    template_context: Optional[Dict[str, Any]] = None,
 ) -> ProjectDefinitionV2:
     _check_if_project_definition_meets_requirements(pd, accept_templates)
 
     snowpark_data = convert_snowpark_to_v2_data(pd.snowpark) if pd.snowpark else {}
     streamlit_data = convert_streamlit_to_v2_data(pd.streamlit) if pd.streamlit else {}
     native_app_data = (
-        convert_native_app_to_v2_data(project_root, pd.native_app)
+        convert_native_app_to_v2_data(project_root, pd.native_app, template_context)
         if pd.native_app
         else {}
     )
@@ -170,7 +196,9 @@ def convert_streamlit_to_v2_data(streamlit: Streamlit) -> Dict[str, Any]:
 
 
 def convert_native_app_to_v2_data(
-    project_root, native_app: NativeApp
+    project_root,
+    native_app: NativeApp,
+    template_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     def _make_meta(obj: Application | Package):
         meta = {}
@@ -250,14 +278,24 @@ def convert_native_app_to_v2_data(
         "identifier": package_identifier,
         "manifest": _find_manifest(),
         "artifacts": native_app.artifacts,
-        "bundle_root": native_app.bundle_root,
-        "generated_root": native_app.generated_root,
-        "deploy_root": native_app.deploy_root,
-        "stage": native_app.source_stage,
-        "scratch_stage": native_app.scratch_stage,
     }
+
+    if _is_field_defined(template_context, "ctx", "native_app", "bundle_root"):
+        package["bundle_root"] = native_app.bundle_root
+    if _is_field_defined(template_context, "ctx", "native_app", "generated_root"):
+        package["generated_root"] = native_app.generated_root
+    if _is_field_defined(template_context, "ctx", "native_app", "deploy_root"):
+        package["deploy_root"] = native_app.deploy_root
+    if _is_field_defined(template_context, "ctx", "native_app", "source_stage"):
+        package["stage"] = native_app.source_stage
+    if _is_field_defined(template_context, "ctx", "native_app", "scratch_stage"):
+        package["scratch_stage"] = native_app.scratch_stage
+
     if native_app.package:
-        package["distribution"] = native_app.package.distribution
+        if _is_field_defined(
+            template_context, "ctx", "native_app", "package", "distribution"
+        ):
+            package["distribution"] = native_app.package.distribution
         package_meta = _make_meta(native_app.package)
         if native_app.package.scripts:
             converted_post_deploy_hooks = _convert_package_script_files(
@@ -289,6 +327,10 @@ def convert_native_app_to_v2_data(
     if native_app.application:
         if app_meta := _make_meta(native_app.application):
             app["meta"] = app_meta
+        if _is_field_defined(
+            template_context, "ctx", "native_app", "application", "debug"
+        ):
+            app["debug"] = native_app.application.debug
 
     return {
         "entities": {

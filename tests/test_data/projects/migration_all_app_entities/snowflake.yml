@@ -1,0 +1,32 @@
+definition_version: 1
+native_app:
+  name: myapp
+  source_stage: app_src.my_stage
+  scratch_stage: app_src.my_scratch
+  bundle_root: my_output/my_bundle
+  deploy_root: my_output/my_deploy
+  generated_root: __my_generated_files
+  artifacts:
+    - src: app/*
+      dest: ./
+    - src: to_process/*
+      dest: ./
+      processors:
+        - native app setup
+        - name: templates
+          properties:
+            foo: bar
+  package:
+    name: my_app_package
+    role: pkg_role
+    warehouse: pkg_wh
+    distribution: external
+    scripts:
+      - scripts/post_pkg_deploy.sql
+  application:
+    name: myapp_app
+    role: app_role
+    warehouse: app_wh
+    debug: true
+    post_deploy:
+      - sql_script: scripts/post_app_deploy.sql
