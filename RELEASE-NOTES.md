@@ -1,31 +1,3 @@
-<!--
- Copyright (c) 2024 Snowflake Inc.
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
- http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
- -->
-
-# Unreleased version
-## Backward incompatibility
-
-## Deprecations
-
-## New additions
-* Add `--host` and `--port` to connection flags.
-
-## Fixes and improvements
-* Fixes `snow connection add` behavior when `connections.toml` file exists.
-* Add more readable error messages in `snow object create` command.
-
 # v3.0.0
 
 ## Backward incompatibility
@@ -59,7 +31,7 @@
 * Added `SNOWFLAKE_..._PRIVATE_KEY_RAW` environment variable to pass private key as a raw string.
 * Added periodic check for newest version of Snowflake CLI. When new version is available, user will be notified.
 * Added support for `imports` in Streamlit definition.
-
+* Add `--host` and `--port` to connection flags.
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command.
@@ -73,7 +45,8 @@
 * Fixed `snow git execute` with `/` in name of the branch.
 * `snow app` commands don't enforce ownership of the objects they manage, and rely on RBAC instead.
 * `snow app deploy` for package entity now allows operating on application packages created outside the CLI
-
+* Fixes `snow connection add` behavior when `connections.toml` file exists.
+* Add more readable error messages in `snow object create` command.
 
 # v2.8.1
 ## Backward incompatibility
