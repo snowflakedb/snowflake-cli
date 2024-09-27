@@ -67,6 +67,7 @@ def assert_snapshot_match_with_query_result(output: str, snapshot) -> bool:
     return snapshot.assert_match(myjson.values())
 
 
+@pytest.mark.skip(reason="PyPi repo migration")
 @pytest.mark.e2e
 def test_full_lifecycle_with_codegen(
     snowcli, test_root_path, project_directory, snapshot
@@ -107,7 +108,6 @@ def test_full_lifecycle_with_codegen(
     )
 
     with project_directory(project_name) as project_dir:
-
         with open("snowflake.yml", "w") as f:
             # Redo snowflake.yml to add unique id to project name
             f.write(snowflake_yml_contents)

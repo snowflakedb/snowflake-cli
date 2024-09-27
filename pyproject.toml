@@ -113,8 +113,9 @@ test = ["pytest -m performance"]
 [tool.hatch.envs.integration]
 template = "integration"
 pre-install-commands = [
-  "pip install test_external_plugins/snowpark_hello_single_command",
-  "pip install test_external_plugins/multilingual_hello_command_group",
+  # Disabled due to repo migration
+  # "pip install test_external_plugins/snowpark_hello_single_command",
+  # "pip install test_external_plugins/multilingual_hello_command_group",
   "pip install pytest-xdist",
 ]
 features = ["development"]

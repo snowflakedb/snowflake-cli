@@ -101,7 +101,8 @@ def snowcli(test_root_path):
         tmp_dir_path = Path(tmp_dir)
         _create_venv(tmp_dir_path)
         _build_snowcli(tmp_dir_path, test_root_path)
-        _install_snowcli_with_external_plugin(tmp_dir_path, test_root_path)
+        # Disabled due to repo migration
+        # _install_snowcli_with_external_plugin(tmp_dir_path, test_root_path)
         if IS_WINDOWS:
             yield tmp_dir_path / "Scripts" / "snow.exe"
         else:
