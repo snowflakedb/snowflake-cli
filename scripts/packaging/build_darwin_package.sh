@@ -122,8 +122,8 @@ code_sign_validate() {
 APP_CONTENTS=$APP_NAME/Contents/MacOS/snow
 ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
 
-code_sign $APP_CONTENTS
-code_sign_validate $APP_CONTENTS
+code_sign $APP_CONTENTS/snow
+code_sign_validate $APP_CONTENTS/snow
 
 for l in $(find . -name '*.so'); do
   code_sign_no_runtime $l
