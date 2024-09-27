@@ -151,3 +151,19 @@ def test_migrating_a_file_with_duplicated_keys_raises_an_error(
         result = runner.invoke(["helpers", "v1-to-v2"])
     assert result.exit_code == 1, result.output
     assert result.output == os_agnostic_snapshot
+
+
+@pytest.mark.parametrize("migrate_local_yml", [True, False])
+def test_migrating_with_local_yml(
+    runner, project_directory, os_agnostic_snapshot, migrate_local_yml
+):
+    with project_directory("migration_local_yml") as pd:
+        cmd = ["helpers", "v1-to-v2"]
+        if migrate_local_yml:
+            cmd.append("--migrate-local-override")
+        result = runner.invoke(cmd)
+        assert result.exit_code == 0
+        assert Path("snowflake_V1.local.yml").exists()
+        with Path("snowflake.yml").open() as f:
+            pdf = yaml.safe_load(f)
+            assert pdf["env"]["foo"] == "bar_local" if migrate_local_yml else "bar"

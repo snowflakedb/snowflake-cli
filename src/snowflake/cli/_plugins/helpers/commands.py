@@ -17,6 +17,7 @@ from __future__ import annotations
 import typer
 import yaml
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.output.types import MessageResult
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
@@ -35,10 +36,24 @@ def v1_to_v2(
     accept_templates: bool = typer.Option(
         False, "-t", "--accept-templates", help="Allows the migration of templates."
     ),
+    migrate_local_yml: bool = typer.Option(
+        False,
+        "-l",
+        "--migrate-local-overrides",
+        help="Merge values in snowflake.local.yml into the main project definition. If unset, snowflake.local.yml will not be migrated.",
+    ),
     **options,
 ):
     """Migrates the Snowpark, Streamlit, and Native App project definition files from V1 to V2."""
     manager = DefinitionManager()
+    local_yml_path = manager.project_root / "snowflake.local.yml"
+    has_local_yml = local_yml_path in manager.project_config_paths
+    if has_local_yml and not migrate_local_yml:
+        # If we don't want the local file,
+        # remove it from the list of paths to load
+        manager.project_config_paths.remove(local_yml_path)
+        cc.warning("snowflake.local.yml will not be migrated.")
+
     pd = manager.unrendered_project_definition
 
     if pd.meets_version_requirement("2"):
@@ -49,6 +64,8 @@ def v1_to_v2(
     )
 
     SecurePath("snowflake.yml").rename("snowflake_V1.yml")
+    if has_local_yml:
+        SecurePath("snowflake.local.yml").rename("snowflake_V1.local.yml")
     with open("snowflake.yml", "w") as file:
         yaml.dump(
             pd_v2.model_dump(
