@@ -127,15 +127,17 @@ sign_main_binary() {}
   code_sign_validate $APP_CONTENTS/snow
 }
 
-sign_no_runtime_binaries() {}
-  for binary in $(find $APP_CONTENTS/snowflake-cli-* -type f -perm +a+x); do
-    code_sign_no_runtime $binary
-    code_sign_validate $binary
-  done
+sign_no_runtime_binary() {
+  code_sign_no_runtime $1
+  code_sign_validate $1
+}
+
+sign_remaining_binaries() {}
+  find $APP_CONTENTS/snowflake-cli-* -perm +a+x -type f -exec sign_no_runtime_binary {} \;
 }
 
 sign_main_binary
-sign_no_runtime_binaries
+sign_remaining_binaries
 
 
 # POSTINSTALL SCRIPT
