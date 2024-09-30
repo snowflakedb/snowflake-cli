@@ -128,7 +128,7 @@ sign_runtime_binary() {
 }
 
 loginfo "-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-"
-for p in $(find MacOS/snow/snowflake-cli-* -type f -name 'Python'); do
+for p in $(find $APP_CONTENTS/snowflake-cli-* -type f -name 'Python'); do
   code_sign $p
   code_sign_validate $p
 done
@@ -136,7 +136,7 @@ loginfo "-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-"
 
 sign_no_runtime_binary() {
   # all executables and shared libraries
-  for item in $(find MacOS/snow/snowflake-cli-* -type f -name '*.so' -or -name '*.dylib'); do
+  for item in $(find $APP_CONTENTS/snowflake-cli-* -type f -name '*.so' -or -name '*.dylib'); do
     code_sign_no_runtime $item
     code_sign_validate $item
   done
