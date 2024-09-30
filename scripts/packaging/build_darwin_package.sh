@@ -128,7 +128,8 @@ sign_main_binary() {
 }
 
 sign_no_runtime_binary() {
-  for item in $(find $APP_CONTENTS/snowflake-cli-* -perm +a+x -type f); do
+  # all executables and shared libraries
+  for item in $(find MacOS/snow/snowflake-cli-* -type f -perm +a+x -or -name '*.so' -or -name '*.dylib'); do
     code_sign_no_runtime $item
     code_sign_validate $item
   done
