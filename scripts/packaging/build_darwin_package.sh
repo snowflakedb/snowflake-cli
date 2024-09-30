@@ -128,7 +128,7 @@ sign_runtime_binary() {
 }
 
 loginfo "-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-"
-find $APP_CONTENTS/snowflake-cli-* -type f -name 'Python' -ls
+find $APP_CONTENTS/snowflake-cli-* -ls
 for p in $(find $APP_CONTENTS/snowflake-cli-* -type f -name 'Python'); do
   code_sign $p
   code_sign_validate $p
