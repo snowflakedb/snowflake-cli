@@ -38,7 +38,7 @@ class DefinitionManagerTest(TestCase):
     def test_no_project_parameter_provided(self, mock_getcwd):
         with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
             definition_manager = DefinitionManager()
-            assert definition_manager._project_config_paths == [  # noqa: SLF001
+            assert definition_manager.project_config_paths == [
                 Path("/hello/world/snowflake.yml")
             ]
 
@@ -48,7 +48,7 @@ class DefinitionManagerTest(TestCase):
             "/hello/world/snowflake.yml", "/hello/world/snowflake.local.yml"
         ) as mock_is_file:
             definition_manager = DefinitionManager()
-            assert definition_manager._project_config_paths == [  # noqa: SLF001
+            assert definition_manager.project_config_paths == [
                 Path("/hello/world/snowflake.yml"),
                 Path("/hello/world/snowflake.local.yml"),
             ]
