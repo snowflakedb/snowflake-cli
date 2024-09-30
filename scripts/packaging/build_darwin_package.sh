@@ -123,8 +123,8 @@ APP_CONTENTS=$APP_NAME/Contents/MacOS/snow
 ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
 
 sign_main_binary() {}
-  code_sign $APP_CONTENTS
-  code_sign_validate $APP_CONTENTS
+  code_sign $APP_CONTENTS/snow
+  code_sign_validate $APP_CONTENTS/snow
 }
 
 sign_no_runtime_binaries() {}
