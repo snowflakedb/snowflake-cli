@@ -132,13 +132,12 @@ sign_no_runtime_binary() {
   code_sign_validate $1
 }
 
-sign_remaining_binaries() {}
+sign_remaining_binaries() {
   find $APP_CONTENTS/snowflake-cli-* -perm +a+x -type f -exec sign_no_runtime_binary {} \;
 }
 
 sign_main_binary
 sign_remaining_binaries
-
 
 # POSTINSTALL SCRIPT
 prepare_postinstall_script() {
