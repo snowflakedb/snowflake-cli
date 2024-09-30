@@ -27,6 +27,16 @@ def test_migrations_with_multiple_entities(
     assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
 
 
+def test_migrations_with_all_app_entities(
+    runner, project_directory, os_agnostic_snapshot
+):
+    with project_directory("migration_all_app_entities"):
+        result = runner.invoke(["helpers", "v1-to-v2"])
+    assert result.exit_code == 0
+    assert Path("snowflake.yml").read_text() == os_agnostic_snapshot
+    assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
+
+
 def test_migration_native_app_missing_manifest(runner, project_directory):
     with project_directory("migration_multiple_entities") as project_dir:
         (project_dir / "app" / "manifest.yml").unlink()
@@ -96,7 +106,7 @@ def test_if_template_raises_error_during_migrations(
 
 def test_migration_with_only_envs(project_directory, runner):
     with project_directory("sql_templating"):
-        result = runner.invoke(["helpers", "v1-to-v2"])
+        result = runner.invoke(["helpers", "v1-to-v2", "--no-migrate-local-overrides"])
 
     assert result.exit_code == 0
 
@@ -141,3 +151,30 @@ def test_migrating_a_file_with_duplicated_keys_raises_an_error(
         result = runner.invoke(["helpers", "v1-to-v2"])
     assert result.exit_code == 1, result.output
     assert result.output == os_agnostic_snapshot
+
+
+@pytest.mark.parametrize("migrate_local_yml", [True, False])
+def test_migrating_with_local_yml(
+    runner, project_directory, os_agnostic_snapshot, migrate_local_yml
+):
+    with project_directory("migration_local_yml"):
+        flag = (
+            "--migrate-local-overrides"
+            if migrate_local_yml
+            else "--no-migrate-local-overrides"
+        )
+        result = runner.invoke(["helpers", "v1-to-v2", flag])
+        assert result.exit_code == 0, result.output
+        assert Path("snowflake_V1.local.yml").exists()
+        with Path("snowflake.yml").open() as f:
+            pdf = yaml.safe_load(f)
+            assert pdf["env"]["foo"] == "bar_local" if migrate_local_yml else "bar"
+
+
+def test_migrating_with_local_yml_no_flag(
+    runner, project_directory, os_agnostic_snapshot
+):
+    with project_directory("migration_local_yml"):
+        result = runner.invoke(["helpers", "v1-to-v2"])
+        assert result.exit_code == 1, result.output
+        assert "please specify --migrate-local-overrides" in result.output

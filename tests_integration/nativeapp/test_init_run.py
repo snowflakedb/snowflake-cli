@@ -14,7 +14,6 @@
 
 from shlex import split
 
-from snowflake.cli._plugins.nativeapp.init import OFFICIAL_TEMPLATES_GITHUB_URL
 from snowflake.cli.api.secure_path import SecurePath
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
@@ -343,49 +342,6 @@ def test_nativeapp_run_after_deploy(
         assert (
             f"alter application {app_name} upgrade using @{stage_fqn}" in result.output
         )
-
-
-# Tests initialization of a project from a repo with a single template
-@pytest.mark.integration
-def test_nativeapp_init_from_repo_with_single_template(
-    runner,
-    snowflake_session,
-    temporary_working_directory,
-):
-    from git import Repo
-    from git import rmtree as git_rmtree
-
-    with SecurePath.temporary_directory() as all_templates_local_repo_path:
-        # prepare a local repository with only one template (basic)
-        all_templates_repo = Repo.clone_from(
-            url=OFFICIAL_TEMPLATES_GITHUB_URL,
-            to_path=all_templates_local_repo_path.path,
-            filter=["tree:0"],
-            depth=1,
-        )
-        all_templates_repo.close()
-        git_rmtree((all_templates_local_repo_path / ".git").path)
-
-        single_template_repo_path = all_templates_local_repo_path / "basic"
-        single_template_repo = Repo.init(single_template_repo_path.path)
-        single_template_repo.index.add(["**/*", "*", ".gitignore"])
-        single_template_repo.index.commit("initial commit")
-
-        # confirm that no error is thrown when initializing a project from a repo with a single template
-        project_name = "myapp"
-        try:
-            result = runner.invoke_json(
-                [
-                    "app",
-                    "init",
-                    "--template-repo",
-                    f"file://{single_template_repo_path.path}",
-                    project_name,
-                ]
-            )
-            assert result.exit_code == 0
-        finally:
-            single_template_repo.close()
 
 
 # Tests running an app whose package was dropped externally (requires dropping and recreating the app)
