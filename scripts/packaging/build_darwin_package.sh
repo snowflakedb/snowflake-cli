@@ -122,18 +122,21 @@ code_sign_validate() {
 APP_CONTENTS=$APP_NAME/Contents/MacOS/snow
 ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
 
-code_sign $APP_CONTENTS/snow
-code_sign_validate $APP_CONTENTS/snow
+sign_main_binary() {}
+  code_sign $APP_CONTENTS
+  code_sign_validate $APP_CONTENTS
+}
 
-for l in $(find . -name '*.so'); do
-  code_sign_no_runtime $l
-  code_sign_validate $l
-done
+sign_no_runtime_binaries() {}
+  for binary in $(find $APP_CONTENTS/snowflake-cli-* -type f -perm +a+x); do
+    code_sign_no_runtime $binary
+    code_sign_validate $binary
+  done
+}
 
-for l in $(find . -name '*.dylib'); do
-  code_sign_no_runtime $l
-  code_sign_validate $l
-done
+sign_main_binary
+sign_no_runtime_binaries
+
 
 # POSTINSTALL SCRIPT
 prepare_postinstall_script() {
