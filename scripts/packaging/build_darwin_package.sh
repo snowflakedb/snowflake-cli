@@ -125,12 +125,14 @@ ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
 sign_runtime_binary() {
   code_sign $APP_CONTENTS/snow
   code_sign_validate $APP_CONTENTS/snow
-
-  for p in $(find MacOS/snow/snowflake-cli-* -type f -name 'Python'); do
-    code_sign $p
-    code_sign_validate $p
-  done
 }
+
+loginfo "-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-"
+for p in $(find MacOS/snow/snowflake-cli-* -type f -name 'Python'); do
+  code_sign $p
+  code_sign_validate $p
+done
+loginfo "-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-"
 
 sign_no_runtime_binary() {
   # all executables and shared libraries
