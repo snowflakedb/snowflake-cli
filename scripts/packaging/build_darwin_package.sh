@@ -134,7 +134,7 @@ loginfo "---------------------------------"
 loginfo "Procuct sign ${DIST_DIR}/${PRODUCT_UNSIGNED_NAME} -> ${DIST_DIR}/${PRODUCT_SIGNED_NAME}"
 loginfo "---------------------------------"
 productsign \
-  --sign "${CODESIGN_IDENTITY}" \
+  --sign "${PRODUCTSIGN_IDENTITY}" \
   ${DIST_DIR}/${PRODUCT_UNSIGNED_NAME} \
   ${DIST_DIR}/${PRODUCT_SIGNED_NAME}
 
