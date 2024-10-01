@@ -1,4 +1,5 @@
 import logging
+import shutil
 from pathlib import Path
 from textwrap import dedent
 
@@ -37,6 +38,27 @@ def test_migrations_with_all_app_entities(
     assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
 
 
+def test_migration_native_app_nested_manifest(runner, project_directory):
+    with project_directory("migration_multiple_entities") as project_dir:
+        with open("snowflake.yml", "r+") as snowflake_yml:
+            pdf = yaml.safe_load(snowflake_yml)
+            pdf["native_app"]["artifacts"] = [
+                dict(src="nested/nested/app", dest="nested/app/")
+            ]
+            snowflake_yml.seek(0)
+            yaml.safe_dump(pdf, snowflake_yml)
+            snowflake_yml.truncate()
+
+        shutil.move("app", "nested/nested/app")
+        result = runner.invoke(["helpers", "v1-to-v2"])
+        assert result.exit_code == 0
+        with open("snowflake.yml") as f:
+            pdf = yaml.safe_load(f)
+            assert (
+                pdf["entities"]["pkg"]["manifest"] == "nested/nested/app/manifest.yml"
+            )
+
+
 def test_migration_native_app_missing_manifest(runner, project_directory):
     with project_directory("migration_multiple_entities") as project_dir:
         (project_dir / "app" / "manifest.yml").unlink()
@@ -55,8 +77,7 @@ def test_migration_native_app_no_artifacts(runner, project_directory):
             snowflake_yml.truncate()
         result = runner.invoke(["helpers", "v1-to-v2"])
     assert result.exit_code == 1
-    assert "No artifacts mapping found in project definition" in result.output
-    assert "Could not bundle Native App artifacts" in result.output
+    assert "manifest.yml file not found" in result.output
 
 
 def test_migration_native_app_package_scripts(runner, project_directory):
@@ -106,7 +127,7 @@ def test_if_template_raises_error_during_migrations(
 
 def test_migration_with_only_envs(project_directory, runner):
     with project_directory("sql_templating"):
-        result = runner.invoke(["helpers", "v1-to-v2"])
+        result = runner.invoke(["helpers", "v1-to-v2", "--no-migrate-local-overrides"])
 
     assert result.exit_code == 0
 
@@ -151,3 +172,30 @@ def test_migrating_a_file_with_duplicated_keys_raises_an_error(
         result = runner.invoke(["helpers", "v1-to-v2"])
     assert result.exit_code == 1, result.output
     assert result.output == os_agnostic_snapshot
+
+
+@pytest.mark.parametrize("migrate_local_yml", [True, False])
+def test_migrating_with_local_yml(
+    runner, project_directory, os_agnostic_snapshot, migrate_local_yml
+):
+    with project_directory("migration_local_yml"):
+        flag = (
+            "--migrate-local-overrides"
+            if migrate_local_yml
+            else "--no-migrate-local-overrides"
+        )
+        result = runner.invoke(["helpers", "v1-to-v2", flag])
+        assert result.exit_code == 0, result.output
+        assert Path("snowflake_V1.local.yml").exists()
+        with Path("snowflake.yml").open() as f:
+            pdf = yaml.safe_load(f)
+            assert pdf["env"]["foo"] == "bar_local" if migrate_local_yml else "bar"
+
+
+def test_migrating_with_local_yml_no_flag(
+    runner, project_directory, os_agnostic_snapshot
+):
+    with project_directory("migration_local_yml"):
+        result = runner.invoke(["helpers", "v1-to-v2"])
+        assert result.exit_code == 1, result.output
+        assert "please specify --migrate-local-overrides" in result.output
