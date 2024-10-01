@@ -70,6 +70,7 @@ from snowflake.cli.api.project.util import (
     append_test_resource_suffix,
     extract_schema,
     identifier_for_url,
+    to_identifier,
     unquote_identifier,
 )
 from snowflake.connector import DictCursor, ProgrammingError
@@ -245,7 +246,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         needs_confirm = True
 
         # 1. If existing application is not found, exit gracefully
-        show_obj_row = cls.get_existing_app_info(
+        show_obj_row = cls.get_existing_app_info_static(
             app_name=app_name,
             app_role=app_role,
         )
@@ -535,7 +536,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             with sql_executor.use_warehouse(app_warehouse):
 
                 # 2. Check for an existing application by the same name
-                show_app_row = cls.get_existing_app_info(
+                show_app_row = cls.get_existing_app_info_static(
                     app_name=app_name,
                     app_role=app_role,
                 )
@@ -678,11 +679,15 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 )
             )
 
+    def get_existing_app_info(self) -> Optional[dict]:
+        model = self._entity_model
+        ctx = self._workspace_ctx
+        role = (model.meta and model.meta.role) or ctx.default_role
+        return self.get_existing_app_info_static(role, model.fqn.name)
+
+    # TODO merge this into get_existing_app_info once all static usages are removed
     @staticmethod
-    def get_existing_app_info(
-        app_name: str,
-        app_role: str,
-    ) -> Optional[dict]:
+    def get_existing_app_info_static(app_name: str, app_role: str) -> Optional[dict]:
         """
         Check for an existing application object by the same name as in project definition, in account.
         It executes a 'show applications like' query and returns the result as single row, if one exists.
@@ -850,9 +855,17 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         results = sql_executor.execute_query(query, cursor_class=DictCursor)
         return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
 
-    @classmethod
-    def get_snowsight_url(cls, app_name: str, app_warehouse: str | None) -> str:
+    def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
+        model = self._entity_model
+        ctx = self._workspace_ctx
+        warehouse = (
+            model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)
+        ) or to_identifier(ctx.default_warehouse)
+        return self.get_snowsight_url_static(model.fqn.name, warehouse)
+
+    @classmethod
+    def get_snowsight_url_static(cls, app_name: str, app_warehouse: str) -> str:
         name = identifier_for_url(app_name)
         with cls.use_application_warehouse(app_warehouse):
             sql_executor = get_sql_executor()

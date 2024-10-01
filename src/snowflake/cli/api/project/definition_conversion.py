@@ -37,6 +37,7 @@ from snowflake.cli.api.project.schemas.v1.snowpark.callable import (
 from snowflake.cli.api.project.schemas.v1.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
 from snowflake.cli.api.rendering.jinja import get_basic_jinja_env
+from snowflake.cli.api.utils.definition_rendering import render_definition_template
 
 log = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ def convert_project_definition_to_v2(
     pd: ProjectDefinition,
     accept_templates: bool = False,
     template_context: Optional[Dict[str, Any]] = None,
+    evaluate_replacement_templates: bool = False,
 ) -> ProjectDefinitionV2:
     _check_if_project_definition_meets_requirements(pd, accept_templates)
 
@@ -89,9 +91,12 @@ def convert_project_definition_to_v2(
             native_app_data.get("entities", {}),
         ),
         "mixins": snowpark_data.get("mixins", None),
-        "env": envs,
     }
+    if envs is not None:
+        data["env"] = envs
 
+    if evaluate_replacement_templates:
+        return render_definition_template(data, {}).project_definition
     return ProjectDefinitionV2(**data)
 
 
