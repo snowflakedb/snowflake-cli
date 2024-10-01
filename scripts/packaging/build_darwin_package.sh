@@ -37,7 +37,7 @@ security find-identity -v -p codesigning
 loginfo "---------------------------------"
 
 hatch -e packaging run pyinstaller \
-  --name=${APP_NAME} \
+  --name=${BINARY_NAME} \
   --target-architecture=$MACHINE \
   --onedir \
   --clean \
@@ -50,6 +50,9 @@ hatch -e packaging run pyinstaller \
   ${ENTRY_POINT}
 
 ls -la $DIST_DIR
+rm -rf ${APP_DIR} || true
+mkdir -p ${APP_DIR} || true
+ls -ls $APP_DIR
 mv $DIST_DIR/Snow.app $DIST_DIR/$APP_NAME
 ls -la $DIST_DIR
 
