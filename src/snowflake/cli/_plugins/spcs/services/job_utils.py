@@ -25,7 +25,8 @@ class _ImageSpec:
     arch: str
     family: str
     tag: str
-    resources: _ComputeResources
+    resource_requests: _ComputeResources
+    resource_limits: _ComputeResources
 
     @property
     def full_name(self) -> str:
@@ -109,7 +110,8 @@ def _get_image_spec(session: Session, compute_pool: str) -> _ImageSpec:
         arch=image_arch,
         family=image_family,
         tag=image_tag,
-        resources=resources,
+        resource_requests=resources,
+        resource_limits=resources,
     )
 
 
@@ -125,16 +127,16 @@ def _generate_spec(
 
     # Set resource requests/limits, including nvidia.com/gpu quantity if applicable
     resource_requests = {
-        "cpu": f"{image_spec.resources.cpu * 1000}m",
-        "memory": f"{image_spec.resources.memory}g",
+        "cpu": f"{image_spec.resource_requests.cpu * 1000}m",
+        "memory": f"{image_spec.resource_limits.memory}Gi",
     }
     resource_limits = {
-        "cpu": f"{image_spec.resources.cpu * 1000}m",
-        "memory": f"{image_spec.resources.memory}g",
+        "cpu": f"{image_spec.resource_requests.cpu * 1000}m",
+        "memory": f"{image_spec.resource_limits.memory}Gi",
     }
-    if image_spec.resources.gpu > 0:
-        resource_requests["nvidia.com/gpu"] = str(image_spec.resources.gpu)
-        resource_limits["nvidia.com/gpu"] = str(image_spec.resources.gpu)
+    if image_spec.resource_limits.gpu > 0:
+        resource_requests["nvidia.com/gpu"] = str(image_spec.resource_requests.gpu)
+        resource_limits["nvidia.com/gpu"] = str(image_spec.resource_limits.gpu)
 
     # Create container spec
     mce_container: Dict[str, Any] = {
