@@ -12,10 +12,11 @@ from snowflake.snowpark import Session
 
 
 @dataclass
-class _ImageResources:
+class _ComputeResources:
     cpu: float  # Number of vCPU cores
-    gpu: int  # Number of GPUs
     memory: float  # Memory in GiB
+    gpu: int = 0  # Number of GPUs
+    gpu_type: Optional[str] = None
 
 
 @dataclass
@@ -24,24 +25,70 @@ class _ImageSpec:
     arch: str
     family: str
     tag: str
-    resources: _ImageResources
+    resources: _ComputeResources
 
     @property
     def full_name(self) -> str:
         return f"{self.repo}/st_plat/runtime/{self.arch}/{self.family}:{self.tag}"
 
 
-def _get_image_spec(session: Session, compute_pool: str) -> _ImageSpec:
-    # Derive container type and resource settings from compute pool instance family
+# TODO: Query Snowflake for resource information instead of relying on this hardcoded
+#       table from https://docs.snowflake.com/en/sql-reference/sql/create-compute-pool
+_COMMON_INSTANCE_FAMILIES = {
+    "CPU_X64_XS": _ComputeResources(cpu=1, memory=6),
+    "CPU_X64_S": _ComputeResources(cpu=3, memory=13),
+    "CPU_X64_M": _ComputeResources(cpu=6, memory=28),
+    "CPU_X64_L": _ComputeResources(cpu=28, memory=116),
+    "HIGHMEM_X64_S": _ComputeResources(cpu=6, memory=58),
+}
+_AWS_INSTANCE_FAMILIES = {
+    "HIGHMEM_X64_M": _ComputeResources(cpu=28, memory=240),
+    "HIGHMEM_X64_L": _ComputeResources(cpu=124, memory=984),
+    "GPU_NV_S": _ComputeResources(cpu=6, memory=27, gpu=1, gpu_type="A10G"),
+    "GPU_NV_M": _ComputeResources(cpu=44, memory=178, gpu=4, gpu_type="A10G"),
+    "GPU_NV_L": _ComputeResources(cpu=92, memory=1112, gpu=8, gpu_type="A100"),
+}
+_AZURE_INSTANCE_FAMILIES = {
+    "HIGHMEM_X64_M": _ComputeResources(cpu=28, memory=244),
+    "HIGHMEM_X64_L": _ComputeResources(cpu=92, memory=654),
+    "GPU_NV_XS": _ComputeResources(cpu=3, memory=26, gpu=1, gpu_type="T4"),
+    "GPU_NV_SM": _ComputeResources(cpu=32, memory=424, gpu=1, gpu_type="A10"),
+    "GPU_NV_2M": _ComputeResources(cpu=68, memory=858, gpu=2, gpu_type="A10"),
+    "GPU_NV_3M": _ComputeResources(cpu=44, memory=424, gpu=2, gpu_type="A100"),
+    "GPU_NV_SL": _ComputeResources(cpu=92, memory=858, gpu=4, gpu_type="A100"),
+}
+_CLOUD_INSTANCE_FAMILIES = {
+    "aws": _AWS_INSTANCE_FAMILIES,
+    "azure": _AZURE_INSTANCE_FAMILIES,
+}
+
+
+def _get_node_resources(session: Session, compute_pool: str) -> _ComputeResources:
+    """Extract resource information for the specified compute pool"""
+    # Get the instance family
     (row,) = session.sql(f"show compute pools like '{compute_pool}'").collect()
     instance_family: str = row["instance_family"]
 
-    # TODO: Detect resources by instance family
-    resources = _ImageResources(
-        cpu=1,
-        gpu=instance_family.startswith("GPU"),
-        memory=1,
+    # Get the cloud we're using (AWS, Azure, etc)
+    (row,) = session.sql(f"select current_region()").collect()
+    region: str = row[0]
+    region_group, region_name = f".{region}".split(".")[
+        -2:
+    ]  # Prepend a period so we always get at least 2 splits
+    regions = session.sql(f"show regions like '{region_name}'").collect()
+    if region_group:
+        regions = [r for r in regions if r["region_group"] == region_group]
+    cloud = regions[0]["cloud"]
+
+    return (
+        _COMMON_INSTANCE_FAMILIES.get(instance_family)
+        or _CLOUD_INSTANCE_FAMILIES[cloud][instance_family]
     )
+
+
+def _get_image_spec(session: Session, compute_pool: str) -> _ImageSpec:
+    # Retrieve compute pool node resources
+    resources = _get_node_resources(session, compute_pool=compute_pool)
 
     # Use MLRuntime image
     # TODO: Build new image if needed
@@ -56,6 +103,7 @@ def _get_image_spec(session: Session, compute_pool: str) -> _ImageSpec:
         f"SHOW PARAMETERS LIKE 'RUNTIME_BASE_IMAGE_TAG' IN ACCOUNT"
     ).collect()[0]["value"]
 
+    # TODO: Should each instance consume the entire pod?
     return _ImageSpec(
         repo=image_repo,
         arch=image_arch,
@@ -75,11 +123,28 @@ def _generate_spec(
     volumes: List[Dict[str, str]] = []
     volume_mounts: List[Dict[str, str]] = []
 
-    # TODO: Set resource requests/limits, including nvidia.com/gpu quantity if applicable
+    # Set resource requests/limits, including nvidia.com/gpu quantity if applicable
+    resource_requests = {
+        "cpu": f"{image_spec.resources.cpu * 1000}m",
+        "memory": f"{image_spec.resources.memory}g",
+    }
+    resource_limits = {
+        "cpu": f"{image_spec.resources.cpu * 1000}m",
+        "memory": f"{image_spec.resources.memory}g",
+    }
+    if image_spec.resources.gpu > 0:
+        resource_requests["nvidia.com/gpu"] = str(image_spec.resources.gpu)
+        resource_limits["nvidia.com/gpu"] = str(image_spec.resources.gpu)
+
+    # Create container spec
     mce_container: Dict[str, Any] = {
         "name": "primary-container",
         "image": image_spec.full_name,
         "volumeMounts": volume_mounts,  # TODO: Verify this gets updated in-place
+        "resources": {
+            "requests": resource_requests,
+            "limits": resource_limits,
+        },
     }
 
     # TODO: Add memory volume
