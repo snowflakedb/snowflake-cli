@@ -25,6 +25,7 @@ from snowflake.cli._plugins.spcs.common import (
     handle_object_already_exists,
     strip_empty_lines,
 )
+from snowflake.cli._plugins.spcs.services import job_utils
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -95,6 +96,59 @@ class ServiceManager(SqlExecutionMixin):
         comment: Optional[str],
     ) -> SnowflakeCursor:
         spec = self._read_yaml(spec_path)
+        return self._execute_job(
+            job_service_name,
+            compute_pool,
+            spec,
+            external_access_integrations,
+            query_warehouse,
+            comment,
+        )
+
+    def submit_job(
+        self,
+        compute_pool: str,
+        stage_name: str,  # FIXME: optional?
+        payload_path: Path,
+        entrypoint: Optional[Path],
+        job_service_name: Optional[str],
+        external_access_integrations: Optional[List[str]],
+        query_warehouse: Optional[str],
+        comment: Optional[str],
+    ) -> SnowflakeCursor:
+        if not job_service_name:
+            job_service_name = job_utils.generate_name()
+        assert job_service_name is not None  # mypy
+
+        spec = job_utils.prepare_spec(
+            session=self.snowpark_session,
+            service_name=job_service_name,
+            compute_pool=compute_pool,
+            stage_name=stage_name,
+            payload=payload_path,
+            entrypoint=entrypoint,
+            enable_pip=bool(external_access_integrations),
+        )
+
+        # TODO: Change to new CREATE JOB SERVICE async API
+        return self._execute_job(
+            job_service_name,
+            compute_pool,
+            spec,
+            external_access_integrations,
+            query_warehouse,
+            comment,
+        )
+
+    def _execute_job(
+        self,
+        job_service_name: str,
+        compute_pool: str,
+        spec: str,
+        external_access_integrations: Optional[List[str]],
+        query_warehouse: Optional[str],
+        comment: Optional[str],
+    ) -> SnowflakeCursor:
         query = f"""\
                 EXECUTE JOB SERVICE
                 IN COMPUTE POOL {compute_pool}
