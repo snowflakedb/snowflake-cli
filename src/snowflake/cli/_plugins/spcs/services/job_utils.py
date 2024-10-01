@@ -239,18 +239,15 @@ def _prepare_payload(
 
     # Upload payload to stage
     if source.is_dir():
-        # Filter to only files in source since PUT fails on directories
-        # TODO: Support nested directories
-        for subpath in set(
-            f"*{p.suffix}" if p.suffix else str(p)
-            for p in source.glob("*")
+        # Filter to only files in source since Snowflake PUT can't handle directories
+        for path in set(
+            p.parent.joinpath(f"*{p.suffix}") if p.suffix else p
+            for p in source.rglob("*")
             if p.is_file()
         ):
-            path = source / subpath
             stage_manager.put(
                 str(path.resolve()), stage_path, overwrite=True, auto_compress=False
             )
-        source = source / "*"
     else:
         stage_manager.put(
             str(source.resolve()), stage_path, overwrite=True, auto_compress=False

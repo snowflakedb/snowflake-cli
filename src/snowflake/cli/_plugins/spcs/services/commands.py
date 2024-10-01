@@ -83,9 +83,30 @@ def _payload_entrypoint_callback(
     ctx: Context, entrypoint: Optional[Path]
 ) -> Optional[Path]:
     payload_path = Path(ctx.params["payload_path"])
+
+    # Infer entrypoint from payload
     if payload_path.is_file():
         return payload_path
-    raise ClickException(f"Entrypoint is required when payload is not a single file.")
+    elif entrypoint is None:
+        raise ClickException(
+            f"Entrypoint is required when payload is not a single file."
+        )
+
+    # Resolve relative path entrypoints
+    if not entrypoint.is_absolute():
+        entrypoint = payload_path.joinpath(entrypoint)
+
+    # Validate entrypoint value
+    if not entrypoint.is_file():
+        raise ClickException(
+            f"Invalid value for entrypoint. File '{entrypoint}' does not exist."
+        )
+    elif not entrypoint.is_relative_to(payload_path):
+        raise ClickException(
+            f"Invalid value for entrypoint. Entrypoint must be in the payload directory."
+        )
+
+    return entrypoint
 
 
 EntrypointArgument = typer.Argument(
@@ -93,7 +114,7 @@ EntrypointArgument = typer.Argument(
     help="Path to job payload's entrypoint.",
     file_okay=True,
     dir_okay=False,
-    exists=True,
+    exists=False,  # Validate in callback instead
     callback=_payload_entrypoint_callback,
 )
 
