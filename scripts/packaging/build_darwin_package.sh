@@ -21,6 +21,7 @@ APP_NAME="SnowflakeCLI.app"
 APP_DIR=$DIST_DIR/app
 APP_SCRIPTS=$APP_DIR/scripts
 CODESIGN_IDENTITY="Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)"
+PRODUCTSIGN_IDENTITY="Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)"
 
 loginfo() {
   logger -s -p INFO -- $1
@@ -157,7 +158,7 @@ loginfo "---------------------------------"
 loginfo "Procuct sign ${DIST_DIR}${PRODUCT_BUILD_UNSIGNED_NAME} -> ${DIST_DIR}/${PRODUCT_BUILD_SINGED_NAME}"
 loginfo "---------------------------------"
 productsign \
-  --sign ${CODESIGN_IDENTITY} \
+  --sign ${PRODUCTSIGN_IDENTITY} \
   ${DIST_DIR}/${PRODUCT_BUILD_UNSIGNED_NAME} \
   ${DIST_DIR}/${PRODUCT_BUILD_SINGED_NAME}
 
