@@ -12,8 +12,10 @@ MACHINE=$(uname -m | tr '[:upper:]' '[:lower:]')
 
 CLI_VERSION=$(hatch version)
 
+ENTRY_POINT="src/snowflake/cli/_app/__main__.py"
+BUILD_DIR="${ROOT_DIR}/build"
 DIST_DIR=$ROOT_DIR/dist
-APP_NAME=SnowflakeCLI.app
+APP_NAME="snow"
 APP_DIR=$DIST_DIR/app
 APP_SCRIPTS=$DIST_DIR/scripts
 
@@ -21,20 +23,34 @@ loginfo() {
   logger -s -p INFO -- $1
 }
 
-$DIST_DIR/snow/snow --help
-
-loginfo "Building darwin package for version ${CLI_VERSION}"
-
-setup_app_dir() {
-  rm -rf $APP_DIR || true
-  mkdir -p $APP_DIR/$APP_NAME/Contents/{MacOS,Resources} || true
-  tree $APP_DIR
+clean_build_workspace() {
+  rm -rf $DIST_DIR $BUILD_DIR || true
 }
 
-setup_app_dir
-cd $APP_DIR
+clean_build_workspace
 
-cat >$APP_NAME/Contents/Info.plist <<INFO_PLIST
+security -v unlock-keychain -p $MAC_USERNAME_PASSWORD login.keychain-db
+
+loginfo "---------------------------------"
+security find-identity -v -p codesigning
+loginfo "---------------------------------"
+
+hatch -e packaging run pyinstaller \
+  --name=${APP_NAME} \
+  --target-architecture=$MACHINE \
+  --onedir \
+  --clean \
+  --noconfirm \
+  --windowed \
+  --osx-bundle-identifier=com.snowflake.snowflake-cli \
+  --osx-entitlements-file=scripts/packaging/macos/SnowflakeCLI_entitlements.plist \
+  --icon=scripts/packaging/macos/snowflake_darwin.icns \
+  --codesign-identity="Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)"
+${ENTRY_POINT}
+
+$DIST_DIR/${APP_NAME}.app/Contents/MacOS/snow --help
+
+cat >${DIST_DIR}/${APP_NAME}.app/Contents/Info.plist <<INFO_PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -69,82 +85,12 @@ cat >$APP_NAME/Contents/Info.plist <<INFO_PLIST
 </plist>
 INFO_PLIST
 
-cp -r $DIST_DIR/snow $APP_NAME/Contents/MacOS/
-cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns $APP_NAME/Contents/Resources/SnowflakeCLI.icns
-cp -r $PACKAGING_DIR/macos/SnowflakeCLI.bash $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
-chmod +x $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
+cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns $DIST_DIR/${APP_NAME}.app/Contents/Resources/SnowflakeCLI.icns
+cp -r $PACKAGING_DIR/macos/SnowflakeCLI.bash $DIST_DIR/${APP_NAME}.app/Contents/MacOS/SnowflakeCLI.bash
+chmod +x $DIST_DIR/${APP_NAME}.app/Contents/MacOS/SnowflakeCLI.bash
 
-tree -d $DIST_DIR
-
-security -v unlock-keychain -p $MAC_USERNAME_PASSWORD login.keychain-db
-
-loginfo "---------------------------------"
-security find-identity -v -p codesigning
-loginfo "---------------------------------"
-
-code_sign() {
-  ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
-  loginfo "---------------------------------"
-  loginfo "Code signing $1"
-  loginfo "---------------------------------"
-  ls -l $1
-  codesign \
-    --timestamp \
-    --deep \
-    --force \
-    --entitlements $ENTITLEMENTS \
-    --options=runtime \
-    --sign "Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
-    $1
-}
-
-code_sign_no_runtime() {
-  ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
-  loginfo "---------------------------------"
-  loginfo "Code signing $1 no runtime"
-  loginfo "---------------------------------"
-  codesign \
-    --timestamp \
-    --deep \
-    --force \
-    --entitlements $ENTITLEMENTS \
-    --sign "Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
-    $1
-}
-
-code_sign_validate() {
-  loginfo "---------------------------------"
-  loginfo "Validating code signing for $1"
-  loginfo "---------------------------------"
-  codesign -dvvv --force $1
-}
-
-APP_CONTENTS=$APP_NAME/Contents/MacOS/snow
-ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
-
-sign_runtime_binary() {
-  code_sign $APP_CONTENTS/snow
-  code_sign_validate $APP_CONTENTS/snow
-}
-
-loginfo "-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-"
-find $APP_CONTENTS/snowflake-cli-* -ls
-for p in $(find $APP_CONTENTS/snowflake-cli-* -type f -name 'Python'); do
-  code_sign $p
-  code_sign_validate $p
-done
-loginfo "-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-"
-
-sign_no_runtime_binary() {
-  # all executables and shared libraries
-  for item in $(find $APP_CONTENTS/snowflake-cli-* -type f -name '*.so' -or -name '*.dylib'); do
-    code_sign_no_runtime $item
-    code_sign_validate $item
-  done
-}
-
-sign_runtime_binary
-sign_no_runtime_binary
+mkdir $DIST_DIR/app/ || true
+mv $DIST_DIR/${APP_NAME}.app $APP_DIR/
 
 # POSTINSTALL SCRIPT
 prepare_postinstall_script() {
@@ -156,6 +102,7 @@ prepare_postinstall_script() {
 prepare_postinstall_script
 
 ls -l $DIST_DIR
+tree -d $DIST_DIR
 
 chmod +x $APP_SCRIPTS/postinstall
 loginfo "---------------------------------"
