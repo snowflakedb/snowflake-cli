@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.identifiers import FQN
 from snowflake.snowpark import Session
 
 
@@ -130,13 +132,19 @@ def _generate_spec(
 
 
 def _prepare_payload(
-    session: Session,
     stage_path: str,
     source: Path,
     entrypoint: Path,
     enable_pip: bool = False,
 ) -> str:
     """Load payload onto stage"""
+    stage_manager = StageManager()
+    stage = stage_manager.get_stage_from_path(stage_path)
+    stage_manager.create(
+        fqn=FQN.from_string(stage.lstrip("@")),
+        comment="deployments managed by Snowflake CLI",
+    )
+
     # TODO: Detect if source is a git repo or existing stage
     cli_console.message(f"Uploading payload to stage {stage_path}")
     if not (source.exists() and entrypoint.exists()):
@@ -146,7 +154,9 @@ def _prepare_payload(
     if source.is_dir():
         # TODO: Support nested directories (or at least ignore them so PUT doesn't fail)
         source = source / "*"
-    session.file.put(str(source.resolve()), stage_path, auto_compress=False)
+    stage_manager.put(
+        str(source.resolve()), stage_path, overwrite=True, auto_compress=False
+    )
 
     if enable_pip and source.is_dir() and entrypoint.suffix == ".py" and enable_pip:
         # Multi-file Python payload: generate and inject a launch script
@@ -154,9 +164,11 @@ def _prepare_payload(
             encoding="utf-8"
         )
         entrypoint = Path("startup.sh")
-        session.file.put_stream(
+        # TODO: Switch to stage_manager native method if/when stream support available
+        stage_manager.snowpark_session.file.put_stream(
             io.BytesIO(script_content),
             f"{stage_path}/{entrypoint}",
+            overwrite=True,
             auto_compress=False,
         )
 
@@ -211,10 +223,8 @@ def prepare_spec(
     image_spec = _get_image_spec(session, compute_pool=compute_pool)
 
     # Prepare payload
-    session.sql(f"CREATE STAGE IF NOT EXISTS {stage_name}").collect()
     stage_path = f"@{stage_name}/{service_name}"
     script_path = _prepare_payload(
-        session,
         stage_path,
         source=payload,
         entrypoint=entrypoint,
