@@ -154,10 +154,10 @@ ls -l $DIST_DIR
 
 PRODUCT_BUILD_SINGED_NAME="snowflake-cli-${PLATFORM}.pkg"
 loginfo "---------------------------------"
-loginfo "Procuct sign $DIST_DIR/${PRODUCT_BUILD_UNSIGNED_NAME} -> ${DIST_DIR}/${PRODUCT_BUILD_SINGED_NAME}"
+loginfo "Procuct sign ${DIST_DIR}${PRODUCT_BUILD_UNSIGNED_NAME} -> ${DIST_DIR}/${PRODUCT_BUILD_SINGED_NAME}"
 loginfo "---------------------------------"
 productsign \
-  --sign "${CODESIGN_IDENTITY}" \
+  --sign ${CODESIGN_IDENTITY} \
   ${DIST_DIR}/${PRODUCT_BUILD_UNSIGNED_NAME} \
   ${DIST_DIR}/${PRODUCT_BUILD_SINGED_NAME}
 
