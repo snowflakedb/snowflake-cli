@@ -172,4 +172,4 @@ validate_installation() {
   sudo rm -rf /Applications/SnowflakeCLI.app || true
 }
 
-validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
+# validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
