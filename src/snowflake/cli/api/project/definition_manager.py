@@ -41,7 +41,7 @@ class DefinitionManager:
     USER_DEFINITION_FILENAME = "snowflake.local.yml"
 
     project_root: Path
-    _project_config_paths: List[Path]
+    project_config_paths: List[Path]
 
     def __init__(
         self,
@@ -53,12 +53,12 @@ class DefinitionManager:
         )
 
         self.project_root = project_root
-        self._project_config_paths = self._find_definition_files(self.project_root)
+        self.project_config_paths = self._find_definition_files(self.project_root)
         self._context_overrides = context_overrides
 
     @functools.cached_property
     def has_definition_file(self):
-        return len(self._project_config_paths) > 0
+        return len(self.project_config_paths) > 0
 
     @staticmethod
     def _find_definition_files(project_root: Path) -> List[Path]:
@@ -126,11 +126,11 @@ class DefinitionManager:
 
     @functools.cached_property
     def _project_properties(self) -> ProjectProperties:
-        return load_project(self._project_config_paths, self._context_overrides)
+        return load_project(self.project_config_paths, self._context_overrides)
 
     @functools.cached_property
     def _raw_project_data(self) -> ProjectProperties:
-        return load_project(self._project_config_paths, {}, False)
+        return load_project(self.project_config_paths, {}, False)
 
     @functools.cached_property
     def project_definition(self) -> ProjectDefinitionV1:

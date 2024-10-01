@@ -5,5 +5,5 @@ Global options
 ===============================================================================
 {% for param in options if not param.hidden %}
 :samp:`{% for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %}{% if not param.is_flag %} {{ '{' }}{{ param.name }}{{ '}' }}{% endif %}`
-{% if param.help %}{{ "  " + param.help | replace("`", "``") }}{% if param.help[-1] != '.' %}.{% endif %}{% else %}  TBD{% endif %}
+{% if param.help %}{{ "  " + param.help}}{% if param.help[-1] != '.' %}.{% endif %}{% else %}  TBD{% endif %}
 {% endfor %}
