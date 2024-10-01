@@ -45,8 +45,8 @@ hatch -e packaging run pyinstaller \
   --osx-bundle-identifier=com.snowflake.snowflake-cli \
   --osx-entitlements-file=scripts/packaging/macos/SnowflakeCLI_entitlements.plist \
   --codesign-identity="Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
-  --icon=scripts/packaging/macos/snowflake_darwin.icns
-${ENTRY_POINT}
+  --icon=scripts/packaging/macos/snowflake_darwin.icns \
+  ${ENTRY_POINT}
 
 $DIST_DIR/${APP_NAME}.app/Contents/MacOS/snow --help
 
