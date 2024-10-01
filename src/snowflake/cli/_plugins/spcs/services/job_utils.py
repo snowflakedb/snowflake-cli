@@ -1,6 +1,7 @@
 import io
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
@@ -131,55 +132,35 @@ def _generate_spec(
 def _prepare_payload(
     session: Session,
     stage_path: str,
-    source: str,
-    entrypoint: Optional[str] = None,
+    source: Path,
+    entrypoint: Path,
     enable_pip: bool = False,
 ) -> str:
     """Load payload onto stage"""
     # TODO: Detect if source is a git repo or existing stage
     cli_console.message(f"Uploading payload to stage {stage_path}")
-    if os.path.exists(source):  # source is a local path
-        # Validate or infer entrypoint
-        if not (os.path.isfile(source) or entrypoint):
-            raise ValueError("entrypoint must be specified for multi-file payloads")
-        entrypoint = entrypoint or os.path.basename(source)
+    if not (source.exists() and entrypoint.exists()):
+        raise FileNotFoundError(f"{source} or {entrypoint} does not exist")
 
-        # Upload payload to stage
-        if os.path.isdir(source):
-            # TODO: Support nested directories (or at least ignore them so PUT doesn't fail)
-            source = os.path.join(source, "*")
-        session.file.put(source, stage_path, auto_compress=False)
+    # Upload payload to stage
+    if source.is_dir():
+        # TODO: Support nested directories (or at least ignore them so PUT doesn't fail)
+        source = source / "*"
+    session.file.put(str(source.resolve()), stage_path, auto_compress=False)
 
-        if (
-            enable_pip
-            and not os.path.isfile(source)
-            and entrypoint.endswith(".py")
-            and enable_pip
-        ):
-            # Multi-file Python payload: generate and inject a launch script
-            script_content = _generate_launch_script(entrypoint).encode(
-                encoding="utf-8"
-            )
-            entrypoint = "startup.sh"
-            session.file.put_stream(
-                io.BytesIO(script_content),
-                f"{stage_path}/{entrypoint}",
-                auto_compress=False,
-            )
-
-    else:
-        # Assume source is in-line Python code
-        # This path is primarily for development purposes
-        # TODO: Ensure source is valid Python code
-        entrypoint = "script.py"
-        script_content = source.encode(encoding="utf-8")
+    if enable_pip and source.is_dir() and entrypoint.suffix == ".py" and enable_pip:
+        # Multi-file Python payload: generate and inject a launch script
+        script_content = _generate_launch_script(entrypoint.name).encode(
+            encoding="utf-8"
+        )
+        entrypoint = Path("startup.sh")
         session.file.put_stream(
             io.BytesIO(script_content),
             f"{stage_path}/{entrypoint}",
             auto_compress=False,
         )
 
-    return entrypoint
+    return entrypoint.name
 
 
 def _generate_launch_script(entrypoint: str) -> str:
@@ -219,8 +200,8 @@ def prepare_spec(
     service_name: str,
     compute_pool: str,
     stage_name: str,
-    payload: str,
-    entrypoint: str,
+    payload: Path,
+    entrypoint: Path,
     enable_pip: bool = False,
     args: Optional[List[str]] = None,
     env: Optional[Dict[str, str]] = None,
