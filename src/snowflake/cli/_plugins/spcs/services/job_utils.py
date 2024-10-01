@@ -1,10 +1,10 @@
 import io
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import yaml
 from snowflake.cli.api.console import cli_console
 from snowflake.snowpark import Session
 
@@ -228,4 +228,4 @@ def prepare_spec(
         args=args,
         env_vars=env,
     )
-    return yaml.dump(spec)
+    return json.dumps(spec)
