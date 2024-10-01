@@ -49,9 +49,10 @@ hatch -e packaging run pyinstaller \
   --icon=scripts/packaging/macos/snowflake_darwin.icns \
   ${ENTRY_POINT}
 
-ls $DIST_DIR
+ls -la $DIST_DIR
 mv $DIST_DIR/Snow.app $DIST_DIR/$APP_NAME
-ls $DIST_DIR
+ls -la $DIST_DIR
+
 $DIST_DIR/${APP_NAME}/Contents/MacOS/snow --help
 
 cat >${DIST_DIR}/${APP_NAME}/Contents/Info.plist <<INFO_PLIST
