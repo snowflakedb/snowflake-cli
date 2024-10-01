@@ -158,7 +158,7 @@ loginfo "---------------------------------"
 loginfo "Procuct sign ${DIST_DIR}${PRODUCT_BUILD_UNSIGNED_NAME} -> ${DIST_DIR}/${PRODUCT_BUILD_SINGED_NAME}"
 loginfo "---------------------------------"
 productsign \
-  --sign ${PRODUCTSIGN_IDENTITY} \
+  --sign "${PRODUCTSIGN_IDENTITY}" \
   ${DIST_DIR}/${PRODUCT_BUILD_UNSIGNED_NAME} \
   ${DIST_DIR}/${PRODUCT_BUILD_SINGED_NAME}
 
