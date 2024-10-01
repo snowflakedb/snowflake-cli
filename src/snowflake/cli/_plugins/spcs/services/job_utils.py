@@ -140,7 +140,7 @@ def _generate_spec(
 
     # Create container spec
     mce_container: Dict[str, Any] = {
-        "name": "primary-container",
+        "name": "main",
         "image": image_spec.full_name,
         "volumeMounts": volume_mounts,
         "resources": {
@@ -286,7 +286,7 @@ SCRIPT_DIR="$( dirname "$0" )"
 
 # Check if requirements.txt exists and install if found
 if [ -f "$SCRIPT_DIR/requirements.txt" ]; then
-    pip install -r "$SCRIPT_DIR/requirements.txt" -q
+    pip install --no-cache-dir --quiet -r "$SCRIPT_DIR/requirements.txt"
     if [ $? -ne 0 ]; then
         echo "Failed to install requirements"
         exit 1

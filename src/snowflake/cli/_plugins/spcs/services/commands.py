@@ -116,7 +116,8 @@ def _payload_entrypoint_callback(
 
 EntrypointArgument = typer.Argument(
     default=None,
-    help="Path to job payload's entrypoint.",
+    help="Path to job payload's entrypoint. Required if payload is a directory.",
+    show_default=False,
     file_okay=True,
     dir_okay=False,
     exists=False,  # Validate in callback instead
