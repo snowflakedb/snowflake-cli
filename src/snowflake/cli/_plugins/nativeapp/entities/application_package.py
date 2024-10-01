@@ -31,6 +31,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
     CouldNotDropApplicationPackageWithVersions,
+    DistributionAttributeNotFoundError,
     SetupScriptFailedValidation,
 )
 from snowflake.cli._plugins.nativeapp.policy import (
@@ -976,14 +977,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 for row in desc_cursor:
                     if row[0].lower() == "distribution":
                         return row[1].lower()
-        raise ProgrammingError(
-            msg=dedent(
-                f"""\
-                Could not find the 'distribution' attribute for application package {package_name} in the output of SQL query:
-                'describe application package {package_name}'
-                """
-            )
-        )
+        raise DistributionAttributeNotFoundError(package_name=package_name)
 
     @classmethod
     def verify_project_distribution(

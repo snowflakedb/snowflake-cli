@@ -25,8 +25,10 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
+    CouldNotUseObjectError,
     DatabaseNotProvidedError,
     SchemaNotProvidedError,
+    ShowSpecificObjectMultipleRowsError,
     SnowflakeSQLExecutionError,
 )
 from snowflake.cli.api.identifiers import FQN
@@ -93,9 +95,7 @@ class SqlExecutor:
             self._execute_query(f"use {object_type.value.sf_name} {name}")
         except ProgrammingError:
             # Rewrite the error to make the message more useful.
-            raise ProgrammingError(
-                f"Could not use {object_type} {name}. Object does not exist, or operation cannot be performed."
-            )
+            raise CouldNotUseObjectError(object_type=object_type, name=name)
 
     def current_role(self) -> str:
         return self._execute_query(f"select current_role()").fetchone()[0]
@@ -247,9 +247,7 @@ class SqlExecutor:
         if show_obj_cursor.rowcount is None:
             raise SnowflakeSQLExecutionError(show_obj_query)
         elif show_obj_cursor.rowcount > 1:
-            raise ProgrammingError(
-                f"Received multiple rows from result of SQL statement: {show_obj_query}. Usage of 'show_specific_object' may not be properly scoped."
-            )
+            raise ShowSpecificObjectMultipleRowsError(show_obj_query=show_obj_query)
 
         show_obj_row = find_first_row(
             show_obj_cursor,
