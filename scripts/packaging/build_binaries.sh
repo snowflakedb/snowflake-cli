@@ -20,20 +20,6 @@ build_binaries() {
   if [[ ${SYSTEM} == "darwin" ]]; then
     echo "Building for Darwin moved to build_darwin_package.sh"
     exit 0
-    # hatch -e packaging run pyinstaller \
-    #   --name=snow \
-    #   --target-architecture=$MACHINE \
-    #   --onedir \
-    #   --clean \
-    #   --noconfirm \
-    #   --console \
-    #   --windowed \
-    #   --osx-bundle-identifier=com.snowflake.snowflake-cli \
-    #   --osx-entitlements-file=scripts/packaging/macos/SnowflakeCLI_entitlements.plist \
-    #   --icon=scripts/packaging/macos/snowflake_darwin.icns \
-    #   ${ENTRY_POINT}
-    # --codesign-identity="Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
-    # --contents-directory=snowflake-cli-${VERSION} \
   elif [[ ${SYSTEM} == "linux" ]]; then
     hatch -e packaging run pyinstaller \
       --name=snow \
@@ -51,10 +37,7 @@ build_binaries() {
 
 execute_build() {
   echo "Executing build"
-  if [[ ${SYSTEM} == "darwin" ]]; then
-    echo "Darwin run"
-    $DIST_DIR/snow.app/Contents/MacOs/snow --help
-  elif [[ ${SYSTEM} == "linux" ]]; then
+  if [[ ${SYSTEM} == "linux" ]]; then
     $DIST_DIR/snow/snow --help
   else
     echo "Unsupported platform: ${SYSTEM}"
