@@ -84,6 +84,6 @@ def nativeapp_teardown(runner: SnowCLIRunner):
                 result = runner.invoke_with_connection(
                     ["app", "teardown", *args], **kwargs
                 )
-                # assert result.exit_code == 0
+                assert result.exit_code == 0
 
     return _nativeapp_teardown

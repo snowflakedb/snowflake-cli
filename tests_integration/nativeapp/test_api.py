@@ -18,9 +18,9 @@ from tests_integration.testing_utils import (
         ["app run", "napp_v1_invalid_role"],
     ],
 )
-def test_invalid_role(runner, nativeapp_project_directory, command, test_project):
+def test_invalid_role(runner, project_directory, command, test_project):
 
-    with nativeapp_project_directory(test_project):
+    with project_directory(test_project):
         result = runner.invoke_with_connection(split(command))
         assert result.exit_code == 1
         assert_that_result_failed_with_message_containing(
