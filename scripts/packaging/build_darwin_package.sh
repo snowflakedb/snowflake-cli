@@ -133,7 +133,7 @@ loginfo "---------------------------------"
 loginfo "Procuct sign ${DIST_DIR}/${PRODUCT_UNSIGNED_NAME} -> ${DIST_DIR}/${PRODUCT_SIGNED_NAME}"
 loginfo "---------------------------------"
 productsign \
-  --sign "CODESIGN_IDENTITY" \
+  --sign "${CODESIGN_IDENTITY}" \
   ${DIST_DIR}/${PRODUCT_UNSIGNED_NAME} \
   ${DIST_DIR}/${PRODUCT_SIGNED_NAME}
 
@@ -157,7 +157,7 @@ loginfo "---------------------------------"
 loginfo "Procuct sign ${DIST_DIR}${PRODUCT_BUILD_UNSIGNED_NAME} -> ${DIST_DIR}/${PRODUCT_BUILD_SINGED_NAME}"
 loginfo "---------------------------------"
 productsign \
-  --sign "Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
+  --sign ${CODESIGN_IDENTITY} \
   ${DIST_DIR}/${PRODUCT_BUILD_UNSIGNED_NAME} \
   ${DIST_DIR}/${PRODUCT_BUILD_SINGED_NAME}
 
