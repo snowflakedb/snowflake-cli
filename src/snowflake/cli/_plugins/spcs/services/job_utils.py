@@ -149,8 +149,25 @@ def _generate_spec(
         },
     }
 
-    # TODO: Add memory volume
-    #       https://docs.snowflake.com/en/developer-guide/snowpark-container-services/specification-reference#label-snowpark-containers-spec-volume
+    # Mount 30% of memory limit as a memory-backed volume
+    memory_volume_name = "memory-volume"
+    memory_volume_size = max(
+        round(image_spec.resource_limits.memory * 0.3),
+        image_spec.resource_requests.memory,
+    )
+    volume_mounts.append(
+        {
+            "name": memory_volume_name,
+            "mountPath": "/dev/shm",
+        }
+    )
+    volumes.append(
+        {
+            "name": memory_volume_name,
+            "source": "memory",
+            "size": f"{memory_volume_size}Gi",
+        }
+    )
 
     # Mount payload as volume
     # TODO: Mount subPath only once that's supported for proper isolation
