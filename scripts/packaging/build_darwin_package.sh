@@ -120,6 +120,49 @@ pkgbuild \
 
 ls -l $DIST_DIR
 
+# codesign changed elements
+code_sign() {
+  ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
+  loginfo "---------------------------------"
+  loginfo "Code signing $1"
+  loginfo "---------------------------------"
+  ls -l $1
+  codesign \
+    --timestamp \
+    --deep \
+    --force \
+    --entitlements $ENTITLEMENTS \
+    --options=runtime \
+    --sign "Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
+    $1
+}
+
+code_sign_no_runtime() {
+  ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
+  loginfo "---------------------------------"
+  loginfo "Code signing $1 no runtime"
+  loginfo "---------------------------------"
+  codesign \
+    --timestamp \
+    --deep \
+    --force \
+    --entitlements $ENTITLEMENTS \
+    --sign "Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
+    $1
+}
+
+code_sign_validate() {
+  loginfo "---------------------------------"
+  loginfo "Validating code signing for $1"
+  loginfo "---------------------------------"
+  codesign -dvvv --force $1
+}
+
+code_sign $APP_DIR/$APP_NAME/Contents/MacOS/snow
+code_sign_validate $APP_DIR/$APP_NAME/Contents/MacOS/snow
+code_sign_no_runtime $APP_DIR/$APP_NAME/Contents/MacOS/SnowflakeCLI.bash
+code_sign_validate $APP_DIR/$APP_NAME/Contents/MacOS/SnowflakeCLI.bash
+
 loginfo "---------------------------------"
 loginfo "Procuct sign $DIST_DIR/snowflake-cli-${SYSTEM}.unsigned.pkg -> $DIST_DIR/snowflake-cli-${SYSTEM}.pkg"
 loginfo "---------------------------------"
