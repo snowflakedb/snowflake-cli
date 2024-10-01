@@ -234,7 +234,6 @@ def _prepare_payload(
     )
 
     # TODO: Detect if source is a git repo or existing stage
-    cli_console.message(f"Uploading payload to stage {stage_path}")
     if not (source.exists() and entrypoint.exists()):
         raise FileNotFoundError(f"{source} or {entrypoint} does not exist")
 
@@ -245,6 +244,7 @@ def _prepare_payload(
     stage_manager.put(
         str(source.resolve()), stage_path, overwrite=True, auto_compress=False
     )
+    cli_console.message(f"Uploaded payload to stage {stage_path}")
 
     if enable_pip and source.is_dir() and entrypoint.suffix == ".py" and enable_pip:
         # Multi-file Python payload: generate and inject a launch script
