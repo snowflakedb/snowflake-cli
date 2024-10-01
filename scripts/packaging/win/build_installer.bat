@@ -6,8 +6,6 @@ set RELEASE_TYPE=dev
 REM DEBUG:
 REM aws s3 ls %STAGE_URL% --recursive
 
-mkdir ..\snowcli_installer
-cd ..\snowcli_installer
 aws s3 cp s3://sfc-eng-jenkins/repository/snowflake-cli/staging/dev/windows_x86_64/56041f1f1e5f229265dd28385d87a4e345038efc/snowflake-cli-3.0.0.2.zip .
 tar -xf snowflake-cli-3.0.0.2.zip
 
