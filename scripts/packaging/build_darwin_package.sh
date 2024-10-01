@@ -153,19 +153,17 @@ productbuild \
 
 ls -l $DIST_DIR
 
-PRODUCT_BUILD_SINGED_NAME="snowflake-cli-${PLATFORM}.pkg"
+PRODUCT_BUILD_SIGNED_NAME="snowflake-cli-${PLATFORM}.pkg"
 loginfo "---------------------------------"
-loginfo "Procuct sign ${DIST_DIR}${PRODUCT_BUILD_UNSIGNED_NAME} -> ${DIST_DIR}/${PRODUCT_BUILD_SINGED_NAME}"
+loginfo "Procuct sign ${DIST_DIR}${PRODUCT_BUILD_UNSIGNED_NAME} -> ${DIST_DIR}/${PRODUCT_BUILD_SIGNED_NAME}"
 loginfo "---------------------------------"
 productsign \
   --sign "${PRODUCTSIGN_IDENTITY}" \
   ${DIST_DIR}/${PRODUCT_BUILD_UNSIGNED_NAME} \
-  ${DIST_DIR}/${PRODUCT_BUILD_SINGED_NAME}
+  ${DIST_DIR}/${PRODUCT_BUILD_SIGNED_NAME}
 
 FINAL_PKG_NAME="snowflake-cli-${CLI_VERSION}-${PLATFORM}.pkg"
-cp -p \
-  ${DIST_DIR}/${PRODUCT_BUILD_SIGNED_NAME} \
-  ${DIST_DIR}/${FINAL_PKG_NAME}
+cp -p ${DIST_DIR}/${PRODUCT_BUILD_SIGNED_NAME} ${DIST_DIR}/${FINAL_PKG_NAME}
 
 ls -l $DIST_DIR
 
