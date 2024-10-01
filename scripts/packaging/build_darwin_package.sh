@@ -18,7 +18,7 @@ DIST_DIR=$ROOT_DIR/dist
 BINARY_NAME="snow"
 APP_NAME="SnowflakeCLI.app"
 APP_DIR=$DIST_DIR/app
-APP_SCRIPTS=$DIST_DIR/scripts
+APP_SCRIPTS=$APP_DIR/scripts
 
 loginfo() {
   logger -s -p INFO -- $1
@@ -45,13 +45,16 @@ hatch -e packaging run pyinstaller \
   --windowed \
   --osx-bundle-identifier=com.snowflake.snowflake-cli \
   --osx-entitlements-file=scripts/packaging/macos/SnowflakeCLI_entitlements.plist \
-  --codesign-identity="Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
+  \
   --icon=scripts/packaging/macos/snowflake_darwin.icns \
-  ${ENTRY_POINT}
+  ${ENTRY_POINT} # --codesign-identity="Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
 
-${DIST_DIR}/${APP_NAME}/Contents/MacOS/snow --help
+ls -l $DIST_DIR
+mkdir $APP_DIR || true
+mv $DIST_DIR/${BINARY_NAME}.app $APP_DIR/${APP_NAME}
+${APP_DIR}/${APP_NAME}/Contents/MacOS/snow --help
 
-cat >${DIST_DIR}/${APP_NAME}/Contents/Info.plist <<INFO_PLIST
+cat >${APP_DIR}/${APP_NAME}/Contents/Info.plist <<INFO_PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -86,12 +89,9 @@ cat >${DIST_DIR}/${APP_NAME}/Contents/Info.plist <<INFO_PLIST
 </plist>
 INFO_PLIST
 
-cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns $DIST_DIR/${APP_NAME}/Contents/Resources/SnowflakeCLI.icns
-cp -r $PACKAGING_DIR/macos/SnowflakeCLI.bash $DIST_DIR/${APP_NAME}/Contents/MacOS/SnowflakeCLI.bash
-chmod +x $DIST_DIR/${APP_NAME}/Contents/MacOS/SnowflakeCLI.bash
-
-mkdir $APP_DIR || true
-mv $DIST_DIR/${BINARY_NAME} $APP_DIR/${APP_NAME}
+cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns $APP_DIR/${APP_NAME}/Contents/Resources/SnowflakeCLI.icns
+cp -r $PACKAGING_DIR/macos/SnowflakeCLI.bash $APP_DIR/${APP_NAME}/Contents/MacOS/SnowflakeCLI.bash
+chmod +x $APP_DIR/${APP_NAME}/Contents/MacOS/SnowflakeCLI.bash
 
 # POSTINSTALL SCRIPT
 prepare_postinstall_script() {
