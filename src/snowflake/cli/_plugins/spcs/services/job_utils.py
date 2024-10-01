@@ -239,11 +239,22 @@ def _prepare_payload(
 
     # Upload payload to stage
     if source.is_dir():
-        # TODO: Support nested directories (or at least ignore them so PUT doesn't fail)
+        # Filter to only files in source since PUT fails on directories
+        # TODO: Support nested directories
+        for subpath in set(
+            f"*{p.suffix}" if p.suffix else str(p)
+            for p in source.glob("*")
+            if p.is_file()
+        ):
+            path = source / subpath
+            stage_manager.put(
+                str(path.resolve()), stage_path, overwrite=True, auto_compress=False
+            )
         source = source / "*"
-    stage_manager.put(
-        str(source.resolve()), stage_path, overwrite=True, auto_compress=False
-    )
+    else:
+        stage_manager.put(
+            str(source.resolve()), stage_path, overwrite=True, auto_compress=False
+        )
     cli_console.message(f"Uploaded payload to stage {stage_path}")
 
     if enable_pip and source.is_dir() and entrypoint.suffix == ".py" and enable_pip:
