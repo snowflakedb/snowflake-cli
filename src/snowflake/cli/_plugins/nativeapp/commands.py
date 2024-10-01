@@ -45,6 +45,7 @@ from snowflake.cli._plugins.nativeapp.teardown_processor import (
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     find_entity,
     nativeapp_definition_v2_to_v1,
+    single_app_and_package,
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
 from snowflake.cli._plugins.stage.diff import (
@@ -93,23 +94,25 @@ def app_init(**options):
 
 @app.command("bundle")
 @with_project_definition()
-@nativeapp_definition_v2_to_v1()
+@single_app_and_package()
 def app_bundle(
     **options,
 ) -> CommandResult:
     """
     Prepares a local folder with configured app artifacts.
     """
-
-    assert_project_type("native_app")
-
     cli_context = get_cli_context()
-    manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    manager.build_bundle()
-    return MessageResult(f"Bundle generated at {manager.deploy_root}")
+    package_id = options["package_entity_id"]
+    package = cli_context.project_definition.entities[package_id]
+    ws.perform_action(
+        package_id,
+        EntityActions.BUNDLE,
+    )
+    return MessageResult(f"Bundle generated at {ws.project_root / package.deploy_root}")
 
 
 @app.command("diff", requires_connection=True, hidden=True)

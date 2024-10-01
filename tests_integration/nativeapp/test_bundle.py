@@ -281,10 +281,12 @@ def test_nativeapp_bundle_throws_error_on_no_artifacts(template_setup):
 
     result = execute_bundle_command()
     assert result.exit_code == 1
-    assert_that_result_failed_with_message_containing(
-        result,
-        "No artifacts mapping found in project definition, nothing to do.",
+    expected_error = (
+        "No artifacts mapping found in project definition, nothing to do."
+        if definition_version.endswith("v2")
+        else "manifest.yml file not found in any Native App artifact sources"
     )
+    assert_that_result_failed_with_message_containing(result, expected_error)
 
 
 # Tests that bundle wipes out any existing deploy root to recreate it from scratch on every run
