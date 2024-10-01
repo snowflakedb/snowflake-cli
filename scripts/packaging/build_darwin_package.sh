@@ -15,7 +15,8 @@ CLI_VERSION=$(hatch version)
 ENTRY_POINT="src/snowflake/cli/_app/__main__.py"
 BUILD_DIR="${ROOT_DIR}/build"
 DIST_DIR=$ROOT_DIR/dist
-APP_NAME="snow"
+BINARY_NAME="snow"
+APP_NAME="SnowflakeCLI.app"
 APP_DIR=$DIST_DIR/app
 APP_SCRIPTS=$DIST_DIR/scripts
 
@@ -48,9 +49,9 @@ hatch -e packaging run pyinstaller \
   --icon=scripts/packaging/macos/snowflake_darwin.icns \
   ${ENTRY_POINT}
 
-$DIST_DIR/${APP_NAME}.app/Contents/MacOS/snow --help
+$DIST_DIR/${APP_NAME}/Contents/MacOS/snow --help
 
-cat >${DIST_DIR}/${APP_NAME}.app/Contents/Info.plist <<INFO_PLIST
+cat >${DIST_DIR}/${APP_NAME}/Contents/Info.plist <<INFO_PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -85,12 +86,12 @@ cat >${DIST_DIR}/${APP_NAME}.app/Contents/Info.plist <<INFO_PLIST
 </plist>
 INFO_PLIST
 
-cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns $DIST_DIR/${APP_NAME}.app/Contents/Resources/SnowflakeCLI.icns
-cp -r $PACKAGING_DIR/macos/SnowflakeCLI.bash $DIST_DIR/${APP_NAME}.app/Contents/MacOS/SnowflakeCLI.bash
-chmod +x $DIST_DIR/${APP_NAME}.app/Contents/MacOS/SnowflakeCLI.bash
+cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns $DIST_DIR/${APP_NAME}/Contents/Resources/SnowflakeCLI.icns
+cp -r $PACKAGING_DIR/macos/SnowflakeCLI.bash $DIST_DIR/${APP_NAME}/Contents/MacOS/SnowflakeCLI.bash
+chmod +x $DIST_DIR/${APP_NAME}/Contents/MacOS/SnowflakeCLI.bash
 
 mkdir $DIST_DIR/app/ || true
-mv $DIST_DIR/${APP_NAME}.app $APP_DIR/
+mv $DIST_DIR/${BINARY_NAME} $APP_DIR/${APP_NAME}
 
 # POSTINSTALL SCRIPT
 prepare_postinstall_script() {
@@ -166,10 +167,10 @@ validate_installation() {
 
   export SUDO_ASKPASS=./asker.sh
   sudo -A installer -pkg $pkg_name -target /
-  [ -f /Applications/SnowflakeCLI.app/Contents/MacOS/snow ]
-  PATH=/Applications/SnowflakeCLI.app/Contents/MacOS:$PATH snow
+  [ -f /Applications/${APP_NAME}/Contents/MacOS/snow ]
+  PATH=/Applications/${APP_NAME}/Contents/MacOS:$PATH snow
 
-  sudo rm -rf /Applications/SnowflakeCLI.app || true
+  sudo rm -rf /Applications/${APP_NAME} || true
 }
 
-# validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
+validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
