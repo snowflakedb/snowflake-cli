@@ -157,7 +157,7 @@ loginfo "---------------------------------"
 loginfo "Procuct sign ${DIST_DIR}${PRODUCT_BUILD_UNSIGNED_NAME} -> ${DIST_DIR}/${PRODUCT_BUILD_SINGED_NAME}"
 loginfo "---------------------------------"
 productsign \
-  --sign ${CODESIGN_IDENTITY} \
+  --sign "Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
   ${DIST_DIR}/${PRODUCT_BUILD_UNSIGNED_NAME} \
   ${DIST_DIR}/${PRODUCT_BUILD_SINGED_NAME}
 
