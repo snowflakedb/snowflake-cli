@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
-from click import ClickException
+from click import ClickException, Context
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
@@ -78,12 +78,23 @@ PayloadPathArgument = typer.Argument(
     show_default=False,
 )
 
+
+def _payload_entrypoint_callback(
+    ctx: Context, entrypoint: Optional[Path]
+) -> Optional[Path]:
+    payload_path = Path(ctx.params["payload_path"])
+    if payload_path.is_file():
+        return payload_path
+    raise ClickException(f"Entrypoint is required when payload is not a single file.")
+
+
 EntrypointArgument = typer.Argument(
+    default=None,
     help="Path to job payload's entrypoint.",
     file_okay=True,
     dir_okay=False,
     exists=True,
-    show_default=False,
+    callback=_payload_entrypoint_callback,
 )
 
 SpecPathOption = typer.Option(
