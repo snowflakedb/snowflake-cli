@@ -149,6 +149,8 @@ def _generate_spec(
         },
     }
 
+    # TODO: Add local volume for ephemeral artifacts
+
     # Mount 30% of memory limit as a memory-backed volume
     memory_volume_name = "memory-volume"
     memory_volume_size = max(
@@ -186,6 +188,8 @@ def _generate_spec(
             "source": stage_name,
         }
     )
+
+    # TODO: Add hooks for endpoints for integration with TensorBoard, W&B, etc
 
     # Propagate user payload config
     commands = {
@@ -263,7 +267,6 @@ def _generate_launch_script(entrypoint: str) -> str:
     assert entrypoint.endswith(
         ".py"
     ), f"Launch script only supports Python entrypoints! Got: {entrypoint}"
-    # TODO: pip install requires EAI
     return f"""
 #!/bin/bash
 
@@ -287,7 +290,7 @@ python "$SCRIPT_DIR/{entrypoint}"
 """
 
 
-def generate_name() -> str:
+def generate_name() -> FQN:
     raise NotImplementedError
 
 
