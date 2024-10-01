@@ -142,7 +142,7 @@ def _generate_spec(
     mce_container: Dict[str, Any] = {
         "name": "primary-container",
         "image": image_spec.full_name,
-        "volumeMounts": volume_mounts,  # TODO: Verify this gets updated in-place
+        "volumeMounts": volume_mounts,
         "resources": {
             "requests": resource_requests,
             "limits": resource_limits,
@@ -153,7 +153,7 @@ def _generate_spec(
 
     # Mount 30% of memory limit as a memory-backed volume
     memory_volume_name = "memory-volume"
-    memory_volume_size = max(
+    memory_volume_size = min(
         round(image_spec.resource_limits.memory * 0.3),
         image_spec.resource_requests.memory,
     )
