@@ -166,8 +166,8 @@ validate_installation() {
 
   export SUDO_ASKPASS=./asker.sh
   sudo -A installer -pkg $pkg_name -target /
-  [ -f /Applications/SnowflakeCLI.app/Contents/MacOS/snow/snow ]
-  PATH=/Applications/SnowflakeCLI.app/Contents/MacOS/snow:$PATH snow
+  [ -f /Applications/SnowflakeCLI.app/Contents/MacOS/snow ]
+  PATH=/Applications/SnowflakeCLI.app/Contents/MacOS:$PATH snow
 
   sudo rm -rf /Applications/SnowflakeCLI.app || true
 }
