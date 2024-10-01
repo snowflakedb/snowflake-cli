@@ -10,9 +10,11 @@ mkdir ..\snowcli_installer
 cd ..\snowcli_installer
 aws s3 cp s3://sfc-eng-jenkins/repository/snowflake-cli/staging/dev/windows_x86_64/56041f1f1e5f229265dd28385d87a4e345038efc/snowflake-cli-3.0.0.2.zip .
 tar -xf snowflake-cli-3.0.0.2.zip
+
 dir dist\snow /s
 
-heat.exe dir dist\snow ^
+signtool sign /debug /sm /t http://timestamp.digitcert.com /a dist\snow\snow.exe
+heat.exe dir dist\snow\_internal ^
    -gg ^
    -cg SnowflakeCLIInternalFiles ^
    -dr TESTFILEPRODUCTDIR ^
@@ -20,32 +22,24 @@ heat.exe dir dist\snow ^
    -sfrag ^
    -o _internal.wxs
 
-REM candle.exe /?
-REM light.exe /?
+candle.exe ^
+  -arch x64 ^
+  -dSnowflakeCLIVersion=%CLI_VERSION% ^
+  -dSnowflakeCLIInternalFiles=dist\\snow\\_internal ^
+  scripts\packaging\win\snowflake_cli.wxs ^
+  scripts\packaging\win\snowflake_cli_exitdlg.wxs ^
+  _internal.wxs
 
+light.exe ^
+  -ext WixUIExtension ^
+  -ext WixUtilExtension ^
+  -cultures:en-us ^
+  -loc scripts\packaging\win\snowflake_cli_en-us.wxl ^
+  -out snowflake-cli-%CLI_VERSION%-x86_64.msi ^
+  snowflake_cli.wixobj ^
+  snowflake_cli_exitdlg.wixobj ^
+  _internal.wixobj
 
-REM heat.exe dir dist\\snow\\_internal ^
-REM   -gg ^
-REM   -cg SnowflakeCLIInternalFiles ^
-REM   -dr TESTFILEPRODUCTDIR ^
-REM   -var var.SnowflakeCLIInternalFiles ^
-REM   -sfrag ^
-REM   -o _internal.wxs
-REM
-REM candle.exe ^
-REM   -arch x64 ^
-REM   -dSnowflakeCLIVersion=%CLI_VERSION% ^
-REM   -dSnowflakeCLIInternalFiles=dist\\snow\\_internal ^
-REM   scripts\packaging\win\snowflake_cli.wxs ^
-REM   scripts\packaging\win\snowflake_cli_exitdlg.wxs ^
-REM   _internal.wxs
-REM
-REM light.exe ^
-REM   -ext WixUIExtension ^
-REM   -ext WixUtilExtension ^
-REM   -cultures:en-us ^
-REM   -loc scripts\packaging\win\snowflake_cli_en-us.wxl ^
-REM   -out snowflake-cli-%CLI_VERSION%-x86_64.msi ^
-REM   snowflake_cli.wixobj ^
-REM   snowflake_cli_exitdlg.wixobj ^
-REM   _internal.wixobj
+dir
+dir dist
+dir dist\snow
