@@ -31,6 +31,8 @@ from snowflake.cli._plugins.spcs.common import (
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli.api.commands.flags import (
+    IdentifierStageType,
+    IdentifierType,
     IfNotExistsOption,
     OverrideableOption,
     identifier_argument,
@@ -66,6 +68,22 @@ ServiceNameArgument = identifier_argument(
     sf_object="service",
     example="my_service",
     callback=_service_name_callback,
+)
+
+PayloadPathArgument = typer.Argument(
+    help="Path to job payload.",
+    file_okay=True,
+    dir_okay=True,
+    exists=True,
+    show_default=False,
+)
+
+EntrypointArgument = typer.Argument(
+    help="Path to job payload's entrypoint.",
+    file_okay=True,
+    dir_okay=False,
+    exists=True,
+    show_default=False,
 )
 
 SpecPathOption = typer.Option(
@@ -187,6 +205,56 @@ def execute_job(
         job_service_name=name.identifier,
         compute_pool=compute_pool,
         spec_path=spec_path,
+        external_access_integrations=external_access_integrations,
+        query_warehouse=query_warehouse,
+        comment=comment,
+    )
+    return SingleQueryResult(cursor)
+
+
+@app.command(requires_connection=True)
+def submit_job(
+    payload_path: Path = PayloadPathArgument,
+    entrypoint: Optional[Path] = EntrypointArgument,
+    name: FQN = typer.Option(
+        ...,
+        "--name",
+        help="Service name.",
+        show_default=False,
+        click_type=IdentifierType(),
+        callback=_service_name_callback,
+    ),
+    stage_name: FQN = typer.Option(
+        ...,
+        "--stage-name",
+        help="Stage for payload upload and execution artifacts.",
+        show_default=False,
+        click_type=IdentifierStageType(),
+    ),
+    compute_pool: str = typer.Option(
+        ...,
+        "--compute-pool",
+        help="Compute pool to run the job service on.",
+        show_default=False,
+    ),
+    external_access_integrations: Optional[List[str]] = typer.Option(
+        None,
+        "--eai-name",
+        help="Identifies External Access Integrations(EAI) that the job service can access. This option may be specified multiple times for multiple EAIs.",
+    ),
+    query_warehouse: Optional[str] = QueryWarehouseOption(),
+    comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
+    **options,
+) -> CommandResult:
+    """
+    Creates and executes a job service in the current schema.
+    """
+    cursor = ServiceManager().submit_job(
+        compute_pool=compute_pool,
+        stage_name=stage_name,
+        payload_path=payload_path,
+        entrypoint=entrypoint,
+        job_service_name=name.identifier,
         external_access_integrations=external_access_integrations,
         query_warehouse=query_warehouse,
         comment=comment,
