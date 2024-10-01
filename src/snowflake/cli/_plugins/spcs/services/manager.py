@@ -107,19 +107,15 @@ class ServiceManager(SqlExecutionMixin):
 
     def submit_job(
         self,
+        job_service_name: str,
         compute_pool: str,
         stage_name: str,  # FIXME: optional?
         payload_path: Path,
         entrypoint: Optional[Path],
-        job_service_name: Optional[str],
         external_access_integrations: Optional[List[str]],
         query_warehouse: Optional[str],
         comment: Optional[str],
     ) -> SnowflakeCursor:
-        if not job_service_name:
-            job_service_name = job_utils.generate_name()
-        assert job_service_name is not None  # mypy
-
         spec = job_utils.prepare_spec(
             session=self.snowpark_session,
             service_name=job_service_name,

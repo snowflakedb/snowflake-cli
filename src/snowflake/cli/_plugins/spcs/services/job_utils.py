@@ -298,10 +298,6 @@ python "$SCRIPT_DIR/{entrypoint}"
 """
 
 
-def generate_name() -> FQN:
-    raise NotImplementedError
-
-
 def prepare_spec(
     session: Session,
     service_name: str,

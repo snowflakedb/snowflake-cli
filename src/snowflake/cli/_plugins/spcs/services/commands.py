@@ -17,6 +17,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import List, Optional
+from uuid import uuid4
 
 import typer
 from click import ClickException, Context
@@ -54,6 +55,10 @@ app = SnowTyperFactory(
     help="Manages Snowpark Container Services services.",
     short_help="Manages services.",
 )
+
+
+def _generate_service_name(prefix: str) -> FQN:
+    return f"{prefix}{str(uuid4()).upper()}".replace("-", "_")
 
 
 def _service_name_callback(name: FQN) -> FQN:
@@ -249,9 +254,9 @@ def submit_job(
     payload_path: Path = PayloadPathArgument,
     entrypoint: Optional[Path] = EntrypointArgument,
     name: FQN = typer.Option(
-        ...,
+        _generate_service_name("JOB_"),
         "--name",
-        help="Service name.",
+        help="Service name. If not specified, a random name will be generated automatically",
         show_default=False,
         click_type=IdentifierType(),
         callback=_service_name_callback,
@@ -282,11 +287,11 @@ def submit_job(
     Creates and executes a job service in the current schema.
     """
     cursor = ServiceManager().submit_job(
+        job_service_name=name.identifier,
         compute_pool=compute_pool,
         stage_name=stage_name,
         payload_path=payload_path,
         entrypoint=entrypoint,
-        job_service_name=name.identifier,
         external_access_integrations=external_access_integrations,
         query_warehouse=query_warehouse,
         comment=comment,
