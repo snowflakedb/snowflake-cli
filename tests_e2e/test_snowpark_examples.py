@@ -19,6 +19,7 @@ import pytest
 from tests_e2e.conftest import subprocess_check_output
 
 
+@pytest.mark.skip(reason="PyPi repo migration")
 @pytest.mark.e2e
 def test_snowpark_examples_functions_work_locally(snowcli):
     project_name = str(time.monotonic_ns())

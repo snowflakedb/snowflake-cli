@@ -17,7 +17,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "snowflake-cli-labs"
+name = "snowflake-cli"
 authors = [{ name = "Snowflake Inc." }]
 license = { file = "LICENSE" }
 dynamic = ["version"]
@@ -78,7 +78,7 @@ exclude_also = ["@(abc\\.)?abstractmethod", "@(abc\\.)?abstractproperty"]
 path = "src/snowflake/cli/__about__.py"
 
 [tool.hatch.build.targets.sdist]
-exclude = ["/.github"]
+exclude = ["/.github", "/.compat"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/snowflake"]
@@ -93,6 +93,7 @@ test-cov = [
   "coverage run --source=snowflake.cli --module pytest -m loaded_modules tests/ ",
   "coverage report",
 ]
+legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
 
 [tool.hatch.envs.e2e]
 template = "e2e"
@@ -112,8 +113,9 @@ test = ["pytest -m performance"]
 [tool.hatch.envs.integration]
 template = "integration"
 pre-install-commands = [
-  "pip install test_external_plugins/snowpark_hello_single_command",
-  "pip install test_external_plugins/multilingual_hello_command_group",
+  # Disabled due to repo migration
+  # "pip install test_external_plugins/snowpark_hello_single_command",
+  # "pip install test_external_plugins/multilingual_hello_command_group",
   "pip install pytest-xdist",
 ]
 features = ["development"]
