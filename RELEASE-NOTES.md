@@ -14,6 +14,18 @@
  limitations under the License.
  -->
 
+# Unreleased version
+## Backward incompatibility
+
+## Deprecations
+* Changing package name from `snowflake-cli-labs` to `snowflake-cli`. `Snowflake-cli-labs` will be pointing to the corresponding version of `snowflake-cli`.
+
+## New additions
+
+
+## Fixes and improvements
+
+
 # v3.0.0
 
 ## Backward incompatibility
@@ -63,6 +75,7 @@
 * `snow app deploy` for package entity now allows operating on application packages created outside the CLI
 * Fixes `snow connection add` behavior when `connections.toml` file exists.
 * Add more readable error messages in `snow object create` command.
+
 
 # v2.8.1
 ## Backward incompatibility
