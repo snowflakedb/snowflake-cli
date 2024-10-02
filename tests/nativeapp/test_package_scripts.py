@@ -27,7 +27,10 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import (
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
-from snowflake.cli.api.exceptions import CouldNotUseObjectError
+from snowflake.cli.api.exceptions import (
+    CouldNotUseObjectError,
+    NoWarehouseSelectedInSessionError,
+)
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 
@@ -272,10 +275,10 @@ def test_package_scripts_w_missing_warehouse_exception(
     working_dir: Path = project_definition_files[0].parent
     native_app_manager = _get_na_manager(str(working_dir))
 
-    with pytest.raises(ProgrammingError) as err:
+    with pytest.raises(NoWarehouseSelectedInSessionError) as err:
         native_app_manager._apply_package_scripts()  # noqa: SLF001
 
-    assert "Please provide a warehouse for the active session role" in err.value.msg
+    assert "Please provide a warehouse for the active session role" in err.value.message
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
