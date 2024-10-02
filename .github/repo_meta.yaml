@@ -7,3 +7,4 @@ release_branches:
   - release-*
   - main
 jira_area: Developer Platform
+audit_in_scope: true
