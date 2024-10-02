@@ -15,6 +15,9 @@ from typing import Dict, Any
 from unittest import mock
 from unittest.mock import MagicMock
 
+from snowflake.connector import ProgrammingError
+
+from snowflake.cli._app.telemetry import CLITelemetryField
 from tests.project.fixtures import *
 from tests_integration.test_utils import pushd
 
@@ -59,6 +62,10 @@ def test_ProgrammingError_attaches_errno_and_sqlstate(
         message = _extract_first_result_executing_command_telemetry_message(
             mock_telemetry
         )
-        assert message["error_code"] == 3013 and message["sql_state"] == "42501"
+        assert (
+            message[CLITelemetryField.ERROR_TYPE.value] == ProgrammingError.__name__
+            and message[CLITelemetryField.ERROR_CODE.value] == 3013
+            and message[CLITelemetryField.SQL_STATE.value] == "42501"
+        )
 
     nativeapp_teardown()
