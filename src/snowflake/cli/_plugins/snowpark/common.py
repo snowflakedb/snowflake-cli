@@ -231,6 +231,7 @@ def _sql_to_python_return_type_mapper(resource_return_type: str) -> str:
         "timestamp_ntz(9)": "datetime",
         "timestamp_tz(9)": "datetime",
         "varchar(16777216)": "string",
+        "varchar": "string",
     }
 
     return mapping.get(resource_return_type.lower(), resource_return_type.lower())

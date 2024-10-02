@@ -92,14 +92,14 @@ def test_snowpark_flow(
             object_type="procedure",
             identifier="hello_procedure(VARCHAR)",
             signature="(NAME VARCHAR)",
-            returns="VARCHAR(16777216)",
+            returns="VARCHAR",
         )
 
         _test_steps.object_describe_should_return_entity_description(
             object_type="function",
             identifier="hello_function(VARCHAR)",
             signature="(NAME VARCHAR)",
-            returns="VARCHAR(16777216)",
+            returns="VARCHAR",
         )
 
         # Grants are given correctly
@@ -520,13 +520,13 @@ def test_snowpark_default_arguments(
             object_type="function",
             identifier="WHOLE_NEW_WORD(VARCHAR, NUMBER, VARCHAR)",
             signature="(BASE VARCHAR, MULT NUMBER, SUFFIX VARCHAR)",
-            returns="VARCHAR(16777216)",
+            returns="VARCHAR",
         )
         _test_steps.object_describe_should_return_entity_description(
             object_type="procedure",
             identifier="WHOLE_NEW_WORD_PROCEDURE(VARCHAR, NUMBER, VARCHAR)",
             signature="(BASE VARCHAR, MULT NUMBER, SUFFIX VARCHAR)",
-            returns="VARCHAR(16777216)",
+            returns="VARCHAR",
         )
 
         # execute with default arguments
