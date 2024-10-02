@@ -2,8 +2,7 @@
 
 dir C:\Users\jenkins\AppData\Local\Programs\Python
 
-set PATH=C:\Users\jenkins\AppData\Local\Programs\Python\Python38;C:\\Users\\jenkins\\AppData\\Local\\Programs\\Python\\Python38\\Scripts;C:\\Program Files (x86)\\WiX Toolset v3.11\\bin;%PATH%
-set PATH=C:\Program Files\7-Zip;%PATH%
+set PATH=C:\Program Files\7-Zip;C:\Users\jenkins\AppData\Local\Programs\Python\Python38;C:\Users\jenkins\AppData\Local\Programs\Python\Python38\Scripts;C:\Program Files (x86)\WiX Toolset v3.11\bin;%PATH%
 
 REM      |FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION=%%I
 REM      |FOR /F "delims=" %%I IN ('git rev-parse %svnRevision%') DO SET REVISION=%%I
