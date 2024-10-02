@@ -251,6 +251,11 @@ def execute_job(
 def submit_job(
     payload_path: Path = PayloadPathArgument,
     entrypoint: Optional[Path] = EntrypointArgument,
+    entrypoint_args: str = typer.Option(
+        "",
+        "--args",
+        help="Arguments to be passed to entrypoint on startup.",
+    ),
     name: FQN = typer.Option(
         _generate_service_name("JOB_"),
         "--name",
@@ -299,6 +304,7 @@ def submit_job(
         stage_name=stage_name,
         payload_path=payload_path,
         entrypoint=entrypoint,
+        entrypoint_args=entrypoint_args,
         custom_spec_path=spec_path,
         external_access_integrations=external_access_integrations,
         query_warehouse=query_warehouse,

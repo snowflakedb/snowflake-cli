@@ -110,6 +110,7 @@ class ServiceManager(SqlExecutionMixin):
         stage_name: str,  # FIXME: optional?
         payload_path: Path,
         entrypoint: Optional[Path],
+        entrypoint_args: str,
         custom_spec_path: Optional[Path],
         external_access_integrations: Optional[List[str]],
         query_warehouse: Optional[str],
@@ -122,6 +123,7 @@ class ServiceManager(SqlExecutionMixin):
             stage_name=stage_name,
             payload=payload_path,
             entrypoint=entrypoint,
+            args=entrypoint_args.split(),
             enable_pip=bool(external_access_integrations),
         )
 
