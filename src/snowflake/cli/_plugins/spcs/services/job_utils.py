@@ -117,8 +117,8 @@ def _get_image_spec(session: Session, compute_pool: str) -> _ImageSpec:
 
 def _generate_spec(
     image_spec: _ImageSpec,
-    stage_path: str,
-    script_path: str,
+    stage_path: Path,
+    script_path: Path,
     args: Optional[List[str]] = None,
     env_vars: Optional[Dict[str, str]] = None,
 ) -> dict:
@@ -186,7 +186,8 @@ def _generate_spec(
 
     # Mount payload as volume
     # TODO: Mount subPath only once that's supported for proper isolation
-    stage_name, stage_subpath = stage_path.split("/", 2)
+    stage_parts = stage_path.parts
+    stage_name, stage_subpath = stage_parts[0], Path(*stage_parts[1:])
     stage_mount = "/opt/app"
     stage_volume_name = "stage-volume"
     volume_mounts.append(
@@ -213,8 +214,7 @@ def _generate_spec(
         ".js": "node",
         # Add more formats as needed
     }
-    _, ext = os.path.splitext(script_path)
-    command = commands[ext]
+    command = commands[script_path.suffix]
     mce_container["command"] = [
         command,
         os.path.join(stage_mount, stage_subpath, script_path),
@@ -232,11 +232,11 @@ def _generate_spec(
 
 
 def _prepare_payload(
-    stage_path: str,
+    stage_path: Path,
     source: Path,
     entrypoint: Path,
     enable_pip: bool = False,
-) -> str:
+) -> Path:
     """Load payload onto stage"""
     stage_manager = StageManager()
     stage = stage_manager.get_stage_from_path(stage_path)
@@ -250,37 +250,44 @@ def _prepare_payload(
         raise FileNotFoundError(f"{source} or {entrypoint} does not exist")
 
     # Upload payload to stage
-    if source.is_dir():
-        # Filter to only files in source since Snowflake PUT can't handle directories
-        for path in set(
-            p.parent.joinpath(f"*{p.suffix}") if p.suffix else p
-            for p in source.rglob("*")
-            if p.is_file()
-        ):
-            stage_manager.put(
-                str(path.resolve()), stage_path, overwrite=True, auto_compress=False
+    with cli_console.phase(f"Uploading payload to stage {stage_path}"):
+        if source.is_dir():
+            # Filter to only files in source since Snowflake PUT can't handle directories
+            sources = set(
+                p.parent.joinpath(f"*{p.suffix}") if p.suffix else p
+                for p in source.rglob("*")
+                if p.is_file()
             )
-    else:
-        stage_manager.put(
-            str(source.resolve()), stage_path, overwrite=True, auto_compress=False
-        )
-    cli_console.message(f"Uploaded payload to stage {stage_path}")
+        else:
+            sources = {source}
+        for path in sources:
+            cli_console.step(
+                f"Uploading {path.resolve()} to {stage_path.joinpath(path.parent.relative_to(source))}"
+            )
+            stage_manager.put(
+                str(path.resolve()),
+                str(stage_path.joinpath(path.parent.relative_to(source))),
+                overwrite=True,
+                auto_compress=False,
+            )
 
-    if source.is_dir() and entrypoint.suffix == ".py" and enable_pip:
-        # Multi-file Python payload: generate and inject a launch script
-        script_content = _generate_launch_script(entrypoint.name).encode(
-            encoding="utf-8"
-        )
-        entrypoint = Path("startup.sh")
-        # TODO: Switch to stage_manager native method if/when stream support available
-        stage_manager.snowpark_session.file.put_stream(
-            io.BytesIO(script_content),
-            f"{stage_path}/{entrypoint}",
-            overwrite=True,
-            auto_compress=False,
-        )
+        # Inject a launch script for pip install if applicable
+        if source.is_dir() and entrypoint.suffix == ".py" and enable_pip:
+            script_content = _generate_launch_script(entrypoint.name).encode(
+                encoding="utf-8"
+            )
+            entrypoint = source.joinpath("startup.sh")
+            cli_console.step(f"Uploading {stage_path.joinpath(entrypoint.name)}")
+            # TODO: Switch to stage_manager native method if/when stream support available
+            stage_manager.snowpark_session.file.put_stream(
+                io.BytesIO(script_content),
+                str(stage_path.joinpath(entrypoint.name)),
+                overwrite=True,
+                auto_compress=False,
+            )
+    cli_console.message("Payload upload complete.")
 
-    return entrypoint.name
+    return entrypoint.relative_to(source)
 
 
 def _generate_launch_script(entrypoint: str) -> str:
@@ -328,7 +335,7 @@ def prepare_spec(
     image_spec = _get_image_spec(session, compute_pool=compute_pool)
 
     # Prepare payload
-    stage_path = f"@{stage_name}/{service_name}"
+    stage_path = Path(f"@{stage_name}/{service_name}")
     script_path = _prepare_payload(
         stage_path,
         source=payload,
