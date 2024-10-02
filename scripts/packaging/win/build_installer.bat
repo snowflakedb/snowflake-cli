@@ -4,6 +4,7 @@ REM replace with one from environment
 set RELEASE_TYPE=dev
 
 REM DEBUG:
+echo %CLI_VERSION%
 set CLI_VERSION=3.0.0.2
 set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/dev/windows_x86_64/56041f1f1e5f229265dd28385d87a4e345038efc/snowflake-cli-3.0.0.2.zip
 
