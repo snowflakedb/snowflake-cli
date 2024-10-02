@@ -1,5 +1,12 @@
 @echo on
 
+REM      |FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION=%%I
+REM      |FOR /F "delims=" %%I IN ('git rev-parse %svnRevision%') DO SET REVISION=%%I
+REM      |set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/%releaseType%/windows_x86_64/%REVISION%/
+
+python.exe --version
+python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}')"
+
 REM replace with one from environment
 set RELEASE_TYPE=dev
 
@@ -8,8 +15,8 @@ echo %CLI_VERSION%
 set CLI_VERSION=3.0.0.2
 set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/dev/windows_x86_64/56041f1f1e5f229265dd28385d87a4e345038efc/snowflake-cli-3.0.0.2.zip
 
-aws s3 cp %STAGE_URL% .\wtf.zip
-dir
+aws s3 cp %STAGE_URL% .\wtf.zip && ^
+dir && ^
 tar -xf snowflake-cli-%CLI_VERSION%.zip
 
 signtool sign /debug /sm /t http://timestamp.digitcert.com /a dist\snow\snow.exe
