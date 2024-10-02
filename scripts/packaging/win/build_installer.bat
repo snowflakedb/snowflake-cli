@@ -1,10 +1,11 @@
 @echo on
 
 set PATH=C:\Program Files\7-Zip;C:\Users\jenkins\AppData\Local\Programs\Python\Python38;C:\Users\jenkins\AppData\Local\Programs\Python\Python38\Scripts;C:\Program Files (x86)\WiX Toolset v3.11\bin;%PATH%
-python.exe -m pip install hatch
 
 python.exe --version
 python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}')"
+
+python.exe -m pip install hatch
 FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION=%%I
 FOR /F "delims=" %%I IN ('git rev-parse %svnRevision%') DO SET REVISION=%%I
 @echo off
