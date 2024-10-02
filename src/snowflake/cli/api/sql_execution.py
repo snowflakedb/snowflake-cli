@@ -110,12 +110,12 @@ class SqlExecutor:
         is_different_role = new_role.lower() != prev_role.lower()
         if is_different_role:
             self._log.debug("Assuming different role: %s", new_role)
-            self._execute_query(f"use role {new_role}")
+            self.use(ObjectType.ROLE, new_role)
         try:
             yield
         finally:
             if is_different_role:
-                self._execute_query(f"use role {prev_role}")
+                self.use(ObjectType.ROLE, prev_role)
 
     def session_has_warehouse(self) -> bool:
         result = self._execute_query(
