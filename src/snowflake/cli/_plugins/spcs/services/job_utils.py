@@ -1,10 +1,9 @@
 import io
-import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
@@ -127,17 +126,17 @@ def _generate_spec(
     volume_mounts: List[Dict[str, str]] = []
 
     # Set resource requests/limits, including nvidia.com/gpu quantity if applicable
-    resource_requests = {
+    resource_requests: Dict[str, Union[str, int]] = {
         "cpu": f"{image_spec.resource_requests.cpu * 1000}m",
         "memory": f"{image_spec.resource_limits.memory}Gi",
     }
-    resource_limits = {
+    resource_limits: Dict[str, Union[str, int]] = {
         "cpu": f"{image_spec.resource_requests.cpu * 1000}m",
         "memory": f"{image_spec.resource_limits.memory}Gi",
     }
     if image_spec.resource_limits.gpu > 0:
-        resource_requests["nvidia.com/gpu"] = str(image_spec.resource_requests.gpu)
-        resource_limits["nvidia.com/gpu"] = str(image_spec.resource_limits.gpu)
+        resource_requests["nvidia.com/gpu"] = image_spec.resource_requests.gpu
+        resource_limits["nvidia.com/gpu"] = image_spec.resource_limits.gpu
 
     # Create container spec
     mce_container: Dict[str, Any] = {
@@ -150,7 +149,20 @@ def _generate_spec(
         },
     }
 
-    # TODO: Add local volume for ephemeral artifacts
+    # Add local volume for ephemeral logs and artifacts
+    local_volume_name = "local"
+    volume_mounts.append(
+        {
+            "name": local_volume_name,
+            "mountPath": "/logs",
+        }
+    )
+    volumes.append(
+        {
+            "name": local_volume_name,
+            "source": "local",
+        }
+    )
 
     # Mount 30% of memory limit as a memory-backed volume
     memory_volume_name = "dshm"
@@ -175,7 +187,7 @@ def _generate_spec(
     # Mount payload as volume
     # TODO: Mount subPath only once that's supported for proper isolation
     stage_name, stage_subpath = stage_path.split("/", 2)
-    stage_mount = "/opt/userapp"
+    stage_mount = "/opt/app"
     stage_volume_name = "stage-volume"
     volume_mounts.append(
         {
@@ -206,9 +218,8 @@ def _generate_spec(
     mce_container["command"] = [
         command,
         os.path.join(stage_mount, stage_subpath, script_path),
+        *(args or []),
     ]
-    if args:
-        mce_container["args"] = args
     if env_vars:
         mce_container["env"] = env_vars
 
@@ -255,7 +266,7 @@ def _prepare_payload(
         )
     cli_console.message(f"Uploaded payload to stage {stage_path}")
 
-    if enable_pip and source.is_dir() and entrypoint.suffix == ".py" and enable_pip:
+    if source.is_dir() and entrypoint.suffix == ".py" and enable_pip:
         # Multi-file Python payload: generate and inject a launch script
         script_content = _generate_launch_script(entrypoint.name).encode(
             encoding="utf-8"
@@ -311,7 +322,7 @@ def prepare_spec(
     enable_pip: bool = False,
     args: Optional[List[str]] = None,
     env: Optional[Dict[str, str]] = None,
-) -> str:
+) -> Dict[str, Any]:
 
     # Generate image spec based on compute pool
     image_spec = _get_image_spec(session, compute_pool=compute_pool)
@@ -332,4 +343,4 @@ def prepare_spec(
         args=args,
         env_vars=env,
     )
-    return json.dumps(spec)
+    return spec
