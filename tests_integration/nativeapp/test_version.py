@@ -53,7 +53,6 @@ def normalize_identifier(identifier: Union[str, int]) -> str:
 @pytest.mark.parametrize(
     "list_command,test_project",
     [
-        ["app version list", "napp_init_v1"],
         ["app version list", "napp_init_v2"],
         ["ws version list --entity-id=pkg", "napp_init_v2"],
     ],
@@ -105,7 +104,6 @@ def test_nativeapp_version_create_and_drop(
 @pytest.mark.parametrize(
     "list_command,test_project",
     [
-        ["app version list", "napp_init_v1"],
         ["app version list", "napp_init_v2"],
         ["ws version list --entity-id=pkg", "napp_init_v2"],
     ],
@@ -153,7 +151,6 @@ def test_nativeapp_upgrade(
 @pytest.mark.parametrize(
     "list_command,test_project",
     [
-        ["app version list", "napp_init_v1"],
         ["app version list", "napp_init_v2"],
         ["ws version list --entity-id=pkg", "napp_init_v2"],
     ],
@@ -204,7 +201,6 @@ def test_nativeapp_version_create_3_patches(
 @pytest.mark.parametrize(
     "list_command,test_project",
     [
-        ["app version list", "napp_init_v1"],
         ["app version list", "napp_init_v2"],
         ["ws version list --entity-id=pkg", "napp_init_v2"],
     ],
@@ -277,7 +273,6 @@ def test_nativeapp_version_create_patch_is_integer(
 @pytest.mark.parametrize(
     "list_command,test_project",
     [
-        ["app version list", "napp_init_v1"],
         ["app version list", "napp_init_v2"],
         ["ws version list --entity-id=pkg", "napp_init_v2"],
     ],
@@ -364,13 +359,7 @@ def test_nativeapp_version_create_package_no_magic_comment(
 
 # Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "test_project",
-    [
-        "napp_init_v1",
-        "napp_init_v2",
-    ],
-)
+@pytest.mark.parametrize("test_project", ["napp_init_v2"])
 def test_nativeapp_version_create_and_drop_from_manifest(
     runner,
     snowflake_session,

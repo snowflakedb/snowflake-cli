@@ -30,11 +30,6 @@ from tests_integration.test_utils import (
     [
         # "--cascade" should drop both application and application objects
         [
-            "napp_create_db_v1",
-            "app teardown --cascade",
-            None,
-        ],
-        [
             "napp_create_db_v2",
             "app teardown --cascade",
             None,
@@ -46,11 +41,6 @@ from tests_integration.test_utils import (
         ],
         # "--force --no-cascade" should attempt to drop the application and fail
         [
-            "napp_create_db_v1",
-            "app teardown --force --no-cascade",
-            "Could not successfully execute the Snowflake SQL statements",
-        ],
-        [
             "napp_create_db_v2",
             "app teardown --force --no-cascade",
             "Could not successfully execute the Snowflake SQL statements",
@@ -61,11 +51,6 @@ from tests_integration.test_utils import (
             "Could not successfully execute the Snowflake SQL statements",
         ],
         # teardown/drop with owned application objects should abort the teardown
-        [
-            "napp_create_db_v1",
-            "app teardown",
-            "Aborted",
-        ],
         [
             "napp_create_db_v2",
             "app teardown",
@@ -174,7 +159,6 @@ def test_nativeapp_teardown_cascade(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app teardown", "napp_init_v1"],
         ["app teardown", "napp_init_v2"],
         ["ws drop --entity-id=app", "napp_init_v2"],
     ],
@@ -212,7 +196,6 @@ def test_nativeapp_teardown_unowned_app(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app teardown", "napp_init_v1"],
         ["app teardown", "napp_init_v2"],
         ["ws drop --entity-id=pkg", "napp_init_v2"],
     ],

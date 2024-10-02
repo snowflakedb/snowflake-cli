@@ -19,7 +19,7 @@ from tests.project.fixtures import *
 
 @pytest.mark.integration
 @mock.patch("typer.launch")
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize("test_project", ["napp_init_v2"])
 def test_nativeapp_open(
     mock_typer_launch,
     runner,

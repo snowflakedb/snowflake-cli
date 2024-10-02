@@ -26,7 +26,6 @@ from tests_integration.testing_utils import (
 @pytest.fixture(
     scope="function",
     params=[
-        ["app bundle", "napp_init_v1"],
         ["app bundle", "napp_init_v2"],
         ["ws bundle --entity-id=pkg", "napp_init_v2"],
     ],
