@@ -43,11 +43,8 @@ def _extract_first_result_executing_command_telemetry_message(
 def test_ProgrammingError_attaches_errno_and_sqlstate(
     mock_telemetry,
     runner,
-    snowflake_session,
     project_definition_files: List[Path],
-    default_username,
     nativeapp_teardown,
-    resource_suffix,
 ):
     local_test_env = {
         "role": "nonexistent_role",
