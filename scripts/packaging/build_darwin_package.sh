@@ -111,7 +111,7 @@ tree -d $DIST_DIR
 chmod +x $APP_SCRIPTS/postinstall
 
 # codesign after changes
-codesign --deep --force --verify --verbose --sign "${CODESIGN_IDENTITY}" ${APP_DIR}/${APP_NAME}
+codesign --timestamp --deep --force --verify --verbose --sign "${CODESIGN_IDENTITY}" ${APP_DIR}/${APP_NAME}
 
 PKG_UNSIGNED_NAME="snowflake-cli-${SYSTEM}.unsigned.pkg"
 loginfo "---------------------------------"
