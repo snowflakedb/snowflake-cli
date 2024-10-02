@@ -155,6 +155,7 @@ def app_factory() -> SnowCliMainTyper:
         invoke_without_command=True,
         epilog=new_version_msg,
         result_callback=show_new_version_banner_callback(new_version_msg),
+        help=f"Snowflake CLI tool for developers [v{__about__.VERSION}]",
     )
     def default(
         ctx: typer.Context,
