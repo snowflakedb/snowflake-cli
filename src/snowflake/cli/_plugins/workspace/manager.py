@@ -31,6 +31,13 @@ class WorkspaceManager:
         self._entities_cache: Dict[str, Entity] = {}
         self._project_definition: DefinitionV20 = project_definition
         self._project_root = project_root
+        self._default_role = default_role()
+        if self._default_role is None:
+            self._default_role = get_sql_executor().current_role()
+        self.default_warehouse = None
+        cli_context = get_cli_context()
+        if cli_context.connection.warehouse:
+            self.default_warehouse = to_identifier(cli_context.connection.warehouse)
 
     def get_entity(self, entity_id: str):
         """
@@ -55,8 +62,8 @@ class WorkspaceManager:
             action_ctx = ActionContext(
                 console=cc,
                 project_root=self.project_root(),
-                get_default_role=_get_default_role,
-                get_default_warehouse=_get_default_warehouse,
+                default_role=self._default_role,
+                default_warehouse=self.default_warehouse,
                 get_entity=self.get_entity,
             )
             return entity.perform(action, action_ctx, *args, **kwargs)
@@ -65,17 +72,3 @@ class WorkspaceManager:
 
     def project_root(self) -> Path:
         return self._project_root
-
-
-def _get_default_role() -> str:
-    role = default_role()
-    if role is None:
-        role = get_sql_executor().current_role()
-    return role
-
-
-def _get_default_warehouse() -> str | None:
-    warehouse = get_cli_context().connection.warehouse
-    if warehouse:
-        warehouse = to_identifier(warehouse)
-    return warehouse

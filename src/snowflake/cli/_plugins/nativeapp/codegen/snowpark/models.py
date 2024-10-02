@@ -18,8 +18,8 @@ from enum import Enum
 from typing import List, Optional
 
 from pydantic import Field
+from snowflake.cli.api.project.schemas.snowpark.callable import _CallableBase
 from snowflake.cli.api.project.schemas.updatable_model import IdentifierField
-from snowflake.cli.api.project.schemas.v1.snowpark.callable import _CallableBase
 
 
 class ExtensionFunctionTypeEnum(str, Enum):

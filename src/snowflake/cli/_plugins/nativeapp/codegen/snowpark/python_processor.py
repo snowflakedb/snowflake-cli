@@ -48,10 +48,8 @@ from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
     NativeAppExtensionFunction,
 )
 from snowflake.cli._plugins.stage.diff import to_stage_path
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.metrics import CLICounterField
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
+from snowflake.cli.api.project.schemas.native_app.path_mapping import (
     PathMapping,
     ProcessorMapping,
 )
@@ -177,8 +175,6 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         Collects code annotations from Snowpark python files containing extension functions and augments the existing
         setup script with generated SQL that registers these functions.
         """
-
-        get_cli_context().metrics.set_counter(CLICounterField.SNOWPARK_PROCESSOR, 1)
 
         bundle_map = BundleMap(
             project_root=self._bundle_ctx.project_root,

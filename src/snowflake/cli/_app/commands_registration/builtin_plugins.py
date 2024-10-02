@@ -15,7 +15,6 @@
 from snowflake.cli._plugins.connection import plugin_spec as connection_plugin_spec
 from snowflake.cli._plugins.cortex import plugin_spec as cortex_plugin_spec
 from snowflake.cli._plugins.git import plugin_spec as git_plugin_spec
-from snowflake.cli._plugins.helpers import plugin_spec as migrate_plugin_spec
 from snowflake.cli._plugins.init import plugin_spec as init_plugin_spec
 from snowflake.cli._plugins.nativeapp import plugin_spec as nativeapp_plugin_spec
 from snowflake.cli._plugins.notebook import plugin_spec as notebook_plugin_spec
@@ -32,7 +31,6 @@ from snowflake.cli._plugins.workspace import plugin_spec as workspace_plugin_spe
 def get_builtin_plugin_name_to_plugin_spec():
     plugin_specs = {
         "connection": connection_plugin_spec,
-        "helpers": migrate_plugin_spec,
         "spcs": spcs_plugin_spec,
         "nativeapp": nativeapp_plugin_spec,
         "object": object_plugin_spec,

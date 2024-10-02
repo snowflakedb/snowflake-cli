@@ -27,7 +27,7 @@ from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
     ExtensionFunctionTypeEnum,
     NativeAppExtensionFunction,
 )
-from snowflake.cli.api.project.schemas.v1.snowpark.argument import Argument
+from snowflake.cli.api.project.schemas.snowpark.argument import Argument
 from snowflake.cli.api.project.util import (
     is_valid_identifier,
     is_valid_string_literal,

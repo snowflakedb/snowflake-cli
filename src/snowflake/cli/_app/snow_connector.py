@@ -24,7 +24,6 @@ from click.exceptions import ClickException
 from snowflake.cli._app.constants import (
     PARAM_APPLICATION_NAME,
 )
-from snowflake.cli._app.secret import SecretType
 from snowflake.cli._app.telemetry import command_info
 from snowflake.cli.api.config import (
     get_connection_dict,
@@ -206,7 +205,7 @@ def _load_private_key(connection_parameters: Dict, private_key_var_name: str) ->
             connection_parameters[private_key_var_name]
         )
         private_key = _load_pem_to_der(private_key_pem)
-        connection_parameters["private_key"] = private_key.value
+        connection_parameters["private_key"] = private_key
         del connection_parameters[private_key_var_name]
     else:
         raise ClickException(
@@ -218,11 +217,10 @@ def _load_private_key_from_parameters(
     connection_parameters: Dict, private_key_var_name: str
 ) -> None:
     if connection_parameters.get("authenticator") == "SNOWFLAKE_JWT":
-        private_key_pem = _load_pem_from_parameters(
-            connection_parameters[private_key_var_name]
-        )
+        private_key_pem = connection_parameters[private_key_var_name]
+        private_key_pem = private_key_pem.encode("utf-8")
         private_key = _load_pem_to_der(private_key_pem)
-        connection_parameters["private_key"] = private_key.value
+        connection_parameters["private_key"] = private_key
         del connection_parameters[private_key_var_name]
     else:
         raise ClickException(
@@ -238,49 +236,43 @@ def _update_connection_application_name(connection_parameters: Dict):
     connection_parameters.update(connection_application_params)
 
 
-def _load_pem_from_file(private_key_file: str) -> SecretType:
+def _load_pem_from_file(private_key_file: str) -> bytes:
     with SecurePath(private_key_file).open(
         "rb", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
     ) as f:
-        private_key_pem = SecretType(f.read())
+        private_key_pem = f.read()
     return private_key_pem
 
 
-def _load_pem_from_parameters(private_key_raw: str) -> SecretType:
-    return SecretType(private_key_raw.encode("utf-8"))
-
-
-def _load_pem_to_der(private_key_pem: SecretType) -> SecretType:
+def _load_pem_to_der(private_key_pem: bytes) -> bytes:
     """
     Given a private key file path (in PEM format), decode key data into DER
     format
     """
-    private_key_passphrase = SecretType(os.getenv("PRIVATE_KEY_PASSPHRASE", None))
+    private_key_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
     if (
-        private_key_pem.value.startswith(ENCRYPTED_PKCS8_PK_HEADER)
-        and private_key_passphrase.value is None
+        private_key_pem.startswith(ENCRYPTED_PKCS8_PK_HEADER)
+        and private_key_passphrase is None
     ):
         raise ClickException(
             "Encrypted private key, you must provide the"
             "passphrase in the environment variable PRIVATE_KEY_PASSPHRASE"
         )
 
-    if not private_key_pem.value.startswith(
+    if not private_key_pem.startswith(
         ENCRYPTED_PKCS8_PK_HEADER
-    ) and not private_key_pem.value.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
+    ) and not private_key_pem.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
         raise ClickException(
             "Private key provided is not in PKCS#8 format. Please use correct format."
         )
 
-    if private_key_pem.value.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
-        private_key_passphrase = SecretType(None)
+    if private_key_pem.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
+        private_key_passphrase = None
 
     return prepare_private_key(private_key_pem, private_key_passphrase)
 
 
-def prepare_private_key(
-    private_key_pem: SecretType, private_key_passphrase: SecretType = SecretType(None)
-):
+def prepare_private_key(private_key_pem, private_key_passphrase=None):
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives.serialization import (
         Encoding,
@@ -289,21 +281,17 @@ def prepare_private_key(
         load_pem_private_key,
     )
 
-    private_key = SecretType(
-        load_pem_private_key(
-            private_key_pem.value,
-            (
-                str.encode(private_key_passphrase.value)
-                if private_key_passphrase.value is not None
-                else private_key_passphrase.value
-            ),
-            default_backend(),
-        )
+    private_key = load_pem_private_key(
+        private_key_pem,
+        (
+            str.encode(private_key_passphrase)
+            if private_key_passphrase is not None
+            else private_key_passphrase
+        ),
+        default_backend(),
     )
-    return SecretType(
-        private_key.value.private_bytes(
-            encoding=Encoding.DER,
-            format=PrivateFormat.PKCS8,
-            encryption_algorithm=NoEncryption(),
-        )
+    return private_key.private_bytes(
+        encoding=Encoding.DER,
+        format=PrivateFormat.PKCS8,
+        encryption_algorithm=NoEncryption(),
     )

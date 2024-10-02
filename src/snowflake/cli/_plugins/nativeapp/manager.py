@@ -14,23 +14,21 @@
 
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
+from textwrap import dedent
 from typing import Generator, List, Optional
 
+from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
 )
-from snowflake.cli._plugins.nativeapp.entities.application import (
-    ApplicationEntity,
-    ApplicationOwnedObject,
+from snowflake.cli._plugins.nativeapp.exceptions import (
+    NoEventTableForAccount,
 )
-from snowflake.cli._plugins.nativeapp.entities.application_package import (
-    ApplicationPackageEntity,
-)
-from snowflake.cli._plugins.nativeapp.policy import AllowAlwaysPolicy, PolicyBase
 from snowflake.cli._plugins.nativeapp.project_model import (
     NativeAppProjectModel,
 )
@@ -38,13 +36,27 @@ from snowflake.cli._plugins.stage.diff import (
     DiffResult,
 )
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.entities.application_entity import (
+    ApplicationEntity,
+    ApplicationOwnedObject,
+)
+from snowflake.cli.api.entities.application_package_entity import (
+    ApplicationPackageEntity,
+)
 from snowflake.cli.api.entities.utils import (
     execute_post_deploy_hooks,
+    generic_sql_error_handler,
     sync_deploy_root_with_stage,
 )
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
-from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
+from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.util import (
+    identifier_for_url,
+    unquote_identifier,
+)
+from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector import DictCursor, ProgrammingError
 
 
 class NativeAppCommandProcessor(ABC):
@@ -53,7 +65,7 @@ class NativeAppCommandProcessor(ABC):
         pass
 
 
-class NativeAppManager:
+class NativeAppManager(SqlExecutionMixin):
     """
     Base class with frequently used functionality already implemented and ready to be used by related subclasses.
     """
@@ -122,6 +134,9 @@ class NativeAppManager:
     def application_warehouse(self) -> Optional[str]:
         return self.na_project.application_warehouse
 
+    def use_application_warehouse(self):
+        return ApplicationEntity.use_application_warehouse(self.application_warehouse)
+
     @property
     def project_identifier(self) -> str:
         return self.na_project.project_identifier
@@ -166,7 +181,9 @@ class NativeAppManager:
 
     @cached_property
     def account_event_table(self) -> str:
-        return ApplicationEntity.get_account_event_table()
+        query = "show parameters like 'event_table' in account"
+        results = self._execute_query(query, cursor_class=DictCursor)
+        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
 
     def verify_project_distribution(
         self, expected_distribution: Optional[str] = None
@@ -244,9 +261,9 @@ class NativeAppManager:
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
-        return ApplicationEntity.get_snowsight_url(
-            self.app_name, self.application_warehouse
-        )
+        name = identifier_for_url(self.app_name)
+        with self.use_application_warehouse():
+            return make_snowsight_url(self._conn, f"/#/apps/application/{name}")
 
     def create_app_package(self) -> None:
         return ApplicationPackageEntity.create_app_package(
@@ -289,7 +306,6 @@ class NativeAppManager:
         bundle_map: BundleMap,
         prune: bool,
         recursive: bool,
-        policy: PolicyBase,
         stage_fqn: Optional[str] = None,
         local_paths_to_sync: List[Path] | None = None,
         validate: bool = True,
@@ -302,7 +318,6 @@ class NativeAppManager:
             bundle_root=self.bundle_root,
             generated_root=self.generated_root,
             artifacts=self.artifacts,
-            bundle_map=bundle_map,
             package_name=self.package_name,
             package_role=self.package_role,
             package_distribution=self.package_distribution,
@@ -315,56 +330,42 @@ class NativeAppManager:
             package_warehouse=self.package_warehouse,
             post_deploy_hooks=self.package_post_deploy_hooks,
             package_scripts=self.package_scripts,
-            policy=policy,
+        )
+
+    def deploy_to_scratch_stage_fn(self):
+        bundle_map = self.build_bundle()
+        self.deploy(
+            bundle_map=bundle_map,
+            prune=True,
+            recursive=True,
+            stage_fqn=self.scratch_stage_fqn,
+            validate=False,
+            print_diff=False,
         )
 
     def validate(self, use_scratch_stage: bool = False):
         return ApplicationPackageEntity.validate_setup_script(
             console=cc,
-            project_root=self.project_root,
-            deploy_root=self.deploy_root,
-            bundle_root=self.bundle_root,
-            generated_root=self.generated_root,
-            artifacts=self.artifacts,
             package_name=self.package_name,
             package_role=self.package_role,
-            package_distribution=self.package_distribution,
-            prune=True,
-            recursive=True,
-            paths=[],
             stage_fqn=self.stage_fqn,
-            package_warehouse=self.package_warehouse,
-            post_deploy_hooks=self.package_post_deploy_hooks,
-            package_scripts=self.package_scripts,
-            policy=AllowAlwaysPolicy(),
             use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=self.scratch_stage_fqn,
+            deploy_to_scratch_stage_fn=self.deploy_to_scratch_stage_fn,
         )
 
-    def get_validation_result(self, use_scratch_stage: bool = False):
+    def get_validation_result(self, use_scratch_stage: bool):
         return ApplicationPackageEntity.get_validation_result(
             console=cc,
-            project_root=self.project_root,
-            deploy_root=self.deploy_root,
-            bundle_root=self.bundle_root,
-            generated_root=self.generated_root,
-            artifacts=self.artifacts,
             package_name=self.package_name,
             package_role=self.package_role,
-            package_distribution=self.package_distribution,
-            prune=True,
-            recursive=True,
-            paths=[],
             stage_fqn=self.stage_fqn,
-            package_warehouse=self.package_warehouse,
-            post_deploy_hooks=self.package_post_deploy_hooks,
-            package_scripts=self.package_scripts,
-            policy=AllowAlwaysPolicy(),
             use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=self.scratch_stage_fqn,
+            deploy_to_scratch_stage_fn=self.deploy_to_scratch_stage_fn,
         )
 
-    def get_events(  # type: ignore
+    def get_events(  # type: ignore [return]
         self,
         since: str | datetime | None = None,
         until: str | datetime | None = None,
@@ -376,19 +377,87 @@ class NativeAppManager:
         first: int = -1,
         last: int = -1,
     ) -> list[dict]:
-        return ApplicationEntity.get_events(
-            app_name=self.app_name,
-            package_name=self.package_name,
-            since=since,
-            until=until,
-            record_types=record_types,
-            scopes=scopes,
-            consumer_org=consumer_org,
-            consumer_account=consumer_account,
-            consumer_app_hash=consumer_app_hash,
-            first=first,
-            last=last,
+        record_types = record_types or []
+        scopes = scopes or []
+
+        if first >= 0 and last >= 0:
+            raise ValueError("first and last cannot be used together")
+
+        if not self.account_event_table:
+            raise NoEventTableForAccount()
+
+        # resource_attributes uses the unquoted/uppercase app and package name
+        app_name = unquote_identifier(self.app_name)
+        package_name = unquote_identifier(self.package_name)
+        org_name = unquote_identifier(consumer_org)
+        account_name = unquote_identifier(consumer_account)
+
+        # Filter on record attributes
+        if consumer_org and consumer_account:
+            # Look for events shared from a consumer account
+            app_clause = (
+                f"resource_attributes:\"snow.application.package.name\" = '{package_name}' "
+                f"and resource_attributes:\"snow.application.consumer.organization\" = '{org_name}' "
+                f"and resource_attributes:\"snow.application.consumer.name\" = '{account_name}'"
+            )
+            if consumer_app_hash:
+                # If the user has specified a hash of a specific app installation
+                # in the consumer account, filter events to that installation only
+                app_clause += f" and resource_attributes:\"snow.database.hash\" = '{consumer_app_hash.lower()}'"
+        else:
+            # Otherwise look for events from an app installed in the same account as the package
+            app_clause = f"resource_attributes:\"snow.database.name\" = '{app_name}'"
+
+        # Filter on event time
+        if isinstance(since, datetime):
+            since_clause = f"and timestamp >= '{since}'"
+        elif isinstance(since, str) and since:
+            since_clause = f"and timestamp >= sysdate() - interval '{since}'"
+        else:
+            since_clause = ""
+        if isinstance(until, datetime):
+            until_clause = f"and timestamp <= '{until}'"
+        elif isinstance(until, str) and until:
+            until_clause = f"and timestamp <= sysdate() - interval '{until}'"
+        else:
+            until_clause = ""
+
+        # Filter on event type (log, span, span_event)
+        type_in_values = ",".join(f"'{v}'" for v in record_types)
+        types_clause = (
+            f"and record_type in ({type_in_values})" if type_in_values else ""
         )
+
+        # Filter on event scope (e.g. the logger name)
+        scope_in_values = ",".join(f"'{v}'" for v in scopes)
+        scopes_clause = (
+            f"and scope:name in ({scope_in_values})" if scope_in_values else ""
+        )
+
+        # Limit event count
+        first_clause = f"limit {first}" if first >= 0 else ""
+        last_clause = f"limit {last}" if last >= 0 else ""
+
+        query = dedent(
+            f"""\
+            select * from (
+                select timestamp, value::varchar value
+                from {self.account_event_table}
+                where ({app_clause})
+                {since_clause}
+                {until_clause}
+                {types_clause}
+                {scopes_clause}
+                order by timestamp desc
+                {last_clause}
+            ) order by timestamp asc
+            {first_clause}
+            """
+        )
+        try:
+            return self._execute_query(query, cursor_class=DictCursor).fetchall()
+        except ProgrammingError as err:
+            generic_sql_error_handler(err)
 
     def stream_events(
         self,
@@ -401,15 +470,62 @@ class NativeAppManager:
         consumer_app_hash: str = "",
         last: int = -1,
     ) -> Generator[dict, None, None]:
-        return ApplicationEntity.stream_events(
-            app_name=self.app_name,
-            package_name=self.package_name,
-            interval_seconds=interval_seconds,
-            since=since,
-            record_types=record_types,
-            scopes=scopes,
-            consumer_org=consumer_org,
-            consumer_account=consumer_account,
-            consumer_app_hash=consumer_app_hash,
-            last=last,
-        )
+        try:
+            events = self.get_events(
+                since=since,
+                record_types=record_types,
+                scopes=scopes,
+                consumer_org=consumer_org,
+                consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
+                last=last,
+            )
+            yield from events  # Yield the initial batch of events
+            last_event_time = events[-1]["TIMESTAMP"] if events else None
+
+            while True:  # Then infinite poll for new events
+                time.sleep(interval_seconds)
+                previous_events = events
+                events = self.get_events(
+                    since=last_event_time,
+                    record_types=record_types,
+                    scopes=scopes,
+                    consumer_org=consumer_org,
+                    consumer_account=consumer_account,
+                    consumer_app_hash=consumer_app_hash,
+                )
+                if not events:
+                    continue
+
+                yield from _new_events_only(previous_events, events)
+                last_event_time = events[-1]["TIMESTAMP"]
+        except KeyboardInterrupt:
+            return
+
+
+def _new_events_only(previous_events: list[dict], new_events: list[dict]) -> list[dict]:
+    # The timestamp that overlaps between both sets of events
+    overlap_time = new_events[0]["TIMESTAMP"]
+
+    # Remove all the events from the new result set
+    # if they were already printed. We iterate and remove
+    # instead of filtering in order to handle duplicates
+    # (i.e. if an event is present 3 times in new_events
+    # but only once in previous_events, it should still
+    # appear twice in new_events at the end
+    new_events = new_events.copy()
+    for event in reversed(previous_events):
+        if event["TIMESTAMP"] < overlap_time:
+            break
+        # No need to handle ValueError here since we know
+        # that events that pass the above if check will
+        # either be in both lists or in new_events only
+        new_events.remove(event)
+    return new_events
+
+
+def _validation_item_to_str(item: dict[str, str | int]):
+    s = item["message"]
+    if item["errorCode"]:
+        s = f"{s} (error code {item['errorCode']})"
+    return s

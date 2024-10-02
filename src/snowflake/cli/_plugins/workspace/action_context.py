@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from functools import cached_property
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 from snowflake.cli.api.console.abc import AbstractConsole
 
@@ -14,14 +13,6 @@ class ActionContext:
 
     console: AbstractConsole
     project_root: Path
-    get_default_role: Callable[[], str]
-    get_default_warehouse: Callable[[], str | None]
+    default_role: str
+    default_warehouse: Optional[str]
     get_entity: Callable
-
-    @cached_property
-    def default_role(self) -> str:
-        return self.get_default_role()
-
-    @cached_property
-    def default_warehouse(self) -> str | None:
-        return self.get_default_warehouse()

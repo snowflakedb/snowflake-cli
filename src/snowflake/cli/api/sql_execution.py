@@ -98,7 +98,11 @@ class SqlExecutor:
             )
 
     def current_role(self) -> str:
-        return self._execute_query(f"select current_role()").fetchone()[0]
+        *_, cursor = self._execute_string(
+            "select current_role()", cursor_class=DictCursor
+        )
+        role_result = cursor.fetchone()
+        return role_result["CURRENT_ROLE()"]
 
     @contextmanager
     def use_role(self, new_role: str):
@@ -106,7 +110,10 @@ class SqlExecutor:
         Switches to a different role for a while, then switches back.
         This is a no-op if the requested role is already active.
         """
-        prev_role = self.current_role()
+        role_result = self._execute_query(
+            f"select current_role()", cursor_class=DictCursor
+        ).fetchone()
+        prev_role = role_result["CURRENT_ROLE()"]
         is_different_role = new_role.lower() != prev_role.lower()
         if is_different_role:
             self._log.debug("Assuming different role: %s", new_role)
@@ -119,9 +126,9 @@ class SqlExecutor:
 
     def session_has_warehouse(self) -> bool:
         result = self._execute_query(
-            "select current_warehouse() is not null"
+            "select current_warehouse() is not null as result", cursor_class=DictCursor
         ).fetchone()
-        return bool(result[0])
+        return bool(result.get("RESULT"))
 
     @contextmanager
     def use_warehouse(self, new_wh: str):
@@ -131,10 +138,12 @@ class SqlExecutor:
         If there is no default warehouse in the account, it will throw an error.
         """
 
-        wh_result = self._execute_query(f"select current_warehouse()").fetchone()
+        wh_result = self._execute_query(
+            f"select current_warehouse()", cursor_class=DictCursor
+        ).fetchone()
         # If user has an assigned default warehouse, prev_wh will contain a value even if the warehouse is suspended.
         try:
-            prev_wh = wh_result[0]
+            prev_wh = wh_result["CURRENT_WAREHOUSE()"]
         except:
             prev_wh = None
 

@@ -10,6 +10,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 
 # from snowflake.cli._plugins.nativeapp.project_model import NativeAppProjectModel
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.entities.utils import ensure_correct_owner
 
 
 class SameAccountInstallMethod:
@@ -68,3 +69,6 @@ class SameAccountInstallMethod:
             if show_app_row[COMMENT_COL] not in ALLOWED_SPECIAL_COMMENTS:
                 # this application object was not created by this tooling
                 raise ApplicationCreatedExternallyError(app_name)
+
+        # expected owner
+        ensure_correct_owner(row=show_app_row, role=app_role, obj_name=app_name)

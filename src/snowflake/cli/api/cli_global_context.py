@@ -22,7 +22,6 @@ from typing import TYPE_CHECKING, Iterator
 
 from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
 from snowflake.cli.api.exceptions import MissingConfiguration
-from snowflake.cli.api.metrics import CLIMetrics
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 from snowflake.connector import SnowflakeConnection
@@ -46,8 +45,6 @@ class _CliGlobalContextManager:
     verbose: bool = False
     experimental: bool = False
     enable_tracebacks: bool = True
-
-    metrics: CLIMetrics = field(default_factory=CLIMetrics)
 
     project_path_arg: str | None = None
     project_is_optional: bool = True
@@ -154,10 +151,6 @@ class _CliGlobalContextAccess:
     @property
     def enable_tracebacks(self) -> bool:
         return self._manager.enable_tracebacks
-
-    @property
-    def metrics(self):
-        return self._manager.metrics
 
     @property
     def output_format(self) -> OutputFormat:

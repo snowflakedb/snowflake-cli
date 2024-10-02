@@ -21,10 +21,6 @@ from typing import Dict, List, Set
 
 from click import UsageError
 from snowflake.cli._plugins.snowpark.models import Requirement
-from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
-    ProcedureEntityModel,
-    SnowparkEntityModel,
-)
 from snowflake.cli._plugins.snowpark.snowpark_project_paths import Artefact
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import (
@@ -33,6 +29,10 @@ from snowflake.cli.api.constants import (
     PROJECT_TEMPLATE_VARIABLE_CLOSING,
     PROJECT_TEMPLATE_VARIABLE_OPENING,
     ObjectType,
+)
+from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
+    ProcedureEntityModel,
+    SnowparkEntityModel,
 )
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor

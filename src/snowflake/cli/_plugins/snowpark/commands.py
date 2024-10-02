@@ -46,10 +46,6 @@ from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackagesManager,
 )
 from snowflake.cli._plugins.snowpark.package.commands import app as package_app
-from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
-    FunctionEntityModel,
-    ProcedureEntityModel,
-)
 from snowflake.cli._plugins.snowpark.snowpark_project_paths import (
     SnowparkProjectPaths,
 )
@@ -90,6 +86,10 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
+)
+from snowflake.cli.api.project.schemas.entities.snowpark_entity import (
+    FunctionEntityModel,
+    ProcedureEntityModel,
 )
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,

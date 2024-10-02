@@ -38,19 +38,12 @@ from snowflake.connector.time_util import get_time_millis
 
 
 @unique
-class CLIInstallationSource(Enum):
-    BINARY = "binary"
-    PYPI = "pypi"
-
-
-@unique
 class CLITelemetryField(Enum):
     # Basic information
     SOURCE = "source"
     VERSION_CLI = "version_cli"
     VERSION_PYTHON = "version_python"
     VERSION_OS = "version_os"
-    INSTALLATION_SOURCE = "installation_source"
     # Command execution context
     COMMAND = "command"
     COMMAND_GROUP = "command_group"
@@ -61,8 +54,6 @@ class CLITelemetryField(Enum):
     COMMAND_EXECUTION_TIME = "command_execution_time"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
-    # Metrics
-    COUNTERS = "counters"
     # Information
     EVENT = "event"
     ERROR_MSG = "error_msg"
@@ -79,16 +70,6 @@ class TelemetryEvent(Enum):
 
 
 TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
-
-
-def _get_command_metrics() -> TelemetryDict:
-    cli_context = get_cli_context()
-
-    return {
-        CLITelemetryField.COUNTERS: {
-            **cli_context.metrics.counters,
-        }
-    }
 
 
 def _find_command_info() -> TelemetryDict:
@@ -116,12 +97,6 @@ def _get_definition_version() -> str | None:
     return None
 
 
-def _get_installation_source() -> CLIInstallationSource:
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        return CLIInstallationSource.BINARY
-    return CLIInstallationSource.PYPI
-
-
 def command_info() -> str:
     info = _find_command_info()
     command = ".".join(info[CLITelemetryField.COMMAND])
@@ -144,7 +119,6 @@ class CLITelemetryClient:
     ) -> Dict[str, Any]:
         data = {
             CLITelemetryField.SOURCE: PARAM_APPLICATION_NAME,
-            CLITelemetryField.INSTALLATION_SOURCE: _get_installation_source().value,
             CLITelemetryField.VERSION_CLI: VERSION,
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
@@ -194,7 +168,6 @@ def log_command_result(execution: ExecutionMetadata):
             CLITelemetryField.COMMAND_EXECUTION_ID: execution.execution_id,
             CLITelemetryField.COMMAND_RESULT_STATUS: execution.status.value,
             CLITelemetryField.COMMAND_EXECUTION_TIME: execution.get_duration(),
-            **_get_command_metrics(),
         }
     )
 
@@ -210,7 +183,6 @@ def log_command_execution_error(exception: Exception, execution: ExecutionMetada
             CLITelemetryField.ERROR_TYPE: exception_type,
             CLITelemetryField.IS_CLI_EXCEPTION: is_cli_exception,
             CLITelemetryField.COMMAND_EXECUTION_TIME: execution.get_duration(),
-            **_get_command_metrics(),
         }
     )
 

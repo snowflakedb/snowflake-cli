@@ -21,9 +21,8 @@ from typing import Any, Dict, Optional
 from click import ClickException
 from snowflake.cli.api.constants import SF_REST_API_URL_PREFIX
 from snowflake.connector.connection import SnowflakeConnection
-from snowflake.connector.errors import BadRequest
+from snowflake.connector.errors import BadRequest, InterfaceError
 from snowflake.connector.network import SnowflakeRestful
-from snowflake.connector.vendored.requests.exceptions import HTTPError
 
 log = logging.getLogger(__name__)
 
@@ -48,10 +47,10 @@ class RestApi:
         Check whether [get] endpoint exists under given URL.
         """
         try:
-            self.send_rest_request(url, method="get")
-            return True
-        except HTTPError as err:
-            if err.response.status_code == 404:
+            result = self.send_rest_request(url, method="get")
+            return bool(result) or result == []
+        except InterfaceError as err:
+            if "404 Not Found" in str(err):
                 return False
             raise err
 
@@ -61,10 +60,6 @@ class RestApi:
             return bool(result)
         except BadRequest:
             return False
-        except HTTPError as err:
-            if err.response.status_code == 404:
-                return False
-            raise err
 
     def send_rest_request(
         self, url: str, method: str, data: Optional[Dict[str, Any]] = None
@@ -96,7 +91,6 @@ class RestApi:
             token=self.rest.token,
             data=json.dumps(data if data else {}),
             no_retry=True,
-            raise_raw_http_failure=True,
         )
 
     def _database_exists(self, db_name: str) -> bool:

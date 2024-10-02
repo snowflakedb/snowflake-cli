@@ -16,11 +16,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from snowflake.cli._plugins.snowpark.snowpark_entity_model import PathMapping
 from snowflake.cli._plugins.snowpark.zipper import zip_dir
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEPLOYMENT_STAGE
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.entities.snowpark_entity import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 
 

@@ -19,10 +19,6 @@ from typing import Optional
 
 import typer
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
-from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntity
-from snowflake.cli._plugins.nativeapp.entities.application_package import (
-    ApplicationPackageEntity,
-)
 from snowflake.cli._plugins.nativeapp.manager import (
     NativeAppCommandProcessor,
     NativeAppManager,
@@ -32,7 +28,9 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.common import get_sql_executor
+from snowflake.cli.api.entities.application_entity import (
+    ApplicationEntity,
+)
 from snowflake.cli.api.entities.utils import (
     generic_sql_error_handler,
 )
@@ -40,7 +38,8 @@ from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
 )
-from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
+from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.project.schemas.native_app.native_app import NativeApp
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -50,12 +49,21 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
         super().__init__(project_definition, project_root)
 
     def get_all_existing_versions(self) -> SnowflakeCursor:
-        return ApplicationPackageEntity.version_list(
-            self.package_name, self.package_role
-        )
+        """
+        Get all existing versions, if defined, for an application package.
+        It executes a 'show versions in application package' query and returns all the results.
+        """
+        with self.use_role(self.package_role):
+            show_obj_query = f"show versions in application package {self.package_name}"
+            show_obj_cursor = self._execute_query(show_obj_query)
+
+            if show_obj_cursor.rowcount is None:
+                raise SnowflakeSQLExecutionError(show_obj_query)
+
+            return show_obj_cursor
 
     def get_existing_version_info(self, version: str) -> Optional[dict]:
-        return ApplicationPackageEntity.get_existing_version_info(
+        return ApplicationEntity.get_existing_version_info(
             version=version,
             package_name=self.package_name,
             package_role=self.package_role,
@@ -99,8 +107,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
             cascade_msg = " (cascade)" if cascade else ""
             cc.step(f"Dropping application object {self.app_name}{cascade_msg}.")
             cascade_sql = " cascade" if cascade else ""
-            sql_executor = get_sql_executor()
-            sql_executor.execute_query(f"drop application {self.app_name}{cascade_sql}")
+            self._execute_query(f"drop application {self.app_name}{cascade_sql}")
         except ProgrammingError as err:
             if err.errno == APPLICATION_OWNS_EXTERNAL_OBJECTS and not cascade:
                 # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
@@ -151,11 +158,7 @@ class NativeAppRunProcessor(NativeAppManager, NativeAppCommandProcessor):
     ):
         def deploy_package():
             self.deploy(
-                bundle_map=bundle_map,
-                prune=True,
-                recursive=True,
-                validate=validate,
-                policy=policy,
+                bundle_map=bundle_map, prune=True, recursive=True, validate=validate
             )
 
         def drop_app():

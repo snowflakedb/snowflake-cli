@@ -48,6 +48,15 @@ class ApplicationCreatedExternallyError(ClickException):
         )
 
 
+class UnexpectedOwnerError(ClickException):
+    """An operation is blocked because an object is owned by an unexpected role."""
+
+    def __init__(self, item: str, expected_owner: str, actual_owner: str):
+        super().__init__(
+            f"Cannot operate on {item}: owned by {actual_owner} (expected {expected_owner})"
+        )
+
+
 class MissingScriptError(ClickException):
     """A referenced script was not found."""
 

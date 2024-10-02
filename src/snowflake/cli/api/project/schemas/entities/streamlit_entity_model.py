@@ -20,19 +20,17 @@ from pydantic import Field, model_validator
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     ExternalAccessBaseModel,
-    ImportsBaseModel,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
 )
 
 
-class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseModel):
+class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel):
     type: Literal["streamlit"] = DiscriminatorField()  # noqa: A003
     title: Optional[str] = Field(
         title="Human-readable title for the Streamlit dashboard", default=None
     )
-    comment: Optional[str] = Field(title="Comment for the Streamlit app", default=None)
     query_warehouse: str = Field(
         title="Snowflake warehouse to host the app", default=None
     )
@@ -51,13 +49,22 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBase
     )
 
     @model_validator(mode="after")
+    def main_file_must_be_in_artifacts(self):
+        if not self.artifacts:
+            return self
+
+        if Path(self.main_file) not in self.artifacts:
+            raise ValueError(
+                f"Specified main file {self.main_file} is not included in artifacts."
+            )
+        return self
+
+    @model_validator(mode="after")
     def artifacts_must_exists(self):
         if not self.artifacts:
             return self
 
         for artifact in self.artifacts:
-            if "*" in artifact.name:
-                continue
             if not artifact.exists():
                 raise ValueError(
                     f"Specified artifact {artifact} does not exist locally."
