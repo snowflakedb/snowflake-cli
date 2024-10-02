@@ -9,23 +9,19 @@ FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VER
 FOR /F "delims=" %%I IN ('git rev-parse %svnRevision%') DO SET REVISION=%%I
 @echo off
 echo CLI_VERSION = %CLI_VERSION%
-echo rev = %REVISION%
+echo REVISION = %REVISION%`
 @echo on
 
-set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/%releaseType%/windows_x86_64/%REVIreleaseType%/windows_x86_64/%REVISION%/
-SION%/
-
-
-REM replace with one from environment
+REM DEBUG
+set REVISION=56041f1f1e5f229265dd28385d87a4e345038efc
 set RELEASE_TYPE=dev
 
-REM DEBUG:
-echo %CLI_VERSION%
-set CLI_VERSION=3.0.0.2
-set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/dev/windows_x86_64/56041f1f1e5f229265dd28385d87a4e345038efc/snowflake-cli-3.0.0.2.zip
+set CLI_ZIP=snowflake-cli-%CLI_VERSION%.zip
+set CLI_MSI=snowflake-cli-%CLI_VERSION%-x86_64.msi
+set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/%releaseType%/windows_x86_64/%REVIreleaseType%/windows_x86_64/%REVISION%/
 
-aws s3 cp %STAGE_URL% . && ^
-7z x snowflake-cli-%CLI_VERSION%.zip && ^
+aws s3 cp %STAGE_URL%/%CLI_ZIP% . && ^
+7z x %CLI_ZIP% && ^
 dir && ^
 signtool sign /debug /sm /t http://timestamp.digicert.com /a dist\snow\snow.exe && ^
 heat.exe dir dist\snow\_internal ^
@@ -47,8 +43,9 @@ light.exe ^
   -ext WixUtilExtension ^
   -cultures:en-us ^
   -loc scripts\packaging\win\snowflake_cli_en-us.wxl ^
-  -out snowflake-cli-%CLI_VERSION%-x86_64.msi ^
+  -out %CLI_MSI% ^
   snowflake_cli.wixobj ^
   snowflake_cli_exitdlg.wixobj ^
   _internal.wixobj && ^
-signtool sign /debug /sm /t http://timestamp.digicert.com /a snowflake-cli-%CLI_VERSION%-x86_64.msi
+signtool sign /debug /sm /t http://timestamp.digicert.com /a %CLI_MSI% && ^
+aws s3 cp %CLI_MSI% %STAGE_URL%/%CLI_MSI%
