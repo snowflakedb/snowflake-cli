@@ -15,8 +15,6 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from typing import List
 from unittest import mock
 
 import pytest
@@ -26,6 +24,8 @@ from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
+
+from tests.nativeapp.factories import PdfV10Factory
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
@@ -39,11 +39,11 @@ def test_napp_project_1(project_definition_files):
     assert project.native_app.application.debug == True
 
 
-@pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
 @mock.patch.dict(os.environ, {"USER": "jsmith"})
-def test_na_minimal_project(project_definition_files: List[Path]):
-    project = load_project(project_definition_files).project_definition
-    assert project.native_app.name == "minimal"
+def test_na_minimal_project(temp_dir):
+    minimal_pdf = PdfV10Factory(native_app__artifacts=["setup.sql", "README.md"])
+    project = load_project([minimal_pdf.path]).project_definition
+    assert project.native_app.name == minimal_pdf.yml["native_app"]["name"]
     assert project.native_app.artifacts == [
         PathMapping(src="setup.sql"),
         PathMapping(src="README.md"),
