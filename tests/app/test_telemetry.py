@@ -16,6 +16,13 @@ import os
 import uuid
 from unittest import mock
 
+import pytest
+import typer
+from click import ClickException
+from snowflake.cli._app.telemetry import _is_cli_exception
+from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import CouldNotUseObjectError
+from snowflake.connector import ProgrammingError
 from snowflake.connector.version import VERSION as DRIVER_VERSION
 
 
@@ -147,3 +154,22 @@ def test_failing_executing_command_sends_telemetry_data(
         and result_command_event["message"]["command_execution_id"]
         == "8a2225b3800c4017a4a9eab941db58fa"
     )
+
+
+@pytest.mark.parametrize(
+    "error,expected",
+    [
+        (ProgrammingError(), False),
+        (ClickException("message"), True),
+        (
+            CouldNotUseObjectError(object_type=ObjectType.WAREHOUSE, name="warehouse"),
+            True,
+        ),
+        (typer.Abort(), True),
+        (typer.Exit(), True),
+        (BrokenPipeError(), True),
+        (RuntimeError(), False),
+    ],
+)
+def test_cli_exception_classification(error: Exception, expected: bool):
+    assert _is_cli_exception(error) == expected

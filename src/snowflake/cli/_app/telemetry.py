@@ -85,6 +85,13 @@ class TelemetryEvent(Enum):
 TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
 
 
+def _is_cli_exception(exception: Exception) -> bool:
+    return issubclass(
+        exception.__class__,
+        (click.ClickException, typer.Exit, typer.Abort, BrokenPipeError),
+    )
+
+
 def _get_additional_exception_information(exception: Exception) -> TelemetryDict:
     additional_info = {}
 
@@ -216,9 +223,7 @@ def log_command_result(execution: ExecutionMetadata):
 @ignore_exceptions()
 def log_command_execution_error(exception: Exception, execution: ExecutionMetadata):
     exception_type: str = type(exception).__name__
-    is_cli_exception: bool = issubclass(
-        exception.__class__, (click.ClickException, typer.Exit, typer.Abort)
-    )
+    is_cli_exception: bool = _is_cli_exception(exception)
     _telemetry.send(
         {
             TelemetryField.KEY_TYPE: TelemetryEvent.CMD_EXECUTION_ERROR.value,
