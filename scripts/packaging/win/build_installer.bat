@@ -22,7 +22,7 @@ set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/dev/windows_
 
 aws s3 cp %STAGE_URL% . && ^
 7z x snowflake-cli-%CLI_VERSION%.zip && ^
-dir
+dir && ^
 signtool sign /debug /sm /t http://timestamp.digicert.com /a dist\snow\snow.exe && ^
 heat.exe dir dist\snow\_internal ^
    -gg ^
