@@ -4,7 +4,7 @@
                                                                                   
    Usage: default [OPTIONS] COMMAND [ARGS]...                                     
                                                                                   
-   Snowflake CLI tool for developers.                                             
+   Snowflake CLI tool for developers [v0.0.0-test_patched]                        
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --version                           Shows version of the Snowflake CLI       |
@@ -490,31 +490,6 @@
                                                                                   
    *** Deprecated. Use snow init instead ***                                      
    Initializes a Snowflake Native App project.                                    
-                                                                                  
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels info    |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels debug   |
-  |                                  and higher; debug logs contains additional  |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[app.list-templates]
-  '''
-                                                                                  
-   Usage: default app list-templates [OPTIONS]                                    
-                                                                                  
-   Prints information regarding the official templates that can be used with snow 
-   app init.                                                                      
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -9345,7 +9320,7 @@
                                                                                   
    Usage: default [OPTIONS] COMMAND [ARGS]...                                     
                                                                                   
-   Snowflake CLI tool for developers.                                             
+   Snowflake CLI tool for developers [v0.0.0-test_patched]                        
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --version                           Shows version of the Snowflake CLI       |
