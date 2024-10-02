@@ -3,6 +3,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from textwrap import dedent
 from typing import Any, Dict, List, Optional
 
 from snowflake.cli._plugins.stage.manager import StageManager
@@ -152,7 +153,7 @@ def _generate_spec(
     # TODO: Add local volume for ephemeral artifacts
 
     # Mount 30% of memory limit as a memory-backed volume
-    memory_volume_name = "memory-volume"
+    memory_volume_name = "dshm"
     memory_volume_size = min(
         round(image_spec.resource_limits.memory * 0.3),
         image_spec.resource_requests.memory,
@@ -275,27 +276,29 @@ def _generate_launch_script(entrypoint: str) -> str:
     assert entrypoint.endswith(
         ".py"
     ), f"Launch script only supports Python entrypoints! Got: {entrypoint}"
-    return f"""
-#!/bin/bash
+    return dedent(
+        f"""
+        #!/bin/bash
 
-# Exit immediately if a command exits with a non-zero status
-set -e
+        # Exit immediately if a command exits with a non-zero status
+        set -e
 
-# Get the directory of the script
-SCRIPT_DIR="$( dirname "$0" )"
+        # Get the directory of the script
+        SCRIPT_DIR="$( dirname "$0" )"
 
-# Check if requirements.txt exists and install if found
-if [ -f "$SCRIPT_DIR/requirements.txt" ]; then
-    pip install --no-cache-dir --quiet -r "$SCRIPT_DIR/requirements.txt"
-    if [ $? -ne 0 ]; then
-        echo "Failed to install requirements"
-        exit 1
-    fi
-fi
+        # Check if requirements.txt exists and install if found
+        if [ -f "$SCRIPT_DIR/requirements.txt" ]; then
+            pip install --no-cache-dir --quiet -r "$SCRIPT_DIR/requirements.txt"
+            if [ $? -ne 0 ]; then
+                echo "Failed to install requirements"
+                exit 1
+            fi
+        fi
 
-# Execute the Python script
-python "$SCRIPT_DIR/{entrypoint}"
-"""
+        # Execute the Python script
+        python "$SCRIPT_DIR/{entrypoint}"
+        """
+    )
 
 
 def prepare_spec(

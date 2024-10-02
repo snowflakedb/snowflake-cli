@@ -87,9 +87,9 @@ PayloadPathArgument = typer.Argument(
 def _payload_entrypoint_callback(
     ctx: Context, entrypoint: Optional[Path]
 ) -> Optional[Path]:
-    payload_path = Path(ctx.params["payload_path"])
-
     # Infer entrypoint from payload
+    # TODO: Check if entrypoint is specified in custom spec
+    payload_path = Path(ctx.params["payload_path"])
     if payload_path.is_file():
         return payload_path
     elif entrypoint is None:
@@ -97,11 +97,8 @@ def _payload_entrypoint_callback(
             f"Entrypoint is required when payload is not a single file."
         )
 
-    # Resolve relative path entrypoints
-    if not entrypoint.is_absolute():
-        entrypoint = payload_path.joinpath(entrypoint)
-
     # Validate entrypoint value
+    entrypoint = payload_path.joinpath(entrypoint)  # Resolve relative path entrypoints
     if not entrypoint.is_file():
         raise ClickException(
             f"Invalid value for entrypoint. File '{entrypoint}' does not exist."
