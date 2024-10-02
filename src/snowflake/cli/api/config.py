@@ -130,12 +130,21 @@ def config_init(config_file: Optional[Path]):
     create_initial_loggers()
 
 
-def add_connection(name: str, connection_config: ConnectionConfig):
-    set_config_value(
-        section=CONNECTIONS_SECTION,
-        key=name,
-        value=connection_config.to_dict_of_all_non_empty_values(),
-    )
+def add_connection_to_proper_file(name: str, connection_config: ConnectionConfig):
+    if CONNECTIONS_FILE.exists():
+        existing_connections = _read_connections_toml()
+        existing_connections.update(
+            {name: connection_config.to_dict_of_all_non_empty_values()}
+        )
+        _update_connections_toml(existing_connections)
+        return CONNECTIONS_FILE
+    else:
+        set_config_value(
+            section=CONNECTIONS_SECTION,
+            key=name,
+            value=connection_config.to_dict_of_all_non_empty_values(),
+        )
+        return CONFIG_MANAGER.file_path
 
 
 _DEFAULT_LOGS_CONFIG = {
@@ -359,3 +368,13 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
             return "UNKNOWN"
 
     return {k: _bool_or_unknown(v) for k, v in flags.items()}
+
+
+def _read_connections_toml() -> dict:
+    with open(CONNECTIONS_FILE, "r") as f:
+        return tomlkit.loads(f.read()).unwrap()
+
+
+def _update_connections_toml(connections: dict):
+    with open(CONNECTIONS_FILE, "w") as f:
+        f.write(tomlkit.dumps(connections))

@@ -1,10 +1,16 @@
+from __future__ import annotations
+
+import time
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
-from typing import Callable, List, Optional, TypedDict
+from typing import Callable, Generator, List, Literal, Optional, TypedDict
 
 import typer
 from click import ClickException, UsageError
+from pydantic import Field, field_validator
+from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -15,12 +21,15 @@ from snowflake.cli._plugins.nativeapp.constants import (
     COMMENT_COL,
     NAME_COL,
     OWNER_COL,
-    PATCH_COL,
     SPECIAL_COMMENT,
-    VERSION_COL,
+)
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntity,
+    ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
+    NoEventTableForAccount,
 )
 from snowflake.cli._plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
@@ -31,18 +40,13 @@ from snowflake.cli._plugins.nativeapp.policy import (
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
-from snowflake.cli._plugins.nativeapp.utils import (
-    needs_confirmation,
-)
+from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.abc import AbstractConsole
-from snowflake.cli.api.entities.application_package_entity import (
-    ApplicationPackageEntity,
-)
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
-    ensure_correct_owner,
     execute_post_deploy_hooks,
     generic_sql_error_handler,
     print_messages,
@@ -54,22 +58,21 @@ from snowflake.cli.api.errno import (
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
     ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
-from snowflake.cli.api.project.schemas.entities.application_entity_model import (
-    ApplicationEntityModel,
+from snowflake.cli.api.metrics import CLICounterField
+from snowflake.cli.api.project.schemas.entities.common import (
+    EntityModelBase,
+    Identifier,
+    PostDeployHook,
+    TargetField,
 )
-from snowflake.cli.api.project.schemas.entities.application_package_entity_model import (
-    ApplicationPackageEntityModel,
-)
-from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
+from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 from snowflake.cli.api.project.util import (
+    append_test_resource_suffix,
     extract_schema,
-    identifier_to_show_like_pattern,
+    identifier_for_url,
     unquote_identifier,
 )
-from snowflake.cli.api.utils.cursor import find_all_rows
-from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor
+from snowflake.connector import DictCursor, ProgrammingError
 
 # Reasons why an `alter application ... upgrade` might fail
 UPGRADE_RESTRICTION_CODES = {
@@ -81,6 +84,31 @@ UPGRADE_RESTRICTION_CODES = {
 }
 
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
+
+
+class ApplicationEntityModel(EntityModelBase):
+    type: Literal["application"] = DiscriminatorField()  # noqa A003
+    from_: TargetField[ApplicationPackageEntityModel] = Field(
+        alias="from",
+        title="An application package this entity should be created from",
+    )
+    debug: Optional[bool] = Field(
+        title="Whether to enable debug mode when using a named stage to create an application object",
+        default=None,
+    )
+
+    @field_validator("identifier")
+    @classmethod
+    def append_test_resource_suffix_to_identifier(
+        cls, input_value: Identifier | str
+    ) -> Identifier | str:
+        identifier = (
+            input_value.name if isinstance(input_value, Identifier) else input_value
+        )
+        with_suffix = append_test_resource_suffix(identifier)
+        if isinstance(input_value, Identifier):
+            return input_value.model_copy(update=dict(name=with_suffix))
+        return with_suffix
 
 
 class ApplicationEntity(EntityBase[ApplicationEntityModel]):
@@ -108,9 +136,9 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         app_name = model.fqn.identifier
         debug_mode = model.debug
         if model.meta:
-            app_role = getattr(model.meta, "role", ctx.default_role)
-            app_warehouse = getattr(model.meta, "warehouse", ctx.default_warehouse)
-            post_deploy_hooks = getattr(model.meta, "post_deploy", None)
+            app_role = model.meta.role or ctx.default_role
+            app_warehouse = model.meta.warehouse or ctx.default_warehouse
+            post_deploy_hooks = model.meta.post_deploy
         else:
             app_role = ctx.default_role
             app_warehouse = ctx.default_warehouse
@@ -147,6 +175,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 paths=[],
                 validate=validate,
                 stage_fqn=stage_fqn,
+                interactive=interactive,
+                force=force,
             )
 
         self.deploy(
@@ -221,10 +251,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             )
             return
 
-        # 2. Check for the right owner
-        ensure_correct_owner(row=show_obj_row, role=app_role, obj_name=app_name)
-
-        # 3. Check if created by the Snowflake CLI
+        # 2. Check if created by the Snowflake CLI
         row_comment = show_obj_row[COMMENT_COL]
         if row_comment not in ALLOWED_SPECIAL_COMMENTS and needs_confirmation(
             needs_confirm, auto_yes
@@ -251,7 +278,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 # leave behind an orphan app when we get to dropping the package
                 raise typer.Abort()
 
-        # 4. Check for application objects owned by the application
+        # 3. Check for application objects owned by the application
         # This query will fail if the application package has already been dropped, so handle this case gracefully
         has_objects_to_drop = False
         message_prefix = ""
@@ -329,7 +356,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             # If there's nothing to drop, set cascade to an explicit False value
             cascade = False
 
-        # 5. All validations have passed, drop object
+        # 4. All validations have passed, drop object
         drop_generic_object(
             console=console,
             object_type="application",
@@ -425,7 +452,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         # versioned dev
         if version:
             try:
-                version_exists = cls.get_existing_version_info(
+                version_exists = ApplicationPackageEntity.get_existing_version_info(
                     version=version,
                     package_name=package_name,
                     package_role=package_role,
@@ -537,14 +564,13 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                                 )
 
                         # hooks always executed after a create or upgrade
-                        if post_deploy_hooks:
-                            cls.execute_post_deploy_hooks(
-                                console=console,
-                                project_root=project_root,
-                                post_deploy_hooks=post_deploy_hooks,
-                                app_name=app_name,
-                                app_warehouse=app_warehouse,
-                            )
+                        cls.execute_post_deploy_hooks(
+                            console=console,
+                            project_root=project_root,
+                            post_deploy_hooks=post_deploy_hooks,
+                            app_name=app_name,
+                            app_warehouse=app_warehouse,
+                        )
                         return
 
                     except ProgrammingError as err:
@@ -596,14 +622,13 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     print_messages(console, create_cursor)
 
                     # hooks always executed after a create or upgrade
-                    if post_deploy_hooks:
-                        cls.execute_post_deploy_hooks(
-                            console=console,
-                            project_root=project_root,
-                            post_deploy_hooks=post_deploy_hooks,
-                            app_name=app_name,
-                            app_warehouse=app_warehouse,
-                        )
+                    cls.execute_post_deploy_hooks(
+                        console=console,
+                        project_root=project_root,
+                        post_deploy_hooks=post_deploy_hooks,
+                        app_name=app_name,
+                        app_warehouse=app_warehouse,
+                    )
 
                 except ProgrammingError as err:
                     generic_sql_error_handler(err)
@@ -617,14 +642,19 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         app_name: str,
         app_warehouse: Optional[str],
     ):
-        with cls.use_application_warehouse(app_warehouse):
-            execute_post_deploy_hooks(
-                console=console,
-                project_root=project_root,
-                post_deploy_hooks=post_deploy_hooks,
-                deployed_object_type="application",
-                database_name=app_name,
-            )
+        get_cli_context().metrics.set_counter_default(
+            CLICounterField.POST_DEPLOY_SCRIPTS, 0
+        )
+
+        if post_deploy_hooks:
+            with cls.use_application_warehouse(app_warehouse):
+                execute_post_deploy_hooks(
+                    console=console,
+                    project_root=project_root,
+                    post_deploy_hooks=post_deploy_hooks,
+                    deployed_object_type="application",
+                    database_name=app_name,
+                )
 
     @staticmethod
     @contextmanager
@@ -659,39 +689,190 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 "applications", app_name, name_col=NAME_COL
             )
 
-    @staticmethod
-    def get_existing_version_info(
-        version: str,
+    @classmethod
+    def get_events(
+        cls,
+        app_name: str,
         package_name: str,
-        package_role: str,
-    ) -> Optional[dict]:
-        """
-        Get the latest patch on an existing version by name in the application package.
-        Executes 'show versions like ... in application package' query and returns
-        the latest patch in the version as a single row, if one exists. Otherwise,
-        returns None.
-        """
+        since: str | datetime | None = None,
+        until: str | datetime | None = None,
+        record_types: list[str] | None = None,
+        scopes: list[str] | None = None,
+        consumer_org: str = "",
+        consumer_account: str = "",
+        consumer_app_hash: str = "",
+        first: int = -1,
+        last: int = -1,
+    ):
+
+        record_types = record_types or []
+        scopes = scopes or []
+
+        if first >= 0 and last >= 0:
+            raise ValueError("first and last cannot be used together")
+
+        account_event_table = cls.get_account_event_table()
+        if not account_event_table:
+            raise NoEventTableForAccount()
+
+        # resource_attributes uses the unquoted/uppercase app and package name
+        app_name = unquote_identifier(app_name)
+        package_name = unquote_identifier(package_name)
+        org_name = unquote_identifier(consumer_org)
+        account_name = unquote_identifier(consumer_account)
+
+        # Filter on record attributes
+        if consumer_org and consumer_account:
+            # Look for events shared from a consumer account
+            app_clause = (
+                f"resource_attributes:\"snow.application.package.name\" = '{package_name}' "
+                f"and resource_attributes:\"snow.application.consumer.organization\" = '{org_name}' "
+                f"and resource_attributes:\"snow.application.consumer.name\" = '{account_name}'"
+            )
+            if consumer_app_hash:
+                # If the user has specified a hash of a specific app installation
+                # in the consumer account, filter events to that installation only
+                app_clause += f" and resource_attributes:\"snow.database.hash\" = '{consumer_app_hash.lower()}'"
+        else:
+            # Otherwise look for events from an app installed in the same account as the package
+            app_clause = f"resource_attributes:\"snow.database.name\" = '{app_name}'"
+
+        # Filter on event time
+        if isinstance(since, datetime):
+            since_clause = f"and timestamp >= '{since}'"
+        elif isinstance(since, str) and since:
+            since_clause = f"and timestamp >= sysdate() - interval '{since}'"
+        else:
+            since_clause = ""
+        if isinstance(until, datetime):
+            until_clause = f"and timestamp <= '{until}'"
+        elif isinstance(until, str) and until:
+            until_clause = f"and timestamp <= sysdate() - interval '{until}'"
+        else:
+            until_clause = ""
+
+        # Filter on event type (log, span, span_event)
+        type_in_values = ",".join(f"'{v}'" for v in record_types)
+        types_clause = (
+            f"and record_type in ({type_in_values})" if type_in_values else ""
+        )
+
+        # Filter on event scope (e.g. the logger name)
+        scope_in_values = ",".join(f"'{v}'" for v in scopes)
+        scopes_clause = (
+            f"and scope:name in ({scope_in_values})" if scope_in_values else ""
+        )
+
+        # Limit event count
+        first_clause = f"limit {first}" if first >= 0 else ""
+        last_clause = f"limit {last}" if last >= 0 else ""
+
+        query = dedent(
+            f"""\
+            select * from (
+                select timestamp, value::varchar value
+                from {account_event_table}
+                where ({app_clause})
+                {since_clause}
+                {until_clause}
+                {types_clause}
+                {scopes_clause}
+                order by timestamp desc
+                {last_clause}
+            ) order by timestamp asc
+            {first_clause}
+            """
+        )
         sql_executor = get_sql_executor()
-        with sql_executor.use_role(package_role):
-            try:
-                query = f"show versions like {identifier_to_show_like_pattern(version)} in application package {package_name}"
-                cursor = sql_executor.execute_query(query, cursor_class=DictCursor)
+        try:
+            return sql_executor.execute_query(query, cursor_class=DictCursor).fetchall()
+        except ProgrammingError as err:
+            generic_sql_error_handler(err)
 
-                if cursor.rowcount is None:
-                    raise SnowflakeSQLExecutionError(query)
+    @classmethod
+    def stream_events(
+        cls,
+        app_name: str,
+        package_name: str,
+        interval_seconds: int,
+        since: str | datetime | None = None,
+        record_types: list[str] | None = None,
+        scopes: list[str] | None = None,
+        consumer_org: str = "",
+        consumer_account: str = "",
+        consumer_app_hash: str = "",
+        last: int = -1,
+    ) -> Generator[dict, None, None]:
+        try:
+            events = cls.get_events(
+                app_name=app_name,
+                package_name=package_name,
+                since=since,
+                record_types=record_types,
+                scopes=scopes,
+                consumer_org=consumer_org,
+                consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
+                last=last,
+            )
+            yield from events  # Yield the initial batch of events
+            last_event_time = events[-1]["TIMESTAMP"] if events else None
 
-                matching_rows = find_all_rows(
-                    cursor, lambda row: row[VERSION_COL] == unquote_identifier(version)
+            while True:  # Then infinite poll for new events
+                time.sleep(interval_seconds)
+                previous_events = events
+                events = cls.get_events(
+                    app_name=app_name,
+                    package_name=package_name,
+                    since=last_event_time,
+                    record_types=record_types,
+                    scopes=scopes,
+                    consumer_org=consumer_org,
+                    consumer_account=consumer_account,
+                    consumer_app_hash=consumer_app_hash,
                 )
+                if not events:
+                    continue
 
-                if not matching_rows:
-                    return None
+                yield from _new_events_only(previous_events, events)
+                last_event_time = events[-1]["TIMESTAMP"]
+        except KeyboardInterrupt:
+            return
 
-                return max(matching_rows, key=lambda row: row[PATCH_COL])
+    @staticmethod
+    def get_account_event_table():
+        query = "show parameters like 'event_table' in account"
+        sql_executor = get_sql_executor()
+        results = sql_executor.execute_query(query, cursor_class=DictCursor)
+        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
 
-            except ProgrammingError as err:
-                if err.msg.__contains__("does not exist or not authorized"):
-                    raise ApplicationPackageDoesNotExistError(package_name)
-                else:
-                    generic_sql_error_handler(err=err, role=package_role)
-                    return None
+    @classmethod
+    def get_snowsight_url(cls, app_name: str, app_warehouse: str | None) -> str:
+        """Returns the URL that can be used to visit this app via Snowsight."""
+        name = identifier_for_url(app_name)
+        with cls.use_application_warehouse(app_warehouse):
+            sql_executor = get_sql_executor()
+            return make_snowsight_url(
+                sql_executor._conn, f"/#/apps/application/{name}"  # noqa: SLF001
+            )
+
+
+def _new_events_only(previous_events: list[dict], new_events: list[dict]) -> list[dict]:
+    # The timestamp that overlaps between both sets of events
+    overlap_time = new_events[0]["TIMESTAMP"]
+
+    # Remove all the events from the new result set
+    # if they were already printed. We iterate and remove
+    # instead of filtering in order to handle duplicates
+    # (i.e. if an event is present 3 times in new_events
+    # but only once in previous_events, it should still
+    # appear twice in new_events at the end
+    new_events = new_events.copy()
+    for event in reversed(previous_events):
+        if event["TIMESTAMP"] < overlap_time:
+            break
+        # No need to handle ValueError here since we know
+        # that events that pass the above if check will
+        # either be in both lists or in new_events only
+        new_events.remove(event)
+    return new_events

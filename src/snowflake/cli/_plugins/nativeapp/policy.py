@@ -27,6 +27,9 @@ class PolicyBase(ABC):
     def should_proceed(self, user_prompt: Optional[str]) -> bool:
         pass
 
+    def __eq__(self, value: object) -> bool:
+        return self.__class__ == value.__class__
+
 
 class AllowAlwaysPolicy(PolicyBase):
     """Always allow a Snowflake CLI command to continue execution."""

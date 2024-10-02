@@ -22,7 +22,8 @@ from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tupl
 
 from click.exceptions import ClickException
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
-from snowflake.cli.api.project.schemas.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.util import to_identifier
 from snowflake.cli.api.secure_path import SecurePath
 from yaml import safe_load
 
@@ -734,23 +735,23 @@ def find_setup_script_file(deploy_root: Path) -> Path:
 
 def find_version_info_in_manifest_file(
     deploy_root: Path,
-) -> Tuple[Optional[str], Optional[str]]:
+) -> Tuple[Optional[str], Optional[int]]:
     """
     Find version and patch, if available, in the manifest.yml file.
     """
-    version_field = "version"
     name_field = "name"
     patch_field = "patch"
 
     manifest_content = find_and_read_manifest_file(deploy_root=deploy_root)
 
     version_name: Optional[str] = None
-    patch_name: Optional[str] = None
+    patch_number: Optional[int] = None
 
-    if version_field in manifest_content:
-        version_info = manifest_content[version_field]
-        version_name = version_info[name_field]
+    version_info = manifest_content.get("version", None)
+    if version_info:
+        if name_field in version_info:
+            version_name = to_identifier(str(version_info[name_field]))
         if patch_field in version_info:
-            patch_name = version_info[patch_field]
+            patch_number = int(version_info[patch_field])
 
-    return version_name, patch_name
+    return version_name, patch_number

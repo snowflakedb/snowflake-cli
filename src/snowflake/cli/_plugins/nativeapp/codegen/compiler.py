@@ -34,8 +34,10 @@ from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor impo
     TemplatesProcessor,
 )
 from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.project.schemas.native_app.path_mapping import (
+from snowflake.cli.api.metrics import CLICounterField
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
     ProcessorMapping,
 )
 
@@ -72,6 +74,9 @@ class NativeAppCompiler:
         Go through every artifact object in the project definition of a native app, and execute processors in order of specification for each of the artifact object.
         May have side-effects on the filesystem by either directly editing source files or the deploy root.
         """
+        metrics = get_cli_context().metrics
+        metrics.set_counter_default(CLICounterField.TEMPLATES_PROCESSOR, 0)
+        metrics.set_counter_default(CLICounterField.SNOWPARK_PROCESSOR, 0)
 
         if not self._should_invoke_processors():
             return

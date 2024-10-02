@@ -15,11 +15,23 @@
  -->
 
 # Unreleased version
+## Backward incompatibility
+
+## Deprecations
+* Changing package name from `snowflake-cli-labs` to `snowflake-cli`. `Snowflake-cli-labs` will be pointing to the corresponding version of `snowflake-cli`.
+
+## New additions
+
+
+## Fixes and improvements
+
+
+# v3.0.0
 
 ## Backward incompatibility
 * Dropped support for Python below 3.10 version.
 * `snow object stage` commands are removed in favour of `snow stage`.
-* `snow snowpark init` and `snow streamlit init` commands are removed in favor of `snow init` command.
+* `snow snowpark init`, `snow streamlit init`, and `snow app init` commands are removed in favor of `snow init` command.
 * Removed deprecated flags from `snow snowpark` commands.
 * Default Python version for Snowpark functions and procedures was bumped to 3.10 from 3.8.
 * Snowpark commands
@@ -29,6 +41,8 @@
      every Snowpark stage specified in project definition.
   * The changes are compatible with V1 projects definition though the result state (file layout) is different.
   * `snow snowpark package` commands no longer fallback to Anaconda Channel metadata when fetching available packages info fails.
+  * Added `snow streamlit execute app-name` command to run Streamlit apps in a Snowflake environment in headless mode.
+
 
 ## Deprecations
 * Renamed `private-key-path` flag to `private-key-file`, added `private-key-path` as an alias for backward compatibility.
@@ -39,11 +53,13 @@
 * Added support for external access (api integrations and secrets) in Streamlit.
 * Added support for `<% ... %>` syntax in SQL templating.
 * Support multiple Streamlit application in single snowflake.yml project definition file.
-* Added `snow ws migrate` command to migrate `snowflake.yml` file from V1 to V2.
+* Added `snow helpers v1-to-v2` command to migrate `snowflake.yml` file from V1 to V2.
 * Added `--package-entity-id` and `--app-entity-id` options to `snow app` commands to allow targeting specific entities when the `definition_version` in `snowflake.yml` is `2` or higher and it contains multiple `application package` or `application` entities.
 * Added templates expansion of arbitrary files for Native Apps through `templates` processor.
 * Added `SNOWFLAKE_..._PRIVATE_KEY_RAW` environment variable to pass private key as a raw string.
 * Added periodic check for newest version of Snowflake CLI. When new version is available, user will be notified.
+* Added support for `imports` in Streamlit definition.
+* Add `--host` and `--port` to connection flags.
 
 ## Fixes and improvements
 * Fixed problem with whitespaces in `snow connection add` command.
@@ -54,6 +70,12 @@
 * Fixed SQL error when running `snow app version create` and `snow app version drop` with a version name that isn't a valid Snowflake unquoted identifier
 * Duplicated keys in `snowflake.yml` are now detected and reported.
 * `snow streamlit deploy` will check for existing streamlit instance before deploying anything.
+* Fixed `snow git execute` with `/` in name of the branch.
+* `snow app` commands don't enforce ownership of the objects they manage, and rely on RBAC instead.
+* `snow app deploy` for package entity now allows operating on application packages created outside the CLI
+* Fixes `snow connection add` behavior when `connections.toml` file exists.
+* Add more readable error messages in `snow object create` command.
+
 
 # v2.8.1
 ## Backward incompatibility
@@ -88,7 +110,6 @@
 
 # v2.7.0
 
-# Unreleased version
 ## Backward incompatibility
 
 ## Deprecations

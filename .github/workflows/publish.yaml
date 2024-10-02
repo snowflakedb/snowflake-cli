@@ -25,6 +25,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install hatch
       - name: Build package
-        run: python -m hatch build
+        run: sh ${{ github.workspace }}/.compat/build_snowflake-cli-labs.sh
       - name: Publish package
-        run: python -m hatch publish -u __token__ -a ${{ secrets.PYPI_TOKEN }}
+        run: |
+          cd ${{ github.workspace }}./compat/snowflake-cli-labs/
+          python -m hatch publish -u __token__ -a ${{ secrets.PYPI_TOKEN }}

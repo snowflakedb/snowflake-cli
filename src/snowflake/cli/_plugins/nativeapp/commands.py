@@ -22,14 +22,15 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
+from click.exceptions import ClickException
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
     ValidateOption,
 )
-from snowflake.cli._plugins.nativeapp.init import (
-    OFFICIAL_TEMPLATES_GITHUB_URL,
-    nativeapp_init,
+from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
 from snowflake.cli._plugins.nativeapp.policy import (
@@ -41,11 +42,8 @@ from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli._plugins.nativeapp.teardown_processor import (
     NativeAppTeardownProcessor,
 )
-from snowflake.cli._plugins.nativeapp.utils import (
-    get_first_paragraph_from_markdown_file,
-    shallow_git_clone,
-)
 from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+    find_entity,
     nativeapp_definition_v2_to_v1,
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
@@ -54,22 +52,23 @@ from snowflake.cli._plugins.stage.diff import (
     compute_stage_diff,
 )
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
+from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
-    CollectionResult,
     CommandResult,
     MessageResult,
     ObjectResult,
     StreamResult,
 )
 from snowflake.cli.api.project.project_verification import assert_project_type
-from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.project.schemas.project_definition import ProjectDefinitionV1
 from typing_extensions import Annotated
 
 app = SnowTyperFactory(
@@ -81,86 +80,20 @@ app.add_typer(versions_app)
 log = logging.getLogger(__name__)
 
 
-@app.command("init")
-def app_init(
-    path: str = typer.Argument(
-        ...,
-        help=f"""Directory to be initialized with the Snowflake Native App project. This directory must not already exist.""",
-        show_default=False,
-    ),
-    name: str = typer.Option(
-        None,
-        help=f"""The name of the Snowflake Native App project to include in snowflake.yml. When not specified, it is
-        generated from the name of the directory. Names are assumed to be unquoted identifiers whenever possible, but
-        can be forced to be quoted by including the surrounding quote characters in the provided value.""",
-    ),
-    template_repo: str = typer.Option(
-        None,
-        help=f"""Specifies the git URL to a template repository, which can be a template itself or contain many templates inside it,
-        such as https://github.com/snowflakedb/native-apps-templates.git for all official Snowflake Native App with Snowflake CLI templates.
-        If using a private Github repo, you might be prompted to enter your Github username and password.
-        Please use your personal access token in the password prompt, and refer to
-        https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls for information on currently recommended modes of authentication.""",
-    ),
-    template: str = typer.Option(
-        None,
-        help="A specific template name within the template repo to use as template for the Snowflake Native App project. Example: Default is basic if `--template-repo` is https://github.com/snowflakedb/native-apps-templates.git, and None if any other --template-repo is specified.",
-    ),
-    **options,
-) -> CommandResult:
+@app.command("init", hidden=True)
+def app_init(**options):
     """
+    *** Deprecated. Use snow init instead ***
+
     Initializes a Snowflake Native App project.
     """
-    project = nativeapp_init(
-        path=path, name=name, git_url=template_repo, template=template
-    )
-    return MessageResult(
-        f"Snowflake Native App project {project.name} has been created at: {path}"
-    )
 
-
-@app.command("list-templates", hidden=True)
-def app_list_templates(**options) -> CommandResult:
-    """
-    Prints information regarding the official templates that can be used with snow app init.
-    """
-    with SecurePath.temporary_directory() as temp_path:
-        from git import rmtree as git_rmtree
-
-        repo = shallow_git_clone(OFFICIAL_TEMPLATES_GITHUB_URL, temp_path.path)
-
-        # Mark a directory as a template if a project definition jinja template is inside
-        template_directories = [
-            entry.name
-            for entry in repo.head.commit.tree
-            if (temp_path / entry.name / "snowflake.yml.jinja").exists()
-        ]
-
-        # get the template descriptions from the README.md in its directory
-        template_descriptions = [
-            get_first_paragraph_from_markdown_file(
-                (temp_path / directory / "README.md").path
-            )
-            for directory in template_directories
-        ]
-
-        result = (
-            {"template": directory, "description": description}
-            for directory, description in zip(
-                template_directories, template_descriptions
-            )
-        )
-
-        # proactively clean up here to avoid permission issues on Windows
-        repo.close()
-        git_rmtree(temp_path.path)
-
-        return CollectionResult(result)
+    raise ClickException("This command has been removed. Use `snow init` instead.")
 
 
 @app.command("bundle")
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1()
 def app_bundle(
     **options,
 ) -> CommandResult:
@@ -181,7 +114,7 @@ def app_bundle(
 
 @app.command("diff", requires_connection=True, hidden=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1()
 def app_diff(
     **options,
 ) -> CommandResult:
@@ -208,7 +141,7 @@ def app_diff(
 
 @app.command("run", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1(app_required=True)
 def app_run(
     version: Optional[str] = typer.Option(
         None,
@@ -272,7 +205,7 @@ def app_run(
 
 @app.command("open", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1(app_required=True)
 def app_open(
     **options,
 ) -> CommandResult:
@@ -299,7 +232,9 @@ def app_open(
 
 @app.command("teardown", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+# This command doesn't use @nativeapp_definition_v2_to_v1 because it needs to
+# be aware of PDFv2 definitions that have multiple apps created from the same package,
+# which all need to be torn down.
 def app_teardown(
     force: Optional[bool] = ForceOption,
     cascade: Optional[bool] = typer.Option(
@@ -308,26 +243,70 @@ def app_teardown(
         show_default=False,
     ),
     interactive: bool = InteractiveOption,
+    # Same as the param auto-added by @nativeapp_definition_v2_to_v1
+    package_entity_id: Optional[str] = typer.Option(
+        default="",
+        help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
+    ),
     **options,
 ) -> CommandResult:
     """
     Attempts to drop both the application object and application package as defined in the project definition file.
     """
-
-    assert_project_type("native_app")
-
     cli_context = get_cli_context()
-    processor = NativeAppTeardownProcessor(
-        project_definition=cli_context.project_definition.native_app,
-        project_root=cli_context.project_root,
-    )
-    processor.process(interactive, force, cascade)
+    project = cli_context.project_definition
+    if isinstance(project, ProjectDefinitionV1):
+        # Old behaviour, not multi-app aware so we can use the old processor
+        processor = NativeAppTeardownProcessor(
+            project_definition=cli_context.project_definition.native_app,
+            project_root=cli_context.project_root,
+        )
+        processor.process(interactive, force, cascade)
+    else:
+        # New behaviour, multi-app aware so teardown all the apps created from the package
+
+        # Determine the package entity to drop, there must be one
+        app_package_entity = find_entity(
+            project,
+            ApplicationPackageEntityModel,
+            package_entity_id,
+            disambiguation_option="--package-entity-id",
+            required=True,
+        )
+        assert app_package_entity is not None  # satisfy mypy
+
+        # Same implementation as `snow ws drop`
+        ws = WorkspaceManager(
+            project_definition=cli_context.project_definition,
+            project_root=cli_context.project_root,
+        )
+        for app_entity in project.get_entities_by_type(
+            ApplicationEntityModel.get_type()
+        ).values():
+            # Drop each app
+            if app_entity.from_.target == app_package_entity.entity_id:
+                ws.perform_action(
+                    app_entity.entity_id,
+                    EntityActions.DROP,
+                    force_drop=force,
+                    interactive=interactive,
+                    cascade=cascade,
+                )
+        # Then drop the package
+        ws.perform_action(
+            app_package_entity.entity_id,
+            EntityActions.DROP,
+            force_drop=force,
+            interactive=interactive,
+            cascade=cascade,
+        )
+
     return MessageResult(f"Teardown is now complete.")
 
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1()
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
@@ -350,6 +329,8 @@ def app_deploy(
             unspecified, the command syncs all local changes to the stage."""
         ).strip(),
     ),
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
     validate: bool = ValidateOption,
     **options,
 ) -> CommandResult:
@@ -359,6 +340,13 @@ def app_deploy(
     """
 
     assert_project_type("native_app")
+
+    if force:
+        policy = AllowAlwaysPolicy()
+    elif interactive:
+        policy = AskAlwaysPolicy()
+    else:
+        policy = DenyAlwaysPolicy()
 
     has_paths = paths is not None and len(paths) > 0
     if prune is None and recursive is None and not has_paths:
@@ -386,6 +374,7 @@ def app_deploy(
         recursive=recursive,
         local_paths_to_sync=paths,
         validate=validate,
+        policy=policy,
     )
 
     return MessageResult(
@@ -395,8 +384,10 @@ def app_deploy(
 
 @app.command("validate", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
-def app_validate(**options):
+@nativeapp_definition_v2_to_v1()
+def app_validate(
+    **options,
+):
     """
     Validates a deployed Snowflake Native App's setup script.
     """
@@ -428,7 +419,7 @@ DEFAULT_EVENT_FOLLOW_LAST = 20
 
 @app.command("events", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1
+@nativeapp_definition_v2_to_v1(app_required=True)
 def app_events(
     since: str = typer.Option(
         default="",

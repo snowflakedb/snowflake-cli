@@ -46,7 +46,7 @@ class _VersionCache:
     def _get_version_from_pypi() -> str | None:
         headers = {"Content-Type": "application/vnd.pypi.simple.v1+json"}
         response = requests.get(
-            "https://pypi.org/pypi/snowflake-cli-labs/json", headers=headers, timeout=3
+            "https://pypi.org/pypi/snowflake-cli/json", headers=headers, timeout=3
         )
         response.raise_for_status()
         return response.json()["info"]["version"]
