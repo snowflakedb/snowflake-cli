@@ -34,6 +34,7 @@ from snowflake.cli._plugins.nativeapp.constants import (
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
+    DistributionAttributeNotFoundError,
     NoEventTableForAccount,
     SetupScriptFailedValidation,
 )
@@ -50,7 +51,10 @@ from snowflake.cli.api.entities.utils import _get_stage_paths_to_sync
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
 )
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.exceptions import (
+    DoesNotExistOrUnauthorizedError,
+    SnowflakeSQLExecutionError,
+)
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
@@ -212,7 +216,6 @@ Use the --prune flag to delete them from the stage."""
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_cursor):
-
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -253,7 +256,6 @@ def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_curs
 def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     mock_execute, temp_dir, mock_cursor
 ):
-
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -262,9 +264,8 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
             ),
             (None, mock.call("use role package_role")),
             (
-                ProgrammingError(
+                DoesNotExistOrUnauthorizedError(
                     msg="Application package app_pkg does not exist or not authorized.",
-                    errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
                 ),
                 mock.call("describe application package app_pkg"),
             ),
@@ -281,7 +282,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     )
 
     native_app_manager = _get_na_manager()
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(DoesNotExistOrUnauthorizedError):
         native_app_manager.get_app_pkg_distribution_in_snowflake
 
     assert mock_execute.mock_calls == expected
@@ -291,7 +292,6 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
 def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
     mock_execute, temp_dir, mock_cursor
 ):
-
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -323,7 +323,6 @@ def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
 def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     mock_execute, temp_dir, mock_cursor
 ):
-
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -348,7 +347,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     )
 
     native_app_manager = _get_na_manager()
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(DistributionAttributeNotFoundError):
         native_app_manager.get_app_pkg_distribution_in_snowflake
 
     assert mock_execute.mock_calls == expected
@@ -356,7 +355,6 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
 
 @mock_get_app_pkg_distribution_in_sf()
 def test_is_app_pkg_distribution_same_in_sf_w_arg(mock_mismatch, temp_dir):
-
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",

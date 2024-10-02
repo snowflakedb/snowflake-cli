@@ -23,10 +23,11 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     MissingScriptError,
 )
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import (
-    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
+from snowflake.cli.api.exceptions import CouldNotUseObjectError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 
@@ -293,10 +294,7 @@ def test_package_scripts_w_warehouse_access_exception(
             ],
             [],
         ),
-        ProgrammingError(
-            msg="Object does not exist, or operation cannot be performed.",
-            errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
-        ),
+        CouldNotUseObjectError(object_type=ObjectType.WAREHOUSE, name="MockWarehouse"),
         None,
     ]
 
@@ -306,10 +304,10 @@ def test_package_scripts_w_warehouse_access_exception(
     working_dir: Path = project_definition_files[0].parent
     native_app_manager = _get_na_manager(str(working_dir))
 
-    with pytest.raises(ProgrammingError) as err:
+    with pytest.raises(CouldNotUseObjectError) as err:
         native_app_manager._apply_package_scripts()  # noqa: SLF001
 
     assert (
         "Could not use warehouse MockWarehouse. Object does not exist, or operation cannot be performed."
-        in err.value.msg
+        in err.value.message
     )

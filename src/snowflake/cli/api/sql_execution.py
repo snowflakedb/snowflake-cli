@@ -93,9 +93,9 @@ class SqlExecutor:
     def use(self, object_type: ObjectType, name: str):
         try:
             self._execute_query(f"use {object_type.value.sf_name} {name}")
-        except ProgrammingError:
+        except ProgrammingError as err:
             # Rewrite the error to make the message more useful.
-            raise CouldNotUseObjectError(object_type=object_type, name=name)
+            raise CouldNotUseObjectError(object_type=object_type, name=name) from err
 
     def current_role(self) -> str:
         return self._execute_query(f"select current_role()").fetchone()[0]

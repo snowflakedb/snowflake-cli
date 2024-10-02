@@ -52,11 +52,11 @@ def generic_sql_error_handler(
     if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
         raise WarehouseDoesNotExistOrRoleUnauthorizedError(
             warehouse=warehouse, role=role, msg=err.msg
-        )
+        ) from err
     elif err.errno == NO_WAREHOUSE_SELECTED_IN_SESSION:
-        raise NoWarehouseSelectedInSessionError(msg=err.msg)
+        raise NoWarehouseSelectedInSessionError(msg=err.msg) from err
     elif "does not exist or not authorized" in err.msg:
-        raise DoesNotExistOrUnauthorizedError(msg=err.msg)
+        raise DoesNotExistOrUnauthorizedError(msg=err.msg) from err
     raise err
 
 

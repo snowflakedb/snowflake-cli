@@ -40,13 +40,16 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.stage.diff import DiffResult
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
     CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
-    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     INSUFFICIENT_PRIVILEGES,
-    NO_WAREHOUSE_SELECTED_IN_SESSION,
+)
+from snowflake.cli.api.exceptions import (
+    CouldNotUseObjectError,
+    NoWarehouseSelectedInSessionError,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
@@ -112,9 +115,8 @@ def test_create_dev_app_w_warehouse_access_exception(
                 mock.call("select current_warehouse()"),
             ),
             (
-                ProgrammingError(
-                    msg="Object does not exist, or operation cannot be performed.",
-                    errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+                CouldNotUseObjectError(
+                    object_type=ObjectType.WAREHOUSE, name="app_warehouse"
                 ),
                 mock.call("use warehouse app_warehouse"),
             ),
@@ -139,7 +141,7 @@ def test_create_dev_app_w_warehouse_access_exception(
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
 
-    with pytest.raises(ProgrammingError) as err:
+    with pytest.raises(CouldNotUseObjectError) as err:
         run_processor.create_or_upgrade_app(
             policy=MagicMock(),
             install_method=SameAccountInstallMethod.unversioned_dev(),
@@ -148,7 +150,7 @@ def test_create_dev_app_w_warehouse_access_exception(
     assert mock_execute.mock_calls == expected
     assert (
         "Could not use warehouse app_warehouse. Object does not exist, or operation cannot be performed."
-        in err.value.msg
+        in err.value.message
     )
 
 
@@ -401,9 +403,8 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
-                ProgrammingError(
-                    msg="No active warehouse selected in the current session",
-                    errno=NO_WAREHOUSE_SELECTED_IN_SESSION,
+                NoWarehouseSelectedInSessionError(
+                    msg="No active warehouse selected in the current session"
                 ),
                 mock.call(
                     dedent(
@@ -434,13 +435,13 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
     run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
 
-    with pytest.raises(ProgrammingError) as err:
+    with pytest.raises(NoWarehouseSelectedInSessionError) as err:
         run_processor.create_or_upgrade_app(
             policy=MagicMock(),
             install_method=SameAccountInstallMethod.unversioned_dev(),
         )
 
-    assert "Please provide a warehouse for the active session role" in err.value.msg
+    assert "Please provide a warehouse for the active session role" in err.value.message
     assert mock_execute.mock_calls == expected
 
 
@@ -705,9 +706,8 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (
-                ProgrammingError(
-                    msg="No active warehouse selected in the current session",
-                    errno=NO_WAREHOUSE_SELECTED_IN_SESSION,
+                NoWarehouseSelectedInSessionError(
+                    msg="No active warehouse selected in the current session"
                 ),
                 mock.call(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
@@ -731,14 +731,14 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
     run_processor = _get_na_run_processor()
     assert mock_diff_result.has_changes()
 
-    with pytest.raises(ProgrammingError) as err:
+    with pytest.raises(NoWarehouseSelectedInSessionError) as err:
         run_processor.create_or_upgrade_app(
             policy=MagicMock(),
             install_method=SameAccountInstallMethod.unversioned_dev(),
         )
 
     assert mock_execute.mock_calls == expected
-    assert "Please provide a warehouse for the active session role" in err.value.msg
+    assert "Please provide a warehouse for the active session role" in err.value.message
 
 
 # Test create_dev_app with no existing application AND quoted name scenario 1
@@ -1218,9 +1218,8 @@ def test_upgrade_app_warehouse_error(
                 mock.call("select current_warehouse()"),
             ),
             (
-                ProgrammingError(
-                    msg="Object does not exist, or operation cannot be performed.",
-                    errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+                CouldNotUseObjectError(
+                    object_type=ObjectType.WAREHOUSE, name="app_warehouse"
                 ),
                 mock.call("use warehouse app_warehouse"),
             ),
@@ -1242,7 +1241,7 @@ def test_upgrade_app_warehouse_error(
     )
 
     run_processor = _get_na_run_processor()
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(CouldNotUseObjectError):
         run_processor.create_or_upgrade_app(
             policy_param,
             is_interactive=True,
@@ -1784,7 +1783,6 @@ def test_upgrade_app_recreate_app(
 def test_upgrade_app_from_version_throws_usage_error_one(
     mock_existing, policy_param, temp_dir, mock_bundle_map
 ):
-
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -1813,7 +1811,6 @@ def test_upgrade_app_from_version_throws_usage_error_one(
 def test_upgrade_app_from_version_throws_usage_error_two(
     mock_existing, policy_param, temp_dir, mock_bundle_map
 ):
-
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
