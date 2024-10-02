@@ -1,16 +1,20 @@
 @echo on
 
-dir C:\Users\jenkins\AppData\Local\Programs\Python
-
 set PATH=C:\Program Files\7-Zip;C:\Users\jenkins\AppData\Local\Programs\Python\Python38;C:\Users\jenkins\AppData\Local\Programs\Python\Python38\Scripts;C:\Program Files (x86)\WiX Toolset v3.11\bin;%PATH%
-
-REM      |FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION=%%I
-FOR /F "delims=" %%I IN ('git rev-parse %svnRevision%') DO SET REVISION=%%I
-echo rev = %REVISION%
-set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/%releaseType%/windows_x86_64/%REVISION%/
+python.exe -m pip install hatch
 
 python.exe --version
 python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}')"
+FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION=%%I
+FOR /F "delims=" %%I IN ('git rev-parse %svnRevision%') DO SET REVISION=%%I
+@echo off
+echo CLI_VERSION = %CLI_VERSION%
+echo rev = %REVISION%
+@echo on
+
+set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/%releaseType%/windows_x86_64/%REVIreleaseType%/windows_x86_64/%REVISION%/
+SION%/
+
 
 REM replace with one from environment
 set RELEASE_TYPE=dev
