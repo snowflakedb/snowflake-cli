@@ -15,11 +15,13 @@
 from __future__ import annotations
 
 import logging
+from io import StringIO
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Optional
 
 import typer
+import yaml
 from click import MissingParameter
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.nativeapp.common_flags import (
@@ -41,6 +43,24 @@ ws = SnowTyperFactory(
     is_hidden=lambda: True,
 )
 log = logging.getLogger(__name__)
+
+
+@ws.command(requires_connection=False, hidden=True)
+@with_project_definition()
+def dump(**options):
+    """
+    Dumps the project definition.
+    """
+    cli_context = get_cli_context()
+    pd = cli_context.project_definition
+    io = StringIO()
+    yaml.safe_dump(
+        pd.model_dump(mode="json", by_alias=True),
+        io,
+        sort_keys=False,
+        width=float("inf"),  # Don't break lines
+    )
+    return MessageResult(io.getvalue())
 
 
 @ws.command(requires_connection=True, hidden=True)

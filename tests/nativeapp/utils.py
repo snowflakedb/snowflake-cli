@@ -24,6 +24,8 @@ from snowflake.cli._plugins.nativeapp.project_model import (
 )
 from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
 
+from tests.nativeapp.factories import ProjectV10Factory
+
 NATIVEAPP_MODULE = "snowflake.cli._plugins.nativeapp.manager"
 TEARDOWN_MODULE = "snowflake.cli._plugins.nativeapp.teardown_processor"
 TYPER_CONFIRM = "typer.confirm"
@@ -206,4 +208,101 @@ def create_native_app_project_model(
     return NativeAppProjectModel(
         project_definition=project_definition,
         project_root=project_root,
+    )
+
+
+# POC to replicate tests/test_data/projects/integration sample project
+def use_integration_project():
+    package_script_1 = dedent(
+        """\
+        -- package script (1/2)
+
+        create schema if not exists {{ package_name }}.my_shared_content;
+        grant usage on schema {{ package_name }}.my_shared_content
+        to share in application package {{ package_name }};
+        """
+    )
+    package_script_2 = dedent(
+        """\
+        -- package script (2/2)
+
+        create or replace table {{ package_name }}.my_shared_content.shared_table (
+        col1 number,
+        col2 varchar
+        );
+
+        insert into {{ package_name }}.my_shared_content.shared_table (col1, col2)
+        values (1, 'hello');
+
+        grant select on table {{ package_name }}.my_shared_content.shared_table
+        to share in application package {{ package_name }};
+        """
+    )
+    setup_script = dedent(
+        """\
+        create application role if not exists app_public;
+        create or alter versioned schema core;
+
+            create or replace procedure core.echo(inp varchar)
+            returns varchar
+            language sql
+            immutable
+            as
+            $$
+            begin
+                return inp;
+            end;
+            $$;
+
+            grant usage on procedure core.echo(varchar) to application role app_public;
+
+            create or replace view core.shared_view as select * from my_shared_content.shared_table;
+
+            grant select on view core.shared_view to application role app_public;
+    """
+    )
+    readme_contents = dedent(
+        """\
+        # README
+
+        This directory contains an extremely simple application that is used for
+        integration testing SnowCLI.
+    """
+    )
+
+    # TODO: create a factory for manifest
+    manifest_contents = dedent(
+        """\
+        manifest_version: 1
+
+        version:
+          name: dev
+          label: "Dev Version"
+          comment: "Default version used for development. Override for actual deployment."
+
+        artifacts:
+          setup_script: setup.sql
+          readme: README.md
+
+        configuration:
+          log_level: INFO
+          trace_level: ALWAYS
+    """
+    )
+    ProjectV10Factory(
+        pdf__native_app__name="integration",
+        pdf__native_app__artifacts=[
+            {"src": "app/*", "dest": "./"},
+        ],
+        pdf__native_app__package__scripts=[
+            "package/001-shared.sql",
+            "package/002-shared.sql",
+        ],
+        files={
+            "package/001-shared.sql": package_script_1,
+            "package/002-shared.sql": package_script_2,
+            "app/setup.sql": setup_script,
+            "app/README.md": readme_contents,
+            "app/manifest.yml": manifest_contents,
+        },
     )

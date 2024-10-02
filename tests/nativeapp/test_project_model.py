@@ -17,7 +17,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from textwrap import dedent
-from typing import List
 from unittest import mock
 
 import pytest
@@ -34,19 +33,25 @@ from snowflake.cli.api.project.schemas.project_definition import (
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 
+from tests.nativeapp.factories import PdfV10Factory
+
 CURRENT_ROLE = "current_role"
 
 
-@pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
+@pytest.fixture
+def minimal_project_definition(temp_dir):
+    pdf_res = PdfV10Factory(native_app__artifacts=["setup.sql", "README.md"])
+    return pdf_res.yml, pdf_res.path
+
+
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 @mock.patch.dict(os.environ, {"USER": "test_user"}, clear=True)
-def test_project_model_all_defaults(
-    mock_connect, project_definition_files: List[Path], mock_ctx
-):
+def test_project_model_all_defaults(mock_connect, mock_ctx, minimal_project_definition):
     ctx = mock_ctx()
     mock_connect.return_value = ctx
-
-    project_defn = load_project(project_definition_files).project_definition
+    minimal_yml, pdf_path = minimal_project_definition
+    name = minimal_yml["native_app"]["name"]
+    project_defn = load_project([pdf_path]).project_definition
 
     project_dir = Path().resolve()
     project = NativeAppProjectModel(
@@ -64,25 +69,24 @@ def test_project_model_all_defaults(
     assert project.deploy_root == project_dir / "output/deploy"
     assert project.generated_root == project_dir / "output/deploy/__generated"
     assert project.package_scripts == []
-    assert project.project_identifier == "minimal"
-    assert project.package_name == "minimal_pkg_test_user"
-    assert project.stage_fqn == "minimal_pkg_test_user.app_src.stage"
+    assert project.project_identifier == name
+    assert project.package_name == f"{name}_pkg_test_user"
+    assert project.stage_fqn == f"{name}_pkg_test_user.app_src.stage"
     assert (
         project.scratch_stage_fqn
-        == "minimal_pkg_test_user.app_src.stage_snowflake_cli_scratch"
+        == f"{name}_pkg_test_user.app_src.stage_snowflake_cli_scratch"
     )
     assert project.stage_schema == "app_src"
     assert project.package_warehouse == "MockWarehouse"
     assert project.application_warehouse == "MockWarehouse"
     assert project.package_role == "MockRole"
     assert project.package_distribution == "internal"
-    assert project.app_name == "minimal_test_user"
+    assert project.app_name == f"{name}_test_user"
     assert project.app_role == "MockRole"
     assert project.app_post_deploy_hooks is None
     assert project.debug_mode is None
 
 
-@pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 @mock.patch.dict(
     os.environ,
@@ -90,12 +94,14 @@ def test_project_model_all_defaults(
     clear=True,
 )
 def test_project_model_default_package_app_name_with_suffix(
-    mock_connect, project_definition_files: List[Path], mock_ctx
+    mock_connect, mock_ctx, minimal_project_definition
 ):
     ctx = mock_ctx()
     mock_connect.return_value = ctx
+    minimal_project, project_path = minimal_project_definition
+    name = minimal_project["native_app"]["name"]
 
-    project_defn = load_project(project_definition_files).project_definition
+    project_defn = load_project([project_path]).project_definition
 
     project_dir = Path().resolve()
     project = NativeAppProjectModel(
@@ -103,8 +109,8 @@ def test_project_model_default_package_app_name_with_suffix(
         project_root=project_dir,
     )
 
-    assert project.package_name == '"minimal_pkg_test_user_suffix!"'
-    assert project.app_name == '"minimal_test_user_suffix!"'
+    assert project.package_name == f'"{name}_pkg_test_user_suffix!"'
+    assert project.app_name == f'"{name}_test_user_suffix!"'
 
 
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
@@ -112,7 +118,6 @@ def test_project_model_default_package_app_name_with_suffix(
 def test_project_model_all_explicit(mock_connect, mock_ctx):
     ctx = mock_ctx()
     mock_connect.return_value = ctx
-
     project_defition_file_yml = dedent(
         f"""
         definition_version: 1.1
@@ -181,16 +186,13 @@ def test_project_model_all_explicit(mock_connect, mock_ctx):
     assert project.debug_mode is False
 
 
-@pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 @mock.patch.dict(
     os.environ,
     {"USER": "test_user", TEST_RESOURCE_SUFFIX_VAR: "_suffix!"},
     clear=True,
 )
-def test_project_model_explicit_package_app_name_with_suffix(
-    mock_connect, project_definition_files: List[Path], mock_ctx
-):
+def test_project_model_explicit_package_app_name_with_suffix(mock_connect, mock_ctx):
     ctx = mock_ctx()
     mock_connect.return_value = ctx
 
@@ -236,16 +238,15 @@ def test_project_model_explicit_package_app_name_with_suffix(
     assert project.app_name == '"minimal_test_app_suffix!"'
 
 
-@pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
 @mock.patch.dict(os.environ, {"USER": "test_user"}, clear=True)
 def test_project_model_falls_back_to_current_role(
-    mock_connect, project_definition_files: List[Path], mock_ctx, mock_cursor
+    mock_connect, mock_ctx, mock_cursor, minimal_project_definition
 ):
     ctx = mock_ctx(cursor=mock_cursor([(CURRENT_ROLE,)], []), role=None)
     mock_connect.return_value = ctx
-
-    project_defn = load_project(project_definition_files).project_definition
+    _, pdf_path = minimal_project_definition
+    project_defn = load_project([pdf_path]).project_definition
 
     project_dir = Path().resolve()
     project = NativeAppProjectModel(
@@ -257,9 +258,10 @@ def test_project_model_falls_back_to_current_role(
     assert project.package_role == CURRENT_ROLE
 
 
-@pytest.mark.parametrize("project_definition_files", ["minimal"], indirect=True)
-def test_bundle_context_from_project_model(project_definition_files: List[Path]):
-    project_defn = load_project(project_definition_files).project_definition
+def test_bundle_context_from_project_model(minimal_project_definition):
+    _, pdf_path = minimal_project_definition
+    project_defn = load_project([pdf_path]).project_definition
+
     project_dir = Path().resolve()
     project = NativeAppProjectModel(
         project_definition=project_defn.native_app,
