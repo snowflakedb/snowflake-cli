@@ -19,6 +19,7 @@ import glob
 import logging
 import re
 import sys
+import time
 from contextlib import nullcontext
 from dataclasses import dataclass
 from os import path
@@ -90,7 +91,7 @@ class StagePathParts:
         raise NotImplementedError
 
     def get_full_stage_path(self, path: str):
-        if prefix := FQN.from_stage(self.stage).prefix:
+        if prefix := FQN.from_stage_path(self.stage).prefix:
             return prefix + "." + path
         return path
 
@@ -332,8 +333,11 @@ class StageManager(SqlExecutionMixin):
             quoted_stage_name = self.quote_stage_name(f"{stage_name}{path}")
             return self._execute_query(f"remove {quoted_stage_name}")
 
-    def create(self, fqn: FQN, comment: Optional[str] = None) -> SnowflakeCursor:
-        query = f"create stage if not exists {fqn.sql_identifier}"
+    def create(
+        self, fqn: FQN, comment: Optional[str] = None, temporary: bool = False
+    ) -> SnowflakeCursor:
+        temporary_str = "temporary" if temporary else ""
+        query = f"create {temporary_str} stage if not exists {fqn.sql_identifier}"
         if comment:
             query += f" comment='{comment}'"
         return self._execute_query(query)
@@ -347,8 +351,13 @@ class StageManager(SqlExecutionMixin):
         stage_path: str,
         on_error: OnErrorType,
         variables: Optional[List[str]] = None,
+        requires_temporary_stage: bool = False,
     ):
-        stage_path_parts = self._stage_path_part_factory(stage_path)
+        if requires_temporary_stage:
+            stage_path_parts = self._create_temporary_copy_of_stage(stage_path)
+        else:
+            stage_path_parts = self._stage_path_part_factory(stage_path)
+
         all_files_list = self._get_files_list_from_stage(stage_path_parts)
 
         all_files_with_stage_name_prefix = [
@@ -370,7 +379,7 @@ class StageManager(SqlExecutionMixin):
 
         parsed_variables = parse_key_value_variables(variables)
         sql_variables = self._parse_execute_variables(parsed_variables)
-        python_variables = {str(v.key): v.value for v in parsed_variables}
+        python_variables = self._parse_python_variables(parsed_variables)
         results = []
 
         if any(file.endswith(".py") for file in sorted_file_path_list):
@@ -395,6 +404,26 @@ class StageManager(SqlExecutionMixin):
             results.append(result)
 
         return results
+
+    def _create_temporary_copy_of_stage(self, stage_path: str) -> StagePathParts:
+        tmp_stage = f"snowflake_cli_tmp_stage_{int(time.time())}"
+        sm = StageManager()
+
+        # Create temporary stage, it will be dropped with end of session
+        sm.create(FQN.from_string(tmp_stage), temporary=True)
+
+        # Rewrite stage paths to temporary stage paths. Git paths become stage paths
+        original_path_parts = self._stage_path_part_factory(stage_path)  # noqa: SLF001
+        stage_path_parts = sm._stage_path_part_factory(  # noqa: SLF001
+            tmp_stage + "/" + original_path_parts.directory
+        )
+
+        # Copy the content
+        self.copy_files(
+            source_path=original_path_parts.stage_name,
+            destination_path=stage_path_parts.stage_name,
+        )
+        return stage_path_parts
 
     def _get_files_list_from_stage(
         self, stage_path_parts: StagePathParts, pattern: str | None = None
@@ -443,6 +472,17 @@ class StageManager(SqlExecutionMixin):
             return None
         query_parameters = [f"{v.key}=>{v.value}" for v in variables]
         return f" using ({', '.join(query_parameters)})"
+
+    @staticmethod
+    def _parse_python_variables(variables: List[Variable]) -> Dict:
+        def _unwrap(s: str):
+            if s.startswith("'") and s.endswith("'"):
+                return s[1:-1]
+            if s.startswith('"') and s.endswith('"'):
+                return s[1:-1]
+            return s
+
+        return {str(v.key): _unwrap(v.value) for v in variables}
 
     @staticmethod
     def _success_result(file: str):

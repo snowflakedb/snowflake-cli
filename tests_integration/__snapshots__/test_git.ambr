@@ -18,6 +18,15 @@
     }),
   ])
 # ---
+# name: test_execute_python
+  list([
+    dict({
+      'Error': None,
+      'File': '@snowflake_cli_tmp_stage_1727969525/tests_integration/test_data/projects/stage_execute/script1.py',
+      'Status': 'SUCCESS',
+    }),
+  ])
+# ---
 # name: test_execute_with_name_in_pascal_case
   list([
     dict({
