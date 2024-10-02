@@ -250,42 +250,44 @@ def _prepare_payload(
         raise FileNotFoundError(f"{source} or {entrypoint} does not exist")
 
     # Upload payload to stage
-    with cli_console.phase(f"Uploading payload to stage {stage_path}"):
-        if source.is_dir():
-            # Filter to only files in source since Snowflake PUT can't handle directories
-            sources = set(
-                p.parent.joinpath(f"*{p.suffix}") if p.suffix else p
-                for p in source.rglob("*")
-                if p.is_file()
-            )
-        else:
-            sources = {source}
-        for path in sources:
-            cli_console.step(
-                f"Uploading {path.resolve()} to {stage_path.joinpath(path.parent.relative_to(source))}"
-            )
+    cli_console.step(f"Uploading payload to stage {stage_path}")
+    if source.is_dir():
+        # Filter to only files in source since Snowflake PUT can't handle directories
+        for path in set(
+            p.parent.joinpath(f"*{p.suffix}") if p.suffix else p
+            for p in source.rglob("*")
+            if p.is_file()
+        ):
             stage_manager.put(
                 str(path.resolve()),
                 str(stage_path.joinpath(path.parent.relative_to(source))),
                 overwrite=True,
                 auto_compress=False,
             )
+    else:
+        stage_manager.put(
+            str(source.resolve()),
+            str(stage_path),
+            overwrite=True,
+            auto_compress=False,
+        )
 
-        # Inject a launch script for pip install if applicable
-        if source.is_dir() and entrypoint.suffix == ".py" and enable_pip:
-            script_content = _generate_launch_script(entrypoint.name).encode(
-                encoding="utf-8"
-            )
-            entrypoint = source.joinpath("startup.sh")
-            cli_console.step(f"Uploading {stage_path.joinpath(entrypoint.name)}")
-            # TODO: Switch to stage_manager native method if/when stream support available
-            stage_manager.snowpark_session.file.put_stream(
-                io.BytesIO(script_content),
-                str(stage_path.joinpath(entrypoint.name)),
-                overwrite=True,
-                auto_compress=False,
-            )
-    cli_console.message("Payload upload complete.")
+    # Inject a launch script for pip install if applicable
+    if source.is_dir() and entrypoint.suffix == ".py" and enable_pip:
+        script_content = _generate_launch_script(entrypoint.name).encode(
+            encoding="utf-8"
+        )
+        entrypoint = source.joinpath("startup.sh")
+        assert (
+            not entrypoint.exists()
+        )  # TODO: Change entrypoint path to avoid collision
+        # TODO: Switch to stage_manager native method if/when stream support available
+        stage_manager.snowpark_session.file.put_stream(
+            io.BytesIO(script_content),
+            str(stage_path.joinpath(entrypoint.name)),
+            overwrite=True,
+            auto_compress=False,
+        )
 
     return entrypoint.relative_to(source)
 
@@ -306,7 +308,7 @@ def _generate_launch_script(entrypoint: str) -> str:
 
         # Check if requirements.txt exists and install if found
         if [ -f "$SCRIPT_DIR/requirements.txt" ]; then
-            pip install --no-cache-dir --quiet -r "$SCRIPT_DIR/requirements.txt"
+            pip install --no-cache-dir -r "$SCRIPT_DIR/requirements.txt"
             if [ $? -ne 0 ]; then
                 echo "Failed to install requirements"
                 exit 1

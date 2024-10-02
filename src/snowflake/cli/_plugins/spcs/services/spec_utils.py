@@ -13,9 +13,11 @@ def load_spec(path: Path) -> Dict[str, Any]:
         return yaml.safe_load(fh)
 
 
-def merge_dicts(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
-    with cli_console.phase("Applying overrides to service specification."):
-        return _merge_dicts(base, override)
+def merge_dicts(
+    base: Dict[str, Any], override: Dict[str, Any], display_name: str = "overrides"
+) -> Dict[str, Any]:
+    cli_console.step(f"Applying {display_name} to service specification.")
+    return _merge_dicts(base, override)
 
 
 def _merge_dicts(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:

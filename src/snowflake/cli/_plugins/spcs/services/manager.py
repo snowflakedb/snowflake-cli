@@ -129,7 +129,9 @@ class ServiceManager(SqlExecutionMixin):
 
         if custom_spec_path:
             spec_overrides = spec_utils.load_spec(custom_spec_path)
-            spec = spec_utils.merge_dicts(spec, spec_overrides)
+            spec = spec_utils.merge_dicts(
+                spec, spec_overrides, display_name=custom_spec_path
+            )
 
         # TODO: Change to new CREATE JOB SERVICE async API
         return self._execute_job(
