@@ -23,7 +23,7 @@ set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/%RELEASE_TYP
 
 cmd /c aws s3 cp %STAGE_URL%/%CLI_ZIP% .
 
-7z x %CLI_ZIP% &&
+7z x %CLI_ZIP%
 
 signtool sign /debug /sm /t http://timestamp.digicert.com /a dist\snow\snow.exe
 
