@@ -18,7 +18,7 @@ set RELEASE_TYPE=dev
 
 set CLI_ZIP=snowflake-cli-%CLI_VERSION%.zip
 set CLI_MSI=snowflake-cli-%CLI_VERSION%-x86_64.msi
-set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/%releaseType%/windows_x86_64/%REVIreleaseType%/windows_x86_64/%REVISION%/
+set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/%releaseType%/windows_x86_64/%REVIreleaseType%/windows_x86_64/%REVISION%
 
 aws s3 cp %STAGE_URL%/%CLI_ZIP% . && ^
 7z x %CLI_ZIP% && ^
