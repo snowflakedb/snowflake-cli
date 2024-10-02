@@ -18,16 +18,14 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
-import yaml
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import (
     NoPropertiesProvidedError,
     handle_object_already_exists,
     strip_empty_lines,
 )
-from snowflake.cli._plugins.spcs.services import job_utils
-from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
-from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli._plugins.spcs.services import job_utils, spec_utils
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
@@ -112,6 +110,7 @@ class ServiceManager(SqlExecutionMixin):
         stage_name: str,  # FIXME: optional?
         payload_path: Path,
         entrypoint: Optional[Path],
+        custom_spec_path: Optional[Path],
         external_access_integrations: Optional[List[str]],
         query_warehouse: Optional[str],
         comment: Optional[str],
@@ -126,11 +125,15 @@ class ServiceManager(SqlExecutionMixin):
             enable_pip=bool(external_access_integrations),
         )
 
+        if custom_spec_path:
+            spec_overrides = spec_utils.load_spec(custom_spec_path)
+            spec = spec_utils.merge_specs(spec, spec_overrides)
+
         # TODO: Change to new CREATE JOB SERVICE async API
         return self._execute_job(
             job_service_name,
             compute_pool,
-            spec,
+            json.dumps(spec),
             external_access_integrations,
             query_warehouse,
             comment,
@@ -175,8 +178,7 @@ class ServiceManager(SqlExecutionMixin):
 
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
-        with SecurePath(path).open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fh:
-            data = yaml.safe_load(fh)
+        data = spec_utils.load_spec(path)
         return json.dumps(data)
 
     def status(self, service_name: str) -> SnowflakeCursor:
