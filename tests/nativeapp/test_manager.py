@@ -46,7 +46,10 @@ from snowflake.cli._plugins.stage.diff import (
     StagePath,
 )
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.utils import _get_stage_paths_to_sync
+from snowflake.cli.api.entities.utils import (
+    _get_stage_paths_to_sync,
+    sync_deploy_root_with_stage,
+)
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
 )
@@ -118,15 +121,19 @@ def test_sync_deploy_root_with_stage(
         contents=[mock_snowflake_yml_file],
     )
 
-    native_app_manager = _get_na_manager()
     assert mock_diff_result.has_changes()
     mock_bundle_map = mock.Mock(spec=BundleMap)
-    native_app_manager.sync_deploy_root_with_stage(
+    deploy_root = Path(temp_dir) / "output" / "deploy"
+    sync_deploy_root_with_stage(
+        console=cc,
+        deploy_root=deploy_root,
+        package_name="app_pkg",
+        stage_schema="app_src",
         bundle_map=mock_bundle_map,
         role="new_role",
         prune=True,
         recursive=True,
-        stage_fqn=native_app_manager.stage_fqn,
+        stage_fqn="app_pkg.app_src.stage",
     )
 
     expected = [
@@ -143,11 +150,11 @@ def test_sync_deploy_root_with_stage(
     ]
     assert mock_execute.mock_calls == expected
     mock_compute_stage_diff.assert_called_once_with(
-        native_app_manager.deploy_root, "app_pkg.app_src.stage"
+        deploy_root, "app_pkg.app_src.stage"
     )
     mock_local_diff_with_stage.assert_called_once_with(
         role="new_role",
-        deploy_root_path=native_app_manager.deploy_root,
+        deploy_root_path=deploy_root,
         diff_result=mock_diff_result,
         stage_fqn="app_pkg.app_src.stage",
     )
@@ -188,15 +195,19 @@ def test_sync_deploy_root_with_stage_prune(
         dir_name=os.getcwd(),
         contents=[mock_snowflake_yml_file],
     )
-    native_app_manager = _get_na_manager()
 
     mock_bundle_map = mock.Mock(spec=BundleMap)
-    native_app_manager.sync_deploy_root_with_stage(
+    deploy_root = Path(temp_dir) / "output" / "deploy"
+    sync_deploy_root_with_stage(
+        console=cc,
+        deploy_root=deploy_root,
+        package_name="app_pkg",
+        stage_schema="app_src",
         bundle_map=mock_bundle_map,
         role="new_role",
         prune=prune,
         recursive=True,
-        stage_fqn=native_app_manager.stage_fqn,
+        stage_fqn="app_pkg.app_src.stage",
     )
 
     if expected_warn:

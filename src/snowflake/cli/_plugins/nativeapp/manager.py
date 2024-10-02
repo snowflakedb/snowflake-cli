@@ -40,7 +40,6 @@ from snowflake.cli._plugins.stage.diff import (
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.utils import (
     execute_post_deploy_hooks,
-    sync_deploy_root_with_stage,
 )
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
@@ -190,30 +189,6 @@ class NativeAppManager:
             generated_root=self.generated_root,
             package_name=self.package_name,
             artifacts=self.artifacts,
-        )
-
-    def sync_deploy_root_with_stage(
-        self,
-        bundle_map: BundleMap,
-        role: str,
-        prune: bool,
-        recursive: bool,
-        stage_fqn: str,
-        local_paths_to_sync: List[Path] | None = None,
-        print_diff: bool = True,
-    ) -> DiffResult:
-        return sync_deploy_root_with_stage(
-            console=cc,
-            deploy_root=self.deploy_root,
-            package_name=self.package_name,
-            stage_schema=self.stage_schema,
-            bundle_map=bundle_map,
-            role=role,
-            prune=prune,
-            recursive=recursive,
-            stage_fqn=stage_fqn,
-            local_paths_to_sync=local_paths_to_sync,
-            print_diff=print_diff,
         )
 
     def get_existing_app_info(self) -> Optional[dict]:
