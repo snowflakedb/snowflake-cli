@@ -21,8 +21,10 @@ set CLI_ZIP=snowflake-cli-%CLI_VERSION%.zip
 set CLI_MSI=snowflake-cli-%CLI_VERSION%-x86_64.msi
 set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/%RELEASE_TYPE%/windows_x86_64/%REVISION%
 
+echo "[INFO] downloading artifacts"
 cmd /c aws s3 cp %STAGE_URL%/%CLI_ZIP% .
 
+echo "[INFO] building installer"
 7z x %CLI_ZIP%
 
 signtool sign /debug /sm /t http://timestamp.digicert.com /a dist\snow\snow.exe
@@ -55,4 +57,17 @@ light.exe ^
 
 signtool sign /debug /sm /t http://timestamp.digicert.com /a %CLI_MSI%
 
-aws s3 cp %CLI_MSI% %STAGE_URL%/%CLI_MSI%
+echo "[INFO] testing installation"
+
+snow -h
+
+msiexec /package %CLI_MSI%
+
+snow -h
+
+msiexec /uninstall %CLI_MSI%
+
+snow -h
+
+echo "[INFO] uploading artifacts"
+cmd /c aws s3 cp %CLI_MSI% %STAGE_URL%/%CLI_MSI%
