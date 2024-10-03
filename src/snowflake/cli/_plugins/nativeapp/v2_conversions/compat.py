@@ -80,7 +80,10 @@ def _pdf_v2_to_v1(
     pdfv1: Dict[str, Any] = {"definition_version": "1.1", "native_app": {}}
 
     app_definition, app_package_definition = _find_app_and_package_entities(
-        v2_definition, package_entity_id, app_entity_id, app_required
+        v2_definition=v2_definition,
+        package_entity_id=package_entity_id,
+        app_entity_id=app_entity_id,
+        app_required=app_required,
     )
 
     # NativeApp
