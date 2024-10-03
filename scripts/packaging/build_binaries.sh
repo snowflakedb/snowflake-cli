@@ -8,7 +8,7 @@ ROOT_DIR="$(git rev-parse --show-toplevel)"
 DIST_DIR="${ROOT_DIR}/dist"
 
 VERSION=$(hatch version)
-ENTRY_POINT="src/snowflake/cli/_app/__main__.py"
+ENTRY_POINT="src/snowflake/cli/app/__main__.py"
 
 hatch -e packaging run pyinstaller \
   --name=snow \

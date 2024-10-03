@@ -10,7 +10,7 @@ python.exe -m pip install --upgrade pip uv hatch
 FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION=%%I
 echo %CLI_VERSION%
 
-set ENTRYPOINT=src\\snowflake\\cli\\_app\\__main__.py
+set ENTRYPOINT=src\\snowflake\\cli\\app\\__main__.py
 
 RMDIR /S /Q dist
 RMDIR /S /Q build
