@@ -316,7 +316,7 @@ def _generate_launch_script(entrypoint: str) -> str:
         fi
 
         # Execute the Python script
-        python "$SCRIPT_DIR/{entrypoint}"
+        python "$SCRIPT_DIR/{entrypoint}" "$@"
         """
     )
 
