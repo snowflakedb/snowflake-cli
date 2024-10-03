@@ -58,45 +58,9 @@ def _pdf_v2_to_v1(
 ) -> DefinitionV11:
     pdfv1: Dict[str, Any] = {"definition_version": "1.1", "native_app": {}}
 
-    # Determine the application entity to convert, there can be zero or one
-    app_definition = find_entity(
-        v2_definition,
-        ApplicationEntityModel,
-        app_entity_id,
-        disambiguation_option="--app-entity-id",
-        required=app_required,
+    app_definition, app_package_definition = _find_app_and_package_entities(
+        v2_definition, package_entity_id, app_entity_id, app_required
     )
-
-    # Infer or verify the package if we have an app entity to convert
-    if app_definition:
-        target_package = app_definition.from_.target
-        if package_entity_id:
-            # If the user specified a package entity ID,
-            # check that the app entity targets the user-specified package entity
-            # if the app entity is used by the command being run
-            if target_package != package_entity_id and app_required:
-                raise ClickException(
-                    f"The application entity {app_definition.entity_id} does not "
-                    f"target the application package entity {package_entity_id}. Either"
-                    f"use --package-entity-id {target_package} to target the correct package entity, "
-                    f"or omit the --package-entity-id flag to automatically use the package entity "
-                    f"that the application entity targets."
-                )
-        elif target_package in v2_definition.get_entities_by_type(
-            ApplicationPackageEntityModel.get_type()
-        ):
-            # If the user didn't target a specific package entity, use the one the app entity targets
-            package_entity_id = target_package
-
-    # Determine the package entity to convert, there must be one
-    app_package_definition = find_entity(
-        v2_definition,
-        ApplicationPackageEntityModel,
-        package_entity_id,
-        disambiguation_option="--package-entity-id",
-        required=True,
-    )
-    assert app_package_definition is not None  # satisfy mypy
 
     # NativeApp
     if app_definition and app_definition.fqn.identifier:
@@ -154,6 +118,52 @@ def _pdf_v2_to_v1(
     result = render_definition_template(pdfv1, {})
     # Override the definition object in global context
     return result.project_definition
+
+
+def _find_app_and_package_entities(
+    v2_definition: DefinitionV20,
+    package_entity_id: str,
+    app_entity_id: str,
+    app_required: bool,
+):
+    # Determine the application entity to convert, there can be zero or one
+    app_definition = find_entity(
+        v2_definition,
+        ApplicationEntityModel,
+        app_entity_id,
+        disambiguation_option="--app-entity-id",
+        required=app_required,
+    )
+    # Infer or verify the package if we have an app entity to convert
+    if app_definition:
+        target_package = app_definition.from_.target
+        if package_entity_id:
+            # If the user specified a package entity ID,
+            # check that the app entity targets the user-specified package entity
+            # if the app entity is used by the command being run
+            if target_package != package_entity_id and app_required:
+                raise ClickException(
+                    f"The application entity {app_definition.entity_id} does not "
+                    f"target the application package entity {package_entity_id}. Either"
+                    f"use --package-entity-id {target_package} to target the correct package entity, "
+                    f"or omit the --package-entity-id flag to automatically use the package entity "
+                    f"that the application entity targets."
+                )
+        elif target_package in v2_definition.get_entities_by_type(
+            ApplicationPackageEntityModel.get_type()
+        ):
+            # If the user didn't target a specific package entity, use the one the app entity targets
+            package_entity_id = target_package
+    # Determine the package entity to convert, there must be one
+    app_package_definition = find_entity(
+        v2_definition,
+        ApplicationPackageEntityModel,
+        package_entity_id,
+        disambiguation_option="--package-entity-id",
+        required=True,
+    )
+    assert app_package_definition is not None  # satisfy mypy
+    return app_definition, app_package_definition
 
 
 T = TypeVar("T", bound=EntityModelBase)
