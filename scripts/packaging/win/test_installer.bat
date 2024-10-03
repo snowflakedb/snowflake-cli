@@ -12,9 +12,9 @@ cmd /c aws s3 cp %STAGE_URL%/%CLI_MSI% .
 
 snow.exe -h
 
-msiexec /h
+REM msiexec /h
 
-msiexec /i /n %CLI_MSI%
+msiexec /i /q %CLI_MSI%
 
 snow.exe -h
 
