@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Generic, Type, TypeVar, get_args
 
-from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.sql_execution import SqlExecutor
 
 
@@ -24,8 +24,9 @@ class EntityBase(Generic[T]):
     Base class for the fully-featured entity classes.
     """
 
-    def __init__(self, entity_model: T):
+    def __init__(self, entity_model: T, workspace_ctx: WorkspaceContext):
         self._entity_model = entity_model
+        self._workspace_ctx = workspace_ctx
 
     @classmethod
     def get_entity_model_type(cls) -> Type[T]:
