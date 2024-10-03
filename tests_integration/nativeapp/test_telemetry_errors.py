@@ -23,6 +23,38 @@ from tests_integration.test_utils import pushd, extract_first_telemetry_message_
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize(
+    "project_definition_files,command",
+    [("napp_post_deploy_missing_file", ["app", "deploy"])],
+    indirect=["project_definition_files"],
+)
+@mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
+def test_not_ProgrammingError_does_not_attach_any_info(
+    mock_telemetry,
+    command: List[str],
+    runner,
+    project_definition_files: List[Path],
+    nativeapp_teardown,
+):
+    with pushd(project_definition_files[0].parent):
+        with nativeapp_teardown():
+            result = runner.invoke_with_connection_json(command)
+            assert result.exit_code == 1
+
+            message = extract_first_telemetry_message_of_type(
+                mock_telemetry, TelemetryEvent.CMD_EXECUTION_ERROR.value
+            )
+            assert CLITelemetryField.ERROR_TYPE.value in message
+            assert (
+                message[CLITelemetryField.ERROR_TYPE.value] != ProgrammingError.__name__
+            )
+
+            assert CLITelemetryField.ERROR_CODE.value not in message
+            assert CLITelemetryField.SQL_STATE.value not in message
+            assert CLITelemetryField.ERROR_CAUSE.value not in message
+
+
+@pytest.mark.integration
 @mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
 def test_ProgrammingError_attaches_errno_and_sqlstate(
     mock_telemetry,
@@ -46,7 +78,6 @@ def test_ProgrammingError_attaches_errno_and_sqlstate(
     assert message.get(CLITelemetryField.ERROR_CAUSE.value) is None
 
 
-# Tests a simple flow of an existing project, but executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "project_definition_files,command",
