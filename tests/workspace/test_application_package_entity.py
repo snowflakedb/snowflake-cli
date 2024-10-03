@@ -25,7 +25,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
     ApplicationPackageEntityModel,
 )
-from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.project.schemas.entities.common import SqlScriptHookType
 from snowflake.connector.cursor import DictCursor
 
@@ -45,14 +45,20 @@ def _get_app_pkg_entity(project_directory):
                 **project_definition["entities"]["pkg"]
             )
             mock_console = mock.MagicMock()
-            action_ctx = ActionContext(
+            workspace_ctx = WorkspaceContext(
                 console=mock_console,
                 project_root=project_root,
                 get_default_role=lambda: "app_role",
                 get_default_warehouse=lambda: "wh",
+            )
+            action_ctx = ActionContext(
                 get_entity=lambda *args: None,
             )
-            return ApplicationPackageEntity(model), action_ctx, mock_console
+            return (
+                ApplicationPackageEntity(model, workspace_ctx),
+                action_ctx,
+                mock_console,
+            )
 
 
 def test_bundle(project_directory):
@@ -158,7 +164,7 @@ def test_deploy(
     mock_validate.assert_called_once()
     mock_execute_post_deploy_hooks.assert_called_once_with(
         console=mock_console,
-        project_root=bundle_ctx.project_root,
+        project_root=app_pkg._workspace_ctx.project_root,  # noqa SLF001
         post_deploy_hooks=[
             SqlScriptHookType(sql_script="scripts/package_post_deploy1.sql"),
             SqlScriptHookType(sql_script="scripts/package_post_deploy2.sql"),
