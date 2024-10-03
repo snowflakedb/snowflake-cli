@@ -277,6 +277,11 @@ def submit_job(
         help="Compute pool to run the job service on.",
         show_default=False,
     ),
+    secrets: Optional[List[str]] = typer.Option(
+        None,
+        "--secret",
+        help="Specifies Snowflake secrets to be mounted to the main container, in format [envVarName=][database.schema.]secretName.",
+    ),
     external_access_integrations: Optional[List[str]] = typer.Option(
         None,
         "--eai-name",
@@ -305,6 +310,7 @@ def submit_job(
         payload_path=payload_path,
         entrypoint=entrypoint,
         entrypoint_args=entrypoint_args,
+        secrets=secrets,
         custom_spec_path=spec_path,
         external_access_integrations=external_access_integrations,
         query_warehouse=query_warehouse,

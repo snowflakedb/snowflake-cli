@@ -111,6 +111,7 @@ class ServiceManager(SqlExecutionMixin):
         payload_path: Path,
         entrypoint: Optional[Path],
         entrypoint_args: str,
+        secrets: Optional[List[str]],
         custom_spec_path: Optional[Path],
         external_access_integrations: Optional[List[str]],
         query_warehouse: Optional[str],
@@ -124,6 +125,7 @@ class ServiceManager(SqlExecutionMixin):
             payload=payload_path,
             entrypoint=entrypoint,
             args=entrypoint_args.split(),
+            secrets=secrets,
             enable_pip=bool(external_access_integrations),
         )
 

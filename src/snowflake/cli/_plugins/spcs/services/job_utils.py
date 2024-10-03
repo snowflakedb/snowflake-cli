@@ -1,14 +1,47 @@
 import io
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX
 from snowflake.snowpark import Session
+
+_SECRET_IDENTIFIER_REGEX = rf"(?P<fqn>(?:(?:{VALID_IDENTIFIER_REGEX})?[.]{VALID_IDENTIFIER_REGEX}[.])?(?P<name>{VALID_IDENTIFIER_REGEX}))"
+_SECRET_CONFIG_REGEX = rf"(?:(?P<mount_path>\w+)=)?{_SECRET_IDENTIFIER_REGEX}(?:[.](?P<subkey>username|password))?"
+
+
+@dataclass
+class _SecretConfig:
+    name: str
+    fqn: FQN
+    subkey: str
+    mount_path: str
+    # TODO: Add support for file mount
+    mount_type: Literal["environment"] = "environment"
+
+
+def _parse_secret_config(s: str) -> _SecretConfig:
+    m = re.fullmatch(_SECRET_CONFIG_REGEX, s)
+    if not m:
+        raise ValueError(f"{s} is not a valid secret config string")
+    name, fqn = m.group("name"), m.group("fqn")
+    subkey = m.group("subkey") or "secret_string"
+    mount_path = m.group("mount_path") or name.upper()
+
+    # Validate (inferred) mount_path
+    # TODO: Do different validation based on mount type (env var vs directory)
+    if not re.fullmatch(r"\w+", mount_path):
+        raise ValueError(
+            f"Failed to infer secret placement. Please explicitly specify placement in format 'ENV_VAR_NAME=SECRET_NAME'"
+        )
+
+    return _SecretConfig(name=name, fqn=fqn, mount_path=mount_path, subkey=subkey)
 
 
 @dataclass
@@ -121,6 +154,7 @@ def _generate_spec(
     script_path: Path,
     args: Optional[List[str]] = None,
     env_vars: Optional[Dict[str, str]] = None,
+    secrets: Optional[List[str]] = None,
 ) -> dict:
     volumes: List[Dict[str, str]] = []
     volume_mounts: List[Dict[str, str]] = []
@@ -139,7 +173,7 @@ def _generate_spec(
         resource_limits["nvidia.com/gpu"] = image_spec.resource_limits.gpu
 
     # Create container spec
-    mce_container: Dict[str, Any] = {
+    main_container: Dict[str, Any] = {
         "name": "main",
         "image": image_spec.full_name,
         "volumeMounts": volume_mounts,
@@ -215,17 +249,34 @@ def _generate_spec(
         # Add more formats as needed
     }
     command = commands[script_path.suffix]
-    mce_container["command"] = [
+    main_container["command"] = [
         command,
         os.path.join(stage_mount, stage_subpath, script_path),
         *(args or []),
     ]
+
     if env_vars:
-        mce_container["env"] = env_vars
+        main_container["env"] = env_vars
+
+    if secrets:
+        secrets_spec = []
+        for s in secrets:
+            # TODO: Add support for other secret types (e.g. username/password)
+            # TODO: Add support for other mount types
+            secret = _parse_secret_config(s)
+            assert secret.mount_type == "environment"
+            secrets_spec.append(
+                {
+                    "snowflakeSecret": secret.fqn,
+                    "envVarName": secret.mount_path,
+                    "secretKeyRef": secret.subkey,
+                }
+            )
+        main_container["secrets"] = secrets_spec
 
     return {
         "spec": {
-            "containers": [mce_container],
+            "containers": [main_container],
             "volumes": volumes,
         }
     }
@@ -330,6 +381,7 @@ def prepare_spec(
     entrypoint: Path,
     enable_pip: bool = False,
     args: Optional[List[str]] = None,
+    secrets: Optional[List[str]] = None,
     env: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
 
@@ -351,5 +403,6 @@ def prepare_spec(
         script_path=script_path,
         args=args,
         env_vars=env,
+        secrets=secrets,
     )
     return spec
