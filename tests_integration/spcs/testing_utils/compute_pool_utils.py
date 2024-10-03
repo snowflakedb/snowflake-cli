@@ -57,7 +57,7 @@ class ComputePoolTestSteps:
         assert result.json, result.output
         assert "status" in result.json
         assert (
-            f"Compute Pool {compute_pool_name.upper()} successfully created."
+            f"Compute pool {compute_pool_name.upper()} successfully created."
             in result.json["status"]  # type: ignore
         )
 

@@ -35,7 +35,7 @@ jobs:
       - name: Set up key (Ubuntu / MacOS)
         if: inputs.runs-on == 'ubuntu-latest' || inputs.runs-on == 'macos-latest'
         env:
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
         run: |
           PARENT_DIR=$(dirname "${{ github.workspace }}")
           PRIVATE_KEY_PATH=$PARENT_DIR/.ssh/key.p8
@@ -49,7 +49,7 @@ jobs:
       - name: Set up key (Windows)
         if: inputs.runs-on == 'windows-latest'
         env:
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
         run: |
           $parentDir = Split-Path -Parent "${{ github.workspace }}"
           $privateKeyPath = $parentDir + "\\ssh\\key.p8"

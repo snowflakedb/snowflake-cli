@@ -20,7 +20,7 @@ jobs:
           default-config-file-path: "tests_integration/config/connection_configs.toml"
       - name: Set up key (Ubuntu / MacOS)
         env:
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
         run: |
           PARENT_DIR=$(dirname "${{ github.workspace }}")
           PRIVATE_KEY_PATH=$PARENT_DIR/.ssh/key.p8
