@@ -25,7 +25,6 @@
 
 # v3.0.1
 
-# Unreleased version
 ## Backward incompatibility
 
 ## Deprecations
@@ -86,6 +85,17 @@
 * `snow app deploy` for package entity now allows operating on application packages created outside the CLI
 * Fixes `snow connection add` behavior when `connections.toml` file exists.
 * Add more readable error messages in `snow object create` command.
+
+
+# v2.8.2
+
+## Backward incompatibility
+
+## Deprecations
+* Changing package name from `snowflake-cli-labs` to `snowflake-cli`. `Snowflake-cli-labs` will be pointing to the corresponding version of `snowflake-cli`.
+## New additions
+
+## Fixes and improvements
 
 
 # v2.8.1
