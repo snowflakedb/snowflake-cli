@@ -19,7 +19,6 @@ from unittest import mock
 import pytest
 import typer
 from click import ClickException
-from snowflake.cli._app.telemetry import _is_cli_exception
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CouldNotUseObjectError
 from snowflake.connector import ProgrammingError
@@ -172,4 +171,6 @@ def test_failing_executing_command_sends_telemetry_data(
     ],
 )
 def test_cli_exception_classification(error: Exception, expected: bool):
+    from snowflake.cli._app.telemetry import _is_cli_exception
+
     assert _is_cli_exception(error) == expected
