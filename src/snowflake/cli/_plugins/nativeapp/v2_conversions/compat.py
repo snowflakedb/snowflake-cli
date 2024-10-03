@@ -37,6 +37,27 @@ from snowflake.cli.api.project.schemas.project_definition import (
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 
+APP_AND_PACKAGE_OPTIONS = [
+    inspect.Parameter(
+        "package_entity_id",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=typer.Option(
+            default="",
+            help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
+        ),
+    ),
+    inspect.Parameter(
+        "app_entity_id",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=typer.Option(
+            default="",
+            help="The ID of the application entity on which to operate when definition_version is 2 or higher.",
+        ),
+    ),
+]
+
 
 def _convert_v2_artifact_to_v1_dict(
     v2_artifact: Union[PathMapping, str]
@@ -246,27 +267,7 @@ def nativeapp_definition_v2_to_v1(*, app_required: bool = False):
             return func(*args, **kwargs)
 
         return _options_decorator_factory(
-            wrapper,
-            additional_options=[
-                inspect.Parameter(
-                    "package_entity_id",
-                    inspect.Parameter.KEYWORD_ONLY,
-                    annotation=Optional[str],
-                    default=typer.Option(
-                        default="",
-                        help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
-                    ),
-                ),
-                inspect.Parameter(
-                    "app_entity_id",
-                    inspect.Parameter.KEYWORD_ONLY,
-                    annotation=Optional[str],
-                    default=typer.Option(
-                        default="",
-                        help="The ID of the application entity on which to operate when definition_version is 2 or higher.",
-                    ),
-                ),
-            ],
+            wrapper, additional_options=APP_AND_PACKAGE_OPTIONS
         )
 
     return decorator
