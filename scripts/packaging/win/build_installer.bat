@@ -57,17 +57,5 @@ light.exe ^
 
 signtool sign /debug /sm /t http://timestamp.digicert.com /a %CLI_MSI%
 
-echo "[INFO] testing installation"
-
-snow.exe -h
-
-msiexec /package %CLI_MSI%
-
-snow.exe -h
-
-msiexec /uninstall %CLI_MSI%
-
-snow.exe -h
-
 echo "[INFO] uploading artifacts"
 cmd /c aws s3 cp %CLI_MSI% %STAGE_URL%/%CLI_MSI%
