@@ -1,0 +1,15 @@
+definition_version: 1
+native_app:
+  name: myapp
+
+  source_stage: >-
+    "MySourceSchema"."SRC_Stage"
+
+  artifacts:
+    - setup.sql
+
+  package:
+    name: myapp_pkg
+    warehouse: non_existent_warehouse
+    scripts:
+      - 001-shared.sql

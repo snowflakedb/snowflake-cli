@@ -18,6 +18,8 @@ from unittest.mock import MagicMock
 from snowflake.connector import ProgrammingError
 
 from snowflake.cli._app.telemetry import CLITelemetryField
+from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
+from snowflake.cli.api.exceptions import CouldNotUseObjectError
 from tests.project.fixtures import *
 from tests_integration.test_utils import pushd
 
@@ -34,35 +36,58 @@ def _extract_first_result_executing_command_telemetry_message(
     )
 
 
-# Tests a simple flow of an existing project, but executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "project_definition_files", ["napp_project_with_pkg_warehouse"], indirect=True
-)
 @mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
 def test_ProgrammingError_attaches_errno_and_sqlstate(
     mock_telemetry,
     runner,
+):
+    result = runner.invoke_with_connection_json(
+        ["sql", "-q", "use warehouse non_existent_warehouse"]
+    )
+    assert result.exit_code == 1
+
+    message = _extract_first_result_executing_command_telemetry_message(mock_telemetry)
+
+    assert (
+        message[CLITelemetryField.ERROR_TYPE.value] == ProgrammingError.__name__
+        and message[CLITelemetryField.ERROR_CODE.value]
+        == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
+        and message[CLITelemetryField.SQL_STATE.value] == "02000"
+        and message.get(CLITelemetryField.ERROR_CAUSE.value) is None
+    )
+
+
+# Tests a simple flow of an existing project, but executing snow app run and teardown, all with distribution=internal
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "project_definition_files,command",
+    [("napp_project_with_incorrect_pkg_warehouse", ["app", "deploy"])],
+    indirect=["project_definition_files"],
+)
+@mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
+def test_ProgrammingError_cause_attaches_errno_and_sqlstate(
+    mock_telemetry,
+    command: List[str],
+    runner,
     project_definition_files: List[Path],
     nativeapp_teardown,
 ):
-    local_test_env = {
-        "role": "nonexistent_role",
-    }
-
     with pushd(project_definition_files[0].parent):
-        result = runner.invoke_with_connection_json(
-            ["app", "deploy"], env=local_test_env
-        )
-        assert result.exit_code == 1
+        with nativeapp_teardown():
+            result = runner.invoke_with_connection_json(command)
+            assert result.exit_code != 0
 
-        message = _extract_first_result_executing_command_telemetry_message(
-            mock_telemetry
-        )
-        assert (
-            message[CLITelemetryField.ERROR_TYPE.value] == ProgrammingError.__name__
-            and message[CLITelemetryField.ERROR_CODE.value] == 3013
-            and message[CLITelemetryField.SQL_STATE.value] == "42501"
-        )
+            message = _extract_first_result_executing_command_telemetry_message(
+                mock_telemetry
+            )
 
-    nativeapp_teardown()
+            assert (
+                message[CLITelemetryField.ERROR_TYPE.value]
+                == CouldNotUseObjectError.__name__
+                and message[CLITelemetryField.ERROR_CODE.value]
+                == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
+                and message[CLITelemetryField.SQL_STATE.value] == "02000"
+                and message[CLITelemetryField.ERROR_CAUSE.value]
+                is ProgrammingError.__name__
+            )

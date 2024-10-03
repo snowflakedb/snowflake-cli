@@ -70,6 +70,7 @@ class CLITelemetryField(Enum):
     ERROR_MSG = "error_msg"
     ERROR_TYPE = "error_type"
     ERROR_CODE = "error_code"
+    ERROR_CAUSE = "error_cause"
     SQL_STATE = "sql_state"
     IS_CLI_EXCEPTION = "is_cli_exception"
     # Project context
@@ -93,11 +94,21 @@ def _is_cli_exception(exception: Exception) -> bool:
 
 
 def _get_additional_exception_information(exception: Exception) -> TelemetryDict:
+    """
+    Attach the errno and sqlstate if the exception or the
+    cause of the exception is a ProgrammingError
+    """
     additional_info = {}
 
     if isinstance(exception, ProgrammingError):
         additional_info[CLITelemetryField.ERROR_CODE] = exception.errno
         additional_info[CLITelemetryField.SQL_STATE] = exception.sqlstate
+
+    if isinstance(exception.__cause__, ProgrammingError):
+        cause = exception.__cause__
+        additional_info[CLITelemetryField.ERROR_CAUSE] = cause.__class__.__name__
+        additional_info[CLITelemetryField.ERROR_CODE] = cause.errno
+        additional_info[CLITelemetryField.SQL_STATE] = cause.sqlstate
 
     return additional_info
 
