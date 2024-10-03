@@ -17,7 +17,7 @@ import os
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
-from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     _pdf_v2_to_v1,
 )
 from snowflake.cli._plugins.stage.md5 import parse_multipart_md5sum
