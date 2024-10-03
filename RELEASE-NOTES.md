@@ -13,6 +13,17 @@
  See the License for the specific language governing permissions and
  limitations under the License.
  -->
+# Unreleased version
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v3.0.1
 
 # Unreleased version
 ## Backward incompatibility
