@@ -31,7 +31,9 @@ jobs:
       matrix:
         os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
         python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     uses: ./.github/workflows/test_trusted.yaml
     with:
       runs-on: ${{ matrix.os }}
