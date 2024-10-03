@@ -13,12 +13,14 @@ cmd /c aws s3 cp %STAGE_URL%/%CLI_MSI% .
 snow.exe -h
 
 %CLI_MSI%
+call %CLI_MSI%
 
 REM msiexec /h
 
 REM msiexec /i /q %CLI_MSI%
 
 snow.exe -h
+snow -H
 
 REM msiexec /uninstall /n %CLI_MSI%
 
