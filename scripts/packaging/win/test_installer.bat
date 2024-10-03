@@ -1,3 +1,5 @@
+@echo on
+
 echo "[INFO] testing installation"
 
 set CLI_VERSION=3.0.0.2
