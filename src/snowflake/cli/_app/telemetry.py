@@ -142,9 +142,14 @@ def _find_command_info() -> TelemetryDict:
 
 
 def _get_definition_version() -> str | None:
-    cli_context = get_cli_context()
-    if cli_context.project_definition:
-        return cli_context.project_definition.definition_version
+    try:
+        cli_context = get_cli_context()
+        if cli_context.project_definition:
+            return cli_context.project_definition.definition_version
+    except Exception:
+        # Don't let an invalid project definition file break telemetry
+        # (especially for commands that don't normally load it)
+        pass
     return None
 
 
