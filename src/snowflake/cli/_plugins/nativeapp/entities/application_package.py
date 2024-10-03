@@ -42,7 +42,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
@@ -150,10 +150,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     A Native App application package.
     """
 
-    def action_bundle(self, ctx: ActionContext, *args, **kwargs):
+    def action_bundle(self, action_ctx: ActionContext, *args, **kwargs):
         model = self._entity_model
+        workspace_ctx = self._workspace_ctx
         return self.bundle(
-            project_root=ctx.project_root,
+            project_root=workspace_ctx.project_root,
             deploy_root=Path(model.deploy_root),
             bundle_root=Path(model.bundle_root),
             generated_root=Path(model.generated_root),
@@ -163,7 +164,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     def action_deploy(
         self,
-        ctx: ActionContext,
+        action_ctx: ActionContext,
         prune: bool,
         recursive: bool,
         paths: List[Path],
@@ -175,6 +176,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         **kwargs,
     ):
         model = self._entity_model
+        workspace_ctx = self._workspace_ctx
         package_name = model.fqn.identifier
 
         if force:
@@ -185,15 +187,15 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             policy = DenyAlwaysPolicy()
 
         return self.deploy(
-            console=ctx.console,
-            project_root=ctx.project_root,
+            console=workspace_ctx.console,
+            project_root=workspace_ctx.project_root,
             deploy_root=Path(model.deploy_root),
             bundle_root=Path(model.bundle_root),
             generated_root=Path(model.generated_root),
             artifacts=model.artifacts,
             bundle_map=None,
             package_name=package_name,
-            package_role=(model.meta and model.meta.role) or ctx.default_role,
+            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
             package_distribution=model.distribution,
             prune=prune,
             recursive=recursive,
@@ -202,32 +204,34 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             validate=validate,
             stage_fqn=stage_fqn or f"{package_name}.{model.stage}",
             package_warehouse=(
-                (model.meta and model.meta.warehouse) or ctx.default_warehouse
+                (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
             ),
             post_deploy_hooks=model.meta and model.meta.post_deploy,
             package_scripts=[],  # Package scripts are not supported in PDFv2
             policy=policy,
         )
 
-    def action_drop(self, ctx: ActionContext, force_drop: bool, *args, **kwargs):
+    def action_drop(self, action_ctx: ActionContext, force_drop: bool, *args, **kwargs):
         model = self._entity_model
+        workspace_ctx = self._workspace_ctx
         package_name = model.fqn.identifier
         if model.meta and model.meta.role:
             package_role = model.meta.role
         else:
-            package_role = ctx.default_role
+            package_role = workspace_ctx.default_role
 
         self.drop(
-            console=ctx.console,
+            console=workspace_ctx.console,
             package_name=package_name,
             package_role=package_role,
             force_drop=force_drop,
         )
 
     def action_validate(
-        self, ctx: ActionContext, interactive: bool, force: bool, *args, **kwargs
+        self, action_ctx: ActionContext, interactive: bool, force: bool, *args, **kwargs
     ):
         model = self._entity_model
+        workspace_ctx = self._workspace_ctx
         package_name = model.fqn.identifier
         if force:
             policy = AllowAlwaysPolicy()
@@ -237,21 +241,21 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             policy = DenyAlwaysPolicy()
 
         self.validate_setup_script(
-            console=ctx.console,
-            project_root=ctx.project_root,
+            console=workspace_ctx.console,
+            project_root=workspace_ctx.project_root,
             deploy_root=Path(model.deploy_root),
             bundle_root=Path(model.bundle_root),
             generated_root=Path(model.generated_root),
             artifacts=model.artifacts,
             package_name=package_name,
-            package_role=(model.meta and model.meta.role) or ctx.default_role,
+            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
             package_distribution=model.distribution,
             prune=True,
             recursive=True,
             paths=[],
             stage_fqn=f"{package_name}.{model.stage}",
             package_warehouse=(
-                (model.meta and model.meta.warehouse) or ctx.default_warehouse
+                (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
             ),
             post_deploy_hooks=model.meta and model.meta.post_deploy,
             package_scripts=[],  # Package scripts are not supported in PDFv2
@@ -259,20 +263,21 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             use_scratch_stage=True,
             scratch_stage_fqn=f"{package_name}.{model.scratch_stage}",
         )
-        ctx.console.message("Setup script is valid")
+        workspace_ctx.console.message("Setup script is valid")
 
     def action_version_list(
-        self, ctx: ActionContext, *args, **kwargs
+        self, action_ctx: ActionContext, *args, **kwargs
     ) -> SnowflakeCursor:
         model = self._entity_model
+        workspace_ctx = self._workspace_ctx
         return self.version_list(
             package_name=model.fqn.identifier,
-            package_role=(model.meta and model.meta.role) or ctx.default_role,
+            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
         )
 
     def action_version_create(
         self,
-        ctx: ActionContext,
+        action_ctx: ActionContext,
         version: Optional[str],
         patch: Optional[int],
         skip_git_check: bool,
@@ -282,16 +287,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         **kwargs,
     ):
         model = self._entity_model
+        workspace_ctx = self._workspace_ctx
         package_name = model.fqn.identifier
         return self.version_create(
-            console=ctx.console,
-            project_root=ctx.project_root,
+            console=workspace_ctx.console,
+            project_root=workspace_ctx.project_root,
             deploy_root=Path(model.deploy_root),
             bundle_root=Path(model.bundle_root),
             generated_root=Path(model.generated_root),
             artifacts=model.artifacts,
             package_name=package_name,
-            package_role=(model.meta and model.meta.role) or ctx.default_role,
+            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
             package_distribution=model.distribution,
             prune=True,
             recursive=True,
@@ -300,7 +306,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             validate=True,
             stage_fqn=f"{package_name}.{model.stage}",
             package_warehouse=(
-                (model.meta and model.meta.warehouse) or ctx.default_warehouse
+                (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
             ),
             post_deploy_hooks=model.meta and model.meta.post_deploy,
             package_scripts=[],  # Package scripts are not supported in PDFv2
@@ -313,7 +319,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     def action_version_drop(
         self,
-        ctx: ActionContext,
+        action_ctx: ActionContext,
         version: Optional[str],
         interactive: bool,
         force: bool,
@@ -321,16 +327,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         **kwargs,
     ):
         model = self._entity_model
+        workspace_ctx = self._workspace_ctx
         package_name = model.fqn.identifier
         return self.version_drop(
-            console=ctx.console,
-            project_root=ctx.project_root,
+            console=workspace_ctx.console,
+            project_root=workspace_ctx.project_root,
             deploy_root=Path(model.deploy_root),
             bundle_root=Path(model.bundle_root),
             generated_root=Path(model.generated_root),
             artifacts=model.artifacts,
             package_name=package_name,
-            package_role=(model.meta and model.meta.role) or ctx.default_role,
+            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
             package_distribution=model.distribution,
             version=version,
             force=force,
