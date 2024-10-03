@@ -11,29 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Dict, Any
 from unittest import mock
-from unittest.mock import MagicMock
 
 from snowflake.connector import ProgrammingError
 
-from snowflake.cli._app.telemetry import CLITelemetryField
+from snowflake.cli._app.telemetry import CLITelemetryField, TelemetryEvent
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
 from snowflake.cli.api.exceptions import CouldNotUseObjectError
 from tests.project.fixtures import *
-from tests_integration.test_utils import pushd
-
-
-def _extract_first_result_executing_command_telemetry_message(
-    mock_telemetry: MagicMock,
-) -> Dict[str, Any]:
-    # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
-    return next(
-        args.args[0].to_dict()["message"]
-        for args in mock_telemetry.call_args_list
-        if args.args[0].to_dict().get("message").get("type")
-        == "error_executing_command"
-    )
+from tests_integration.test_utils import pushd, extract_first_telemetry_message_of_type
 
 
 @pytest.mark.integration
@@ -47,7 +33,9 @@ def test_ProgrammingError_attaches_errno_and_sqlstate(
     )
     assert result.exit_code == 1
 
-    message = _extract_first_result_executing_command_telemetry_message(mock_telemetry)
+    message = extract_first_telemetry_message_of_type(
+        mock_telemetry, TelemetryEvent.CMD_EXECUTION_ERROR.value
+    )
 
     assert message[CLITelemetryField.ERROR_TYPE.value] == ProgrammingError.__name__
     assert (
@@ -78,8 +66,8 @@ def test_ProgrammingError_cause_attaches_errno_and_sqlstate(
             result = runner.invoke_with_connection_json(command)
             assert result.exit_code == 1
 
-            message = _extract_first_result_executing_command_telemetry_message(
-                mock_telemetry
+            message = extract_first_telemetry_message_of_type(
+                mock_telemetry, TelemetryEvent.CMD_EXECUTION_ERROR.value
             )
 
             assert (
