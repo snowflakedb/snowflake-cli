@@ -12,7 +12,7 @@ cmd /c aws s3 cp %STAGE_URL%/%CLI_MSI% .
 
 snow.exe -h
 
-for %%f in (%CLI_MSI%) do @set CLI_INST_FILE=%%f
+for %%f in (%CLI_MSI%) do echo %%f
 
 REM msiexec /h
 
