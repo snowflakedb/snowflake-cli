@@ -49,13 +49,13 @@ def test_ProgrammingError_attaches_errno_and_sqlstate(
 
     message = _extract_first_result_executing_command_telemetry_message(mock_telemetry)
 
+    assert message[CLITelemetryField.ERROR_TYPE.value] == ProgrammingError.__name__
     assert (
-        message[CLITelemetryField.ERROR_TYPE.value] == ProgrammingError.__name__
-        and message[CLITelemetryField.ERROR_CODE.value]
+        message[CLITelemetryField.ERROR_CODE.value]
         == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
-        and message[CLITelemetryField.SQL_STATE.value] == "02000"
-        and message.get(CLITelemetryField.ERROR_CAUSE.value) is None
     )
+    assert message[CLITelemetryField.SQL_STATE.value] == "02000"
+    assert message.get(CLITelemetryField.ERROR_CAUSE.value) is None
 
 
 # Tests a simple flow of an existing project, but executing snow app run and teardown, all with distribution=internal
@@ -76,7 +76,7 @@ def test_ProgrammingError_cause_attaches_errno_and_sqlstate(
     with pushd(project_definition_files[0].parent):
         with nativeapp_teardown():
             result = runner.invoke_with_connection_json(command)
-            assert result.exit_code != 0
+            assert result.exit_code == 1
 
             message = _extract_first_result_executing_command_telemetry_message(
                 mock_telemetry
@@ -85,9 +85,13 @@ def test_ProgrammingError_cause_attaches_errno_and_sqlstate(
             assert (
                 message[CLITelemetryField.ERROR_TYPE.value]
                 == CouldNotUseObjectError.__name__
-                and message[CLITelemetryField.ERROR_CODE.value]
+            )
+            assert (
+                message[CLITelemetryField.ERROR_CODE.value]
                 == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
-                and message[CLITelemetryField.SQL_STATE.value] == "02000"
-                and message[CLITelemetryField.ERROR_CAUSE.value]
+            )
+            assert message[CLITelemetryField.SQL_STATE.value] == "02000"
+            assert (
+                message[CLITelemetryField.ERROR_CAUSE.value]
                 is ProgrammingError.__name__
             )
