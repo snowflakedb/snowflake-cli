@@ -113,13 +113,13 @@ class NoEventTableForAccount(ClickException):
         super().__init__(f"{self.__doc__}\n\n{self.INSTRUCTIONS}")
 
 
-class DistributionAttributeNotFoundError(ClickException):
-    def __init__(self, package_name: str):
+class ObjectPropertyNotFoundError(ClickException):
+    def __init__(self, property_name: str, object_type: str, object_name: str):
         super().__init__(
             dedent(
                 f"""\
-                        Could not find the 'distribution' attribute for application package {package_name} in the output of SQL query:
-                        'describe application package {package_name}'
+                        Could not find the '{property_name}' attribute for {object_type} {object_name} in the output of SQL query:
+                        'describe {object_type} {object_name}'
                         """
             )
         )

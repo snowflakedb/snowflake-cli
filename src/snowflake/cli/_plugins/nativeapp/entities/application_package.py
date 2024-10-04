@@ -31,7 +31,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
     CouldNotDropApplicationPackageWithVersions,
-    DistributionAttributeNotFoundError,
+    ObjectPropertyNotFoundError,
     SetupScriptFailedValidation,
 )
 from snowflake.cli._plugins.nativeapp.policy import (
@@ -693,7 +693,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 if err.msg.__contains__("does not exist or not authorized"):
                     raise ApplicationPackageDoesNotExistError(package_name)
                 else:
-                    generic_sql_error_handler(err=err, role=package_role)
+                    generic_sql_error_handler(err=err)
                     return None
 
     @classmethod
@@ -984,7 +984,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 for row in desc_cursor:
                     if row[0].lower() == "distribution":
                         return row[1].lower()
-        raise DistributionAttributeNotFoundError(package_name=package_name)
+        raise ObjectPropertyNotFoundError(
+            property_name="distribution",
+            object_type="application package",
+            object_name=package_name,
+        )
 
     @classmethod
     def verify_project_distribution(
@@ -1081,9 +1085,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     console.step(f"Applying package script: {package_scripts[i]}")
                     get_sql_executor().execute_queries(queries)
             except ProgrammingError as err:
-                generic_sql_error_handler(
-                    err, role=package_role, warehouse=package_warehouse
-                )
+                generic_sql_error_handler(err)
 
     @classmethod
     def create_app_package(

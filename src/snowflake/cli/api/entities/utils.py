@@ -33,7 +33,6 @@ from snowflake.cli.api.exceptions import (
     DoesNotExistOrUnauthorizedError,
     NoWarehouseSelectedInSessionError,
     SnowflakeSQLExecutionError,
-    WarehouseDoesNotExistOrRoleUnauthorizedError,
 )
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
@@ -45,18 +44,15 @@ from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
 
-def generic_sql_error_handler(
-    err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
-) -> NoReturn:
+def generic_sql_error_handler(err: ProgrammingError) -> NoReturn:
     # Potential refactor: If moving away from Python 3.8 and 3.9 to >= 3.10, use match ... case
-    if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
-        raise WarehouseDoesNotExistOrRoleUnauthorizedError(
-            warehouse=warehouse, role=role, msg=err.msg
-        ) from err
+    if (
+        err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
+        or "does not exist or not authorized" in err.msg
+    ):
+        raise DoesNotExistOrUnauthorizedError(msg=err.msg) from err
     elif err.errno == NO_WAREHOUSE_SELECTED_IN_SESSION:
         raise NoWarehouseSelectedInSessionError(msg=err.msg) from err
-    elif "does not exist or not authorized" in err.msg:
-        raise DoesNotExistOrUnauthorizedError(msg=err.msg) from err
     raise err
 
 

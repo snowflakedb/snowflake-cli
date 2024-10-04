@@ -191,19 +191,6 @@ class IncompatibleParametersError(UsageError):
         )
 
 
-class WarehouseDoesNotExistOrRoleUnauthorizedError(ClickException):
-    def __init__(self, warehouse: str, role: str, msg: str):
-        super().__init__(
-            dedent(
-                f"""\
-                        Received error message '{msg}' while executing SQL statement.
-                        '{role}' may not have access to warehouse '{warehouse}'.
-                        Please grant usage privilege on warehouse to this role.
-                        """
-            )
-        )
-
-
 class NoWarehouseSelectedInSessionError(ClickException):
     def __init__(self, msg: str):
         super().__init__(

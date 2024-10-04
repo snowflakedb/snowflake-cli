@@ -34,8 +34,8 @@ from snowflake.cli._plugins.nativeapp.constants import (
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
-    DistributionAttributeNotFoundError,
     NoEventTableForAccount,
+    ObjectPropertyNotFoundError,
     SetupScriptFailedValidation,
 )
 from snowflake.cli._plugins.nativeapp.manager import (
@@ -347,10 +347,19 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     )
 
     native_app_manager = _get_na_manager()
-    with pytest.raises(DistributionAttributeNotFoundError):
+    with pytest.raises(ObjectPropertyNotFoundError) as err:
         native_app_manager.get_app_pkg_distribution_in_snowflake
 
     assert mock_execute.mock_calls == expected
+    assert (
+        dedent(
+            f"""\
+        Could not find the 'distribution' attribute for application package app_pkg in the output of SQL query:
+        'describe application package app_pkg'
+        """
+        )
+        in err.value.message
+    )
 
 
 @mock_get_app_pkg_distribution_in_sf()
