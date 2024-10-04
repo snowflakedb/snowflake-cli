@@ -156,7 +156,7 @@ def test_failing_executing_command_sends_telemetry_data(
 
 
 @pytest.mark.parametrize(
-    "error,expected",
+    "error,is_cli_exception",
     [
         (ProgrammingError(), False),
         (ClickException("message"), True),
@@ -170,7 +170,7 @@ def test_failing_executing_command_sends_telemetry_data(
         (RuntimeError(), False),
     ],
 )
-def test_cli_exception_classification(error: Exception, expected: bool):
+def test_cli_exception_classification(error: Exception, is_cli_exception: bool):
     from snowflake.cli._app.telemetry import _is_cli_exception
 
-    assert _is_cli_exception(error) == expected
+    assert _is_cli_exception(error) == is_cli_exception

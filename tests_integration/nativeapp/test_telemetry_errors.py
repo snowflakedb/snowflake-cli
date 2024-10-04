@@ -18,45 +18,45 @@ from snowflake.connector import ProgrammingError
 from snowflake.cli._app.telemetry import CLITelemetryField, TelemetryEvent
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
 from snowflake.cli.api.exceptions import CouldNotUseObjectError
+from tests.nativeapp.factories import ProjectV11Factory
 from tests.project.fixtures import *
-from tests_integration.test_utils import pushd, extract_first_telemetry_message_of_type
+from tests_integration.test_utils import extract_first_telemetry_message_of_type
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "project_definition_files,command",
-    [("napp_post_deploy_missing_file", ["app", "deploy"])],
-    indirect=["project_definition_files"],
-)
 @mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
-def test_not_ProgrammingError_does_not_attach_any_info(
-    mock_telemetry,
-    command: List[str],
-    runner,
-    project_definition_files: List[Path],
-    nativeapp_teardown,
+def test_not_programmingerror_does_not_attach_any_info(
+    mock_telemetry, runner, nativeapp_project_directory, temp_dir
 ):
-    with pushd(project_definition_files[0].parent):
-        with nativeapp_teardown():
-            result = runner.invoke_with_connection_json(command)
-            assert result.exit_code == 1
+    ProjectV11Factory(
+        pdf__native_app__artifacts=["setup.sql"],
+        pdf__native_app__name="myapp",
+        pdf__native_app__package__post_deploy=[
+            {"sql_script": "non_existent.sql"},
+        ],
+        files={
+            "setup.sql": "\n",
+        },
+    )
 
-            message = extract_first_telemetry_message_of_type(
-                mock_telemetry, TelemetryEvent.CMD_EXECUTION_ERROR.value
-            )
-            assert CLITelemetryField.ERROR_TYPE.value in message
-            assert (
-                message[CLITelemetryField.ERROR_TYPE.value] != ProgrammingError.__name__
-            )
+    with nativeapp_project_directory(temp_dir):
+        result = runner.invoke_with_connection_json(["app", "deploy"])
+        assert result.exit_code == 1
 
-            assert CLITelemetryField.ERROR_CODE.value not in message
-            assert CLITelemetryField.SQL_STATE.value not in message
-            assert CLITelemetryField.ERROR_CAUSE.value not in message
+        message = extract_first_telemetry_message_of_type(
+            mock_telemetry, TelemetryEvent.CMD_EXECUTION_ERROR.value
+        )
+        assert CLITelemetryField.ERROR_TYPE.value in message
+        assert message[CLITelemetryField.ERROR_TYPE.value] != ProgrammingError.__name__
+        assert message[CLITelemetryField.ERROR_CAUSE.value] != ProgrammingError.__name__
+
+        assert CLITelemetryField.ERROR_CODE.value not in message
+        assert CLITelemetryField.SQL_STATE.value not in message
 
 
 @pytest.mark.integration
 @mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
-def test_ProgrammingError_attaches_errno_and_sqlstate(
+def test_programmingerror_attaches_errno_and_sqlstate(
     mock_telemetry,
     runner,
 ):
@@ -79,38 +79,39 @@ def test_ProgrammingError_attaches_errno_and_sqlstate(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "project_definition_files,command",
-    [("napp_project_with_incorrect_pkg_warehouse", ["app", "deploy"])],
-    indirect=["project_definition_files"],
-)
 @mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
-def test_ProgrammingError_cause_attaches_errno_and_sqlstate(
-    mock_telemetry,
-    command: List[str],
-    runner,
-    project_definition_files: List[Path],
-    nativeapp_teardown,
+def test_programmingerror_cause_attaches_errno_and_sqlstate(
+    mock_telemetry, runner, nativeapp_project_directory, temp_dir
 ):
-    with pushd(project_definition_files[0].parent):
-        with nativeapp_teardown():
-            result = runner.invoke_with_connection_json(command)
-            assert result.exit_code == 1
+    ProjectV11Factory(
+        pdf__native_app__artifacts=["setup.sql"],
+        pdf__native_app__name="myapp",
+        pdf__native_app__package__post_deploy=[
+            # this file just needs to be present for the error to be triggered
+            {"sql_script": "post_deploy1.sql"},
+        ],
+        pdf__native_app__package__warehouse="non_existent_warehouse",
+        files={
+            "post_deploy1.sql": "\n",
+            "setup.sql": "\n",
+        },
+    )
 
-            message = extract_first_telemetry_message_of_type(
-                mock_telemetry, TelemetryEvent.CMD_EXECUTION_ERROR.value
-            )
+    with nativeapp_project_directory(Path(temp_dir)):
+        result = runner.invoke_with_connection_json(["app", "deploy"])
+        assert result.exit_code == 1
 
-            assert (
-                message[CLITelemetryField.ERROR_TYPE.value]
-                == CouldNotUseObjectError.__name__
-            )
-            assert (
-                message[CLITelemetryField.ERROR_CODE.value]
-                == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
-            )
-            assert message[CLITelemetryField.SQL_STATE.value] == "02000"
-            assert (
-                message[CLITelemetryField.ERROR_CAUSE.value]
-                is ProgrammingError.__name__
-            )
+        message = extract_first_telemetry_message_of_type(
+            mock_telemetry, TelemetryEvent.CMD_EXECUTION_ERROR.value
+        )
+
+        assert (
+            message[CLITelemetryField.ERROR_TYPE.value]
+            == CouldNotUseObjectError.__name__
+        )
+        assert (
+            message[CLITelemetryField.ERROR_CODE.value]
+            == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
+        )
+        assert message[CLITelemetryField.SQL_STATE.value] == "02000"
+        assert message[CLITelemetryField.ERROR_CAUSE.value] is ProgrammingError.__name__

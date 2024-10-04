@@ -87,8 +87,8 @@ TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
 
 
 def _is_cli_exception(exception: Exception) -> bool:
-    return issubclass(
-        exception.__class__,
+    return isinstance(
+        exception,
         (click.ClickException, typer.Exit, typer.Abort, BrokenPipeError),
     )
 
@@ -104,11 +104,15 @@ def _get_additional_exception_information(exception: Exception) -> TelemetryDict
         additional_info[CLITelemetryField.ERROR_CODE] = exception.errno
         additional_info[CLITelemetryField.SQL_STATE] = exception.sqlstate
 
-    if isinstance(exception.__cause__, ProgrammingError):
+    if exception.__cause__:
         cause = exception.__cause__
         additional_info[CLITelemetryField.ERROR_CAUSE] = cause.__class__.__name__
-        additional_info[CLITelemetryField.ERROR_CODE] = cause.errno
-        additional_info[CLITelemetryField.SQL_STATE] = cause.sqlstate
+
+        if isinstance(cause, ProgrammingError):
+            if CLITelemetryField.ERROR_CODE not in additional_info:
+                additional_info[CLITelemetryField.ERROR_CODE] = cause.errno
+            if CLITelemetryField.SQL_STATE not in additional_info:
+                additional_info[CLITelemetryField.SQL_STATE] = cause.sqlstate
 
     return additional_info
 
