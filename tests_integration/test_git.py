@@ -289,6 +289,20 @@ def test_execute(runner, test_database, sf_git_repository, snapshot):
 
 
 @pytest.mark.integration
+def test_execute_python(runner, test_database, sf_git_repository, snapshot):
+    result = runner.invoke_with_connection_json(
+        [
+            "git",
+            "execute",
+            f"@{sf_git_repository.lower()}/branches/main/tests_integration/test_data/projects/stage_execute/script1.py",
+        ]
+    )
+
+    assert result.exit_code == 0
+    assert result.json == snapshot
+
+
+@pytest.mark.integration
 def test_execute_fqn_repo(runner, test_database, sf_git_repository):
     result_fqn = runner.invoke_with_connection_json(
         [

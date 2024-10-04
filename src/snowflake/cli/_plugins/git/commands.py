@@ -338,7 +338,10 @@ def execute(
     extension will be executed.
     """
     results = GitManager().execute(
-        stage_path=repository_path, on_error=on_error, variables=variables
+        stage_path=repository_path,
+        on_error=on_error,
+        variables=variables,
+        requires_temporary_stage=True,
     )
     return CollectionResult(results)
 

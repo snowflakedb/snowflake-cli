@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from click import ClickException
 from snowflake.cli.api.exceptions import FQNInconsistencyError, FQNNameError
@@ -122,6 +123,11 @@ class FQN:
         if stage.startswith("@"):
             name = stage[1:]
         return cls.from_string(name)
+
+    @classmethod
+    def from_stage_path(cls, stage_path: str) -> "FQN":
+        stage = Path(stage_path).parts[0]
+        return cls.from_stage(stage)
 
     @classmethod
     def from_identifier_model_v1(cls, model: ObjectIdentifierBaseModel) -> "FQN":

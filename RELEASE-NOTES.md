@@ -23,6 +23,9 @@
 
 
 ## Fixes and improvements
+* Fix `snow git execute` support for Python files.
+* Align variables for `snow stage|git execute`. For Python files variables are stripped of leading and trailing quotes.
+
 
 # v3.0.0
 

@@ -192,3 +192,8 @@ def test_using_context(mock_ctx):
     mock_ctx().connection = MagicMock(database="database_test", schema="test_schema")
     fqn = FQN.from_string("name").using_context()
     assert fqn.identifier == "database_test.test_schema.name"
+
+
+def test_git_fqn():
+    fqn = FQN.from_stage_path("@git_repo/branches/main/devops/")
+    assert fqn.name == "git_repo"
