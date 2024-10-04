@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_execute[@DB.SCHEMA.REPO/branches/main/s1.sql-@DB.SCHEMA.REPO/branches/main/-expected_files4]
+# name: test_execute[@DB.SCHEMA.REPO/branches/main/s1.sql-@DB.SCHEMA.REPO/branches/main-expected_files4]
   '''
   SUCCESS - @DB.SCHEMA.REPO/branches/main/s1.sql
   +--------------------------------------------------------+
@@ -10,7 +10,7 @@
   
   '''
 # ---
-# name: test_execute[@DB.schema.REPO/branches/main/a/S3.sql-@DB.schema.REPO/branches/main/-expected_files5]
+# name: test_execute[@DB.schema.REPO/branches/main/a/S3.sql-@DB.schema.REPO/branches/main-expected_files5]
   '''
   SUCCESS - @DB.schema.REPO/branches/main/a/S3.sql
   +----------------------------------------------------------+
@@ -21,7 +21,7 @@
   
   '''
 # ---
-# name: test_execute[@db.schema.repo/branches/main/-@db.schema.repo/branches/main/-expected_files2]
+# name: test_execute[@db.schema.repo/branches/main/-@db.schema.repo/branches/main-expected_files2]
   '''
   SUCCESS - @db.schema.repo/branches/main/s1.sql
   SUCCESS - @db.schema.repo/branches/main/a/S3.sql
@@ -34,7 +34,7 @@
   
   '''
 # ---
-# name: test_execute[@db.schema.repo/branches/main/s1.sql-@db.schema.repo/branches/main/-expected_files3]
+# name: test_execute[@db.schema.repo/branches/main/s1.sql-@db.schema.repo/branches/main-expected_files3]
   '''
   SUCCESS - @db.schema.repo/branches/main/s1.sql
   +--------------------------------------------------------+
@@ -45,7 +45,7 @@
   
   '''
 # ---
-# name: test_execute[@repo/branches/main/-@repo/branches/main/-expected_files0]
+# name: test_execute[@repo/branches/main/-@repo/branches/main-expected_files0]
   '''
   SUCCESS - @repo/branches/main/s1.sql
   SUCCESS - @repo/branches/main/a/S3.sql
@@ -58,7 +58,7 @@
   
   '''
 # ---
-# name: test_execute[@repo/branches/main/a-@repo/branches/main/-expected_files1]
+# name: test_execute[@repo/branches/main/a-@repo/branches/main-expected_files1]
   '''
   SUCCESS - @repo/branches/main/a/S3.sql
   +------------------------------------------------+
@@ -69,7 +69,7 @@
   
   '''
 # ---
-# name: test_execute_new_git_repository_list_files[@repo/branches/main/-@repo/branches/main/-expected_files0]
+# name: test_execute_new_git_repository_list_files[@repo/branches/main/-@repo/branches/main-expected_files0]
   '''
   SUCCESS - @repo/branches/main/S2.sql
   SUCCESS - @repo/branches/main/s1.sql
@@ -84,7 +84,7 @@
   
   '''
 # ---
-# name: test_execute_new_git_repository_list_files[@repo/branches/main/S2.sql-@repo/branches/main/-expected_files2]
+# name: test_execute_new_git_repository_list_files[@repo/branches/main/S2.sql-@repo/branches/main-expected_files2]
   '''
   SUCCESS - @repo/branches/main/S2.sql
   +----------------------------------------------+
@@ -95,7 +95,7 @@
   
   '''
 # ---
-# name: test_execute_new_git_repository_list_files[@repo/branches/main/a/s3.sql-@repo/branches/main/-expected_files3]
+# name: test_execute_new_git_repository_list_files[@repo/branches/main/a/s3.sql-@repo/branches/main-expected_files3]
   '''
   SUCCESS - @repo/branches/main/a/s3.sql
   +------------------------------------------------+
@@ -106,7 +106,7 @@
   
   '''
 # ---
-# name: test_execute_new_git_repository_list_files[@repo/branches/main/s1.sql-@repo/branches/main/-expected_files1]
+# name: test_execute_new_git_repository_list_files[@repo/branches/main/s1.sql-@repo/branches/main-expected_files1]
   '''
   SUCCESS - @repo/branches/main/s1.sql
   +----------------------------------------------+
@@ -117,7 +117,7 @@
   
   '''
 # ---
-# name: test_execute_slash_in_repository_name[@db.schema.repo/branches/"feature/commit"/-@db.schema.repo/branches/"feature/commit"/-expected_files3]
+# name: test_execute_slash_in_repository_name[@db.schema.repo/branches/"feature/commit"/-@db.schema.repo/branches/"feature/commit"-expected_files3]
   '''
   SUCCESS - @db.schema.repo/branches/"feature/commit"/s1.sql
   SUCCESS - @db.schema.repo/branches/"feature/commit"/a/S3.sql
@@ -130,7 +130,7 @@
   
   '''
 # ---
-# name: test_execute_slash_in_repository_name[@repo/branches/"feature/commit"/-@repo/branches/"feature/commit"/-expected_files0]
+# name: test_execute_slash_in_repository_name[@repo/branches/"feature/commit"/-@repo/branches/"feature/commit"-expected_files0]
   '''
   SUCCESS - @repo/branches/"feature/commit"/s1.sql
   SUCCESS - @repo/branches/"feature/commit"/a/S3.sql
@@ -143,7 +143,7 @@
   
   '''
 # ---
-# name: test_execute_slash_in_repository_name[@repo/branches/"feature/commit"/a/-@repo/branches/"feature/commit"/-expected_files2]
+# name: test_execute_slash_in_repository_name[@repo/branches/"feature/commit"/a/-@repo/branches/"feature/commit"-expected_files2]
   '''
   SUCCESS - @repo/branches/"feature/commit"/a/S3.sql
   +------------------------------------------------------------+
@@ -154,7 +154,7 @@
   
   '''
 # ---
-# name: test_execute_slash_in_repository_name[@repo/branches/"feature/commit"/s1.sql-@repo/branches/"feature/commit"/-expected_files1]
+# name: test_execute_slash_in_repository_name[@repo/branches/"feature/commit"/s1.sql-@repo/branches/"feature/commit"-expected_files1]
   '''
   SUCCESS - @repo/branches/"feature/commit"/s1.sql
   +----------------------------------------------------------+
