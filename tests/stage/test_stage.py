@@ -188,7 +188,7 @@ def test_stage_copy_remote_to_local_quoted_uri_recursive(
     mock_execute, runner, mock_cursor, raw_path, expected_uri
 ):
     mock_execute.side_effect = [
-        mock_cursor([{"name": "stageName/file"}], []),
+        mock_cursor([{"name": "stageName/file.py"}], []),
         mock_cursor([(raw_path)], ["file"]),
     ]
     with TemporaryDirectory() as tmp_dir:
@@ -209,7 +209,7 @@ def test_stage_copy_remote_to_local_quoted_uri_recursive(
     assert result.exit_code == 0, result.output
     assert mock_execute.mock_calls == [
         mock.call("ls @stageName", cursor_class=DictCursor),
-        mock.call(f"get @stageName/file {file_uri} parallel=4"),
+        mock.call(f"get @stageName/file.py {file_uri} parallel=4"),
     ]
 
 
