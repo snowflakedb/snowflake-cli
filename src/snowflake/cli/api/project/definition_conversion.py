@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from tempfile import TemporaryDirectory, mkstemp
 from typing import Any, Dict, Literal, Optional
 
 from click import ClickException
@@ -37,8 +38,24 @@ from snowflake.cli.api.project.schemas.v1.snowpark.callable import (
 from snowflake.cli.api.project.schemas.v1.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
 from snowflake.cli.api.rendering.jinja import get_basic_jinja_env
+from snowflake.cli.api.utils.definition_rendering import render_definition_template
 
 log = logging.getLogger(__name__)
+
+# A directory to hold temporary files created during in-memory definition conversion
+# We need a global reference to this directory to prevent the object from being
+# garbage collected before the files in the directory are used by other parts
+# of the CLI. The directory will then be deleted on interpreter exit
+_IN_MEMORY_CONVERSION_TEMP_DIR: TemporaryDirectory | None = None
+
+
+def _get_temp_dir() -> TemporaryDirectory:
+    global _IN_MEMORY_CONVERSION_TEMP_DIR
+    if _IN_MEMORY_CONVERSION_TEMP_DIR is None:
+        _IN_MEMORY_CONVERSION_TEMP_DIR = TemporaryDirectory(
+            suffix="_pdf_conversion", ignore_cleanup_errors=True
+        )
+    return _IN_MEMORY_CONVERSION_TEMP_DIR
 
 
 def _is_field_defined(template_context: Optional[Dict[str, Any]], *path: str) -> bool:
@@ -69,13 +86,16 @@ def convert_project_definition_to_v2(
     pd: ProjectDefinition,
     accept_templates: bool = False,
     template_context: Optional[Dict[str, Any]] = None,
+    in_memory: bool = False,
 ) -> ProjectDefinitionV2:
     _check_if_project_definition_meets_requirements(pd, accept_templates)
 
     snowpark_data = convert_snowpark_to_v2_data(pd.snowpark) if pd.snowpark else {}
     streamlit_data = convert_streamlit_to_v2_data(pd.streamlit) if pd.streamlit else {}
     native_app_data = (
-        convert_native_app_to_v2_data(project_root, pd.native_app, template_context)
+        convert_native_app_to_v2_data(
+            project_root, pd.native_app, template_context, in_memory
+        )
         if pd.native_app
         else {}
     )
@@ -89,9 +109,14 @@ def convert_project_definition_to_v2(
             native_app_data.get("entities", {}),
         ),
         "mixins": snowpark_data.get("mixins", None),
-        "env": envs,
     }
+    if envs is not None:
+        data["env"] = envs
 
+    if in_memory:
+        # If this is an in-memory conversion, we need to evaluate templates right away
+        # since the file won't be re-read as it would be for a permanent conversion
+        return render_definition_template(data, {}).project_definition
     return ProjectDefinitionV2(**data)
 
 
@@ -196,9 +221,10 @@ def convert_streamlit_to_v2_data(streamlit: Streamlit) -> Dict[str, Any]:
 
 
 def convert_native_app_to_v2_data(
-    project_root,
+    project_root: Path,
     native_app: NativeApp,
     template_context: Optional[Dict[str, Any]] = None,
+    in_memory: bool = False,
 ) -> Dict[str, Any]:
     def _make_meta(obj: Application | Package):
         meta = {}
@@ -262,6 +288,11 @@ def convert_native_app_to_v2_data(
             new_contents = render_script_template(
                 project_root, jinja_context, script_file, get_basic_jinja_env()
             )
+            if in_memory:
+                # If we're converting the definition in-memory, we can't touch
+                # the package scripts on disk, so we'll write them to a temporary file
+                d = _get_temp_dir().name
+                _, script_file = mkstemp(dir=d, suffix="_converted.sql", text=True)
             (project_root / script_file).write_text(new_contents)
             post_deploy_hooks.append(SqlScriptHookType(sql_script=script_file))
         return post_deploy_hooks
