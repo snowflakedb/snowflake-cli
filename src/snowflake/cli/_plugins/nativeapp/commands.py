@@ -117,23 +117,27 @@ def app_bundle(
 
 @app.command("diff", requires_connection=True, hidden=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1()
+@single_app_and_package()
 def app_diff(
     **options,
-) -> CommandResult:
+) -> CommandResult | None:
     """
     Performs a diff between the app's source stage and the local deploy root.
     """
-    assert_project_type("native_app")
-
     cli_context = get_cli_context()
-    manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    bundle_map = manager.build_bundle()
+    package_id = options["package_entity_id"]
+    package = cli_context.project_definition.entities[package_id]
+    bundle_map = ws.perform_action(
+        package_id,
+        EntityActions.BUNDLE,
+    )
+    stage_fqn = f"{package.identifier.name}.{package.stage}"
     diff: DiffResult = compute_stage_diff(
-        local_root=Path(manager.deploy_root), stage_fqn=manager.stage_fqn
+        local_root=Path(package.deploy_root), stage_fqn=stage_fqn
     )
     if cli_context.output_format == OutputFormat.JSON:
         return ObjectResult(diff.to_dict())
