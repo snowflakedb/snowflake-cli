@@ -35,6 +35,8 @@ from snowflake.cli.api.project.schemas.project_definition import (
 from snowflake.cli.api.project.schemas.v1.snowpark.callable import _CallableBase
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 
+from tests.nativeapp.factories import ProjectV11Factory
+
 
 @pytest.mark.parametrize(
     "definition_input,expected_error",
@@ -365,6 +367,34 @@ def test_v1_to_v2_conversion(
             assert v2_function.artifacts == [artifact]
             assert "snowpark_shared" in v2_function.meta.use_mixins
             _assert_entities_are_equal(v1_function, v2_function)
+
+
+def test_v1_to_v2_conversion_in_memory_package_scripts(temp_dir):
+    package_script = "select '{{ package_name }}';"
+    package_script_filename = "scripts/package-script.sql"
+    ProjectV11Factory(
+        pdf__native_app__package__scripts=[package_script_filename],
+        pdf__native_app__artifacts=["app/manifest.yml"],
+        files={
+            package_script_filename: package_script,
+            "app/manifest.yml": "",  # It just needs to exist for the definition conversion
+        },
+    )
+
+    definition_v1 = DefinitionManager(temp_dir).project_definition
+    definition_v2 = convert_project_definition_to_v2(
+        Path(temp_dir), definition_v1, in_memory=True
+    )
+
+    # Actual contents of package script in project was not changed
+    assert Path(package_script_filename).read_text() == package_script
+
+    # But the converted definition has a reference to a tempfile
+    # that contains the converted package script
+    assert (
+        Path(definition_v2.entities["pkg"].meta.post_deploy[0].sql_script).read_text()
+        == "select '<% ctx.entities.pkg.identifier %>';"
+    )
 
 
 # TODO:
