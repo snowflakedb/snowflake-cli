@@ -1,8 +1,12 @@
+from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from enum import Enum
 from typing import Generic, Type, TypeVar, get_args
 
 from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.sql_execution import SqlExecutor
+from snowflake.connector.errors import ProgrammingError
 
 
 class EntityActions(str, Enum):
@@ -54,3 +58,53 @@ class EntityBase(Generic[T]):
 def get_sql_executor() -> SqlExecutor:
     """Returns an SQL Executor that uses the connection from the current CLI context"""
     return SqlExecutor()
+
+
+class SFService(ABC):
+    # Should the error handling be done here or in the implementing layer hmm
+    @abstractmethod
+    def use_object(self, object_type: ObjectType, name: str):
+        pass
+
+    @abstractmethod
+    def get_current_role(self):
+        pass
+
+    @abstractmethod
+    def switch_to_role(self, role: str):
+        pass
+
+    @abstractmethod
+    def get_existing_pkg(self, pkg_name: str):
+        pass
+
+
+class SqlService(SFService):
+    def __init__(self):
+        self.sql_executor = SqlExecutor()
+
+    def use_object(self, object_type: ObjectType, name: str):
+        try:
+            self.sql_executor.execute_query(f"use {object_type.value.sf_name} {name}")
+        # TODO: replace with CouldNotUseObject error
+        except ProgrammingError:
+            raise ProgrammingError(
+                f"Could not use {object_type} {name}. Object does not exist, or operation cannot be performed."
+            )
+
+    def get_current_role(self) -> str:
+        # pj-question: do we just propagate sql errors or do we add context? how do I know which is which
+        return self.sql_executor.execute_query(f"select current_role()").fetchone()[0]
+
+    @contextmanager
+    def switch_to_role(self, role: str):
+        prev_role = self.get_current_role()
+        is_different_role = role.lower() != prev_role.lower()
+        if is_different_role:
+            self.sql_executor.log_debug(f"Assuming different role: {role}")
+            self.use_object(ObjectType.ROLE, role)
+        try:
+            yield
+        finally:
+            if is_different_role:
+                self.use_object(ObjectType.ROLE, prev_role)

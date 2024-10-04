@@ -55,6 +55,9 @@ class SqlExecutor:
     def _log(self):
         return logging.getLogger(__name__)
 
+    def log_debug(self, message: str):
+        self._log.debug(message)
+
     def _execute_string(
         self,
         sql_text: str,
