@@ -42,7 +42,7 @@ from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli._plugins.nativeapp.teardown_processor import (
     NativeAppTeardownProcessor,
 )
-from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     find_entity,
     nativeapp_definition_v2_to_v1,
 )

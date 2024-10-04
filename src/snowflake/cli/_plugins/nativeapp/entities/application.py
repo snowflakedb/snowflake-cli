@@ -41,7 +41,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
-from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
@@ -118,7 +118,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
     def action_deploy(
         self,
-        ctx: ActionContext,
+        action_ctx: ActionContext,
         from_release_directive: bool,
         prune: bool,
         recursive: bool,
@@ -133,18 +133,21 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         **kwargs,
     ):
         model = self._entity_model
+        workspace_ctx = self._workspace_ctx
         app_name = model.fqn.identifier
         debug_mode = model.debug
         if model.meta:
-            app_role = model.meta.role or ctx.default_role
-            app_warehouse = model.meta.warehouse or ctx.default_warehouse
+            app_role = model.meta.role or workspace_ctx.default_role
+            app_warehouse = model.meta.warehouse or workspace_ctx.default_warehouse
             post_deploy_hooks = model.meta.post_deploy
         else:
-            app_role = ctx.default_role
-            app_warehouse = ctx.default_warehouse
+            app_role = workspace_ctx.default_role
+            app_warehouse = workspace_ctx.default_warehouse
             post_deploy_hooks = None
 
-        package_entity: ApplicationPackageEntity = ctx.get_entity(model.from_.target)
+        package_entity: ApplicationPackageEntity = action_ctx.get_entity(
+            model.from_.target
+        )
         package_model: ApplicationPackageEntityModel = (
             package_entity._entity_model  # noqa: SLF001
         )
@@ -152,7 +155,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         if package_model.meta and package_model.meta.role:
             package_role = package_model.meta.role
         else:
-            package_role = ctx.default_role
+            package_role = workspace_ctx.default_role
 
         if not stage_fqn:
             stage_fqn = f"{package_name}.{package_model.stage}"
@@ -169,7 +172,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         def deploy_package():
             package_entity.action_deploy(
-                ctx=ctx,
+                action_ctx=action_ctx,
                 prune=True,
                 recursive=True,
                 paths=[],
@@ -180,8 +183,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             )
 
         self.deploy(
-            console=ctx.console,
-            project_root=ctx.project_root,
+            console=workspace_ctx.console,
+            project_root=workspace_ctx.project_root,
             app_name=app_name,
             app_role=app_role,
             app_warehouse=app_warehouse,
@@ -202,7 +205,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
     def action_drop(
         self,
-        ctx: ActionContext,
+        action_ctx: ActionContext,
         interactive: bool,
         force_drop: bool = False,
         cascade: Optional[bool] = None,
@@ -210,13 +213,14 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         **kwargs,
     ):
         model = self._entity_model
+        workspace_ctx = self._workspace_ctx
         app_name = model.fqn.identifier
         if model.meta and model.meta.role:
             app_role = model.meta.role
         else:
-            app_role = ctx.default_role
+            app_role = workspace_ctx.default_role
         self.drop(
-            console=ctx.console,
+            console=workspace_ctx.console,
             app_name=app_name,
             app_role=app_role,
             auto_yes=force_drop,

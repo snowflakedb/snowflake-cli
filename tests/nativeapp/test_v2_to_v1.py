@@ -16,7 +16,7 @@ from unittest import mock
 
 import pytest
 from click import ClickException
-from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     _pdf_v2_to_v1,
     nativeapp_definition_v2_to_v1,
 )
@@ -412,9 +412,7 @@ def test_project_name(pdfv2_input, expected_project_name):
     assert pdfv1.native_app.name == expected_project_name
 
 
-@mock.patch(
-    "snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator._pdf_v2_to_v1"
-)
+@mock.patch("snowflake.cli._plugins.nativeapp.v2_conversions.compat._pdf_v2_to_v1")
 def test_decorator_skips_when_project_is_not_v2(mock_pdf_v2_to_v1):
     pdfv1 = DefinitionV11(
         **{

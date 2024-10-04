@@ -21,7 +21,7 @@ import typer
 from click import MissingParameter
 from snowflake.cli._plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
-from snowflake.cli._plugins.nativeapp.v2_conversions.v2_to_v1_decorator import (
+from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     nativeapp_definition_v2_to_v1,
 )
 from snowflake.cli._plugins.nativeapp.version.version_processor import (
