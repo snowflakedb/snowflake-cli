@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import re
 from pathlib import Path
 
 import pytest
@@ -70,7 +71,8 @@ def test_compiler_requires_absolute_paths(test_proj_def, name):
     path = Path()
     setattr(bundle_context, f"{name.lower()}_root", path)
     with pytest.raises(
-        AssertionError, match=f"{name} root {path} must be an absolute path."
+        AssertionError,
+        match=re.escape(rf"{name} root {path} must be an absolute path."),
     ):
         NativeAppCompiler(bundle_context)
 
