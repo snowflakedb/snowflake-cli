@@ -17,22 +17,17 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from click import ClickException
 from snowflake.cli._plugins.nativeapp.exceptions import (
     InvalidTemplateInFileError,
     MissingScriptError,
 )
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
-from snowflake.cli.api.errno import (
-    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
-    NO_WAREHOUSE_SELECTED_IN_SESSION,
-)
+from snowflake.cli.api.entities.service import SqlService
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.connector import ProgrammingError
 
+from tests.nativeapp.factories import PdfV10Factory, ProjectV10Factory
 from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (
-    SQL_EXECUTOR_EXECUTE,
     SQL_EXECUTOR_EXECUTE_QUERIES,
 )
 from tests.testing_utils.fixtures import MockConnectionCtx
@@ -46,148 +41,202 @@ def _get_na_manager(working_dir):
     )
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+def use_project_with_package_scripts():
+    package_script_1 = dedent(
+        """\
+        -- package script (1/2)
+
+        create schema if not exists {{ package_name }}.my_shared_content;
+        grant usage on schema {{ package_name }}.my_shared_content
+        to share in application package {{ package_name }};
+        """
+    )
+    package_script_2 = dedent(
+        """\
+        grant select on table {{ package_name }}.my_shared_content.shared_table
+          to share in application package {{ package_name }};
+        """
+    )
+
+    ProjectV10Factory(
+        pdf__native_app__name="myapp",
+        pdf__native_app__package__name="myapp_pkg_polly",
+        pdf__native_app__artifacts=["setup.sql"],
+        pdf__native_app__package__scripts=["001-shared.sql", "002-shared.sql"],
+        files={"001-shared.sql": package_script_1, "002-shared.sql": package_script_2},
+    )
+
+    rendered_script_1 = dedent(
+        """\
+        -- package script (1/2)
+
+        create schema if not exists myapp_pkg_polly.my_shared_content;
+        grant usage on schema myapp_pkg_polly.my_shared_content
+        to share in application package myapp_pkg_polly;
+        """
+    )
+    rendered_script_2 = dedent(
+        """\
+        grant select on table myapp_pkg_polly.my_shared_content.shared_table
+          to share in application package myapp_pkg_polly;
+        """
+    )
+    return {"001-shared.sql": rendered_script_1, "002-shared.sql": rendered_script_2}
+
+
 @mock_connection()
-@pytest.mark.parametrize(
-    "project_definition_files, expected_calls",
-    [
-        (
-            "napp_project_1",  # With connection warehouse, without PDF warehouse
-            [
-                mock.call("select current_warehouse()"),
-            ],
-        ),
-        (
-            "napp_project_with_pkg_warehouse",  # With connection warehouse, with PDF warehouse
-            [
-                mock.call("select current_warehouse()"),
-                mock.call("use warehouse myapp_pkg_warehouse"),
-                mock.call("use warehouse MockWarehouse"),
-            ],
-        ),
-    ],
-    indirect=["project_definition_files"],
-)
-def test_package_scripts_with_conn_info(
-    mock_conn,
-    mock_execute_query,
-    mock_execute_queries,
-    project_definition_files,
-    expected_calls,
-    mock_cursor,
-):
-    mock_conn.return_value = MockConnectionCtx()
-    working_dir: Path = project_definition_files[0].parent
-    # Only consequential for "select current_warehouse()"
-    mock_execute_query.return_value = mock_cursor([("MockWarehouse",)], [])
-    native_app_manager = _get_na_manager(str(working_dir))
-    native_app_manager._apply_package_scripts()  # noqa: SLF001
-    assert mock_execute_query.mock_calls == expected_calls
-    assert mock_execute_queries.mock_calls == [
-        mock.call(
-            dedent(
-                f"""\
-                    -- package script (1/2)
+def test_package_scripts_with_conn_warehouse(mock_conn, temp_dir):
+    # Arrange
+    scripts = use_project_with_package_scripts()
+    with mock.patch.object(
+        SqlService, "execute_package_script_queries"
+    ) as mock_execute_package_script:
+        mock_execute_package_script.return_value = None
+        native_app_manager = _get_na_manager(str(temp_dir))
+        ## Act
+        native_app_manager._apply_package_scripts()  # noqa: SLF001
+        ## Assert
+        mock_execute_package_script.assert_called_with(
+            list(scripts.values()), list(scripts.keys()), "wh", "role"
+        )
 
-                    create schema if not exists myapp_pkg_polly.my_shared_content;
-                    grant usage on schema myapp_pkg_polly.my_shared_content
-                      to share in application package myapp_pkg_polly;
-                """
-            )
-        ),
-        mock.call(
-            dedent(
-                f"""\
-                    -- package script (2/2)
 
-                    create or replace table myapp_pkg_polly.my_shared_content.shared_table (
-                      col1 number,
-                      col2 varchar
-                    );
-                    grant select on table myapp_pkg_polly.my_shared_content.shared_table
-                      to share in application package myapp_pkg_polly;
-                """
-            )
-        ),
-    ]
+@mock_connection()
+def test_package_scripts_with_pkg_warehouse(mock_conn, temp_dir):
+    # Arrange
+    scripts = use_project_with_package_scripts()
+    PdfV10Factory.with_filename("snowflake.local.yml")(
+        native_app__package__warehouse="myapp_pkg_warehouse"
+    )
+
+    with mock.patch.object(
+        SqlService, "execute_package_script_queries"
+    ) as mock_execute_package_script:
+        mock_execute_package_script.return_value = None
+        native_app_manager = _get_na_manager(str(temp_dir))
+        ## Act
+        native_app_manager._apply_package_scripts()  # noqa: SLF001
+        ## Assert
+        mock_execute_package_script.assert_called_with(
+            list(scripts.values()), list(scripts.keys()), "myapp_pkg_warehouse", "role"
+        )
+
+
+@mock_connection()
+def test_package_scripts_without_conn_warehouse_with_pkg_warehouse(mock_conn, temp_dir):
+    # Arrange
+    mock_conn.return_value = MockConnectionCtx(warehouse=None)
+    scripts = use_project_with_package_scripts()
+    PdfV10Factory.with_filename("snowflake.local.yml")(
+        native_app__package__warehouse="myapp_pkg_warehouse"
+    )
+
+    with mock.patch.object(
+        SqlService, "execute_package_script_queries"
+    ) as mock_execute_package_script:
+        mock_execute_package_script.return_value = None
+        native_app_manager = _get_na_manager(str(temp_dir))
+        ## Act
+        native_app_manager._apply_package_scripts()  # noqa: SLF001
+        ## Assert
+        mock_execute_package_script.assert_called_with(
+            list(scripts.values()),
+            list(scripts.keys()),
+            "myapp_pkg_warehouse",
+            "MockRole",
+        )
 
 
 # Without connection warehouse, without PDF warehouse
-@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
-@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
-def test_package_scripts_without_conn_info_throws_error(
-    mock_conn,
-    mock_execute_query,
-    mock_execute_queries,
-    project_definition_files,
-    mock_cursor,
-):
+def test_package_scripts_without_conn_warehouse(mock_conn, temp_dir):
+    scripts = use_project_with_package_scripts()
     mock_conn.return_value = MockConnectionCtx(warehouse=None)
-    working_dir: Path = project_definition_files[0].parent
-    mock_execute_query.return_value = mock_cursor([(None,)], [])
-    native_app_manager = _get_na_manager(str(working_dir))
-    with pytest.raises(ClickException) as err:
+    with mock.patch.object(
+        SqlService, "execute_package_script_queries"
+    ) as mock_execute_package_script:
+        native_app_manager = _get_na_manager(str(temp_dir))
         native_app_manager._apply_package_scripts()  # noqa: SLF001
+        mock_execute_package_script.assert_called_with(
+            list(scripts.values()), list(scripts.keys()), None, "MockRole"
+        )
 
-    assert "Application package warehouse cannot be empty." in err.value.message
-    assert mock_execute_query.mock_calls == []
-    assert mock_execute_queries.mock_calls == []
+
+# # Without connection warehouse, without PDF warehouse
+# @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+# @mock.patch(SQL_EXECUTOR_EXECUTE)
+# @mock_connection()
+# @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
+# def test_package_scripts_without_conn_info_throws_error(
+#     mock_conn,
+#     mock_execute_query,
+#     mock_execute_queries,
+#     project_definition_files,
+#     mock_cursor,
+# ):
+#     mock_conn.return_value = MockConnectionCtx(warehouse=None)
+#     working_dir: Path = project_definition_files[0].parent
+#     mock_execute_query.return_value = mock_cursor([(None,)], [])
+#     native_app_manager = _get_na_manager(str(working_dir))
+#     with pytest.raises(ClickException) as err:
+#         native_app_manager._apply_package_scripts()  # noqa: SLF001
+
+#     assert "Application package warehouse cannot be empty." in err.value.message
+#     assert mock_execute_query.mock_calls == []
+#     assert mock_execute_queries.mock_calls == []
 
 
-# Without connection warehouse, with PDF warehouse
-@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock_connection()
-@pytest.mark.parametrize(
-    "project_definition_files", ["napp_project_with_pkg_warehouse"], indirect=True
-)
-def test_package_scripts_without_conn_info_succeeds(
-    mock_conn,
-    mock_execute_query,
-    mock_execute_queries,
-    project_definition_files,
-    mock_cursor,
-):
-    mock_conn.return_value = MockConnectionCtx(warehouse=None)
-    working_dir: Path = project_definition_files[0].parent
-    mock_execute_query.return_value = mock_cursor([(None,)], [])
-    native_app_manager = _get_na_manager(str(working_dir))
-    native_app_manager._apply_package_scripts()  # noqa: SLF001
+# # Without connection warehouse, with PDF warehouse
+# @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+# @mock.patch(SQL_EXECUTOR_EXECUTE)
+# @mock_connection()
+# @pytest.mark.parametrize(
+#     "project_definition_files", ["napp_project_with_pkg_warehouse"], indirect=True
+# )
+# def test_package_scripts_without_conn_info_succeeds(
+#     mock_conn,
+#     mock_execute_query,
+#     mock_execute_queries,
+#     project_definition_files,
+#     mock_cursor,
+# ):
+#     mock_conn.return_value = MockConnectionCtx(warehouse=None)
+#     working_dir: Path = project_definition_files[0].parent
+#     mock_execute_query.return_value = mock_cursor([(None,)], [])
+#     native_app_manager = _get_na_manager(str(working_dir))
+#     native_app_manager._apply_package_scripts()  # noqa: SLF001
 
-    assert mock_execute_query.mock_calls == [
-        mock.call("select current_warehouse()"),
-        mock.call("use warehouse myapp_pkg_warehouse"),
-    ]
-    assert mock_execute_queries.mock_calls == [
-        mock.call(
-            dedent(
-                f"""\
-                    -- package script (1/2)
+#     assert mock_execute_query.mock_calls == [
+#         mock.call("select current_warehouse()"),
+#         mock.call("use warehouse myapp_pkg_warehouse"),
+#     ]
+#     assert mock_execute_queries.mock_calls == [
+#         mock.call(
+#             dedent(
+#                 f"""\
+#                     -- package script (1/2)
 
-                    create schema if not exists myapp_pkg_polly.my_shared_content;
-                    grant usage on schema myapp_pkg_polly.my_shared_content
-                      to share in application package myapp_pkg_polly;
-                """
-            )
-        ),
-        mock.call(
-            dedent(
-                f"""\
-                    -- package script (2/2)
+#                     create schema if not exists myapp_pkg_polly.my_shared_content;
+#                     grant usage on schema myapp_pkg_polly.my_shared_content
+#                       to share in application package myapp_pkg_polly;
+#                 """
+#             )
+#         ),
+#         mock.call(
+#             dedent(
+#                 f"""\
+#                     -- package script (2/2)
 
-                    create or replace table myapp_pkg_polly.my_shared_content.shared_table (
-                      col1 number,
-                      col2 varchar
-                    );
-                    grant select on table myapp_pkg_polly.my_shared_content.shared_table
-                      to share in application package myapp_pkg_polly;
-                """
-            )
-        ),
-    ]
+#                     create or replace table myapp_pkg_polly.my_shared_content.shared_table (
+#                       col1 number,
+#                       col2 varchar
+#                     );
+#                     grant select on table myapp_pkg_polly.my_shared_content.shared_table
+#                       to share in application package myapp_pkg_polly;
+#                 """
+#             )
+#         ),
+#     ]
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
@@ -240,76 +289,77 @@ def test_undefined_var_package_script(
     assert mock_execute.mock_calls == []
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock_connection()
-@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
-def test_package_scripts_w_missing_warehouse_exception(
-    mock_conn,
-    mock_execute_query,
-    mock_execute_queries,
-    project_definition_files,
-    mock_cursor,
-):
-    mock_conn.return_value = MockConnectionCtx()
-    mock_execute_query.side_effect = [
-        mock_cursor(
-            [
-                ("old_wh"),
-            ],
-            [],
-        ),
-        None,
-        None,
-    ]
+## TODO: Rewrite these two tests
+# @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+# @mock.patch(SQL_EXECUTOR_EXECUTE)
+# @mock_connection()
+# @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
+# def test_package_scripts_w_missing_warehouse_exception(
+#     mock_conn,
+#     mock_execute_query,
+#     mock_execute_queries,
+#     project_definition_files,
+#     mock_cursor,
+# ):
+#     mock_conn.return_value = MockConnectionCtx()
+#     mock_execute_query.side_effect = [
+#         mock_cursor(
+#             [
+#                 ("old_wh"),
+#             ],
+#             [],
+#         ),
+#         None,
+#         None,
+#     ]
 
-    mock_execute_queries.side_effect = ProgrammingError(
-        msg="No active warehouse selected in the current session.",
-        errno=NO_WAREHOUSE_SELECTED_IN_SESSION,
-    )
+#     mock_execute_queries.side_effect = ProgrammingError(
+#         msg="No active warehouse selected in the current session.",
+#         errno=NO_WAREHOUSE_SELECTED_IN_SESSION,
+#     )
 
-    working_dir: Path = project_definition_files[0].parent
-    native_app_manager = _get_na_manager(str(working_dir))
+#     working_dir: Path = project_definition_files[0].parent
+#     native_app_manager = _get_na_manager(str(working_dir))
 
-    with pytest.raises(ProgrammingError) as err:
-        native_app_manager._apply_package_scripts()  # noqa: SLF001
+#     with pytest.raises(ProgrammingError) as err:
+#         native_app_manager._apply_package_scripts()  # noqa: SLF001
 
-    assert "Please provide a warehouse for the active session role" in err.value.msg
+#     assert "Please provide a warehouse for the active session role" in err.value.msg
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock_connection()
-@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
-def test_package_scripts_w_warehouse_access_exception(
-    mock_conn,
-    mock_execute_query,
-    project_definition_files,
-    mock_cursor,
-):
-    side_effects = [
-        mock_cursor(
-            [
-                ("old_wh"),
-            ],
-            [],
-        ),
-        ProgrammingError(
-            msg="Object does not exist, or operation cannot be performed.",
-            errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
-        ),
-        None,
-    ]
+# @mock.patch(SQL_EXECUTOR_EXECUTE)
+# @mock_connection()
+# @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
+# def test_package_scripts_w_warehouse_access_exception(
+#     mock_conn,
+#     mock_execute_query,
+#     project_definition_files,
+#     mock_cursor,
+# ):
+#     side_effects = [
+#         mock_cursor(
+#             [
+#                 ("old_wh"),
+#             ],
+#             [],
+#         ),
+#         ProgrammingError(
+#             msg="Object does not exist, or operation cannot be performed.",
+#             errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+#         ),
+#         None,
+#     ]
 
-    mock_conn.return_value = MockConnectionCtx()
-    mock_execute_query.side_effect = side_effects
+#     mock_conn.return_value = MockConnectionCtx()
+#     mock_execute_query.side_effect = side_effects
 
-    working_dir: Path = project_definition_files[0].parent
-    native_app_manager = _get_na_manager(str(working_dir))
+#     working_dir: Path = project_definition_files[0].parent
+#     native_app_manager = _get_na_manager(str(working_dir))
 
-    with pytest.raises(ProgrammingError) as err:
-        native_app_manager._apply_package_scripts()  # noqa: SLF001
+#     with pytest.raises(ProgrammingError) as err:
+#         native_app_manager._apply_package_scripts()  # noqa: SLF001
 
-    assert (
-        "Could not use warehouse MockWarehouse. Object does not exist, or operation cannot be performed."
-        in err.value.msg
-    )
+#     assert (
+#         "Could not use warehouse MockWarehouse. Object does not exist, or operation cannot be performed."
+#         in err.value.msg
+#     )

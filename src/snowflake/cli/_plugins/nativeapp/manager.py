@@ -113,11 +113,6 @@ class NativeAppManager:
     def package_warehouse(self) -> Optional[str]:
         return self.na_project.package_warehouse
 
-    def use_package_warehouse(self):
-        return ApplicationPackageEntity.use_package_warehouse(
-            self.package_warehouse,
-        )
-
     @property
     def application_warehouse(self) -> Optional[str]:
         return self.na_project.application_warehouse
@@ -208,7 +203,7 @@ class NativeAppManager:
             package_name=self.package_name,
             stage_schema=self.stage_schema,
             bundle_map=bundle_map,
-            role=role,
+            package_role=role,
             prune=prune,
             recursive=recursive,
             stage_fqn=stage_fqn,

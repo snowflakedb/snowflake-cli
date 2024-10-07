@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
-from textwrap import dedent
-from typing import Any, List, NoReturn, Optional
+from typing import Any, List, Optional
 
 import jinja2
 from click import ClickException
@@ -26,10 +25,8 @@ from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import get_sql_executor
-from snowflake.cli.api.errno import (
-    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
-    NO_WAREHOUSE_SELECTED_IN_SESSION,
-)
+from snowflake.cli.api.entities.service import get_service
+from snowflake.cli.api.exception_handler import generic_sql_error_handler
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
@@ -39,43 +36,6 @@ from snowflake.cli.api.rendering.sql_templates import (
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
-
-
-def generic_sql_error_handler(
-    err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
-) -> NoReturn:
-    # Potential refactor: If moving away from Python 3.8 and 3.9 to >= 3.10, use match ... case
-    if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
-        raise ProgrammingError(
-            msg=dedent(
-                f"""\
-                Received error message '{err.msg}' while executing SQL statement.
-                '{role}' may not have access to warehouse '{warehouse}'.
-                Please grant usage privilege on warehouse to this role.
-                """
-            ),
-            errno=err.errno,
-        )
-    elif err.errno == NO_WAREHOUSE_SELECTED_IN_SESSION:
-        raise ProgrammingError(
-            msg=dedent(
-                f"""\
-                Received error message '{err.msg}' while executing SQL statement.
-                Please provide a warehouse for the active session role in your project definition file, config.toml file, or via command line.
-                """
-            ),
-            errno=err.errno,
-        )
-    elif "does not exist or not authorized" in err.msg:
-        raise ProgrammingError(
-            msg=dedent(
-                f"""\
-                Received error message '{err.msg}' while executing SQL statement.
-                Please check the name of the resource you are trying to query or the permissions of the role you are using to run the query.
-                """
-            )
-        )
-    raise err
 
 
 def _get_stage_paths_to_sync(
@@ -103,7 +63,7 @@ def sync_deploy_root_with_stage(
     package_name: str,
     stage_schema: str,
     bundle_map: BundleMap,
-    role: str,
+    package_role: str,
     prune: bool,
     recursive: bool,
     stage_fqn: str,
@@ -128,22 +88,16 @@ def sync_deploy_root_with_stage(
         A `DiffResult` instance describing the changes that were performed.
     """
 
-    sql_executor = get_sql_executor()
+    service = get_service()
     # Does a stage already exist within the application package, or we need to create one?
     # Using "if not exists" should take care of either case.
     console.step(
         f"Checking if stage {stage_fqn} exists, or creating a new one if none exists."
     )
-    with sql_executor.use_role(role):
-        sql_executor.execute_query(
-            f"create schema if not exists {package_name}.{stage_schema}"
-        )
-        sql_executor.execute_query(
-            f"""
-                    create stage if not exists {stage_fqn}
-                    encryption = (TYPE = 'SNOWFLAKE_SSE')
-                    DIRECTORY = (ENABLE = TRUE)"""
-        )
+    schema_name = f"{package_name}.{stage_schema}"
+    service.create_stage(
+        package_role=package_role, schema_name=schema_name, stage_fqn=stage_fqn
+    )
 
     # Perform a diff operation and display results to the user for informational purposes
     if print_diff:
@@ -209,7 +163,7 @@ def sync_deploy_root_with_stage(
             % deploy_root.resolve(),
         )
         sync_local_diff_with_stage(
-            role=role,
+            role=package_role,
             deploy_root_path=deploy_root,
             diff_result=diff,
             stage_fqn=stage_fqn,

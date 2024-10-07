@@ -46,15 +46,16 @@ from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
+from snowflake.cli.api.entities.service import get_service
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
     execute_post_deploy_hooks,
-    generic_sql_error_handler,
     render_script_templates,
     sync_deploy_root_with_stage,
     validation_item_to_str,
 )
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.exception_handler import generic_sql_error_handler
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
@@ -412,16 +413,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             console.warning(e.message)
             if not policy.should_proceed("Proceed with using this package?"):
                 raise typer.Abort() from e
-        with get_sql_executor().use_role(package_role):
-            cls.apply_package_scripts(
-                console=console,
-                package_scripts=package_scripts,
-                package_warehouse=package_warehouse,
-                project_root=project_root,
-                package_role=package_role,
-                package_name=package_name,
-            )
 
+        cls.apply_package_scripts(
+            console=console,
+            package_scripts=package_scripts,
+            package_warehouse=package_warehouse,
+            project_root=project_root,
+            package_role=package_role,
+            package_name=package_name,
+        )
+        with get_sql_executor().use_role(package_role):
             # 3. Upload files from deploy root local folder to the above stage
             stage_schema = extract_schema(stage_fqn)
             diff = sync_deploy_root_with_stage(
@@ -430,7 +431,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 package_name=package_name,
                 stage_schema=stage_schema,
                 bundle_map=bundle_map,
-                role=package_role,
+                package_role=package_role,
                 prune=prune,
                 recursive=recursive,
                 stage_fqn=stage_fqn,
@@ -1067,6 +1068,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         metrics.set_counter(CLICounterField.PACKAGE_SCRIPTS, 1)
 
+        # PJ-Question: Why do we pass the console down...?
         console.warning(
             "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
         )
@@ -1078,18 +1080,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             get_basic_jinja_env(),
         )
 
-        # once we're sure all the templates expanded correctly, execute all of them
-        with cls.use_package_warehouse(
-            package_warehouse=package_warehouse,
-        ):
-            try:
-                for i, queries in enumerate(queued_queries):
-                    console.step(f"Applying package script: {package_scripts[i]}")
-                    get_sql_executor().execute_queries(queries)
-            except ProgrammingError as err:
-                generic_sql_error_handler(
-                    err, role=package_role, warehouse=package_warehouse
-                )
+        service = get_service()
+        service.execute_package_script_queries(
+            queued_queries, package_scripts, package_warehouse, package_role
+        )
 
     @classmethod
     def create_app_package(

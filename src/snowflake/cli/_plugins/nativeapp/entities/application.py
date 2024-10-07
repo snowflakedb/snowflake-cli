@@ -48,7 +48,6 @@ from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
     execute_post_deploy_hooks,
-    generic_sql_error_handler,
     print_messages,
 )
 from snowflake.cli.api.errno import (
@@ -58,6 +57,7 @@ from snowflake.cli.api.errno import (
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
     ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
+from snowflake.cli.api.exception_handler import generic_sql_error_handler
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,

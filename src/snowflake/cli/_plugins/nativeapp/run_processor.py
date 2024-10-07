@@ -33,12 +33,12 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 )
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.common import get_sql_executor
-from snowflake.cli.api.entities.utils import (
-    generic_sql_error_handler,
-)
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
+)
+from snowflake.cli.api.exception_handler import (
+    generic_sql_error_handler,
 )
 from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
 from snowflake.connector import ProgrammingError
