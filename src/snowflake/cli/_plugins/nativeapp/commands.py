@@ -199,7 +199,7 @@ def app_run(
 
 @app.command("open", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1(app_required=True)
+@single_app_and_package(app_required=True)
 def app_open(
     **options,
 ) -> CommandResult:
@@ -207,16 +207,15 @@ def app_open(
     Opens the Snowflake Native App inside of your browser,
     once it has been installed in your account.
     """
-
-    assert_project_type("native_app")
-
     cli_context = get_cli_context()
-    manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    if manager.get_existing_app_info():
-        typer.launch(manager.get_snowsight_url())
+    app_id = options["app_entity_id"]
+    app = ws.get_entity(app_id)
+    if app.get_existing_app_info():
+        typer.launch(app.get_snowsight_url())
         return MessageResult(f"Snowflake Native App opened in browser.")
     else:
         return MessageResult(

@@ -217,7 +217,7 @@ class NativeAppManager:
         )
 
     def get_existing_app_info(self) -> Optional[dict]:
-        return ApplicationEntity.get_existing_app_info(
+        return ApplicationEntity.get_existing_app_info_static(
             app_name=self.app_name,
             app_role=self.app_role,
         )
