@@ -1,5 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 set -eo pipefail
+
+git config --global --add safe.directory /snowflake-cli
 
 cd $(git rev-parse --show-toplevel)
 
