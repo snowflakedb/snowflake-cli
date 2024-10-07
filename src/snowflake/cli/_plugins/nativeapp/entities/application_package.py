@@ -1207,7 +1207,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     ):
         """Validates Native App setup script SQL."""
         with console.phase(f"Validating Snowflake Native App setup script."):
-            validation_result = cls.get_validation_result(
+            validation_result = cls.get_validation_result_static(
                 console=console,
                 project_root=project_root,
                 deploy_root=deploy_root,
@@ -1243,8 +1243,38 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             if validation_result["status"] == "FAIL":
                 raise SetupScriptFailedValidation()
 
+    def get_validation_result(self, use_scratch_stage: bool = True):
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        package_name = model.fqn.identifier
+        return self.get_validation_result_static(
+            console=workspace_ctx.console,
+            project_root=workspace_ctx.project_root,
+            deploy_root=workspace_ctx.project_root / model.deploy_root,
+            bundle_root=workspace_ctx.project_root / model.bundle_root,
+            generated_root=(
+                workspace_ctx.project_root / model.deploy_root / model.generated_root
+            ),
+            artifacts=model.artifacts,
+            package_name=package_name,
+            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
+            package_distribution=model.distribution,
+            prune=True,
+            recursive=True,
+            paths=[],
+            stage_fqn=f"{package_name}.{model.stage}",
+            package_warehouse=(
+                (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
+            ),
+            post_deploy_hooks=model.meta and model.meta.post_deploy,
+            package_scripts=[],  # Package scripts are not supported in PDFv2
+            policy=AllowAlwaysPolicy(),
+            use_scratch_stage=use_scratch_stage,
+            scratch_stage_fqn=f"{package_name}.{model.scratch_stage}",
+        )
+
     @classmethod
-    def get_validation_result(
+    def get_validation_result_static(
         cls,
         console: AbstractConsole,
         project_root: Path,
