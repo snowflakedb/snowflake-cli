@@ -286,7 +286,7 @@ def test_too_wide_permissions_on_default_config_file_causes_error(
 
     with pytest.raises(ConfigFileTooWidePermissionsError) as error:
         config_init(None)
-    assert error.value.message.__contains__("config.toml")
+    assert error.value.message.__contains__("config.toml has too wide permissions")
 
 
 @parametrize_icacls
@@ -300,7 +300,7 @@ def test_too_wide_permissions_on_default_config_file_causes_error_windows(
 
     with pytest.raises(ConfigFileTooWidePermissionsError) as error:
         config_init(None)
-    assert error.value.message.__contains__("config.toml")
+    assert error.value.message.__contains__("config.toml has too wide permissions")
 
 
 @pytest.mark.parametrize(
@@ -364,7 +364,7 @@ def test_too_wide_permissions_on_default_connections_file_causes_error(
 
     with pytest.raises(ConfigFileTooWidePermissionsError) as error:
         config_init(None)
-    assert error.value.message.__contains__("connections.toml")
+    assert error.value.message.__contains__("connections.toml has too wide permissions")
 
 
 @parametrize_icacls
@@ -380,7 +380,7 @@ def test_too_wide_permissions_on_default_connections_file_causes_error_windows(
 
     with pytest.raises(ConfigFileTooWidePermissionsError) as error:
         config_init(None)
-    assert error.value.message.__contains__("connections.toml")
+    assert error.value.message.__contains__("connections.toml has too wide permissions")
 
 
 def test_no_error_when_init_from_non_default_config(
