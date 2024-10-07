@@ -1,4 +1,5 @@
 # mypy: disable-error-code=abstract
+# above line skips mypy error for empty RESTService
 import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
