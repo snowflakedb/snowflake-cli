@@ -40,7 +40,6 @@ from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.conftest import clean_logging_handlers_fixture  # noqa: F401
 from tests.testing_utils.files_and_dirs import merge_left
 from tests.testing_utils.fixtures import (
-    # noqa: F401
     snowflake_home,
 )
 
