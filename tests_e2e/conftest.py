@@ -12,11 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import shutil
 import subprocess
 import sys
-import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -84,16 +82,6 @@ def disable_colors_and_styles_in_output(monkeypatch):
     this environment variable turn off styling
     """
     monkeypatch.setenv("TERM", "unknown")
-
-
-@pytest.fixture
-def temp_dir():
-    initial_dir = os.getcwd()
-    tmp = tempfile.TemporaryDirectory()
-    os.chdir(tmp.name)
-    yield tmp.name
-    os.chdir(initial_dir)
-    tmp.cleanup()
 
 
 @pytest.fixture(scope="session")

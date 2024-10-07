@@ -11,9 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import platform
 
-from tests_common.conftest import *
-from tests_common.path_utils import *
+from __future__ import annotations
 
-IS_WINDOWS = platform.system() == "Windows"
+import os
+import tempfile
+
+import pytest
+
+
+@pytest.fixture
+def temp_dir():
+    initial_dir = os.getcwd()
+
+    try:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            os.chdir(tmp_dir)
+            yield tmp_dir
+    finally:
+        os.chdir(initial_dir)

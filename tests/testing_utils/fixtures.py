@@ -247,16 +247,6 @@ def build_runner(test_snowcli_config):
     return func
 
 
-@pytest.fixture
-def temp_dir():
-    initial_dir = os.getcwd()
-    tmp = tempfile.TemporaryDirectory()
-    os.chdir(tmp.name)
-    yield tmp.name
-    os.chdir(initial_dir)
-    tmp.cleanup()
-
-
 @contextmanager
 def _named_temporary_file(suffix=None, prefix=None):
     with tempfile.TemporaryDirectory() as tmp_dir:

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import functools
 import json
-import os
 import shutil
 import tempfile
 from contextlib import contextmanager
@@ -257,13 +256,3 @@ def resource_suffix(request):
     # To generate a suffix that isn't too long or complex, we use originalname, which is the
     # "bare" test function name, without filename, class name, or parameterization variables
     return f"_{uuid4().hex}_{request.node.originalname}"
-
-
-@pytest.fixture
-def temp_dir():
-    initial_dir = os.getcwd()
-    tmp = tempfile.TemporaryDirectory()
-    os.chdir(tmp.name)
-    yield tmp.name
-    os.chdir(initial_dir)
-    tmp.cleanup()
