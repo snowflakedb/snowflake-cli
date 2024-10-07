@@ -367,6 +367,22 @@ def test_too_wide_permissions_on_default_connections_file_causes_error(
     assert error.value.message.__contains__("connections.toml")
 
 
+@parametrize_icacls
+@pytest.mark.skipif(condition=not IS_WINDOWS, reason="Windows permission system test")
+def test_too_wide_permissions_on_default_connections_file_causes_error_windows(
+    snowflake_home: Path, permissions: str
+):
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    connections_path = snowflake_home / "connections.toml"
+    connections_path.touch()
+    _windows_grant_permissions(permissions, connections_path)
+
+    with pytest.raises(ConfigFileTooWidePermissionsError) as error:
+        config_init(None)
+    assert error.value.message.__contains__("connections.toml")
+
+
 def test_no_error_when_init_from_non_default_config(
     snowflake_home: Path, test_snowcli_config: Path
 ):
