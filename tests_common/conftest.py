@@ -22,9 +22,11 @@ import pytest
 def temp_dir():
     initial_dir = os.getcwd()
 
-    try:
-        with tempfile.TemporaryDirectory() as tmp_dir:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        try:
             os.chdir(tmp_dir)
             yield tmp_dir
-    finally:
-        os.chdir(initial_dir)
+        finally:
+            # this has to happen before tmp_dir is cleaned up
+            # so that we don't try to remove the cwd of the process
+            os.chdir(initial_dir)
