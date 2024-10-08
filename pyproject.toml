@@ -133,6 +133,10 @@ pre-install-commands = [
   "pip install test_external_plugins/snowpark_hello_single_command",
   "pip install test_external_plugins/multilingual_hello_command_group",
   "pip install pytest-xdist",
+  # snowflake-cli-labs is a dep of the snowpark stuff above,
+  # installing those will overwrite the snowflake-cli-labs install in the venv,
+  # so let's add it back to make sure we're testing the right version
+  "pip install . --no-deps",
 ]
 features = ["development"]
 
