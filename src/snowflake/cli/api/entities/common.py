@@ -5,11 +5,6 @@ from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceCon
 from snowflake.cli.api.sql_execution import SqlExecutor
 
 
-# TODO before draft:
-# sort questions
-# write a description of changes
-# script running one in the base class comment/question
-#
 class EntityActions(str, Enum):
     BUNDLE = "action_bundle"
     DEPLOY = "action_deploy"
