@@ -114,4 +114,4 @@ def test_programmingerror_cause_attaches_errno_and_sqlstate(
             == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
         )
         assert message[CLITelemetryField.SQL_STATE.value] == "02000"
-        assert message[CLITelemetryField.ERROR_CAUSE.value] is ProgrammingError.__name__
+        assert message[CLITelemetryField.ERROR_CAUSE.value] == ProgrammingError.__name__

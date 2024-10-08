@@ -106,7 +106,7 @@ def _get_additional_exception_information(exception: Exception) -> TelemetryDict
 
     if exception.__cause__:
         cause = exception.__cause__
-        additional_info[CLITelemetryField.ERROR_CAUSE] = cause.__class__.__name__
+        additional_info[CLITelemetryField.ERROR_CAUSE] = type(cause).__name__
 
         if isinstance(cause, ProgrammingError):
             if CLITelemetryField.ERROR_CODE not in additional_info:
