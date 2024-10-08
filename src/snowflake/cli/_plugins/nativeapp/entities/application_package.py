@@ -185,11 +185,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             policy = DenyAlwaysPolicy()
 
         return self.deploy(
-            console=ctx.console,
-            project_root=ctx.project_root,
-            deploy_root=Path(model.deploy_root),
-            bundle_root=Path(model.bundle_root),
-            generated_root=Path(model.generated_root),
+            console=workspace_ctx.console,
+            project_root=workspace_ctx.project_root,
+            deploy_root=workspace_ctx.project_root / model.deploy_root,
+            bundle_root=workspace_ctx.project_root / model.bundle_root,
+            generated_root=(
+                workspace_ctx.project_root / model.deploy_root / model.generated_root
+            ),
             artifacts=model.artifacts,
             bundle_map=None,
             package_name=package_name,
@@ -237,11 +239,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             policy = DenyAlwaysPolicy()
 
         self.validate_setup_script(
-            console=ctx.console,
-            project_root=ctx.project_root,
-            deploy_root=Path(model.deploy_root),
-            bundle_root=Path(model.bundle_root),
-            generated_root=Path(model.generated_root),
+            console=workspace_ctx.console,
+            project_root=workspace_ctx.project_root,
+            deploy_root=workspace_ctx.project_root / model.deploy_root,
+            bundle_root=workspace_ctx.project_root / model.bundle_root,
+            generated_root=(
+                workspace_ctx.project_root / model.deploy_root / model.generated_root
+            ),
             artifacts=model.artifacts,
             package_name=package_name,
             package_role=(model.meta and model.meta.role) or ctx.default_role,
@@ -284,11 +288,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         model = self._entity_model
         package_name = model.fqn.identifier
         return self.version_create(
-            console=ctx.console,
-            project_root=ctx.project_root,
-            deploy_root=Path(model.deploy_root),
-            bundle_root=Path(model.bundle_root),
-            generated_root=Path(model.generated_root),
+            console=workspace_ctx.console,
+            project_root=workspace_ctx.project_root,
+            deploy_root=workspace_ctx.project_root / model.deploy_root,
+            bundle_root=workspace_ctx.project_root / model.bundle_root,
+            generated_root=(
+                workspace_ctx.project_root / model.deploy_root / model.generated_root
+            ),
             artifacts=model.artifacts,
             package_name=package_name,
             package_role=(model.meta and model.meta.role) or ctx.default_role,
@@ -323,11 +329,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         model = self._entity_model
         package_name = model.fqn.identifier
         return self.version_drop(
-            console=ctx.console,
-            project_root=ctx.project_root,
-            deploy_root=Path(model.deploy_root),
-            bundle_root=Path(model.bundle_root),
-            generated_root=Path(model.generated_root),
+            console=workspace_ctx.console,
+            project_root=workspace_ctx.project_root,
+            deploy_root=workspace_ctx.project_root / model.deploy_root,
+            bundle_root=workspace_ctx.project_root / model.bundle_root,
+            generated_root=(
+                workspace_ctx.project_root / model.deploy_root / model.generated_root
+            ),
             artifacts=model.artifacts,
             package_name=package_name,
             package_role=(model.meta and model.meta.role) or ctx.default_role,

@@ -217,7 +217,7 @@ def convert_native_app_to_v2_data(
         # manifest file from the resultant BundleMap, since the bundle process ensures
         # that only a single source path can map to the corresponding destination path
         bundle_map = BundleMap(
-            project_root=project_root, deploy_root=Path(native_app.deploy_root)
+            project_root=project_root, deploy_root=project_root / native_app.deploy_root
         )
         for artifact in native_app.artifacts:
             bundle_map.add(artifact)

@@ -144,7 +144,9 @@ def test_deploy(
 
     mock_sync.assert_called_once_with(
         console=mock_console,
-        deploy_root=Path("output/deploy"),
+        deploy_root=(
+            app_pkg._workspace_ctx.project_root / Path("output/deploy")  # noqa SLF001
+        ),
         package_name="pkg",
         stage_schema="app_src",
         bundle_map=mock.ANY,
