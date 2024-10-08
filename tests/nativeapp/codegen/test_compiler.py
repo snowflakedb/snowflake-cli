@@ -11,7 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import re
+from pathlib import Path
 
 import pytest
 from snowflake.cli._plugins.nativeapp.codegen.artifact_processor import (
@@ -60,6 +61,20 @@ def test_proj_def():
 def test_compiler(test_proj_def):
     na_project = create_native_app_project_model(test_proj_def.native_app)
     return NativeAppCompiler(na_project.get_bundle_context())
+
+
+@pytest.mark.parametrize("name", ["Project", "Deploy", "Bundle", "Generated"])
+def test_compiler_requires_absolute_paths(test_proj_def, name):
+    na_project = create_native_app_project_model(test_proj_def.native_app)
+    bundle_context = na_project.get_bundle_context()
+
+    path = Path()
+    setattr(bundle_context, f"{name.lower()}_root", path)
+    with pytest.raises(
+        AssertionError,
+        match=re.escape(rf"{name} root {path} must be an absolute path."),
+    ):
+        NativeAppCompiler(bundle_context)
 
 
 def test_try_create_processor_returns_none(test_proj_def, test_compiler):

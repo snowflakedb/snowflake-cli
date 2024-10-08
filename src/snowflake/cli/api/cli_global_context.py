@@ -54,10 +54,11 @@ class _CliGlobalContextManager:
     project_env_overrides_args: dict[str, str] = field(default_factory=dict)
 
     # FIXME: this property only exists to help implement
-    # nativeapp_definition_v2_to_v1. Consider changing the way
-    # this calculation is provided to commands in order to remove
-    # this logic (then make project_definition a non-cloned @property)
+    # nativeapp_definition_v2_to_v1 and single_app_and_package.
+    # Consider changing the way this calculation is provided to commands
+    # in order to remove this logic (then make project_definition a non-cloned @property)
     override_project_definition: ProjectDefinition | None = None
+    override_template_context: dict | None = None
 
     _definition_manager: DefinitionManager | None = None
 
@@ -97,6 +98,8 @@ class _CliGlobalContextManager:
 
     @property
     def template_context(self) -> dict:
+        if self.override_template_context:
+            return self.override_template_context
         return self._definition_manager_or_raise().template_context
 
     @property

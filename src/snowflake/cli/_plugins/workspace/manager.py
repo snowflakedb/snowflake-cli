@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Dict
 
-from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.common import EntityActions, get_sql_executor
@@ -43,7 +43,13 @@ class WorkspaceManager:
             raise ValueError(f"No such entity ID: {entity_id}")
         entity_model_cls = entity_model.__class__
         entity_cls = v2_entity_model_to_entity_map[entity_model_cls]
-        self._entities_cache[entity_id] = entity_cls(entity_model)
+        workspace_ctx = WorkspaceContext(
+            console=cc,
+            project_root=self.project_root,
+            get_default_role=_get_default_role,
+            get_default_warehouse=_get_default_warehouse,
+        )
+        self._entities_cache[entity_id] = entity_cls(entity_model, workspace_ctx)
         return self._entities_cache[entity_id]
 
     def perform_action(self, entity_id: str, action: EntityActions, *args, **kwargs):
@@ -53,16 +59,13 @@ class WorkspaceManager:
         entity = self.get_entity(entity_id)
         if entity.supports(action):
             action_ctx = ActionContext(
-                console=cc,
-                project_root=self.project_root(),
-                get_default_role=_get_default_role,
-                get_default_warehouse=_get_default_warehouse,
                 get_entity=self.get_entity,
             )
             return entity.perform(action, action_ctx, *args, **kwargs)
         else:
             raise ValueError(f'This entity type does not support "{action.value}"')
 
+    @property
     def project_root(self) -> Path:
         return self._project_root
 
