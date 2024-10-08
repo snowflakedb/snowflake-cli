@@ -1,0 +1,17 @@
+name: Upload Python Package
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  noop:
+    environment: release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Schedule a release for tag ${{ github.event.release.tag_name }}
+        run: echo "Release scheduled for tag ${{ github.event.release.tag_name }}"

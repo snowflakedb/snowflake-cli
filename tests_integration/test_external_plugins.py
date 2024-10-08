@@ -43,7 +43,6 @@ def reset_command_registration_state():
     _reset_command_registration_state()
 
 
-@pytest.mark.skip(reason="PyPi repo migration")
 @pytest.mark.integration
 def test_loading_of_installed_plugins_if_all_plugins_enabled(
     runner, install_plugins, caplog, reset_command_registration_state
@@ -106,7 +105,6 @@ def test_loading_of_installed_plugins_if_all_plugins_enabled(
     )
 
 
-@pytest.mark.skip(reason="PyPi repo migration")
 @pytest.mark.integration
 def test_loading_of_installed_plugins_if_only_one_plugin_is_enabled(
     runner,
@@ -131,7 +129,6 @@ def test_loading_of_installed_plugins_if_only_one_plugin_is_enabled(
     )
 
 
-@pytest.mark.skip(reason="PyPi repo migration")
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "config_value",

@@ -67,7 +67,6 @@ def assert_snapshot_match_with_query_result(output: str, snapshot) -> bool:
     return snapshot.assert_match(myjson.values())
 
 
-@pytest.mark.skip(reason="PyPi repo migration")
 @pytest.mark.e2e
 def test_full_lifecycle_with_codegen(
     snowcli, test_root_path, project_directory, snapshot
