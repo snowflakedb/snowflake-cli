@@ -240,9 +240,21 @@ class BundleMap:
     """
     Computes the mapping between project directory artifacts (aka source artifacts) to their deploy root location
     (aka destination artifact). This information is primarily used when bundling a native applications project.
+
+    :param project_root: The root directory of the project and base for all relative paths. Must be an absolute path.
+    :param deploy_root: The directory where artifacts should be copied to. Must be an absolute path.
     """
 
     def __init__(self, *, project_root: Path, deploy_root: Path):
+        # If a relative path ends up here, it's a bug in the app and can lead to other
+        # subtle bugs as paths would be resolved relative to the current working directory.
+        assert (
+            project_root.is_absolute()
+        ), f"Project root {project_root} must be an absolute path."
+        assert (
+            deploy_root.is_absolute()
+        ), f"Deploy root {deploy_root} must be an absolute path."
+
         self._project_root: Path = resolve_without_follow(project_root)
         self._deploy_root: Path = resolve_without_follow(deploy_root)
         self._artifact_map = _ArtifactPathMap(project_root=self._project_root)

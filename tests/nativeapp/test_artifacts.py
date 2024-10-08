@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -164,6 +165,24 @@ def test_empty_bundle_map(bundle_map):
             "/not/in/project": None,
         },
     )
+
+
+def test_bundle_map_requires_absolute_project_root():
+    project_root = Path()
+    with pytest.raises(
+        AssertionError,
+        match=re.escape(rf"Project root {project_root} must be an absolute path."),
+    ):
+        BundleMap(project_root=project_root, deploy_root=Path("output/deploy"))
+
+
+def test_bundle_map_requires_absolute_deploy_root():
+    deploy_root = Path("output/deploy")
+    with pytest.raises(
+        AssertionError,
+        match=re.escape(rf"Deploy root {deploy_root} must be an absolute path."),
+    ):
+        BundleMap(project_root=Path().resolve(), deploy_root=deploy_root)
 
 
 def test_bundle_map_handles_file_to_file_mappings(bundle_map):
