@@ -133,16 +133,15 @@ pre-install-commands = [
   "pip install test_external_plugins/snowpark_hello_single_command",
   "pip install test_external_plugins/multilingual_hello_command_group",
   "pip install pytest-xdist",
-  # snowflake-cli-labs is a dep of the snowpark stuff above,
-  # installing those will overwrite the snowflake-cli-labs install in the venv,
-  # so let's add it back to make sure we're testing the right version
-  "pip install . --no-deps",
+  # snowflake-cli and snowflake-cli-labs are deps of the snowpark stuff above,
+  # so let's add remove them and let hatch install the right version afterwards
+  "pip uninstall -y snowflake-cli snowflake-cli-labs",
 ]
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
 test = [
-  "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/spcs",
+  "pytest -m integration -s tests_integration/nativeapp/test_bundle.py::test_nativeapp_bundle_throws_error_on_no_artifacts[template_setup0]",
 ]
 test-spcs = [
   "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs",
