@@ -133,6 +133,12 @@ pre-install-commands = [
   "pip install test_external_plugins/snowpark_hello_single_command",
   "pip install test_external_plugins/multilingual_hello_command_group",
   "pip install pytest-xdist",
+  # snowflake-cli and snowflake-cli-labs are deps of the snowpark stuff above,
+  # so let's remove them and let hatch install the right version afterwards
+  # If we don't do this, there can be a mismatch between the version of these
+  # packages installed as dependencies of the snowpark plugins and the current
+  # commit being tested
+  "pip uninstall -y snowflake-cli snowflake-cli-labs",
 ]
 features = ["development"]
 
