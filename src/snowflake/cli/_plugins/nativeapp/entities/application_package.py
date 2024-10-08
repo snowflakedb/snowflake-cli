@@ -156,9 +156,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         workspace_ctx = self._workspace_ctx
         return self.bundle(
             project_root=workspace_ctx.project_root,
-            deploy_root=Path(model.deploy_root),
-            bundle_root=Path(model.bundle_root),
-            generated_root=Path(model.generated_root),
+            deploy_root=workspace_ctx.project_root / model.deploy_root,
+            bundle_root=workspace_ctx.project_root / model.bundle_root,
+            generated_root=(
+                workspace_ctx.project_root / model.deploy_root / model.generated_root
+            ),
             package_name=model.identifier,
             artifacts=model.artifacts,
         )
@@ -190,9 +192,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         return self.deploy(
             console=workspace_ctx.console,
             project_root=workspace_ctx.project_root,
-            deploy_root=Path(model.deploy_root),
-            bundle_root=Path(model.bundle_root),
-            generated_root=Path(model.generated_root),
+            deploy_root=workspace_ctx.project_root / model.deploy_root,
+            bundle_root=workspace_ctx.project_root / model.bundle_root,
+            generated_root=(
+                workspace_ctx.project_root / model.deploy_root / model.generated_root
+            ),
             artifacts=model.artifacts,
             bundle_map=None,
             package_name=package_name,
@@ -244,9 +248,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         self.validate_setup_script(
             console=workspace_ctx.console,
             project_root=workspace_ctx.project_root,
-            deploy_root=Path(model.deploy_root),
-            bundle_root=Path(model.bundle_root),
-            generated_root=Path(model.generated_root),
+            deploy_root=workspace_ctx.project_root / model.deploy_root,
+            bundle_root=workspace_ctx.project_root / model.bundle_root,
+            generated_root=(
+                workspace_ctx.project_root / model.deploy_root / model.generated_root
+            ),
             artifacts=model.artifacts,
             package_name=package_name,
             package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
@@ -293,9 +299,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         return self.version_create(
             console=workspace_ctx.console,
             project_root=workspace_ctx.project_root,
-            deploy_root=Path(model.deploy_root),
-            bundle_root=Path(model.bundle_root),
-            generated_root=Path(model.generated_root),
+            deploy_root=workspace_ctx.project_root / model.deploy_root,
+            bundle_root=workspace_ctx.project_root / model.bundle_root,
+            generated_root=(
+                workspace_ctx.project_root / model.deploy_root / model.generated_root
+            ),
             artifacts=model.artifacts,
             package_name=package_name,
             package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
@@ -333,9 +341,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         return self.version_drop(
             console=workspace_ctx.console,
             project_root=workspace_ctx.project_root,
-            deploy_root=Path(model.deploy_root),
-            bundle_root=Path(model.bundle_root),
-            generated_root=Path(model.generated_root),
+            deploy_root=workspace_ctx.project_root / model.deploy_root,
+            bundle_root=workspace_ctx.project_root / model.bundle_root,
+            generated_root=(
+                workspace_ctx.project_root / model.deploy_root / model.generated_root
+            ),
             artifacts=model.artifacts,
             package_name=package_name,
             package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,

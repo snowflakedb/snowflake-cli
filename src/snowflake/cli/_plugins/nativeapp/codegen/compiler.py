@@ -65,9 +65,16 @@ class NativeAppCompiler:
         self,
         bundle_ctx: BundleContext,
     ):
+        self._assert_absolute_paths(bundle_ctx)
         self._bundle_ctx = bundle_ctx
         # dictionary of all processors created and shared between different artifact objects.
         self.cached_processors: Dict[str, ArtifactProcessor] = {}
+
+    @staticmethod
+    def _assert_absolute_paths(bundle_ctx: BundleContext):
+        for name in ["Project", "Deploy", "Bundle", "Generated"]:
+            path = getattr(bundle_ctx, f"{name.lower()}_root")
+            assert path.is_absolute(), f"{name} root {path} must be an absolute path."
 
     def compile_artifacts(self):
         """
