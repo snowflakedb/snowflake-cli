@@ -67,6 +67,13 @@ class SFService(ABC):
     ):
         pass
 
+    @abstractmethod
+    # get file name? query string?
+    def exectute_script(self, role, warehouse, queries):
+        # should do error handling here
+        # all the paths for executing query and we handle error
+        pass
+
 
 class SqlService(SFService):
 
