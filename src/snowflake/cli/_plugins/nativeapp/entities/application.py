@@ -296,7 +296,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         needs_confirm = True
 
         # 1. If existing application is not found, exit gracefully
-        show_obj_row = cls.get_existing_app_info(
+        show_obj_row = cls.get_existing_app_info_static(
             app_name=app_name,
             app_role=app_role,
         )
@@ -586,7 +586,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             with sql_executor.use_warehouse(app_warehouse):
 
                 # 2. Check for an existing application by the same name
-                show_app_row = cls.get_existing_app_info(
+                show_app_row = cls.get_existing_app_info_static(
                     app_name=app_name,
                     app_role=app_role,
                 )
@@ -729,11 +729,15 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 )
             )
 
+    def get_existing_app_info(self) -> Optional[dict]:
+        model = self._entity_model
+        ctx = self._workspace_ctx
+        role = (model.meta and model.meta.role) or ctx.default_role
+        return self.get_existing_app_info_static(model.fqn.name, role)
+
+    # Temporary static entrypoint until NativeAppManager.get_existing_app_info() is removed
     @staticmethod
-    def get_existing_app_info(
-        app_name: str,
-        app_role: str,
-    ) -> Optional[dict]:
+    def get_existing_app_info_static(app_name: str, app_role: str) -> Optional[dict]:
         """
         Check for an existing application object by the same name as in project definition, in account.
         It executes a 'show applications like' query and returns the result as single row, if one exists.
