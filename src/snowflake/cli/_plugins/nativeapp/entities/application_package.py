@@ -40,6 +40,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
     DenyAlwaysPolicy,
     PolicyBase,
 )
+from snowflake.cli._plugins.nativeapp.sf_sql_facade import SnowflakeSQLFacade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
@@ -77,7 +78,6 @@ from snowflake.cli.api.project.util import (
     unquote_identifier,
 )
 from snowflake.cli.api.rendering.jinja import get_basic_jinja_env
-from snowflake.cli.api.sql_contract import SQLService
 from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -1091,7 +1091,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         for i, queries in enumerate(queued_queries):
             script_name = package_scripts[i]
             console.step(f"Applying package script: {script_name}")
-            SQLService(get_sql_executor()).execute_user_script(
+            SnowflakeSQLFacade(get_sql_executor()).execute_user_script(
                 queries, script_name, package_role, package_warehouse
             )
 

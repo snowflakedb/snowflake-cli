@@ -25,7 +25,7 @@ class UserScriptError(ClickException):
         super().__init__(f"Failed to run script {script_name}. {msg}")
 
 
-class SQLService:
+class SnowflakeSQLFacade:
     def __init__(self, sql_executor: SqlExecutor | None):
         self._sql_executor = (
             sql_executor if sql_executor is not None else get_sql_executor()
@@ -69,17 +69,16 @@ class SQLService:
                     raise CouldNotUseObjectError(
                         ObjectType.WAREHOUSE, valid_wh_name
                     ) from err
-                else:
-                    raise ProgrammingError(
-                        f"Failed to use warehouse {valid_wh_name}"
-                    ) from err
+
+                raise ProgrammingError(
+                    f"Failed to use warehouse {valid_wh_name}"
+                ) from err
             except Exception as err:
                 raise UnknownSQLError(
                     f"Failed to use warehouse {valid_wh_name}"
                 ) from err
         try:
             yield
-
         finally:
             if is_different_wh and prev_wh is not None:
                 self._log.debug(f"Switching back to warehouse:{prev_wh}")
@@ -109,15 +108,12 @@ class SQLService:
                     raise CouldNotUseObjectError(
                         ObjectType.ROLE, valid_role_name
                     ) from err
-                else:
-                    raise ProgrammingError(
-                        f"Failed to use role {valid_role_name}"
-                    ) from err
+
+                raise ProgrammingError(f"Failed to use role {valid_role_name}") from err
             except:
                 raise UnknownSQLError(f"Failed to use role {valid_role_name}")
         try:
             yield
-
         finally:
             if is_different_role:
                 self._log.debug(f"Switching back to role:{prev_role}")
@@ -155,15 +151,12 @@ class SQLService:
                     raise CouldNotUseObjectError(
                         ObjectType.DATABASE, valid_name
                     ) from err
-                else:
-                    raise ProgrammingError(
-                        f"Failed to use database {valid_name}"
-                    ) from err
+
+                raise ProgrammingError(f"Failed to use database {valid_name}") from err
             except Exception as err:
                 raise UnknownSQLError(f"Failed to use database {valid_name}") from err
         try:
             yield
-
         finally:
             if is_different_db and prev_db is not None:
                 self._log.debug(f"Switching back to database:{prev_db}")

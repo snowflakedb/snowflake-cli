@@ -23,6 +23,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     MissingScriptError,
 )
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
+from snowflake.cli._plugins.nativeapp.sf_sql_facade import SnowflakeSQLFacade
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
@@ -32,7 +33,6 @@ from snowflake.cli.api.exceptions import (
     NoWarehouseSelectedInSessionError,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.api.sql_contract import SQLService
 from snowflake.connector import ProgrammingError
 
 from tests.nativeapp.factories import PdfV10Factory, ProjectV10Factory
@@ -100,7 +100,7 @@ def test_package_scripts_with_conn_warehouse(
 ):
     scripts = use_project_with_package_scripts()
     with mock.patch.object(
-        SQLService, "execute_user_script"
+        SnowflakeSQLFacade, "execute_user_script"
     ) as mock_execute_user_script:
         mock_execute_user_script.return_value = None
         native_app_manager = _get_na_manager(str(temp_dir))
@@ -122,7 +122,7 @@ def test_package_scripts_with_pdf_warehouse(
         native_app__package__warehouse="myapp_pkg_warehouse"
     )
     with mock.patch.object(
-        SQLService, "execute_user_script"
+        SnowflakeSQLFacade, "execute_user_script"
     ) as mock_execute_user_script:
         mock_execute_user_script.return_value = None
         native_app_manager = _get_na_manager(str(temp_dir))
@@ -145,7 +145,7 @@ def test_package_scripts_without_conn_warehouse_with_pkg_warehouse(mock_conn, te
     )
 
     with mock.patch.object(
-        SQLService, "execute_user_script"
+        SnowflakeSQLFacade, "execute_user_script"
     ) as mock_execute_user_script:
         mock_execute_user_script.return_value = None
         native_app_manager = _get_na_manager(str(temp_dir))
