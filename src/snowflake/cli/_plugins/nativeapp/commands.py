@@ -313,7 +313,7 @@ def app_teardown(
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1()
+@single_app_and_package()
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
@@ -345,16 +345,6 @@ def app_deploy(
     Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
     Running this command with no arguments at all, as in `snow app deploy`, is a shorthand for `snow app deploy --prune --recursive`.
     """
-
-    assert_project_type("native_app")
-
-    if force:
-        policy = AllowAlwaysPolicy()
-    elif interactive:
-        policy = AskAlwaysPolicy()
-    else:
-        policy = DenyAlwaysPolicy()
-
     has_paths = paths is not None and len(paths) > 0
     if prune is None and recursive is None and not has_paths:
         prune = True
@@ -364,24 +354,24 @@ def app_deploy(
             prune = False
         if recursive is None:
             recursive = False
-
     if has_paths and prune:
         raise IncompatibleParametersError(["paths", "--prune"])
 
     cli_context = get_cli_context()
-    manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-
-    bundle_map = manager.build_bundle()
-    manager.deploy(
-        bundle_map=bundle_map,
+    package_id = options["package_entity_id"]
+    ws.perform_action(
+        package_id,
+        EntityActions.DEPLOY,
         prune=prune,
         recursive=recursive,
-        local_paths_to_sync=paths,
+        paths=paths,
         validate=validate,
-        policy=policy,
+        interactive=interactive,
+        force=force,
     )
 
     return MessageResult(

@@ -94,15 +94,16 @@ def test_sql_templating_emits_counter(
                 CLICounterField.PACKAGE_SCRIPTS: 0,
             },
         ),
-        # ensure that package scripts are picked up
+        # package scripts are auto-converted to post deploy scripts in v1
         (
             "app deploy",
             "integration_external",
             {
                 CLICounterField.SNOWPARK_PROCESSOR: 0,
                 CLICounterField.TEMPLATES_PROCESSOR: 0,
-                CLICounterField.POST_DEPLOY_SCRIPTS: 0,
-                CLICounterField.PACKAGE_SCRIPTS: 1,
+                CLICounterField.PDF_TEMPLATES: 1,
+                CLICounterField.POST_DEPLOY_SCRIPTS: 1,
+                CLICounterField.PACKAGE_SCRIPTS: 0,
             },
         ),
         # ensure post deploy scripts are picked up for v2
