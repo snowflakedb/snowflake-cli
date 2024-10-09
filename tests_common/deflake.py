@@ -52,6 +52,9 @@ class DeflakePlugin:
 
     def __init__(self: DeflakePlugin, config: Config) -> None:
         super().__init__()
+        self.is_xdist_worker = hasattr(config, "workerinput") and hasattr(
+            config, "workeroutput"
+        )
         self.exceptions: dict[str, Exception] = {}
         self.flaky_tests = 0
         self.test_run = TestRun()
@@ -102,7 +105,7 @@ class DeflakePlugin:
         # our case it's the root of the repo, so we can use it to make
         # relative paths that can be used to generate GitHub urls
         self.test_run.root = session.path
-        if self.snowflake and self.test_type:
+        if not self.is_xdist_worker and self.snowflake and self.test_type:
             self.snowflake.begin_test_run(self.test_type)
 
     def pytest_runtest_protocol(self, item: Item, nextitem: Item | None) -> bool:
