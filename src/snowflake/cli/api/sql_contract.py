@@ -2,6 +2,7 @@ from contextlib import contextmanager
 
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.entities.common import get_sql_executor
+from snowflake.cli.api.entities.utils import generic_sql_error_handler
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
 from snowflake.cli.api.exceptions import CouldNotUseObjectError
 from snowflake.connector import ProgrammingError
@@ -49,9 +50,7 @@ class SQLService:
                 self._sql_executor.execute_query(f"use warehouse {new_wh}")
             except ProgrammingError as err:
                 if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
-                    raise CouldNotUseObjectError(
-                        ObjectType.WAREHOUSE, new_wh
-                    ) from err  # todo: make this
+                    raise CouldNotUseObjectError(ObjectType.WAREHOUSE, new_wh) from err
                 else:
                     raise UnknownSQLError(f"Failed to use warehouse {new_wh}") from err
             except:
@@ -119,4 +118,17 @@ class SQLService:
         with self._use_role_optional(role):
             with self._use_warehouse_optional(warehouse):
                 self._use_database_optional(database)
-                self._sql_executor.execute_queries(queries)
+                try:
+                    self._sql_executor.execute_queries(queries)
+                except ProgrammingError as err:
+                    # TODO: Replace with granular error
+                    generic_sql_error_handler(err)
+
+                    # if err.errno == NO_WAREHOUSE_SELECTED_IN_SESSION:
+                    #     raise NoWarehouseSelectedInSessionError(err.msg) from err
+                    # # TODO: replace with error code! Find error code?
+                    # elif "does not exist or not authorized" in err.msg:
+                    #
+                    # else:
+                    #     # Can we include more information about the query here?
+                    #     raise UnknownSQLError(f"Failed to execute user-provided queries") from err

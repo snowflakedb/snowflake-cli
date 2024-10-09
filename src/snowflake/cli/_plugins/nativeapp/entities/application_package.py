@@ -1079,7 +1079,15 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         console.warning(
             "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
         )
-
+        if package_warehouse is None:
+            raise ClickException(
+                dedent(
+                    f"""\
+                Application package warehouse cannot be empty.
+                Please provide a value for it in your connection information or your project definition file.
+                """
+                )
+            )
         queued_queries = render_script_templates(
             project_root,
             dict(package_name=package_name),
@@ -1098,8 +1106,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 if e.role == package_role:
                     # TODO: log something here with context of failed operation
                     raise e
-                # else:
-                # raise ThisIsOutFaultError?()
+                else:
+                    raise e
+                    # raise ThisIsOutFaultError?()
+            # let other errors propagate up?
 
     @classmethod
     def create_app_package(
@@ -1113,7 +1123,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         Creates the application package with our up-to-date stage if none exists.
         """
 
-        # 1. Check for existing existing application package
+        # 1. Check for existing application package
         show_obj_row = cls.get_existing_app_pkg_info(
             package_name=package_name,
             package_role=package_role,
