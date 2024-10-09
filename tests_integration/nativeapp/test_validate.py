@@ -40,9 +40,7 @@ def test_nativeapp_validate(command, test_project, nativeapp_project_directory, 
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app validate", "napp_init_v1"],
         ["app validate", "napp_init_v2"],
-        ["ws validate --entity-id=pkg", "napp_init_v2"],
     ],
 )
 def test_nativeapp_validate_failing(

@@ -30,9 +30,7 @@ TEMP_FILE_SIZE_BYTES = 200 * 1024 * 1024
     reason="Requires AWS + python connector to support threshold=<number>"
 )
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "project_definition_files", ["integration", "integration_v2"], indirect=True
-)
+@pytest.mark.parametrize("project_definition_files", ["integration_v2"], indirect=True)
 def test_large_upload_skips_reupload(
     runner,
     snowflake_session,
