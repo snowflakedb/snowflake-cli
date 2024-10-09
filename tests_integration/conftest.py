@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import functools
 import json
+import os
 import shutil
 import tempfile
 from contextlib import contextmanager
@@ -55,6 +56,7 @@ pytest_plugins = [
 TEST_DIR = Path(__file__).parent
 DEFAULT_TEST_CONFIG = "connection_configs.toml"
 WORLD_READABLE_CONFIG = "world_readable.toml"
+IS_QA = "qa" in os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST", "").lower()
 
 
 @dataclass
