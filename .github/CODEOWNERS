@@ -6,6 +6,7 @@
 src/snowflake/cli/api/utils/ @snowflakedb/snowcli @snowflakedb/nade
 **/test_data @snowflakedb/snowcli @snowflakedb/nade
 tests_e2e/conftest.py @snowflakedb/snowcli @snowflakedb/nade
+tests_common/deflake.py @snowflakedb/snowcli @snowflakedb/nade
 tests_common/__init__.py @snowflakedb/snowcli @snowflakedb/nade
 tests_common/conftest.py @snowflakedb/snowcli @snowflakedb/nade
 tests_integration/conftest.py @snowflakedb/snowcli @snowflakedb/nade
