@@ -342,7 +342,7 @@ class NativeAppManager:
         )
 
     def get_validation_result(self, use_scratch_stage: bool = False):
-        return ApplicationPackageEntity.get_validation_result(
+        return ApplicationPackageEntity.get_validation_result_static(
             console=cc,
             project_root=self.project_root,
             deploy_root=self.deploy_root,

@@ -367,25 +367,29 @@ def app_deploy(
 
 @app.command("validate", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1()
+@single_app_and_package()
 def app_validate(
     **options,
 ):
     """
     Validates a deployed Snowflake Native App's setup script.
     """
-
-    assert_project_type("native_app")
-
     cli_context = get_cli_context()
-    manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
+    package_id = options["package_entity_id"]
+    package = ws.get_entity(package_id)
     if cli_context.output_format == OutputFormat.JSON:
-        return ObjectResult(manager.get_validation_result(use_scratch_stage=True))
+        return ObjectResult(package.get_validation_result(use_scratch_stage=True))
 
-    manager.validate(use_scratch_stage=True)
+    ws.perform_action(
+        package_id,
+        EntityActions.VALIDATE,
+        interactive=False,
+        force=True,
+    )
     return MessageResult("Snowflake Native App validation succeeded.")
 
 
