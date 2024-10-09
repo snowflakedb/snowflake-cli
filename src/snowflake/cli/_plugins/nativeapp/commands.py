@@ -33,12 +33,6 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
-from snowflake.cli._plugins.nativeapp.policy import (
-    AllowAlwaysPolicy,
-    AskAlwaysPolicy,
-    DenyAlwaysPolicy,
-)
-from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli._plugins.nativeapp.teardown_processor import (
     NativeAppTeardownProcessor,
 )
@@ -148,7 +142,7 @@ def app_diff(
 
 @app.command("run", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1(app_required=True)
+@single_app_and_package(app_required=True)
 def app_run(
     version: Optional[str] = typer.Option(
         None,
@@ -177,36 +171,29 @@ def app_run(
     Creates an application package in your Snowflake account, uploads code files to its stage,
     then creates or upgrades an application object from the application package.
     """
-
-    assert_project_type("native_app")
-
-    is_interactive = False
-    if force:
-        policy = AllowAlwaysPolicy()
-    elif interactive:
-        is_interactive = True
-        policy = AskAlwaysPolicy()
-    else:
-        policy = DenyAlwaysPolicy()
-
     cli_context = get_cli_context()
-    processor = NativeAppRunProcessor(
-        project_definition=cli_context.project_definition.native_app,
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    bundle_map = processor.build_bundle()
-    processor.process(
-        bundle_map=bundle_map,
-        policy=policy,
+    app_id = options["app_entity_id"]
+    app_model = cli_context.project_definition.entities[app_id]
+    ws.perform_action(
+        app_id,
+        EntityActions.DEPLOY,
+        validate=validate,
         version=version,
         patch=patch,
         from_release_directive=from_release_directive,
-        is_interactive=is_interactive,
-        validate=validate,
+        prune=True,
+        recursive=True,
+        paths=[],
+        interactive=interactive,
+        force=force,
     )
+    app = ws.get_entity(app_id)
     return MessageResult(
-        f"Your application object ({processor.app_name}) is now available:\n"
-        + processor.get_snowsight_url()
+        f"Your application object ({app_model.fqn.name}) is now available:\n{app.get_snowsight_url()}"
     )
 
 

@@ -244,7 +244,7 @@ class NativeAppManager:
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
-        return ApplicationEntity.get_snowsight_url(
+        return ApplicationEntity.get_snowsight_url_static(
             self.app_name, self.application_warehouse
         )
 
