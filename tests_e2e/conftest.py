@@ -126,7 +126,7 @@ def _install_snowcli_with_external_plugin(
     python = _python_path(venv_path)
     _pip_install(
         python,
-        test_root_path / f"../dist/snowflake_cli_labs-{version}-py3-none-any.whl",
+        test_root_path / f"../dist/snowflake_cli-{version}-py3-none-any.whl",
     )
     _pip_install(
         python,
