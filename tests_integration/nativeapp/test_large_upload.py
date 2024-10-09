@@ -45,6 +45,7 @@ def test_large_upload_skips_reupload(
     from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
         _pdf_v2_to_v1,
     )
+
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
         # figure out what the source stage is resolved to
