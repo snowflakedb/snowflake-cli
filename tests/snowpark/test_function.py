@@ -391,11 +391,20 @@ def test_deploy_function_fully_qualified_name(
         assert result.output == os_agnostic_snapshot(name="ok")
 
 
-@pytest.mark.parametrize("parameter_type", ["string", "int", "variant", "bool"])
+@pytest.mark.parametrize(
+    "parameter_type,default_value",
+    [
+        ("string", None),
+        ("string", ""),
+        ("int", None),
+        ("variant", None),
+        ("bool", None),
+    ],
+)
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
 @mock_session_has_warehouse
-def test_deploy_function_with_default_value(
+def test_deploy_function_with_empty_default_value(
     mock_object_manager,
     mock_connector,
     mock_ctx,
@@ -403,6 +412,7 @@ def test_deploy_function_with_default_value(
     project_directory,
     alter_snowflake_yml,
     parameter_type,
+    default_value,
 ):
     mock_object_manager.return_value.describe.side_effect = ProgrammingError(
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
@@ -411,7 +421,7 @@ def test_deploy_function_with_default_value(
     mock_connector.return_value = ctx
     with project_directory("snowpark_functions") as project_dir:
         snowflake_yml = project_dir / "snowflake.yml"
-        for param, value in [("type", parameter_type), ("default", None)]:
+        for param, value in [("type", parameter_type), ("default", default_value)]:
             alter_snowflake_yml(
                 snowflake_yml,
                 parameter_path=f"snowpark.functions.0.signature.0.{param}",
@@ -422,7 +432,6 @@ def test_deploy_function_with_default_value(
             parameter_path=f"snowpark.functions.0.runtime",
             value="3.10",
         )
-        print((project_dir / "snowflake.yml").read_text())
         result = runner.invoke(
             [
                 "snowpark",
@@ -431,6 +440,12 @@ def test_deploy_function_with_default_value(
             catch_exceptions=False,
         )
 
+    default_value_sql = default_value
+    if default_value is None:
+        default_value_sql = "null"
+    elif parameter_type == "string":
+        default_value_sql = f"'{default_value}'"
+
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
@@ -438,7 +453,7 @@ def test_deploy_function_with_default_value(
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             f"""\
-            create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a {parameter_type} default null, b variant)
+            create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a {parameter_type} default {default_value_sql}, b variant)
             copy grants
             returns string
             language python
