@@ -3,19 +3,31 @@ services:
     build: .
     volumes:
       - ../../:/snowflake-cli
-  centos:
-    image: centos:latest
-    container_name: centos
-    command: tail -f /dev/null
-    tty: true
-    stdin_open: true
+  cli-builder:
+    build: .
     volumes:
-      - ../../:/data
-  centos7:
-    image: centos:7
-    container_name: centos
-    command: tail -f /dev/null
-    tty: true
-    stdin_open: true
+      - ../../:/snowflake-cli
+    environment:
+      - RELEASE_TYPE
+    command: /bin/bash -c "pyenv exec hatch build --clean"
+  cli-test:
+    build: .
     volumes:
-      - ../../:/data
+      - ../../:/snowflake-cli
+    environment:
+      - RELEASE_TYPE
+    command: /bin/bash -c "eval \"$(pyenv init -)\" && ./scripts/packaging/python/test_cli_whl.sh"
+  cli-labs-builder:
+    build: .
+    volumes:
+      - ../../:/snowflake-cli
+    environment:
+      - RELEASE_TYPE
+    command: /bin/bash -c "pyenv exec hatch run legacy-pypi-build"
+  cli-labs-test:
+    build: .
+    volumes:
+      - ../../:/snowflake-cli
+    environment:
+      - RELEASE_TYPE
+    command: /bin/bash -c "eval \"$(pyenv init -)\" && ./scripts/packaging/python/test_cli_labs_whl.sh"

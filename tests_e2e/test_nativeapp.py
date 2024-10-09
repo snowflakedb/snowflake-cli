@@ -107,7 +107,6 @@ def test_full_lifecycle_with_codegen(
     )
 
     with project_directory(project_name) as project_dir:
-
         with open("snowflake.yml", "w") as f:
             # Redo snowflake.yml to add unique id to project name
             f.write(snowflake_yml_contents)

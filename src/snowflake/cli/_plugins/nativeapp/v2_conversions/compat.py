@@ -316,14 +316,20 @@ def single_app_and_package(*, app_required: bool = False):
                     is_package = isinstance(entity, ApplicationPackageEntityModel)
                     key = "package_entity_id" if is_package else "app_entity_id"
                     kwargs[key] = entity_id
+
                 cm = get_cli_context_manager()
+
+                # Override the project definition so that the command operates on the new entities
                 cm.override_project_definition = pdfv2
+
+                # Override the template context so that templates refer to the new entities
+                # Reuse the old ctx.env and other top-level keys in the template context
+                # since they don't change between v1 and v2
                 pdfv2_dump = pdfv2.model_dump(
                     exclude_none=True, warnings=False, by_alias=True
                 )
-                cm.override_template_context = cm.template_context | dict(
-                    ctx=pdfv2_dump
-                )
+                new_ctx = pdfv2_dump | dict(env=cm.template_context["ctx"]["env"])
+                cm.override_template_context = cm.template_context | dict(ctx=new_ctx)
             else:
                 package_entity_id = kwargs.get("package_entity_id", "")
                 app_entity_id = kwargs.get("app_entity_id", "")

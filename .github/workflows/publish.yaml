@@ -8,23 +8,10 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  noop:
     environment: release
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install hatch
-      - name: Build package
-        run: python -m hatch build
-      - name: Publish package
-        run: python -m hatch publish -u __token__ -a ${{ secrets.PYPI_TOKEN }}
+      - name: Schedule a release for tag ${{ github.event.release.tag_name }}
+        run: echo "Release scheduled for tag ${{ github.event.release.tag_name }}"

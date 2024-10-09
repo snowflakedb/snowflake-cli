@@ -29,13 +29,14 @@ def test_not_programmingerror_does_not_attach_any_info(
     mock_telemetry, runner, nativeapp_project_directory, temp_dir
 ):
     ProjectV11Factory(
-        pdf__native_app__artifacts=["setup.sql"],
+        pdf__native_app__artifacts=["setup.sql", "manifest.yml"],
         pdf__native_app__name="myapp",
         pdf__native_app__package__post_deploy=[
             {"sql_script": "non_existent.sql"},
         ],
         files={
             "setup.sql": "\n",
+            "manifest.yml": "\n",
         },
     )
 
@@ -84,17 +85,14 @@ def test_programmingerror_cause_attaches_errno_and_sqlstate(
     mock_telemetry, runner, nativeapp_project_directory, temp_dir
 ):
     ProjectV11Factory(
-        pdf__native_app__artifacts=["setup.sql"],
+        pdf__native_app__artifacts=["setup.sql", "manifest.yml"],
         pdf__native_app__name="myapp",
         pdf__native_app__package__post_deploy=[
             # this file just needs to be present for the error to be triggered
             {"sql_script": "post_deploy1.sql"},
         ],
         pdf__native_app__package__warehouse="non_existent_warehouse",
-        files={
-            "post_deploy1.sql": "\n",
-            "setup.sql": "\n",
-        },
+        files={"post_deploy1.sql": "\n", "setup.sql": "\n", "manifest.yml": "\n"},
     )
 
     with nativeapp_project_directory(Path(temp_dir)):

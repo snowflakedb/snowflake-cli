@@ -14,15 +14,13 @@
 
 from __future__ import annotations
 
-from typing import Tuple
-
 import pytest
 from snowflake.cli._plugins.snowpark.common import (
     _check_if_replace_is_required,
     _convert_resource_details_to_dict,
     _snowflake_dependencies_differ,
-    _sql_to_python_return_type_mapper,
     is_name_a_templated_one,
+    same_type,
 )
 from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     ProcedureEntityModel,
@@ -61,21 +59,6 @@ def test_convert_resource_details_to_dict():
         "packages": {"name": "my-awesome-package", "version": "1.2.3"},
         "handler": "handler_function",
     }
-
-
-@pytest.mark.parametrize(
-    "argument",
-    [
-        ("NUMBER(38,0)", "int"),
-        ("TIMESTAMP_NTZ(9)", "datetime"),
-        ("TIMESTAMP_TZ(9)", "datetime"),
-        ("VARCHAR(16777216)", "string"),
-        ("FLOAT", "float"),
-        ("ARRAY", "array"),
-    ],
-)
-def test_sql_to_python_return_type_mapper(argument: Tuple[str, str]):
-    assert _sql_to_python_return_type_mapper(argument[0]) == argument[1]
 
 
 @pytest.mark.parametrize(
@@ -183,3 +166,31 @@ def test_check_if_replace_is_required_file_changes(
 )
 def test_is_name_is_templated_one(name: str, expected: bool):
     assert is_name_a_templated_one(name) == expected
+
+
+@pytest.mark.parametrize(
+    "sf_type, local_type",
+    [
+        ("VARCHAR", "STRING"),
+        ("VARCHAR(16777216)", "STRING"),
+        ("VARCHAR(16777216)", "VARCHAR"),
+        ("VARCHAR(16777216)", "VARCHAR(16777216)"),
+        ("NUMBER(38,0)", "int"),
+        ("TIMESTAMP_NTZ", "datetime"),
+        ("FLOAT", "float"),
+        ("ARRAY", "array"),
+    ],
+)
+def test_the_same_type(sf_type, local_type):
+    assert same_type(sf_type, local_type)
+
+
+@pytest.mark.parametrize(
+    "sf_type, local_type",
+    [
+        ("VARCHAR(25)", "STRING"),
+        ("VARCHAR(25)", "VARCHAR(16777216)"),
+    ],
+)
+def test_is_not_the_same_type(sf_type, local_type):
+    assert not same_type(sf_type, local_type)
