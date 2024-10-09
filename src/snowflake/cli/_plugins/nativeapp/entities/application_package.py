@@ -77,6 +77,7 @@ from snowflake.cli.api.project.util import (
     unquote_identifier,
 )
 from snowflake.cli.api.rendering.jinja import get_basic_jinja_env
+from snowflake.cli.api.sql_contract import CannotUseRoleError, SQLService
 from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -423,16 +424,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             console.warning(e.message)
             if not policy.should_proceed("Proceed with using this package?"):
                 raise typer.Abort() from e
-        with get_sql_executor().use_role(package_role):
-            cls.apply_package_scripts(
-                console=console,
-                package_scripts=package_scripts,
-                package_warehouse=package_warehouse,
-                project_root=project_root,
-                package_role=package_role,
-                package_name=package_name,
-            )
 
+        cls.apply_package_scripts(
+            console=console,
+            package_scripts=package_scripts,
+            package_warehouse=package_warehouse,
+            project_root=project_root,
+            package_role=package_role,
+            package_name=package_name,
+        )
+        with get_sql_executor().use_role(package_role):
             # 3. Upload files from deploy root local folder to the above stage
             stage_schema = extract_schema(stage_fqn)
             diff = sync_deploy_root_with_stage(
@@ -1087,15 +1088,18 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
         # once we're sure all the templates expanded correctly, execute all of them
-        with cls.use_package_warehouse(
-            package_warehouse=package_warehouse,
-        ):
+        for i, queries in enumerate(queued_queries):
+            console.step(f"Applying package script: {package_scripts[i]}")
             try:
-                for i, queries in enumerate(queued_queries):
-                    console.step(f"Applying package script: {package_scripts[i]}")
-                    get_sql_executor().execute_queries(queries)
-            except ProgrammingError as err:
-                generic_sql_error_handler(err)
+                SQLService().execute_user_script(
+                    queries, package_role, package_warehouse
+                )
+            except CannotUseRoleError as e:
+                if e.role == package_role:
+                    # TODO: log something here with context of failed operation
+                    raise e
+                # else:
+                # raise ThisIsOutFaultError?()
 
     @classmethod
     def create_app_package(

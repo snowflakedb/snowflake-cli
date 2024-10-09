@@ -32,8 +32,10 @@ from snowflake.cli.api.exceptions import (
     NoWarehouseSelectedInSessionError,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.api.sql_contract import SQLService
 from snowflake.connector import ProgrammingError
 
+from tests.nativeapp.factories import ProjectV10Factory
 from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (
     SQL_EXECUTOR_EXECUTE,
@@ -48,6 +50,66 @@ def _get_na_manager(working_dir):
         project_definition=dm.project_definition.native_app,
         project_root=dm.project_root,
     )
+
+
+def use_project_with_package_script():
+    package_script_1 = dedent(
+        """\
+        -- package script (1/2)
+        create schema if not exists {{ package_name }}.my_shared_content;
+        grant usage on schema {{ package_name }}.my_shared_content
+        to share in application package {{ package_name }};
+        """
+    )
+    package_script_2 = dedent(
+        """\
+        grant select on table {{ package_name }}.my_shared_content.shared_table
+          to share in application package {{ package_name }};
+        """
+    )
+
+    ProjectV10Factory(
+        pdf__native_app__name="myapp",
+        pdf__native_app__package__name="myapp_pkg_polly",
+        pdf__native_app__artifacts=["setup.sql"],
+        pdf__native_app__package__scripts=["001-shared.sql", "002-shared.sql"],
+        files={"001-shared.sql": package_script_1, "002-shared.sql": package_script_2},
+    )
+
+    rendered_script_1 = dedent(
+        """\
+        -- package script (1/2)
+        create schema if not exists myapp_pkg_polly.my_shared_content;
+        grant usage on schema myapp_pkg_polly.my_shared_content
+        to share in application package myapp_pkg_polly;
+        """
+    )
+    rendered_script_2 = dedent(
+        """\
+        grant select on table myapp_pkg_polly.my_shared_content.shared_table
+          to share in application package myapp_pkg_polly;
+        """
+    )
+    return {"001-shared.sql": rendered_script_1, "002-shared.sql": rendered_script_2}
+
+
+@mock_connection()
+def test_package_scripts_with_conn_warehouse(
+    mock_conn,
+    temp_dir,
+):
+    scripts = use_project_with_package_script()
+    with mock.patch.object(
+        SQLService, "execute_user_script"
+    ) as mock_execute_user_script:
+        mock_execute_user_script.return_value = None
+        native_app_manager = _get_na_manager(str(temp_dir))
+        native_app_manager._apply_package_scripts()  # noqa: SLF001
+        assert mock_execute_user_script.call_count == 2
+        expected_calls = [
+            mock.call(query, "role", "wh") for query in list(scripts.values())
+        ]
+        mock_execute_user_script.assert_has_calls(expected_calls, any_order=False)
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
