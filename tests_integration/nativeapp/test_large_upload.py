@@ -17,9 +17,6 @@ import os
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
-from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
-    _pdf_v2_to_v1,
-)
 from snowflake.cli._plugins.stage.md5 import parse_multipart_md5sum
 
 from tests.project.fixtures import *
@@ -45,6 +42,9 @@ def test_large_upload_skips_reupload(
     Ensure that files uploaded in multiple parts are not re-uploaded unnecessarily.
     This test will currently fail when run on a non-AWS deployment.
     """
+    from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
+        _pdf_v2_to_v1,
+    )
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
         # figure out what the source stage is resolved to
