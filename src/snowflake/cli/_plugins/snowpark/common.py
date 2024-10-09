@@ -158,10 +158,8 @@ def _check_if_replace_is_required(
         )
         return True
 
-    if (
-        resource_json["handler"].lower() != entity.handler.lower()
-        or _sql_to_python_return_type_mapper(resource_json["returns"]).lower()
-        != entity.returns.lower()
+    if resource_json["handler"].lower() != entity.handler.lower() or not same_type(
+        resource_json["returns"], entity.returns
     ):
         log.info(
             "Return type or handler types do not match. Replacing the %s.", object_type
@@ -216,24 +214,68 @@ def _snowflake_dependencies_differ(
     return _standardize(old_dependencies) != _standardize(new_dependencies)
 
 
-def _sql_to_python_return_type_mapper(resource_return_type: str) -> str:
-    """
-    Some of the Python data types get converted to SQL types, when function/procedure is created.
-    So, to properly compare types, we use mapping based on:
-    https://docs.snowflake.com/en/developer-guide/udf-stored-procedure-data-type-mapping#sql-python-data-type-mappings
+def same_type(sf_type: str, local_type: str) -> bool:
+    sf_type, local_type = sf_type.upper(), local_type.upper()
 
-    Mind you, this only applies to cases, in which Snowflake accepts Python type as return.
-    Ie. if function returns list, it has to be declared as 'array' during creation,
-    therefore any conversion is not necessary
-    """
+    # 1. Types are equal out of the box
+    if sf_type == local_type:
+        return True
+
+    # 2. Local type is alias for Snowflake type
+    local_type = user_to_sql_type_mapper(local_type).upper()
+    if sf_type == local_type:
+        return True
+
+    # 3. Local type is a subset of Snowflake type, e.g. VARCHAR(N) == VARCHAR
+    # We solved for local VARCHAR(N) in point 1 & 2 as those are explicit types
+    if sf_type.startswith(local_type):
+        return True
+
+    # 4. Snowflake types is subset of local type
+    if local_type.startswith(sf_type):
+        return True
+
+    return False
+
+
+def user_to_sql_type_mapper(user_provided_type: str) -> str:
     mapping = {
-        "number(38,0)": "int",
-        "timestamp_ntz(9)": "datetime",
-        "timestamp_tz(9)": "datetime",
-        "varchar(16777216)": "string",
+        ("VARCHAR", "(16777216)"): ("CHAR", "TEXT", "STRING"),
+        ("BINARY", "(8388608)"): ("BINARY", "VARBINARY"),
+        ("NUMBER", "(38,0)"): (
+            "NUMBER",
+            "DECIMAL",
+            "INT",
+            "INTEGER",
+            "BIGINT",
+            "SMALLINT",
+            "TINYINT",
+            "BYTEINT",
+        ),
+        ("FLOAT", ""): (
+            "FLOAT",
+            "DOUBLE",
+            "DOUBLE PRECISION",
+            "REAL",
+            "FLOAT",
+            "FLOAT4",
+            "FLOAT8",
+        ),
+        ("TIMESTAMP_NTZ", ""): ("TIMESTAMP_NTZ", "TIMESTAMPNTZ", "DATETIME"),
+        ("TIMESTAMP_LTZ", ""): ("TIMESTAMP_LTZ", "TIMESTAMPLTZ"),
+        ("TIMESTAMP_TZ", ""): ("TIMESTAMP_TZ", "TIMESTAMPTZ"),
     }
 
-    return mapping.get(resource_return_type.lower(), resource_return_type.lower())
+    user_provided_type = user_provided_type.upper()
+    for (cast_type, default), matching_types in mapping.items():
+        for type_ in matching_types:
+            if user_provided_type == type_:
+                # TEXT -> VARCHAR(16777216)
+                return cast_type + default
+            if user_provided_type.startswith(type_):
+                # TEXT(30) -> VARCHAR(30)
+                return user_provided_type.replace(type_, cast_type + default)
+    return user_provided_type
 
 
 def _compare_imports(
