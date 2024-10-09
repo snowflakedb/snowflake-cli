@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
-from dataclasses import dataclass, field
+from sqlite3.dbapi2 import paramstyle
+
+from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from subprocess import run, PIPE
 from typing import Generator, cast
@@ -9,6 +12,7 @@ from typing import Generator, cast
 import pytest
 import requests
 import pluggy
+import snowflake.connector
 from _pytest import runner
 from _pytest.config import Config, Parser
 from _pytest.main import Session
@@ -17,6 +21,11 @@ from _pytest.reports import TestReport
 from _pytest.runner import CallInfo
 from _pytest.stash import StashKey
 from _pytest.terminal import TerminalReporter
+
+from snowflake.cli._app.snow_connector import (
+    _load_pem_to_der,
+    _load_pem_from_parameters,
+)
 
 TEST_TYPE_OPTION = "--deflake-test-type"
 PREVIOUS_OUTCOME_KEY = StashKey[dict[str, str]]()
@@ -49,6 +58,8 @@ class DeflakePlugin:
 
         self.runner: type[runner] = config.pluginmanager.getplugin("runner")
         self.test_type: str = config.getoption(TEST_TYPE_OPTION)
+        # test
+        self.test_type = "integration"
 
         if token := os.getenv("GH_TOKEN"):
             # Grab the current commit so we can generate absolute URLs
@@ -57,12 +68,42 @@ class DeflakePlugin:
         else:
             self.github = None
 
+        connection_parameters = dict(
+            account=os.environ.get("SNOWFLAKE_ACCOUNT"),
+            database="apps",
+            schema="deflake",
+            host=os.environ.get("SNOWFLAKE_HOST"),
+            password=os.environ.get("SNOWFLAKE_PASSWORD"),
+            user=os.environ.get("SNOWFLAKE_USER"),
+            authenticator="SNOWFLAKE_JWT",
+        )
+        if "SNOWFLAKE_PRIVATE_KEY_RAW" in os.environ:
+            private_key_pem = _load_pem_from_parameters(
+                os.environ.get("SNOWFLAKE_PRIVATE_KEY_RAW")
+            )
+            private_key = _load_pem_to_der(private_key_pem)
+            connection_parameters["private_key"] = private_key
+        if all(connection_parameters.values()):
+            self.snowflake = Snowflake(
+                url="https://example.com", **connection_parameters
+            )
+        else:
+            # test
+            self.snowflake = Snowflake(
+                "https://example.com",
+                connection_name="frankproviderpp5",
+                database="apps",
+                schema="deflake",
+            )
+
     def pytest_sessionstart(self, session: Session) -> None:
         # The session is the root node in pytest's collection tree
         # Its path is the root directory that pytest looks in for tests, in
         # our case it's the root of the repo, so we can use it to make
         # relative paths that can be used to generate GitHub urls
         self.test_run.root = session.path
+        if self.snowflake and self.test_type:
+            self.snowflake.begin_test_run(self.test_type)
 
     def pytest_runtest_protocol(self, item: Item, nextitem: Item | None) -> bool:
         # The main protocol for running a single test
@@ -137,6 +178,9 @@ class DeflakePlugin:
         elif report.outcome == FLAKY:
             test.outcome = FLAKY
 
+        # testing
+        test.outcome = FLAKY
+
     @pytest.hookimpl(tryfirst=True)
     def pytest_report_teststatus(
         self, report: TestReport
@@ -165,6 +209,12 @@ class DeflakePlugin:
                 except Exception as e:  # noqa
                     # Catch all exceptions to be logged later, don't let this fail the test run
                     self.exceptions[nodeid] = e
+
+            if self.snowflake:
+                self.snowflake.insert_test(test)
+
+        if self.snowflake:
+            self.snowflake.finish_test_run()
 
     def pytest_terminal_summary(self, terminalreporter: TerminalReporter) -> None:
         # Called at the end of the pytest run to print custom messages to the terminal
@@ -346,3 +396,55 @@ class GitHub:
         resp = self.session.request(method, url, *args, **kwargs)
         resp.raise_for_status()
         return resp.json()
+
+
+class Snowflake:
+    def __init__(self, url: str, **connection_params):
+        self.url = url
+        self.connection = snowflake.connector.connect(
+            application="deflake plugin", **connection_params
+        )
+        self.test_run_id = -1
+
+    def begin_test_run(self, test_type: str):
+        with self.connection.cursor() as c:
+            c.execute("begin")
+            c.execute(
+                """\
+                insert into test_runs(started_at, test_type, url)
+                values (sysdate(), %s, %s)
+                """,
+                (test_type, self.url),
+            )
+            result = c.execute("select max(id) from test_runs")
+            self.test_run_id = result.fetchall()[0][0]
+            c.execute("commit")
+
+    def insert_test(self, test: TestResult):
+        phases = [json.dumps(asdict(getattr(test, phase))) for phase in PHASES]
+        with self.connection.cursor() as c:
+            params = (
+                self.test_run_id,
+                test.nodeid,
+                "test_fake_filename.py",
+                *phases,
+                test.outcome,
+            )
+            c.execute(
+                """\
+                insert into test_results(test_run_id, nodeid, filename, setup, call, teardown, outcome)
+                select %s, %s, %s, parse_json(%s), parse_json(%s), parse_json(%s), %s
+                """,
+                params,
+            )
+
+    def finish_test_run(self):
+        with self.connection.cursor() as c:
+            c.execute(
+                """\
+                update test_runs
+                set finished_at = sysdate()
+                where id = %s
+                """,
+                (self.test_run_id,),
+            )
