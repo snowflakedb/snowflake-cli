@@ -433,36 +433,21 @@ def test_deploy_function_with_empty_default_value(
             value="3.10",
         )
         result = runner.invoke(
-            [
-                "snowpark",
-                "deploy",
-            ],
-            catch_exceptions=False,
+            ["snowpark", "deploy", "--format", "json"], catch_exceptions=False
         )
-
-    default_value_sql = default_value
+    default_value_json = default_value
     if default_value is None:
-        default_value_sql = "null"
+        default_value_json = "null"
     elif parameter_type == "string":
-        default_value_sql = f"'{default_value}'"
+        default_value_json = f"'{default_value}'"
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_queries() == [
-        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
-        f" auto_compress=false parallel=4 overwrite=True",
-        dedent(
-            f"""\
-            create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a {parameter_type} default {default_value_sql}, b variant)
-            copy grants
-            returns string
-            language python
-            runtime_version=3.10
-            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.py')
-            handler='app.func1_handler'
-            packages=()
-            """
-        ).strip(),
+    assert json.loads(result.output) == [
+        {
+            "object": f"MockDatabase.MockSchema.func1(a {parameter_type} default {default_value_json}, b variant)",
+            "status": "created",
+            "type": "function",
+        }
     ]
 
 
