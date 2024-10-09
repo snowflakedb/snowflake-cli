@@ -391,6 +391,7 @@ def test_deploy_function_fully_qualified_name(
         assert result.output == os_agnostic_snapshot(name="ok")
 
 
+@pytest.mark.parametrize("parameter_type", ["string", "int", "variant", "bool"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
 @mock_session_has_warehouse
@@ -401,6 +402,7 @@ def test_deploy_function_with_default_value(
     runner,
     project_directory,
     alter_snowflake_yml,
+    parameter_type,
 ):
     mock_object_manager.return_value.describe.side_effect = ProgrammingError(
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
@@ -408,11 +410,19 @@ def test_deploy_function_with_default_value(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     with project_directory("snowpark_functions") as project_dir:
+        snowflake_yml = project_dir / "snowflake.yml"
+        for param, value in [("type", parameter_type), ("default", None)]:
+            alter_snowflake_yml(
+                snowflake_yml,
+                parameter_path=f"snowpark.functions.0.signature.0.{param}",
+                value=value,
+            )
         alter_snowflake_yml(
-            project_dir / "snowflake.yml",
-            parameter_path="snowpark.functions.0.signature.0.default",
-            value=None,
+            snowflake_yml,
+            parameter_path=f"snowpark.functions.0.runtime",
+            value="3.10",
         )
+        print((project_dir / "snowflake.yml").read_text())
         result = runner.invoke(
             [
                 "snowpark",
@@ -427,8 +437,8 @@ def test_deploy_function_with_default_value(
         f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
-            """\
-            create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a string default null, b variant)
+            f"""\
+            create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a {parameter_type} default null, b variant)
             copy grants
             returns string
             language python
