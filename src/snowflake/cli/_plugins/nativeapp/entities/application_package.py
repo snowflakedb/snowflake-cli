@@ -77,7 +77,7 @@ from snowflake.cli.api.project.util import (
     unquote_identifier,
 )
 from snowflake.cli.api.rendering.jinja import get_basic_jinja_env
-from snowflake.cli.api.sql_contract import CannotUseRoleError, SQLService
+from snowflake.cli.api.sql_contract import SQLService
 from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -1079,15 +1079,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         console.warning(
             "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
         )
-        if package_warehouse is None:
-            raise ClickException(
-                dedent(
-                    f"""\
-                Application package warehouse cannot be empty.
-                Please provide a value for it in your connection information or your project definition file.
-                """
-                )
-            )
+
         queued_queries = render_script_templates(
             project_root,
             dict(package_name=package_name),
@@ -1097,19 +1089,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         # once we're sure all the templates expanded correctly, execute all of them
         for i, queries in enumerate(queued_queries):
-            console.step(f"Applying package script: {package_scripts[i]}")
-            try:
-                SQLService().execute_user_script(
-                    queries, package_role, package_warehouse
-                )
-            except CannotUseRoleError as e:
-                if e.role == package_role:
-                    # TODO: log something here with context of failed operation
-                    raise e
-                else:
-                    raise e
-                    # raise ThisIsOutFaultError?()
-            # let other errors propagate up?
+            script_name = package_scripts[i]
+            console.step(f"Applying package script: {script_name}")
+            SQLService(get_sql_executor()).execute_user_script(
+                queries, script_name, package_role, package_warehouse
+            )
 
     @classmethod
     def create_app_package(
