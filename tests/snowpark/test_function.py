@@ -392,6 +392,56 @@ def test_deploy_function_fully_qualified_name(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
+def test_deploy_function_with_default_value(
+    mock_object_manager,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+    alter_snowflake_yml,
+):
+    mock_object_manager.return_value.describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with project_directory("snowpark_functions") as project_dir:
+        alter_snowflake_yml(
+            project_dir / "snowflake.yml",
+            parameter_path="snowpark.functions.0.signature.0.default",
+            value=None,
+        )
+        result = runner.invoke(
+            [
+                "snowpark",
+                "deploy",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
+        f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
+        f" auto_compress=false parallel=4 overwrite=True",
+        dedent(
+            """\
+            create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a string default null, b variant)
+            copy grants
+            returns string
+            language python
+            runtime_version=3.10
+            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.py')
+            handler='app.func1_handler'
+            packages=()
+            """
+        ).strip(),
+    ]
+
+
+@mock.patch("snowflake.connector.connect")
 def test_execute_function(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -419,11 +469,14 @@ def _deploy_function(
 ):
     ctx = mock_ctx(mock_cursor(rows=rows, columns=[]))
     mock_connector.return_value = ctx
-    with mock.patch(
-        "snowflake.cli._plugins.snowpark.commands.ObjectManager.describe"
-    ) as om_describe, mock.patch(
-        "snowflake.cli._plugins.snowpark.commands.ObjectManager.show"
-    ) as om_show:
+    with (
+        mock.patch(
+            "snowflake.cli._plugins.snowpark.commands.ObjectManager.describe"
+        ) as om_describe,
+        mock.patch(
+            "snowflake.cli._plugins.snowpark.commands.ObjectManager.show"
+        ) as om_show,
+    ):
         om_describe.return_value = rows
 
         with project_directory("snowpark_functions") as temp_dir:
