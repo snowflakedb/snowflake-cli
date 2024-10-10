@@ -418,36 +418,29 @@ def test_nativeapp_run_orphan(
             command = [*split(command), "--interactive"]  # show prompt in tests
             _input = "y\n"  # yes to drop app
 
-        if command[0] == "ws":
-            # TODO Remove this condition once ApplicationEntity.create_or_upgrade_app() supports calling drop()
-            with pytest.raises(NotImplementedError):
-                runner.invoke_with_connection(command, input=_input)
-        else:
-            result = runner.invoke_with_connection(command, input=_input)
-            assert result.exit_code == 0, result.output
-            if not force_flag:
-                assert (
-                    "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
-                    in result.output
-                ), result.output
+        result = runner.invoke_with_connection(command, input=_input)
+        assert result.exit_code == 0, result.output
+        if not force_flag:
+            assert (
+                "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
+                in result.output
+            ), result.output
 
-            # app + package exist
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show application packages like '{package_name}'",
-                    )
-                ),
-                dict(name=package_name),
-            )
-            assert contains_row_with(
-                row_from_snowflake_session(
-                    snowflake_session.execute_string(
-                        f"show applications like '{app_name}'"
-                    )
-                ),
-                dict(name=app_name, source=package_name),
-            )
+        # app + package exist
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show application packages like '{package_name}'",
+                )
+            ),
+            dict(name=package_name),
+        )
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(f"show applications like '{app_name}'")
+            ),
+            dict(name=app_name, source=package_name),
+        )
 
 
 # Verifies that we can always cross-upgrade between different

@@ -74,7 +74,7 @@ FIND_VERSION_FROM_MANIFEST = f"{VERSION_MODULE}.find_version_info_in_manifest_fi
 
 APP_ENTITY_MODULE = "snowflake.cli._plugins.nativeapp.entities.application"
 APP_ENTITY = f"{APP_ENTITY_MODULE}.ApplicationEntity"
-APP_ENTITY_GET_EXISTING_APP_INFO = f"{APP_ENTITY}.get_existing_app_info"
+APP_ENTITY_GET_EXISTING_APP_INFO = f"{APP_ENTITY}.get_existing_app_info_static"
 APP_ENTITY_DROP_GENERIC_OBJECT = f"{APP_ENTITY_MODULE}.drop_generic_object"
 APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION = (
     f"{APP_ENTITY}.get_objects_owned_by_application"

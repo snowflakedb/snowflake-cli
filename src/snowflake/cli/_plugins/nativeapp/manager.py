@@ -217,7 +217,7 @@ class NativeAppManager:
         )
 
     def get_existing_app_info(self) -> Optional[dict]:
-        return ApplicationEntity.get_existing_app_info(
+        return ApplicationEntity.get_existing_app_info_static(
             app_name=self.app_name,
             app_role=self.app_role,
         )
@@ -244,7 +244,7 @@ class NativeAppManager:
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
-        return ApplicationEntity.get_snowsight_url(
+        return ApplicationEntity.get_snowsight_url_static(
             self.app_name, self.application_warehouse
         )
 
@@ -342,7 +342,7 @@ class NativeAppManager:
         )
 
     def get_validation_result(self, use_scratch_stage: bool = False):
-        return ApplicationPackageEntity.get_validation_result(
+        return ApplicationPackageEntity.get_validation_result_static(
             console=cc,
             project_root=self.project_root,
             deploy_root=self.deploy_root,

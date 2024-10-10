@@ -53,6 +53,7 @@ from snowflake.cli.api.entities.utils import (
 )
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
+    APPLICATION_OWNS_EXTERNAL_OBJECTS,
     CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
     CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
@@ -70,6 +71,7 @@ from snowflake.cli.api.project.util import (
     append_test_resource_suffix,
     extract_schema,
     identifier_for_url,
+    to_identifier,
     unquote_identifier,
 )
 from snowflake.connector import DictCursor, ProgrammingError
@@ -182,6 +184,54 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 force=force,
             )
 
+        def drop_application_before_upgrade(cascade: bool = False):
+            if cascade:
+                try:
+                    if application_objects := self.get_objects_owned_by_application(
+                        app_name, app_role
+                    ):
+                        application_objects_str = self.application_objects_to_str(
+                            application_objects
+                        )
+                        workspace_ctx.console.message(
+                            f"The following objects are owned by application {app_name} and need to be dropped:\n{application_objects_str}"
+                        )
+                except ProgrammingError as err:
+                    if err.errno != APPLICATION_NO_LONGER_AVAILABLE:
+                        generic_sql_error_handler(err)
+                    workspace_ctx.console.warning(
+                        "The application owns other objects but they could not be determined."
+                    )
+                user_prompt = "Do you want the Snowflake CLI to drop these objects, then drop the existing application object and recreate it?"
+            else:
+                user_prompt = "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
+
+            if not policy.should_proceed(user_prompt):
+                if is_interactive:
+                    workspace_ctx.console.message(
+                        "Not upgrading the application object."
+                    )
+                    raise typer.Exit(0)
+                else:
+                    workspace_ctx.console.message(
+                        "Cannot upgrade the application object non-interactively without --force."
+                    )
+                    raise typer.Exit(1)
+            try:
+                cascade_msg = " (cascade)" if cascade else ""
+                workspace_ctx.console.step(
+                    f"Dropping application object {app_name}{cascade_msg}."
+                )
+                cascade_sql = " cascade" if cascade else ""
+                sql_executor = get_sql_executor()
+                sql_executor.execute_query(f"drop application {app_name}{cascade_sql}")
+            except ProgrammingError as err:
+                if err.errno == APPLICATION_OWNS_EXTERNAL_OBJECTS and not cascade:
+                    # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
+                    return drop_application_before_upgrade(cascade=True)
+                else:
+                    generic_sql_error_handler(err)
+
         self.deploy(
             console=workspace_ctx.console,
             project_root=workspace_ctx.project_root,
@@ -201,6 +251,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             patch=patch,
             post_deploy_hooks=post_deploy_hooks,
             deploy_package=deploy_package,
+            drop_application_before_upgrade=drop_application_before_upgrade,
         )
 
     def action_drop(
@@ -228,6 +279,58 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             cascade=cascade,
         )
 
+    def action_events(
+        self,
+        action_ctx: ActionContext,
+        since: str | datetime | None = None,
+        until: str | datetime | None = None,
+        record_types: list[str] | None = None,
+        scopes: list[str] | None = None,
+        consumer_org: str = "",
+        consumer_account: str = "",
+        consumer_app_hash: str = "",
+        first: int = -1,
+        last: int = -1,
+        follow: bool = False,
+        interval_seconds: int = 10,
+        *args,
+        **kwargs,
+    ):
+        model = self._entity_model
+        package_entity: ApplicationPackageEntity = action_ctx.get_entity(
+            model.from_.target
+        )
+        package_model: ApplicationPackageEntityModel = (
+            package_entity._entity_model  # noqa: SLF001
+        )
+        if follow:
+            return self.stream_events(
+                app_name=model.fqn.identifier,
+                package_name=package_model.fqn.identifier,
+                interval_seconds=interval_seconds,
+                since=since,
+                record_types=record_types,
+                scopes=scopes,
+                consumer_org=consumer_org,
+                consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
+                last=last,
+            )
+        else:
+            return self.get_events(
+                app_name=model.fqn.identifier,
+                package_name=package_model.fqn.identifier,
+                since=since,
+                until=until,
+                record_types=record_types,
+                scopes=scopes,
+                consumer_org=consumer_org,
+                consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
+                first=first,
+                last=last,
+            )
+
     @classmethod
     def drop(
         cls,
@@ -245,7 +348,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         needs_confirm = True
 
         # 1. If existing application is not found, exit gracefully
-        show_obj_row = cls.get_existing_app_info(
+        show_obj_row = cls.get_existing_app_info_static(
             app_name=app_name,
             app_role=app_role,
         )
@@ -535,7 +638,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             with sql_executor.use_warehouse(app_warehouse):
 
                 # 2. Check for an existing application by the same name
-                show_app_row = cls.get_existing_app_info(
+                show_app_row = cls.get_existing_app_info_static(
                     app_name=app_name,
                     app_role=app_role,
                 )
@@ -678,11 +781,15 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 )
             )
 
+    def get_existing_app_info(self) -> Optional[dict]:
+        model = self._entity_model
+        ctx = self._workspace_ctx
+        role = (model.meta and model.meta.role) or ctx.default_role
+        return self.get_existing_app_info_static(model.fqn.name, role)
+
+    # Temporary static entrypoint until NativeAppManager.get_existing_app_info() is removed
     @staticmethod
-    def get_existing_app_info(
-        app_name: str,
-        app_role: str,
-    ) -> Optional[dict]:
+    def get_existing_app_info_static(app_name: str, app_role: str) -> Optional[dict]:
         """
         Check for an existing application object by the same name as in project definition, in account.
         It executes a 'show applications like' query and returns the result as single row, if one exists.
@@ -708,7 +815,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         first: int = -1,
         last: int = -1,
     ):
-
         record_types = record_types or []
         scopes = scopes or []
 
@@ -850,8 +956,18 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         results = sql_executor.execute_query(query, cursor_class=DictCursor)
         return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
 
+    def get_snowsight_url(self) -> str:
+        """Returns the URL that can be used to visit this app via Snowsight."""
+        model = self._entity_model
+        ctx = self._workspace_ctx
+        warehouse = (
+            model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)
+        ) or to_identifier(ctx.default_warehouse)
+        return self.get_snowsight_url_static(model.fqn.name, warehouse)
+
+    # Temporary static entrypoint until NativeAppManager.get_snowsight_url() is removed
     @classmethod
-    def get_snowsight_url(cls, app_name: str, app_warehouse: str | None) -> str:
+    def get_snowsight_url_static(cls, app_name: str, app_warehouse: str) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
         name = identifier_for_url(app_name)
         with cls.use_application_warehouse(app_warehouse):

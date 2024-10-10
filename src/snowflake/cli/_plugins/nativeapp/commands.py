@@ -32,19 +32,11 @@ from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEnt
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
-from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
-from snowflake.cli._plugins.nativeapp.policy import (
-    AllowAlwaysPolicy,
-    AskAlwaysPolicy,
-    DenyAlwaysPolicy,
-)
-from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli._plugins.nativeapp.teardown_processor import (
     NativeAppTeardownProcessor,
 )
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     find_entity,
-    nativeapp_definition_v2_to_v1,
     single_app_and_package,
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
@@ -68,7 +60,6 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
     StreamResult,
 )
-from snowflake.cli.api.project.project_verification import assert_project_type
 from snowflake.cli.api.project.schemas.project_definition import ProjectDefinitionV1
 from typing_extensions import Annotated
 
@@ -148,7 +139,7 @@ def app_diff(
 
 @app.command("run", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1(app_required=True)
+@single_app_and_package(app_required=True)
 def app_run(
     version: Optional[str] = typer.Option(
         None,
@@ -177,42 +168,35 @@ def app_run(
     Creates an application package in your Snowflake account, uploads code files to its stage,
     then creates or upgrades an application object from the application package.
     """
-
-    assert_project_type("native_app")
-
-    is_interactive = False
-    if force:
-        policy = AllowAlwaysPolicy()
-    elif interactive:
-        is_interactive = True
-        policy = AskAlwaysPolicy()
-    else:
-        policy = DenyAlwaysPolicy()
-
     cli_context = get_cli_context()
-    processor = NativeAppRunProcessor(
-        project_definition=cli_context.project_definition.native_app,
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    bundle_map = processor.build_bundle()
-    processor.process(
-        bundle_map=bundle_map,
-        policy=policy,
+    app_id = options["app_entity_id"]
+    app_model = cli_context.project_definition.entities[app_id]
+    ws.perform_action(
+        app_id,
+        EntityActions.DEPLOY,
+        validate=validate,
         version=version,
         patch=patch,
         from_release_directive=from_release_directive,
-        is_interactive=is_interactive,
-        validate=validate,
+        prune=True,
+        recursive=True,
+        paths=[],
+        interactive=interactive,
+        force=force,
     )
+    app = ws.get_entity(app_id)
     return MessageResult(
-        f"Your application object ({processor.app_name}) is now available:\n"
-        + processor.get_snowsight_url()
+        f"Your application object ({app_model.fqn.name}) is now available:\n{app.get_snowsight_url()}"
     )
 
 
 @app.command("open", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1(app_required=True)
+@single_app_and_package(app_required=True)
 def app_open(
     **options,
 ) -> CommandResult:
@@ -220,16 +204,15 @@ def app_open(
     Opens the Snowflake Native App inside of your browser,
     once it has been installed in your account.
     """
-
-    assert_project_type("native_app")
-
     cli_context = get_cli_context()
-    manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    if manager.get_existing_app_info():
-        typer.launch(manager.get_snowsight_url())
+    app_id = options["app_entity_id"]
+    app = ws.get_entity(app_id)
+    if app.get_existing_app_info():
+        typer.launch(app.get_snowsight_url())
         return MessageResult(f"Snowflake Native App opened in browser.")
     else:
         return MessageResult(
@@ -313,7 +296,7 @@ def app_teardown(
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1()
+@single_app_and_package()
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
@@ -345,16 +328,6 @@ def app_deploy(
     Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
     Running this command with no arguments at all, as in `snow app deploy`, is a shorthand for `snow app deploy --prune --recursive`.
     """
-
-    assert_project_type("native_app")
-
-    if force:
-        policy = AllowAlwaysPolicy()
-    elif interactive:
-        policy = AskAlwaysPolicy()
-    else:
-        policy = DenyAlwaysPolicy()
-
     has_paths = paths is not None and len(paths) > 0
     if prune is None and recursive is None and not has_paths:
         prune = True
@@ -364,24 +337,24 @@ def app_deploy(
             prune = False
         if recursive is None:
             recursive = False
-
     if has_paths and prune:
         raise IncompatibleParametersError(["paths", "--prune"])
 
     cli_context = get_cli_context()
-    manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-
-    bundle_map = manager.build_bundle()
-    manager.deploy(
-        bundle_map=bundle_map,
+    package_id = options["package_entity_id"]
+    ws.perform_action(
+        package_id,
+        EntityActions.DEPLOY,
         prune=prune,
         recursive=recursive,
-        local_paths_to_sync=paths,
+        paths=paths,
         validate=validate,
-        policy=policy,
+        interactive=interactive,
+        force=force,
     )
 
     return MessageResult(
@@ -391,25 +364,29 @@ def app_deploy(
 
 @app.command("validate", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1()
+@single_app_and_package()
 def app_validate(
     **options,
 ):
     """
     Validates a deployed Snowflake Native App's setup script.
     """
-
-    assert_project_type("native_app")
-
     cli_context = get_cli_context()
-    manager = NativeAppManager(
-        project_definition=cli_context.project_definition.native_app,
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
+    package_id = options["package_entity_id"]
+    package = ws.get_entity(package_id)
     if cli_context.output_format == OutputFormat.JSON:
-        return ObjectResult(manager.get_validation_result(use_scratch_stage=True))
+        return ObjectResult(package.get_validation_result(use_scratch_stage=True))
 
-    manager.validate(use_scratch_stage=True)
+    ws.perform_action(
+        package_id,
+        EntityActions.VALIDATE,
+        interactive=False,
+        force=True,
+    )
     return MessageResult("Snowflake Native App validation succeeded.")
 
 
@@ -426,7 +403,7 @@ DEFAULT_EVENT_FOLLOW_LAST = 20
 
 @app.command("events", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1(app_required=True)
+@single_app_and_package(app_required=True)
 def app_events(
     since: str = typer.Option(
         default="",
@@ -506,48 +483,40 @@ def app_events(
         if first >= 0:
             raise IncompatibleParametersError(["--follow", "--first"])
 
-    assert_project_type("native_app")
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    app_id = options["app_entity_id"]
 
     record_type_names = [r.name for r in record_types]
-    manager = NativeAppManager(
-        project_definition=get_cli_context().project_definition.native_app,
-        project_root=get_cli_context().project_root,
+
+    if follow and last == -1 and not since:
+        # If we don't have a value for --last or --since, assume a value
+        # for --last so we at least print something before starting the stream
+        last = DEFAULT_EVENT_FOLLOW_LAST
+    stream: Iterable[CommandResult] = (
+        EventResult(event)
+        for event in ws.perform_action(
+            app_id,
+            EntityActions.EVENTS,
+            since=since,
+            until=until,
+            record_types=record_type_names,
+            scopes=scopes,
+            consumer_org=consumer_org,
+            consumer_account=consumer_account,
+            consumer_app_hash=consumer_app_hash,
+            first=first,
+            last=last,
+            follow=follow,
+            interval_seconds=follow_interval,
+        )
     )
     if follow:
-        if last == -1 and not since:
-            # If we don't have a value for --last or --since, assume a value
-            # for --last so we at least print something before starting the stream
-            last = DEFAULT_EVENT_FOLLOW_LAST
-        stream: Iterable[CommandResult] = (
-            EventResult(event)
-            for event in manager.stream_events(
-                since=since,
-                last=last,
-                interval_seconds=follow_interval,
-                record_types=record_type_names,
-                scopes=scopes,
-                consumer_org=consumer_org,
-                consumer_account=consumer_account,
-                consumer_app_hash=consumer_app_hash,
-            )
-        )
         # Append a newline at the end to make the CLI output clean when we hit Ctrl-C
         stream = itertools.chain(stream, [MessageResult("")])
-    else:
-        stream = (
-            EventResult(event)
-            for event in manager.get_events(
-                since=since,
-                until=until,
-                record_types=record_type_names,
-                scopes=scopes,
-                first=first,
-                last=last,
-                consumer_org=consumer_org,
-                consumer_account=consumer_account,
-                consumer_app_hash=consumer_app_hash,
-            )
-        )
 
     # Cast the stream to a Generator since that's what StreamResult wants
     return StreamResult(cast(Generator[CommandResult, None, None], stream))
