@@ -97,6 +97,7 @@ def get_package_name_from_pip_wheel(package: str, index_url: str | None = None) 
             download_dir=tmp_dir.path,
             index_url=index_url,
             dependencies=False,
+            raise_on_error=False,
         )
         file_list = [
             f.path.name for f in tmp_dir.iterdir() if f.path.name.endswith(".whl")
@@ -160,19 +161,14 @@ def download_unavailable_packages(
         # This is a Windows workaround where use TemporaryDirectory instead of NamedTemporaryFile
         requirements_file = downloads_dir / "requirements.txt"
         _write_requirements_file(requirements_file, requirements)  # type: ignore
-        pip_wheel_result = pip_wheel(
+        pip_wheel(
             package_name=None,
             requirements_file=requirements_file.path,  # type: ignore
             download_dir=downloads_dir.path,
             index_url=pip_index_url,
             dependencies=True,
+            raise_on_error=True,
         )
-        if pip_wheel_result != 0:
-            log.info(_pip_failed_log_msg(pip_wheel_result))
-            return DownloadUnavailablePackagesResult(
-                succeeded=False,
-                error_message=_pip_failed_log_msg(pip_wheel_result),
-            )
 
         # scan all downloaded packages and filter out ones available on Anaconda
         dependencies = split_downloaded_dependencies(
@@ -211,7 +207,8 @@ def pip_wheel(
     download_dir: Path,
     index_url: Optional[str],
     dependencies: bool = True,
-):
+    raise_on_error: bool = True,
+) -> int:
     command = ["-m", "pip", "wheel", "-w", str(download_dir)]
     if package_name:
         command.append(package_name)
@@ -222,23 +219,30 @@ def pip_wheel(
     if not dependencies:
         command.append("--no-deps")
 
-    try:
+    log.info(
+        "Running pip wheel with command: %s",
+        " ".join([str(com) for com in command]),
+    )
+    result = subprocess.run(
+        ["python", *command],
+        capture_output=True,
+        text=True,
+        encoding=locale.getpreferredencoding(),
+    )
+    if result.returncode != 0:
         log.info(
-            "Running pip wheel with command: %s",
-            " ".join([str(com) for com in command]),
+            "Pip wheel finished with error code %d. Details: %s",
+            result.returncode,
+            result.stdout + result.stderr,
         )
-        process = subprocess.run(
-            ["python", *command],
-            capture_output=True,
-            text=True,
-            encoding=locale.getpreferredencoding(),
-        )
-    except subprocess.CalledProcessError as e:
-        log.error("Encountered error %s", e.stderr)
-        raise ClickException(f"Encountered error while running pip wheel.")
+        if raise_on_error:
+            raise ClickException(
+                f"pip wheel finished with error code {result.returncode}. Please re-run with --verbose or --debug for more details."
+            )
+    else:
+        log.info("Pip wheel command executed successfully")
 
-    log.info("Pip wheel command executed successfully")
-    return process.returncode
+    return result.returncode
 
 
 @dataclasses.dataclass
