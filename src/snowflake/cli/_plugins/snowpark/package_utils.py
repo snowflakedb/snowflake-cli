@@ -227,7 +227,7 @@ def pip_wheel(
     )
     if result.returncode != 0:
         log.info(
-            "Pip wheel finished with error code %d. Details: %s",
+            "pip wheel finished with error code %d. Details: %s",
             result.returncode,
             result.stdout + result.stderr,
         )
@@ -236,7 +236,7 @@ def pip_wheel(
                 f"pip wheel finished with error code {result.returncode}. Please re-run with --verbose or --debug for more details."
             )
     else:
-        log.info("Pip wheel command executed successfully")
+        log.info("pip wheel command executed successfully")
 
     return result.returncode
 

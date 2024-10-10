@@ -233,7 +233,6 @@ class TestPackage:
 
     @pytest.mark.integration
     def test_incorrect_input(self, runner):
-        # TODO: refactor snowpark, so pip error is always thrown
         from packaging.requirements import InvalidRequirement
 
         with pytest.raises(InvalidRequirement) as err:
@@ -272,9 +271,9 @@ class TestPackage:
         for record in caplog.records:
             if "Running pip wheel with command" in record.message:
                 wheel_started = True
-            if "Pip wheel command executed successfully" in record.message:
+            if "pip wheel command executed successfully" in record.message:
                 wheel_ended_successfully = True
-            if "Pip wheel finished with error code" in record.message:
+            if "pip wheel finished with error code" in record.message:
                 pip_error_message_logged = True
 
         assert wheel_started, "start of pip wheel not logged"
