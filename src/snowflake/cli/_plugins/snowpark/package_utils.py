@@ -21,7 +21,6 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from textwrap import dedent
 from typing import Dict, List, Optional
 
 from click import ClickException
@@ -118,7 +117,6 @@ def _write_requirements_file(file_path: SecurePath, requirements: List[Requireme
 
 @dataclasses.dataclass
 class DownloadUnavailablePackagesResult:
-    succeeded: bool
     error_message: str | None = None
     anaconda_packages: List[Requirement] = dataclasses.field(default_factory=list)
     downloaded_packages_details: List[RequirementWithFiles] = dataclasses.field(
@@ -152,8 +150,7 @@ def download_unavailable_packages(
     if not requirements:
         # all packages are available in Snowflake
         return DownloadUnavailablePackagesResult(
-            succeeded=True,
-            anaconda_packages=packages_in_snowflake,
+            anaconda_packages=packages_in_snowflake
         )
 
     # download all packages with their dependencies
@@ -192,7 +189,6 @@ def download_unavailable_packages(
         for package in dependencies.unavailable_dependencies_wheels:
             package.extract_files(target_dir.path)
         return DownloadUnavailablePackagesResult(
-            succeeded=True,
             anaconda_packages=packages_in_snowflake,
             downloaded_packages_details=[
                 RequirementWithFiles(requirement=dep.requirement, files=dep.namelist())
@@ -345,14 +341,3 @@ def _log_dependencies_found_in_conda(available_dependencies: List[Requirement]) 
         )
     else:
         log.info("None of the package dependencies were found on Anaconda")
-
-
-def _pip_failed_log_msg(return_code: int) -> str:
-    return dedent(
-        f"""
-        pip failed with return code {return_code}. Most likely reasons:
-         * incorrect package name or version
-         * package isn't compatible with host architecture (most probably due to .so libraries)
-         * pip is not installed correctly
-        """
-    )
