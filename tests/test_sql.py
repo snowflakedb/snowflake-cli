@@ -18,12 +18,14 @@ from unittest import mock
 import pytest
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.exceptions import (
+    ShowSpecificObjectMultipleRowsError,
+    SnowflakeSQLExecutionError,
+)
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import identifier_to_show_like_pattern
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
 from snowflake.connector.cursor import DictCursor
-from snowflake.connector.errors import ProgrammingError
 
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
@@ -285,9 +287,9 @@ def test_show_specific_object_multiple_rows(mock_execute_query):
     cursor = mock.Mock(spec=DictCursor)
     cursor.rowcount = 2
     mock_execute_query.return_value = cursor
-    with pytest.raises(ProgrammingError) as err:
+    with pytest.raises(ShowSpecificObjectMultipleRowsError) as err:
         SqlExecutionMixin().show_specific_object("objects", "name", name_col="id")
-    assert "Received multiple rows" in err.value.msg
+    assert "Received multiple rows" in err.value.message
     mock_execute_query.assert_called_once_with(
         r"show objects like 'NAME'", cursor_class=DictCursor
     )
