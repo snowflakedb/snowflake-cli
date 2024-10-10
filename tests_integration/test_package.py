@@ -232,8 +232,8 @@ class TestPackage:
         )
 
     @pytest.mark.integration
-    @pytest.mark.integration
     def test_incorrect_input(self, runner):
+        # TODO: refactor snowpark, so pip error is always thrown
         from packaging.requirements import InvalidRequirement
 
         with pytest.raises(InvalidRequirement) as err:
@@ -244,6 +244,42 @@ class TestPackage:
             "Expected end or semicolon (after name and no valid version specifier)"
             in str(err)
         )
+
+    @pytest.mark.integration
+    def test_pip_error_is_logged(self, runner, caplog):
+        result = runner.invoke(
+            [
+                "snowpark",
+                "package",
+                "create",
+                "dummy-pkg-for-tests",
+                "--index-url",
+                "localhost",
+                "--ignore-anaconda",
+            ]
+        )
+        assert result.exit_code == 1
+        assert "Error" in result.output
+        assert (
+            "pip wheel finished with error code 1. Please re-run with --verbose or"
+            in result.output
+        )
+        assert "--debug for more details." in result.output
+
+        wheel_started = False
+        wheel_ended_successfully = False
+        pip_error_message_logged = False
+        for record in caplog.records:
+            if "Running pip wheel with command" in record.message:
+                wheel_started = True
+            if "Pip wheel command executed successfully" in record.message:
+                wheel_ended_successfully = True
+            if "Pip wheel finished with error code" in record.message:
+                pip_error_message_logged = True
+
+        assert wheel_started, "start of pip wheel not logged"
+        assert not wheel_ended_successfully, "pip should not end successfully"
+        assert pip_error_message_logged, "pip error message not logged"
 
     @pytest.fixture(scope="function")
     def directory_for_test(self):
