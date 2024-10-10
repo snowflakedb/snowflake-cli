@@ -26,6 +26,7 @@ from snowflake.cli._plugins.stage.manager import (
     UserStagePathParts,
 )
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector.cursor import SnowflakeCursor
 
 # Replace magic numbers with constants
@@ -78,6 +79,10 @@ class GitStagePathParts(StagePathParts):
 
 
 class GitManager(StageManager):
+    @staticmethod
+    def build_path(stage_path: str) -> StagePathParts:
+        return StagePath.from_git_str(stage_path)
+
     def show_branches(self, repo_name: str, like: str) -> SnowflakeCursor:
         return self._execute_query(f"show git branches like '{like}' in {repo_name}")
 

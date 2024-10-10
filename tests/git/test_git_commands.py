@@ -19,6 +19,7 @@ from unittest import mock
 import pytest
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import DictCursor, ProgrammingError
 
 EXAMPLE_URL = "https://github.com/an-example-repo.git"
@@ -82,7 +83,7 @@ def test_list_files(mock_connector, runner, mock_ctx):
     result = runner.invoke(["git", "list-files", "@repo_name/branches/main/"])
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == "ls @repo_name/branches/main/"
+    assert ctx.get_query() == "ls @repo_name/branches/main"
 
 
 @mock.patch("snowflake.connector.connect")
@@ -94,7 +95,7 @@ def test_list_files_pattern(mock_connector, runner, mock_ctx):
     )
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_query() == "ls @repo_name/branches/main/ pattern = 'REGEX'"
+    assert ctx.get_query() == "ls @repo_name/branches/main pattern = 'REGEX'"
 
 
 def test_list_files_not_a_stage_error(runner):
@@ -127,7 +128,8 @@ def test_copy_to_local_file_system(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     mock_iter.return_value = (
-        x for x in [f"{repo_prefix}file.txt", f"{repo_prefix}dir/file_in_dir.txt"]
+        StagePath.from_git_str(x)
+        for x in [f"{repo_prefix}file.txt", f"{repo_prefix}dir/file_in_dir.txt"]
     )
     mock_iter.__len__.return_value = 2
     mock_result.result = {"file": "mock"}
@@ -156,7 +158,7 @@ def test_copy_to_remote_dir(mock_connector, runner, mock_ctx):
     assert result.exit_code == 0, result.output
     assert (
         ctx.get_query()
-        == "copy files into @stage_path/dir_in_stage/ from @repo_name/branches/main/"
+        == "copy files into @stage_path/dir_in_stage from @repo_name/branches/main"
     )
 
 
@@ -542,17 +544,17 @@ def test_api_integration_and_secrets_get_unique_names(
     [
         (
             "@repo/branches/main/",
-            "@repo/branches/main/",
+            "@repo/branches/main",
             ["@repo/branches/main/s1.sql", "@repo/branches/main/a/S3.sql"],
         ),
         (
             "@repo/branches/main/a",
-            "@repo/branches/main/",
+            "@repo/branches/main",
             ["@repo/branches/main/a/S3.sql"],
         ),
         (
             "@db.schema.repo/branches/main/",
-            "@db.schema.repo/branches/main/",
+            "@db.schema.repo/branches/main",
             [
                 "@db.schema.repo/branches/main/s1.sql",
                 "@db.schema.repo/branches/main/a/S3.sql",
@@ -560,17 +562,17 @@ def test_api_integration_and_secrets_get_unique_names(
         ),
         (
             "@db.schema.repo/branches/main/s1.sql",
-            "@db.schema.repo/branches/main/",
+            "@db.schema.repo/branches/main",
             ["@db.schema.repo/branches/main/s1.sql"],
         ),
         (
             "@DB.SCHEMA.REPO/branches/main/s1.sql",
-            "@DB.SCHEMA.REPO/branches/main/",
+            "@DB.SCHEMA.REPO/branches/main",
             ["@DB.SCHEMA.REPO/branches/main/s1.sql"],
         ),
         (
             "@DB.schema.REPO/branches/main/a/S3.sql",
-            "@DB.schema.REPO/branches/main/",
+            "@DB.schema.REPO/branches/main",
             ["@DB.schema.REPO/branches/main/a/S3.sql"],
         ),
     ],
@@ -610,7 +612,7 @@ def test_execute(
     [
         (
             "@repo/branches/main/",
-            "@repo/branches/main/",
+            "@repo/branches/main",
             [
                 "@repo/branches/main/S2.sql",
                 "@repo/branches/main/s1.sql",
@@ -619,17 +621,17 @@ def test_execute(
         ),
         (
             "@repo/branches/main/s1.sql",
-            "@repo/branches/main/",
+            "@repo/branches/main",
             ["@repo/branches/main/s1.sql"],
         ),
         (
             "@repo/branches/main/S2.sql",
-            "@repo/branches/main/",
+            "@repo/branches/main",
             ["@repo/branches/main/S2.sql"],
         ),
         (
             "@repo/branches/main/a/s3.sql",
-            "@repo/branches/main/",
+            "@repo/branches/main",
             ["@repo/branches/main/a/s3.sql"],
         ),
     ],
@@ -669,7 +671,7 @@ def test_execute_new_git_repository_list_files(
     [
         (
             '@repo/branches/"feature/commit"/',
-            '@repo/branches/"feature/commit"/',
+            '@repo/branches/"feature/commit"',
             [
                 '@repo/branches/"feature/commit"/s1.sql',
                 '@repo/branches/"feature/commit"/a/S3.sql',
@@ -677,21 +679,21 @@ def test_execute_new_git_repository_list_files(
         ),
         (
             '@repo/branches/"feature/commit"/s1.sql',
-            '@repo/branches/"feature/commit"/',
+            '@repo/branches/"feature/commit"',
             [
                 '@repo/branches/"feature/commit"/s1.sql',
             ],
         ),
         (
             '@repo/branches/"feature/commit"/a/',
-            '@repo/branches/"feature/commit"/',
+            '@repo/branches/"feature/commit"',
             [
                 '@repo/branches/"feature/commit"/a/S3.sql',
             ],
         ),
         (
             '@db.schema.repo/branches/"feature/commit"/',
-            '@db.schema.repo/branches/"feature/commit"/',
+            '@db.schema.repo/branches/"feature/commit"',
             [
                 '@db.schema.repo/branches/"feature/commit"/s1.sql',
                 '@db.schema.repo/branches/"feature/commit"/a/S3.sql',
@@ -753,7 +755,7 @@ def test_execute_with_variables(mock_execute, mock_cursor, runner):
 
     assert result.exit_code == 0
     assert mock_execute.mock_calls == [
-        mock.call("ls @repo/branches/main/", cursor_class=DictCursor),
+        mock.call("ls @repo/branches/main", cursor_class=DictCursor),
         mock.call(
             f"execute immediate from @repo/branches/main/s1.sql using (key1=>'string value', key2=>1, key3=>TRUE, key4=>NULL, key5=>'var=value')"
         ),
@@ -776,7 +778,7 @@ def test_execute_file_with_space_in_name(mock_execute, mock_cursor, runner):
 
     assert result.exit_code == 0
     assert mock_execute.mock_calls == [
-        mock.call("ls @repo/branches/main/", cursor_class=DictCursor),
+        mock.call("ls @repo/branches/main", cursor_class=DictCursor),
         mock.call(f"execute immediate from '@repo/branches/main/Script 1.sql'"),
     ]
 
