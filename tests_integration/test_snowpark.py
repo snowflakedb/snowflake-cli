@@ -728,9 +728,12 @@ def test_build_skip_version_check(
         alter_requirements_txt(tmp_dir / "requirements.txt", ["matplotlib>=1000"])
         result = runner.invoke_with_connection(["snowpark", "build"])
         assert result.exit_code == 1, result.output
-        assert ("pip failed with return code") in result.output
-        assert (" Most likely reasons:") in result.output
-        assert (" * incorrect package name or version") in result.output
+        assert "Error" in result.output
+        assert (
+            "pip wheel finished with error code 1. Please re-run with --verbose or"
+            in result.output
+        )
+        assert "--debug for more details." in result.output
 
         result = runner.invoke_with_connection(
             ["snowpark", "build", "--skip-version-check"]

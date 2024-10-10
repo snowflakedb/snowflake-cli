@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-import logging
 import os
 from pathlib import Path
 from unittest import mock
@@ -30,9 +29,6 @@ from snowflake.cli._plugins.connection.util import (
     make_snowsight_url,
 )
 from snowflake.cli._plugins.snowpark import package_utils
-from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
-    AnacondaPackages,
-)
 from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
@@ -158,23 +154,6 @@ def test_path_resolver(mock_system, argument, expected):
     mock_system.response_value = "Windows"
 
     assert path_utils.path_resolver(argument) == expected
-
-
-@patch("snowflake.cli._plugins.snowpark.package_utils.pip_wheel")
-def test_pip_fail_message(mock_installer, correct_requirements_txt, caplog):
-    mock_installer.return_value = 42
-
-    with caplog.at_level(logging.INFO, "snowflake.cli._plugins.snowpark.package_utils"):
-        requirements = package_utils.parse_requirements(
-            SecurePath(correct_requirements_txt)
-        )
-        package_utils.download_unavailable_packages(
-            requirements=requirements,
-            target_dir=SecurePath(".packages"),
-            anaconda_packages=AnacondaPackages.empty(),
-        )
-
-    assert "pip failed with return code 42" in caplog.text
 
 
 @pytest.mark.parametrize(
