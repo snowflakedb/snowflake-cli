@@ -147,8 +147,6 @@ def package_create(
             skip_version_check=skip_version_check,
             pip_index_url=index_url,
         )
-        if not download_result.succeeded:
-            raise ClickException(download_result.error_message)
 
         # check if package was detected as available
         package_available_in_conda = any(
