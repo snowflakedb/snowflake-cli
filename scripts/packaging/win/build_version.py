@@ -17,7 +17,7 @@ def parse_version_for_windows_build() -> list[str]:
         case last if "dev" in last:
             version = msv + last.split("dev")
 
-    return version
+    return [segment for segment in version if segment]
 
 
 if __name__ == "__main__":
