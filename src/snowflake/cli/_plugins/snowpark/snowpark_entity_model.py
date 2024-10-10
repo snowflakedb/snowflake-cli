@@ -147,8 +147,11 @@ class UdfSprocIdentifier:
             self._arg_names, self._arg_types, self._arg_defaults
         ):
             s = f"{name} {_type}"
-            if _default:
-                if self._is_signature_type_a_string(_type):
+            if _default is not None:
+                if (
+                    self._is_signature_type_a_string(_type)
+                    and _default.lower() != "null"
+                ):
                     _default = f"'{_default}'"
                 s += f" default {_default}"
             sig.append(s)
