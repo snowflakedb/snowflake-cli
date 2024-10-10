@@ -225,9 +225,7 @@ class _ArtifactPathMap:
 
         current_is_dir = self._dest_is_dir.get(dest, None)
         if current_is_dir is not None and current_is_dir != is_dir:
-            raise ArtifactError(
-                "Conflicting type for destination path: {canonical_dest}"
-            )
+            raise ArtifactError(f"Conflicting type for destination path: {dest}")
 
         parent = dest.parent
         if parent != dest:
