@@ -444,13 +444,17 @@ def test_bundle_map_handles_missing_dest(bundle_map):
 
 def test_bundle_map_disallows_mapping_files_as_directories(bundle_map):
     bundle_map.add(PathMapping(src="app", dest="deployed/"))
-    with pytest.raises(ArtifactError):
+    with pytest.raises(
+        ArtifactError, match="Conflicting type for destination path: deployed"
+    ):
         bundle_map.add(PathMapping(src="**/main.py", dest="deployed"))
 
 
 def test_bundle_map_disallows_mapping_directories_as_files(bundle_map):
     bundle_map.add(PathMapping(src="**/main.py", dest="deployed"))
-    with pytest.raises(ArtifactError):
+    with pytest.raises(
+        ArtifactError, match="Conflicting type for destination path: deployed"
+    ):
         bundle_map.add(PathMapping(src="app", dest="deployed"))
 
 
