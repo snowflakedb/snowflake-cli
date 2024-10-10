@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from shlex import split
-from typing import Any, Optional, Union
+from typing import Any, Union
 
 from yaml import safe_dump, safe_load
 
@@ -48,29 +48,52 @@ def normalize_identifier(identifier: Union[str, int]) -> str:
         return unquote_identifier(to_identifier(id_str))
 
 
+@pytest.fixture(params=["napp_init_v1", "napp_init_v2"])
+def _test_project(request):
+    return request.param
+
+
+@pytest.fixture(params=["app version create", "ws version create --entity-id=pkg"])
+def _create_command(request):
+    return request.param
+
+
+@pytest.fixture(params=["app version list", "ws version list --entity-id=pkg"])
+def _list_command(request):
+    return request.param
+
+
+@pytest.fixture(params=["app version drop", "ws version drop --entity-id=pkg"])
+def _drop_command(request):
+    return request.param
+
+
+@pytest.fixture()
+def command_parametrization(
+    _create_command, _list_command, _drop_command, _test_project
+):
+    if "v1" in _test_project and (
+        "ws" in " ".join([_create_command, _list_command, _drop_command])
+    ):
+        pytest.skip("ws commands are not supported on v1 projects")
+    return _create_command, _list_command, _drop_command, _test_project
+
+
 # Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "list_command,test_project",
-    [
-        ["app version list", "napp_init_v1"],
-        ["app version list", "napp_init_v2"],
-        ["ws version list --entity-id=pkg", "napp_init_v2"],
-    ],
-)
 def test_nativeapp_version_create_and_drop(
     runner,
     snowflake_session,
     default_username,
     resource_suffix,
     nativeapp_project_directory,
-    list_command,
-    test_project,
+    command_parametrization,
 ):
+    create_command, list_command, drop_command, test_project = command_parametrization
     project_name = "myapp"
     with nativeapp_project_directory(test_project):
         result_create = runner.invoke_with_connection_json(
-            ["app", "version", "create", "v1", "--force", "--skip-git-check"]
+            [*split(create_command), "v1", "--force", "--skip-git-check"]
         )
         assert result_create.exit_code == 0
 
@@ -93,7 +116,7 @@ def test_nativeapp_version_create_and_drop(
         assert actual.json == row_from_snowflake_session(expect)
 
         result_drop = runner.invoke_with_connection_json(
-            ["app", "version", "drop", "v1", "--force"]
+            [*split(drop_command), "v1", "--force"]
         )
         assert result_drop.exit_code == 0
         actual = runner.invoke_with_connection_json(split(list_command))
@@ -102,23 +125,15 @@ def test_nativeapp_version_create_and_drop(
 
 # Tests upgrading an app from an existing loose files installation to versioned installation.
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "list_command,test_project",
-    [
-        ["app version list", "napp_init_v1"],
-        ["app version list", "napp_init_v2"],
-        ["ws version list --entity-id=pkg", "napp_init_v2"],
-    ],
-)
 def test_nativeapp_upgrade(
     runner,
     snowflake_session,
     default_username,
     resource_suffix,
     nativeapp_project_directory,
-    list_command,
-    test_project,
+    command_parametrization,
 ):
+    create_command, list_command, drop_command, test_project = command_parametrization
     project_name = "myapp"
     with nativeapp_project_directory(test_project):
         runner.invoke_with_connection_json(["app", "run"])
@@ -145,19 +160,11 @@ def test_nativeapp_upgrade(
         assert contains_row_with(expect, {"property": "version", "value": "V1"})
         assert contains_row_with(expect, {"property": "patch", "value": "0"})
 
-        runner.invoke_with_connection_json(["app", "version", "drop", "v1", "--force"])
+        runner.invoke_with_connection_json([*split(drop_command), "v1", "--force"])
 
 
 # Make sure we can create 3+ patches on the same version
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "list_command,test_project",
-    [
-        ["app version list", "napp_init_v1"],
-        ["app version list", "napp_init_v2"],
-        ["ws version list --entity-id=pkg", "napp_init_v2"],
-    ],
-)
 def test_nativeapp_version_create_3_patches(
     runner,
     snowflake_session,
@@ -165,9 +172,9 @@ def test_nativeapp_version_create_3_patches(
     resource_suffix,
     nativeapp_teardown,
     nativeapp_project_directory,
-    list_command,
-    test_project,
+    command_parametrization,
 ):
+    create_command, list_command, drop_command, test_project = command_parametrization
     project_name = "myapp"
     with nativeapp_project_directory(test_project):
         package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
@@ -191,7 +198,7 @@ def test_nativeapp_version_create_3_patches(
 
         # drop the version
         result_drop = runner.invoke_with_connection_json(
-            ["app", "version", "drop", "v1", "--force"]
+            [*split(drop_command), "v1", "--force"]
         )
         assert result_drop.exit_code == 0
 
@@ -201,14 +208,6 @@ def test_nativeapp_version_create_3_patches(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "list_command,test_project",
-    [
-        ["app version list", "napp_init_v1"],
-        ["app version list", "napp_init_v2"],
-        ["ws version list --entity-id=pkg", "napp_init_v2"],
-    ],
-)
 def test_nativeapp_version_create_patch_is_integer(
     runner,
     snowflake_session,
@@ -216,9 +215,9 @@ def test_nativeapp_version_create_patch_is_integer(
     resource_suffix,
     nativeapp_teardown,
     nativeapp_project_directory,
-    list_command,
-    test_project,
+    command_parametrization,
 ):
+    create_command, list_command, drop_command, test_project = command_parametrization
     with nativeapp_project_directory(test_project):
         # create initial version
         result = runner.invoke_with_connection_json(
@@ -262,7 +261,7 @@ def test_nativeapp_version_create_patch_is_integer(
 
         # drop the version
         result_drop = runner.invoke_with_connection_json(
-            ["app", "version", "drop", "v1", "--force"]
+            [*split(drop_command), "v1", "--force"]
         )
         assert result_drop.exit_code == 0
 
@@ -274,14 +273,6 @@ def test_nativeapp_version_create_patch_is_integer(
 # Tests creating a version for a package that was not created by the CLI
 # (doesn't have the magic CLI comment)
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "list_command,test_project",
-    [
-        ["app version list", "napp_init_v1"],
-        ["app version list", "napp_init_v2"],
-        ["ws version list --entity-id=pkg", "napp_init_v2"],
-    ],
-)
 def test_nativeapp_version_create_package_no_magic_comment(
     runner,
     snowflake_session,
@@ -290,9 +281,9 @@ def test_nativeapp_version_create_package_no_magic_comment(
     nativeapp_teardown,
     snapshot,
     nativeapp_project_directory,
-    list_command,
-    test_project,
+    command_parametrization,
 ):
+    create_command, list_command, drop_command, test_project = command_parametrization
     project_name = "myapp"
     with nativeapp_project_directory(test_project):
         result_create_abort = runner.invoke_with_connection_json(["app", "deploy"])
@@ -364,22 +355,15 @@ def test_nativeapp_version_create_package_no_magic_comment(
 
 # Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "test_project",
-    [
-        "napp_init_v1",
-        "napp_init_v2",
-    ],
-)
 def test_nativeapp_version_create_and_drop_from_manifest(
     runner,
     snowflake_session,
     default_username,
     resource_suffix,
     nativeapp_project_directory,
-    test_project,
+    command_parametrization,
 ):
-    project_name = "myapp"
+    create_command, list_command, drop_command, test_project = command_parametrization
     with nativeapp_project_directory(test_project) as project_dir:
         # not using pytest parameterization here because we need
         # to guarantee that the initial version gets created before the patches
@@ -403,7 +387,7 @@ def test_nativeapp_version_create_and_drop_from_manifest(
             )
 
             result_drop = runner.invoke_with_connection_json(
-                ["app", "version", "drop", "--force"]
+                [*split(drop_command), "--force"]
             )
             assert result_drop.exit_code == 0
             actual = runner.invoke_with_connection_json(["app", "version", "list"])
@@ -430,7 +414,7 @@ def test_nativeapp_version_create_and_drop_from_manifest(
             )
 
         result_drop = runner.invoke_with_connection_json(
-            ["app", "version", "drop", version_name, "--force"]
+            [*split(drop_command), version_name, "--force"]
         )
         assert result_drop.exit_code == 0
         actual = runner.invoke_with_connection_json(["app", "version", "list"])
