@@ -391,6 +391,66 @@ def test_deploy_function_fully_qualified_name(
         assert result.output == os_agnostic_snapshot(name="ok")
 
 
+@pytest.mark.parametrize(
+    "parameter_type,default_value",
+    [
+        ("string", None),
+        ("string", ""),
+        ("int", None),
+        ("variant", None),
+        ("bool", None),
+    ],
+)
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
+def test_deploy_function_with_empty_default_value(
+    mock_object_manager,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+    alter_snowflake_yml,
+    parameter_type,
+    default_value,
+):
+    mock_object_manager.return_value.describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with project_directory("snowpark_functions") as project_dir:
+        snowflake_yml = project_dir / "snowflake.yml"
+        for param, value in [("type", parameter_type), ("default", default_value)]:
+            alter_snowflake_yml(
+                snowflake_yml,
+                parameter_path=f"snowpark.functions.0.signature.0.{param}",
+                value=value,
+            )
+        alter_snowflake_yml(
+            snowflake_yml,
+            parameter_path=f"snowpark.functions.0.runtime",
+            value="3.10",
+        )
+        result = runner.invoke(
+            ["snowpark", "deploy", "--format", "json"], catch_exceptions=False
+        )
+    default_value_json = default_value
+    if default_value is None:
+        default_value_json = "null"
+    elif parameter_type == "string":
+        default_value_json = f"'{default_value}'"
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == [
+        {
+            "object": f"MockDatabase.MockSchema.func1(a {parameter_type} default {default_value_json}, b variant)",
+            "status": "created",
+            "type": "function",
+        }
+    ]
+
+
 @mock.patch("snowflake.connector.connect")
 def test_execute_function(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
@@ -419,11 +479,14 @@ def _deploy_function(
 ):
     ctx = mock_ctx(mock_cursor(rows=rows, columns=[]))
     mock_connector.return_value = ctx
-    with mock.patch(
-        "snowflake.cli._plugins.snowpark.commands.ObjectManager.describe"
-    ) as om_describe, mock.patch(
-        "snowflake.cli._plugins.snowpark.commands.ObjectManager.show"
-    ) as om_show:
+    with (
+        mock.patch(
+            "snowflake.cli._plugins.snowpark.commands.ObjectManager.describe"
+        ) as om_describe,
+        mock.patch(
+            "snowflake.cli._plugins.snowpark.commands.ObjectManager.show"
+        ) as om_show,
+    ):
         om_describe.return_value = rows
 
         with project_directory("snowpark_functions") as temp_dir:

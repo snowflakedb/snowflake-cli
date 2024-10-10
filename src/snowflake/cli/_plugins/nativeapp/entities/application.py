@@ -279,6 +279,58 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             cascade=cascade,
         )
 
+    def action_events(
+        self,
+        action_ctx: ActionContext,
+        since: str | datetime | None = None,
+        until: str | datetime | None = None,
+        record_types: list[str] | None = None,
+        scopes: list[str] | None = None,
+        consumer_org: str = "",
+        consumer_account: str = "",
+        consumer_app_hash: str = "",
+        first: int = -1,
+        last: int = -1,
+        follow: bool = False,
+        interval_seconds: int = 10,
+        *args,
+        **kwargs,
+    ):
+        model = self._entity_model
+        package_entity: ApplicationPackageEntity = action_ctx.get_entity(
+            model.from_.target
+        )
+        package_model: ApplicationPackageEntityModel = (
+            package_entity._entity_model  # noqa: SLF001
+        )
+        if follow:
+            return self.stream_events(
+                app_name=model.fqn.identifier,
+                package_name=package_model.fqn.identifier,
+                interval_seconds=interval_seconds,
+                since=since,
+                record_types=record_types,
+                scopes=scopes,
+                consumer_org=consumer_org,
+                consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
+                last=last,
+            )
+        else:
+            return self.get_events(
+                app_name=model.fqn.identifier,
+                package_name=package_model.fqn.identifier,
+                since=since,
+                until=until,
+                record_types=record_types,
+                scopes=scopes,
+                consumer_org=consumer_org,
+                consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
+                first=first,
+                last=last,
+            )
+
     @classmethod
     def drop(
         cls,
@@ -763,7 +815,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         first: int = -1,
         last: int = -1,
     ):
-
         record_types = record_types or []
         scopes = scopes or []
 
