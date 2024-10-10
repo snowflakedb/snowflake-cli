@@ -72,7 +72,6 @@ class TestPackage:
         mock_pip_wheel.return_value = 9
 
         mock_download.return_value = DownloadUnavailablePackagesResult(
-            succeeded=True,
             anaconda_packages=[Requirement.parse("in-anaconda-package>=2")],
         )
 
