@@ -90,7 +90,6 @@ class SnowflakeSQLFacade:
             try:
                 self._sql_executor.execute_query(f"use warehouse {valid_wh_name}")
             except ProgrammingError as err:
-                # add the unauthorized case here too?
                 if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
                     raise CouldNotUseObjectError(
                         ObjectType.WAREHOUSE, valid_wh_name
