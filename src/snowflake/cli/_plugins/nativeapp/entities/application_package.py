@@ -40,7 +40,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
     DenyAlwaysPolicy,
     PolicyBase,
 )
-from snowflake.cli._plugins.nativeapp.sf_sql_facade import SnowflakeSQLFacade
+from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
@@ -1091,7 +1091,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         for i, queries in enumerate(queued_queries):
             script_name = package_scripts[i]
             console.step(f"Applying package script: {script_name}")
-            SnowflakeSQLFacade(get_sql_executor()).execute_user_script(
+            get_snowflake_facade(get_sql_executor()).execute_user_script(
                 queries, script_name, package_role, package_warehouse
             )
 
