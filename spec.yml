@@ -1,0 +1,6 @@
+spec:
+  containers:
+  - name: hello-world
+    image: /sichen_db/test_schema/sichen_repo/test_counter
+    args:
+    - 1

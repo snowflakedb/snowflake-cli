@@ -80,9 +80,12 @@ class RegistryManager(SqlExecutionMixin):
         if len(results) == 0:
             raise NoImageRepositoriesFoundError()
         sample_repository_url = results[0]["repository_url"]
-        if not self._has_url_scheme(sample_repository_url):
-            sample_repository_url = f"//{sample_repository_url}"
-        return urlparse(sample_repository_url).netloc
+        return self.get_registry_url_from_repo(sample_repository_url)
+
+    def get_registry_url_from_repo(self, repo_url) -> str:
+        if not self._has_url_scheme(repo_url):
+            repo_url = f"//{repo_url}"
+        return urlparse(repo_url).netloc
 
     def docker_registry_login(self) -> str:
         registry_url = self.get_registry_url()

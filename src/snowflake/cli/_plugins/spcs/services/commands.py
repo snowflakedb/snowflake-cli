@@ -20,6 +20,7 @@ from typing import List, Optional
 
 import typer
 from click import ClickException
+
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
@@ -30,6 +31,9 @@ from snowflake.cli._plugins.spcs.common import (
     validate_and_set_instances,
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
+from snowflake.cli._plugins.spcs.services.spcs_processor import SpcsProcessor
+from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
@@ -41,6 +45,7 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
+    MessageResult,
     QueryJsonValueResult,
     QueryResult,
     SingleQueryResult,
@@ -200,7 +205,16 @@ def status(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     Retrieves the status of a service.
     """
     cursor = ServiceManager().status(service_name=name.identifier)
-    return QueryJsonValueResult(cursor)
+    return SingleQueryResult(cursor)
+
+
+@app.command(requires_connection=True)
+def container_status(name: FQN = ServiceNameArgument, **options) -> CommandResult:
+    """
+    Retrieves the container status of a service.
+    """
+    cursor = ServiceManager().container_status(service_name=name.identifier)
+    return QueryResult(cursor)
 
 
 @app.command(requires_connection=True)
@@ -343,3 +357,19 @@ def unset_property(
         comment=comment,
     )
     return SingleQueryResult(cursor)
+
+
+@app.command("deploy", requires_connection=True)
+@with_project_definition()
+def service_deploy(
+    **options,
+) -> CommandResult:
+    """
+    Deploys the service in the current schema or creates a new service if it does not exist.
+    """
+    cli_context = get_cli_context()
+    processor = SpcsProcessor(
+        project_definition=cli_context.project_definition.spcs,
+        project_root=cli_context.project_root,
+    )
+    return SingleQueryResult(processor.deploy())
