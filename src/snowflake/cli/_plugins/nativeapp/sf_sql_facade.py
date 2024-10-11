@@ -45,6 +45,8 @@ class UnknownSQLError(Exception):
 
 
 class UserScriptError(ClickException):
+    """Exception raised when user-provided scripts fail."""
+
     def __init__(self, script_name, msg):
         super().__init__(f"Failed to run script {script_name}. {msg}")
 
@@ -64,7 +66,7 @@ class SnowflakeSQLFacade:
         """
         Switches to a different warehouse for a while, then switches back.
         This is a no-op if the requested warehouse is already active or if no warehouse is passed in.
-        If there is no default warehouse in the account, it will throw an error.
+        @param new_wh: Name of the warehouse to use. If not a valid Snowflake identifier, will be converted before use.
         """
         if new_wh is None:
             yield
@@ -113,6 +115,7 @@ class SnowflakeSQLFacade:
         """
         Switches to a different role for a while, then switches back.
         This is a no-op if the requested role is already active or if no role is passed in.
+        @param new_role: Name of the role to use. If not a valid Snowflake identifier, will be converted before use.
         """
         if new_role is None:
             yield
@@ -146,9 +149,9 @@ class SnowflakeSQLFacade:
     @contextmanager
     def _use_database_optional(self, database_name: str | None):
         """
-        Switch to database `database_name`. No-op if no database is passed in.
-        UPDATE DOCSTRING (identifier will be checked and converted etc)
-        CONFIGURE PYCHARM TO format automatically
+        Switch to database `database_name`, then switches back.
+        This is a no-op if the requested database is already selected or if no database_name is passed in.
+        @param database_name: Name of the database to use. If not a valid Snowflake identifier, will be converted before use.
         """
 
         if database_name is None:
@@ -194,6 +197,14 @@ class SnowflakeSQLFacade:
         warehouse: str | None = None,
         database: str | None = None,
     ):
+        """
+        Runs the user-provided sql script.
+        @param queries: Queries to run in this script
+        @param script_name: Name of the file containing the script. Used to show logs to the user.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        @param [Optional] warehouse: Warehouse to use while running this script.
+        @param [Optional] database: Database to use while running this script.
+        """
         with self._use_role_optional(role):
             with self._use_warehouse_optional(warehouse):
                 with self._use_database_optional(database):

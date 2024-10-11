@@ -23,7 +23,7 @@ from tests.nativeapp.utils import (
     mock_execute_helper,
 )
 
-# TODO: Add more test coverage
+# TODO: Add more test coverage + define contract
 # TODO: Add test for non-identifier names
 sql_facade = get_snowflake_facade(get_sql_executor())
 
