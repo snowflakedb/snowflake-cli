@@ -162,7 +162,7 @@ def test_package_scripts_without_conn_warehouse_with_pkg_warehouse(mock_conn, te
 
 
 @pytest.mark.parametrize(
-    "error_thrown, error_raised, error_messages",
+    "error_thrown, error_raised, error_messages, exit_code",
     [
         (
             ProgrammingError(errno=NO_WAREHOUSE_SELECTED_IN_SESSION),
@@ -171,12 +171,19 @@ def test_package_scripts_without_conn_warehouse_with_pkg_warehouse(mock_conn, te
                 "Failed to run script 001-shared.sql",
                 "Please provide a warehouse in your project definition file, config.toml file, or via command line",
             ],
+            1,
         ),
-        (ProgrammingError(), UserScriptError, ["Failed to run script 001-shared.sql"]),
+        (
+            ProgrammingError(),
+            UserScriptError,
+            ["Failed to run script 001-shared.sql"],
+            1,
+        ),
         (
             Exception(),
             UnknownSQLError,
             ["Unknown SQL error occurred", "Failed to run script 001-shared.sql"],
+            3,
         ),
     ],
 )
@@ -191,6 +198,7 @@ def test_package_scripts_catches_raises_errors(
     error_thrown,
     error_raised,
     error_messages,
+    exit_code,
     temp_dir,
 ):
     use_project_with_package_scripts()
@@ -209,6 +217,7 @@ def test_package_scripts_catches_raises_errors(
 
     for error_message in error_messages:
         assert error_message in err.value.message
+        assert exit_code == err.value.exit_code
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
