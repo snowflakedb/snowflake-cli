@@ -20,21 +20,17 @@ from typing import Optional
 import typer
 from click import MissingParameter
 from snowflake.cli._plugins.nativeapp.common_flags import ForceOption, InteractiveOption
-from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
-    nativeapp_definition_v2_to_v1,
+    single_app_and_package,
 )
-from snowflake.cli._plugins.nativeapp.version.version_processor import (
-    NativeAppVersionCreateProcessor,
-    NativeAppVersionDropProcessor,
-)
+from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
-from snowflake.cli.api.project.project_verification import assert_project_type
 
 app = SnowTyperFactory(
     name="version",
@@ -46,7 +42,7 @@ log = logging.getLogger(__name__)
 
 @app.command(requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1()
+@single_app_and_package()
 def create(
     version: Optional[str] = typer.Argument(
         None,
@@ -71,18 +67,18 @@ def create(
     """
     Adds a new patch to the provided version defined in your application package. If the version does not exist, creates a version with patch 0.
     """
-
-    assert_project_type("native_app")
-
     if version is None and patch is not None:
         raise MissingParameter("Cannot provide a patch without version!")
 
     cli_context = get_cli_context()
-    processor = NativeAppVersionCreateProcessor(
-        project_definition=cli_context.project_definition.native_app,
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    processor.process(
+    package_id = options["package_entity_id"]
+    ws.perform_action(
+        package_id,
+        EntityActions.VERSION_CREATE,
         version=version,
         patch=patch,
         force=force,
@@ -94,28 +90,29 @@ def create(
 
 @app.command("list", requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1()
+@single_app_and_package()
 def version_list(
     **options,
 ) -> CommandResult:
     """
     Lists all versions defined in an application package.
     """
-
-    assert_project_type("native_app")
-
     cli_context = get_cli_context()
-    processor = NativeAppRunProcessor(
-        project_definition=cli_context.project_definition.native_app,
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    cursor = processor.get_all_existing_versions()
+    package_id = options["package_entity_id"]
+    cursor = ws.perform_action(
+        package_id,
+        EntityActions.VERSION_LIST,
+    )
     return QueryResult(cursor)
 
 
 @app.command(requires_connection=True)
 @with_project_definition()
-@nativeapp_definition_v2_to_v1()
+@single_app_and_package()
 def drop(
     version: Optional[str] = typer.Argument(
         None,
@@ -129,13 +126,17 @@ def drop(
     Drops a version defined in your application package. Versions can either be passed in as an argument to the command or read from the `manifest.yml` file.
     Dropping patches is not allowed.
     """
-
-    assert_project_type("native_app")
-
     cli_context = get_cli_context()
-    processor = NativeAppVersionDropProcessor(
-        project_definition=cli_context.project_definition.native_app,
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-    processor.process(version, force, interactive)
+    package_id = options["package_entity_id"]
+    ws.perform_action(
+        package_id,
+        EntityActions.VERSION_DROP,
+        version=version,
+        interactive=interactive,
+        force=force,
+    )
     return MessageResult(f"Version drop is now complete.")
