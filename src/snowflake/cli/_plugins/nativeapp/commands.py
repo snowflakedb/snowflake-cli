@@ -222,7 +222,7 @@ def app_open(
 
 @app.command("teardown", requires_connection=True)
 @with_project_definition()
-# This command doesn't use @nativeapp_definition_v2_to_v1 because it needs to
+# This command doesn't use @single_app_and_package because it needs to
 # be aware of PDFv2 definitions that have multiple apps created from the same package,
 # which all need to be torn down.
 def app_teardown(
@@ -233,7 +233,7 @@ def app_teardown(
         show_default=False,
     ),
     interactive: bool = InteractiveOption,
-    # Same as the param auto-added by @nativeapp_definition_v2_to_v1
+    # Same as the param auto-added by @single_app_and_package
     package_entity_id: Optional[str] = typer.Option(
         default="",
         help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
