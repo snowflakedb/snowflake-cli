@@ -16,8 +16,18 @@ from snowflake.connector import ProgrammingError
 
 
 class UnknownSQLError(Exception):
-    def __init__(self, msg):
-        super().__init__(f"Unknown SQL error occurred. {msg}")
+    """Exception raised when the root of the SQL error is unidentified by us."""
+
+    # PJ-question how do we ensure exit codes remain unique
+    exit_code = 3
+
+    def __init__(self, message):
+        msg = f"Unknown SQL error occurred. {message}"
+        super().__init__(msg)
+        self.message = msg
+
+    def __str__(self):
+        return self.message
 
 
 class UserScriptError(ClickException):
@@ -110,8 +120,8 @@ class SnowflakeSQLFacade:
                     ) from err
 
                 raise ProgrammingError(f"Failed to use role {valid_role_name}") from err
-            except:
-                raise UnknownSQLError(f"Failed to use role {valid_role_name}")
+            except Exception as err:
+                raise UnknownSQLError(f"Failed to use role {valid_role_name}") from err
         try:
             yield
         finally:
@@ -183,3 +193,7 @@ class SnowflakeSQLFacade:
                             ) from err
                         else:
                             raise UserScriptError(script_name, err.msg) from err
+                    except Exception as err:
+                        raise UnknownSQLError(
+                            f"Failed to run script {script_name}"
+                        ) from err

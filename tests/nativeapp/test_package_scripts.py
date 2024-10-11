@@ -17,20 +17,22 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from click import ClickException
 from snowflake.cli._plugins.nativeapp.exceptions import (
     InvalidTemplateInFileError,
     MissingScriptError,
 )
 from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
-from snowflake.cli._plugins.nativeapp.sf_sql_facade import SnowflakeSQLFacade
+from snowflake.cli._plugins.nativeapp.sf_sql_facade import (
+    SnowflakeSQLFacade,
+    UnknownSQLError,
+    UserScriptError,
+)
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
 from snowflake.cli.api.exceptions import (
     CouldNotUseObjectError,
-    NoWarehouseSelectedInSessionError,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
@@ -107,7 +109,8 @@ def test_package_scripts_with_conn_warehouse(
         native_app_manager._apply_package_scripts()  # noqa: SLF001
         assert mock_execute_user_script.call_count == 2
         expected_calls = [
-            mock.call(query, "role", "wh") for query in list(scripts.values())
+            mock.call(query[1], query[0], "role", "wh")
+            for query in list(scripts.items())
         ]
         mock_execute_user_script.assert_has_calls(expected_calls, any_order=False)
 
@@ -129,8 +132,8 @@ def test_package_scripts_with_pdf_warehouse(
         native_app_manager._apply_package_scripts()  # noqa: SLF001
         assert mock_execute_user_script.call_count == 2
         expected_calls = [
-            mock.call(query, "role", "myapp_pkg_warehouse")
-            for query in list(scripts.values())
+            mock.call(query[1], query[0], "role", "myapp_pkg_warehouse")
+            for query in list(scripts.items())
         ]
         mock_execute_user_script.assert_has_calls(expected_calls, any_order=False)
 
@@ -152,34 +155,60 @@ def test_package_scripts_without_conn_warehouse_with_pkg_warehouse(mock_conn, te
         native_app_manager._apply_package_scripts()  # noqa: SLF001
         assert mock_execute_user_script.call_count == 2
         expected_calls = [
-            mock.call(query, "MockRole", "myapp_pkg_warehouse")
-            for query in list(scripts.values())
+            mock.call(query[1], query[0], "MockRole", "myapp_pkg_warehouse")
+            for query in list(scripts.items())
         ]
         mock_execute_user_script.assert_has_calls(expected_calls, any_order=False)
 
 
-# Without connection warehouse, without PDF warehouse
+@pytest.mark.parametrize(
+    "error_thrown, error_raised, error_messages",
+    [
+        (
+            ProgrammingError(errno=NO_WAREHOUSE_SELECTED_IN_SESSION),
+            UserScriptError,
+            [
+                "Failed to run script 001-shared.sql",
+                "Please provide a warehouse in your project definition file, config.toml file, or via command line",
+            ],
+        ),
+        (ProgrammingError(), UserScriptError, ["Failed to run script 001-shared.sql"]),
+        (
+            Exception(),
+            UnknownSQLError,
+            ["Unknown SQL error occurred", "Failed to run script 001-shared.sql"],
+        ),
+    ],
+)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
-@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
-def test_package_scripts_without_conn_info_throws_error(
+def test_package_scripts_catches_raises_errors(
     mock_conn,
     mock_execute_query,
     mock_execute_queries,
-    project_definition_files,
     mock_cursor,
+    error_thrown,
+    error_raised,
+    error_messages,
+    temp_dir,
 ):
+    use_project_with_package_scripts()
     mock_conn.return_value = MockConnectionCtx(warehouse=None)
-    working_dir: Path = project_definition_files[0].parent
-    mock_execute_query.return_value = mock_cursor([(None,)], [])
-    native_app_manager = _get_na_manager(str(working_dir))
-    with pytest.raises(ClickException) as err:
+
+    side_effects = [
+        mock_cursor([("MockRole",)], []),
+    ]
+
+    mock_execute_query.side_effects = side_effects
+    mock_execute_queries.side_effect = error_thrown
+
+    native_app_manager = _get_na_manager(str(temp_dir))
+    with pytest.raises(error_raised) as err:
         native_app_manager._apply_package_scripts()  # noqa: SLF001
 
-    assert "Application package warehouse cannot be empty." in err.value.message
-    assert mock_execute_query.mock_calls == []
-    assert mock_execute_queries.mock_calls == []
+    for error_message in error_messages:
+        assert error_message in err.value.message
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
@@ -232,33 +261,7 @@ def test_undefined_var_package_script(
     assert mock_execute.mock_calls == []
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock_connection()
-@pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
-def test_package_scripts_catches_missing_warehouse_exception(
-    mock_conn,
-    mock_execute_query,
-    mock_execute_queries,
-    project_definition_files,
-    mock_cursor,
-):
-    mock_conn.return_value = MockConnectionCtx()
-
-    mock_execute_queries.side_effect = ProgrammingError(
-        msg="No active warehouse selected in the current session.",
-        errno=NO_WAREHOUSE_SELECTED_IN_SESSION,
-    )
-
-    working_dir: Path = project_definition_files[0].parent
-    native_app_manager = _get_na_manager(str(working_dir))
-
-    with pytest.raises(NoWarehouseSelectedInSessionError) as err:
-        native_app_manager._apply_package_scripts()  # noqa: SLF001
-
-    assert "Please provide a warehouse for the active session role" in err.value.message
-
-
+# TODO: Move to tests for execute_user_script
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
