@@ -23,6 +23,18 @@
 ## Fixes and improvements
 
 
+# v3.0.2
+
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+* Added Snowflake CLI binary distribution for Linux, MacOS and Windows.
+
+## Fixes and improvements
+
+
 # v3.0.1
 
 ## Backward incompatibility
