@@ -38,6 +38,8 @@ from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
 from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
 
+from snowflake.cli.api.project.schemas.v1.spcs.service import Service
+
 AnnotatedEntity = Annotated[EntityModel, Field(discriminator="type")]
 scalar = str | int | float | bool
 
@@ -101,6 +103,9 @@ class DefinitionV10(_ProjectDefinitionBase):
     )
     streamlit: Optional[Streamlit] = Field(
         title="Streamlit definitions for the project", default=None
+    )
+    spcs: Optional[Service] = Field(
+        title="SPCS definitions for the project", default=None
     )
 
 

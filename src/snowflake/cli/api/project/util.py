@@ -194,6 +194,17 @@ def extract_schema(qualified_name: str):
     return None
 
 
+def extract_database(qualified_name: str):
+    """
+    Extracts the database from either a two-part or three-part qualified name
+    (i.e. schema.object or database.schema.object). If qualified_name is not
+    qualified with a database, returns None.
+    """
+    if match := re.fullmatch(DB_SCHEMA_AND_NAME, qualified_name):
+        return match.group(1)
+    return None
+
+
 def first_set_env(*keys: str):
     for k in keys:
         v = os.getenv(k)

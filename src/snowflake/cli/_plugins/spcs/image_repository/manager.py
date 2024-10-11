@@ -15,6 +15,7 @@
 from urllib.parse import urlparse
 
 from snowflake.cli._plugins.spcs.common import handle_object_already_exists
+from snowflake.cli._plugins.spcs.image_registry.registry import Registry
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -32,7 +33,6 @@ class ImageRepositoryManager(SqlExecutionMixin):
         return self._conn.role
 
     def get_repository_url(self, repo_name: str, with_scheme: bool = True):
-
         repo_row = self.show_specific_object(
             "image repositories", repo_name, check_schema=True
         )

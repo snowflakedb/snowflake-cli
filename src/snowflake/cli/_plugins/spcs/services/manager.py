@@ -31,6 +31,8 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
+from snowflake.cli.api.project.schemas.v1.spcs.service import Service
+
 
 class ServiceManager(SqlExecutionMixin):
     def create(
@@ -74,7 +76,7 @@ class ServiceManager(SqlExecutionMixin):
             query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
 
         if comment:
-            query.append(f"COMMENT = {comment}")
+            query.append(f"COMMENT = $${comment}$$")
 
         if tags:
             tag_list = ",".join(f"{t.name}={t.value_string_literal()}" for t in tags)
@@ -130,7 +132,10 @@ class ServiceManager(SqlExecutionMixin):
         return json.dumps(data)
 
     def status(self, service_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')")
+        return self._execute_query(f"DESC SERVICE {service_name}")
+
+    def container_status(self, service_name: str) -> SnowflakeCursor:
+        return self._execute_query(f"SHOW SERVICE CONTAINERS IN SERVICE {service_name}")
 
     def logs(
         self, service_name: str, instance_id: str, container_name: str, num_lines: int
