@@ -248,39 +248,6 @@ def find_entity(
     return entity
 
 
-def nativeapp_definition_v2_to_v1(*, app_required: bool = False):
-    """
-    A command decorator that attempts to automatically convert a native app project from
-    definition v2 to v1.1. Assumes with_project_definition() has already been called.
-    The definition object in CliGlobalContext will be replaced with the converted object.
-    Exactly one application package entity type is expected, and up to one application
-    entity type is expected.
-    """
-
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            original_pdf: Optional[DefinitionV20] = get_cli_context().project_definition
-            if not original_pdf:
-                raise ValueError(
-                    "Project definition could not be found. The nativeapp_definition_v2_to_v1 command decorator assumes with_project_definition() was called before it."
-                )
-            if original_pdf.definition_version == "2":
-                package_entity_id = kwargs.get("package_entity_id", "")
-                app_entity_id = kwargs.get("app_entity_id", "")
-                pdfv1 = _pdf_v2_to_v1(
-                    original_pdf, package_entity_id, app_entity_id, app_required
-                )
-                get_cli_context_manager().override_project_definition = pdfv1
-            return func(*args, **kwargs)
-
-        return _options_decorator_factory(
-            wrapper, additional_options=APP_AND_PACKAGE_OPTIONS
-        )
-
-    return decorator
-
-
 def single_app_and_package(*, app_required: bool = False):
     """
     A command decorator that attempts to extract a single application package and up to one
