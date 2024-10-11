@@ -319,7 +319,7 @@ def version_drop(
     )
     ws.perform_action(
         entity_id,
-        EntityActions.VERSION_CREATE,
+        EntityActions.VERSION_DROP,
         version=version,
         interactive=interactive,
         force=force,
