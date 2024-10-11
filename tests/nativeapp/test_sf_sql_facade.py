@@ -23,6 +23,8 @@ from tests.nativeapp.utils import (
     mock_execute_helper,
 )
 
+# TODO: Add more test coverage
+# TODO: Add test for non-identifier names
 sql_facade = get_snowflake_facade(get_sql_executor())
 
 
@@ -84,6 +86,3 @@ def test_execute_with_role_wh_db(mock_execute_queries, mock_execute_query, mock_
     assert mock_execute_queries.mock_calls == [mock.call(mock_script)]
     # Assert - order of calls
     mock_parent.assert_has_calls(all_execute_calls)
-
-
-# TODO: add test for non-identifier name
