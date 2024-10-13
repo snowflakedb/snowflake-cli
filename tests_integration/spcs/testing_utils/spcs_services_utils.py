@@ -260,6 +260,59 @@ class SnowparkServicesTestSteps:
             },
         )
 
+    def list_instances_should_show_instances(self, service_name: str):
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "list-instances",
+                service_name,
+                *self._database_schema_args(),
+            ]
+        )
+        assert_that_result_is_successful_and_output_json_contains(
+            result,
+            {
+                "instance_id": "0",
+                "service_name": service_name.upper(),
+            },
+        )
+
+    def list_containers_should_show_containers(self, service_name: str):
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "list-containers",
+                service_name,
+                *self._database_schema_args(),
+            ]
+        )
+        assert_that_result_is_successful_and_output_json_contains(
+            result,
+            {
+                "container_name": "hello-world",
+                "service_name": service_name.upper(),
+            },
+        )
+
+    def list_roles_should_show_roles(self, service_name: str):
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "list-roles",
+                service_name,
+                *self._database_schema_args(),
+            ]
+        )
+        assert_that_result_is_successful_and_output_json_contains(
+            result,
+            {
+                "name": "ALL_ENDPOINTS_USAGE",
+            },
+        )
+
     def _execute_status(self, service_name: str):
         return self._setup.runner.invoke_with_connection_json(
             ["spcs", "service", "status", service_name, *self._database_schema_args()],

@@ -514,6 +514,96 @@ def test_list_endpoints_cli(mock_list_endpoints, mock_cursor, runner):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+def test_list_instances(mock_execute_query):
+    service_name = "test_service"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ServiceManager().list_instances(service_name)
+    expected_query = f"show service instances in service test_service"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.list_instances")
+def test_list_instances_cli(mock_list_instances, mock_cursor, runner):
+    service_name = "test_service"
+    cursor = mock_cursor(
+        rows=[["TEST_DB", "TEST_SCHEMA", "TEST_SERVICE", "0", "READY"]],
+        columns=[
+            "database_name",
+            "schema_name",
+            "service_name",
+            "instance_id",
+            "status",
+        ],
+    )
+    mock_list_instances.return_value = cursor
+    result = runner.invoke(["spcs", "service", "list-instances", service_name])
+
+    mock_list_instances.assert_called_once_with(service_name=service_name)
+    assert result.exit_code == 0
+    assert "TEST_SERVICE" in result.output, str(result.output)
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+def test_list_containers(mock_execute_query):
+    service_name = "test_service"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ServiceManager().list_containers(service_name)
+    expected_query = f"show service containers in service test_service"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.list_containers")
+def test_list_containers_cli(mock_list_containers, mock_cursor, runner):
+    service_name = "test_service"
+    cursor = mock_cursor(
+        rows=[["TEST_DB", "TEST_SCHEMA", "TEST_SERVICE", "0", "main"]],
+        columns=[
+            "database_name",
+            "schema_name",
+            "service_name",
+            "instance_id",
+            "container_name",
+        ],
+    )
+    mock_list_containers.return_value = cursor
+    result = runner.invoke(["spcs", "service", "list-containers", service_name])
+
+    mock_list_containers.assert_called_once_with(service_name=service_name)
+    assert result.exit_code == 0
+    assert "TEST_SERVICE" in result.output, str(result.output)
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+def test_list_roles(mock_execute_query):
+    service_name = "test_service"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ServiceManager().list_roles(service_name)
+    expected_query = f"show roles in service test_service"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.list_roles")
+def test_list_roles_cli(mock_list_roles, mock_cursor, runner):
+    service_name = "test_service"
+    cursor = mock_cursor(
+        rows=[["2024-10-09 16:48:52.980000-07:00", "ALL_ENDPOINTS_USAGE", "None"]],
+        columns=["created_on", "name", "comment"],
+    )
+    mock_list_roles.return_value = cursor
+    result = runner.invoke(["spcs", "service", "list-roles", service_name])
+
+    mock_list_roles.assert_called_once_with(service_name=service_name)
+    assert result.exit_code == 0
+    assert "ALL_ENDPOINTS_USAGE" in result.output, str(result.output)
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
 def test_suspend(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -566,6 +656,10 @@ def test_set_property(mock_execute_query):
     max_instances = 3
     query_warehouse = "test_warehouse"
     auto_resume = False
+    external_access_integrations = [
+        "google_apis_access_integration",
+        "salesforce_api_access_integration",
+    ]
     comment = to_string_literal("this is a test")
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
@@ -575,8 +669,10 @@ def test_set_property(mock_execute_query):
         max_instances=max_instances,
         query_warehouse=query_warehouse,
         auto_resume=auto_resume,
+        external_access_integrations=external_access_integrations,
         comment=comment,
     )
+    eai_list = ",".join(external_access_integrations)
     expected_query = "\n".join(
         [
             f"alter service {service_name} set",
@@ -584,6 +680,7 @@ def test_set_property(mock_execute_query):
             f"max_instances = {max_instances}",
             f"query_warehouse = {query_warehouse}",
             f"auto_resume = {auto_resume}",
+            f"external_access_integrations = ({eai_list})",
             f"comment = {comment}",
         ]
     )
@@ -594,7 +691,7 @@ def test_set_property(mock_execute_query):
 def test_set_property_no_properties():
     service_name = "test_service"
     with pytest.raises(NoPropertiesProvidedError) as e:
-        ServiceManager().set_property(service_name, None, None, None, None, None)
+        ServiceManager().set_property(service_name, None, None, None, None, None, None)
     assert (
         e.value.message
         == f"No properties specified for service '{service_name}'. Please provide at least one property to set."
@@ -610,6 +707,10 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
     max_instances = 3
     query_warehouse = "test_warehouse"
     auto_resume = False
+    external_access_integrations = [
+        "google_apis_access_integration",
+        "salesforce_api_access_integration",
+    ]
     comment = "this is a test"
     result = runner.invoke(
         [
@@ -624,6 +725,10 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
             "--query-warehouse",
             query_warehouse,
             "--no-auto-resume",
+            "--eai-name",
+            "google_apis_access_integration",
+            "--eai-name",
+            "salesforce_api_access_integration",
             "--comment",
             comment,
         ]
@@ -634,6 +739,7 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
         max_instances=max_instances,
         query_warehouse=query_warehouse,
         auto_resume=auto_resume,
+        external_access_integrations=external_access_integrations,
         comment=to_string_literal(comment),
     )
     assert result.exit_code == 0, result.output

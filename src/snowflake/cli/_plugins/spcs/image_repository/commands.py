@@ -39,6 +39,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
     MessageResult,
+    QueryResult,
     SingleQueryResult,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
@@ -99,44 +100,10 @@ def list_images(
     **options,
 ) -> CollectionResult:
     """Lists images in the given repository."""
-    repository_manager = ImageRepositoryManager()
-    database = repository_manager.get_database()
-    schema = repository_manager.get_schema()
-    url = repository_manager.get_repository_url(name.identifier)
-    api_url = repository_manager.get_repository_api_url(url)
-    bearer_login = RegistryManager().login_to_registry(api_url)
-    repos = []
-    query: Optional[str] = f"{api_url}/_catalog?n=10"
-
-    while query:
-        # Make paginated catalog requests
-        response = requests.get(
-            query, headers={"Authorization": f"Bearer {bearer_login}"}
-        )
-
-        if response.status_code != 200:
-            raise ClickException(f"Call to the registry failed {response.text}")
-
-        data = json.loads(response.text)
-        if "repositories" in data:
-            repos.extend(data["repositories"])
-
-        if "Link" in response.headers:
-            # There are more results
-            query = f"{api_url}/_catalog?n=10&last={repos[-1]}"
-        else:
-            query = None
-
-    images = []
-    for repo in repos:
-        prefix = f"/{database}/{schema}/{name}/"
-        repo = repo.replace("baserepo/", prefix)
-        images.append({"image": repo})
-
-    return CollectionResult(images)
+    return QueryResult(ImageRepositoryManager().list_images(name.identifier))
 
 
-@app.command("list-tags", requires_connection=True)
+@app.command("list-tags", requires_connection=True, deprecated=True)
 def list_tags(
     name: FQN = REPO_NAME_ARGUMENT,
     image_name: str = typer.Option(
@@ -149,7 +116,7 @@ def list_tags(
     ),
     **options,
 ) -> CollectionResult:
-    """Lists tags for the given image in a repository."""
+    """Lists tags for the given image in a repository. This command is deprecated and will be removed in a future release. Use `list-images` instead."""
 
     repository_manager = ImageRepositoryManager()
     url = repository_manager.get_repository_url(name.identifier)

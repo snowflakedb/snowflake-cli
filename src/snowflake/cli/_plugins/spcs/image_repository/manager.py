@@ -18,6 +18,7 @@ from snowflake.cli._plugins.spcs.common import handle_object_already_exists
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
 
@@ -32,7 +33,6 @@ class ImageRepositoryManager(SqlExecutionMixin):
         return self._conn.role
 
     def get_repository_url(self, repo_name: str, with_scheme: bool = True):
-
         repo_row = self.show_specific_object(
             "image repositories", repo_name, check_schema=True
         )
@@ -82,3 +82,6 @@ class ImageRepositoryManager(SqlExecutionMixin):
             handle_object_already_exists(
                 e, ObjectType.IMAGE_REPOSITORY, name, replace_available=True
             )
+
+    def list_images(self, repo_name: str) -> SnowflakeCursor:
+        return self._execute_query(f"show images in image repository {repo_name}")
