@@ -431,20 +431,21 @@ class StageManager(SqlExecutionMixin):
     def _create_temporary_copy_of_stage(
         self, stage_path: str
     ) -> tuple[StagePathParts, StagePathParts]:
+        sm = StageManager()
+
+        # Rewrite stage paths to temporary stage paths. Git paths become stage paths
+        original_path_parts = self._stage_path_part_factory(stage_path)  # noqa: SLF001
+
         tmp_stage_name = f"snowflake_cli_tmp_stage_{int(time.time())}"
         tmp_stage = (
             FQN.from_stage(tmp_stage_name).using_connection(conn=self._conn).identifier
         )
-        sm = StageManager()
-
-        # Create temporary stage, it will be dropped with end of session
-        sm.create(FQN.from_string(tmp_stage), temporary=True)
-
-        # Rewrite stage paths to temporary stage paths. Git paths become stage paths
-        original_path_parts = self._stage_path_part_factory(stage_path)  # noqa: SLF001
         stage_path_parts = sm._stage_path_part_factory(  # noqa: SLF001
             tmp_stage + "/" + original_path_parts.directory
         )
+
+        # Create temporary stage, it will be dropped with end of session
+        sm.create(FQN.from_string(tmp_stage), temporary=True)
 
         # Copy the content
         self.copy_files(

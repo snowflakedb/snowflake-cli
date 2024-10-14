@@ -900,11 +900,11 @@ def test_execute_with_variables(mock_bootstrap, mock_execute, mock_cursor, runne
     mock_bootstrap.return_value.assert_called_once_with(
         "@exe/s2.py",
         {
-            "key1": "'string value'",
+            "key1": "string value",
             "key2": "1",
             "KEY3": "TRUE",
             "key4": "NULL",
-            "key5": "'var=value'",
+            "key5": "var=value",
         },
     )
 
