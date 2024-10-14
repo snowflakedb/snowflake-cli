@@ -1506,6 +1506,37 @@
   
   '''
 # ---
+# name: test_help_messages[connection.generate-jwt]
+  '''
+                                                                                  
+   Usage: default connection generate-jwt [OPTIONS]                               
+                                                                                  
+   Generate a JWT token, which will be printed out and displayed..                
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --account,--accountname         -a      TEXT  Account name to use when       |
+  |                                               authenticating with Snowflake. |
+  | --user,--username               -u      TEXT  Username to connect to         |
+  |                                               Snowflake.                     |
+  | --private-key,--private-key-p…  -k      FILE  Path to file containing        |
+  |                                               private key                    |
+  |                                               [default: None]                |
+  | --help                          -h            Show this message and exit.    |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contains additional  |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[connection.list]
   '''
                                                                                   
@@ -1654,10 +1685,12 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | add           Adds a connection to configuration file.                       |
-  | list          Lists configured connections.                                  |
-  | set-default   Changes default connection to provided value.                  |
-  | test          Tests the connection to Snowflake.                             |
+  | add            Adds a connection to configuration file.                      |
+  | generate-jwt   Generate a JWT token, which will be printed out and           |
+  |                displayed..                                                   |
+  | list           Lists configured connections.                                 |
+  | set-default    Changes default connection to provided value.                 |
+  | test           Tests the connection to Snowflake.                            |
   +------------------------------------------------------------------------------+
   
   
@@ -9423,10 +9456,12 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | add           Adds a connection to configuration file.                       |
-  | list          Lists configured connections.                                  |
-  | set-default   Changes default connection to provided value.                  |
-  | test          Tests the connection to Snowflake.                             |
+  | add            Adds a connection to configuration file.                      |
+  | generate-jwt   Generate a JWT token, which will be printed out and           |
+  |                displayed..                                                   |
+  | list           Lists configured connections.                                 |
+  | set-default    Changes default connection to provided value.                 |
+  | test           Tests the connection to Snowflake.                            |
   +------------------------------------------------------------------------------+
   
   
