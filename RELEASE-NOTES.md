@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added `snow connection generate-jwt` command to generate JWT token for Snowflake connection.
 
 ## Fixes and improvements
 * Fixed a bug that would cause the `deploy_root`, `bundle_root`, and `generated_root` directories to be created in the current working directory instead of the project root when invoking commands with the `--project` flag from a different directory.
