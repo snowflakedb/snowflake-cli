@@ -9,32 +9,55 @@ PACKAGING_DIR=$ROOT_DIR/scripts/packaging
 
 SYSTEM=$(uname -s | tr '[:upper:]' '[:lower:]')
 MACHINE=$(uname -m | tr '[:upper:]' '[:lower:]')
+PLATFORM="${SYSTEM}-${MACHINE}"
 
 CLI_VERSION=$(hatch version)
 
+ENTRY_POINT="src/snowflake/cli/_app/__main__.py"
+BUILD_DIR="${ROOT_DIR}/build"
 DIST_DIR=$ROOT_DIR/dist
-APP_NAME=SnowflakeCLI.app
+BINARY_NAME="snow"
+APP_NAME="SnowflakeCLI.app"
 APP_DIR=$DIST_DIR/app
-APP_SCRIPTS=$DIST_DIR/scripts
+APP_SCRIPTS=$APP_DIR/scripts
+CODESIGN_IDENTITY="Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)"
+PRODUCTSIGN_IDENTITY="Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)"
 
 loginfo() {
   logger -s -p INFO -- $1
 }
 
-$DIST_DIR/snow/snow --help
-
-loginfo "Building darwin package for version ${CLI_VERSION}"
-
-setup_app_dir() {
-  rm -rf $APP_DIR || true
-  mkdir -p $APP_DIR/$APP_NAME/Contents/{MacOS,Resources} || true
-  tree $APP_DIR
+clean_build_workspace() {
+  rm -rf $DIST_DIR $BUILD_DIR || true
 }
 
-setup_app_dir
-cd $APP_DIR
+clean_build_workspace
 
-cat >$APP_NAME/Contents/Info.plist <<INFO_PLIST
+security -v unlock-keychain -p $MAC_USERNAME_PASSWORD login.keychain-db
+
+loginfo "---------------------------------"
+security find-identity -v -p codesigning
+loginfo "---------------------------------"
+
+hatch -e packaging run pyinstaller \
+  --name=${BINARY_NAME} \
+  --target-architecture=$MACHINE \
+  --onedir \
+  --clean \
+  --noconfirm \
+  --windowed \
+  --osx-bundle-identifier=com.snowflake.snowflake-cli \
+  --osx-entitlements-file=scripts/packaging/macos/SnowflakeCLI_entitlements.plist \
+  --codesign-identity="${CODESIGN_IDENTITY}" \
+  --icon=scripts/packaging/macos/snowflake_darwin.icns \
+  ${ENTRY_POINT}
+
+ls -l $DIST_DIR
+mkdir $APP_DIR || true
+mv $DIST_DIR/${BINARY_NAME}.app ${APP_DIR}/${APP_NAME}
+${APP_DIR}/${APP_NAME}/Contents/MacOS/snow --help
+
+cat >${APP_DIR}/${APP_NAME}/Contents/Info.plist <<INFO_PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -69,71 +92,9 @@ cat >$APP_NAME/Contents/Info.plist <<INFO_PLIST
 </plist>
 INFO_PLIST
 
-cp -r $DIST_DIR/snow $APP_NAME/Contents/MacOS/
-cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns $APP_NAME/Contents/Resources/SnowflakeCLI.icns
-cp -r $PACKAGING_DIR/macos/SnowflakeCLI.bash $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
-chmod +x $APP_NAME/Contents/MacOS/SnowflakeCLI.bash
-
-tree -d $DIST_DIR
-
-security -v unlock-keychain -p $MAC_USERNAME_PASSWORD login.keychain-db
-
-loginfo "---------------------------------"
-security find-identity -v -p codesigning
-loginfo "---------------------------------"
-
-code_sign() {
-  ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
-  loginfo "---------------------------------"
-  loginfo "Code signing $1"
-  loginfo "---------------------------------"
-  ls -l $1
-  codesign \
-    --timestamp \
-    --deep \
-    --force \
-    --entitlements $ENTITLEMENTS \
-    --options=runtime \
-    --sign "Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
-    $1
-}
-
-code_sign_no_runtime() {
-  ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
-  loginfo "---------------------------------"
-  loginfo "Code signing $1 no runtime"
-  loginfo "---------------------------------"
-  codesign \
-    --timestamp \
-    --deep \
-    --force \
-    --entitlements $ENTITLEMENTS \
-    --sign "Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)" \
-    $1
-}
-
-code_sign_validate() {
-  loginfo "---------------------------------"
-  loginfo "Validating code signing for $1"
-  loginfo "---------------------------------"
-  codesign -dvvv --force $1
-}
-
-APP_CONTENTS=$APP_NAME/Contents/MacOS/snow
-ENTITLEMENTS=$PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist
-
-code_sign $APP_CONTENTS
-code_sign_validate $APP_CONTENTS
-
-for l in $(find . -name '*.so'); do
-  code_sign_no_runtime $l
-  code_sign_validate $l
-done
-
-for l in $(find . -name '*.dylib'); do
-  code_sign_no_runtime $l
-  code_sign_validate $l
-done
+cp -r $PACKAGING_DIR/macos/snowflake_darwin.icns ${APP_DIR}/${APP_NAME}/Contents/Resources/SnowflakeCLI.icns
+cp -r $PACKAGING_DIR/macos/SnowflakeCLI.bash ${APP_DIR}/${APP_NAME}/Contents/MacOS/SnowflakeCLI.bash
+chmod +x $APP_DIR/${APP_NAME}/Contents/MacOS/SnowflakeCLI.bash
 
 # POSTINSTALL SCRIPT
 prepare_postinstall_script() {
@@ -145,10 +106,24 @@ prepare_postinstall_script() {
 prepare_postinstall_script
 
 ls -l $DIST_DIR
+tree -d $DIST_DIR
 
 chmod +x $APP_SCRIPTS/postinstall
+
+# codesign after changes
+codesign \
+  --timestamp \
+  --deep \
+  --force \
+  --verify \
+  --verbose \
+  --options runtime \
+  --entitlements $PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist \
+  --sign "${CODESIGN_IDENTITY}" ${APP_DIR}/${APP_NAME}
+
+PKG_UNSIGNED_NAME="snowflake-cli-${SYSTEM}.unsigned.pkg"
 loginfo "---------------------------------"
-loginfo "Package build $DIST_DIR/snowflake-cli-${SYSTEM}.unsigned.pkg "
+loginfo "Package build ${DIST_DIR}/${PKG_UNSIGNED_NAME}"
 loginfo "---------------------------------"
 pkgbuild \
   --identifier com.snowflake.snowflake-cli \
@@ -156,44 +131,47 @@ pkgbuild \
   --version $CLI_VERSION \
   --scripts $APP_SCRIPTS \
   --root $APP_DIR \
-  --component-plist $PACKAGING_DIR/macos/SnowflakeCLI.plist \
-  $DIST_DIR/snowflake-cli-${SYSTEM}.unsigned.pkg
+  --component-plist ${PACKAGING_DIR}/macos/SnowflakeCLI.plist \
+  ${DIST_DIR}/${PKG_UNSIGNED_NAME}
 
 ls -l $DIST_DIR
 
+PRODUCT_UNSIGNED_NAME="snowflake-cli-${SYSTEM}.unsigned.pkg"
+PRODUCT_SIGNED_NAME="snowflake-cli-${SYSTEM}.pkg"
 loginfo "---------------------------------"
-loginfo "Procuct sign $DIST_DIR/snowflake-cli-${SYSTEM}.unsigned.pkg -> $DIST_DIR/snowflake-cli-${SYSTEM}.pkg"
+loginfo "Procuct sign ${DIST_DIR}/${PRODUCT_UNSIGNED_NAME} -> ${DIST_DIR}/${PRODUCT_SIGNED_NAME}"
 loginfo "---------------------------------"
 productsign \
-  --sign "Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)" \
-  $DIST_DIR/snowflake-cli-${SYSTEM}.unsigned.pkg \
-  $DIST_DIR/snowflake-cli-${SYSTEM}.pkg
+  --sign "${PRODUCTSIGN_IDENTITY}" \
+  ${DIST_DIR}/${PRODUCT_UNSIGNED_NAME} \
+  ${DIST_DIR}/${PRODUCT_SIGNED_NAME}
 
 ls -l $DIST_DIR
 
+PRODUCT_BUILD_UNSIGNED_NAME="snowflake-cli-${PLATFORM}.unsigned.pkg"
 loginfo "---------------------------------"
-loginfo "Procuct build $DIST_DIR/snowflake-cli-${SYSTEM}-${MACHINE}.unsigned.pkg <- $DIST_DIR/snowflake-cli-${SYSTEM}.pkg"
+loginfo "Procuct build ${DIST_DIR}/${PRODUCT_BUILD_UNSIGNED_NAME} <- ${DIST_DIR}/${PRODUCT_SIGNED_NAME}"
 loginfo "---------------------------------"
 productbuild \
   --distribution $PACKAGING_DIR/macos/Distribution.xml \
   --version $CLI_VERSION \
   --resources $PACKAGING_DIR/macos/Resources \
   --package-path $DIST_DIR \
-  $DIST_DIR/snowflake-cli-${SYSTEM}-${MACHINE}.unsigned.pkg
+  ${DIST_DIR}/${PRODUCT_BUILD_UNSIGNED_NAME}
 
 ls -l $DIST_DIR
 
+PRODUCT_BUILD_SIGNED_NAME="snowflake-cli-${PLATFORM}.pkg"
 loginfo "---------------------------------"
-loginfo "Procuct sign $DIST_DIR/snowflake-cli-${SYSTEM}-${MACHINE}.unsigned.pkg -> $DIST_DIR/snowflake-cli-${SYSTEM}-${MACHINE}.pkg"
+loginfo "Procuct sign ${DIST_DIR}${PRODUCT_BUILD_UNSIGNED_NAME} -> ${DIST_DIR}/${PRODUCT_BUILD_SIGNED_NAME}"
 loginfo "---------------------------------"
 productsign \
-  --sign "Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)" \
-  $DIST_DIR/snowflake-cli-${SYSTEM}-${MACHINE}.unsigned.pkg \
-  $DIST_DIR/snowflake-cli-${SYSTEM}-${MACHINE}.pkg
+  --sign "${PRODUCTSIGN_IDENTITY}" \
+  ${DIST_DIR}/${PRODUCT_BUILD_UNSIGNED_NAME} \
+  ${DIST_DIR}/${PRODUCT_BUILD_SIGNED_NAME}
 
-cp -p \
-  $DIST_DIR/snowflake-cli-${SYSTEM}-${MACHINE}.pkg \
-  $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
+FINAL_PKG_NAME="snowflake-cli-${CLI_VERSION}-${PLATFORM}.pkg"
+cp -p ${DIST_DIR}/${PRODUCT_BUILD_SIGNED_NAME} ${DIST_DIR}/${FINAL_PKG_NAME}
 
 ls -l $DIST_DIR
 
@@ -208,10 +186,10 @@ validate_installation() {
 
   export SUDO_ASKPASS=./asker.sh
   sudo -A installer -pkg $pkg_name -target /
-  [ -f /Applications/SnowflakeCLI.app/Contents/MacOS/snow/snow ]
-  PATH=/Applications/SnowflakeCLI.app/Contents/MacOS/snow:$PATH snow
+  [ -f /Applications/${APP_NAME}/Contents/MacOS/snow ]
+  PATH=/Applications/${APP_NAME}/Contents/MacOS:$PATH snow
 
-  sudo rm -rf /Applications/SnowflakeCLI.app || true
+  sudo rm -rf /Applications/${APP_NAME} || true
 }
 
 validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
