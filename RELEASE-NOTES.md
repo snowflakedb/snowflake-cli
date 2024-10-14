@@ -30,6 +30,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for installation as a standalone binary.
 
 ## Fixes and improvements
 * Fixed a bug that would cause the `deploy_root`, `bundle_root`, and `generated_root` directories to be created in the current working directory instead of the project root when invoking commands with the `--project` flag from a different directory.
