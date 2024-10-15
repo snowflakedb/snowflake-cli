@@ -96,7 +96,7 @@ def test_nativeapp_project_templating_use_env_from_os(
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "project_definition_files",
-    ["integration_templated", "integration_templated_v2"],
+    ["integration_templated_v2"],
     indirect=True,
 )
 def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
@@ -165,7 +165,7 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "project_definition_files",
-    ["integration_templated", "integration_templated_v2"],
+    ["integration_templated_v2"],
     indirect=True,
 )
 def test_nativeapp_project_templating_use_default_env_from_project(
@@ -234,7 +234,7 @@ def test_nativeapp_project_templating_use_default_env_from_project(
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "project_definition_files",
-    ["integration_templated", "integration_templated_v2"],
+    ["integration_templated_v2"],
     indirect=True,
 )
 def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
@@ -312,7 +312,7 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "project_definition_files",
-    ["integration_templated", "integration_templated_v2"],
+    ["integration_templated_v2"],
     indirect=True,
 )
 def test_nativeapp_project_templating_bundle_deploy_successful(
@@ -341,9 +341,7 @@ def test_nativeapp_project_templating_bundle_deploy_successful(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "test_project", ["napp_templates_processors_v1", "napp_templates_processors_v2"]
-)
+@pytest.mark.parametrize("test_project", ["napp_templates_processors_v2"])
 @pytest.mark.parametrize("with_project_flag", [True, False])
 def test_nativeapp_templates_processor_with_run(
     runner,
@@ -389,9 +387,7 @@ def test_nativeapp_templates_processor_with_run(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "test_project", ["napp_templates_processors_v1", "napp_templates_processors_v2"]
-)
+@pytest.mark.parametrize("test_project", ["napp_templates_processors_v2"])
 @pytest.mark.parametrize("with_project_flag", [True, False])
 def test_nativeapp_templates_processor_with_deploy(
     runner,

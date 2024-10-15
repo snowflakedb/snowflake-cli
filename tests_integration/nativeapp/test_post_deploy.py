@@ -205,9 +205,7 @@ def test_nativeapp_post_deploy(
 @pytest.mark.parametrize(
     "base_command,test_project",
     [
-        ["app", "napp_application_post_deploy_v1"],
         ["app", "napp_application_post_deploy_v2"],
-        ["ws", "napp_application_post_deploy_v2"],
     ],
 )
 def test_nativeapp_post_deploy_with_windows_path(

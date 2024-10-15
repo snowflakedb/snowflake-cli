@@ -32,12 +32,9 @@ from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEnt
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
-from snowflake.cli._plugins.nativeapp.teardown_processor import (
-    NativeAppTeardownProcessor,
-)
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     find_entity,
-    single_app_and_package,
+    force_project_definition_v2,
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
 from snowflake.cli._plugins.stage.diff import (
@@ -60,7 +57,6 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
     StreamResult,
 )
-from snowflake.cli.api.project.schemas.project_definition import ProjectDefinitionV1
 from typing_extensions import Annotated
 
 app = SnowTyperFactory(
@@ -85,7 +81,7 @@ def app_init(**options):
 
 @app.command("bundle")
 @with_project_definition()
-@single_app_and_package()
+@force_project_definition_v2()
 def app_bundle(
     **options,
 ) -> CommandResult:
@@ -108,7 +104,7 @@ def app_bundle(
 
 @app.command("diff", requires_connection=True, hidden=True)
 @with_project_definition()
-@single_app_and_package()
+@force_project_definition_v2()
 def app_diff(
     **options,
 ) -> CommandResult | None:
@@ -139,7 +135,7 @@ def app_diff(
 
 @app.command("run", requires_connection=True)
 @with_project_definition()
-@single_app_and_package(app_required=True)
+@force_project_definition_v2(app_required=True)
 def app_run(
     version: Optional[str] = typer.Option(
         None,
@@ -196,7 +192,7 @@ def app_run(
 
 @app.command("open", requires_connection=True)
 @with_project_definition()
-@single_app_and_package(app_required=True)
+@force_project_definition_v2(app_required=True)
 def app_open(
     **options,
 ) -> CommandResult:
@@ -222,9 +218,7 @@ def app_open(
 
 @app.command("teardown", requires_connection=True)
 @with_project_definition()
-# This command doesn't use @single_app_and_package because it needs to
-# be aware of PDFv2 definitions that have multiple apps created from the same package,
-# which all need to be torn down.
+@force_project_definition_v2(single_app_and_package=False)
 def app_teardown(
     force: Optional[bool] = ForceOption,
     cascade: Optional[bool] = typer.Option(
@@ -233,7 +227,7 @@ def app_teardown(
         show_default=False,
     ),
     interactive: bool = InteractiveOption,
-    # Same as the param auto-added by @single_app_and_package
+    # Same as the param auto-added by @force_project_definition_v2 if single_app_and_package were true
     package_entity_id: Optional[str] = typer.Option(
         default="",
         help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
@@ -245,58 +239,49 @@ def app_teardown(
     """
     cli_context = get_cli_context()
     project = cli_context.project_definition
-    if isinstance(project, ProjectDefinitionV1):
-        # Old behaviour, not multi-app aware so we can use the old processor
-        processor = NativeAppTeardownProcessor(
-            project_definition=cli_context.project_definition.native_app,
-            project_root=cli_context.project_root,
-        )
-        processor.process(interactive, force, cascade)
-    else:
-        # New behaviour, multi-app aware so teardown all the apps created from the package
 
-        # Determine the package entity to drop, there must be one
-        app_package_entity = find_entity(
-            project,
-            ApplicationPackageEntityModel,
-            package_entity_id,
-            disambiguation_option="--package-entity-id",
-            required=True,
-        )
-        assert app_package_entity is not None  # satisfy mypy
+    # Determine the package entity to drop, there must be one
+    app_package_entity = find_entity(
+        project,
+        ApplicationPackageEntityModel,
+        package_entity_id,
+        disambiguation_option="--package-entity-id",
+        required=True,
+    )
+    assert app_package_entity is not None  # satisfy mypy
 
-        # Same implementation as `snow ws drop`
-        ws = WorkspaceManager(
-            project_definition=cli_context.project_definition,
-            project_root=cli_context.project_root,
-        )
-        for app_entity in project.get_entities_by_type(
-            ApplicationEntityModel.get_type()
-        ).values():
-            # Drop each app
-            if app_entity.from_.target == app_package_entity.entity_id:
-                ws.perform_action(
-                    app_entity.entity_id,
-                    EntityActions.DROP,
-                    force_drop=force,
-                    interactive=interactive,
-                    cascade=cascade,
-                )
-        # Then drop the package
-        ws.perform_action(
-            app_package_entity.entity_id,
-            EntityActions.DROP,
-            force_drop=force,
-            interactive=interactive,
-            cascade=cascade,
-        )
+    # Same implementation as `snow ws drop`
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    for app_entity in project.get_entities_by_type(
+        ApplicationEntityModel.get_type()
+    ).values():
+        # Drop each app
+        if app_entity.from_.target == app_package_entity.entity_id:
+            ws.perform_action(
+                app_entity.entity_id,
+                EntityActions.DROP,
+                force_drop=force,
+                interactive=interactive,
+                cascade=cascade,
+            )
+    # Then drop the package
+    ws.perform_action(
+        app_package_entity.entity_id,
+        EntityActions.DROP,
+        force_drop=force,
+        interactive=interactive,
+        cascade=cascade,
+    )
 
     return MessageResult(f"Teardown is now complete.")
 
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
-@single_app_and_package()
+@force_project_definition_v2()
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
@@ -364,7 +349,7 @@ def app_deploy(
 
 @app.command("validate", requires_connection=True)
 @with_project_definition()
-@single_app_and_package()
+@force_project_definition_v2()
 def app_validate(
     **options,
 ):
@@ -403,7 +388,7 @@ DEFAULT_EVENT_FOLLOW_LAST = 20
 
 @app.command("events", requires_connection=True)
 @with_project_definition()
-@single_app_and_package(app_required=True)
+@force_project_definition_v2(app_required=True)
 def app_events(
     since: str = typer.Option(
         default="",
