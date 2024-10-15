@@ -30,6 +30,7 @@ from tests.nativeapp.utils import (
     CLI_GLOBAL_TEMPLATE_CONTEXT,
     SQL_EXECUTOR_EXECUTE,
     SQL_EXECUTOR_EXECUTE_QUERIES,
+    mock_execute_helper,
 )
 from tests.testing_utils.fixtures import MockConnectionCtx
 
@@ -45,6 +46,7 @@ def test_package_post_deploy_scripts(
     mock_execute_queries,
     mock_execute_query,
     project_directory,
+    mock_cursor,
 ):
     mock_conn.return_value = MockConnectionCtx()
     with project_directory("napp_post_deploy") as project_dir:
@@ -54,13 +56,21 @@ def test_package_post_deploy_scripts(
             project_root=dm.project_root,
         )
         mock_cli_ctx.return_value = dm.template_context
+        side_effects, expected = mock_execute_helper(
+            [
+                (
+                    mock_cursor([("MockWarehouse",)], []),
+                    mock.call("select current_warehouse()"),
+                ),
+                (None, mock.call("use database myapp_pkg_test_user")),
+                (None, mock.call("use database myapp_pkg_test_user")),
+            ]
+        )
+        mock_execute_query.side_effect = side_effects
 
         manager.execute_package_post_deploy_hooks()
 
-        assert mock_execute_query.mock_calls == [
-            mock.call("use database myapp_pkg_test_user"),
-            mock.call("use database myapp_pkg_test_user"),
-        ]
+        assert mock_execute_query.mock_calls == expected
         assert mock_execute_queries.mock_calls == [
             # Verify template variables were expanded correctly
             mock.call(
@@ -104,13 +114,12 @@ def test_package_post_deploy_scripts_with_no_scripts(
         assert mock_execute_queries.mock_calls == []
 
 
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
 def test_package_post_deploy_scripts_with_non_existing_scripts(
-    mock_conn,
-    mock_cli_ctx,
-    project_directory,
+    mock_conn, mock_cli_ctx, mock_execute_query, project_directory, mock_cursor
 ):
     mock_conn.return_value = MockConnectionCtx()
     with project_directory("napp_post_deploy_missing_file") as project_dir:
@@ -120,6 +129,16 @@ def test_package_post_deploy_scripts_with_non_existing_scripts(
             project_root=dm.project_root,
         )
         mock_cli_ctx.return_value = dm.template_context
+
+        side_effects, expected = mock_execute_helper(
+            [
+                (
+                    mock_cursor([("MockWarehouse",)], []),
+                    mock.call("select current_warehouse()"),
+                ),
+            ]
+        )
+        mock_execute_query.side_effect = side_effects
 
         with pytest.raises(MissingScriptError) as err:
             manager.execute_package_post_deploy_hooks()
@@ -191,6 +210,7 @@ def test_package_post_deploy_scripts_with_templates(
     mock_execute_query,
     project_directory,
     template_syntax,
+    mock_cursor,
 ):
     mock_conn.return_value = MockConnectionCtx()
     with project_directory("napp_post_deploy") as project_dir:
@@ -212,13 +232,20 @@ def test_package_post_deploy_scripts_with_templates(
             project_root=dm.project_root,
         )
         mock_cli_ctx.return_value = dm.template_context
-
+        side_effects, expected = mock_execute_helper(
+            [
+                (
+                    mock_cursor([("MockWarehouse",)], []),
+                    mock.call("select current_warehouse()"),
+                ),
+                (None, mock.call("use database myapp_pkg_test_user")),
+                (None, mock.call("use database myapp_pkg_test_user")),
+            ]
+        )
+        mock_execute_query.side_effect = side_effects
         manager.execute_package_post_deploy_hooks()
 
-        assert mock_execute_query.mock_calls == [
-            mock.call("use database myapp_pkg_test_user"),
-            mock.call("use database myapp_pkg_test_user"),
-        ]
+        assert mock_execute_query.mock_calls == expected
         assert mock_execute_queries.mock_calls == [
             # Verify template variables were expanded correctly
             mock.call(
