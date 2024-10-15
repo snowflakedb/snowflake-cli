@@ -96,7 +96,7 @@ class StagePathParts:
         return path
 
     def get_standard_stage_path(self) -> str:
-        path = self.path
+        path = self.get_full_stage_path(self.path)
         return f"@{path}{'/'if self.is_directory and not path.endswith('/') else ''}"
 
     def get_standard_stage_directory_path(self) -> str:
