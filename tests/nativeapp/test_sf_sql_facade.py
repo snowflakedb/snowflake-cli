@@ -483,7 +483,7 @@ def test_use_object_catches_not_exists_error(mock_execute_query):
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_object_catches_other_programming_error(mock_execute_query):
-    object_type = ObjectType.ROLE
+    object_type = ObjectType.WAREHOUSE
     object_name = "test_warehouse"
     side_effects, expected = mock_execute_helper(
         [(ProgrammingError(), mock.call("use warehouse test_warehouse"))]
