@@ -761,6 +761,7 @@ def test_set_property_no_properties_cli(mock_set, runner):
         max_instances=None,
         query_warehouse=None,
         auto_resume=None,
+        external_access_integrations=None,
         comment=None,
     )
 

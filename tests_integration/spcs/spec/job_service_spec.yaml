@@ -1,5 +1,5 @@
 spec:
   containers:
   - name: main
-    image: /snowcli_db/public/snowcli_repository/test_counter
+    image: /sichen_db/test_schema/sichen_repo/test_counter
     args: ["1"]

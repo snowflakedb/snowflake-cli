@@ -1,7 +1,7 @@
 spec:
   containers:
   - name: hello-world
-    image: /snowcli_db/public/snowcli_repository/snowpark_test_echo:1
+    image: /sichen_db/test_schema/sichen_repo/echo_service:latest
     env:
       SERVER_PORT: 8000
     readinessProbe:

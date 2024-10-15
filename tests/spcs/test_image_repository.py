@@ -227,9 +227,13 @@ def test_list_tags(
     )
 
     assert result.exit_code == 0, result.output
-    assert json.loads(result.output) == [
+    assert (
+        "DeprecationWarning: The command 'list-tags' is deprecated."
+        == result.output[0 : result.output.find("\n")]
+    )
+    assert json.loads(result.output[result.output.find("\n") :]) == [
         {"tag": "/DB/SCHEMA/IMAGES/super-cool-repo:1.2.0"}
-    ]
+    ], str(result.output)
 
 
 @mock.patch(
