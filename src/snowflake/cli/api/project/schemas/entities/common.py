@@ -15,9 +15,12 @@
 from __future__ import annotations
 
 from abc import ABC
+from pathlib import Path
 from typing import Dict, Generic, List, Optional, TypeVar, Union
 
 from pydantic import Field, PrivateAttr, field_validator
+from snowflake.cli._plugins.workspace.context import WorkspaceContext
+from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
@@ -110,6 +113,24 @@ class EntityModelBase(ABC, UpdatableModel):
         if self.entity_id:
             return FQN.from_string(self.entity_id)
 
+    def get_entity(self, console: AbstractConsole, project_root: Path):
+        if type(self) is EntityModelBase:
+            raise NotImplementedError
+        # Set by EntityBaseMetaclass when creating the
+        # Entity class that refers to this model
+        entity_class = getattr(self, "_entity_class", None)
+        if entity_class is None:
+            raise ValueError(
+                f"Entity model class {type(self).__name__} is not associated with an entity class"
+            )
+        workspace_ctx = WorkspaceContext(
+            console=console,
+            project_root=project_root,
+            get_default_role=_get_default_role,
+            get_default_warehouse=_get_default_warehouse,
+        )
+        return entity_class(self, workspace_ctx)
+
 
 TargetType = TypeVar("TargetType")
 
@@ -162,3 +183,23 @@ class ExternalAccessBaseModel:
             return None
         secrets = ", ".join(f"'{key}'={value}" for key, value in self.secrets.items())
         return f"secrets=({secrets})"
+
+
+def _get_default_role() -> str:
+    from snowflake.cli.api.entities.common import get_sql_executor
+    from snowflake.cli.api.project.definition import default_role
+
+    role = default_role()
+    if role is None:
+        role = get_sql_executor().current_role()
+    return role
+
+
+def _get_default_warehouse() -> str | None:
+    from snowflake.cli.api.cli_global_context import get_cli_context
+    from snowflake.cli.api.project.util import to_identifier
+
+    warehouse = get_cli_context().connection.warehouse
+    if warehouse:
+        warehouse = to_identifier(warehouse)
+    return warehouse
