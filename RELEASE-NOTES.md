@@ -23,9 +23,19 @@
 
 ## Fixes and improvements
 * Fixed a bug that would cause the `deploy_root`, `bundle_root`, and `generated_root` directories to be created in the current working directory instead of the project root when invoking commands with the `--project` flag from a different directory.
-* Fix handling empty default values for strings by `snow snowpark deploy`.
-* Log error details in case pip command fails.
 
+# v3.0.2
+
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+* Fixed the handling empty default values for strings by `snow snowpark deploy`.
+* Added log error details if the `pip` command fails.
 
 # v3.0.1
 
