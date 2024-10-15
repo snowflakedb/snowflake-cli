@@ -455,6 +455,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             project_root=project_root,
             post_deploy_hooks=post_deploy_hooks,
             package_name=package_name,
+            package_role=package_role,
             package_warehouse=package_warehouse,
         )
 
@@ -1160,21 +1161,27 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         project_root: Path,
         post_deploy_hooks: Optional[List[PostDeployHook]],
         package_name: str,
+        package_role: str,
         package_warehouse: Optional[str],
     ):
-        get_cli_context().metrics.set_counter_default(
-            CLICounterField.POST_DEPLOY_SCRIPTS, 0
-        )
-
-        if post_deploy_hooks:
-            with cls.use_package_warehouse(package_warehouse):
-                execute_post_deploy_hooks(
-                    console=console,
-                    project_root=project_root,
-                    post_deploy_hooks=post_deploy_hooks,
-                    deployed_object_type="application package",
-                    database_name=package_name,
+        if package_warehouse is None:
+            raise ClickException(
+                dedent(
+                    f"""\
+                Application package warehouse cannot be empty.
+                Please provide a value for it in your connection information or your project definition file.
+                """
                 )
+            )
+        execute_post_deploy_hooks(
+            console=console,
+            project_root=project_root,
+            post_deploy_hooks=post_deploy_hooks,
+            deployed_object_type="application package",
+            database_name=package_name,
+            role=package_role,
+            warehouse=package_warehouse,
+        )
 
     @classmethod
     def validate_setup_script(

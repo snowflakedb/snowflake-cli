@@ -12,6 +12,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     InvalidTemplateInFileError,
     MissingScriptError,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import verify_exists, verify_no_directories
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
@@ -219,16 +220,22 @@ def execute_post_deploy_hooks(
     post_deploy_hooks: Optional[List[PostDeployHook]],
     deployed_object_type: str,
     database_name: str,
+    role: str | None,
+    warehouse: str | None,
 ) -> None:
     """
     Executes post-deploy hooks for the given object type.
-    While executing SQL post deploy hooks, it first switches to the database provided in the input.
+    While executing SQL post deploy hooks, it first switches to the role database provided in the input.
+    Switches to the role and the warehouse provided if specified.
     All post deploy scripts templates will first be expanded using the global template context.
     """
+    metrics = get_cli_context().metrics
+    metrics.set_counter_default(CLICounterField.POST_DEPLOY_SCRIPTS, 0)
+
     if not post_deploy_hooks:
         return
 
-    get_cli_context().metrics.set_counter(CLICounterField.POST_DEPLOY_SCRIPTS, 1)
+    metrics.set_counter(CLICounterField.POST_DEPLOY_SCRIPTS, 1)
 
     with console.phase(f"Executing {deployed_object_type} post-deploy actions"):
         sql_scripts_paths = []
@@ -248,9 +255,12 @@ def execute_post_deploy_hooks(
 
         for index, sql_script_path in enumerate(sql_scripts_paths):
             console.step(f"Executing SQL script: {sql_script_path}")
-            _execute_sql_script(
-                script_content=scripts_content_list[index],
-                database_name=database_name,
+            get_snowflake_facade(get_sql_executor()).execute_user_script(
+                queries=scripts_content_list[index],
+                script_name=sql_script_path,
+                role=role,
+                warehouse=warehouse,
+                database=database_name,
             )
 
 

@@ -273,6 +273,8 @@ class NativeAppManager:
             post_deploy_hooks=self.package_post_deploy_hooks,
             deployed_object_type="application package",
             database_name=self.package_name,
+            role=self.package_role,
+            warehouse=self.package_warehouse,
         )
 
     def execute_app_post_deploy_hooks(self) -> None:
@@ -282,6 +284,8 @@ class NativeAppManager:
             post_deploy_hooks=self.app_post_deploy_hooks,
             deployed_object_type="application",
             database_name=self.app_name,
+            role=self.app_role,
+            warehouse=self.application_warehouse,
         )
 
     def deploy(

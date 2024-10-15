@@ -42,7 +42,6 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 )
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
@@ -59,7 +58,6 @@ from snowflake.cli.api.errno import (
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
     ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
-from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
@@ -676,6 +674,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                             project_root=project_root,
                             post_deploy_hooks=post_deploy_hooks,
                             app_name=app_name,
+                            app_role=app_role,
                             app_warehouse=app_warehouse,
                         )
                         return
@@ -734,6 +733,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                         project_root=project_root,
                         post_deploy_hooks=post_deploy_hooks,
                         app_name=app_name,
+                        app_role=app_role,
                         app_warehouse=app_warehouse,
                     )
 
@@ -747,21 +747,27 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         project_root: Path,
         post_deploy_hooks: Optional[List[PostDeployHook]],
         app_name: str,
+        app_role: Optional[str],
         app_warehouse: Optional[str],
     ):
-        get_cli_context().metrics.set_counter_default(
-            CLICounterField.POST_DEPLOY_SCRIPTS, 0
-        )
-
-        if post_deploy_hooks:
-            with cls.use_application_warehouse(app_warehouse):
-                execute_post_deploy_hooks(
-                    console=console,
-                    project_root=project_root,
-                    post_deploy_hooks=post_deploy_hooks,
-                    deployed_object_type="application",
-                    database_name=app_name,
+        if app_warehouse is None:
+            raise ClickException(
+                dedent(
+                    f"""\
+                Application warehouse cannot be empty.
+                Please provide a value for it in your connection information or your project definition file.
+                """
                 )
+            )
+        execute_post_deploy_hooks(
+            console=console,
+            project_root=project_root,
+            post_deploy_hooks=post_deploy_hooks,
+            deployed_object_type="application",
+            role=app_role,
+            warehouse=app_warehouse,
+            database_name=app_name,
+        )
 
     @staticmethod
     @contextmanager
