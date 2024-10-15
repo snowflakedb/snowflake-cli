@@ -18,18 +18,23 @@ from unittest import mock
 
 import pytest
 from pydantic import ValidationError
+from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
 from snowflake.cli._plugins.nativeapp.exceptions import MissingScriptError
-from snowflake.cli._plugins.nativeapp.run_processor import NativeAppRunProcessor
+from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.entities.utils import execute_post_deploy_hooks
 from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 
-from tests.nativeapp.factories import ProjectV11Factory
+from tests.nativeapp.factories import (
+    ApplicationEntityModelFactory,
+    ApplicationPackageEntityModelFactory,
+    ProjectV2Factory,
+)
 from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (
     CLI_GLOBAL_TEMPLATE_CONTEXT,
-    RUN_PROCESSOR_APP_POST_DEPLOY_HOOKS,
     SQL_EXECUTOR_EXECUTE,
     SQL_EXECUTOR_EXECUTE_QUERIES,
 )
@@ -37,14 +42,6 @@ from tests.testing_utils.fixtures import MockConnectionCtx
 
 MOCK_CONNECTION_DB = "tests.testing_utils.fixtures.MockConnectionCtx.database"
 MOCK_CONNECTION_WH = "tests.testing_utils.fixtures.MockConnectionCtx.warehouse"
-
-
-def _get_run_processor(working_dir):
-    dm = DefinitionManager(working_dir)
-    return NativeAppRunProcessor(
-        project_definition=dm.project_definition.native_app,
-        project_root=dm.project_root,
-    )
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -60,9 +57,6 @@ def test_sql_scripts(
     temp_dir,
 ):
     mock_conn.return_value = MockConnectionCtx()
-    mock_cli_ctx.return_value = {
-        "ctx": {"native_app": {"name": "myapp"}, "env": {"foo": "bar"}}
-    }
     post_deploy_1 = dedent(
         """\
             -- app post-deploy script (1/2)
@@ -73,13 +67,20 @@ def test_sql_scripts(
     )
     post_deploy_2 = "-- app post-deploy script (2/2)\n"
 
-    ProjectV11Factory(
-        pdf__native_app__artifacts=[{"src": "app/*", "dest": "./"}],
-        pdf__native_app__name="myapp",
-        pdf__native_app__application__post_deploy=[
-            {"sql_script": "scripts/app_post_deploy1.sql"},
-            {"sql_script": "scripts/app_post_deploy2.sql"},
-        ],
+    ProjectV2Factory(
+        pdf__entities=dict(
+            pkg=ApplicationPackageEntityModelFactory(
+                identifier="myapp_pkg",
+            ),
+            app=ApplicationEntityModelFactory(
+                identifier="myapp",
+                fromm__target="pkg",
+                meta__post_deploy=[
+                    {"sql_script": "scripts/app_post_deploy1.sql"},
+                    {"sql_script": "scripts/app_post_deploy2.sql"},
+                ],
+            ),
+        ),
         pdf__env__foo="bar",
         files={
             "scripts/app_post_deploy1.sql": post_deploy_1,
@@ -87,13 +88,20 @@ def test_sql_scripts(
         },
     )
 
-    processor = _get_run_processor(str(temp_dir))
-
-    processor.execute_app_post_deploy_hooks()
+    dm = DefinitionManager()
+    mock_cli_ctx.return_value = dm.template_context
+    app_model: ApplicationEntityModel = dm.project_definition.entities["app"]
+    execute_post_deploy_hooks(
+        console=cc,
+        project_root=dm.project_root,
+        post_deploy_hooks=app_model.meta.post_deploy,
+        deployed_object_type="application",
+        database_name=app_model.fqn.name,
+    )
 
     assert mock_execute_query.mock_calls == [
-        mock.call("use database myapp_test_user"),
-        mock.call("use database myapp_test_user"),
+        mock.call("use database myapp"),
+        mock.call("use database myapp"),
     ]
     assert mock_execute_queries.mock_calls == [
         mock.call(post_deploy_1),
@@ -120,19 +128,24 @@ def test_sql_scripts_with_no_warehouse_no_database(
     mock_conn_wh.return_value = None
     mock_conn_db.return_value = None
     mock_conn.return_value = MockConnectionCtx(None)
-    mock_cli_ctx.return_value = {
-        "ctx": {"native_app": {"name": "myapp"}, "env": {"foo": "bar"}}
-    }
-    with project_directory("napp_post_deploy") as project_dir:
-        processor = _get_run_processor(str(project_dir))
+    with project_directory("napp_post_deploy_v2") as project_dir:
+        dm = DefinitionManager()
+        app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+        mock_cli_ctx.return_value = dm.template_context
 
-        processor.execute_app_post_deploy_hooks()
+        execute_post_deploy_hooks(
+            console=cc,
+            project_root=dm.project_root,
+            post_deploy_hooks=app_model.meta.post_deploy,
+            deployed_object_type="application",
+            database_name=app_model.fqn.name,
+        )
 
         # Verify no "use warehouse"
         # Verify "use database" applies to current application
         assert mock_execute_query.mock_calls == [
-            mock.call("use database myapp_test_user"),
-            mock.call("use database myapp_test_user"),
+            mock.call("use database myapp"),
+            mock.call("use database myapp"),
         ]
         assert mock_execute_queries.mock_calls == [
             mock.call(
@@ -155,32 +168,43 @@ def test_missing_sql_script(
     project_directory,
 ):
     mock_conn.return_value = MockConnectionCtx()
-    with project_directory("napp_post_deploy_missing_file") as project_dir:
-        processor = _get_run_processor(str(project_dir))
+    with project_directory("napp_post_deploy_missing_file_v2") as project_dir:
+        dm = DefinitionManager()
+        app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
 
         with pytest.raises(MissingScriptError) as err:
-            processor.execute_app_post_deploy_hooks()
+            execute_post_deploy_hooks(
+                console=cc,
+                project_root=dm.project_root,
+                post_deploy_hooks=app_model.meta.post_deploy,
+                deployed_object_type="application",
+                database_name=app_model.fqn.name,
+            )
 
         assert err.value.message == 'Script "scripts/missing.sql" does not exist'
 
 
-@mock.patch(RUN_PROCESSOR_APP_POST_DEPLOY_HOOKS, new_callable=mock.PropertyMock)
 @mock_connection()
 def test_invalid_hook_type(
     mock_conn,
-    mock_deploy_hooks,
     project_directory,
 ):
     mock_hook = mock.Mock()
     mock_hook.invalid_type = "invalid_type"
     mock_hook.sql_script = None
-    mock_deploy_hooks.return_value = [mock_hook]
     mock_conn.return_value = MockConnectionCtx()
-    with project_directory("napp_post_deploy") as project_dir:
-        processor = _get_run_processor(str(project_dir))
+    with project_directory("napp_post_deploy_v2") as project_dir:
+        dm = DefinitionManager()
+        app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
 
         with pytest.raises(ValueError) as err:
-            processor.execute_app_post_deploy_hooks()
+            execute_post_deploy_hooks(
+                console=cc,
+                project_root=dm.project_root,
+                post_deploy_hooks=[mock_hook],
+                deployed_object_type="application",
+                database_name=app_model.fqn.name,
+            )
         assert "Unsupported application post-deploy hook type" in str(err)
 
 
@@ -220,7 +244,7 @@ def test_app_post_deploy_with_template(
     mock_conn.return_value = MockConnectionCtx()
     mock_cli_ctx.return_value = {"ctx": {"env": {"test": "test_value"}}}
 
-    with project_directory("napp_post_deploy") as project_dir:
+    with project_directory("napp_post_deploy_v2") as project_dir:
         # edit scripts/app_post_deploy1.sql to include template variables
         with open(project_dir / "scripts" / "app_post_deploy1.sql", "w") as f:
             f.write(
@@ -232,13 +256,20 @@ def test_app_post_deploy_with_template(
                     """
                 )
             )
-        processor = _get_run_processor(str(project_dir))
+        dm = DefinitionManager()
+        app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
 
-        processor.execute_app_post_deploy_hooks()
+        execute_post_deploy_hooks(
+            console=cc,
+            project_root=dm.project_root,
+            post_deploy_hooks=app_model.meta.post_deploy,
+            deployed_object_type="application",
+            database_name=app_model.fqn.name,
+        )
 
         assert mock_execute_query.mock_calls == [
-            mock.call("use database myapp_test_user"),
-            mock.call("use database myapp_test_user"),
+            mock.call("use database myapp"),
+            mock.call("use database myapp"),
         ]
         assert mock_execute_queries.mock_calls == [
             # Verify template variables were expanded correctly
@@ -270,7 +301,7 @@ def test_app_post_deploy_with_mixed_syntax_template(
     mock_conn.return_value = MockConnectionCtx()
     mock_cli_ctx.return_value = {"ctx": {"env": {"test": "test_value"}}}
 
-    with project_directory("napp_post_deploy") as project_dir:
+    with project_directory("napp_post_deploy_v2") as project_dir:
         # edit scripts/app_post_deploy1.sql to include template variables
         with open(project_dir / "scripts" / "app_post_deploy1.sql", "w") as f:
             f.write(
@@ -283,10 +314,17 @@ def test_app_post_deploy_with_mixed_syntax_template(
                     """
                 )
             )
-        processor = _get_run_processor(str(project_dir))
+        dm = DefinitionManager()
+        app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
 
         with pytest.raises(InvalidTemplate) as err:
-            processor.execute_app_post_deploy_hooks()
+            execute_post_deploy_hooks(
+                console=cc,
+                project_root=dm.project_root,
+                post_deploy_hooks=app_model.meta.post_deploy,
+                deployed_object_type="application",
+                database_name=app_model.fqn.name,
+            )
 
         assert (
             "The SQL query in scripts/app_post_deploy1.sql mixes &{ ... } syntax and <% ... %> syntax."

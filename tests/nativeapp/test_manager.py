@@ -86,19 +86,6 @@ from tests.nativeapp.utils import (
 from tests.testing_utils.files_and_dirs import create_named_file
 from tests.testing_utils.fixtures import MockConnectionCtx
 
-mock_project_definition_override = {
-    "native_app": {
-        "application": {
-            "name": "sample_application_name",
-            "role": "sample_application_role",
-        },
-        "package": {
-            "name": "sample_package_name",
-            "role": "sample_package_role",
-        },
-    }
-}
-
 
 def _get_dm(working_dir: Optional[str] = None):
     return DefinitionManager(working_dir)

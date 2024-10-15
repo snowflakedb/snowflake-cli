@@ -118,6 +118,30 @@ class NativeAppFactory(factory.DictFactory):
         return cls._build(model_class, *args, **kwargs)
 
 
+class MetaFieldFactory(factory.DictFactory):
+    post_deploy = factory.List([])
+
+
+class EntityModelBaseFactory(factory.DictFactory):
+    meta = factory.SubFactory(MetaFieldFactory)
+
+
+class ApplicationPackageEntityModelFactory(EntityModelBaseFactory):
+    type = "application package"  # noqa: A003
+    manifest = "manifest.yml"
+    artifacts = factory.List(
+        ["setup.sql", "README.md", "manifest.yml"], list_factory=ArtifactFactory
+    )
+
+
+class ApplicationEntityModelFactory(EntityModelBaseFactory):
+    type = "application"  # noqa: A003
+    fromm = factory.Dict({"target": "pkg"})
+
+    class Meta:
+        rename = {"fromm": "from"}
+
+
 @dataclass
 class PdfFactoryResult:
     yml: dict
@@ -127,7 +151,7 @@ class PdfFactoryResult:
         return json.dumps(self.yml)
 
 
-class PdfV10Factory(factory.DictFactory):
+class PdfFactory(factory.DictFactory):
     """
     Prepare PDF V1 dict and write to file.
 
@@ -150,18 +174,16 @@ class PdfV10Factory(factory.DictFactory):
         )
     """
 
-    definition_version = "1"
-    native_app = factory.SubFactory(NativeAppFactory)
     env = factory.SubFactory(FactoryNoEmptyDict)
     _filename = "snowflake.yml"
 
     # for snowflake.local.yml
     @classmethod
     def with_filename(cls, filename):
-        class PdfV10FactoryWithFilename(cls):
+        class PdfFactoryWithFilename(cls):
             _filename = filename
 
-        return PdfV10FactoryWithFilename
+        return PdfFactoryWithFilename
 
     @classmethod
     def _build(cls, model_class, *args, **kwargs):
@@ -185,8 +207,19 @@ class PdfV10Factory(factory.DictFactory):
         )
 
 
+class PdfV10Factory(PdfFactory):
+    definition_version = "1"
+    native_app = factory.SubFactory(NativeAppFactory)
+
+
 class PdfV11Factory(PdfV10Factory):
     definition_version = "1.1"
+
+
+class PdfV2Factory(PdfFactory):
+    definition_version = "2"
+    entities = factory.Dict({})
+    env = factory.Dict({})
 
 
 @dataclass
@@ -226,7 +259,7 @@ class ProjectFactoryModel:
 ProjectFiles = dict[str | Path, str]
 
 
-class ProjectV10Factory(factory.Factory):
+class ProjectFactory(factory.Factory):
     """
     Factory to create PDF dict, and write in working directory PDF to snowflake.yml file, and other optional files.
     """
@@ -234,8 +267,7 @@ class ProjectV10Factory(factory.Factory):
     class Meta:
         model = ProjectFactoryModel
 
-    pdf = factory.SubFactory(PdfV10Factory)
-
+    pdf = factory.SubFactory(PdfFactory)
     files: ProjectFiles = {}
 
     @classmethod
@@ -245,6 +277,13 @@ class ProjectV10Factory(factory.Factory):
         return super()._create(model_class, *args, **kwargs)
 
 
-class ProjectV11Factory(ProjectV10Factory):
+class ProjectV10Factory(ProjectFactory):
+    pdf = factory.SubFactory(PdfV10Factory)
 
+
+class ProjectV11Factory(ProjectV10Factory):
     pdf = factory.SubFactory(PdfV11Factory)
+
+
+class ProjectV2Factory(ProjectFactory):
+    pdf = factory.SubFactory(PdfV2Factory)

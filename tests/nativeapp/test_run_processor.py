@@ -24,6 +24,14 @@ from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
 )
+from snowflake.cli._plugins.nativeapp.entities.application import (
+    ApplicationEntity,
+    ApplicationEntityModel,
+)
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntity,
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationCreatedExternallyError,
     ApplicationPackageDoesNotExistError,
@@ -32,14 +40,15 @@ from snowflake.cli._plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
-)
-from snowflake.cli._plugins.nativeapp.run_processor import (
-    NativeAppRunProcessor,
+    PolicyBase,
 )
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.stage.diff import DiffResult
+from snowflake.cli._plugins.workspace.manager import WorkspaceManager
+from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
@@ -49,6 +58,7 @@ from snowflake.cli.api.errno import (
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.api.project.util import extract_schema
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -62,35 +72,64 @@ from tests.nativeapp.utils import (
     SQL_EXECUTOR_EXECUTE,
     TYPER_CONFIRM,
     mock_execute_helper,
-    mock_snowflake_yml_file,
-    quoted_override_yml_file,
+    mock_snowflake_yml_file_v2,
+    quoted_override_yml_file_v2,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
 from tests.testing_utils.fixtures import MockConnectionCtx
-
-mock_project_definition_override = {
-    "native_app": {
-        "application": {
-            "name": "sample_application_name",
-            "role": "sample_application_role",
-        },
-        "package": {
-            "name": "sample_package_name",
-            "role": "sample_package_role",
-        },
-    }
-}
 
 allow_always_policy = AllowAlwaysPolicy()
 ask_always_policy = AskAlwaysPolicy()
 deny_always_policy = DenyAlwaysPolicy()
 
 
-def _get_na_run_processor():
+def _get_wm():
     dm = DefinitionManager()
-    return NativeAppRunProcessor(
-        project_definition=dm.project_definition.native_app,
+    return WorkspaceManager(
+        project_definition=dm.project_definition,
         project_root=dm.project_root,
+    )
+
+
+def _create_or_upgrade_app(
+    policy: PolicyBase,
+    install_method: SameAccountInstallMethod,
+    is_interactive: bool = False,
+    package_id: str = "app_pkg",
+    app_id: str = "myapp",
+):
+    dm = DefinitionManager()
+    pd = dm.project_definition
+    pkg_model: ApplicationPackageEntityModel = pd.entities[package_id]
+    app_model: ApplicationEntityModel = pd.entities[app_id]
+    stage_fqn = f"{pkg_model.fqn.name}.{pkg_model.stage}"
+
+    def drop_application_before_upgrade(cascade: bool = False):
+        ApplicationEntity.drop_application_before_upgrade(
+            console=cc,
+            app_name=app_model.fqn.identifier,
+            app_role=app_model.meta.role,
+            policy=policy,
+            is_interactive=is_interactive,
+            cascade=cascade,
+        )
+
+    return ApplicationEntity.create_or_upgrade_app(
+        console=cc,
+        project_root=dm.project_root,
+        package_name=pkg_model.fqn.name,
+        package_role=pkg_model.meta.role,
+        app_name=app_model.fqn.identifier,
+        app_role=app_model.meta.role,
+        app_warehouse=app_model.meta.warehouse,
+        stage_schema=extract_schema(stage_fqn),
+        stage_fqn=stage_fqn,
+        debug_mode=app_model.debug,
+        policy=policy,
+        install_method=install_method,
+        is_interactive=is_interactive,
+        post_deploy_hooks=app_model.meta.post_deploy,
+        drop_application_before_upgrade=drop_application_before_upgrade,
     )
 
 
@@ -133,14 +172,13 @@ def test_create_dev_app_w_warehouse_access_exception(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor.create_or_upgrade_app(
+        _create_or_upgrade_app(
             policy=MagicMock(),
             install_method=SameAccountInstallMethod.unversioned_dev(),
         )
@@ -195,12 +233,11 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
+        contents=[mock_snowflake_yml_file_v2.replace("package_role", "app_role")],
     )
 
-    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor.create_or_upgrade_app(
+    _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute.mock_calls == expected
@@ -290,12 +327,11 @@ def test_create_or_upgrade_dev_app_with_warning(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
+        contents=[mock_snowflake_yml_file_v2.replace("package_role", "app_role")],
     )
 
-    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor.create_or_upgrade_app(
+    _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute.mock_calls == expected
@@ -370,12 +406,11 @@ def test_create_dev_app_create_new_with_additional_privileges(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor.create_or_upgrade_app(
+    _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute_query.mock_calls == mock_execute_query_expected
@@ -428,14 +463,13 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
+        contents=[mock_snowflake_yml_file_v2.replace("package_role", "app_role")],
     )
 
-    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor.create_or_upgrade_app(
+        _create_or_upgrade_app(
             policy=MagicMock(),
             install_method=SameAccountInstallMethod.unversioned_dev(),
         )
@@ -495,13 +529,12 @@ def test_create_dev_app_incorrect_properties(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     with pytest.raises(ApplicationCreatedExternallyError):
-        run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
-        run_processor.create_or_upgrade_app(
+        _create_or_upgrade_app(
             policy=MagicMock(),
             install_method=SameAccountInstallMethod.unversioned_dev(),
         )
@@ -555,13 +588,12 @@ def test_create_dev_app_incorrect_owner(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     with pytest.raises(ProgrammingError):
-        run_processor = _get_na_run_processor()
         assert not mock_diff_result.has_changes()
-        run_processor.create_or_upgrade_app(
+        _create_or_upgrade_app(
             policy=MagicMock(),
             install_method=SameAccountInstallMethod.unversioned_dev(),
         )
@@ -613,12 +645,11 @@ def test_create_dev_app_no_diff_changes(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor.create_or_upgrade_app(
+    _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute.mock_calls == expected
@@ -668,12 +699,11 @@ def test_create_dev_app_w_diff_changes(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
     assert mock_diff_result.has_changes()
-    run_processor.create_or_upgrade_app(
+    _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute.mock_calls == expected
@@ -725,14 +755,13 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
     assert mock_diff_result.has_changes()
 
     with pytest.raises(ProgrammingError) as err:
-        run_processor.create_or_upgrade_app(
+        _create_or_upgrade_app(
             policy=MagicMock(),
             install_method=SameAccountInstallMethod.unversioned_dev(),
         )
@@ -787,41 +816,38 @@ def test_create_dev_app_create_new_quoted(
         contents=[
             dedent(
                 """\
-            definition_version: 1
-            native_app:
-                name: '"My Native Application"'
-            
-                source_stage:
-                    app_src.stage
-            
-                artifacts:
-                - setup.sql
-                - app/README.md
-                - src: app/streamlit/*.py
-                  dest: ui/
-
-
-                application:
-                    name: >-
-                        "My Application"
-                    role: app_role
-                    warehouse: app_warehouse
+            definition_version: 2
+            entities:
+                app_pkg:
+                    type: application package
+                    identifier: '"My Package"'
+                    artifacts:
+                    - setup.sql
+                    - app/README.md
+                    - src: app/streamlit/*.py
+                      dest: ui/
+                    manifest: app/manifest.yml
+                    stage: app_src.stage
+                    meta:
+                        role: app_role
+                        post_deploy:
+                        - sql_script: shared_content.sql
+                myapp:
+                    type: application
+                    identifier: '"My Application"'
                     debug: true
-
-                package:
-                    name: >-
-                        "My Package"
-                    role: app_role
-                    scripts:
-                    - shared_content.sql
+                    from:
+                        target: app_pkg
+                    meta:
+                        role: app_role
+                        warehouse: app_warehouse
         """
             )
         ],
     )
 
-    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor.create_or_upgrade_app(
+    _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute.mock_calls == expected
@@ -870,17 +896,16 @@ def test_create_dev_app_create_new_quoted_override(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file.replace("package_role", "app_role")],
+        contents=[mock_snowflake_yml_file_v2.replace("package_role", "app_role")],
     )
     create_named_file(
         file_name="snowflake.local.yml",
         dir_name=current_working_directory,
-        contents=[quoted_override_yml_file],
+        contents=[quoted_override_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
     assert not mock_diff_result.has_changes()
-    run_processor.create_or_upgrade_app(
+    _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute.mock_calls == expected
@@ -969,11 +994,10 @@ def test_create_dev_app_recreate_app_when_orphaned(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
-    run_processor.create_or_upgrade_app(
+    _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute.mock_calls == expected
@@ -1080,11 +1104,10 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
-    run_processor.create_or_upgrade_app(
+    _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute.mock_calls == expected
@@ -1187,11 +1210,10 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
-    run_processor.create_or_upgrade_app(
+    _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute.mock_calls == expected
@@ -1238,12 +1260,11 @@ def test_upgrade_app_warehouse_error(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
     with pytest.raises(ProgrammingError):
-        run_processor.create_or_upgrade_app(
+        _create_or_upgrade_app(
             policy_param,
             is_interactive=True,
             install_method=SameAccountInstallMethod.release_directive(),
@@ -1301,12 +1322,11 @@ def test_upgrade_app_incorrect_owner(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
     with pytest.raises(ProgrammingError):
-        run_processor.create_or_upgrade_app(
+        _create_or_upgrade_app(
             policy=policy_param,
             is_interactive=True,
             install_method=SameAccountInstallMethod.release_directive(),
@@ -1358,11 +1378,10 @@ def test_upgrade_app_succeeds(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
-    run_processor.create_or_upgrade_app(
+    _create_or_upgrade_app(
         policy=policy_param,
         is_interactive=True,
         install_method=SameAccountInstallMethod.release_directive(),
@@ -1419,12 +1438,11 @@ def test_upgrade_app_fails_generic_error(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
     with pytest.raises(ProgrammingError):
-        run_processor.create_or_upgrade_app(
+        _create_or_upgrade_app(
             policy=policy_param,
             is_interactive=True,
             install_method=SameAccountInstallMethod.release_directive(),
@@ -1490,12 +1508,11 @@ def test_upgrade_app_fails_upgrade_restriction_error(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
     with pytest.raises(typer.Exit):
-        result = run_processor.create_or_upgrade_app(
+        result = _create_or_upgrade_app(
             policy_param,
             is_interactive=is_interactive_param,
             install_method=SameAccountInstallMethod.release_directive(),
@@ -1589,11 +1606,10 @@ def test_versioned_app_upgrade_to_unversioned(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
-    run_processor.create_or_upgrade_app(
+    _create_or_upgrade_app(
         policy=AllowAlwaysPolicy(),
         is_interactive=False,
         install_method=SameAccountInstallMethod.unversioned_dev(),
@@ -1664,12 +1680,11 @@ def test_upgrade_app_fails_drop_fails(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
     with pytest.raises(ProgrammingError):
-        run_processor.create_or_upgrade_app(
+        _create_or_upgrade_app(
             policy_param,
             is_interactive=is_interactive_param,
             install_method=SameAccountInstallMethod.release_directive(),
@@ -1761,11 +1776,10 @@ def test_upgrade_app_recreate_app(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
-    run_processor.create_or_upgrade_app(
+    _create_or_upgrade_app(
         policy_param,
         is_interactive=True,
         install_method=SameAccountInstallMethod.release_directive(),
@@ -1778,27 +1792,25 @@ def test_upgrade_app_recreate_app(
     APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
     return_value=None,
 )
-@pytest.mark.parametrize(
-    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
-)
-def test_upgrade_app_from_version_throws_usage_error_one(
-    mock_existing, policy_param, temp_dir, mock_bundle_map
-):
-
+def test_upgrade_app_from_version_throws_usage_error_one(mock_existing, temp_dir):
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
+    wm = _get_wm()
     with pytest.raises(UsageError):
-        run_processor.process(
-            bundle_map=mock_bundle_map,
-            policy=policy_param,
+        wm.perform_action(
+            "myapp",
+            EntityActions.DEPLOY,
+            from_release_directive=False,
+            prune=True,
+            recursive=True,
+            paths=[],
+            validate=False,
             version="v1",
-            is_interactive=True,
         )
 
 
@@ -1807,27 +1819,28 @@ def test_upgrade_app_from_version_throws_usage_error_one(
     APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
     side_effect=ApplicationPackageDoesNotExistError("app_pkg"),
 )
-@pytest.mark.parametrize(
-    "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
-)
 def test_upgrade_app_from_version_throws_usage_error_two(
-    mock_existing, policy_param, temp_dir, mock_bundle_map
+    mock_existing,
+    temp_dir,
 ):
-
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
+    wm = _get_wm()
     with pytest.raises(UsageError):
-        run_processor.process(
-            bundle_map=mock_bundle_map,
-            policy=policy_param,
+        wm.perform_action(
+            "myapp",
+            EntityActions.DEPLOY,
+            from_release_directive=False,
+            prune=True,
+            recursive=True,
+            paths=[],
+            validate=False,
             version="v1",
-            is_interactive=True,
         )
 
 
@@ -1921,15 +1934,19 @@ def test_upgrade_app_recreate_app_from_version(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    run_processor = _get_na_run_processor()
-    run_processor.process(
-        bundle_map=mock_bundle_map,
-        policy=policy_param,
+    wm = _get_wm()
+    wm.perform_action(
+        "myapp",
+        EntityActions.DEPLOY,
+        from_release_directive=False,
+        prune=True,
+        recursive=True,
+        paths=[],
+        validate=False,
         version="v1",
-        is_interactive=True,
     )
     assert mock_execute.mock_calls == expected
 
@@ -1972,10 +1989,16 @@ def test_get_existing_version_info(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_na_run_processor()
-    result = processor.get_existing_version_info(version)
+    dm = DefinitionManager()
+    pd = dm.project_definition
+    pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
+    result = ApplicationPackageEntity.get_existing_version_info(
+        version=version,
+        package_name=pkg_model.fqn.name,
+        package_role=pkg_model.meta.role,
+    )
     assert mock_execute.mock_calls == expected
     assert result["version"] == version
