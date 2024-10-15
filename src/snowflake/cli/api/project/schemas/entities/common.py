@@ -99,6 +99,14 @@ class EntityModelBase(ABC, UpdatableModel):
         if self.entity_id:
             return FQN.from_string(self.entity_id)
 
+    @classmethod
+    def get_entity_class(cls) -> str:
+        # Set by EntityBaseMetaclass when creating the
+        # Entity class that refers to this model
+        if cls is EntityModelBase:
+            raise NotImplementedError
+        return cls._entity_class  # noqa: SLF001
+
 
 TargetType = TypeVar("TargetType")
 

@@ -20,7 +20,18 @@ class EntityActions(str, Enum):
 T = TypeVar("T")
 
 
-class EntityBase(Generic[T]):
+class EntityBaseMetaclass(type):
+    def __new__(mcs, name, bases, attrs):  # noqa: N804
+        cls = type.__new__(mcs, name, bases, attrs)
+        if generic_bases := attrs.get("__orig_bases__", []):
+            target_entity_class = get_args(generic_bases[0])[0]  # type: ignore[attr-defined]
+            if target_entity_class is not T:
+                # We're in a subclass of EntityBase
+                target_entity_class._entity_class = cls  # noqa: SLF001
+        return cls
+
+
+class EntityBase(Generic[T], metaclass=EntityBaseMetaclass):
     """
     Base class for the fully-featured entity classes.
     """
