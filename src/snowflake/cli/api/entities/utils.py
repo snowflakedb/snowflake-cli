@@ -32,6 +32,7 @@ from snowflake.cli.api.errno import (
 from snowflake.cli.api.exceptions import (
     DoesNotExistOrUnauthorizedError,
     NoWarehouseSelectedInSessionError,
+    PostDeployScriptExecutionError,
     SnowflakeSQLExecutionError,
 )
 from snowflake.cli.api.metrics import CLICounterField
@@ -248,10 +249,16 @@ def execute_post_deploy_hooks(
 
         for index, sql_script_path in enumerate(sql_scripts_paths):
             console.step(f"Executing SQL script: {sql_script_path}")
-            _execute_sql_script(
-                script_content=scripts_content_list[index],
-                database_name=database_name,
-            )
+            try:
+                script_content = scripts_content_list[index]
+                _execute_sql_script(
+                    script_content=script_content,
+                    database_name=database_name,
+                )
+            except ProgrammingError as err:
+                raise PostDeployScriptExecutionError(
+                    msg=err.msg, query=script_content
+                ) from err
 
 
 def render_script_templates(

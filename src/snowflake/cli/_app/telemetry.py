@@ -85,7 +85,13 @@ TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
 def _is_cli_exception(exception: Exception) -> bool:
     return isinstance(
         exception,
-        (click.ClickException, typer.Exit, typer.Abort, BrokenPipeError),
+        (
+            click.ClickException,
+            typer.Exit,
+            typer.Abort,
+            BrokenPipeError,
+            KeyboardInterrupt,
+        ),
     )
 
 

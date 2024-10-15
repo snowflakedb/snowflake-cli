@@ -113,7 +113,7 @@ class NoEventTableForAccount(ClickException):
         super().__init__(f"{self.__doc__}\n\n{self.INSTRUCTIONS}")
 
 
-class ObjectPropertyNotFoundError(ClickException):
+class ObjectPropertyNotFoundError(RuntimeError):
     def __init__(self, property_name: str, object_type: str, object_name: str):
         super().__init__(
             dedent(
