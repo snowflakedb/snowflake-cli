@@ -32,7 +32,6 @@ from snowflake.connector import ProgrammingError
 class UnknownSQLError(Exception):
     """Exception raised when the root of the SQL error is unidentified by us."""
 
-    # PJ-question how do we ensure exit codes remain unique
     exit_code = 3
 
     def __init__(self, message):
@@ -61,6 +60,22 @@ class SnowflakeSQLFacade:
     def _log(self):
         return logging.getLogger(__name__)
 
+    def _use_object(self, object_type: ObjectType, name: str):
+        """
+        Call sql to use snowflake object with error handling
+        @param object_type: ObjectType, type of snowflake object to use
+        @param name: object name, has to be a valid snowflake identifier.
+        """
+        try:
+            self._sql_executor.execute_query(f"use {object_type} {name}")
+        except ProgrammingError as err:
+            if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
+                raise CouldNotUseObjectError(object_type, name) from err
+
+            raise ProgrammingError(f"Failed to use {object_type} {name}") from err
+        except Exception as err:
+            raise UnknownSQLError(f"Failed to use {object_type} {name}") from err
+
     @contextmanager
     def _use_warehouse_optional(self, new_wh: str | None):
         """
@@ -87,27 +102,13 @@ class SnowflakeSQLFacade:
         is_different_wh = valid_wh_name != prev_wh
         if is_different_wh:
             self._log.debug(f"Using warehouse: {valid_wh_name}")
-            try:
-                self._sql_executor.execute_query(f"use warehouse {valid_wh_name}")
-            except ProgrammingError as err:
-                if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
-                    raise CouldNotUseObjectError(
-                        ObjectType.WAREHOUSE, valid_wh_name
-                    ) from err
-
-                raise ProgrammingError(
-                    f"Failed to use warehouse {valid_wh_name}"
-                ) from err
-            except Exception as err:
-                raise UnknownSQLError(
-                    f"Failed to use warehouse {valid_wh_name}"
-                ) from err
+            self._use_object(ObjectType.WAREHOUSE, valid_wh_name)
         try:
             yield
         finally:
             if is_different_wh and prev_wh is not None:
                 self._log.debug(f"Switching back to warehouse:{prev_wh}")
-                self._sql_executor.execute_query(f"use warehouse {prev_wh}")
+                self._use_object(ObjectType.WAREHOUSE, prev_wh)
 
     @contextmanager
     def _use_role_optional(self, new_role: str | None):
@@ -127,23 +128,13 @@ class SnowflakeSQLFacade:
         is_different_role = valid_role_name.lower() != prev_role.lower()
         if is_different_role:
             self._log.debug(f"Assuming different role: {valid_role_name}")
-            try:
-                self._sql_executor.execute_query(f"use role {valid_role_name}")
-            except ProgrammingError as err:
-                if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
-                    raise CouldNotUseObjectError(
-                        ObjectType.ROLE, valid_role_name
-                    ) from err
-
-                raise ProgrammingError(f"Failed to use role {valid_role_name}") from err
-            except Exception as err:
-                raise UnknownSQLError(f"Failed to use role {valid_role_name}") from err
+            self._use_object(ObjectType.ROLE, valid_role_name)
         try:
             yield
         finally:
             if is_different_role:
                 self._log.debug(f"Switching back to role:{prev_role}")
-                self._sql_executor.execute_query(f"use role {prev_role}")
+                self._use_object(ObjectType.ROLE, prev_role)
 
     @contextmanager
     def _use_database_optional(self, database_name: str | None):
@@ -170,23 +161,14 @@ class SnowflakeSQLFacade:
         is_different_db = valid_name != prev_db
         if is_different_db:
             self._log.debug(f"Using database {valid_name}")
-            try:
-                self._sql_executor.execute_query(f"use database {valid_name}")
-            except ProgrammingError as err:
-                if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
-                    raise CouldNotUseObjectError(
-                        ObjectType.DATABASE, valid_name
-                    ) from err
+            self._use_object(ObjectType.DATABASE, valid_name)
 
-                raise ProgrammingError(f"Failed to use database {valid_name}") from err
-            except Exception as err:
-                raise UnknownSQLError(f"Failed to use database {valid_name}") from err
         try:
             yield
         finally:
             if is_different_db and prev_db is not None:
                 self._log.debug(f"Switching back to database:{prev_db}")
-                self._sql_executor.execute_query(f"use database {prev_db}")
+                self._use_object(ObjectType.DATABASE, prev_db)
 
     def execute_user_script(
         self,

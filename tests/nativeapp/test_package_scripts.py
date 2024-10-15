@@ -107,12 +107,11 @@ def test_package_scripts_with_conn_warehouse(
         mock_execute_user_script.return_value = None
         native_app_manager = _get_na_manager(str(temp_dir))
         native_app_manager._apply_package_scripts()  # noqa: SLF001
-        assert mock_execute_user_script.call_count == 2
         expected_calls = [
             mock.call(query[1], query[0], "role", "wh")
             for query in list(scripts.items())
         ]
-        mock_execute_user_script.assert_has_calls(expected_calls, any_order=False)
+        assert mock_execute_user_script.mock_calls == expected_calls
 
 
 @mock_connection()
