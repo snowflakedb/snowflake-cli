@@ -31,6 +31,14 @@ from snowflake.cli._plugins.nativeapp.constants import (
     SPECIAL_COMMENT,
     SPECIAL_COMMENT_OLD,
 )
+from snowflake.cli._plugins.nativeapp.entities.application import (
+    ApplicationEntity,
+    ApplicationEntityModel,
+)
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntity,
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
@@ -38,16 +46,18 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ObjectPropertyNotFoundError,
     SetupScriptFailedValidation,
 )
-from snowflake.cli._plugins.nativeapp.manager import (
-    NativeAppManager,
-)
 from snowflake.cli._plugins.nativeapp.policy import AllowAlwaysPolicy
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePath,
 )
+from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.utils import _get_stage_paths_to_sync
+from snowflake.cli.api.entities.common import EntityActions
+from snowflake.cli.api.entities.utils import (
+    _get_stage_paths_to_sync,
+    sync_deploy_root_with_stage,
+)
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
 )
@@ -56,6 +66,7 @@ from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.api.project.util import extract_schema
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -72,8 +83,8 @@ from tests.nativeapp.utils import (
     NATIVEAPP_MODULE,
     SQL_EXECUTOR_EXECUTE,
     mock_execute_helper,
-    mock_snowflake_yml_file,
-    quoted_override_yml_file,
+    mock_snowflake_yml_file_v2,
+    quoted_override_yml_file_v2,
     touch,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
@@ -93,10 +104,14 @@ mock_project_definition_override = {
 }
 
 
-def _get_na_manager(working_dir: Optional[str] = None):
-    dm = DefinitionManager(working_dir)
-    return NativeAppManager(
-        project_definition=dm.project_definition.native_app,
+def _get_dm(working_dir: Optional[str] = None):
+    return DefinitionManager(working_dir)
+
+
+def _get_wm(working_dir: Optional[str] = None):
+    dm = _get_dm(working_dir)
+    return WorkspaceManager(
+        project_definition=dm.project_definition,
         project_root=dm.project_root,
     )
 
@@ -119,18 +134,25 @@ def test_sync_deploy_root_with_stage(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
 
-    native_app_manager = _get_na_manager()
     assert mock_diff_result.has_changes()
     mock_bundle_map = mock.Mock(spec=BundleMap)
-    native_app_manager.sync_deploy_root_with_stage(
+    package_name = pkg_model.fqn.identifier
+    stage_fqn = f"{package_name}.{pkg_model.stage}"
+    sync_deploy_root_with_stage(
+        console=cc,
+        deploy_root=dm.project_root / pkg_model.deploy_root,
+        package_name=package_name,
+        stage_schema=extract_schema(stage_fqn),
         bundle_map=mock_bundle_map,
         role="new_role",
         prune=True,
         recursive=True,
-        stage_fqn=native_app_manager.stage_fqn,
+        stage_fqn=stage_fqn,
     )
 
     expected = [
@@ -147,11 +169,11 @@ def test_sync_deploy_root_with_stage(
     ]
     assert mock_execute.mock_calls == expected
     mock_compute_stage_diff.assert_called_once_with(
-        native_app_manager.deploy_root, "app_pkg.app_src.stage"
+        dm.project_root / pkg_model.deploy_root, "app_pkg.app_src.stage"
     )
     mock_local_diff_with_stage.assert_called_once_with(
         role="new_role",
-        deploy_root_path=native_app_manager.deploy_root,
+        deploy_root_path=dm.project_root / pkg_model.deploy_root,
         diff_result=mock_diff_result,
         stage_fqn="app_pkg.app_src.stage",
     )
@@ -190,17 +212,24 @@ def test_sync_deploy_root_with_stage_prune(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=os.getcwd(),
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
-    native_app_manager = _get_na_manager()
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
 
     mock_bundle_map = mock.Mock(spec=BundleMap)
-    native_app_manager.sync_deploy_root_with_stage(
+    package_name = pkg_model.fqn.identifier
+    stage_fqn = f"{package_name}.{pkg_model.stage}"
+    sync_deploy_root_with_stage(
+        console=cc,
+        deploy_root=dm.project_root / pkg_model.deploy_root,
+        package_name=package_name,
+        stage_schema=extract_schema(stage_fqn),
         bundle_map=mock_bundle_map,
         role="new_role",
         prune=prune,
         recursive=True,
-        stage_fqn=native_app_manager.stage_fqn,
+        stage_fqn=stage_fqn,
     )
 
     if expected_warn:
@@ -243,11 +272,16 @@ def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_curs
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
-    actual_distribution = native_app_manager.get_app_pkg_distribution_in_snowflake
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    actual_distribution = (
+        ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
+            pkg_model.fqn.name, pkg_model.meta.role
+        )
+    )
     assert actual_distribution == "external"
     assert mock_execute.mock_calls == expected
 
@@ -278,12 +312,16 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+
     with pytest.raises(DoesNotExistOrUnauthorizedError):
-        native_app_manager.get_app_pkg_distribution_in_snowflake
+        ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
+            pkg_model.fqn.name, pkg_model.meta.role
+        )
 
     assert mock_execute.mock_calls == expected
 
@@ -309,12 +347,16 @@ def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+
     with pytest.raises(SnowflakeSQLExecutionError):
-        native_app_manager.get_app_pkg_distribution_in_snowflake
+        ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
+            pkg_model.fqn.name, pkg_model.meta.role
+        )
 
     assert mock_execute.mock_calls == expected
 
@@ -343,22 +385,25 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+
     with pytest.raises(ObjectPropertyNotFoundError) as err:
-        native_app_manager.get_app_pkg_distribution_in_snowflake
+        ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
+            pkg_model.fqn.name, pkg_model.meta.role
+        )
 
     assert mock_execute.mock_calls == expected
-    assert (
+    assert err.match(
         dedent(
             f"""\
         Could not find the 'distribution' attribute for application package app_pkg in the output of SQL query:
         'describe application package app_pkg'
         """
         )
-        in err.value.message
     )
 
 
@@ -368,7 +413,7 @@ def test_is_app_pkg_distribution_same_in_sf_w_arg(mock_mismatch, temp_dir):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     create_named_file(
@@ -377,8 +422,8 @@ def test_is_app_pkg_distribution_same_in_sf_w_arg(mock_mismatch, temp_dir):
         contents=[
             dedent(
                 """\
-                    native_app:
-                        package:
+                    entities:
+                        app_pkg:
                             distribution: >-
                                 EXTERNAL
                 """
@@ -386,8 +431,15 @@ def test_is_app_pkg_distribution_same_in_sf_w_arg(mock_mismatch, temp_dir):
         ],
     )
 
-    native_app_manager = _get_na_manager()
-    assert native_app_manager.verify_project_distribution("internal") is False
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    assert not ApplicationPackageEntity.verify_project_distribution(
+        console=cc,
+        package_name=pkg_model.fqn.name,
+        package_role=pkg_model.meta.role,
+        package_distribution=pkg_model.distribution,
+        expected_distribution="internal",
+    )
     mock_mismatch.assert_not_called()
 
 
@@ -399,7 +451,7 @@ def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir)
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     create_named_file(
@@ -408,8 +460,8 @@ def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir)
         contents=[
             dedent(
                 """\
-                    native_app:
-                        package:
+                    entities:
+                        app_pkg:
                             distribution: >-
                                 EXTERNAL
                 """
@@ -417,8 +469,14 @@ def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir)
         ],
     )
 
-    native_app_manager = _get_na_manager()
-    assert native_app_manager.verify_project_distribution() is True
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    assert ApplicationPackageEntity.verify_project_distribution(
+        console=cc,
+        package_name=pkg_model.fqn.name,
+        package_role=pkg_model.meta.role,
+        package_distribution=pkg_model.distribution,
+    )
 
 
 @mock_get_app_pkg_distribution_in_sf()
@@ -432,11 +490,17 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
-    assert native_app_manager.verify_project_distribution() is False
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    assert not ApplicationPackageEntity.verify_project_distribution(
+        console=cc,
+        package_name=pkg_model.fqn.name,
+        package_role=pkg_model.meta.role,
+        package_distribution=pkg_model.distribution,
+    )
     mock_warning.assert_called_once_with(
         "Application package app_pkg in your Snowflake account has distribution property external,\nwhich does not match the value specified in project definition file: internal.\n"
     )
@@ -474,11 +538,14 @@ def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
-    show_obj_row = native_app_manager.get_existing_app_info()
+    dm = _get_dm()
+    app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+    show_obj_row = ApplicationEntity.get_existing_app_info_static(
+        app_model.fqn.name, app_model.meta.role
+    )
     assert show_obj_row is not None
     assert show_obj_row[NAME_COL] == "MYAPP"
     assert mock_execute.mock_calls == expected
@@ -506,11 +573,14 @@ def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_c
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
-    show_obj_row = native_app_manager.get_existing_app_info()
+    dm = _get_dm()
+    app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+    show_obj_row = ApplicationEntity.get_existing_app_info_static(
+        app_model.fqn.name, app_model.meta.role
+    )
     assert show_obj_row is None
     assert mock_execute.mock_calls == expected
 
@@ -550,11 +620,14 @@ def test_get_existing_app_pkg_info_app_pkg_exists(mock_execute, temp_dir, mock_c
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
-    show_obj_row = native_app_manager.get_existing_app_pkg_info()
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    show_obj_row = ApplicationPackageEntity.get_existing_app_pkg_info(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
     assert show_obj_row is not None
     assert show_obj_row[NAME_COL] == "APP_PKG"
     assert mock_execute.mock_calls == expected
@@ -587,11 +660,14 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
-    show_obj_row = native_app_manager.get_existing_app_pkg_info()
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    show_obj_row = ApplicationPackageEntity.get_existing_app_pkg_info(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
     assert show_obj_row is None
     assert mock_execute.mock_calls == expected
 
@@ -639,7 +715,7 @@ def test_get_snowsight_url_with_pdf_warehouse(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     side_effects, expected = mock_execute_helper(
@@ -653,9 +729,12 @@ def test_get_snowsight_url_with_pdf_warehouse(
     )
     mock_execute_query.side_effect = side_effects + fallback_side_effect
 
-    native_app_manager = _get_na_manager()
+    dm = _get_dm()
+    app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
     assert (
-        native_app_manager.get_snowsight_url()
+        ApplicationEntity.get_snowsight_url_static(
+            app_model.fqn.name, app_model.meta.warehouse
+        )
         == "https://host/organization/account/#/apps/application/MYAPP"
     )
     assert mock_execute_query.mock_calls == expected + fallback_warehouse_call
@@ -672,13 +751,13 @@ def test_get_snowsight_url_with_pdf_warehouse(
     "project_definition_files, warehouse, expected_calls, fallback_side_effect",
     [
         (
-            "napp_project_1",
+            "napp_project_2",
             "MockWarehouse",
             [mock.call("select current_warehouse()")],
             [None],
         ),
         (
-            "napp_project_1",
+            "napp_project_2",
             None,
             [],
             [],
@@ -709,15 +788,18 @@ def test_get_snowsight_url_without_pdf_warehouse(
         mock_cursor([(warehouse,)], [])
     ] + fallback_side_effect
 
-    native_app_manager = _get_na_manager(str(working_dir))
+    dm = _get_dm(str(working_dir))
+    app_model: ApplicationEntityModel = dm.project_definition.entities["myapp_polly"]
     if warehouse:
         assert (
-            native_app_manager.get_snowsight_url()
+            ApplicationEntity.get_snowsight_url_static(app_model.fqn.name, warehouse)
             == "https://host/organization/account/#/apps/application/MYAPP_POLLY"
         )
     else:
         with pytest.raises(ClickException) as err:
-            native_app_manager.get_snowsight_url()
+            ApplicationEntity.get_snowsight_url_static(
+                app_model.fqn.name, app_model.meta.warehouse
+            )
         assert "Application warehouse cannot be empty." in err.value.message
 
     assert mock_execute_query.mock_calls == expected_calls
@@ -757,11 +839,17 @@ def test_create_app_pkg_no_existing_package(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
-    native_app_manager.create_app_package()
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    ApplicationPackageEntity.create_app_package(
+        console=cc,
+        package_name=pkg_model.fqn.name,
+        package_role=pkg_model.meta.role,
+        package_distribution=pkg_model.distribution,
+    )
     assert mock_execute.mock_calls == expected
     mock_get_existing_app_pkg_info.assert_called_once()
 
@@ -792,13 +880,19 @@ def test_create_app_pkg_different_owner(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
     # Invoke create when the package already exists, but the owner is the current role.
     # This is expected to succeed with no warnings.
-    native_app_manager.create_app_package()
+    ApplicationPackageEntity.create_app_package(
+        console=cc,
+        package_name=pkg_model.fqn.name,
+        package_role=pkg_model.meta.role,
+        package_distribution=pkg_model.distribution,
+    )
 
     mock_execute.assert_not_called()
 
@@ -833,11 +927,17 @@ def test_create_app_pkg_external_distribution(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
-    native_app_manager.create_app_package()
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    ApplicationPackageEntity.create_app_package(
+        console=cc,
+        package_name=pkg_model.fqn.name,
+        package_role=pkg_model.meta.role,
+        package_distribution=pkg_model.distribution,
+    )
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
             "Continuing to execute `snow app run` on application package app_pkg with distribution 'external'."
@@ -880,11 +980,17 @@ def test_create_app_pkg_internal_distribution_special_comment(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
-    native_app_manager.create_app_package()
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    ApplicationPackageEntity.create_app_package(
+        console=cc,
+        package_name=pkg_model.fqn.name,
+        package_role=pkg_model.meta.role,
+        package_distribution=pkg_model.distribution,
+    )
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
             "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
@@ -921,12 +1027,18 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
     with pytest.raises(ApplicationPackageAlreadyExistsError):
-        native_app_manager.create_app_package()
+        ApplicationPackageEntity.create_app_package(
+            console=cc,
+            package_name=pkg_model.fqn.name,
+            package_role=pkg_model.meta.role,
+            package_distribution=pkg_model.distribution,
+        )
 
     if not is_pkg_distribution_same:
         mock_warning.assert_called_once_with(
@@ -960,12 +1072,18 @@ def test_existing_app_pkg_without_special_comment(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
     with pytest.raises(ApplicationPackageAlreadyExistsError):
-        native_app_manager.create_app_package()
+        ApplicationPackageEntity.create_app_package(
+            console=cc,
+            package_name=pkg_model.fqn.name,
+            package_role=pkg_model.meta.role,
+            package_distribution=pkg_model.distribution,
+        )
 
 
 @pytest.mark.parametrize(
@@ -1002,7 +1120,7 @@ def test_validate_passing(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     success_data = dict(status="SUCCESS")
@@ -1018,8 +1136,14 @@ def test_validate_passing(mock_execute, temp_dir, mock_cursor):
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
-    native_app_manager.validate()
+    wm = _get_wm()
+    wm.perform_action(
+        "app_pkg",
+        EntityActions.VALIDATE,
+        interactive=False,
+        force=True,
+        use_scratch_stage=False,
+    )
 
     assert mock_execute.mock_calls == expected
 
@@ -1032,7 +1156,7 @@ def test_validate_passing_with_warnings(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     warning_file = "@STAGE/setup_script.sql"
@@ -1058,8 +1182,14 @@ def test_validate_passing_with_warnings(
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
-    native_app_manager.validate()
+    wm = _get_wm()
+    wm.perform_action(
+        "app_pkg",
+        EntityActions.VALIDATE,
+        interactive=False,
+        force=True,
+        use_scratch_stage=False,
+    )
 
     warn_message = f"{warning['message']} (error code {warning['errorCode']})"
     mock_warning.assert_called_once_with(warn_message)
@@ -1072,7 +1202,7 @@ def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     error_file = "@STAGE/empty.sql"
@@ -1108,12 +1238,18 @@ def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor):
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
+    wm = _get_wm()
     with pytest.raises(
         SetupScriptFailedValidation,
         match="Snowflake Native App setup script failed validation.",
     ):
-        native_app_manager.validate()
+        wm.perform_action(
+            "app_pkg",
+            EntityActions.VALIDATE,
+            interactive=False,
+            force=True,
+            use_scratch_stage=False,
+        )
 
     warn_message = f"{warning['message']} (error code {warning['errorCode']})"
     error_message = f"{error['message']} (error code {error['errorCode']})"
@@ -1128,7 +1264,7 @@ def test_validate_query_error(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     side_effects, expected = mock_execute_helper(
@@ -1143,9 +1279,15 @@ def test_validate_query_error(mock_execute, temp_dir, mock_cursor):
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
+    wm = _get_wm()
     with pytest.raises(SnowflakeSQLExecutionError):
-        native_app_manager.validate()
+        wm.perform_action(
+            "app_pkg",
+            EntityActions.VALIDATE,
+            interactive=False,
+            force=True,
+            use_scratch_stage=False,
+        )
 
     assert mock_execute.mock_calls == expected
 
@@ -1155,7 +1297,7 @@ def test_validate_not_deployed(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     side_effects, expected = mock_execute_helper(
@@ -1173,9 +1315,15 @@ def test_validate_not_deployed(mock_execute, temp_dir, mock_cursor):
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
+    wm = _get_wm()
     with pytest.raises(ApplicationPackageDoesNotExistError, match="app_pkg"):
-        native_app_manager.validate()
+        wm.perform_action(
+            "app_pkg",
+            EntityActions.VALIDATE,
+            interactive=False,
+            force=True,
+            use_scratch_stage=False,
+        )
 
     assert mock_execute.mock_calls == expected
 
@@ -1186,7 +1334,7 @@ def test_validate_use_scratch_stage(mock_execute, mock_deploy, temp_dir, mock_cu
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     success_data = dict(status="SUCCESS")
@@ -1214,29 +1362,40 @@ def test_validate_use_scratch_stage(mock_execute, mock_deploy, temp_dir, mock_cu
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
-    native_app_manager.validate(use_scratch_stage=True)
+    wm = _get_wm()
+    wm.perform_action(
+        "app_pkg",
+        EntityActions.VALIDATE,
+        interactive=False,
+        force=True,
+        use_scratch_stage=True,
+    )
 
+    pd = wm._project_definition  # noqa: SLF001
+    pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
+    project_root = wm._project_root  # noqa: SLF001
     mock_deploy.assert_called_with(
         console=cc,
-        project_root=native_app_manager.project_root,
-        deploy_root=native_app_manager.deploy_root,
-        bundle_root=native_app_manager.bundle_root,
-        generated_root=native_app_manager.generated_root,
-        artifacts=native_app_manager.artifacts,
+        project_root=project_root,
+        deploy_root=project_root / pkg_model.deploy_root,
+        bundle_root=project_root / pkg_model.bundle_root,
+        generated_root=(
+            project_root / pkg_model.deploy_root / pkg_model.generated_root
+        ),
+        artifacts=pkg_model.artifacts,
         bundle_map=None,
-        package_name=native_app_manager.package_name,
-        package_role=native_app_manager.package_role,
-        package_distribution=native_app_manager.package_distribution,
+        package_name=pkg_model.fqn.name,
+        package_role=pkg_model.meta.role,
+        package_distribution=pkg_model.distribution,
         prune=True,
         recursive=True,
         paths=[],
         print_diff=False,
         validate=False,
-        stage_fqn=native_app_manager.scratch_stage_fqn,
-        package_warehouse=native_app_manager.package_warehouse,
-        post_deploy_hooks=native_app_manager.package_post_deploy_hooks,
-        package_scripts=native_app_manager.package_scripts,
+        stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}",
+        package_warehouse=pkg_model.meta.warehouse,
+        post_deploy_hooks=pkg_model.meta.post_deploy,
+        package_scripts=[],
         policy=AllowAlwaysPolicy(),
     )
     assert mock_execute.mock_calls == expected
@@ -1250,7 +1409,7 @@ def test_validate_failing_drops_scratch_stage(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     error_file = "@STAGE/empty.sql"
@@ -1288,33 +1447,44 @@ def test_validate_failing_drops_scratch_stage(
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
+    wm = _get_wm()
     with pytest.raises(
         SetupScriptFailedValidation,
         match="Snowflake Native App setup script failed validation.",
     ):
-        native_app_manager.validate(use_scratch_stage=True)
+        wm.perform_action(
+            "app_pkg",
+            EntityActions.VALIDATE,
+            interactive=False,
+            force=True,
+            use_scratch_stage=True,
+        )
 
+    pd = wm._project_definition  # noqa: SLF001
+    pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
+    project_root = wm._project_root  # noqa: SLF001
     mock_deploy.assert_called_with(
         console=cc,
-        project_root=native_app_manager.project_root,
-        deploy_root=native_app_manager.deploy_root,
-        bundle_root=native_app_manager.bundle_root,
-        generated_root=native_app_manager.generated_root,
-        artifacts=native_app_manager.artifacts,
+        project_root=project_root,
+        deploy_root=project_root / pkg_model.deploy_root,
+        bundle_root=project_root / pkg_model.bundle_root,
+        generated_root=(
+            project_root / pkg_model.deploy_root / pkg_model.generated_root
+        ),
+        artifacts=pkg_model.artifacts,
         bundle_map=None,
-        package_name=native_app_manager.package_name,
-        package_role=native_app_manager.package_role,
-        package_distribution=native_app_manager.package_distribution,
+        package_name=pkg_model.fqn.name,
+        package_role=pkg_model.meta.role,
+        package_distribution=pkg_model.distribution,
         prune=True,
         recursive=True,
         paths=[],
         print_diff=False,
         validate=False,
-        stage_fqn=native_app_manager.scratch_stage_fqn,
-        package_warehouse=native_app_manager.package_warehouse,
-        post_deploy_hooks=native_app_manager.package_post_deploy_hooks,
-        package_scripts=native_app_manager.package_scripts,
+        stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}",
+        package_warehouse=pkg_model.meta.warehouse,
+        post_deploy_hooks=pkg_model.meta.post_deploy,
+        package_scripts=[],
         policy=AllowAlwaysPolicy(),
     )
     assert mock_execute.mock_calls == expected
@@ -1325,7 +1495,7 @@ def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     error_file = "@STAGE/empty.sql"
@@ -1361,11 +1531,9 @@ def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
-    assert (
-        native_app_manager.get_validation_result(use_scratch_stage=False)
-        == failure_data
-    )
+    wm = _get_wm()
+    pkg = wm.get_entity("app_pkg")
+    assert pkg.get_validation_result(use_scratch_stage=False) == failure_data
     assert mock_execute.mock_calls == expected
 
 
@@ -1374,7 +1542,7 @@ def test_account_event_table(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     event_table = "db.schema.event_table"
@@ -1391,8 +1559,7 @@ def test_account_event_table(mock_execute, temp_dir, mock_cursor):
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
-    assert native_app_manager.account_event_table == event_table
+    assert ApplicationEntity.get_account_event_table() == event_table
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -1400,7 +1567,7 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     side_effects, expected = mock_execute_helper(
@@ -1416,8 +1583,7 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
-    assert native_app_manager.account_event_table == ""
+    assert ApplicationEntity.get_account_event_table() == ""
 
 
 @pytest.mark.parametrize(
@@ -1525,7 +1691,7 @@ def test_get_events(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     events = [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")] * 100
@@ -1558,8 +1724,14 @@ def test_get_events(
     mock_execute.side_effect = side_effects
 
     def get_events():
-        native_app_manager = _get_na_manager()
-        return native_app_manager.get_events(
+        dm = _get_dm()
+        pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities[
+            "app_pkg"
+        ]
+        app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+        return ApplicationEntity.get_events(
+            app_name=app_model.fqn.name,
+            package_name=pkg_model.fqn.name,
             since=since,
             until=until,
             record_types=types,
@@ -1591,12 +1763,12 @@ def test_get_events_quoted_app_name(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
     create_named_file(
         file_name="snowflake.local.yml",
         dir_name=temp_dir,
-        contents=[quoted_override_yml_file],
+        contents=[quoted_override_yml_file_v2],
     )
 
     events = [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")] * 100
@@ -1628,8 +1800,15 @@ def test_get_events_quoted_app_name(
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
-    assert native_app_manager.get_events() == events
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+    assert (
+        ApplicationEntity.get_events(
+            app_name=app_model.fqn.name, package_name=pkg_model.fqn.name
+        )
+        == events
+    )
     assert mock_execute.mock_calls == expected
 
 
@@ -1641,12 +1820,16 @@ def test_get_events_no_event_table(mock_account_event_table, temp_dir, mock_curs
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    native_app_manager = _get_na_manager()
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
     with pytest.raises(NoEventTableForAccount):
-        native_app_manager.get_events()
+        ApplicationEntity.get_events(
+            app_name=app_model.fqn.name, package_name=pkg_model.fqn.name
+        )
 
 
 @mock.patch(
@@ -1658,7 +1841,7 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     events = [
@@ -1746,8 +1929,15 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
     )
     mock_execute.side_effect = side_effects
 
-    native_app_manager = _get_na_manager()
-    stream = native_app_manager.stream_events(interval_seconds=0, last=last)
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+    stream = ApplicationEntity.stream_events(
+        app_name=app_model.fqn.name,
+        package_name=pkg_model.fqn.name,
+        interval_seconds=0,
+        last=last,
+    )
     for call in events:
         for event in call:
             assert next(stream) == event
