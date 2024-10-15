@@ -322,8 +322,8 @@ class StageManager(SqlExecutionMixin):
                 "Destination path cannot be a user stage. Please provide a named stage."
             )
 
-        source = source_path_parts.full_path
-        destination = destination_path_parts.full_path
+        source = source_path_parts.get_standard_stage_path()
+        destination = destination_path_parts.get_standard_stage_path()
         log.info("Copying files from %s to %s", source, destination)
         query = f"copy files into {destination} from {source}"
         return self._execute_query(query)

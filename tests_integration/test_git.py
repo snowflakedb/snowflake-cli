@@ -161,7 +161,7 @@ def test_copy_to_stage(runner, sf_git_repository):
     result = runner.invoke_with_connection_json(
         ["git", "copy", repository_path, f"@{STAGE_NAME}"]
     )
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     _assert_file_on_stage(f"{SUBDIR_ON_STAGE}/{FILE_IN_SUBDIR}")  # whole dir is copied
 
     # copy directory - copy contents
