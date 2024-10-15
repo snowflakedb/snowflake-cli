@@ -47,6 +47,9 @@ def test_executing_command_sends_telemetry_usage_data(
         .to_dict()
     )
 
+    del usage_command_event["message"][
+        "command_ci_environment"
+    ]  # to avoid side effect from CI
     assert usage_command_event == {
         "message": {
             "driver_type": "PythonConnector",
@@ -61,7 +64,6 @@ def test_executing_command_sends_telemetry_usage_data(
             "command_execution_id": "8a2225b3800c4017a4a9eab941db58fa",
             "command_flags": {"diag_log_path": "DEFAULT", "format": "DEFAULT"},
             "command_output_type": "TABLE",
-            "command_ci_environment": "UNKNOWN",
             "type": "executing_command",
             "project_definition_version": "None",
             "config_feature_flags": {
