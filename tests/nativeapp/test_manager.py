@@ -391,20 +391,19 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
 
-    with pytest.raises(ObjectPropertyNotFoundError):
+    with pytest.raises(ObjectPropertyNotFoundError) as err:
         ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
             pkg_model.fqn.name, pkg_model.meta.role
         )
 
     assert mock_execute.mock_calls == expected
-    assert (
+    assert err.match(
         dedent(
             f"""\
         Could not find the 'distribution' attribute for application package app_pkg in the output of SQL query:
         'describe application package app_pkg'
         """
         )
-        in err.value.message
     )
 
 

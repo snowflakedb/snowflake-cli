@@ -24,7 +24,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 from snowflake.cli._plugins.nativeapp.exceptions import MissingScriptError
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.utils import execute_post_deploy_hooks
-from snowflake.cli.api.exceptions import InvalidTemplate
+from snowflake.cli.api.exceptions import InvalidTemplate, PostDeployScriptExecutionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.connector import ProgrammingError
@@ -171,7 +171,7 @@ def test_package_post_deploy_scripts_with_sql_error(
         mock_cli_ctx.return_value = dm.template_context
         mock_execute_query.side_effect = ProgrammingError()
 
-        with pytest.raises(ProgrammingError):
+        with pytest.raises(PostDeployScriptExecutionError) as err:
             execute_post_deploy_hooks(
                 console=cc,
                 project_root=project_dir,
@@ -179,6 +179,18 @@ def test_package_post_deploy_scripts_with_sql_error(
                 deployed_object_type=pkg_model.get_type(),
                 database_name=pkg_model.fqn.name,
             )
+
+        assert err.value.message == dedent(
+            f"""\
+                        Received error message 'Unknown error' while executing the following SQL statement:
+                        -- package post-deploy script (1/2)
+
+select myapp;
+select package_bar;
+
+                        Please double-check the SQL statements in your post deploy script.
+                        """
+        )
 
 
 @mock.patch.dict(os.environ, {"USER": "test_user"})
@@ -189,7 +201,6 @@ def test_package_scripts_and_post_deploy_found(
         "napp_post_deploy",
         {"native_app": {"package": {"scripts": ["scripts/package_post_deploy2.sql"]}}},
     ) as project_dir:
-
         with pytest.raises(SchemaValidationError) as err:
             DefinitionManager(project_dir).project_definition  # noqa
 
