@@ -21,7 +21,7 @@ import typer
 from click import MissingParameter
 from snowflake.cli._plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
-    single_app_and_package,
+    force_project_definition_v2,
 )
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -42,7 +42,7 @@ log = logging.getLogger(__name__)
 
 @app.command(requires_connection=True)
 @with_project_definition()
-@single_app_and_package()
+@force_project_definition_v2()
 def create(
     version: Optional[str] = typer.Argument(
         None,
@@ -90,7 +90,7 @@ def create(
 
 @app.command("list", requires_connection=True)
 @with_project_definition()
-@single_app_and_package()
+@force_project_definition_v2()
 def version_list(
     **options,
 ) -> CommandResult:
@@ -112,7 +112,7 @@ def version_list(
 
 @app.command(requires_connection=True)
 @with_project_definition()
-@single_app_and_package()
+@force_project_definition_v2()
 def drop(
     version: Optional[str] = typer.Argument(
         None,
