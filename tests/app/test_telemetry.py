@@ -88,7 +88,7 @@ def test_executing_command_sends_telemetry_usage_data(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
 def test_executing_command_sends_ci_usage_data(_, mock_conn, runner, env_var, ci_type):
-    with mock.patch.dict(os.environ, {env_var: "true"}):
+    with mock.patch.dict(os.environ, {env_var: "true"}, clear=True):
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
