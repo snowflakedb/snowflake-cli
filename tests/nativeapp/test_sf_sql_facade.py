@@ -21,7 +21,6 @@ from snowflake.cli._plugins.nativeapp.sf_sql_facade import (
     UserScriptError,
 )
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
@@ -35,7 +34,7 @@ from tests.nativeapp.utils import (
     mock_execute_helper,
 )
 
-sql_facade = get_snowflake_facade(get_sql_executor())
+sql_facade = get_snowflake_facade()
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -440,7 +439,7 @@ def test_execute_catches_all_exception(mock_execute_queries):
         sql_facade.execute_user_script(mock_script, mock_script_name)
 
     # Assert
-    assert "Failed to run script test-user-sql-script.sql" in err.value.message
+    assert "Failed to run script test-user-sql-script.sql" in err.value.msg
 
 
 @pytest.mark.parametrize(
@@ -506,8 +505,7 @@ def test_use_object_catches_other_sql_error(mock_execute_query):
     with pytest.raises(UnknownSQLError) as err:
         sql_facade._use_object(object_type, object_name)  # noqa: SLF001
     assert (
-        err.value.message
-        == "Unknown SQL error occurred. Failed to use role test_err_role"
+        err.value.msg == "Unknown SQL error occurred. Failed to use role test_err_role"
     )
 
 
@@ -672,10 +670,10 @@ def test_use_warehouse_bubbles_errors(
             pass
 
     if hasattr(err.value, "message"):
-        # Click Exception and UnknownSQL errors
+        # ClickException
         assert err.value.message == error_message
     else:
-        # ProgrammingError
+        # DatabaseErrors
         assert err.value.msg == error_message
 
 
@@ -720,10 +718,10 @@ def test_use_role_bubbles_errors(
             pass
 
     if hasattr(err.value, "message"):
-        # Click Exception and UnknownSQL errors
+        # ClickException
         assert err.value.message == error_message
     else:
-        # ProgrammingError
+        # Database Errors
         assert err.value.msg == error_message
 
 
@@ -768,8 +766,8 @@ def test_use_db_bubbles_errors(
             pass
 
     if hasattr(err.value, "message"):
-        # Click Exception and UnknownSQL errors
+        # ClickException
         assert err.value.message == error_message
     else:
-        # ProgrammingError
+        # DatabaseErrors
         assert err.value.msg == error_message

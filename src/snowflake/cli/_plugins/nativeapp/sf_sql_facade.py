@@ -26,21 +26,20 @@ from snowflake.cli.api.errno import (
 from snowflake.cli.api.exceptions import CouldNotUseObjectError
 from snowflake.cli.api.project.util import to_identifier
 from snowflake.cli.api.sql_execution import SqlExecutor
-from snowflake.connector import ProgrammingError
+from snowflake.connector import DatabaseError, ProgrammingError
 
 
-class UnknownSQLError(Exception):
+class UnknownSQLError(DatabaseError):
     """Exception raised when the root of the SQL error is unidentified by us."""
 
     exit_code = 3
 
-    def __init__(self, message):
-        msg = f"Unknown SQL error occurred. {message}"
-        super().__init__(msg)
-        self.message = msg
+    def __init__(self, msg):
+        self.msg = f"Unknown SQL error occurred. {msg}"
+        super().__init__(self.msg)
 
     def __str__(self):
-        return self.message
+        return self.msg
 
 
 class UserScriptError(ClickException):
@@ -51,7 +50,7 @@ class UserScriptError(ClickException):
 
 
 class SnowflakeSQLFacade:
-    def __init__(self, sql_executor: SqlExecutor | None):
+    def __init__(self, sql_executor: SqlExecutor | None = None):
         self._sql_executor = (
             sql_executor if sql_executor is not None else get_sql_executor()
         )

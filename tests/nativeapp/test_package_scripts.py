@@ -213,7 +213,10 @@ def test_package_scripts_catches_raises_errors(
         native_app_manager._apply_package_scripts()  # noqa: SLF001
 
     for error_message in error_messages:
-        assert error_message in err.value.message
+        if hasattr(err.value, "message"):
+            assert error_message in err.value.message
+        else:
+            assert error_message in err.value.msg
         assert exit_code == err.value.exit_code
 
 

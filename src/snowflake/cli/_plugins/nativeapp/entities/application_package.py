@@ -1091,7 +1091,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         for i, queries in enumerate(queued_queries):
             script_name = package_scripts[i]
             console.step(f"Applying package script: {script_name}")
-            get_snowflake_facade(get_sql_executor()).execute_user_script(
+            get_snowflake_facade().execute_user_script(
                 queries, script_name, package_role, package_warehouse
             )
 
