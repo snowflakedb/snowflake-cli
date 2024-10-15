@@ -20,7 +20,32 @@ class EntityActions(str, Enum):
 T = TypeVar("T")
 
 
-class EntityBase(Generic[T]):
+class EntityBaseMetaclass(type):
+    def __new__(mcs, name, bases, attrs):  # noqa: N804
+        cls = super().__new__(mcs, name, bases, attrs)
+        generic_bases = attrs.get("__orig_bases__", [])
+        if not generic_bases:
+            # Subclass is not generic
+            return cls
+
+        target_model_class = get_args(generic_bases[0])[0]  # type: ignore[attr-defined]
+        if target_model_class is T:
+            # Generic parameter is not filled in
+            return cls
+
+        target_entity_class = getattr(target_model_class, "_entity_class", None)
+        if target_entity_class is not None:
+            raise ValueError(
+                f"Entity model class {target_model_class} is already "
+                f"associated with entity class {target_entity_class}, "
+                f"cannot associate with {cls}"
+            )
+
+        setattr(target_model_class, "_entity_class", cls)
+        return cls
+
+
+class EntityBase(Generic[T], metaclass=EntityBaseMetaclass):
     """
     Base class for the fully-featured entity classes.
     """

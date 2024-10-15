@@ -14,48 +14,14 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Union, get_args
+from snowflake.cli.api.project.schemas.entities.common import EntityModelBase
 
-from snowflake.cli._plugins.nativeapp.entities.application import (
-    ApplicationEntity,
-    ApplicationEntityModel,
-)
-from snowflake.cli._plugins.nativeapp.entities.application_package import (
-    ApplicationPackageEntity,
-    ApplicationPackageEntityModel,
-)
-from snowflake.cli._plugins.snowpark.snowpark_entity import (
-    FunctionEntity,
-    ProcedureEntity,
-)
-from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
-    FunctionEntityModel,
-    ProcedureEntityModel,
-)
-from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
-from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
-    StreamlitEntityModel,
-)
 
-Entity = Union[
-    ApplicationEntity,
-    ApplicationPackageEntity,
-    StreamlitEntity,
-    ProcedureEntity,
-    FunctionEntity,
-]
-EntityModel = Union[
-    ApplicationEntityModel,
-    ApplicationPackageEntityModel,
-    StreamlitEntityModel,
-    FunctionEntityModel,
-    ProcedureEntityModel,
-]
+def _get_subclasses(cls):
+    for subclass in cls.__subclasses__():
+        yield subclass
+        yield from _get_subclasses(subclass)
 
-ALL_ENTITIES: List[Entity] = [*get_args(Entity)]
-ALL_ENTITY_MODELS: List[EntityModel] = [*get_args(EntityModel)]
 
-v2_entity_model_types_map = {e.get_type(): e for e in ALL_ENTITY_MODELS}
-v2_entity_model_to_entity_map: Dict[EntityModel, Entity] = {
-    e.get_entity_model_type(): e for e in ALL_ENTITIES
-}
+def get_v2_entity_model_types_map():
+    return {e.get_type(): e for e in _get_subclasses(EntityModelBase)}

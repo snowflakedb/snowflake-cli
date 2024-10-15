@@ -110,6 +110,19 @@ class EntityModelBase(ABC, UpdatableModel):
         if self.entity_id:
             return FQN.from_string(self.entity_id)
 
+    @classmethod
+    def get_entity_type(cls) -> type:
+        if cls is EntityModelBase:
+            raise NotImplementedError
+        # Set by EntityBaseMetaclass when creating the
+        # Entity class that refers to this model
+        entity_class = getattr(cls, "_entity_class", None)
+        if entity_class is None:
+            raise ValueError(
+                f"Entity model class {cls} is not associated with an entity class"
+            )
+        return entity_class
+
 
 TargetType = TypeVar("TargetType")
 
@@ -119,7 +132,7 @@ class TargetField(UpdatableModel, Generic[TargetType]):
         title="Reference to a target entity",
     )
 
-    def get_type(self) -> type:
+    def get_type(self) -> type[TargetType]:
         """
         Returns the generic type of this class, indicating the entity type.
         Pydantic extracts Generic annotations, and populates

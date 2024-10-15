@@ -4,13 +4,13 @@ from typing import Dict
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.common import EntityActions, get_sql_executor
+from snowflake.cli.api.entities.common import (
+    EntityActions,
+    EntityBase,
+    get_sql_executor,
+)
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.definition import default_role
-from snowflake.cli.api.project.schemas.entities.entities import (
-    Entity,
-    v2_entity_model_to_entity_map,
-)
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV20,
     ProjectDefinition,
@@ -28,7 +28,7 @@ class WorkspaceManager:
             raise InvalidProjectDefinitionVersionError(
                 "2.x", project_definition.definition_version
             )
-        self._entities_cache: Dict[str, Entity] = {}
+        self._entities_cache: Dict[str, EntityBase] = {}
         self._project_definition: DefinitionV20 = project_definition
         self._project_root = project_root
 
@@ -41,8 +41,7 @@ class WorkspaceManager:
         entity_model = self._project_definition.entities.get(entity_id, None)
         if entity_model is None:
             raise ValueError(f"No such entity ID: {entity_id}")
-        entity_model_cls = entity_model.__class__
-        entity_cls = v2_entity_model_to_entity_map[entity_model_cls]
+        entity_cls = entity_model.get_entity_class()
         workspace_ctx = WorkspaceContext(
             console=cc,
             project_root=self.project_root,

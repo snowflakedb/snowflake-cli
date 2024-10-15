@@ -22,11 +22,11 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import (
+    EntityModelBase,
     TargetField,
 )
 from snowflake.cli.api.project.schemas.entities.entities import (
-    EntityModel,
-    v2_entity_model_types_map,
+    get_v2_entity_model_types_map,
 )
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.project.schemas.v1.native_app.native_app import (
@@ -38,7 +38,7 @@ from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
 from snowflake.cli.api.utils.types import Context
 from typing_extensions import Annotated
 
-AnnotatedEntity = Annotated[EntityModel, Field(discriminator="type")]
+AnnotatedEntity = Annotated[EntityModelBase, Field(discriminator="type")]
 scalar = str | int | float | bool
 
 
@@ -150,7 +150,7 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     @classmethod
     def _validate_single_entity(
-        cls, entity: EntityModel, entities: Dict[str, AnnotatedEntity]
+        cls, entity: EntityModelBase, entities: Dict[str, AnnotatedEntity]
     ):
         if entity.type == ApplicationEntityModel.get_type():
             if isinstance(entity.from_, TargetField):
@@ -161,7 +161,10 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     @classmethod
     def _validate_target_field(
-        cls, target_key: str, target_type: EntityModel, entities: Dict[str, EntityModel]
+        cls,
+        target_key: str,
+        target_type: type[EntityModelBase],
+        entities: Dict[str, EntityModelBase],
     ):
         if target_key not in entities:
             raise ValueError(f"No such target: {target_key}")
@@ -315,10 +318,10 @@ def get_allowed_fields_for_entity(entity: Dict[str, Any]) -> List[str]:
     if entity_type is None:
         raise ValueError("Entity is missing type declaration.")
 
-    if entity_type not in v2_entity_model_types_map:
+    if entity_type not in get_v2_entity_model_types_map:
         return []
 
-    entity_model = v2_entity_model_types_map[entity_type]
+    entity_model = get_v2_entity_model_types_map()[entity_type]
     return entity_model.model_fields
 
 
