@@ -455,13 +455,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 print_diff=print_diff,
             )
 
-        cls.execute_post_deploy_hooks(
-            console=console,
-            project_root=project_root,
-            post_deploy_hooks=post_deploy_hooks,
-            package_name=package_name,
-            package_warehouse=package_warehouse,
-        )
+            cls.execute_post_deploy_hooks(
+                console=console,
+                project_root=project_root,
+                post_deploy_hooks=post_deploy_hooks,
+                package_name=package_name,
+                package_warehouse=package_warehouse,
+            )
 
         if validate:
             cls.validate_setup_script(
@@ -1003,9 +1003,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         raise ProgrammingError(
             msg=dedent(
                 f"""\
-                        Could not find the 'distribution' attribute for application package {package_name} in the output of SQL query:
-                        'describe application package {package_name}'
-                        """
+                Could not find the 'distribution' attribute for application package {package_name} in the output of SQL query: 'describe application package {package_name}'
+                """
             )
         )
 
