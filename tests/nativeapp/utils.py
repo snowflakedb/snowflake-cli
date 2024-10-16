@@ -27,7 +27,6 @@ from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
 from tests.nativeapp.factories import ProjectV10Factory
 
 NATIVEAPP_MODULE = "snowflake.cli._plugins.nativeapp.manager"
-TEARDOWN_MODULE = "snowflake.cli._plugins.nativeapp.teardown_processor"
 TYPER_CONFIRM = "typer.confirm"
 TYPER_PROMPT = "typer.prompt"
 RUN_MODULE = "snowflake.cli._plugins.nativeapp.run_processor"
@@ -42,7 +41,6 @@ CLI_GLOBAL_TEMPLATE_CONTEXT = (
     "snowflake.cli.api.cli_global_context._CliGlobalContextAccess.template_context"
 )
 
-TEARDOWN_PROCESSOR = f"{TEARDOWN_MODULE}.NativeAppTeardownProcessor"
 NATIVEAPP_MANAGER = f"{NATIVEAPP_MODULE}.NativeAppManager"
 RUN_PROCESSOR = f"{RUN_MODULE}.NativeAppRunProcessor"
 
@@ -61,11 +59,6 @@ NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION = (
 NATIVEAPP_MANAGER_BUILD_BUNDLE = f"{NATIVEAPP_MANAGER}.build_bundle"
 NATIVEAPP_MANAGER_DEPLOY = f"{NATIVEAPP_MANAGER}.deploy"
 NATIVEAPP_MANAGER_VALIDATE = f"{NATIVEAPP_MANAGER}.validate"
-
-TEARDOWN_PROCESSOR_GET_EXISTING_APP_INFO = f"{TEARDOWN_PROCESSOR}.get_existing_app_info"
-TEARDOWN_PROCESSOR_GET_EXISTING_APP_PKG_INFO = (
-    f"{TEARDOWN_PROCESSOR}.get_existing_app_pkg_info"
-)
 
 RUN_PROCESSOR_GET_EXISTING_APP_INFO = f"{RUN_PROCESSOR}.get_existing_app_info"
 RUN_PROCESSOR_APP_POST_DEPLOY_HOOKS = f"{RUN_PROCESSOR}.app_post_deploy_hooks"

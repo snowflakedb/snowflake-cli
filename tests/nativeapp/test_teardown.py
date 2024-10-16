@@ -22,12 +22,19 @@ from snowflake.cli._plugins.nativeapp.constants import (
     SPECIAL_COMMENT,
     SPECIAL_COMMENT_OLD,
 )
+from snowflake.cli._plugins.nativeapp.entities.application import (
+    ApplicationEntity,
+    ApplicationEntityModel,
+)
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntity,
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli._plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
 )
-from snowflake.cli._plugins.nativeapp.teardown_processor import (
-    NativeAppTeardownProcessor,
-)
+from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.utils import drop_generic_object
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
@@ -49,22 +56,56 @@ from tests.nativeapp.utils import (
     APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
     SQL_EXECUTOR_EXECUTE,
-    TEARDOWN_MODULE,
     TYPER_CONFIRM,
     TYPER_PROMPT,
     mock_execute_helper,
-    mock_snowflake_yml_file,
-    quoted_override_yml_file,
+    mock_snowflake_yml_file_v2,
+    quoted_override_yml_file_v2,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
 
 
-def _get_na_teardown_processor():
+def _drop_application(
+    auto_yes: bool,
+    interactive: bool = False,
+    cascade: bool | None = None,
+    console: AbstractConsole | None = None,
+):
     dm = DefinitionManager()
-    return NativeAppTeardownProcessor(
-        project_definition=dm.project_definition.native_app,
-        project_root=dm.project_root,
+    pd = dm.project_definition
+    app_model: ApplicationEntityModel = pd.entities["myapp"]
+    return ApplicationEntity.drop(
+        console=console or cc,
+        app_name=app_model.fqn.name,
+        app_role=app_model.meta.role,
+        auto_yes=auto_yes,
+        interactive=interactive,
+        cascade=cascade,
     )
+
+
+def _drop_package(auto_yes: bool, console: AbstractConsole | None = None):
+    dm = DefinitionManager()
+    pd = dm.project_definition
+    pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
+    return ApplicationPackageEntity.drop(
+        console=console or cc,
+        package_name=pkg_model.fqn.name,
+        package_role=pkg_model.meta.role,
+        force_drop=auto_yes,
+    )
+
+
+def _teardown(
+    console: AbstractConsole,
+    interactive: bool,
+    force_drop: bool = False,
+    cascade: bool | None = None,
+):
+    _drop_application(
+        auto_yes=force_drop, interactive=interactive, cascade=cascade, console=console
+    )
+    _drop_package(console=console, auto_yes=force_drop)
 
 
 # Test drop_generic_object() with success
@@ -87,11 +128,11 @@ def test_drop_generic_object_success(mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     drop_generic_object(
-        console=mock.Mock(),
+        console=mock.MagicMock(),
         object_type="application",
         object_name="myapp",
         role="app_role",
@@ -129,12 +170,12 @@ def test_drop_generic_object_failure_w_exception(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
     with pytest.raises(SnowflakeSQLExecutionError):
         drop_generic_object(
-            console=mock.Mock(),
+            console=mock.MagicMock(),
             object_type="application package",
             object_name="app_pkg",
             role="package_role",
@@ -144,25 +185,24 @@ def test_drop_generic_object_failure_w_exception(
 
 # Test drop_application() when no application exists
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(f"{TEARDOWN_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "auto_yes_param",
     [True, False],  # This should have no effect on the test
 )
 def test_drop_application_no_existing_application(
-    mock_warning, mock_get_existing_app_info, auto_yes_param, temp_dir
+    mock_get_existing_app_info, auto_yes_param, temp_dir
 ):
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_application(auto_yes_param)
+    mock_console = mock.MagicMock()
+    _drop_application(auto_yes_param, console=mock_console)
     mock_get_existing_app_info.assert_called_once()
-    mock_warning.assert_called_once_with(
+    mock_console.warning.assert_called_once_with(
         "Role app_role does not own any application object with the name myapp, or the application object does not exist."
     )
 
@@ -198,12 +238,11 @@ def test_drop_application_current_role_is_not_owner(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
     with pytest.raises(ProgrammingError):
-        teardown_processor.drop_application(auto_yes_param)
+        _drop_application(auto_yes_param)
     mock_get_existing_app_info.assert_called_once()
 
 
@@ -238,11 +277,10 @@ def test_drop_application_has_special_comment(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_application(auto_yes_param)
+    _drop_application(auto_yes_param)
     mock_get_existing_app_info.assert_called_once()
     mock_drop_generic_object.assert_called_once()
 
@@ -308,16 +346,15 @@ def test_drop_application_has_special_comment_and_quoted_name(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
     create_named_file(
         file_name="snowflake.local.yml",
         dir_name=current_working_directory,
-        contents=[quoted_override_yml_file],
+        contents=[quoted_override_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_application(auto_yes_param)
+    _drop_application(auto_yes_param)
     assert mock_execute.mock_calls == expected
 
 
@@ -325,9 +362,7 @@ def test_drop_application_has_special_comment_and_quoted_name(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(APP_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
 @mock.patch(f"{APP_ENTITY_MODULE}.{TYPER_CONFIRM}", return_value=False)
-@mock.patch(f"{TEARDOWN_MODULE}.cc.message")
 def test_drop_application_user_prohibits_drop(
-    mock_message,
     mock_confirm,
     mock_drop_generic_object,
     mock_get_existing_app_info,
@@ -347,15 +382,17 @@ def test_drop_application_user_prohibits_drop(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
+    mock_console = mock.MagicMock()
     with pytest.raises(typer.Abort):
-        teardown_processor.drop_application(auto_yes=False)
+        _drop_application(auto_yes=False, console=mock_console)
     mock_get_existing_app_info.assert_called_once()
     mock_drop_generic_object.assert_not_called()
-    mock_message.assert_called_once_with("Did not drop application object myapp.")
+    mock_console.message.assert_called_once_with(
+        "Did not drop application object myapp."
+    )
 
 
 # Test drop_application() without special comment AND auto_yes is False AND should_drop is True
@@ -391,11 +428,10 @@ def test_drop_application_user_allows_drop(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_application(auto_yes_param)
+    _drop_application(auto_yes_param)
     mock_get_existing_app_info.assert_called_once()
     mock_drop_generic_object.assert_called_once()
 
@@ -426,13 +462,12 @@ def test_drop_application_idempotent(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_application(auto_yes_param)
-    teardown_processor.drop_application(auto_yes_param)
-    teardown_processor.drop_application(auto_yes_param)
+    _drop_application(auto_yes_param)
+    _drop_application(auto_yes_param)
+    _drop_application(auto_yes_param)
 
     assert mock_get_existing_app_info.call_count == 3
     mock_drop_generic_object.assert_called_once()
@@ -443,26 +478,25 @@ def test_drop_application_idempotent(
     APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     return_value=None,
 )
-@mock.patch(f"{TEARDOWN_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "auto_yes_param",
     [True, False],  # This should have no effect on the test
 )
 def test_drop_package_no_existing_application(
-    mock_warning, mock_get_existing_app_pkg_info, auto_yes_param, temp_dir
+    mock_get_existing_app_pkg_info, auto_yes_param, temp_dir
 ):
 
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_package(auto_yes_param)
+    mock_console = mock.MagicMock()
+    _drop_package(auto_yes_param, mock_console)
     mock_get_existing_app_pkg_info.assert_called_once()
-    mock_warning.assert_called_once_with(
+    mock_console.warning.assert_called_once_with(
         "Role package_role does not own any application package with the name app_pkg, or the application package does not exist."
     )
 
@@ -520,12 +554,11 @@ def test_drop_package_current_role_is_not_owner(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
     with pytest.raises(ProgrammingError):
-        teardown_processor.drop_package(auto_yes_param)
+        _drop_package(auto_yes_param)
     mock_get_existing_app_pkg_info.assert_called_once()
 
 
@@ -563,12 +596,11 @@ def test_show_versions_failure_w_exception(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
     with pytest.raises(CouldNotDropApplicationPackageWithVersions):
-        teardown_processor.drop_package(auto_yes=False)
+        _drop_package(auto_yes=False)
     mock_get_existing_app_pkg_info.assert_called_once()
 
 
@@ -618,11 +650,10 @@ def test_drop_package_no_mismatch_no_drop(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_package(auto_yes=False)
+    _drop_package(auto_yes=False)
     assert mock_execute.mock_calls == expected
 
 
@@ -632,7 +663,6 @@ def test_drop_package_no_mismatch_no_drop(
 # Test drop_package when there is distribution mismatch AND distribution = external AND auto_yes is True
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(f"{TEARDOWN_MODULE}.cc.warning")
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
 @mock.patch(f"{APP_ENTITY_MODULE}.{TYPER_CONFIRM}", return_value=True)
@@ -646,7 +676,6 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
     mock_confirm,
     mock_is_distribution_same,
     mock_get_distribution,
-    mock_warning,
     mock_execute,
     mock_get_existing_app_pkg_info,
     auto_yes_param,
@@ -686,18 +715,18 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_package(auto_yes_param)
+    mock_console = mock.MagicMock()
+    _drop_package(auto_yes_param, mock_console)
     assert mock_execute.mock_calls == expected
     if not is_pkg_distribution_same:
-        mock_warning.assert_any_call(
+        mock_console.warning.assert_any_call(
             "Dropping application package app_pkg with distribution 'external'."
         )
     if not auto_yes_param:
-        mock_warning.assert_any_call(
+        mock_console.warning.assert_any_call(
             "Application package app_pkg in your Snowflake account has distribution property 'external' and could be associated with one or more of your listings on Snowflake Marketplace."
         )
     mock_drop_generic_object.assert_called_once()
@@ -710,13 +739,11 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
 @mock.patch(APP_PACKAGE_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
-@mock.patch(f"{TEARDOWN_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "auto_yes_param, is_pkg_distribution_same",  # auto_yes_param should have no effect on the test
     [(True, True), (True, False), (False, True), (False, False)],
 )
 def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
-    mock_warning,
     mock_drop_generic_object,
     mock_is_distribution_same,
     mock_get_distribution,
@@ -760,15 +787,15 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_package(auto_yes_param)
+    mock_console = mock.MagicMock()
+    _drop_package(auto_yes_param, mock_console)
     assert mock_execute.mock_calls == expected
     mock_drop_generic_object.assert_called_once()
     if not is_pkg_distribution_same:
-        mock_warning.assert_any_call(
+        mock_console.warning.assert_any_call(
             "Dropping application package app_pkg with distribution 'internal'."
         )
 
@@ -850,16 +877,15 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
     create_named_file(
         file_name="snowflake.local.yml",
         dir_name=current_working_directory,
-        contents=[quoted_override_yml_file],
+        contents=[quoted_override_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_package(auto_yes_param)
+    _drop_package(auto_yes_param)
     assert mock_execute.mock_calls == expected
 
 
@@ -870,10 +896,8 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
 @mock.patch(f"{APP_ENTITY_MODULE}.{TYPER_CONFIRM}", return_value=False)
-@mock.patch(f"{TEARDOWN_MODULE}.cc.warning")
 @pytest.mark.parametrize("is_pkg_distribution_same", [True, False])
 def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
-    mock_warning,
     mock_confirm,
     mock_is_distribution_same,
     mock_get_distribution,
@@ -916,14 +940,14 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_package(auto_yes=False)
+    mock_console = mock.MagicMock()
+    _drop_package(auto_yes=False, console=mock_console)
     assert mock_execute.mock_calls == expected
     if not is_pkg_distribution_same:
-        mock_warning.assert_any_call(
+        mock_console.warning.assert_any_call(
             "Dropping application package app_pkg with distribution 'internal'."
         )
 
@@ -987,11 +1011,10 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_allows_drop(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_package(auto_yes_param)
+    _drop_package(auto_yes_param)
     assert mock_execute.mock_calls == expected
     mock_drop_generic_object.assert_called_once()
 
@@ -1049,13 +1072,12 @@ def test_drop_package_idempotent(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    teardown_processor = _get_na_teardown_processor()
-    teardown_processor.drop_package(auto_yes_param)
-    teardown_processor.drop_package(auto_yes_param)
-    teardown_processor.drop_package(auto_yes_param)
+    _drop_package(auto_yes_param)
+    _drop_package(auto_yes_param)
+    _drop_package(auto_yes_param)
 
     assert mock_get_existing_app_pkg_info.call_count == 3
     mock_drop_generic_object.assert_called_once()
@@ -1116,17 +1138,16 @@ def test_drop_application_cascade(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
     interactive = interactive_response is not None
     mock_typer_prompt.return_value = interactive_response
 
-    teardown_processor = _get_na_teardown_processor()
     if expected_cascade is None:
         with pytest.raises(Abort):
-            teardown_processor.drop_application(False, interactive, cascade)
+            _drop_application(False, interactive, cascade)
     else:
-        teardown_processor.drop_application(False, interactive, cascade)
+        _drop_application(False, interactive, cascade)
         mock_drop_generic_object.assert_called_once_with(
             console=mock.ANY,
             object_type="application",
