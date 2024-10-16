@@ -39,6 +39,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
     DenyAlwaysPolicy,
     PolicyBase,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
@@ -428,16 +429,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             console.warning(e.message)
             if not policy.should_proceed("Proceed with using this package?"):
                 raise typer.Abort() from e
-        with get_sql_executor().use_role(package_role):
-            cls.apply_package_scripts(
-                console=console,
-                package_scripts=package_scripts,
-                package_warehouse=package_warehouse,
-                project_root=project_root,
-                package_role=package_role,
-                package_name=package_name,
-            )
 
+        cls.apply_package_scripts(
+            console=console,
+            package_scripts=package_scripts,
+            package_warehouse=package_warehouse,
+            project_root=project_root,
+            package_role=package_role,
+            package_name=package_name,
+        )
+        with get_sql_executor().use_role(package_role):
             # 3. Upload files from deploy root local folder to the above stage
             stage_schema = extract_schema(stage_fqn)
             diff = sync_deploy_root_with_stage(
@@ -454,13 +455,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 print_diff=print_diff,
             )
 
-            cls.execute_post_deploy_hooks(
-                console=console,
-                project_root=project_root,
-                post_deploy_hooks=post_deploy_hooks,
-                package_name=package_name,
-                package_warehouse=package_warehouse,
-            )
+        cls.execute_post_deploy_hooks(
+            console=console,
+            project_root=project_root,
+            post_deploy_hooks=post_deploy_hooks,
+            package_name=package_name,
+            package_warehouse=package_warehouse,
+        )
 
         if validate:
             cls.validate_setup_script(
@@ -1002,9 +1003,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         raise ProgrammingError(
             msg=dedent(
                 f"""\
-                Could not find the 'distribution' attribute for application package {package_name} in the output of SQL query:
-                'describe application package {package_name}'
-                """
+                        Could not find the 'distribution' attribute for application package {package_name} in the output of SQL query:
+                        'describe application package {package_name}'
+                        """
             )
         )
 
@@ -1095,17 +1096,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
         # once we're sure all the templates expanded correctly, execute all of them
-        with cls.use_package_warehouse(
-            package_warehouse=package_warehouse,
-        ):
-            try:
-                for i, queries in enumerate(queued_queries):
-                    console.step(f"Applying package script: {package_scripts[i]}")
-                    get_sql_executor().execute_queries(queries)
-            except ProgrammingError as err:
-                generic_sql_error_handler(
-                    err, role=package_role, warehouse=package_warehouse
-                )
+        for i, queries in enumerate(queued_queries):
+            script_name = package_scripts[i]
+            console.step(f"Applying package script: {script_name}")
+            get_snowflake_facade().execute_user_script(
+                queries, script_name, package_role, package_warehouse
+            )
 
     @classmethod
     def create_app_package(
@@ -1119,7 +1115,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         Creates the application package with our up-to-date stage if none exists.
         """
 
-        # 1. Check for existing existing application package
+        # 1. Check for existing application package
         show_obj_row = cls.get_existing_app_pkg_info(
             package_name=package_name,
             package_role=package_role,
