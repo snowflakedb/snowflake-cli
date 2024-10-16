@@ -18,7 +18,10 @@ from unittest import mock
 
 import pytest
 from pydantic import ValidationError
-from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
+from snowflake.cli._plugins.nativeapp.entities.application import (
+    ApplicationEntity,
+    ApplicationEntityModel,
+)
 from snowflake.cli._plugins.nativeapp.exceptions import MissingScriptError
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.utils import execute_post_deploy_hooks
@@ -91,18 +94,20 @@ def test_sql_scripts(
     dm = DefinitionManager()
     mock_cli_ctx.return_value = dm.template_context
     app_model: ApplicationEntityModel = dm.project_definition.entities["app"]
-    execute_post_deploy_hooks(
+    ApplicationEntity.execute_post_deploy_hooks(
         console=cc,
         project_root=dm.project_root,
         post_deploy_hooks=app_model.meta.post_deploy,
-        deployed_object_type="application",
-        database_name=app_model.fqn.name,
+        app_name=app_model.fqn.name,
+        app_warehouse=app_model.meta.warehouse or "MockWarehouse",
     )
 
-    assert mock_execute_query.mock_calls == [
-        mock.call("use database myapp"),
-        mock.call("use database myapp"),
-    ]
+    mock_execute_query.assert_has_calls(
+        [
+            mock.call(f"use database {app_model.fqn.name}"),
+            mock.call(f"use database {app_model.fqn.name}"),
+        ]
+    )
     assert mock_execute_queries.mock_calls == [
         mock.call(post_deploy_1),
         mock.call(post_deploy_2),
@@ -133,6 +138,8 @@ def test_sql_scripts_with_no_warehouse_no_database(
         app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
         mock_cli_ctx.return_value = dm.template_context
 
+        # Directly testing the function without the use_warehouse
+        # that ApplicationEntity.execute_post_deploy_hooks adds
         execute_post_deploy_hooks(
             console=cc,
             project_root=dm.project_root,
@@ -162,8 +169,10 @@ def test_sql_scripts_with_no_warehouse_no_database(
         ]
 
 
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 def test_missing_sql_script(
+    mock_execute_query,
     mock_conn,
     project_directory,
 ):
@@ -173,20 +182,22 @@ def test_missing_sql_script(
         app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
 
         with pytest.raises(MissingScriptError) as err:
-            execute_post_deploy_hooks(
+            ApplicationEntity.execute_post_deploy_hooks(
                 console=cc,
                 project_root=dm.project_root,
                 post_deploy_hooks=app_model.meta.post_deploy,
-                deployed_object_type="application",
-                database_name=app_model.fqn.name,
+                app_name=app_model.fqn.name,
+                app_warehouse=app_model.meta.warehouse or "MockWarehouse",
             )
 
         assert err.value.message == 'Script "scripts/missing.sql" does not exist'
 
 
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 def test_invalid_hook_type(
     mock_conn,
+    mock_execute_query,
     project_directory,
 ):
     mock_hook = mock.Mock()
@@ -198,12 +209,12 @@ def test_invalid_hook_type(
         app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
 
         with pytest.raises(ValueError) as err:
-            execute_post_deploy_hooks(
+            ApplicationEntity.execute_post_deploy_hooks(
                 console=cc,
                 project_root=dm.project_root,
                 post_deploy_hooks=[mock_hook],
-                deployed_object_type="application",
-                database_name=app_model.fqn.name,
+                app_name=app_model.fqn.name,
+                app_warehouse=app_model.meta.warehouse or "MockWarehouse",
             )
         assert "Unsupported application post-deploy hook type" in str(err)
 
@@ -259,18 +270,20 @@ def test_app_post_deploy_with_template(
         dm = DefinitionManager()
         app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
 
-        execute_post_deploy_hooks(
+        ApplicationEntity.execute_post_deploy_hooks(
             console=cc,
             project_root=dm.project_root,
             post_deploy_hooks=app_model.meta.post_deploy,
-            deployed_object_type="application",
-            database_name=app_model.fqn.name,
+            app_name=app_model.fqn.name,
+            app_warehouse=app_model.meta.warehouse or "MockWarehouse",
         )
 
-        assert mock_execute_query.mock_calls == [
-            mock.call("use database myapp"),
-            mock.call("use database myapp"),
-        ]
+        mock_execute_query.assert_has_calls(
+            [
+                mock.call(f"use database {app_model.fqn.name}"),
+                mock.call(f"use database {app_model.fqn.name}"),
+            ]
+        )
         assert mock_execute_queries.mock_calls == [
             # Verify template variables were expanded correctly
             mock.call(
@@ -318,12 +331,12 @@ def test_app_post_deploy_with_mixed_syntax_template(
         app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
 
         with pytest.raises(InvalidTemplate) as err:
-            execute_post_deploy_hooks(
+            ApplicationEntity.execute_post_deploy_hooks(
                 console=cc,
                 project_root=dm.project_root,
                 post_deploy_hooks=app_model.meta.post_deploy,
-                deployed_object_type="application",
-                database_name=app_model.fqn.name,
+                app_name=app_model.fqn.name,
+                app_warehouse=app_model.meta.warehouse or "MockWarehouse",
             )
 
         assert (

@@ -153,7 +153,7 @@ class PdfFactoryResult:
 
 class PdfFactory(factory.DictFactory):
     """
-    Prepare PDF V1 dict and write to file.
+    Prepare PDF dict and write to file.
 
     Returns:
         PdfFactoryResult
@@ -161,13 +161,13 @@ class PdfFactory(factory.DictFactory):
     Usage:
         Create a pdf dict with definition_version: "1", native_app with faker-generated name and an empty artifacts list and
           write to snowflake.yml in current directory:
-        - PdfV10Factory()
+        - PdfFactory()
 
         Create snowflake.local.yml and write to file
-        - PdfV10Factory.with_filename("snowflake.local.yml")(native_app__name="my_local_name")
+        - PdfFactory.with_filename("snowflake.local.yml")(native_app__name="my_local_name")
 
         Build and return yml but do not write to file:
-        - PdfV10Factory.build(
+        - PdfFactory.build(
             native_app__name="my_app",
             native_app__artifacts=["setup.sql", "README.md"],
             native_app__package__role="pkg_role"
