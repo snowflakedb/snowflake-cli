@@ -1,0 +1,24 @@
+definition_version: '2'
+entities:
+  myapp_pkg_polly:
+    type: application package
+    artifacts:
+    - src: setup.sql
+    - src: app/README.md
+    - src: app/manifest.yml
+    - src: app/streamlit/*.py
+      dest: ui/
+    stage: '"MySourceSchema"."SRC_Stage"'
+    manifest: app/manifest.yml
+    meta:
+      role: accountadmin
+      post_deploy:
+      - sql_script: 001-shared.sql
+      - sql_script: 002-shared.sql
+  myapp_polly:
+    type: application
+    debug: true
+    from:
+      target: myapp_pkg_polly
+    meta:
+      role: myapp_consumer

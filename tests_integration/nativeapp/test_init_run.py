@@ -178,9 +178,7 @@ def test_nativeapp_run_existing(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app run", "napp_init_v1"],
         ["app run", "napp_init_v2"],
-        ["ws deploy --entity-id=app", "napp_init_v2"],
     ],
 )
 def test_nativeapp_init_run_handles_spaces(
@@ -222,9 +220,7 @@ def test_nativeapp_init_run_handles_spaces(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app run", "integration_external"],
         ["app run", "integration_external_v2"],
-        ["ws deploy --entity-id=app", "integration_external_v2"],
     ],
 )
 def test_nativeapp_run_existing_w_external(
@@ -293,9 +289,7 @@ def test_nativeapp_run_existing_w_external(
 @pytest.mark.parametrize(
     "base_command,test_project",
     [
-        ["app", "napp_init_v1"],
         ["app", "napp_init_v2"],
-        ["ws", "napp_init_v2"],
     ],
 )
 def test_nativeapp_run_after_deploy(
@@ -349,9 +343,7 @@ def test_nativeapp_run_after_deploy(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app run", "integration_external"],
         ["app run", "integration_external_v2"],
-        ["ws deploy --entity-id=app", "integration_external_v2"],
     ],
 )
 @pytest.mark.parametrize("force_flag", [True, False])
@@ -447,7 +439,7 @@ def test_nativeapp_run_orphan(
 # run configurations as long as we pass the --force flag to "app run"
 # TODO: add back all parameterizations and implement --force for "app teardown"
 @pytest.mark.integration
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize("test_project", ["napp_init_v2"])
 @pytest.mark.parametrize(
     "run_args_from, run_args_to",
     [

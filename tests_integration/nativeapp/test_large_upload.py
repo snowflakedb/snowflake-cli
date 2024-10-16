@@ -14,9 +14,11 @@
 
 import os
 
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli._plugins.nativeapp.manager import NativeAppManager
 from snowflake.cli._plugins.stage.md5 import parse_multipart_md5sum
 
 from tests.project.fixtures import *
@@ -30,9 +32,7 @@ TEMP_FILE_SIZE_BYTES = 200 * 1024 * 1024
     reason="Requires AWS + python connector to support threshold=<number>"
 )
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "project_definition_files", ["integration", "integration_v2"], indirect=True
-)
+@pytest.mark.parametrize("project_definition_files", ["integration_v2"], indirect=True)
 def test_large_upload_skips_reupload(
     runner,
     snowflake_session,
@@ -42,20 +42,12 @@ def test_large_upload_skips_reupload(
     Ensure that files uploaded in multiple parts are not re-uploaded unnecessarily.
     This test will currently fail when run on a non-AWS deployment.
     """
-    from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
-        _pdf_v2_to_v1,
-    )
-
     project_dir = project_definition_files[0].parent
     with pushd(project_dir):
         # figure out what the source stage is resolved to
         dm = DefinitionManager(project_dir)
-        native_app = (
-            dm.project_definition.native_app
-            if hasattr(dm.project_definition, "native_app")
-            else _pdf_v2_to_v1(dm.project_definition).native_app
-        )
-        stage_fqn = NativeAppManager(native_app, project_dir).stage_fqn
+        pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["pkg"]
+        stage_fqn = f"{pkg_model.fqn.name}.{pkg_model.stage}"
 
         # deploy the application package
         result = runner.invoke_with_connection_json(["app", "deploy"])

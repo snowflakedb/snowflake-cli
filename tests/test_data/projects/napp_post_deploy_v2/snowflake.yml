@@ -1,0 +1,25 @@
+definition_version: 2
+entities:
+  myapp_pkg:
+    type: application package
+    identifier: <% fn.concat_ids('myapp', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>
+    artifacts:
+      - src: app/*
+        dest: ./
+    manifest: app/manifest.yml
+    meta:
+      post_deploy:
+        - sql_script: scripts/package_post_deploy1.sql
+        - sql_script: scripts/package_post_deploy2.sql
+  myapp:
+    type: application
+    identifier: myapp
+    from:
+      target: myapp_pkg
+    meta:
+      post_deploy:
+        - sql_script: scripts/app_post_deploy1.sql
+        - sql_script: scripts/app_post_deploy2.sql
+env:
+  foo: bar
+  package_foo: package_bar

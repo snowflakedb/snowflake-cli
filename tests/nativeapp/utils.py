@@ -132,6 +132,35 @@ mock_snowflake_yml_file = dedent(
     """
 )
 
+mock_snowflake_yml_file_v2 = dedent(
+    """\
+        definition_version: 2
+        entities:
+            app_pkg:
+                type: application package
+                stage: app_src.stage
+                manifest: app/manifest.yml
+                artifacts:
+                    - setup.sql
+                    - app/README.md
+                    - src: app/streamlit/*.py
+                      dest: ui/
+                meta:
+                    role: package_role
+                    warehouse: pkg_warehouse
+                    post_deploy:
+                        - sql_script: shared_content.sql
+            myapp:
+                type: application
+                debug: true
+                from:
+                    target: app_pkg
+                meta:
+                    role: app_role
+                    warehouse: app_warehouse
+    """
+)
+
 quoted_override_yml_file = dedent(
     """\
         native_app:
@@ -140,6 +169,18 @@ quoted_override_yml_file = dedent(
                     "My Application"
             package:
                 name: >-
+                    "My Package"
+    """
+)
+
+quoted_override_yml_file_v2 = dedent(
+    """\
+        entities:
+            myapp:
+                identifier: >-
+                    "My Application"
+            app_pkg:
+                identifier: >-
                     "My Package"
     """
 )

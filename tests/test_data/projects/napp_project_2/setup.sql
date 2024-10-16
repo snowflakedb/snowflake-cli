@@ -1,0 +1,1 @@
+create versioned schema myschema;

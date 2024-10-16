@@ -289,7 +289,7 @@ def test_show_specific_object_multiple_rows(mock_execute_query):
     mock_execute_query.return_value = cursor
     with pytest.raises(ShowSpecificObjectMultipleRowsError) as err:
         SqlExecutionMixin().show_specific_object("objects", "name", name_col="id")
-    assert "Received multiple rows" in err.value.message
+    assert err.match("Received multiple rows")
     mock_execute_query.assert_called_once_with(
         r"show objects like 'NAME'", cursor_class=DictCursor
     )

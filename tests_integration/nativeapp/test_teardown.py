@@ -174,9 +174,7 @@ def test_nativeapp_teardown_cascade(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app teardown", "napp_init_v1"],
         ["app teardown", "napp_init_v2"],
-        ["ws drop --entity-id=app", "napp_init_v2"],
     ],
 )
 def test_nativeapp_teardown_unowned_app(
@@ -212,9 +210,7 @@ def test_nativeapp_teardown_unowned_app(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app teardown", "napp_init_v1"],
         ["app teardown", "napp_init_v2"],
-        ["ws drop --entity-id=pkg", "napp_init_v2"],
     ],
 )
 def test_nativeapp_teardown_pkg_versions(

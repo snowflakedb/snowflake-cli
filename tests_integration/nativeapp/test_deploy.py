@@ -115,12 +115,6 @@ def test_nativeapp_deploy(
             "app deploy --prune --no-validate",
             ["stage/manifest.yml"],
             ["stage/README.md"],
-            "napp_init_v1",
-        ],
-        [
-            "app deploy --prune --no-validate",
-            ["stage/manifest.yml"],
-            ["stage/README.md"],
             "napp_init_v2",
         ],
         [
@@ -134,12 +128,6 @@ def test_nativeapp_deploy(
             "app deploy --no-validate",
             ["stage/manifest.yml"],
             ["stage/README.md"],
-            "napp_init_v1",
-        ],
-        [
-            "app deploy --no-validate",
-            ["stage/manifest.yml"],
-            ["stage/README.md"],
             "napp_init_v2",
         ],
         [
@@ -149,12 +137,6 @@ def test_nativeapp_deploy(
             "napp_init_v2",
         ],
         # deploy --no-prune does not delete remote-only files
-        [
-            "app deploy --no-prune",
-            ["stage/README.md"],
-            [],
-            "napp_init_v1",
-        ],
         [
             "app deploy --no-prune",
             ["stage/README.md"],
@@ -212,9 +194,7 @@ def test_nativeapp_deploy_prune(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app deploy --no-validate", "napp_init_v1"],
         ["app deploy --no-validate", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg --no-validate", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_files(
@@ -257,9 +237,7 @@ def test_nativeapp_deploy_files(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app deploy --no-validate", "napp_init_v1"],
         ["app deploy --no-validate", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg --no-validate", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_nested_directories(
@@ -299,9 +277,7 @@ def test_nativeapp_deploy_nested_directories(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app deploy --no-validate", "napp_init_v1"],
         ["app deploy --no-validate", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg --no-validate", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_directory(
@@ -339,9 +315,7 @@ def test_nativeapp_deploy_directory(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app deploy --no-validate", "napp_init_v1"],
         ["app deploy --no-validate", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg --no-validate", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_directory_no_recursive(
@@ -361,9 +335,7 @@ def test_nativeapp_deploy_directory_no_recursive(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app deploy --no-validate", "napp_init_v1"],
         ["app deploy --no-validate", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg --no-validate", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_unknown_path(
@@ -383,9 +355,7 @@ def test_nativeapp_deploy_unknown_path(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app deploy --no-validate", "napp_init_v1"],
         ["app deploy --no-validate", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg --no-validate", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_path_with_no_mapping(
@@ -405,9 +375,7 @@ def test_nativeapp_deploy_path_with_no_mapping(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app deploy", "napp_init_v1"],
         ["app deploy", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
@@ -433,9 +401,7 @@ def test_nativeapp_deploy_rejects_pruning_when_path_is_specified(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app deploy", "napp_deploy_prefix_matches_v1"],
         ["app deploy", "napp_deploy_prefix_matches_v2"],
-        ["ws deploy --entity-id=pkg", "napp_deploy_prefix_matches_v2"],
     ],
 )
 def test_nativeapp_deploy_looks_for_prefix_matches(
@@ -523,9 +489,7 @@ def test_nativeapp_deploy_looks_for_prefix_matches(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app deploy", "napp_init_v1"],
         ["app deploy", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_dot(
@@ -559,9 +523,7 @@ def test_nativeapp_deploy_dot(
 @pytest.mark.parametrize(
     "command,test_project",
     [
-        ["app deploy", "napp_init_v1"],
         ["app deploy", "napp_init_v2"],
-        ["ws deploy --entity-id=pkg", "napp_init_v2"],
     ],
 )
 def test_nativeapp_deploy_validate_failing(
@@ -580,13 +542,7 @@ def test_nativeapp_deploy_validate_failing(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "test_project",
-    [
-        "napp_init_v1",
-        "napp_init_v2",
-    ],
-)
+@pytest.mark.parametrize("test_project", ["napp_init_v2"])
 def test_nativeapp_deploy_package_no_magic_comment(
     runner,
     snowflake_session,

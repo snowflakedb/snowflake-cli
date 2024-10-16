@@ -248,14 +248,19 @@ def find_entity(
     return entity
 
 
-def single_app_and_package(*, app_required: bool = False):
+def force_project_definition_v2(
+    *, single_app_and_package: bool = True, app_required: bool = False
+):
     """
-    A command decorator that attempts to extract a single application package and up to one
-    application entity from a v2 project definition. If an earlier version of the definition
-    is found, it is first converted to v2.
+    A command decorator that forces the project definition to be converted to v2.
+
+    If a v1 definition is found, it is converted to v2 in-memory and the global context
+    is updated with the new definition object.
+
+    If a v2 definition is already found, it is used as-is, optionally limiting the number
+    of application and package entities to one each (true by default).
 
     Assumes with_project_definition() has already been called.
-    The definition object in CliGlobalContext will be replaced with the converted object.
     """
 
     def decorator(func):
@@ -297,7 +302,7 @@ def single_app_and_package(*, app_required: bool = False):
                 )
                 new_ctx = pdfv2_dump | dict(env=cm.template_context["ctx"]["env"])
                 cm.override_template_context = cm.template_context | dict(ctx=new_ctx)
-            else:
+            elif single_app_and_package:
                 package_entity_id = kwargs.get("package_entity_id", "")
                 app_entity_id = kwargs.get("app_entity_id", "")
                 app_definition, app_package_definition = _find_app_and_package_entities(
@@ -315,8 +320,11 @@ def single_app_and_package(*, app_required: bool = False):
                         del original_pdf.entities[entity_id]
             return func(*args, **kwargs)
 
-        return _options_decorator_factory(
-            wrapper, additional_options=APP_AND_PACKAGE_OPTIONS
-        )
+        if single_app_and_package:
+            # Add the --app-entity-id and --package-entity-id options to the command
+            return _options_decorator_factory(
+                wrapper, additional_options=APP_AND_PACKAGE_OPTIONS
+            )
+        return wrapper
 
     return decorator

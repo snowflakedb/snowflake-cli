@@ -50,9 +50,19 @@ def nativeapp_teardown(runner: SnowCLIRunner):
         env: dict | None = None,
         extra_args: list[str] | None = None,
     ):
+        # Back up project definition files in case the test
+        # modifies them and makes the teardown fail
+        backups = {
+            path: path.read_text()
+            for p in ["snowflake.yml", "snowflake.local.yml"]
+            if (path := (project_dir or Path()) / p).exists()
+        }
         try:
             yield
         finally:
+            for path, backup in backups.items():
+                path.write_text(backup)
+
             args = ["--force", "--cascade"]
             if project_dir:
                 args += ["--project", str(project_dir)]

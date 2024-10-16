@@ -255,7 +255,7 @@ def execute_post_deploy_hooks(
 
         for index, sql_script_path in enumerate(sql_scripts_paths):
             console.step(f"Executing SQL script: {sql_script_path}")
-            get_snowflake_facade(get_sql_executor()).execute_user_script(
+            get_snowflake_facade().execute_user_script(
                 queries=scripts_content_list[index],
                 script_name=sql_script_path,
                 role=role,

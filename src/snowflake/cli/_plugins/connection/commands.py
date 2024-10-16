@@ -16,11 +16,13 @@ from __future__ import annotations
 
 import logging
 import os.path
+from pathlib import Path
 
 import typer
 from click import ClickException, Context, Parameter  # type: ignore
 from click.core import ParameterSource  # type: ignore
 from click.types import StringParamType
+from snowflake import connector
 from snowflake.cli._plugins.connection.util import (
     strip_and_check_if_exists,
     strip_if_value_present,
@@ -351,3 +353,50 @@ def set_default(
     get_connection_dict(connection_name=name)
     set_config_value(section=None, key="default_connection_name", value=name)
     return MessageResult(f"Default connection set to: {name}")
+
+
+@app.command(requires_connection=False)
+def generate_jwt(
+    account: str = typer.Option(
+        None,
+        "--account",
+        "-a",
+        "--accountname",
+        help="Account name to use when authenticating with Snowflake.",
+        show_default=False,
+    ),
+    user: str = typer.Option(
+        None,
+        "--user",
+        "-u",
+        "--username",
+        show_default=False,
+        help="Username to connect to Snowflake.",
+    ),
+    private_key_file: Path = typer.Option(
+        None,
+        "--private-key",
+        "--private-key-path",
+        "-k",
+        help="Path to file containing private key",
+        dir_okay=False,
+        exists=True,
+    ),
+    **options,
+) -> CommandResult:
+    """Generate a JWT token, which will be printed out and displayed.."""
+    passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
+    if not passphrase:
+        passphrase = typer.prompt(
+            "Enter private key file password (Press enter if none)",
+            hide_input=True,
+            type=str,
+            default="",
+        )
+    try:
+        token = connector.auth.get_token_from_private_key(
+            user, account, private_key_file, passphrase
+        )
+        return MessageResult(token)
+    except ValueError as err:
+        raise ClickException(str(err))

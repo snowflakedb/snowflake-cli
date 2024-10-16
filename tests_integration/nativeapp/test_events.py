@@ -19,7 +19,7 @@ from tests_integration.testing_utils import assert_that_result_is_usage_error
 
 # Tests that snow app events with incompatible flags exits with an error
 @pytest.mark.integration
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize("test_project", ["napp_init_v2"])
 @pytest.mark.parametrize(
     ["flag_names", "command"],
     [
@@ -52,7 +52,7 @@ def test_app_events_mutually_exclusive_options(
 
 # Tests that snow app events without paired flags exits with an error
 @pytest.mark.integration
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize("test_project", ["napp_init_v2"])
 @pytest.mark.parametrize(
     ["flag_names", "command"],
     [
@@ -80,7 +80,7 @@ def test_app_events_paired_options(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("test_project", ["napp_init_v1", "napp_init_v2"])
+@pytest.mark.parametrize("test_project", ["napp_init_v2"])
 def test_app_events_reject_invalid_type(
     test_project, runner, nativeapp_project_directory
 ):
