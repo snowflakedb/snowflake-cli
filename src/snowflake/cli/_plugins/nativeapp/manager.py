@@ -266,15 +266,6 @@ class NativeAppManager:
             package_name=self.package_name,
         )
 
-    def execute_package_post_deploy_hooks(self) -> None:
-        ApplicationPackageEntity.execute_post_deploy_hooks(
-            console=cc,
-            project_root=self.project_root,
-            post_deploy_hooks=self.package_post_deploy_hooks,
-            package_name=self.package_name,
-            package_warehouse=self.package_warehouse,
-        )
-
     def execute_app_post_deploy_hooks(self) -> None:
         execute_post_deploy_hooks(
             console=cc,
