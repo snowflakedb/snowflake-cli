@@ -23,6 +23,7 @@
 
 ## Fixes and improvements
 * Fixed a bug that would cause the `deploy_root`, `bundle_root`, and `generated_root` directories to be created in the current working directory instead of the project root when invoking commands with the `--project` flag from a different directory.
+* Align variables for `snow stage|git execute`. For Python files variables are stripped of leading and trailing quotes.
 
 # v3.0.2
 
@@ -35,7 +36,7 @@
 ## Fixes and improvements
 
 * Fixed the handling empty default values for strings by `snow snowpark deploy`.
-* Added log error details if the `pip` command fails.
+* Added log error details if the `pip` command fails.* Fix `snow git execute` support for Python files.
 
 # v3.0.1
 

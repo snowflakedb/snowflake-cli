@@ -232,7 +232,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
     def action_validate(
-        self, action_ctx: ActionContext, interactive: bool, force: bool, *args, **kwargs
+        self,
+        action_ctx: ActionContext,
+        interactive: bool,
+        force: bool,
+        use_scratch_stage: bool = True,
+        *args,
+        **kwargs,
     ):
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
@@ -266,7 +272,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             post_deploy_hooks=model.meta and model.meta.post_deploy,
             package_scripts=[],  # Package scripts are not supported in PDFv2
             policy=policy,
-            use_scratch_stage=True,
+            use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=f"{package_name}.{model.scratch_stage}",
         )
         workspace_ctx.console.message("Setup script is valid")

@@ -1,19 +1,18 @@
 # serializer version: 1
-# name: test_copy_error
-  '''
-  093554 (22023): 01b6ce5e-090b-6508-0001-c1be067d48f6: The specified tag 'no-such-tag' cannot be found in the Git Repository.
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ 093554 (22023): 01b6ce5e-090b-6508-0001-c1be067d48f6: The specified tag      │
-  │ 'no-such-tag' cannot be found in the Git Repository.                         │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  '''
-# ---
 # name: test_execute
   list([
     dict({
       'Error': None,
       'File': '@SNOWCLI_TESTING_REPO/branches/main/tests_integration/test_data/projects/stage_execute/script_template.sql',
+      'Status': 'SUCCESS',
+    }),
+  ])
+# ---
+# name: test_execute_python
+  list([
+    dict({
+      'Error': None,
+      'File': '@snowcli_testing_repo/branches/main/tests_integration/test_data/projects/stage_execute/script1.py',
       'Status': 'SUCCESS',
     }),
   ])
@@ -26,14 +25,4 @@
       'Status': 'SUCCESS',
     }),
   ])
-# ---
-# name: test_list_files
-  '''
-  093554 (22023): 01b6ce5e-090b-6508-0001-c1be067d48be: The specified tag 'no-such-tag' cannot be found in the Git Repository.
-  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
-  │ 093554 (22023): 01b6ce5e-090b-6508-0001-c1be067d48be: The specified tag      │
-  │ 'no-such-tag' cannot be found in the Git Repository.                         │
-  ╰──────────────────────────────────────────────────────────────────────────────╯
-  
-  '''
 # ---
