@@ -543,39 +543,41 @@ def test_api_integration_and_secrets_get_unique_names(
         (
             "@repo/branches/main/",
             "@repo/branches/main/",
-            ["@repo/branches/main/s1.sql", "@repo/branches/main/a/S3.sql"],
+            ["/s1.sql", "/a/S3.sql"],
         ),
         (
             "@repo/branches/main/a",
             "@repo/branches/main/",
-            ["@repo/branches/main/a/S3.sql"],
+            ["/a/S3.sql"],
         ),
         (
             "@db.schema.repo/branches/main/",
             "@db.schema.repo/branches/main/",
             [
-                "@db.schema.repo/branches/main/s1.sql",
-                "@db.schema.repo/branches/main/a/S3.sql",
+                "/s1.sql",
+                "/a/S3.sql",
             ],
         ),
         (
             "@db.schema.repo/branches/main/s1.sql",
             "@db.schema.repo/branches/main/",
-            ["@db.schema.repo/branches/main/s1.sql"],
+            ["/s1.sql"],
         ),
         (
             "@DB.SCHEMA.REPO/branches/main/s1.sql",
             "@DB.SCHEMA.REPO/branches/main/",
-            ["@DB.SCHEMA.REPO/branches/main/s1.sql"],
+            ["/s1.sql"],
         ),
         (
             "@DB.schema.REPO/branches/main/a/S3.sql",
             "@DB.schema.REPO/branches/main/",
-            ["@DB.schema.REPO/branches/main/a/S3.sql"],
+            ["/a/S3.sql"],
         ),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}._conn", new=mock.MagicMock(database="FOO", schema="BAR"))
+@mock.patch(f"snowflake.cli._plugins.stage.manager.time.time", lambda: 123)
 def test_execute(
     mock_execute,
     mock_cursor,
@@ -587,9 +589,9 @@ def test_execute(
 ):
     mock_execute.return_value = mock_cursor(
         [
-            {"name": "repo/branches/main/a/S3.sql"},
-            {"name": "repo/branches/main/s1.sql"},
-            {"name": "repo/branches/main/s2"},
+            {"name": "/a/S3.sql"},
+            {"name": "/s1.sql"},
+            {"name": "/s2"},
         ],
         [],
     )
@@ -597,10 +599,19 @@ def test_execute(
     result = runner.invoke(["git", "execute", repository_path])
 
     assert result.exit_code == 0, result.output
-    ls_call, *execute_calls = mock_execute.mock_calls
-    assert ls_call == mock.call(f"ls {expected_stage}", cursor_class=DictCursor)
+    create_call, copy_call, ls_call, *execute_calls = mock_execute.mock_calls
+    assert create_call == mock.call(
+        "create temporary stage if not exists IDENTIFIER('FOO.BAR.snowflake_cli_tmp_stage_123')"
+    )
+    assert copy_call == mock.call(
+        f"copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from {expected_stage}"
+    )
+    assert ls_call == mock.call(
+        f"ls @FOO.BAR.snowflake_cli_tmp_stage_123", cursor_class=DictCursor
+    )
     assert execute_calls == [
-        mock.call(f"execute immediate from {p}") for p in expected_files
+        mock.call(f"execute immediate from @FOO.BAR.snowflake_cli_tmp_stage_123{p}")
+        for p in expected_files
     ]
     assert result.output == os_agnostic_snapshot
 
@@ -612,29 +623,31 @@ def test_execute(
             "@repo/branches/main/",
             "@repo/branches/main/",
             [
-                "@repo/branches/main/S2.sql",
-                "@repo/branches/main/s1.sql",
-                "@repo/branches/main/a/s3.sql",
+                "/S2.sql",
+                "/s1.sql",
+                "/a/s3.sql",
             ],
         ),
         (
             "@repo/branches/main/s1.sql",
             "@repo/branches/main/",
-            ["@repo/branches/main/s1.sql"],
+            ["/s1.sql"],
         ),
         (
             "@repo/branches/main/S2.sql",
             "@repo/branches/main/",
-            ["@repo/branches/main/S2.sql"],
+            ["/S2.sql"],
         ),
         (
             "@repo/branches/main/a/s3.sql",
             "@repo/branches/main/",
-            ["@repo/branches/main/a/s3.sql"],
+            ["/a/s3.sql"],
         ),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}._conn", new=mock.MagicMock(database="FOO", schema="BAR"))
+@mock.patch(f"snowflake.cli._plugins.stage.manager.time.time", lambda: 123)
 def test_execute_new_git_repository_list_files(
     mock_execute,
     mock_cursor,
@@ -646,9 +659,9 @@ def test_execute_new_git_repository_list_files(
 ):
     mock_execute.return_value = mock_cursor(
         [
-            {"name": "/branches/main/s1.sql"},
-            {"name": "/branches/main/S2.sql"},
-            {"name": "/branches/main/a/s3.sql"},
+            {"name": "/s1.sql"},
+            {"name": "/S2.sql"},
+            {"name": "/a/s3.sql"},
         ],
         [],
     )
@@ -656,10 +669,19 @@ def test_execute_new_git_repository_list_files(
     result = runner.invoke(["git", "execute", repository_path])
 
     assert result.exit_code == 0, result.output
-    ls_call, *execute_calls = mock_execute.mock_calls
-    assert ls_call == mock.call(f"ls {expected_stage}", cursor_class=DictCursor)
+    create_call, copy_call, ls_call, *execute_calls = mock_execute.mock_calls
+    assert create_call == mock.call(
+        "create temporary stage if not exists IDENTIFIER('FOO.BAR.snowflake_cli_tmp_stage_123')"
+    )
+    assert copy_call == mock.call(
+        f"copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from {expected_stage}"
+    )
+    assert ls_call == mock.call(
+        f"ls @FOO.BAR.snowflake_cli_tmp_stage_123", cursor_class=DictCursor
+    )
     assert execute_calls == [
-        mock.call(f"execute immediate from {p}") for p in expected_files
+        mock.call(f"execute immediate from @FOO.BAR.snowflake_cli_tmp_stage_123{p}")
+        for p in expected_files
     ]
     assert result.output == os_agnostic_snapshot
 
@@ -671,35 +693,37 @@ def test_execute_new_git_repository_list_files(
             '@repo/branches/"feature/commit"/',
             '@repo/branches/"feature/commit"/',
             [
-                '@repo/branches/"feature/commit"/s1.sql',
-                '@repo/branches/"feature/commit"/a/S3.sql',
+                "/s1.sql",
+                "/a/S3.sql",
             ],
         ),
         (
             '@repo/branches/"feature/commit"/s1.sql',
             '@repo/branches/"feature/commit"/',
             [
-                '@repo/branches/"feature/commit"/s1.sql',
+                "/s1.sql",
             ],
         ),
         (
             '@repo/branches/"feature/commit"/a/',
             '@repo/branches/"feature/commit"/',
             [
-                '@repo/branches/"feature/commit"/a/S3.sql',
+                "/a/S3.sql",
             ],
         ),
         (
             '@db.schema.repo/branches/"feature/commit"/',
             '@db.schema.repo/branches/"feature/commit"/',
             [
-                '@db.schema.repo/branches/"feature/commit"/s1.sql',
-                '@db.schema.repo/branches/"feature/commit"/a/S3.sql',
+                "/s1.sql",
+                "/a/S3.sql",
             ],
         ),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}._conn", new=mock.MagicMock(database="FOO", schema="BAR"))
+@mock.patch(f"snowflake.cli._plugins.stage.manager.time.time", lambda: 123)
 def test_execute_slash_in_repository_name(
     mock_execute,
     mock_cursor,
@@ -711,9 +735,9 @@ def test_execute_slash_in_repository_name(
 ):
     mock_execute.return_value = mock_cursor(
         [
-            {"name": '/branches/"feature/commit"/a/S3.sql'},
-            {"name": '/branches/"feature/commit"/s1.sql'},
-            {"name": '/branches/"feature/commit"/s2'},
+            {"name": "/a/S3.sql"},
+            {"name": "/s1.sql"},
+            {"name": "/s2"},
         ],
         [],
     )
@@ -721,17 +745,28 @@ def test_execute_slash_in_repository_name(
     result = runner.invoke(["git", "execute", repository_path])
 
     assert result.exit_code == 0, result.output
-    ls_call, *execute_calls = mock_execute.mock_calls
-    assert ls_call == mock.call(f"ls '{expected_stage}'", cursor_class=DictCursor)
+    create_call, copy_call, ls_call, *execute_calls = mock_execute.mock_calls
+    assert create_call == mock.call(
+        "create temporary stage if not exists IDENTIFIER('FOO.BAR.snowflake_cli_tmp_stage_123')"
+    )
+    assert copy_call == mock.call(
+        f"copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from {expected_stage}"
+    )
+    assert ls_call == mock.call(
+        f"ls @FOO.BAR.snowflake_cli_tmp_stage_123", cursor_class=DictCursor
+    )
     assert execute_calls == [
-        mock.call(f"execute immediate from '{p}'") for p in expected_files
+        mock.call(f"execute immediate from @FOO.BAR.snowflake_cli_tmp_stage_123{p}")
+        for p in expected_files
     ]
     assert result.output == os_agnostic_snapshot
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}._conn", new=mock.MagicMock(database="FOO", schema="BAR"))
+@mock.patch(f"snowflake.cli._plugins.stage.manager.time.time", lambda: 123)
 def test_execute_with_variables(mock_execute, mock_cursor, runner):
-    mock_execute.return_value = mock_cursor([{"name": "repo/branches/main/s1.sql"}], [])
+    mock_execute.return_value = mock_cursor([{"name": "/s1.sql"}], [])
 
     result = runner.invoke(
         [
@@ -752,19 +787,28 @@ def test_execute_with_variables(mock_execute, mock_cursor, runner):
     )
 
     assert result.exit_code == 0
-    assert mock_execute.mock_calls == [
-        mock.call("ls @repo/branches/main/", cursor_class=DictCursor),
+    create_call, copy_call, ls_call, *execute_calls = mock_execute.mock_calls
+    assert create_call == mock.call(
+        "create temporary stage if not exists IDENTIFIER('FOO.BAR.snowflake_cli_tmp_stage_123')"
+    )
+    assert copy_call == mock.call(
+        "copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from @repo/branches/main/"
+    )
+    assert ls_call == mock.call(
+        f"ls @FOO.BAR.snowflake_cli_tmp_stage_123", cursor_class=DictCursor
+    )
+    assert execute_calls == [
         mock.call(
-            f"execute immediate from @repo/branches/main/s1.sql using (key1=>'string value', key2=>1, key3=>TRUE, key4=>NULL, key5=>'var=value')"
-        ),
+            f"execute immediate from @FOO.BAR.snowflake_cli_tmp_stage_123/s1.sql using (key1=>'string value', key2=>1, key3=>TRUE, key4=>NULL, key5=>'var=value')"
+        )
     ]
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}._conn", new=mock.MagicMock(database="FOO", schema="BAR"))
+@mock.patch(f"snowflake.cli._plugins.stage.manager.time.time", lambda: 123)
 def test_execute_file_with_space_in_name(mock_execute, mock_cursor, runner):
-    mock_execute.return_value = mock_cursor(
-        [{"name": "repo/branches/main/Script 1.sql"}], []
-    )
+    mock_execute.return_value = mock_cursor([{"name": "/Script 1.sql"}], [])
 
     result = runner.invoke(
         [
@@ -775,9 +819,12 @@ def test_execute_file_with_space_in_name(mock_execute, mock_cursor, runner):
     )
 
     assert result.exit_code == 0
-    assert mock_execute.mock_calls == [
-        mock.call("ls @repo/branches/main/", cursor_class=DictCursor),
-        mock.call(f"execute immediate from '@repo/branches/main/Script 1.sql'"),
+    _, __, *calls = mock_execute.mock_calls
+    assert calls == [
+        mock.call("ls @FOO.BAR.snowflake_cli_tmp_stage_123", cursor_class=DictCursor),
+        mock.call(
+            f"execute immediate from '@FOO.BAR.snowflake_cli_tmp_stage_123/Script 1.sql'"
+        ),
     ]
 
 
@@ -789,7 +836,7 @@ def test_raise_error_for_invalid_quotes_number_in_path(runner):
             '@repo/branches"/"ma"in/',
         ]
     )
-    assert result.exit_code == 2
+    assert result.exit_code == 2, result.output
     assert (
         'Invalid string @repo/branches"/"ma"in/, too much " in path, expected 2.'
         in result.output

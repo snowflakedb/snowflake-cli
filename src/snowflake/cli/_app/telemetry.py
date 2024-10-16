@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 import platform
 import sys
 from enum import Enum, unique
@@ -60,6 +61,7 @@ class CLITelemetryField(Enum):
     COMMAND_RESULT_STATUS = "command_result_status"
     COMMAND_OUTPUT_TYPE = "command_output_type"
     COMMAND_EXECUTION_TIME = "command_execution_time"
+    COMMAND_CI_ENVIRONMENT = "command_ci_environment"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
     # Metrics
@@ -141,6 +143,20 @@ def _get_installation_source() -> CLIInstallationSource:
     return CLIInstallationSource.PYPI
 
 
+def _get_ci_environment_type() -> str:
+    if "GITHUB_ACTIONS" in os.environ:
+        return "GITHUB_ACTIONS"
+    if "GITLAB_CI" in os.environ:
+        return "GITLAB_CI"
+    if "CIRCLECI" in os.environ:
+        return "CIRCLECI"
+    if "JENKINS_URL" in os.environ or "HUDSON_URL" in os.environ:
+        return "JENKINS"
+    if "TF_BUILD" in os.environ:
+        return "AZURE_DEVOPS"
+    return "UNKNOWN"
+
+
 def command_info() -> str:
     info = _find_command_info()
     command = ".".join(info[CLITelemetryField.COMMAND])
@@ -167,6 +183,7 @@ class CLITelemetryClient:
             CLITelemetryField.VERSION_CLI: VERSION,
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
+            CLITelemetryField.COMMAND_CI_ENVIRONMENT: _get_ci_environment_type(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()
             },
