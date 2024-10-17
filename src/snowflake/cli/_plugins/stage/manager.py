@@ -250,8 +250,13 @@ class StageManager(SqlExecutionMixin):
             return uri
         return to_string_literal(uri)
 
-    def list_files(self, stage_name: str, pattern: str | None = None) -> DictCursor:
-        stage_path = self.build_path(stage_name).path_for_sql()
+    def list_files(
+        self, stage_name: str | StagePath, pattern: str | None = None
+    ) -> DictCursor:
+        if not isinstance(stage_name, StagePath):
+            stage_path = self.build_path(stage_name).path_for_sql()
+        else:
+            stage_path = stage_name.path_for_sql()
         query = f"ls {stage_path}"
         if pattern is not None:
             query += f" pattern = '{pattern}'"
@@ -368,7 +373,7 @@ class StageManager(SqlExecutionMixin):
 
     def execute(
         self,
-        stage_path: str,
+        stage_path_str: str,
         on_error: OnErrorType,
         variables: Optional[List[str]] = None,
         requires_temporary_stage: bool = False,
@@ -377,13 +382,15 @@ class StageManager(SqlExecutionMixin):
             (
                 stage_path_parts,
                 original_path_parts,
-            ) = self._create_temporary_copy_of_stage(stage_path)
-            all_files_list = StageManager()._get_files_list_from_stage(
-                stage_path_parts
-            )  # noqa: SLF001
+            ) = self._create_temporary_copy_of_stage(stage_path_str)
+            stage_path = StagePath.from_stage_str(
+                stage_path_parts.get_standard_stage_path()
+            )
         else:
-            stage_path_parts = self._stage_path_part_factory(stage_path)
-            all_files_list = self._get_files_list_from_stage(stage_path_parts)
+            stage_path_parts = self._stage_path_part_factory(stage_path_str)
+            stage_path = self.build_path(stage_path_str)
+
+        all_files_list = self._get_files_list_from_stage(stage_path.root_path())
 
         all_files_with_stage_name_prefix = [
             stage_path_parts.get_directory(file) for file in all_files_list
@@ -409,7 +416,7 @@ class StageManager(SqlExecutionMixin):
 
         if any(file.endswith(".py") for file in sorted_file_path_list):
             self._python_exe_procedure = self._bootstrap_snowpark_execution_environment(
-                stage_path_parts
+                stage_path
             )
 
         for file_path in sorted_file_path_list:
@@ -449,15 +456,14 @@ class StageManager(SqlExecutionMixin):
         original_path_parts = self._stage_path_part_factory(stage_path)  # noqa: SLF001
 
         tmp_stage_name = f"snowflake_cli_tmp_stage_{int(time.time())}"
-        tmp_stage = (
-            FQN.from_stage(tmp_stage_name).using_connection(conn=self._conn).identifier
-        )
+        tmp_stage_fqn = FQN.from_stage(tmp_stage_name).using_connection(conn=self._conn)
+        tmp_stage = tmp_stage_fqn.identifier
         stage_path_parts = sm._stage_path_part_factory(  # noqa: SLF001
             tmp_stage + "/" + original_path_parts.directory
         )
 
         # Create temporary stage, it will be dropped with end of session
-        sm.create(FQN.from_string(tmp_stage), temporary=True)
+        sm.create(tmp_stage_fqn, temporary=True)
 
         # Copy the content
         self.copy_files(
@@ -471,14 +477,12 @@ class StageManager(SqlExecutionMixin):
         return stage_path_parts, original_path_parts
 
     def _get_files_list_from_stage(
-        self, stage_path_parts: StagePathParts, pattern: str | None = None
+        self, stage_path: StagePath, pattern: str | None = None
     ) -> List[str]:
-        files_list_result = self.list_files(
-            stage_path_parts.stage, pattern=pattern
-        ).fetchall()
+        files_list_result = self.list_files(stage_path, pattern=pattern).fetchall()
 
         if not files_list_result:
-            raise ClickException(f"No files found on stage '{stage_path_parts.stage}'")
+            raise ClickException(f"No files found on stage '{stage_path}'")
 
         return [f["name"] for f in files_list_result]
 
@@ -568,32 +572,34 @@ class StageManager(SqlExecutionMixin):
             return UserStagePathParts(stage_path)
         return DefaultStagePathParts(stage_path)
 
-    def _check_for_requirements_file(
-        self, stage_path_parts: StagePathParts
-    ) -> List[str]:
+    def _check_for_requirements_file(self, stage_path: StagePath) -> List[str]:
         """Looks for requirements.txt file on stage."""
+        current_dir = stage_path.parent() if stage_path.is_file() else stage_path
         req_files_on_stage = self._get_files_list_from_stage(
-            stage_path_parts, pattern=r".*requirements\.txt$"
+            current_dir, pattern=r".*requirements\.txt$"
         )
         if not req_files_on_stage:
             return []
 
         # Construct all possible path for requirements file for this context
-        # We don't use os.path or pathlib to preserve compatibility on Windows
         req_file_name = "requirements.txt"
-        path_parts = stage_path_parts.path.split("/")
         possible_req_files = []
+        while not current_dir.is_root():
+            current_file = current_dir / req_file_name
+            possible_req_files.append(current_file)
+            current_dir = current_dir.parent()
 
-        while path_parts:
-            current_file = "/".join([*path_parts, req_file_name])
-            possible_req_files.append(str(current_file))
-            path_parts = path_parts[:-1]
+        current_file = current_dir / req_file_name
+        possible_req_files.append(current_file)
 
         # Now for every possible path check if the file exists on stage,
         # if yes break, we use the first possible file
-        requirements_file = None
+        requirements_file: StagePath | None = None
         for req_file in possible_req_files:
-            if req_file in req_files_on_stage:
+            if (
+                req_file.absolute_path(no_fqn=True, at_prefix=False)
+                in req_files_on_stage
+            ):
                 requirements_file = req_file
                 break
 
@@ -602,19 +608,16 @@ class StageManager(SqlExecutionMixin):
             return []
 
         # req_file at this moment is the first found requirements file
+        requirements_path = requirements_file.with_stage(stage_path.stage)
         with SecurePath.temporary_directory() as tmp_dir:
-            self.get(
-                stage_path_parts.get_full_stage_path(requirements_file), tmp_dir.path
-            )
+            self.get(str(requirements_path), tmp_dir.path)
             requirements = parse_requirements(
                 requirements_file=tmp_dir / "requirements.txt"
             )
 
         return [req.package_name for req in requirements]
 
-    def _bootstrap_snowpark_execution_environment(
-        self, stage_path_parts: StagePathParts
-    ):
+    def _bootstrap_snowpark_execution_environment(self, stage_path: StagePath):
         """Prepares Snowpark session for executing Python code remotely."""
         if sys.version_info >= PYTHON_3_12:
             raise ClickException(
@@ -625,7 +628,7 @@ class StageManager(SqlExecutionMixin):
 
         self.snowpark_session.add_packages("snowflake-snowpark-python")
         self.snowpark_session.add_packages("snowflake.core")
-        requirements = self._check_for_requirements_file(stage_path_parts)
+        requirements = self._check_for_requirements_file(stage_path)
         self.snowpark_session.add_packages(*requirements)
 
         @sproc(is_permanent=False)

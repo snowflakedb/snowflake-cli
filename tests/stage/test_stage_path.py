@@ -78,6 +78,7 @@ def test_root_paths(path, is_git_repo):
     assert stage_path.name == ""
     assert stage_path.suffix == ""
     assert stage_path.stem == ""
+    assert stage_path.stage == path.lstrip("@").replace("snow://", "").split("/")[0]
     assert stage_path.absolute_path() == "@" + path.lstrip("@").replace("snow://", "")
 
 
@@ -91,6 +92,7 @@ def test_dir_paths(path, is_git_repo):
     assert stage_path.name == "my_path"
     assert stage_path.suffix == ""
     assert stage_path.stem == "my_path"
+    assert stage_path.stage == path.lstrip("@").replace("snow://", "").split("/")[0]
     assert stage_path.absolute_path() == "@" + path.lstrip("@").replace("snow://", "")
 
 
@@ -104,6 +106,7 @@ def test_file_paths(path, is_git_repo):
     assert stage_path.name == "file.py"
     assert stage_path.suffix == ".py"
     assert stage_path.stem == "file"
+    assert stage_path.stage == path.lstrip("@").replace("snow://", "").split("/")[0]
     assert stage_path.absolute_path() == "@" + path.lstrip("@").replace(
         "snow://", ""
     ).rstrip("/")
@@ -119,6 +122,7 @@ def test_dir_with_file_paths(path, is_git_repo):
     assert stage_path.name == "file.py"
     assert stage_path.suffix == ".py"
     assert stage_path.stem == "file"
+    assert stage_path.stage == path.lstrip("@").replace("snow://", "").split("/")[0]
     assert stage_path.absolute_path() == "@" + path.lstrip("@").replace(
         "snow://", ""
     ).rstrip("/")
@@ -152,3 +156,15 @@ def test_parent_path(path, is_git_repo):
     parent_path = path.parent()
     assert parent_path.parts() == ("my_path",)
     assert path.stage == parent_path.stage
+
+
+@pytest.mark.parametrize(
+    "stage_name, path",
+    [
+        ("my_stage", "@my_stage/path/file.py"),
+        ("db.schema.my_stage", "@db.schema.my_stage/path/file.py"),
+    ],
+)
+def test_root_path(stage_name, path):
+    stage_path = StagePath.from_stage_str(path)
+    assert stage_path.root_path() == StagePath.from_stage_str(f"@{stage_name}")

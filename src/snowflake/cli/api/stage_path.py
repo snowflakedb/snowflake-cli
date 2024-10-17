@@ -85,7 +85,7 @@ class StagePath:
         if len(parts) == 2:
             stage_string, path = parts
         else:
-            stage_string = stage_str
+            stage_string = parts[0]
             path = None
         return cls(
             stage_name=stage_string, path=path, trailing_slash=stage_str.endswith("/")
@@ -130,14 +130,21 @@ class StagePath:
         path = "/".join(parts[3:]) if len(parts) > 2 else ""
         return repo_name, ref, path
 
-    def _full_path(self) -> str:
-        path = PurePosixPath(self._stage_name)
+    def absolute_path(self, no_fqn=False, at_prefix=True) -> str:
+        stage_name = self._stage_name
+        if not self.is_user_stage() and no_fqn:
+            stage_name = FQN.from_string(self._stage_name).name
+
+        path = PurePosixPath(stage_name)
         if self.git_ref:
             path = path / self.git_ref
         if not self.is_root():
             path = path / self._path
 
-        str_path = self.add_at_prefix(str(path))
+        str_path = str(path)
+        if at_prefix:
+            str_path = self.add_at_prefix(str_path)
+
         if self._trailing_slash:
             return str_path.rstrip("/") + "/"
         return str_path
@@ -196,8 +203,10 @@ class StagePath:
     def is_root(self) -> bool:
         return self._path == PurePosixPath(".")
 
-    def absolute_path(self) -> str:
-        return str(self._full_path())
+    def root_path(self) -> StagePath:
+        if self.is_git_repo():
+            return StagePath(stage_name=self._stage_name, git_ref=self._git_ref)
+        return StagePath(stage_name=self._stage_name)
 
     def is_quoted(self) -> bool:
         path = self.absolute_path()
@@ -224,4 +233,7 @@ class StagePath:
         return (target_dir / self.relative_to(stage_root)).parent
 
     def __str__(self):
-        return self._full_path()
+        return self.absolute_path()
+
+    def __eq__(self, other):
+        return self.absolute_path() == other.absolute_path()
