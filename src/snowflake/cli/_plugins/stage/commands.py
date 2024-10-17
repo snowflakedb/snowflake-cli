@@ -212,7 +212,7 @@ def execute(
     e.g. `@stage/*.sql`, `@stage/dev/*`. Only files with `.sql` extension will be executed.
     """
     results = StageManager().execute(
-        stage_path=stage_path, on_error=on_error, variables=variables
+        stage_path_str=stage_path, on_error=on_error, variables=variables
     )
     return CollectionResult(results)
 
