@@ -29,7 +29,6 @@ from tests.nativeapp.factories import ProjectV10Factory
 NATIVEAPP_MODULE = "snowflake.cli._plugins.nativeapp.manager"
 TYPER_CONFIRM = "typer.confirm"
 TYPER_PROMPT = "typer.prompt"
-RUN_MODULE = "snowflake.cli._plugins.nativeapp.run_processor"
 VERSION_MODULE = "snowflake.cli._plugins.nativeapp.version.version_processor"
 ENTITIES_COMMON_MODULE = "snowflake.cli.api.entities.common"
 ENTITIES_UTILS_MODULE = "snowflake.cli.api.entities.utils"
@@ -42,7 +41,6 @@ CLI_GLOBAL_TEMPLATE_CONTEXT = (
 )
 
 NATIVEAPP_MANAGER = f"{NATIVEAPP_MODULE}.NativeAppManager"
-RUN_PROCESSOR = f"{RUN_MODULE}.NativeAppRunProcessor"
 
 NATIVEAPP_MANAGER_APP_PKG_DISTRIBUTION_IN_SF = (
     f"{NATIVEAPP_MANAGER}.get_app_pkg_distribution_in_snowflake"
@@ -59,9 +57,6 @@ NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION = (
 NATIVEAPP_MANAGER_BUILD_BUNDLE = f"{NATIVEAPP_MANAGER}.build_bundle"
 NATIVEAPP_MANAGER_DEPLOY = f"{NATIVEAPP_MANAGER}.deploy"
 NATIVEAPP_MANAGER_VALIDATE = f"{NATIVEAPP_MANAGER}.validate"
-
-RUN_PROCESSOR_GET_EXISTING_APP_INFO = f"{RUN_PROCESSOR}.get_existing_app_info"
-RUN_PROCESSOR_APP_POST_DEPLOY_HOOKS = f"{RUN_PROCESSOR}.app_post_deploy_hooks"
 
 FIND_VERSION_FROM_MANIFEST = f"{VERSION_MODULE}.find_version_info_in_manifest_file"
 
