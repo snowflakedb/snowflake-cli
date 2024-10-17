@@ -72,7 +72,7 @@ def build_stage_path(path, is_git_repo):
 def test_root_paths(path, is_git_repo):
     stage_path = build_stage_path(path, is_git_repo)
     assert stage_path.is_root()
-    assert stage_path.parts() == ()
+    assert stage_path.parts == ()
     assert stage_path.is_dir()
     assert not stage_path.is_file()
     assert stage_path.name == ""
@@ -86,7 +86,7 @@ def test_root_paths(path, is_git_repo):
 def test_dir_paths(path, is_git_repo):
     stage_path = build_stage_path(path, is_git_repo)
     assert not stage_path.is_root()
-    assert stage_path.parts() == ("my_path",)
+    assert stage_path.parts == ("my_path",)
     assert stage_path.is_dir()
     assert not stage_path.is_file()
     assert stage_path.name == "my_path"
@@ -100,7 +100,7 @@ def test_dir_paths(path, is_git_repo):
 def test_file_paths(path, is_git_repo):
     stage_path = build_stage_path(path, is_git_repo)
     assert not stage_path.is_root()
-    assert stage_path.parts() == ("file.py",)
+    assert stage_path.parts == ("file.py",)
     assert not stage_path.is_dir()
     assert stage_path.is_file()
     assert stage_path.name == "file.py"
@@ -116,7 +116,7 @@ def test_file_paths(path, is_git_repo):
 def test_dir_with_file_paths(path, is_git_repo):
     stage_path = build_stage_path(path, is_git_repo)
     assert not stage_path.is_root()
-    assert stage_path.parts() == ("my_path", "file.py")
+    assert stage_path.parts == ("my_path", "file.py")
     assert not stage_path.is_dir()
     assert stage_path.is_file()
     assert stage_path.name == "file.py"
@@ -131,21 +131,21 @@ def test_dir_with_file_paths(path, is_git_repo):
 def test_join_path():
     path = StagePath.from_stage_str("@my_stage/path")
     new_path = path.joinpath("new_path").joinpath("file.py")
-    assert new_path.parts() == ("path", "new_path", "file.py")
+    assert new_path.parts == ("path", "new_path", "file.py")
     assert path.stage == new_path.stage
 
 
 def test_join_path_using_division():
     path = StagePath.from_stage_str("@my_stage/path")
     new_path = path / "new_path" / "file.py"
-    assert new_path.parts() == ("path", "new_path", "file.py")
+    assert new_path.parts == ("path", "new_path", "file.py")
     assert path.stage == new_path.stage
 
 
 def test_path_starting_with_slash():
     path = StagePath.from_stage_str("@my_stage")
     new_path = path.joinpath("/file.txt")
-    assert new_path.parts() == ("file.txt",)
+    assert new_path.parts == ("file.txt",)
     assert path.stage == new_path.stage
     assert new_path.absolute_path() == "@my_stage/file.txt"
 
@@ -153,8 +153,8 @@ def test_path_starting_with_slash():
 @parametrize_with(FILES_UNDER_PATH)
 def test_parent_path(path, is_git_repo):
     path = build_stage_path(path, is_git_repo)
-    parent_path = path.parent()
-    assert parent_path.parts() == ("my_path",)
+    parent_path = path.parent
+    assert parent_path.parts == ("my_path",)
     assert path.stage == parent_path.stage
 
 

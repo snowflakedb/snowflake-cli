@@ -55,6 +55,10 @@ class StagePath:
     def is_git_repo(self) -> bool:
         return self._is_git_repo
 
+    @property
+    def git_ref(self) -> str | None:
+        return self._git_ref
+
     @staticmethod
     def add_at_prefix(text: str):
         if not text.startswith("@"):
@@ -171,9 +175,6 @@ class StagePath:
         )
 
     @property
-    def git_ref(self) -> str | None:
-        return self._git_ref
-
     def parts(self) -> tuple[str, ...]:
         return self._path.parts
 
@@ -195,6 +196,7 @@ class StagePath:
     def stem(self) -> str:
         return self._path.stem
 
+    @property
     def parent(self) -> StagePath:
         return StagePath(
             stage_name=self._stage_name, path=self._path.parent, git_ref=self._git_ref

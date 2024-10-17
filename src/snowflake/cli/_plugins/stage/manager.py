@@ -574,7 +574,7 @@ class StageManager(SqlExecutionMixin):
 
     def _check_for_requirements_file(self, stage_path: StagePath) -> List[str]:
         """Looks for requirements.txt file on stage."""
-        current_dir = stage_path.parent() if stage_path.is_file() else stage_path
+        current_dir = stage_path.parent if stage_path.is_file() else stage_path
         req_files_on_stage = self._get_files_list_from_stage(
             current_dir, pattern=r".*requirements\.txt$"
         )
@@ -587,7 +587,7 @@ class StageManager(SqlExecutionMixin):
         while not current_dir.is_root():
             current_file = current_dir / req_file_name
             possible_req_files.append(current_file)
-            current_dir = current_dir.parent()
+            current_dir = current_dir.parent
 
         current_file = current_dir / req_file_name
         possible_req_files.append(current_file)
