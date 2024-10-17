@@ -32,6 +32,7 @@ from snowflake.cli.api.commands.execution_metadata import ExecutionMetadata
 from snowflake.cli.api.config import get_feature_flags_section
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
+from snowflake.connector import ProgrammingError
 from snowflake.connector.telemetry import (
     TelemetryData,
     TelemetryField,
@@ -70,6 +71,9 @@ class CLITelemetryField(Enum):
     EVENT = "event"
     ERROR_MSG = "error_msg"
     ERROR_TYPE = "error_type"
+    ERROR_CODE = "error_code"
+    ERROR_CAUSE = "error_cause"
+    SQL_STATE = "sql_state"
     IS_CLI_EXCEPTION = "is_cli_exception"
     # Project context
     PROJECT_DEFINITION_VERSION = "project_definition_version"
@@ -95,6 +99,30 @@ def _is_cli_exception(exception: Exception) -> bool:
             KeyboardInterrupt,
         ),
     )
+
+
+def _get_additional_exception_information(exception: Exception) -> TelemetryDict:
+    """
+    Attach the errno and sqlstate if the exception or the
+    cause of the exception is a ProgrammingError
+    """
+    additional_info = {}
+
+    if isinstance(exception, ProgrammingError):
+        additional_info[CLITelemetryField.ERROR_CODE] = exception.errno
+        additional_info[CLITelemetryField.SQL_STATE] = exception.sqlstate
+
+    if exception.__cause__:
+        cause = exception.__cause__
+        additional_info[CLITelemetryField.ERROR_CAUSE] = type(cause).__name__
+
+        if isinstance(cause, ProgrammingError):
+            if CLITelemetryField.ERROR_CODE not in additional_info:
+                additional_info[CLITelemetryField.ERROR_CODE] = cause.errno
+            if CLITelemetryField.SQL_STATE not in additional_info:
+                additional_info[CLITelemetryField.SQL_STATE] = cause.sqlstate
+
+    return additional_info
 
 
 def _get_command_metrics() -> TelemetryDict:
@@ -246,6 +274,7 @@ def log_command_execution_error(exception: Exception, execution: ExecutionMetada
             CLITelemetryField.ERROR_TYPE: exception_type,
             CLITelemetryField.IS_CLI_EXCEPTION: is_cli_exception,
             CLITelemetryField.COMMAND_EXECUTION_TIME: execution.get_duration(),
+            **_get_additional_exception_information(exception),
             **_get_command_metrics(),
         }
     )
