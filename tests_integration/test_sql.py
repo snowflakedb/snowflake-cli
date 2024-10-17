@@ -17,7 +17,10 @@ from unittest import mock
 
 import pytest
 
-from tests_integration.testing_utils import ObjectNameProvider
+from tests_integration.testing_utils import (
+    ObjectNameProvider,
+    assert_that_result_failed_with_message_containing,
+)
 
 
 @pytest.mark.integration
@@ -160,6 +163,12 @@ def test_sql_execute_query_prints_query(runner):
     assert result.exit_code == 0, result.output
     assert "select 1 as A" in result.output
     assert "select 2 as B" in result.output
+
+
+@pytest.mark.integration
+def test_sql_use_bad_role_error(runner):
+    result = runner.invoke_with_connection(["sql", "-q", "use role non_existent_role"])
+    assert_that_result_failed_with_message_containing(result, "SQL compilation error")
 
 
 @pytest.mark.integration_experimental
