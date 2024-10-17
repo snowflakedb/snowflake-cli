@@ -18,6 +18,9 @@ from snowflake.cli.api.project.util import escape_like_pattern
 
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
 from tests_integration.testing_utils import ObjectNameProvider
+from tests_integration.testing_utils.assertions.test_result_assertions import (
+    assert_that_result_is_successful,
+)
 
 INTEGRATION_DATABASE = os.environ.get(
     "SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE", "SNOWCLI_DB"
@@ -39,7 +42,7 @@ def _list_images(runner):
             "spcs",
             "image-repository",
             "list-images",
-            "snowcli_repository",
+            INTEGRATION_REPOSITORY,
             "--database",
             INTEGRATION_DATABASE,
             "--schema",
@@ -50,7 +53,9 @@ def _list_images(runner):
     assert contains_row_with(
         result.json,
         {
-            "image": f"/{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test_echo"
+            "image_name": "snowpark_test_echo",
+            "tags": "1",
+            "image_path": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test_echo:1".lower(),
         },
     )
 
@@ -61,7 +66,7 @@ def _list_tags(runner):
             "spcs",
             "image-repository",
             "list-tags",
-            "snowcli_repository",
+            INTEGRATION_REPOSITORY,
             "--image-name",
             f"/{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test_echo",
             "--database",
@@ -70,12 +75,11 @@ def _list_tags(runner):
             INTEGRATION_SCHEMA,
         ]
     )
-    assert isinstance(result.json, list), result.output
-    assert contains_row_with(
-        result.json,
-        {
-            "tag": f"/{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test_echo:1"
-        },
+    assert_that_result_is_successful(result)
+    assert "DeprecationWarning: The command 'list-tags' is deprecated." in result.output
+    assert (
+        f'"tag": "/{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test_echo:1"'
+        in result.output
     )
 
 
