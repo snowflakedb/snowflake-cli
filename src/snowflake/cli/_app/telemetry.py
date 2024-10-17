@@ -117,9 +117,9 @@ def _get_additional_exception_information(exception: Exception) -> TelemetryDict
         additional_info[CLITelemetryField.ERROR_CAUSE] = type(cause).__name__
 
         if isinstance(cause, ProgrammingError):
-            if CLITelemetryField.ERROR_CODE not in additional_info:
+            if not additional_info.get(CLITelemetryField.ERROR_CODE):
                 additional_info[CLITelemetryField.ERROR_CODE] = cause.errno
-            if CLITelemetryField.SQL_STATE not in additional_info:
+            if not additional_info.get(CLITelemetryField.SQL_STATE):
                 additional_info[CLITelemetryField.SQL_STATE] = cause.sqlstate
 
     return additional_info
