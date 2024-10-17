@@ -29,7 +29,6 @@ from tests.nativeapp.factories import ProjectV10Factory
 NATIVEAPP_MODULE = "snowflake.cli._plugins.nativeapp.manager"
 TYPER_CONFIRM = "typer.confirm"
 TYPER_PROMPT = "typer.prompt"
-VERSION_MODULE = "snowflake.cli._plugins.nativeapp.version.version_processor"
 ENTITIES_COMMON_MODULE = "snowflake.cli.api.entities.common"
 ENTITIES_UTILS_MODULE = "snowflake.cli.api.entities.utils"
 APPLICATION_PACKAGE_ENTITY_MODULE = (
@@ -57,8 +56,6 @@ NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION = (
 NATIVEAPP_MANAGER_BUILD_BUNDLE = f"{NATIVEAPP_MANAGER}.build_bundle"
 NATIVEAPP_MANAGER_DEPLOY = f"{NATIVEAPP_MANAGER}.deploy"
 NATIVEAPP_MANAGER_VALIDATE = f"{NATIVEAPP_MANAGER}.validate"
-
-FIND_VERSION_FROM_MANIFEST = f"{VERSION_MODULE}.find_version_info_in_manifest_file"
 
 APP_ENTITY_MODULE = "snowflake.cli._plugins.nativeapp.entities.application"
 APP_ENTITY = f"{APP_ENTITY_MODULE}.ApplicationEntity"

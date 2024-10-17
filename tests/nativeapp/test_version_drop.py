@@ -18,6 +18,10 @@ from unittest import mock
 import pytest
 import typer
 from click import ClickException
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntity,
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
 )
@@ -26,9 +30,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
-from snowflake.cli._plugins.nativeapp.version.version_processor import (
-    NativeAppVersionDropProcessor,
-)
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
@@ -38,23 +40,38 @@ from tests.nativeapp.utils import (
     SQL_EXECUTOR_EXECUTE,
     TYPER_CONFIRM,
     mock_execute_helper,
-    mock_snowflake_yml_file,
+    mock_snowflake_yml_file_v2,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
-
-DROP_PROCESSOR = "NativeAppVersionDropProcessor"
 
 allow_always_policy = AllowAlwaysPolicy()
 ask_always_policy = AskAlwaysPolicy()
 deny_always_policy = DenyAlwaysPolicy()
 
 
-def _get_version_drop_processor():
+def _drop_version(
+    version: str | None,
+    force: bool,
+    interactive: bool,
+):
     dm = DefinitionManager()
-
-    return NativeAppVersionDropProcessor(
-        project_definition=dm.project_definition.native_app,
+    pd = dm.project_definition
+    pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
+    return ApplicationPackageEntity.version_drop(
+        console=cc,
         project_root=dm.project_root,
+        deploy_root=dm.project_root / pkg_model.deploy_root,
+        bundle_root=dm.project_root / pkg_model.bundle_root,
+        generated_root=(
+            dm.project_root / pkg_model.deploy_root / pkg_model.generated_root
+        ),
+        artifacts=pkg_model.artifacts,
+        package_name=pkg_model.fqn.name,
+        package_role=pkg_model.meta.role,
+        package_distribution=pkg_model.distribution,
+        version=version,
+        force=force,
+        interactive=interactive,
     )
 
 
@@ -70,12 +87,11 @@ def test_process_has_no_existing_app_pkg(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_drop_processor()
     with pytest.raises(ApplicationPackageDoesNotExistError):
-        processor.process(version="some_version", force=force, interactive=interactive)
+        _drop_version(version="some_version", force=force, interactive=interactive)
 
 
 # Test version drop process when user did not pass in a version AND we could not find a version in the manifest file either
@@ -109,12 +125,11 @@ def test_process_no_version_from_user_no_version_in_manifest(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_drop_processor()
     with pytest.raises(ClickException):
-        processor.process(version=None, force=force, interactive=interactive)
+        _drop_version(version=None, force=force, interactive=interactive)
     mock_build_bundle.assert_called_once()
     mock_version_info_in_manifest.assert_called_once()
 
@@ -161,12 +176,11 @@ def test_process_drop_cannot_complete(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_drop_processor()
     with pytest.raises(typer.Exit):
-        result = processor.process(version=None, force=False, interactive=interactive)
+        result = _drop_version(version=None, force=False, interactive=interactive)
         assert result.exit_code == expected_code
 
 
@@ -226,11 +240,10 @@ def test_process_drop_from_manifest(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_drop_processor()
-    processor.process(version=None, force=force, interactive=True)
+    _drop_version(version=None, force=force, interactive=True)
     assert mock_execute.mock_calls == expected
 
 
@@ -288,9 +301,8 @@ def test_process_drop_specific_version(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_drop_processor()
-    processor.process(version=version, force=force, interactive=True)
+    _drop_version(version=version, force=force, interactive=True)
     assert mock_execute.mock_calls == expected
