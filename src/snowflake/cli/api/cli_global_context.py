@@ -58,7 +58,6 @@ class _CliGlobalContextManager:
     # Consider changing the way this calculation is provided to commands
     # in order to remove this logic (then make project_definition a non-cloned @property)
     override_project_definition: ProjectDefinition | None = None
-    override_template_context: dict | None = None
 
     _definition_manager: DefinitionManager | None = None
 
@@ -98,8 +97,6 @@ class _CliGlobalContextManager:
 
     @property
     def template_context(self) -> dict:
-        if self.override_template_context:
-            return self.override_template_context
         return self._definition_manager_or_raise().template_context
 
     @property
