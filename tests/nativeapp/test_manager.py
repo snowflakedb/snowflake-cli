@@ -49,7 +49,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 from snowflake.cli._plugins.nativeapp.policy import AllowAlwaysPolicy
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
-    StagePath,
+    StagePathType,
 )
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.console import cli_console as cc
@@ -127,7 +127,7 @@ def test_sync_deploy_root_with_stage(
     mock_cursor,
 ):
     mock_execute.return_value = mock_cursor([("old_role",)], [])
-    mock_diff_result = DiffResult(different=[StagePath("setup.sql")])
+    mock_diff_result = DiffResult(different=[StagePathType("setup.sql")])
     mock_compute_stage_diff.return_value = mock_diff_result
     mock_local_diff_with_stage.return_value = None
     current_working_directory = os.getcwd()
@@ -188,12 +188,12 @@ def test_sync_deploy_root_with_stage(
     [
         [
             True,
-            [StagePath("only-stage.txt")],
+            [StagePathType("only-stage.txt")],
             False,
         ],
         [
             False,
-            [StagePath("only-stage-1.txt"), StagePath("only-stage-2.txt")],
+            [StagePathType("only-stage-1.txt"), StagePathType("only-stage-2.txt")],
             True,
         ],
     ],
@@ -1112,7 +1112,7 @@ def test_get_paths_to_sync(
 
     paths_to_sync = [Path(p) for p in paths_to_sync]
     result = _get_stage_paths_to_sync(paths_to_sync, Path("deploy/"))
-    assert result.sort() == [StagePath(p) for p in expected_result].sort()
+    assert result.sort() == [StagePathType(p) for p in expected_result].sort()
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)

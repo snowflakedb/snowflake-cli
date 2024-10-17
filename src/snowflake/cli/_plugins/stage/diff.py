@@ -30,7 +30,7 @@ from .md5 import UnknownMD5FormatError, file_matches_md5sum
 
 log = logging.getLogger(__name__)
 
-StagePath = PurePosixPath  # alias PurePosixPath as StagePath for clarity
+StagePathType = PurePosixPath  # alias PurePosixPath as StagePath for clarity
 
 
 @dataclass
@@ -39,16 +39,16 @@ class DiffResult:
     Each collection is a list of stage paths ('/'-separated, regardless of the platform), relative to the stage root.
     """
 
-    identical: List[StagePath] = field(default_factory=list)
+    identical: List[StagePathType] = field(default_factory=list)
     "Files with matching md5sums"
 
-    different: List[StagePath] = field(default_factory=list)
+    different: List[StagePathType] = field(default_factory=list)
     "Files that may be different between the stage and the local directory"
 
-    only_local: List[StagePath] = field(default_factory=list)
+    only_local: List[StagePathType] = field(default_factory=list)
     "Files that only exist in the local directory"
 
-    only_on_stage: List[StagePath] = field(default_factory=list)
+    only_on_stage: List[StagePathType] = field(default_factory=list)
     "Files that only exist on the stage"
 
     def has_changes(self) -> bool:
@@ -83,12 +83,12 @@ def enumerate_files(path: Path) -> List[Path]:
     return paths
 
 
-def strip_stage_name(path: str) -> StagePath:
+def strip_stage_name(path: str) -> StagePathType:
     """Returns the given stage path without the stage name as the first part."""
-    return StagePath(*path.split("/")[1:])
+    return StagePathType(*path.split("/")[1:])
 
 
-def build_md5_map(list_stage_cursor: DictCursor) -> Dict[StagePath, Optional[str]]:
+def build_md5_map(list_stage_cursor: DictCursor) -> Dict[StagePathType, Optional[str]]:
     """
     Returns a mapping of relative stage paths to their md5sums.
     """
@@ -99,7 +99,7 @@ def build_md5_map(list_stage_cursor: DictCursor) -> Dict[StagePath, Optional[str
 
 
 def preserve_from_diff(
-    diff: DiffResult, stage_paths_to_sync: Collection[StagePath]
+    diff: DiffResult, stage_paths_to_sync: Collection[StagePathType]
 ) -> DiffResult:
     """
     Returns a filtered version of the provided diff, keeping only the provided stage paths.
@@ -163,7 +163,7 @@ def compute_stage_diff(
     return result
 
 
-def get_stage_subpath(stage_path: StagePath) -> str:
+def get_stage_subpath(stage_path: StagePathType) -> str:
     """
     Returns the parent portion of a stage path, as a string, for inclusion in the fully qualified stage path. Note that
     '.' treated specially here, and so the return value of this call is not a `StagePath` instance.
@@ -172,21 +172,21 @@ def get_stage_subpath(stage_path: StagePath) -> str:
     return "" if parent == "." else parent
 
 
-def to_stage_path(filename: Path) -> StagePath:
+def to_stage_path(filename: Path) -> StagePathType:
     """
     Returns the stage file name, with the path separator suitably transformed if needed.
     """
-    return StagePath(*filename.parts)
+    return StagePathType(*filename.parts)
 
 
-def to_local_path(stage_path: StagePath) -> Path:
+def to_local_path(stage_path: StagePathType) -> Path:
     return Path(*stage_path.parts)
 
 
 def delete_only_on_stage_files(
     stage_manager: StageManager,
     stage_fqn: str,
-    only_on_stage: List[StagePath],
+    only_on_stage: List[StagePathType],
     role: Optional[str] = None,
 ):
     """
@@ -200,7 +200,7 @@ def put_files_on_stage(
     stage_manager: StageManager,
     stage_fqn: str,
     deploy_root_path: Path,
-    stage_paths: List[StagePath],
+    stage_paths: List[StagePathType],
     role: Optional[str] = None,
     overwrite: bool = False,
 ):
@@ -254,7 +254,7 @@ def sync_local_diff_with_stage(
 
 
 def _to_src_dest_pair(
-    stage_path: StagePath, bundle_map: Optional[BundleMap]
+    stage_path: StagePathType, bundle_map: Optional[BundleMap]
 ) -> Tuple[Optional[str], str]:
     if not bundle_map:
         return None, str(stage_path)

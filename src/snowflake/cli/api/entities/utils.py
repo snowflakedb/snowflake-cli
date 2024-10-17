@@ -15,7 +15,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 from snowflake.cli._plugins.nativeapp.utils import verify_exists, verify_no_directories
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
-    StagePath,
+    StagePathType,
     compute_stage_diff,
     preserve_from_diff,
     sync_local_diff_with_stage,
@@ -59,7 +59,7 @@ def generic_sql_error_handler(err: ProgrammingError) -> NoReturn:
 
 def _get_stage_paths_to_sync(
     local_paths_to_sync: List[Path], deploy_root: Path
-) -> List[StagePath]:
+) -> List[StagePathType]:
     """
     Takes a list of paths (files and directories), returning a list of all files recursively relative to the deploy root.
     """
