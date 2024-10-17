@@ -89,19 +89,6 @@ class SnowflakeSQLExecutionError(ClickException):
         )
 
 
-class PostDeployScriptExecutionError(ClickException):
-    def __init__(self, msg: str, query: str):
-        super().__init__(
-            dedent(
-                f"""\
-                        Received error message '{msg}' while executing the following SQL statement:
-                        {query}
-                        Please double-check the SQL statements in your post deploy script.
-                        """
-            )
-        )
-
-
 class ObjectAlreadyExistsError(ClickException):
     def __init__(
         self,
