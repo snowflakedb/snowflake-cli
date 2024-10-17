@@ -191,7 +191,7 @@ def test_package_post_deploy_scripts_with_sql_error(
         mock_cli_ctx.return_value = dm.template_context
         mock_execute_query.side_effect = ProgrammingError()
 
-        with pytest.raises(ProgrammingError) as err:
+        with pytest.raises(ProgrammingError):
             execute_post_deploy_hooks(
                 console=cc,
                 project_root=project_dir,
