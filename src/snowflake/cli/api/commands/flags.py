@@ -33,6 +33,7 @@ from snowflake.cli.api.connections import ConnectionContext
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.formats import OutputFormat
+from snowflake.cli.api.stage_path import StagePath
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
@@ -473,6 +474,13 @@ class IdentifierStageType(click.ParamType):
         return FQN.from_stage(value)
 
 
+class IdentifierStagePathType(click.ParamType):
+    name = "TEXT"
+
+    def convert(self, value, param, ctx):
+        return StagePath.from_stage_str(value)
+
+
 def identifier_argument(
     sf_object: str,
     example: str,
@@ -493,6 +501,14 @@ def identifier_stage_argument(
 ) -> typer.Argument:
     return identifier_argument(
         sf_object, example, click_type=IdentifierStageType(), callback=callback
+    )
+
+
+def identifier_stage_path_argument(
+    sf_object: str, example: str, callback: Callable | None = None
+) -> typer.Argument:
+    return identifier_argument(
+        sf_object, example, click_type=IdentifierStagePathType(), callback=callback
     )
 
 

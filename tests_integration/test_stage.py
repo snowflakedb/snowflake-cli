@@ -541,3 +541,24 @@ def test_stage_diff_json(runner, snowflake_session, test_database, tmp_path):
             "added": ["added_file.py"],
             "deleted": [filename],
         }
+
+
+@pytest.mark.integration
+def test_stage_list(runner, test_database):
+    stage_name = "test_stage"
+    result = runner.invoke_with_connection(["stage", "create", stage_name])
+    assert result.exit_code == 0, result.output
+
+    with tempfile.TemporaryDirectory() as td:
+        file = Path(td) / "test.txt"
+        file.touch()
+        result = runner.invoke_with_connection_json(
+            ["stage", "copy", str(file), f"@{stage_name}/under/directory/"]
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            ["stage", "list-files", f"@{stage_name}/under/"]
+        )
+        assert result.exit_code == 0, result.output
+        assert result.json[0]["name"] == f"{stage_name}/under/directory/test.txt"
