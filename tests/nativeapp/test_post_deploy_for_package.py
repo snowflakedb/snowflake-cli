@@ -209,7 +209,6 @@ def test_package_scripts_and_post_deploy_found(
         "napp_post_deploy",
         {"native_app": {"package": {"scripts": ["scripts/package_post_deploy2.sql"]}}},
     ) as project_dir:
-
         with pytest.raises(SchemaValidationError) as err:
             DefinitionManager(project_dir).project_definition  # noqa
 

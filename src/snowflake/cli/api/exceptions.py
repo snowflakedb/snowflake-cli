@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from textwrap import dedent
 from typing import Optional
 
 from click.exceptions import ClickException, UsageError
@@ -187,4 +188,42 @@ class IncompatibleParametersError(UsageError):
         comma_separated_options = ", ".join(options_with_quotes[:-1])
         super().__init__(
             f"Parameters {comma_separated_options} and {options_with_quotes[-1]} are incompatible and cannot be used simultaneously."
+        )
+
+
+class NoWarehouseSelectedInSessionError(ClickException):
+    def __init__(self, msg: str):
+        super().__init__(
+            dedent(
+                f"""\
+                        Received error message '{msg}' while executing SQL statement.
+                        Please provide a warehouse for the active session role in your project definition file, config.toml file, or via command line.
+                        """
+            )
+        )
+
+
+class DoesNotExistOrUnauthorizedError(ClickException):
+    def __init__(self, msg: str):
+        super().__init__(
+            dedent(
+                f"""\
+                        Received error message '{msg}' while executing SQL statement.
+                        Please check the name of the resource you are trying to query or the permissions of the role you are using to run the query.
+                        """
+            )
+        )
+
+
+class CouldNotUseObjectError(ClickException):
+    def __init__(self, object_type: ObjectType, name: str):
+        super().__init__(
+            f"Could not use {object_type} {name}. Object does not exist, or operation cannot be performed."
+        )
+
+
+class ShowSpecificObjectMultipleRowsError(RuntimeError):
+    def __init__(self, show_obj_query: str):
+        super().__init__(
+            f"Received multiple rows from result of SQL statement: {show_obj_query}. Usage of 'show_specific_object' may not be properly scoped."
         )
