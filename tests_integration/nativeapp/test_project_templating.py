@@ -387,7 +387,9 @@ def test_nativeapp_templates_processor_with_run(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("test_project", ["napp_templates_processors_v2"])
+@pytest.mark.parametrize(
+    "test_project", ["napp_templates_processors_v1", "napp_templates_processors_v2"]
+)
 @pytest.mark.parametrize("with_project_flag", [True, False])
 def test_nativeapp_templates_processor_with_deploy(
     runner,

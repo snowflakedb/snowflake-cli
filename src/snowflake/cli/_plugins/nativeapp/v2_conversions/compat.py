@@ -293,15 +293,6 @@ def force_project_definition_v2(
 
                 # Override the project definition so that the command operates on the new entities
                 cm.override_project_definition = pdfv2
-
-                # Override the template context so that templates refer to the new entities
-                # Reuse the old ctx.env and other top-level keys in the template context
-                # since they don't change between v1 and v2
-                pdfv2_dump = pdfv2.model_dump(
-                    exclude_none=True, warnings=False, by_alias=True
-                )
-                new_ctx = pdfv2_dump | dict(env=cm.template_context["ctx"]["env"])
-                cm.override_template_context = cm.template_context | dict(ctx=new_ctx)
             elif single_app_and_package:
                 package_entity_id = kwargs.get("package_entity_id", "")
                 app_entity_id = kwargs.get("app_entity_id", "")
