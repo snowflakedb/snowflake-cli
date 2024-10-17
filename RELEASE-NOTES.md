@@ -17,13 +17,17 @@
 ## Backward incompatibility
 
 ## Deprecations
+* Added deprecation warning in the description of `snow spcs service status` and `snow spcs image-repository list-tags`.
 
 ## New additions
 * Added `snow connection generate-jwt` command to generate JWT token for Snowflake connection.
+* Added `snow spcs service list-instances`, `snow spcs service list-containers` and `snow spcs service list-roles` commands, which support fetching information about all instances/containers/service roles in a service.
+* `snow spcs service set` now supports `--eai-name` to update external access integrations for a service.
 
 ## Fixes and improvements
 * Fixed a bug that would cause the `deploy_root`, `bundle_root`, and `generated_root` directories to be created in the current working directory instead of the project root when invoking commands with the `--project` flag from a different directory.
 * Align variables for `snow stage|git execute`. For Python files variables are stripped of leading and trailing quotes.
+* `snow spcs service list-images` now displays image tag and digest.
 
 # v3.0.2
 
@@ -36,7 +40,8 @@
 ## Fixes and improvements
 
 * Fixed the handling empty default values for strings by `snow snowpark deploy`.
-* Added log error details if the `pip` command fails.* Fix `snow git execute` support for Python files.
+* Added log error details if the `pip` command fails.
+* Fix `snow git execute` support for Python files.
 
 # v3.0.1
 

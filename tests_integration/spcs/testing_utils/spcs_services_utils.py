@@ -24,6 +24,7 @@ from snowflake.connector import SnowflakeConnection
 from tests_integration.conftest import SnowCLIRunner
 from tests_integration.test_utils import contains_row_with, not_contains_row_with
 from tests_integration.testing_utils.assertions.test_result_assertions import (
+    assert_that_result_is_successful,
     assert_that_result_is_successful_and_executed_successfully,
     assert_that_result_is_successful_and_output_json_contains,
     assert_that_result_is_successful_and_output_json_equals,
@@ -96,10 +97,12 @@ class SnowparkServicesTestSteps:
         self, service_name: str, container_name: str
     ) -> None:
         result = self._execute_status(service_name)
-        assert_that_result_is_successful_and_output_json_contains(
-            result,
-            {"containerName": container_name, "serviceName": service_name.upper()},
+        assert_that_result_is_successful(result)
+        assert (
+            "DeprecationWarning: The command 'status' is deprecated." in result.output
         )
+        assert f'"containerName": "{container_name}"' in result.output
+        assert f'"serviceName": "{service_name.upper()}"' in result.output
 
     def logs_should_return_service_logs(
         self, service_name: str, container_name: str, expected_log: str
@@ -260,6 +263,59 @@ class SnowparkServicesTestSteps:
             },
         )
 
+    def list_instances_should_show_instances(self, service_name: str):
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "list-instances",
+                service_name,
+                *self._database_schema_args(),
+            ]
+        )
+        assert_that_result_is_successful_and_output_json_contains(
+            result,
+            {
+                "instance_id": "0",
+                "service_name": service_name.upper(),
+            },
+        )
+
+    def list_containers_should_show_containers(self, service_name: str):
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "list-containers",
+                service_name,
+                *self._database_schema_args(),
+            ]
+        )
+        assert_that_result_is_successful_and_output_json_contains(
+            result,
+            {
+                "container_name": "hello-world",
+                "service_name": service_name.upper(),
+            },
+        )
+
+    def list_roles_should_show_roles(self, service_name: str):
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "list-roles",
+                service_name,
+                *self._database_schema_args(),
+            ]
+        )
+        assert_that_result_is_successful_and_output_json_contains(
+            result,
+            {
+                "name": "ALL_ENDPOINTS_USAGE",
+            },
+        )
+
     def _execute_status(self, service_name: str):
         return self._setup.runner.invoke_with_connection_json(
             ["spcs", "service", "status", service_name, *self._database_schema_args()],
@@ -268,18 +324,19 @@ class SnowparkServicesTestSteps:
     def _execute_list(self):
         return self._setup.runner.invoke_with_connection_json(
             [
-                "object",
-                "list",
+                "spcs",
                 "service",
+                "list",
+                *self._database_schema_args(),
             ],
         )
 
     def _execute_describe(self, service_name: str):
         return self._setup.runner.invoke_with_connection_json(
             [
-                "object",
-                "describe",
+                "spcs",
                 "service",
+                "describe",
                 f"{self.database}.{self.schema}.{service_name}",
             ],
         )
