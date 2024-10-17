@@ -30,7 +30,6 @@ NATIVEAPP_MODULE = "snowflake.cli._plugins.nativeapp.manager"
 TYPER_CONFIRM = "typer.confirm"
 TYPER_PROMPT = "typer.prompt"
 RUN_MODULE = "snowflake.cli._plugins.nativeapp.run_processor"
-VERSION_MODULE = "snowflake.cli._plugins.nativeapp.version.version_processor"
 ENTITIES_COMMON_MODULE = "snowflake.cli.api.entities.common"
 ENTITIES_UTILS_MODULE = "snowflake.cli.api.entities.utils"
 APPLICATION_PACKAGE_ENTITY_MODULE = (
@@ -62,8 +61,6 @@ NATIVEAPP_MANAGER_VALIDATE = f"{NATIVEAPP_MANAGER}.validate"
 
 RUN_PROCESSOR_GET_EXISTING_APP_INFO = f"{RUN_PROCESSOR}.get_existing_app_info"
 RUN_PROCESSOR_APP_POST_DEPLOY_HOOKS = f"{RUN_PROCESSOR}.app_post_deploy_hooks"
-
-FIND_VERSION_FROM_MANIFEST = f"{VERSION_MODULE}.find_version_info_in_manifest_file"
 
 APP_ENTITY_MODULE = "snowflake.cli._plugins.nativeapp.entities.application"
 APP_ENTITY = f"{APP_ENTITY_MODULE}.ApplicationEntity"
