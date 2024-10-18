@@ -159,8 +159,8 @@ def print_unstructured(obj: CommandResult | None):
 
 def _print_single_table(obj):
     table = _get_table()
-    table.add_column("key")
-    table.add_column("value")
+    table.add_column("key", overflow="fold")
+    table.add_column("value", overflow="fold")
     for key, value in obj.result.items():
         table.add_row(
             sanitize_for_terminal(str(key)), sanitize_for_terminal(str(value))
