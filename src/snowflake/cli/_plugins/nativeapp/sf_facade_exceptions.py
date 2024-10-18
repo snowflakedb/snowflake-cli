@@ -40,14 +40,15 @@ def handle_unclassified_error(err: Error | Exception, context: str):
 class _BaseFacadeError(Exception):
     """Base class for SnowflakeFacade Exceptions"""
 
-    msg = "Unknown Error"
+    def __init__(self, msg):
+        self.msg = msg
 
     def __str__(self):
         return self.msg
 
 
 class InvalidSQLError(_BaseFacadeError):
-    "Exception raised when a ProgrammingError is caught but cause is unidentified" ""
+    """Raised when Snowflake executed a SQL command but encountered an error, for example due to syntax or logical errors"""
 
     def __init__(self, msg):
         self.msg = f"Invalid SQL error occurred. {msg}"
@@ -55,7 +56,7 @@ class InvalidSQLError(_BaseFacadeError):
 
 
 class UnknownSQLError(_BaseFacadeError):
-    """Exception raised when the root of the DatabaseError is unidentified."""
+    """Raised when Snowflake could not execute the SQL command"""
 
     def __init__(self, msg):
         self.msg = f"Unknown SQL error occurred. {msg}"
@@ -63,7 +64,7 @@ class UnknownSQLError(_BaseFacadeError):
 
 
 class UnknownConnectorError(_BaseFacadeError):
-    """Exception raised when the root of the error thrown by connector is unidentified."""
+    """Raised when there was a problem reaching Snowflake to execute a SQL command"""
 
     def __init__(self, msg):
         self.msg = f"Unknown error occurred. {msg}"

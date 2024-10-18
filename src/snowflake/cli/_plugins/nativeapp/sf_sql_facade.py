@@ -88,7 +88,7 @@ class SnowflakeSQLFacade:
             yield
         finally:
             if is_different_wh and prev_wh is not None:
-                self._log.debug(f"Switching back to warehouse:{prev_wh}")
+                self._log.debug(f"Switching back to warehouse: {prev_wh}")
                 self._use_object(UseObjectType.WAREHOUSE, prev_wh)
 
     @contextmanager
@@ -119,7 +119,7 @@ class SnowflakeSQLFacade:
             yield
         finally:
             if is_different_role:
-                self._log.debug(f"Switching back to role:{prev_role}")
+                self._log.debug(f"Switching back to role: {prev_role}")
                 self._use_object(UseObjectType.ROLE, prev_role)
 
     @contextmanager
@@ -157,7 +157,7 @@ class SnowflakeSQLFacade:
             yield
         finally:
             if is_different_db and prev_db is not None:
-                self._log.debug(f"Switching back to database:{prev_db}")
+                self._log.debug(f"Switching back to database: {prev_db}")
                 self._use_object(UseObjectType.DATABASE, prev_db)
 
     def execute_user_script(
