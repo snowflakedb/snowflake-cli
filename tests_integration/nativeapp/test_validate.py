@@ -25,7 +25,7 @@ from tests.project.fixtures import *
 
 
 @pytest.mark.integration
-def test_nativeapp_validate_v1(nativeapp_project_directory, runner, temp_dir):
+def test_nativeapp_validate_v1(nativeapp_teardown, runner, temp_dir):
     ProjectV10Factory(
         pdf__native_app__name="myapp",
         pdf__native_app__artifacts=[
@@ -37,7 +37,7 @@ def test_nativeapp_validate_v1(nativeapp_project_directory, runner, temp_dir):
             "app/manifest.yml": "\n",
         },
     )
-    with nativeapp_project_directory(temp_dir):
+    with nativeapp_teardown(project_dir=Path(temp_dir)):
         # validate the app's setup script
         result = runner.invoke_with_connection(["app", "validate"])
         assert result.exit_code == 0, result.output
@@ -52,7 +52,7 @@ def test_nativeapp_validate_v1(nativeapp_project_directory, runner, temp_dir):
         "ws validate --entity-id=pkg",
     ],
 )
-def test_nativeapp_validate_v2(command, nativeapp_project_directory, runner, temp_dir):
+def test_nativeapp_validate_v2(command, nativeapp_teardown, runner, temp_dir):
     ProjectV2Factory(
         pdf__entities=dict(
             pkg=ApplicationPackageEntityModelFactory(
@@ -69,7 +69,7 @@ def test_nativeapp_validate_v2(command, nativeapp_project_directory, runner, tem
             "manifest.yml": "\n",
         },
     )
-    with nativeapp_project_directory(temp_dir):
+    with nativeapp_teardown(project_dir=Path(temp_dir)):
         # validate the app's setup script
         result = runner.invoke_with_connection(split(command))
         assert result.exit_code == 0, result.output
@@ -80,7 +80,7 @@ def test_nativeapp_validate_v2(command, nativeapp_project_directory, runner, tem
 
 
 @pytest.mark.integration
-def test_nativeapp_validate_failing(nativeapp_project_directory, runner, temp_dir):
+def test_nativeapp_validate_failing(nativeapp_teardown, runner, temp_dir):
     ProjectV2Factory(
         pdf__entities=dict(
             pkg=ApplicationPackageEntityModelFactory(
@@ -103,7 +103,7 @@ def test_nativeapp_validate_failing(nativeapp_project_directory, runner, temp_di
             "manifest.yml": "\n",
         },
     )
-    with nativeapp_project_directory(temp_dir):
+    with nativeapp_teardown(project_dir=Path(temp_dir)):
         # validate the app's setup script, this will fail
         # because we include an empty file
         result = runner.invoke_with_connection(["app", "validate"])
@@ -114,7 +114,7 @@ def test_nativeapp_validate_failing(nativeapp_project_directory, runner, temp_di
 
 @pytest.mark.integration
 def test_nativeapp_validate_with_post_deploy_hooks(
-    nativeapp_project_directory, runner, temp_dir
+    nativeapp_teardown, runner, temp_dir
 ):
     ProjectV2Factory(
         pdf__entities=dict(
@@ -141,6 +141,6 @@ def test_nativeapp_validate_with_post_deploy_hooks(
         },
     )
 
-    with nativeapp_project_directory(temp_dir):
+    with nativeapp_teardown(project_dir=Path(temp_dir)):
         result = runner.invoke_with_connection(["app", "validate"])
         assert result.exit_code == 0, result.output
