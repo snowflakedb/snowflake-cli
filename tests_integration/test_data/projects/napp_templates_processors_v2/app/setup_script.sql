@@ -8,3 +8,4 @@
 
 CREATE OR ALTER VERSIONED SCHEMA <% ctx.env.schema_name %>;
 EXECUTE IMMEDIATE from '/another_script.sql';
+select 'ctx.entities.pkg.identifier: <% ctx.entities.pkg.identifier %>';
