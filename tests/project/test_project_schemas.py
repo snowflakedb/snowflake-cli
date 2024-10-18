@@ -16,7 +16,7 @@ import pytest
 from pydantic import ValidationError
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.project_definition import (
-    ProjectDefinitionV1,
+    ProjectDefinitionV2,
     build_project_definition,
 )
 from snowflake.cli.api.project.schemas.v1.snowpark.argument import Argument
@@ -72,15 +72,19 @@ def test_nested_fields_update(
 
 
 def test_project_schema_is_updated_correctly_from_dict(
-    native_app_project_instance: ProjectDefinitionV1,
+    native_app_project_instance: ProjectDefinitionV2,
 ):
-    assert native_app_project_instance.native_app.name == "napp_test"
-    assert native_app_project_instance.native_app.package.distribution == "internal"
-    update_dict = {"native_app": {"package": {"distribution": "external"}}}
+    pkg_model = native_app_project_instance.entities["pkg"]
+    assert pkg_model.manifest == "app/manifest.yml"
+    assert pkg_model.distribution == "internal"
+    assert pkg_model.meta.role == "test_role"
 
-    native_app_project_instance.update_from_dict(update_dict)
-    assert native_app_project_instance.native_app.name == "napp_test"
-    assert native_app_project_instance.native_app.package.distribution == "external"
+    update_dict = {"distribution": "external", "meta": {"role": "test_role_2"}}
+    pkg_model.update_from_dict(update_dict)
+    assert pkg_model.manifest == "app/manifest.yml"
+    assert pkg_model.distribution == "external"
+    assert pkg_model.artifacts[0].src == "app/*"
+    assert pkg_model.meta.role == "test_role_2"
 
 
 def test_project_definition_work_for_int_version():

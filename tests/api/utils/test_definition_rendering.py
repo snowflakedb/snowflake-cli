@@ -24,8 +24,6 @@ from snowflake.cli.api.utils.definition_rendering import render_definition_templ
 from snowflake.cli.api.utils.models import ProjectEnvironment
 from snowflake.cli.api.utils.templating_functions import get_templating_functions
 
-from tests.nativeapp.utils import NATIVEAPP_MODULE
-
 
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_resolve_variables_in_project_no_cross_variable_dependencies():
@@ -90,7 +88,7 @@ def test_env_not_supported_in_version_1():
 
 
 @mock.patch.dict(os.environ, {"A": "value"}, clear=True)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+@mock.patch("snowflake.cli.api.utils.definition_rendering.cc.warning")
 def test_no_resolve_and_warning_in_version_1(warning_mock):
     definition = {
         "definition_version": "1",
@@ -112,7 +110,7 @@ def test_no_resolve_and_warning_in_version_1(warning_mock):
 
 
 @mock.patch.dict(os.environ, {"A": "value"}, clear=True)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+@mock.patch("snowflake.cli.api.utils.definition_rendering.cc.warning")
 def test_partial_invalid_template_in_version_1(warning_mock):
     definition = {
         "definition_version": "1",
@@ -135,7 +133,7 @@ def test_partial_invalid_template_in_version_1(warning_mock):
 
 
 @mock.patch.dict(os.environ, {"A": "value", "USER": "username"}, clear=True)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+@mock.patch("snowflake.cli.api.utils.definition_rendering.cc.warning")
 def test_no_warning_in_version_1_1(warning_mock):
     definition = {
         "definition_version": "1.1",

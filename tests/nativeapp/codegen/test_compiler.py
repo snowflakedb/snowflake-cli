@@ -15,6 +15,7 @@ import re
 from pathlib import Path
 
 import pytest
+from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli._plugins.nativeapp.codegen.artifact_processor import (
     UnsupportedArtifactProcessorError,
 )
@@ -22,51 +23,58 @@ from snowflake.cli._plugins.nativeapp.codegen.compiler import NativeAppCompiler
 from snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
 )
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
 )
-
-from tests.nativeapp.utils import create_native_app_project_model
 
 
 @pytest.fixture()
 def test_proj_def():
     return build_project_definition(
-        **{
-            "definition_version": "1",
-            "native_app": {
-                "artifacts": [
-                    {"dest": "./", "src": "app/*"},
-                    "app/setup.sql",
-                    {"dest": "./", "src": "app/*", "processors": ["DUMMY"]},
-                    {"dest": "./", "src": "app/*", "processors": ["SNOWPARK"]},
-                    {
-                        "dest": "./",
-                        "src": "app/*",
-                        "processors": [{"name": "SNOWPARK"}],
-                    },
-                ],
-                "name": "napp_test",
-                "package": {
-                    "scripts": [
-                        "package/001.sql",
-                    ]
-                },
-            },
-        }
+        **dict(
+            definition_version="2",
+            entities=dict(
+                pkg=dict(
+                    type="application package",
+                    artifacts=[
+                        dict(dest="./", src="app/*"),
+                        "app/setup.sql",
+                        dict(dest="./", src="app/*", processors=["DUMMY"]),
+                        dict(dest="./", src="app/*", processors=["SNOWPARK"]),
+                        dict(dest="./", src="app/*", processors=[{"name": "SNOWPARK"}]),
+                    ],
+                    manifest="app/manifest.yml",
+                )
+            ),
+        )
+    )
+
+
+def _get_bundle_context(pkg_model: ApplicationPackageEntityModel):
+    project_root = Path().resolve()
+    return BundleContext(
+        package_name=pkg_model.fqn.name,
+        artifacts=pkg_model.artifacts,
+        project_root=project_root,
+        bundle_root=project_root / pkg_model.bundle_root,
+        deploy_root=project_root / pkg_model.deploy_root,
+        generated_root=(
+            project_root / pkg_model.deploy_root / pkg_model.generated_root
+        ),
     )
 
 
 @pytest.fixture()
 def test_compiler(test_proj_def):
-    na_project = create_native_app_project_model(test_proj_def.native_app)
-    return NativeAppCompiler(na_project.get_bundle_context())
+    return NativeAppCompiler(_get_bundle_context(test_proj_def.entities["pkg"]))
 
 
 @pytest.mark.parametrize("name", ["Project", "Deploy", "Bundle", "Generated"])
 def test_compiler_requires_absolute_paths(test_proj_def, name):
-    na_project = create_native_app_project_model(test_proj_def.native_app)
-    bundle_context = na_project.get_bundle_context()
+    bundle_context = _get_bundle_context(test_proj_def.entities["pkg"])
 
     path = Path()
     setattr(bundle_context, f"{name.lower()}_root", path)
@@ -78,7 +86,7 @@ def test_compiler_requires_absolute_paths(test_proj_def, name):
 
 
 def test_try_create_processor_returns_none(test_proj_def, test_compiler):
-    artifact_to_process = test_proj_def.native_app.artifacts[2]
+    artifact_to_process = test_proj_def.entities["pkg"].artifacts[2]
     result = test_compiler._try_create_processor(  # noqa: SLF001
         processor_mapping=artifact_to_process.processors[0],
     )
@@ -92,7 +100,7 @@ def test_try_create_processor_returns_none(test_proj_def, test_compiler):
 def test_try_create_processor_returns_processor(
     artifact_index, test_proj_def, test_compiler
 ):
-    mapping = test_proj_def.native_app.artifacts[artifact_index]
+    mapping = test_proj_def.entities["pkg"].artifacts[artifact_index]
     result = test_compiler._try_create_processor(  # noqa: SLF001
         processor_mapping=mapping.processors[0],
     )
@@ -100,13 +108,9 @@ def test_try_create_processor_returns_processor(
 
 
 def test_find_and_execute_processors_exception(test_proj_def, test_compiler):
-    test_proj_def.native_app.artifacts = [
-        {"dest": "./", "src": "app/*", "processors": ["DUMMY"]}
-    ]
-    app_pkg = create_native_app_project_model(
-        project_definition=test_proj_def.native_app
-    )
-    test_compiler = NativeAppCompiler(app_pkg.get_bundle_context())
+    pkg_model = test_proj_def.entities["pkg"]
+    pkg_model.artifacts = [{"dest": "./", "src": "app/*", "processors": ["DUMMY"]}]
+    test_compiler = NativeAppCompiler(_get_bundle_context(pkg_model))
 
     with pytest.raises(UnsupportedArtifactProcessorError):
         test_compiler.compile_artifacts()

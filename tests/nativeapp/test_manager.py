@@ -80,7 +80,6 @@ from tests.nativeapp.utils import (
     APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
     ENTITIES_UTILS_MODULE,
-    NATIVEAPP_MODULE,
     SQL_EXECUTOR_EXECUTE,
     mock_execute_helper,
     mock_snowflake_yml_file_v2,
@@ -169,7 +168,6 @@ def test_sync_deploy_root_with_stage(
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
 @mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "prune,only_on_stage_files,expected_warn",
     [
@@ -186,7 +184,6 @@ def test_sync_deploy_root_with_stage(
     ],
 )
 def test_sync_deploy_root_with_stage_prune(
-    mock_warning,
     mock_compute_stage_diff,
     mock_local_diff_with_stage,
     mock_execute,
@@ -207,8 +204,9 @@ def test_sync_deploy_root_with_stage_prune(
     mock_bundle_map = mock.Mock(spec=BundleMap)
     package_name = pkg_model.fqn.identifier
     stage_fqn = f"{package_name}.{pkg_model.stage}"
+    mock_console = mock.MagicMock()
     sync_deploy_root_with_stage(
-        console=cc,
+        console=mock_console,
         deploy_root=dm.project_root / pkg_model.deploy_root,
         package_name=package_name,
         stage_schema=extract_schema(stage_fqn),
@@ -225,9 +223,9 @@ def test_sync_deploy_root_with_stage_prune(
 {files_str}
 
 Use the --prune flag to delete them from the stage."""
-        mock_warning.assert_called_once_with(warn_message)
+        mock_console.warning.assert_called_once_with(warn_message)
     else:
-        mock_warning.assert_not_called()
+        mock_console.warning.assert_not_called()
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -467,10 +465,7 @@ def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir)
 
 
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
-def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
-    mock_warning, mock_mismatch, temp_dir
-):
+def test_is_app_pkg_distribution_same_in_sf_has_mismatch(mock_mismatch, temp_dir):
     mock_mismatch.return_value = "external"
 
     current_working_directory = os.getcwd()
@@ -482,13 +477,14 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    mock_console = mock.MagicMock()
     assert not ApplicationPackageEntity.verify_project_distribution(
-        console=cc,
+        console=mock_console,
         package_name=pkg_model.fqn.name,
         package_role=pkg_model.meta.role,
         package_distribution=pkg_model.distribution,
     )
-    mock_warning.assert_called_once_with(
+    mock_console.warning.assert_called_once_with(
         "Application package app_pkg in your Snowflake account has distribution property external,\nwhich does not match the value specified in project definition file: internal.\n"
     )
 
@@ -888,13 +884,11 @@ def test_create_app_pkg_different_owner(
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
     [False, True],
 )
 def test_create_app_pkg_external_distribution(
-    mock_warning,
     mock_is_distribution_same,
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
@@ -919,14 +913,15 @@ def test_create_app_pkg_external_distribution(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    mock_console = mock.MagicMock()
     ApplicationPackageEntity.create_app_package(
-        console=cc,
+        console=mock_console,
         package_name=pkg_model.fqn.name,
         package_role=pkg_model.meta.role,
         package_distribution=pkg_model.distribution,
     )
     if not is_pkg_distribution_same:
-        mock_warning.assert_called_once_with(
+        mock_console.warning.assert_called_once_with(
             "Continuing to execute `snow app run` on application package app_pkg with distribution 'external'."
         )
 
@@ -935,7 +930,6 @@ def test_create_app_pkg_external_distribution(
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same, special_comment",
     [
@@ -946,7 +940,6 @@ def test_create_app_pkg_external_distribution(
     ],
 )
 def test_create_app_pkg_internal_distribution_special_comment(
-    mock_warning,
     mock_is_distribution_same,
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
@@ -972,14 +965,15 @@ def test_create_app_pkg_internal_distribution_special_comment(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    mock_console = mock.MagicMock()
     ApplicationPackageEntity.create_app_package(
-        console=cc,
+        console=mock_console,
         package_name=pkg_model.fqn.name,
         package_role=pkg_model.meta.role,
         package_distribution=pkg_model.distribution,
     )
     if not is_pkg_distribution_same:
-        mock_warning.assert_called_once_with(
+        mock_console.warning.assert_called_once_with(
             "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
         )
 
@@ -988,13 +982,11 @@ def test_create_app_pkg_internal_distribution_special_comment(
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
     [False, True],
 )
 def test_create_app_pkg_internal_distribution_no_special_comment(
-    mock_warning,
     mock_is_distribution_same,
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
@@ -1019,16 +1011,17 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    mock_console = mock.MagicMock()
     with pytest.raises(ApplicationPackageAlreadyExistsError):
         ApplicationPackageEntity.create_app_package(
-            console=cc,
+            console=mock_console,
             package_name=pkg_model.fqn.name,
             package_role=pkg_model.meta.role,
             package_distribution=pkg_model.distribution,
         )
 
     if not is_pkg_distribution_same:
-        mock_warning.assert_called_once_with(
+        mock_console.warning.assert_called_once_with(
             "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
         )
 
@@ -1136,7 +1129,7 @@ def test_validate_passing(mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+@mock.patch("snowflake.cli._plugins.workspace.manager.cc.warning")
 def test_validate_passing_with_warnings(
     mock_warning, mock_execute, temp_dir, mock_cursor
 ):
@@ -1184,7 +1177,7 @@ def test_validate_passing_with_warnings(
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+@mock.patch("snowflake.cli._plugins.workspace.manager.cc.warning")
 def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",

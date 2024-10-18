@@ -7,8 +7,6 @@ from snowflake.cli._plugins.nativeapp.constants import (
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationCreatedExternallyError,
 )
-
-# from snowflake.cli._plugins.nativeapp.project_model import NativeAppProjectModel
 from snowflake.cli._plugins.stage.manager import StageManager
 
 
