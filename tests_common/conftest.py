@@ -11,9 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import platform
 
-from tests_common.conftest import *
-from tests_common.path_utils import *
+import os
+import tempfile
 
-IS_WINDOWS = platform.system() == "Windows"
+import pytest
+
+
+@pytest.fixture
+def temp_dir():
+    initial_dir = os.getcwd()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        try:
+            os.chdir(tmp_dir)
+            yield tmp_dir
+        finally:
+            # this has to happen before tmp_dir is cleaned up
+            # so that we don't try to remove the cwd of the process
+            os.chdir(initial_dir)
