@@ -22,7 +22,7 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     UnknownSQLError,
     UserScriptError,
 )
-from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.constants import UseObjectType
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
@@ -473,9 +473,9 @@ def test_execute_catch_all_exception(
 @pytest.mark.parametrize(
     "object_type, object_name",
     [
-        (ObjectType.ROLE, "test_role"),
-        (ObjectType.DATABASE, "test_db"),
-        (ObjectType.WAREHOUSE, "test_wh"),
+        (UseObjectType.ROLE, "test_role"),
+        (UseObjectType.DATABASE, "test_db"),
+        (UseObjectType.WAREHOUSE, "test_wh"),
     ],
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -490,7 +490,7 @@ def test_use_object(mock_execute_query, object_type, object_name, mock_cursor):
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_object_catches_not_exists_error(mock_execute_query):
-    object_type = ObjectType.ROLE
+    object_type = UseObjectType.ROLE
     object_name = "test_err_role"
     side_effects, expected = mock_execute_helper(
         [
@@ -513,7 +513,7 @@ def test_use_object_catches_not_exists_error(mock_execute_query):
 def test_use_object_catches_other_programming_error_raises_unknown_sql_error(
     mock_execute_query,
 ):
-    object_type = ObjectType.WAREHOUSE
+    object_type = UseObjectType.WAREHOUSE
     object_name = "test_warehouse"
     side_effects, expected = mock_execute_helper(
         [
@@ -534,7 +534,7 @@ def test_use_object_catches_other_programming_error_raises_unknown_sql_error(
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_object_catches_other_sql_error(mock_execute_query):
-    object_type = ObjectType.ROLE
+    object_type = UseObjectType.ROLE
     object_name = "test_err_role"
     side_effects, expected = mock_execute_helper(
         [(Exception(), mock.call("use role test_err_role"))]

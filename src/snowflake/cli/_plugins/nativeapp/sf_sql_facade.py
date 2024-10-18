@@ -15,13 +15,12 @@
 import logging
 from contextlib import contextmanager
 
-from cryptography.utils import cached_property
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
     UserScriptError,
     handle_unclassified_error,
 )
-from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.constants import UseObjectType
 from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
@@ -37,12 +36,9 @@ class SnowflakeSQLFacade:
         self._sql_executor = (
             sql_executor if sql_executor is not None else get_sql_executor()
         )
+        self._log = logging.getLogger(__name__)
 
-    @cached_property
-    def _log(self):
-        return logging.getLogger(__name__)
-
-    def _use_object(self, object_type: ObjectType, name: str):
+    def _use_object(self, object_type: UseObjectType, name: str):
         """
         Call sql to use snowflake object with error handling
         @param object_type: ObjectType, type of snowflake object to use
@@ -87,13 +83,13 @@ class SnowflakeSQLFacade:
         is_different_wh = valid_wh_name != prev_wh
         if is_different_wh:
             self._log.debug(f"Using warehouse: {valid_wh_name}")
-            self._use_object(ObjectType.WAREHOUSE, valid_wh_name)
+            self._use_object(UseObjectType.WAREHOUSE, valid_wh_name)
         try:
             yield
         finally:
             if is_different_wh and prev_wh is not None:
                 self._log.debug(f"Switching back to warehouse:{prev_wh}")
-                self._use_object(ObjectType.WAREHOUSE, prev_wh)
+                self._use_object(UseObjectType.WAREHOUSE, prev_wh)
 
     @contextmanager
     def _use_role_optional(self, new_role: str | None):
@@ -118,13 +114,13 @@ class SnowflakeSQLFacade:
         is_different_role = valid_role_name.lower() != prev_role.lower()
         if is_different_role:
             self._log.debug(f"Assuming different role: {valid_role_name}")
-            self._use_object(ObjectType.ROLE, valid_role_name)
+            self._use_object(UseObjectType.ROLE, valid_role_name)
         try:
             yield
         finally:
             if is_different_role:
                 self._log.debug(f"Switching back to role:{prev_role}")
-                self._use_object(ObjectType.ROLE, prev_role)
+                self._use_object(UseObjectType.ROLE, prev_role)
 
     @contextmanager
     def _use_database_optional(self, database_name: str | None):
@@ -155,14 +151,14 @@ class SnowflakeSQLFacade:
         is_different_db = valid_name != prev_db
         if is_different_db:
             self._log.debug(f"Using database {valid_name}")
-            self._use_object(ObjectType.DATABASE, valid_name)
+            self._use_object(UseObjectType.DATABASE, valid_name)
 
         try:
             yield
         finally:
             if is_different_db and prev_db is not None:
                 self._log.debug(f"Switching back to database:{prev_db}")
-                self._use_object(ObjectType.DATABASE, prev_db)
+                self._use_object(UseObjectType.DATABASE, prev_db)
 
     def execute_user_script(
         self,

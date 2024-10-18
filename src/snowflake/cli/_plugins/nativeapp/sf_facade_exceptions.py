@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from click import ClickException
-from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.constants import UseObjectType
 from snowflake.connector import DatabaseError, Error
 
 
@@ -70,7 +70,7 @@ class SQLWithUserInputError(ClickException):
 
 
 class CouldNotUseObjectError(SQLWithUserInputError):
-    def __init__(self, object_type: ObjectType, name: str):
+    def __init__(self, object_type: UseObjectType, name: str):
         super().__init__(
             f"Could not use {object_type} {name}. Object does not exist, or operation cannot be performed."
         )

@@ -33,7 +33,19 @@ class ObjectNames:
         return self.sf_name
 
 
-class ObjectType(Enum):
+class BaseObjectType(Enum):
+    def __str__(self):
+        """This makes using this Enum easier in formatted string"""
+        return self.value.cli_name
+
+
+class UseObjectType(BaseObjectType):
+    DATABASE = ObjectNames("database", "database", "databases")
+    ROLE = ObjectNames("role", "role", "roles")
+    WAREHOUSE = ObjectNames("warehouse", "warehouse", "warehouses")
+
+
+class ObjectType(BaseObjectType):
     COMPUTE_POOL = ObjectNames("compute-pool", "compute pool", "compute pools")
     DATABASE = ObjectNames("database", "database", "databases")
     FUNCTION = ObjectNames("function", "function", "functions")
@@ -62,10 +74,6 @@ class ObjectType(Enum):
         "image-repository", "image repository", "image repositories"
     )
     GIT_REPOSITORY = ObjectNames("git-repository", "git repository", "git repositories")
-
-    def __str__(self):
-        """This makes using this Enum easier in formatted string"""
-        return self.value.cli_name
 
 
 OBJECT_TO_NAMES = {o.value.cli_name: o.value for o in ObjectType}
