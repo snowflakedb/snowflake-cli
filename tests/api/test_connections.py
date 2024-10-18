@@ -91,6 +91,8 @@ def test_connection_cache_caches(
 
     mock_connect.assert_called_once_with(
         application=mock_command_info.return_value,
+        internal_application_name="Snowflake_CLI",
+        internal_application_version="0.0.0-test_patched",
         database="db_for_test",
         schema="test_public",
         role="test_role",
