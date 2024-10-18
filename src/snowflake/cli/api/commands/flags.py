@@ -327,6 +327,15 @@ OutputFormatOption = typer.Option(
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 
+TableMinColWidthOption = typer.Option(
+    None,
+    "--table-min-col-width",
+    help="Sets the minimum column width when printing in the table output format.",
+    callback=_context_callback("table_min_col_width"),
+    show_default=False,
+    rich_help_panel=_CLI_BEHAVIOUR,
+)
+
 SilentOption = typer.Option(
     False,
     "--silent",
