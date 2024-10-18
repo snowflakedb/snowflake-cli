@@ -232,9 +232,11 @@ def execute_post_deploy_hooks(
 
     with console.phase(f"Executing {deployed_object_type} post-deploy actions"):
         sql_scripts_paths = []
+        display_paths = []
         for hook in post_deploy_hooks:
             if hook.sql_script:
                 sql_scripts_paths.append(hook.sql_script)
+                display_paths.append(hook.display_path)
             else:
                 raise ValueError(
                     f"Unsupported {deployed_object_type} post-deploy hook type: {hook}"
@@ -246,7 +248,7 @@ def execute_post_deploy_hooks(
             sql_scripts_paths,
         )
 
-        for index, sql_script_path in enumerate(sql_scripts_paths):
+        for index, sql_script_path in enumerate(display_paths):
             console.step(f"Executing SQL script: {sql_script_path}")
             _execute_sql_script(
                 script_content=scripts_content_list[index],
