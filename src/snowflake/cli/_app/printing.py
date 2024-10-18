@@ -75,7 +75,7 @@ def _get_table():
     return Table(show_header=True, box=box.ASCII)
 
 
-def _print_multiple_table_results(obj: CollectionResult, table_format_min_width: int | None = None):
+def _print_multiple_table_results(obj: CollectionResult):
     items = obj.result
     try:
         first_item = next(items)
@@ -84,7 +84,7 @@ def _print_multiple_table_results(obj: CollectionResult, table_format_min_width:
         return
     table = _get_table()
     for column in first_item.keys():
-        table.add_column(column, overflow="fold", min_width=table_format_min_width)
+        table.add_column(column, overflow="fold")
     with Live(table, refresh_per_second=4):
         table.add_row(*[str(i) for i in first_item.values()])
         for item in items:
@@ -137,7 +137,7 @@ def _stream_json(result):
     print("\n]")
 
 
-def print_unstructured(obj: CommandResult | None, table_format_min_width: int | None = None):
+def print_unstructured(obj: CommandResult | None):
     """Handles outputs like table, plain text and other unstructured types."""
     if not obj:
         rich_print("Done", flush=True)
@@ -146,18 +146,21 @@ def print_unstructured(obj: CommandResult | None, table_format_min_width: int | 
     elif isinstance(obj, MessageResult):
         rich_print(sanitize_for_terminal(obj.message), flush=True)
     else:
+        full_width_table = get_cli_context().full_width_table
+        if full_width_table:
+            get_console().width = sys.maxsize
         if isinstance(obj, ObjectResult):
-            _print_single_table(obj, table_format_min_width)
+            _print_single_table(obj)
         elif isinstance(obj, CollectionResult):
-            _print_multiple_table_results(obj, table_format_min_width)
+            _print_multiple_table_results(obj)
         else:
             raise TypeError(f"No print strategy for type: {type(obj)}")
 
 
-def _print_single_table(obj, table_format_min_width: int | None = None):
+def _print_single_table(obj):
     table = _get_table()
-    table.add_column("key", no_wrap=True, overflow="fold", width=table_format_min_width)
-    table.add_column("value", no_wrap=True, overflow="fold", width=table_format_min_width)
+    table.add_column("key")
+    table.add_column("value")
     for key, value in obj.result.items():
         table.add_row(
             sanitize_for_terminal(str(key)), sanitize_for_terminal(str(value))
@@ -165,7 +168,7 @@ def _print_single_table(obj, table_format_min_width: int | None = None):
     rich_print(table, flush=True)
 
 
-def print_result(cmd_result: CommandResult, output_format: OutputFormat | None = None, table_format_min_width: int | None = None):
+def print_result(cmd_result: CommandResult, output_format: OutputFormat | None = None):
     output_format = output_format or _get_format_type()
     if is_structured_format(output_format):
         print_structured(cmd_result)
@@ -176,6 +179,6 @@ def print_result(cmd_result: CommandResult, output_format: OutputFormat | None =
         isinstance(cmd_result, (MessageResult, ObjectResult, CollectionResult))
         or cmd_result is None
     ):
-        print_unstructured(cmd_result, table_format_min_width)
+        print_unstructured(cmd_result)
     else:
         raise ValueError(f"Unexpected type {type(cmd_result)}")

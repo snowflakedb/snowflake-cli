@@ -42,7 +42,7 @@ class _CliGlobalContextManager:
     )
 
     output_format: OutputFormat = OutputFormat.TABLE
-    table_min_col_width: int | None = None
+    full_width_table: bool = False
     silent: bool = False
     verbose: bool = False
     experimental: bool = False
@@ -165,8 +165,8 @@ class _CliGlobalContextAccess:
         return self._manager.output_format
 
     @property
-    def table_min_col_width(self) -> int | None:
-        return self._manager.table_min_col_width
+    def full_width_table(self) -> bool:
+        return self._manager.full_width_table
 
     @property
     def verbose(self) -> bool:

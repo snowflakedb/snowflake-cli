@@ -33,7 +33,7 @@ from snowflake.cli.api.commands.flags import (
     MasterTokenOption,
     MfaPasscodeOption,
     OutputFormatOption,
-    TableMinColWidthOption,
+    FullWidthTableOption,
     PasswordOption,
     PortOption,
     PrivateKeyPathOption,
@@ -337,10 +337,10 @@ GLOBAL_OPTIONS = [
         default=OutputFormatOption,
     ),
     inspect.Parameter(
-        "table_min_col_width",
+        "full_width_table",
         inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[int],
-        default=TableMinColWidthOption,
+        annotation=Optional[bool],
+        default=FullWidthTableOption,
     ),
     inspect.Parameter(
         "verbose",
