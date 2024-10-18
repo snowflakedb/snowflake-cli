@@ -271,8 +271,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             package_warehouse=(
                 (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
             ),
-            post_deploy_hooks=model.meta and model.meta.post_deploy,
-            package_scripts=[],  # Package scripts are not supported in PDFv2
             policy=policy,
             use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=f"{package_name}.{model.scratch_stage}",
@@ -480,8 +478,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 paths=paths,
                 stage_fqn=stage_fqn,
                 package_warehouse=package_warehouse,
-                post_deploy_hooks=post_deploy_hooks,
-                package_scripts=package_scripts,
                 policy=policy,
                 use_scratch_stage=False,
                 scratch_stage_fqn="",
@@ -1202,8 +1198,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         recursive: bool,
         paths: List[Path] | None,
         stage_fqn: str,
-        post_deploy_hooks: list[PostDeployHook] | None,
-        package_scripts: List[str],
         policy: PolicyBase,
         use_scratch_stage: bool,
         scratch_stage_fqn: str,
@@ -1225,8 +1219,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 paths=paths,
                 stage_fqn=stage_fqn,
                 package_warehouse=package_warehouse,
-                post_deploy_hooks=post_deploy_hooks,
-                package_scripts=package_scripts,
                 policy=policy,
                 use_scratch_stage=use_scratch_stage,
                 scratch_stage_fqn=scratch_stage_fqn,
@@ -1269,8 +1261,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             package_warehouse=(
                 (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
             ),
-            post_deploy_hooks=model.meta and model.meta.post_deploy,
-            package_scripts=[],  # Package scripts are not supported in PDFv2
             policy=AllowAlwaysPolicy(),
             use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=f"{package_name}.{model.scratch_stage}",
@@ -1293,8 +1283,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         recursive: bool,
         paths: List[Path] | None,
         stage_fqn: str,
-        post_deploy_hooks: list[PostDeployHook] | None,
-        package_scripts: List[str],
         policy: PolicyBase,
         use_scratch_stage: bool,
         scratch_stage_fqn: str,
@@ -1320,8 +1308,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 validate=False,
                 stage_fqn=stage_fqn,
                 package_warehouse=package_warehouse,
-                post_deploy_hooks=post_deploy_hooks,
-                package_scripts=package_scripts,
+                post_deploy_hooks=[],
+                package_scripts=[],
                 policy=policy,
             )
         prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
