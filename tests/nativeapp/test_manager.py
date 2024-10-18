@@ -1381,7 +1381,7 @@ def test_validate_use_scratch_stage(mock_execute, mock_deploy, temp_dir, mock_cu
         validate=False,
         stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}",
         package_warehouse=pkg_model.meta.warehouse,
-        post_deploy_hooks=pkg_model.meta.post_deploy,
+        post_deploy_hooks=[],
         package_scripts=[],
         policy=AllowAlwaysPolicy(),
     )
@@ -1470,7 +1470,7 @@ def test_validate_failing_drops_scratch_stage(
         validate=False,
         stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}",
         package_warehouse=pkg_model.meta.warehouse,
-        post_deploy_hooks=pkg_model.meta.post_deploy,
+        post_deploy_hooks=[],
         package_scripts=[],
         policy=AllowAlwaysPolicy(),
     )
