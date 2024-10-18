@@ -14,7 +14,7 @@
 
 from click import ClickException
 from snowflake.cli.api.constants import UseObjectType
-from snowflake.connector import DatabaseError, Error
+from snowflake.connector import DatabaseError, Error, ProgrammingError
 
 
 def handle_unclassified_error(err: Error | Exception, context: str):
@@ -24,6 +24,9 @@ def handle_unclassified_error(err: Error | Exception, context: str):
     @param context: message to add context to exception
     """
     message = f"{context} {str(err)}"
+    if isinstance(err, ProgrammingError):
+        raise InvalidSQLError(message) from err
+
     if isinstance(err, DatabaseError):
         raise UnknownSQLError(message) from err
 
@@ -31,29 +34,40 @@ def handle_unclassified_error(err: Error | Exception, context: str):
         raise UnknownConnectorError(message) from err
 
     # Not a connector error
-    raise Exception(f"Unclassified exception occurred. {message}") from err
+    raise Exception(message) from err
 
 
-class UnknownSQLError(Exception):
+class _BaseFacadeError(Exception):
+    """Base class for SnowflakeFacade Exceptions"""
+
+    msg = "Unknown Error"
+
+    def __str__(self):
+        return self.msg
+
+
+class InvalidSQLError(_BaseFacadeError):
+    "Exception raised when a ProgrammingError is caught but cause is unidentified" ""
+
+    def __init__(self, msg):
+        self.msg = f"Invalid SQL error occurred. {msg}"
+        super().__init__(self.msg)
+
+
+class UnknownSQLError(_BaseFacadeError):
     """Exception raised when the root of the DatabaseError is unidentified."""
 
     def __init__(self, msg):
         self.msg = f"Unknown SQL error occurred. {msg}"
         super().__init__(self.msg)
 
-    def __str__(self):
-        return self.msg
 
-
-class UnknownConnectorError(Exception):
+class UnknownConnectorError(_BaseFacadeError):
     """Exception raised when the root of the error thrown by connector is unidentified."""
 
     def __init__(self, msg):
         self.msg = f"Unknown error occurred. {msg}"
         super().__init__(self.msg)
-
-    def __str__(self):
-        return self.msg
 
 
 class UserScriptError(ClickException):
@@ -63,13 +77,13 @@ class UserScriptError(ClickException):
         super().__init__(f"Failed to run script {script_name}. {msg}")
 
 
-class SQLWithUserInputError(ClickException):
+class UserInputError(ClickException):
     """Exception raised when execution of SQL with user input fails."""
 
     pass
 
 
-class CouldNotUseObjectError(SQLWithUserInputError):
+class CouldNotUseObjectError(UserInputError):
     def __init__(self, object_type: UseObjectType, name: str):
         super().__init__(
             f"Could not use {object_type} {name}. Object does not exist, or operation cannot be performed."

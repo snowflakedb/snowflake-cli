@@ -18,6 +18,7 @@ import pytest
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
+    InvalidSQLError,
     UnknownConnectorError,
     UnknownSQLError,
     UserScriptError,
@@ -455,7 +456,7 @@ def test_execute_raises_other_programming_error_as_user_error(mock_execute_queri
         (
             Exception(),
             Exception,
-            "Unclassified exception occurred. Failed to run script test-user-sql-script.sql",
+            "Failed to run script test-user-sql-script.sql",
         ),
         (
             DatabaseError("some database error"),
@@ -542,11 +543,11 @@ def test_use_object_catches_other_programming_error_raises_unknown_sql_error(
         ]
     )
     mock_execute_query.side_effect = side_effects
-    with pytest.raises(UnknownSQLError) as err:
+    with pytest.raises(InvalidSQLError) as err:
         sql_facade._use_object(object_type, object_name)  # noqa: SLF001
     assert (
         err.value.msg
-        == "Unknown SQL error occurred. Failed to use warehouse test_warehouse. Some programming error"
+        == "Invalid SQL error occurred. Failed to use warehouse test_warehouse. Some programming error"
     )
 
 
@@ -560,9 +561,7 @@ def test_use_object_catches_other_sql_error(mock_execute_query):
     mock_execute_query.side_effect = side_effects
     with pytest.raises(Exception) as err:
         sql_facade._use_object(object_type, object_name)  # noqa: SLF001
-    assert "Unclassified exception occurred. Failed to use role test_err_role." in str(
-        err
-    )
+    assert "Failed to use role test_err_role." in str(err)
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -700,8 +699,8 @@ def test_use_db_same_id_single_quotes(mock_execute_query, mock_cursor):
         ),
         (
             ProgrammingError(),
-            UnknownSQLError,
-            "Unknown SQL error occurred. Failed to use warehouse test_warehouse. Unknown error",
+            InvalidSQLError,
+            "Invalid SQL error occurred. Failed to use warehouse test_warehouse. Unknown error",
         ),
         (
             Error(),
@@ -716,7 +715,7 @@ def test_use_db_same_id_single_quotes(mock_execute_query, mock_cursor):
         (
             Exception(),
             Exception,
-            "Unclassified exception occurred. Failed to use warehouse test_warehouse.",
+            "Failed to use warehouse test_warehouse.",
         ),
     ],
 )
@@ -758,8 +757,8 @@ def test_use_warehouse_bubbles_errors(
         ),
         (
             ProgrammingError(),
-            UnknownSQLError,
-            "Unknown SQL error occurred. Failed to use role test_role. Unknown error",
+            InvalidSQLError,
+            "Invalid SQL error occurred. Failed to use role test_role. Unknown error",
         ),
         (
             Error(),
@@ -774,7 +773,7 @@ def test_use_warehouse_bubbles_errors(
         (
             Exception(),
             Exception,
-            "Unclassified exception occurred. Failed to use role test_role.",
+            "Failed to use role test_role.",
         ),
     ],
 )
@@ -816,8 +815,8 @@ def test_use_role_bubbles_errors(
         ),
         (
             ProgrammingError(),
-            UnknownSQLError,
-            "Unknown SQL error occurred. Failed to use database test_db. Unknown error",
+            InvalidSQLError,
+            "Invalid SQL error occurred. Failed to use database test_db. Unknown error",
         ),
         (
             Error(),
@@ -832,7 +831,7 @@ def test_use_role_bubbles_errors(
         (
             Exception(),
             Exception,
-            "Unclassified exception occurred. Failed to use database test_db.",
+            "Failed to use database test_db.",
         ),
     ],
 )
