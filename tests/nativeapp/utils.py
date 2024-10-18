@@ -17,16 +17,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional, Set
-
-from snowflake.cli._plugins.nativeapp.project_model import (
-    NativeAppProjectModel,
-)
-from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
+from typing import List, Set
 
 from tests.nativeapp.factories import ProjectV10Factory
 
-NATIVEAPP_MODULE = "snowflake.cli._plugins.nativeapp.manager"
 TYPER_CONFIRM = "typer.confirm"
 TYPER_PROMPT = "typer.prompt"
 ENTITIES_COMMON_MODULE = "snowflake.cli.api.entities.common"
@@ -38,24 +32,6 @@ APPLICATION_PACKAGE_ENTITY_MODULE = (
 CLI_GLOBAL_TEMPLATE_CONTEXT = (
     "snowflake.cli.api.cli_global_context._CliGlobalContextAccess.template_context"
 )
-
-NATIVEAPP_MANAGER = f"{NATIVEAPP_MODULE}.NativeAppManager"
-
-NATIVEAPP_MANAGER_APP_PKG_DISTRIBUTION_IN_SF = (
-    f"{NATIVEAPP_MANAGER}.get_app_pkg_distribution_in_snowflake"
-)
-NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME = (
-    f"{NATIVEAPP_MANAGER}.verify_project_distribution"
-)
-NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO = (
-    f"{NATIVEAPP_MANAGER}.get_existing_app_pkg_info"
-)
-NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION = (
-    f"{NATIVEAPP_MANAGER}.get_objects_owned_by_application"
-)
-NATIVEAPP_MANAGER_BUILD_BUNDLE = f"{NATIVEAPP_MANAGER}.build_bundle"
-NATIVEAPP_MANAGER_DEPLOY = f"{NATIVEAPP_MANAGER}.deploy"
-NATIVEAPP_MANAGER_VALIDATE = f"{NATIVEAPP_MANAGER}.validate"
 
 APP_ENTITY_MODULE = "snowflake.cli._plugins.nativeapp.entities.application"
 APP_ENTITY = f"{APP_ENTITY_MODULE}.ApplicationEntity"
@@ -224,17 +200,6 @@ def assert_dir_snapshot(root: Path, os_agnostic_snapshot) -> None:
             assert (
                 snapshot_contents == os_agnostic_snapshot
             ), f"\nExpected:\n{os_agnostic_snapshot}\nGot:\n{snapshot_contents}"
-
-
-def create_native_app_project_model(
-    project_definition: NativeApp, project_root: Optional[Path] = None
-) -> NativeAppProjectModel:
-    if project_root is None:
-        project_root = Path().resolve()
-    return NativeAppProjectModel(
-        project_definition=project_definition,
-        project_root=project_root,
-    )
 
 
 # POC to replicate tests/test_data/projects/integration sample project

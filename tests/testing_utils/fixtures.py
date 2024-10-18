@@ -386,18 +386,16 @@ def function_instance():
 @pytest.fixture()
 def native_app_project_instance():
     return build_project_definition(
-        **{
-            "definition_version": "1",
-            "native_app": {
-                "artifacts": [{"dest": "./", "src": "app/*"}],
-                "name": "napp_test",
-                "package": {
-                    "scripts": [
-                        "package/001.sql",
-                    ]
-                },
-            },
-        }
+        **dict(
+            definition_version="2",
+            entities=dict(
+                pkg=dict(
+                    type="application package",
+                    artifacts=[dict(dest="./", src="app/*")],
+                    manifest="app/manifest.yml",
+                )
+            ),
+        )
     )
 
 

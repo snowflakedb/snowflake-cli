@@ -21,6 +21,7 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli._plugins.nativeapp.codegen.sandbox import (
     ExecutionEnvironmentType,
     SandboxExecutionError,
@@ -33,11 +34,14 @@ from snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor import (
     generate_create_sql_ddl_statement,
     generate_grant_sql_ddl_statements,
 )
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
     ProcessorMapping,
 )
 
-from tests.nativeapp.utils import assert_dir_snapshot, create_native_app_project_model
+from tests.nativeapp.utils import assert_dir_snapshot
 from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
 from tests_common import IS_WINDOWS
 
@@ -46,6 +50,22 @@ PROJECT_ROOT = Path("/path/to/project")
 # --------------------------------------------------------
 # ------------- _determine_virtual_env -------------------
 # --------------------------------------------------------
+
+
+def _get_bundle_context(
+    pkg_model: ApplicationPackageEntityModel, project_root: Path | None = None
+):
+    project_root = project_root or Path().resolve()
+    return BundleContext(
+        package_name=pkg_model.fqn.name,
+        artifacts=pkg_model.artifacts,
+        project_root=project_root,
+        bundle_root=project_root / pkg_model.bundle_root,
+        deploy_root=project_root / pkg_model.deploy_root,
+        generated_root=(
+            project_root / pkg_model.deploy_root / pkg_model.generated_root
+        ),
+    )
 
 
 @pytest.mark.parametrize(
@@ -347,23 +367,22 @@ def test_process_no_collected_functions(
 ):
     with temp_local_dir(minimal_dir_structure) as local_path:
         with pushd(local_path):
-            native_app_project_instance.native_app.artifacts = [
+            pkg_model = native_app_project_instance.entities["pkg"]
+            pkg_model.artifacts = [
                 {"src": "a/b/c/*.py", "dest": "stagepath/", "processors": ["SNOWPARK"]}
             ]
             mock_sandbox.side_effect = [None, []]
-            project = create_native_app_project_model(
-                project_definition=native_app_project_instance.native_app,
-                project_root=local_path,
-            )
-            processor = SnowparkAnnotationProcessor(project.get_bundle_context())
+            project_context = _get_bundle_context(pkg_model, local_path)
+            processor = SnowparkAnnotationProcessor(project_context)
             processor.process(
-                artifact_to_process=native_app_project_instance.native_app.artifacts[0],
+                artifact_to_process=pkg_model.artifacts[0],
                 processor_mapping=ProcessorMapping(name="SNOWPARK"),
                 write_to_sql=False,  # For testing
             )
 
             assert_dir_snapshot(
-                project.deploy_root.relative_to(local_path), os_agnostic_snapshot
+                project_context.deploy_root.relative_to(local_path),
+                os_agnostic_snapshot,
             )
 
 
@@ -392,7 +411,8 @@ def test_process_with_collected_functions(
                 name="snowpark",
                 properties={"env": {"type": "conda", "name": "snowpark-dev"}},
             )
-            native_app_project_instance.native_app.artifacts = [
+            pkg_model = native_app_project_instance.entities["pkg"]
+            pkg_model.artifacts = [
                 {
                     "src": "a/b/c/*.py",
                     "dest": "stagepath/",
@@ -403,11 +423,7 @@ def test_process_with_collected_functions(
                 [native_app_extension_function_raw_data],
                 [imports_variation],
             ]
-            project = create_native_app_project_model(
-                project_definition=native_app_project_instance.native_app,
-                project_root=local_path,
-            )
-            project_context = project.get_bundle_context()
+            project_context = _get_bundle_context(pkg_model, local_path)
             processor_context = copy.copy(project_context)
             processor_context.generated_root = (
                 project_context.generated_root / "snowpark"
@@ -415,12 +431,13 @@ def test_process_with_collected_functions(
             processor_context.bundle_root = project_context.bundle_root / "snowpark"
             processor = SnowparkAnnotationProcessor(processor_context)
             processor.process(
-                artifact_to_process=native_app_project_instance.native_app.artifacts[0],
+                artifact_to_process=pkg_model.artifacts[0],
                 processor_mapping=processor_mapping,
             )
 
             assert_dir_snapshot(
-                project.deploy_root.relative_to(local_path), os_agnostic_snapshot
+                project_context.deploy_root.relative_to(local_path),
+                os_agnostic_snapshot,
             )
 
 
@@ -460,7 +477,8 @@ def test_package_normalization(
             processor_mapping = ProcessorMapping(
                 name="snowpark",
             )
-            native_app_project_instance.native_app.artifacts = [
+            pkg_model = native_app_project_instance.entities["pkg"]
+            pkg_model.artifacts = [
                 {
                     "src": "a/b/c/main.py",
                     "dest": "stagepath/",
@@ -469,11 +487,7 @@ def test_package_normalization(
             ]
             native_app_extension_function_raw_data["packages"] = package_decl
             mock_sandbox.side_effect = [[native_app_extension_function_raw_data]]
-            project = create_native_app_project_model(
-                project_definition=native_app_project_instance.native_app,
-                project_root=local_path,
-            )
-            project_context = project.get_bundle_context()
+            project_context = _get_bundle_context(pkg_model)
             processor_context = copy.copy(project_context)
             processor_context.generated_root = (
                 project_context.generated_root / "snowpark"
@@ -481,10 +495,12 @@ def test_package_normalization(
             processor_context.bundle_root = project_context.bundle_root / "snowpark"
             processor = SnowparkAnnotationProcessor(processor_context)
             processor.process(
-                artifact_to_process=native_app_project_instance.native_app.artifacts[0],
+                artifact_to_process=pkg_model.artifacts[0],
                 processor_mapping=processor_mapping,
             )
 
-            dest_file = project.generated_root / "snowpark" / "stagepath" / "main.sql"
+            dest_file = (
+                project_context.generated_root / "snowpark" / "stagepath" / "main.sql"
+            )
             assert dest_file.is_file()
             assert dest_file.read_text(encoding="utf-8") == os_agnostic_snapshot
