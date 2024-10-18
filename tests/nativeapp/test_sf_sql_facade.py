@@ -94,7 +94,13 @@ def test_execute_with_role_wh_db(mock_execute_queries, mock_execute_query, mock_
     ]
 
     # Act
-    sql_facade.execute_user_script(mock_script, mock_script_name, role, wh, database)
+    sql_facade.execute_user_script(
+        queries=mock_script,
+        script_name=mock_script_name,
+        role=role,
+        warehouse=wh,
+        database=database,
+    )
 
     # Assert
     assert mock_execute_query.mock_calls == expected
@@ -144,7 +150,9 @@ def test_execute_no_db(mock_execute_queries, mock_execute_query, mock_cursor):
     ]
 
     # Act
-    sql_facade.execute_user_script(mock_script, mock_script_name, role, wh)
+    sql_facade.execute_user_script(
+        queries=mock_script, script_name=mock_script_name, role=role, warehouse=wh
+    )
 
     # Assert
     assert mock_execute_query.mock_calls == expected
@@ -194,7 +202,9 @@ def test_execute_no_wh(mock_execute_queries, mock_execute_query, mock_cursor):
     ]
 
     # Act
-    sql_facade.execute_user_script(mock_script, mock_script_name, role, None, database)
+    sql_facade.execute_user_script(
+        queries=mock_script, script_name=mock_script_name, role=role, database=database
+    )
 
     # Assert
     assert mock_execute_query.mock_calls == expected
@@ -289,7 +299,9 @@ def test_execute_no_wh_no_db(mock_execute_queries, mock_execute_query, mock_curs
     ]
 
     # Act
-    sql_facade.execute_user_script(mock_script, mock_script_name, role)
+    sql_facade.execute_user_script(
+        queries=mock_script, script_name=mock_script_name, role=role
+    )
 
     # Assert
     assert mock_execute_query.mock_calls == expected
@@ -390,7 +402,7 @@ def test_execute_no_role_no_wh_no_db(mock_execute_queries, mock_execute_query):
     mock_script_name = "test-user-sql-script.sql"
 
     # Act
-    sql_facade.execute_user_script(mock_script, mock_script_name)
+    sql_facade.execute_user_script(queries=mock_script, script_name=mock_script_name)
 
     # Assert
     mock_execute_query.assert_not_called()
@@ -408,7 +420,9 @@ def test_execute_catches_no_warehouse_error_raises_user_error(mock_execute_queri
 
     # Act
     with pytest.raises(UserScriptError) as err:
-        sql_facade.execute_user_script(mock_script, mock_script_name)
+        sql_facade.execute_user_script(
+            queries=mock_script, script_name=mock_script_name
+        )
 
     # Assert
     assert "Failed to run script test-user-sql-script.sql" in err.value.message
@@ -427,7 +441,9 @@ def test_execute_raises_other_programming_error_as_user_error(mock_execute_queri
 
     # Act
     with pytest.raises(UserScriptError) as err:
-        sql_facade.execute_user_script(mock_script, mock_script_name)
+        sql_facade.execute_user_script(
+            queries=mock_script, script_name=mock_script_name
+        )
 
     # Assert
     assert "Failed to run script test-user-sql-script.sql" in err.value.message
@@ -464,7 +480,9 @@ def test_execute_catch_all_exception(
 
     # Act
     with pytest.raises(error_caught) as err:
-        sql_facade.execute_user_script(mock_script, mock_script_name)
+        sql_facade.execute_user_script(
+            queries=mock_script, script_name=mock_script_name
+        )
 
     # Assert
     assert error_message in str(err)

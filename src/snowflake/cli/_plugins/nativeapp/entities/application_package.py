@@ -1099,7 +1099,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             script_name = package_scripts[i]
             console.step(f"Applying package script: {script_name}")
             get_snowflake_facade().execute_user_script(
-                queries, script_name, package_role, package_warehouse
+                queries=queries,
+                script_name=script_name,
+                role=package_role,
+                warehouse=package_warehouse,
             )
 
     @classmethod

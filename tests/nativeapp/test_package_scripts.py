@@ -105,7 +105,9 @@ def test_package_scripts_with_conn_warehouse(
         native_app_manager = _get_na_manager(str(temp_dir))
         native_app_manager._apply_package_scripts()  # noqa: SLF001
         expected_calls = [
-            mock.call(query[1], query[0], "role", "wh")
+            mock.call(
+                queries=query[1], script_name=query[0], role="role", warehouse="wh"
+            )
             for query in list(scripts.items())
         ]
         assert mock_execute_user_script.mock_calls == expected_calls
@@ -127,7 +129,12 @@ def test_package_scripts_with_pdf_warehouse(
         native_app_manager = _get_na_manager(str(temp_dir))
         native_app_manager._apply_package_scripts()  # noqa: SLF001
         expected_calls = [
-            mock.call(query[1], query[0], "role", "myapp_pkg_warehouse")
+            mock.call(
+                queries=query[1],
+                script_name=query[0],
+                role="role",
+                warehouse="myapp_pkg_warehouse",
+            )
             for query in list(scripts.items())
         ]
         assert mock_execute_user_script.mock_calls == expected_calls
@@ -149,7 +156,12 @@ def test_package_scripts_without_conn_warehouse_with_pkg_warehouse(mock_conn, te
         native_app_manager = _get_na_manager(str(temp_dir))
         native_app_manager._apply_package_scripts()  # noqa: SLF001
         expected_calls = [
-            mock.call(query[1], query[0], "MockRole", "myapp_pkg_warehouse")
+            mock.call(
+                queries=query[1],
+                script_name=query[0],
+                role="MockRole",
+                warehouse="myapp_pkg_warehouse",
+            )
             for query in list(scripts.items())
         ]
         assert mock_execute_user_script.mock_calls == expected_calls
