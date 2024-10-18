@@ -15,7 +15,7 @@
 import json
 from typing import Dict
 from unittest import mock
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from snowflake.cli._plugins.spcs.image_repository.manager import ImageRepositoryManager
@@ -140,43 +140,47 @@ def test_create_repository_already_exists(mock_handle, mock_execute):
     )
 
 
-@mock.patch("snowflake.cli._plugins.spcs.image_repository.commands.requests.get")
-@mock.patch(
-    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager._execute_query"
+@patch(
+    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager.list_images"
 )
-@mock.patch(
-    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"
-)
-@mock.patch(
-    "snowflake.cli._plugins.spcs.image_registry.commands.RegistryManager.login_to_registry"
-)
-def test_list_images(
-    mock_login,
-    mock_conn,
-    mock_execute,
-    mock_get_images,
+def test_list_images_cli(
+    mock_list_images,
     runner,
     mock_cursor,
 ):
-    mock_conn.database = "DB"
-    mock_conn.schema = "SCHEMA"
-    mock_conn.role = "MY_ROLE"
-
-    mock_execute.return_value = mock_cursor(
-        rows=MOCK_ROWS_DICT,
-        columns=MOCK_COLUMNS,
+    cursor = mock_cursor(
+        rows=[
+            [
+                "2024-10-11 14:23:49-07:00",
+                "echo_service",
+                "latest",
+                "sha256:a8a001fef406fdb3125ce8e8bf9970c35af7084",
+                "/db/schema/repo/echo_service",
+            ]
+        ],
+        columns=["created_on", "image_name", "tags", "digest", "image_path"],
     )
-    mock_login.return_value = "TOKEN"
-
-    mock_get_images.return_value.status_code = 200
-    mock_get_images.return_value.text = '{"repositories":["baserepo/super-cool-repo"]}'
+    mock_list_images.return_value = cursor
 
     result = runner.invoke(
         ["spcs", "image-repository", "list-images", "IMAGES", "--format", "JSON"]
     )
 
     assert result.exit_code == 0, result.output
-    assert json.loads(result.output) == [{"image": "/DB/SCHEMA/IMAGES/super-cool-repo"}]
+    assert "/db/schema/repo/echo_service" in result.output
+
+
+@patch(
+    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager._execute_query"
+)
+def test_list_images(mock_execute_query):
+    repo_name = "test_repo"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ImageRepositoryManager().list_images(repo_name)
+    expected_query = f"show images in image repository test_repo"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
 
 
 @mock.patch("snowflake.cli._plugins.spcs.image_repository.commands.requests.get")
@@ -223,9 +227,13 @@ def test_list_tags(
     )
 
     assert result.exit_code == 0, result.output
-    assert json.loads(result.output) == [
+    assert (
+        "DeprecationWarning: The command 'list-tags' is deprecated."
+        == result.output[0 : result.output.find("\n")]
+    )
+    assert json.loads(result.output[result.output.find("\n") :]) == [
         {"tag": "/DB/SCHEMA/IMAGES/super-cool-repo:1.2.0"}
-    ]
+    ], str(result.output)
 
 
 @mock.patch(

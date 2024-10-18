@@ -24,7 +24,7 @@ import pytest
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
-    StagePath,
+    StagePathType,
     build_md5_map,
     compute_stage_diff,
     delete_only_on_stage_files,
@@ -58,8 +58,8 @@ DEFAULT_LAST_MODIFIED = "Tue, 5 Sep 2023 17:59:21 GMT"
 STAGE_LS_COLUMNS = ["name", "size", "md5", "last_modified"]
 
 
-def as_stage_paths(paths: typing.Iterable[str]) -> List[StagePath]:
-    return [StagePath(p) for p in paths]
+def as_stage_paths(paths: typing.Iterable[str]) -> List[StagePathType]:
+    return [StagePathType(p) for p in paths]
 
 
 def md5_of(contents: Union[str, bytes]) -> str:
@@ -223,7 +223,7 @@ def test_get_stage_path_from_file():
         local_files = enumerate_files(local_path)
         for local_file in local_files:
             relpath = str(local_file.relative_to(local_path))
-            actual.append(get_stage_subpath(StagePath(relpath)))
+            actual.append(get_stage_subpath(StagePathType(relpath)))
     assert actual.sort() == expected
 
 
@@ -284,9 +284,9 @@ def test_build_md5_map(mock_cursor):
     )
 
     expected = {
-        StagePath("README.md"): "9b650974f65cc49be96a5ed34ac6d1fd",
-        StagePath("my.jar"): "fc605d0e2e50cf3e71873d57f4c598b0",
-        StagePath("ui/streamlit.py"): "a7dfdfaf892ecfc5f164914123c7f2cc",
+        StagePathType("README.md"): "9b650974f65cc49be96a5ed34ac6d1fd",
+        StagePathType("my.jar"): "fc605d0e2e50cf3e71873d57f4c598b0",
+        StagePathType("ui/streamlit.py"): "a7dfdfaf892ecfc5f164914123c7f2cc",
     }
 
     assert actual == expected

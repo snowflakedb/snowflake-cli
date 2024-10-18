@@ -118,6 +118,30 @@ class NativeAppFactory(factory.DictFactory):
         return cls._build(model_class, *args, **kwargs)
 
 
+class MetaFieldFactory(factory.DictFactory):
+    post_deploy = factory.List([])
+
+
+class EntityModelBaseFactory(factory.DictFactory):
+    meta = factory.SubFactory(MetaFieldFactory)
+
+
+class ApplicationPackageEntityModelFactory(EntityModelBaseFactory):
+    type = "application package"  # noqa: A003
+    manifest = "manifest.yml"
+    artifacts = factory.List(
+        ["setup.sql", "README.md", "manifest.yml"], list_factory=ArtifactFactory
+    )
+
+
+class ApplicationEntityModelFactory(EntityModelBaseFactory):
+    type = "application"  # noqa: A003
+    fromm = factory.Dict({"target": "pkg"})
+
+    class Meta:
+        rename = {"fromm": "from"}
+
+
 @dataclass
 class PdfFactoryResult:
     yml: dict
@@ -127,41 +151,24 @@ class PdfFactoryResult:
         return json.dumps(self.yml)
 
 
-class PdfV10Factory(factory.DictFactory):
+class _PdfFactory(factory.DictFactory):
     """
-    Prepare PDF V1 dict and write to file.
+    Base class to prepare PDF dict and write to file.
 
     Returns:
         PdfFactoryResult
-
-    Usage:
-        Create a pdf dict with definition_version: "1", native_app with faker-generated name and an empty artifacts list and
-          write to snowflake.yml in current directory:
-        - PdfV10Factory()
-
-        Create snowflake.local.yml and write to file
-        - PdfV10Factory.with_filename("snowflake.local.yml")(native_app__name="my_local_name")
-
-        Build and return yml but do not write to file:
-        - PdfV10Factory.build(
-            native_app__name="my_app",
-            native_app__artifacts=["setup.sql", "README.md"],
-            native_app__package__role="pkg_role"
-        )
     """
 
-    definition_version = "1"
-    native_app = factory.SubFactory(NativeAppFactory)
     env = factory.SubFactory(FactoryNoEmptyDict)
     _filename = "snowflake.yml"
 
     # for snowflake.local.yml
     @classmethod
     def with_filename(cls, filename):
-        class PdfV10FactoryWithFilename(cls):
+        class _PdfFactoryWithFilename(cls):
             _filename = filename
 
-        return PdfV10FactoryWithFilename
+        return _PdfFactoryWithFilename
 
     @classmethod
     def _build(cls, model_class, *args, **kwargs):
@@ -185,8 +192,81 @@ class PdfV10Factory(factory.DictFactory):
         )
 
 
+class PdfV10Factory(_PdfFactory):
+    """
+    Prepare PDF 1.0 dict and write to file.
+
+    Returns:
+        PdfFactoryResult
+
+    Usage:
+        Create a PDF dict with definition_version: "1", native_app with faker-generated name and an empty artifacts list and
+          write to snowflake.yml in current directory:
+        - PdfV10Factory()
+
+        Create snowflake.local.yml and write to file
+        - PdfV10Factory.with_filename("snowflake.local.yml")(native_app__name="my_local_name")
+
+        Build and return yml but do not write to file:
+        - PdfV10Factory.build(
+            native_app__name="my_app",
+            native_app__artifacts=["setup.sql", "README.md"],
+            native_app__package__role="pkg_role"
+        )
+    """
+
+    definition_version = "1"
+    native_app = factory.SubFactory(NativeAppFactory)
+
+
 class PdfV11Factory(PdfV10Factory):
+    """Override of Pdfv10Factory to set definition_version to 1.1"""
+
     definition_version = "1.1"
+
+
+class PdfV2Factory(_PdfFactory):
+    """
+    Prepare PDF 2 dict and write to file.
+
+    Returns:
+        PdfFactoryResult
+
+    Usage:
+        Create a PDF dict with definition_version: "2" with empty list of entities and
+          write to snowflake.yml in current directory:
+        - PdfV2Factory()
+
+        Create snowflake.local.yml with some entities and write to file
+        - PdfV2Factory.with_filename("snowflake.local.yml")(
+            entities=dict(
+                pkg=ApplicationPackageEntityModelFactory(
+                    identifier="myapp_pkg",
+                ),
+                app=ApplicationEntityModelFactory(
+                    identifier="myapp",
+                    fromm__target="pkg",
+                ),
+            )
+        )
+
+        Build and return yml but do not write to file:
+        - PdfV2Factory.build(
+            entities=dict(
+                pkg=ApplicationPackageEntityModelFactory(
+                    identifier="myapp_pkg",
+                ),
+                app=ApplicationEntityModelFactory(
+                    identifier="myapp",
+                    fromm__target="pkg",
+                ),
+            )
+        )
+    """
+
+    definition_version = "2"
+    entities = factory.Dict({})
+    env = factory.Dict({})
 
 
 @dataclass
@@ -226,7 +306,7 @@ class ProjectFactoryModel:
 ProjectFiles = dict[str | Path, str]
 
 
-class ProjectV10Factory(factory.Factory):
+class _ProjectFactory(factory.Factory):
     """
     Factory to create PDF dict, and write in working directory PDF to snowflake.yml file, and other optional files.
     """
@@ -234,8 +314,7 @@ class ProjectV10Factory(factory.Factory):
     class Meta:
         model = ProjectFactoryModel
 
-    pdf = factory.SubFactory(PdfV10Factory)
-
+    pdf = factory.SubFactory(_PdfFactory)
     files: ProjectFiles = {}
 
     @classmethod
@@ -245,6 +324,13 @@ class ProjectV10Factory(factory.Factory):
         return super()._create(model_class, *args, **kwargs)
 
 
-class ProjectV11Factory(ProjectV10Factory):
+class ProjectV10Factory(_ProjectFactory):
+    pdf = factory.SubFactory(PdfV10Factory)
 
+
+class ProjectV11Factory(ProjectV10Factory):
     pdf = factory.SubFactory(PdfV11Factory)
+
+
+class ProjectV2Factory(_ProjectFactory):
+    pdf = factory.SubFactory(PdfV2Factory)

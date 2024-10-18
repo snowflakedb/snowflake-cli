@@ -12,6 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import annotations
+import os
+import tempfile
 
-VERSION = "3.2.0.dev0"
+import pytest
+
+
+@pytest.fixture
+def temp_dir():
+    initial_dir = os.getcwd()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        try:
+            os.chdir(tmp_dir)
+            yield tmp_dir
+        finally:
+            # this has to happen before tmp_dir is cleaned up
+            # so that we don't try to remove the cwd of the process
+            os.chdir(initial_dir)

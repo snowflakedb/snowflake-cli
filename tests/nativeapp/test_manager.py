@@ -43,12 +43,13 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
     NoEventTableForAccount,
+    ObjectPropertyNotFoundError,
     SetupScriptFailedValidation,
 )
 from snowflake.cli._plugins.nativeapp.policy import AllowAlwaysPolicy
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
-    StagePath,
+    StagePathType,
 )
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.console import cli_console as cc
@@ -60,7 +61,10 @@ from snowflake.cli.api.entities.utils import (
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
 )
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.exceptions import (
+    DoesNotExistOrUnauthorizedError,
+    SnowflakeSQLExecutionError,
+)
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.util import extract_schema
 from snowflake.connector import ProgrammingError
@@ -86,19 +90,6 @@ from tests.nativeapp.utils import (
 from tests.testing_utils.files_and_dirs import create_named_file
 from tests.testing_utils.fixtures import MockConnectionCtx
 
-mock_project_definition_override = {
-    "native_app": {
-        "application": {
-            "name": "sample_application_name",
-            "role": "sample_application_role",
-        },
-        "package": {
-            "name": "sample_package_name",
-            "role": "sample_package_role",
-        },
-    }
-}
-
 
 def _get_dm(working_dir: Optional[str] = None):
     return DefinitionManager(working_dir)
@@ -123,7 +114,7 @@ def test_sync_deploy_root_with_stage(
     mock_cursor,
 ):
     mock_execute.return_value = mock_cursor([("old_role",)], [])
-    mock_diff_result = DiffResult(different=[StagePath("setup.sql")])
+    mock_diff_result = DiffResult(different=[StagePathType("setup.sql")])
     mock_compute_stage_diff.return_value = mock_diff_result
     mock_local_diff_with_stage.return_value = None
     current_working_directory = os.getcwd()
@@ -184,12 +175,12 @@ def test_sync_deploy_root_with_stage(
     [
         [
             True,
-            [StagePath("only-stage.txt")],
+            [StagePathType("only-stage.txt")],
             False,
         ],
         [
             False,
-            [StagePath("only-stage-1.txt"), StagePath("only-stage-2.txt")],
+            [StagePathType("only-stage-1.txt"), StagePathType("only-stage-2.txt")],
             True,
         ],
     ],
@@ -241,7 +232,6 @@ Use the --prune flag to delete them from the stage."""
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_cursor):
-
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -287,7 +277,6 @@ def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_curs
 def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     mock_execute, temp_dir, mock_cursor
 ):
-
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -296,9 +285,8 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
             ),
             (None, mock.call("use role package_role")),
             (
-                ProgrammingError(
+                DoesNotExistOrUnauthorizedError(
                     msg="Application package app_pkg does not exist or not authorized.",
-                    errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
                 ),
                 mock.call("describe application package app_pkg"),
             ),
@@ -317,7 +305,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
 
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(DoesNotExistOrUnauthorizedError):
         ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
             pkg_model.fqn.name, pkg_model.meta.role
         )
@@ -329,7 +317,6 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
 def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
     mock_execute, temp_dir, mock_cursor
 ):
-
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -365,7 +352,6 @@ def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
 def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     mock_execute, temp_dir, mock_cursor
 ):
-
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -392,17 +378,24 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
 
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(ObjectPropertyNotFoundError) as err:
         ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
             pkg_model.fqn.name, pkg_model.meta.role
         )
 
     assert mock_execute.mock_calls == expected
+    assert err.match(
+        dedent(
+            f"""\
+        Could not find the 'distribution' attribute for application package app_pkg in the output of SQL query:
+        'describe application package app_pkg'
+        """
+        )
+    )
 
 
 @mock_get_app_pkg_distribution_in_sf()
 def test_is_app_pkg_distribution_same_in_sf_w_arg(mock_mismatch, temp_dir):
-
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -1106,7 +1099,7 @@ def test_get_paths_to_sync(
 
     paths_to_sync = [Path(p) for p in paths_to_sync]
     result = _get_stage_paths_to_sync(paths_to_sync, Path("deploy/"))
-    assert result.sort() == [StagePath(p) for p in expected_result].sort()
+    assert result.sort() == [StagePathType(p) for p in expected_result].sort()
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)

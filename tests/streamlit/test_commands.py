@@ -565,12 +565,12 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
             result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     if enable_streamlit_versioned_stage:
-        root_path = (
-            f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/versions/live"
-        )
+        root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/versions/live"
         post_create_command = f"ALTER STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME} ADD LIVE VERSION FROM LAST"
     else:
-        root_path = f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+        root_path = (
+            f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+        )
         if enable_streamlit_no_checkouts:
             post_create_command = None
         else:
@@ -645,9 +645,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
 
     assert result2.exit_code == 0, result2.output
 
-    root_path = (
-        f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
-    )
+    root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
 
     # Same as normal, except no ALTER query
     assert ctx.get_queries() == [
@@ -699,12 +697,12 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
             result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     if enable_streamlit_versioned_stage:
-        root_path = (
-            f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/versions/live"
-        )
+        root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/versions/live"
         post_create_command = f"ALTER STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME} ADD LIVE VERSION FROM LAST"
     else:
-        root_path = f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+        root_path = (
+            f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+        )
         post_create_command = (
             f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT"
         )
@@ -748,9 +746,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
     with project_directory("example_streamlit"):
         result = runner.invoke(["streamlit", "deploy", "--experimental", "--replace"])
 
-    root_path = (
-        f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
-    )
+    root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         dedent(

@@ -194,10 +194,10 @@ def execute_job(
     return SingleQueryResult(cursor)
 
 
-@app.command(requires_connection=True)
+@app.command(requires_connection=True, deprecated=True)
 def status(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     """
-    Retrieves the status of a service.
+    Retrieves the status of a service. This command is deprecated and will be removed in a future release. Use `describe` instead to get service status and use `list-instances` and `list-containers` to get more detailed information about service instances and containers.
     """
     cursor = ServiceManager().status(service_name=name.identifier)
     return QueryJsonValueResult(cursor)
@@ -259,6 +259,32 @@ def list_endpoints(name: FQN = ServiceNameArgument, **options):
     return QueryResult(ServiceManager().list_endpoints(service_name=name.identifier))
 
 
+@app.command("list-instances", requires_connection=True)
+def list_service_instances(name: FQN = ServiceNameArgument, **options) -> CommandResult:
+    """
+    Lists all service instances in a service.
+    """
+    return QueryResult(ServiceManager().list_instances(service_name=name.identifier))
+
+
+@app.command("list-containers", requires_connection=True)
+def list_service_containers(
+    name: FQN = ServiceNameArgument, **options
+) -> CommandResult:
+    """
+    Lists all service containers in a service.
+    """
+    return QueryResult(ServiceManager().list_containers(service_name=name.identifier))
+
+
+@app.command("list-roles", requires_connection=True)
+def list_service_roles(name: FQN = ServiceNameArgument, **options) -> CommandResult:
+    """
+    Lists all service roles in a service.
+    """
+    return QueryResult(ServiceManager().list_roles(service_name=name.identifier))
+
+
 @app.command(requires_connection=True)
 def suspend(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     """
@@ -282,6 +308,11 @@ def set_property(
     max_instances: Optional[int] = MaxInstancesOption(show_default=False),
     query_warehouse: Optional[str] = QueryWarehouseOption(show_default=False),
     auto_resume: Optional[bool] = AutoResumeOption(default=None, show_default=False),
+    external_access_integrations: Optional[List[str]] = typer.Option(
+        None,
+        "--eai-name",
+        help="Identifies External Access Integrations(EAI) that the service can access. This option may be specified multiple times for multiple EAIs.",
+    ),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP, show_default=False),
     **options,
 ):
@@ -294,6 +325,7 @@ def set_property(
         max_instances=max_instances,
         query_warehouse=query_warehouse,
         auto_resume=auto_resume,
+        external_access_integrations=external_access_integrations,
         comment=comment,
     )
     return SingleQueryResult(cursor)
