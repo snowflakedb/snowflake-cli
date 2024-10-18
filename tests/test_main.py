@@ -66,6 +66,7 @@ def test_custom_config_path(mock_conn, runner, mock_cursor):
     )
 
 
+@mock.patch.dict(os.environ, {"SNOWFLAKE_HOME": "FooBar"}, clear=True)
 def test_info_callback(runner):
     result = runner.invoke(["--info"])
     assert result.exit_code == 0, result.output
@@ -79,6 +80,7 @@ def test_info_callback(runner):
             "key": "feature_flags",
             "value": {"dummy_flag": True, "wrong_type_flag": "UNKNOWN"},
         },
+        {"key": "SNOWFLAKE_HOME", "value": "FooBar"},
     ]
 
 

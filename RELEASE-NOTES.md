@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* `snow --info` callback returns information about `SNOWFLAKE_HOME` variable.
 
 
 # v3.1.0
