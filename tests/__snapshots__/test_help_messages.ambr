@@ -8674,7 +8674,8 @@
    Lists the stage contents.                                                      
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    stage_name      TEXT  Identifier of the stage. For example: @my_stage   |
+  | *    stage_name      TEXT  Identifier of the stage. For example:             |
+  |                            @my_stage/path                                    |
   |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+

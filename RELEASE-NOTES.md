@@ -28,6 +28,7 @@
 * Fixed a bug that would cause the `deploy_root`, `bundle_root`, and `generated_root` directories to be created in the current working directory instead of the project root when invoking commands with the `--project` flag from a different directory.
 * Align variables for `snow stage|git execute`. For Python files variables are stripped of leading and trailing quotes.
 * `snow spcs service list-images` now displays image tag and digest.
+* Fix `snow stage list-files` for paths with directories.
 
 # v3.0.2
 
