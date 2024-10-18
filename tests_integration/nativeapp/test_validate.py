@@ -13,20 +13,64 @@
 # limitations under the License.
 
 from shlex import split
+from textwrap import dedent
+
+from tests.nativeapp.factories import (
+    ProjectV2Factory,
+    ApplicationPackageEntityModelFactory,
+    ApplicationEntityModelFactory,
+    ProjectV10Factory,
+)
 from tests.project.fixtures import *
 
 
 @pytest.mark.integration
+def test_nativeapp_validate_v1(nativeapp_project_directory, runner, temp_dir):
+    ProjectV10Factory(
+        pdf__native_app__name="myapp",
+        pdf__native_app__artifacts=[
+            {"src": "app/*", "dest": "./"},
+        ],
+        files={
+            "app/setup.sql": "CREATE OR ALTER VERSIONED SCHEMA core;",
+            "app/README.md": "\n",
+            "app/manifest.yml": "\n",
+        },
+    )
+    with nativeapp_project_directory(temp_dir):
+        # validate the app's setup script
+        result = runner.invoke_with_connection(["app", "validate"])
+        assert result.exit_code == 0, result.output
+        assert "Native App validation succeeded." in result.output
+
+
+@pytest.mark.integration
 @pytest.mark.parametrize(
-    "command,test_project",
+    "command",
     [
-        ["app validate", "napp_init_v1"],
-        ["app validate", "napp_init_v2"],
-        ["ws validate --entity-id=pkg", "napp_init_v2"],
+        "app validate",
+        "ws validate --entity-id=pkg",
     ],
 )
-def test_nativeapp_validate(command, test_project, nativeapp_project_directory, runner):
-    with nativeapp_project_directory(test_project):
+def test_nativeapp_validate_v2(command, nativeapp_project_directory, runner, temp_dir):
+    ProjectV2Factory(
+        pdf__entities=dict(
+            pkg=ApplicationPackageEntityModelFactory(
+                identifier="myapp_pkg",
+            ),
+            app=ApplicationEntityModelFactory(
+                identifier="myapp",
+                fromm__target="pkg",
+            ),
+        ),
+        files={
+            # Create invalid SQL file
+            "setup.sql": "CREATE OR ALTER VERSIONED SCHEMA core;",
+            "README.md": "\n",
+            "manifest.yml": "\n",
+        },
+    )
+    with nativeapp_project_directory(temp_dir):
         # validate the app's setup script
         result = runner.invoke_with_connection(split(command))
         assert result.exit_code == 0, result.output
@@ -37,22 +81,67 @@ def test_nativeapp_validate(command, test_project, nativeapp_project_directory, 
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "command,test_project",
-    [
-        ["app validate", "napp_init_v2"],
-    ],
-)
-def test_nativeapp_validate_failing(
-    command, test_project, nativeapp_project_directory, runner
-):
-    with nativeapp_project_directory(test_project):
-        # Create invalid SQL file
-        Path("app/setup_script.sql").write_text("Lorem ipsum dolor sit amet")
-
+def test_nativeapp_validate_failing(nativeapp_project_directory, runner, temp_dir):
+    ProjectV2Factory(
+        pdf__entities=dict(
+            pkg=ApplicationPackageEntityModelFactory(
+                identifier="myapp_pkg",
+            ),
+            app=ApplicationEntityModelFactory(
+                identifier="myapp",
+                fromm__target="pkg",
+            ),
+        ),
+        files={
+            # Create invalid SQL file
+            "setup.sql": dedent(
+                """\
+                CREATE OR ALTER VERSIONED SCHEMA core;
+                Lorem ipsum dolor sit amet
+                """
+            ),
+            "README.md": "\n",
+            "manifest.yml": "\n",
+        },
+    )
+    with nativeapp_project_directory(temp_dir):
         # validate the app's setup script, this will fail
         # because we include an empty file
-        result = runner.invoke_with_connection(split(command))
+        result = runner.invoke_with_connection(["app", "validate"])
         assert result.exit_code == 1, result.output
         assert "Snowflake Native App setup script failed validation." in result.output
         assert "syntax error" in result.output
+
+
+@pytest.mark.integration
+def test_nativeapp_validate_with_post_deploy_hooks(
+    nativeapp_project_directory, runner, temp_dir
+):
+    ProjectV2Factory(
+        pdf__entities=dict(
+            pkg=ApplicationPackageEntityModelFactory(
+                identifier="myapp_pkg",
+                meta__post_deploy=[
+                    {"sql_script": "pkg_post_deploy1.sql"},
+                ],
+            ),
+            app=ApplicationEntityModelFactory(
+                identifier="myapp",
+                fromm__target="pkg",
+                meta__post_deploy=[
+                    {"sql_script": "app_post_deploy1.sql"},
+                ],
+            ),
+        ),
+        files={
+            "app_post_deploy1.sql": "\n",
+            "pkg_post_deploy1.sql": "\n",
+            "setup.sql": "CREATE OR ALTER VERSIONED SCHEMA core;",
+            "README.md": "\n",
+            "manifest.yml": "\n",
+        },
+    )
+
+    with nativeapp_project_directory(temp_dir):
+        result = runner.invoke_with_connection(["app", "validate"])
+        assert result.exit_code == 0, result.output
