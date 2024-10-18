@@ -1983,7 +1983,8 @@
                                                                                   
    Execute immediate all files from the repository path. Files can be filtered    
    with glob like pattern, e.g. @my_repo/branches/main/*.sql,                     
-   @my_repo/branches/main/dev/*. Only files with .sql extension will be executed. 
+   @my_repo/branches/main/dev/*. Only files with .sql or .py extension will be    
+   executed.                                                                      
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    repository_path      TEXT  Path to git repository stage with scope      |
@@ -2672,7 +2673,7 @@
   | execute         Execute immediate all files from the repository path. Files  |
   |                 can be filtered with glob like pattern, e.g.                 |
   |                 @my_repo/branches/main/*.sql, @my_repo/branches/main/dev/*.  |
-  |                 Only files with .sql extension will be executed.             |
+  |                 Only files with .sql or .py extension will be executed.      |
   | fetch           Fetch changes from origin to Snowflake repository.           |
   | list            Lists all available git repositories.                        |
   | list-branches   List all branches in the repository.                         |
@@ -9786,7 +9787,7 @@
   | execute         Execute immediate all files from the repository path. Files  |
   |                 can be filtered with glob like pattern, e.g.                 |
   |                 @my_repo/branches/main/*.sql, @my_repo/branches/main/dev/*.  |
-  |                 Only files with .sql extension will be executed.             |
+  |                 Only files with .sql or .py extension will be executed.      |
   | fetch           Fetch changes from origin to Snowflake repository.           |
   | list            Lists all available git repositories.                        |
   | list-branches   List all branches in the repository.                         |
