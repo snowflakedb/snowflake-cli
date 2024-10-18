@@ -64,7 +64,6 @@ def test_nativeapp_validate_v2(command, nativeapp_project_directory, runner, tem
             ),
         ),
         files={
-            # Create invalid SQL file
             "setup.sql": "CREATE OR ALTER VERSIONED SCHEMA core;",
             "README.md": "\n",
             "manifest.yml": "\n",
