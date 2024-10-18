@@ -176,20 +176,20 @@ class SnowflakeSQLFacade:
         @param [Optional] warehouse: Warehouse to use while running this script.
         @param [Optional] database: Database to use while running this script.
         """
-        with self._use_role_optional(role):
-            with self._use_warehouse_optional(warehouse):
-                with self._use_database_optional(database):
-                    try:
-                        self._sql_executor.execute_queries(queries)
-                    except ProgrammingError as err:
-                        if err.errno == NO_WAREHOUSE_SELECTED_IN_SESSION:
-                            raise UserScriptError(
-                                script_name,
-                                f"{err.msg}. Please provide a warehouse in your project definition file, config.toml file, or via command line",
-                            ) from err
-                        else:
-                            raise UserScriptError(script_name, err.msg) from err
-                    except Exception as err:
-                        handle_unclassified_error(
-                            err, f"Failed to run script {script_name}."
-                        )
+        with (
+            self._use_role_optional(role),
+            self._use_warehouse_optional(warehouse),
+            self._use_database_optional(database),
+        ):
+            try:
+                self._sql_executor.execute_queries(queries)
+            except ProgrammingError as err:
+                if err.errno == NO_WAREHOUSE_SELECTED_IN_SESSION:
+                    raise UserScriptError(
+                        script_name,
+                        f"{err.msg}. Please provide a warehouse in your project definition file, config.toml file, or via command line",
+                    ) from err
+                else:
+                    raise UserScriptError(script_name, err.msg) from err
+            except Exception as err:
+                handle_unclassified_error(err, f"Failed to run script {script_name}.")
