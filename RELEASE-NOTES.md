@@ -17,6 +17,15 @@
 ## Backward incompatibility
 
 ## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v3.1.0
+
+## Deprecations
 * Added deprecation warning in the description of `snow spcs service status` and `snow spcs image-repository list-tags`.
 
 ## New additions
