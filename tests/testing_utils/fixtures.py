@@ -393,6 +393,7 @@ def native_app_project_instance():
                     type="application package",
                     artifacts=[dict(dest="./", src="app/*")],
                     manifest="app/manifest.yml",
+                    meta=dict(role="test_role"),
                 )
             ),
         )
