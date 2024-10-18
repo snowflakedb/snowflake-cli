@@ -15,12 +15,12 @@
 import logging
 from contextlib import contextmanager
 
+from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
     UserScriptError,
     handle_unclassified_error,
 )
-from snowflake.cli.api.constants import UseObjectType
 from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,

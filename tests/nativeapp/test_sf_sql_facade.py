@@ -16,6 +16,7 @@ from unittest import mock
 
 import pytest
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
+from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
     InvalidSQLError,
@@ -23,7 +24,6 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     UnknownSQLError,
     UserScriptError,
 )
-from snowflake.cli.api.constants import UseObjectType
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,

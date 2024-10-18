@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from click import ClickException
-from snowflake.cli.api.constants import UseObjectType
+from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.connector import DatabaseError, Error, ProgrammingError
 
 
@@ -52,24 +52,21 @@ class InvalidSQLError(_BaseFacadeError):
     """Raised when Snowflake executed a SQL command but encountered an error, for example due to syntax or logical errors"""
 
     def __init__(self, msg):
-        self.msg = f"Invalid SQL error occurred. {msg}"
-        super().__init__(self.msg)
+        super().__init__(f"Invalid SQL error occurred. {msg}")
 
 
 class UnknownSQLError(_BaseFacadeError):
     """Raised when Snowflake could not execute the SQL command"""
 
     def __init__(self, msg):
-        self.msg = f"Unknown SQL error occurred. {msg}"
-        super().__init__(self.msg)
+        super().__init__(f"Unknown SQL error occurred. {msg}")
 
 
 class UnknownConnectorError(_BaseFacadeError):
     """Raised when there was a problem reaching Snowflake to execute a SQL command"""
 
     def __init__(self, msg):
-        self.msg = f"Unknown error occurred. {msg}"
-        super().__init__(self.msg)
+        super().__init__(f"Unknown error occurred. {msg}")
 
 
 class UserScriptError(ClickException):
