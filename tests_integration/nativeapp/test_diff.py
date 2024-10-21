@@ -1,8 +1,9 @@
-from pathlib import Path
-
 import pytest
 
-from nativeapp.factories import ProjectV2Factory, ApplicationPackageEntityModelFactory
+from tests.nativeapp.factories import (
+    ProjectV2Factory,
+    ApplicationPackageEntityModelFactory,
+)
 
 
 @pytest.mark.integration
