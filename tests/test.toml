@@ -47,6 +47,12 @@ private_key_path = "/private/key"
 [connections.no_private_key]
 authenticator = "SNOWFLAKE_JWT"
 
+[connections.jwt]
+user = "jdoe"
+account = "testing_account"
+authenticator = "SNOWFLAKE_JWT"
+private_key_file = "/private/key"
+
 [cli.features]
 dummy_flag = true
 wrong_type_flag = "not_true"
