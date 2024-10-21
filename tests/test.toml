@@ -50,3 +50,9 @@ authenticator = "SNOWFLAKE_JWT"
 [cli.features]
 dummy_flag = true
 wrong_type_flag = "not_true"
+
+[connections.jwt]
+user = "jdoe"
+account = "testing_account"
+authenticator = "SNOWFLAKE_JWT"
+private_key_file = "/private/key"
