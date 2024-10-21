@@ -216,6 +216,12 @@ from tests.nativeapp.factories import ProjectV11Factory
         ],
         [
             {
+                "env": {"string": "string", "int": 42, "bool": True},
+            },
+            None,
+        ],
+        [
+            {
                 "mixins": {
                     "snowpark_shared": {
                         "stage": "dev",
