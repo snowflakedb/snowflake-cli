@@ -16,10 +16,9 @@ from __future__ import annotations
 
 import logging
 import os.path
-from pathlib import Path
 
 import typer
-from click import ClickException, Context, Parameter  # type: ignore
+from click import ClickException, Context, Parameter, UsageError  # type: ignore
 from click.core import ParameterSource  # type: ignore
 from click.types import StringParamType
 from snowflake import connector
@@ -355,36 +354,23 @@ def set_default(
     return MessageResult(f"Default connection set to: {name}")
 
 
-@app.command(requires_connection=False)
+@app.command(requires_connection=True)
 def generate_jwt(
-    account: str = typer.Option(
-        None,
-        "--account",
-        "-a",
-        "--accountname",
-        help="Account name to use when authenticating with Snowflake.",
-        show_default=False,
-    ),
-    user: str = typer.Option(
-        None,
-        "--user",
-        "-u",
-        "--username",
-        show_default=False,
-        help="Username to connect to Snowflake.",
-    ),
-    private_key_file: Path = typer.Option(
-        None,
-        "--private-key",
-        "--private-key-path",
-        "-k",
-        help="Path to file containing private key",
-        dir_okay=False,
-        exists=True,
-    ),
     **options,
 ) -> CommandResult:
     """Generate a JWT token, which will be printed out and displayed.."""
+    connection_details = get_cli_context().connection_context.update_from_config()
+
+    msq_template = (
+        "{} is not set in the connection context, but required for JWT generation."
+    )
+    if not connection_details.user:
+        raise UsageError(msq_template.format("User"))
+    if not connection_details.account:
+        raise UsageError(msq_template.format("Account"))
+    if not connection_details.private_key_file:
+        raise UsageError(msq_template.format("Private key file"))
+
     passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
     if not passphrase:
         passphrase = typer.prompt(
@@ -393,9 +379,13 @@ def generate_jwt(
             type=str,
             default="",
         )
+
     try:
         token = connector.auth.get_token_from_private_key(
-            user, account, private_key_file, passphrase
+            user=connection_details.user,
+            account=connection_details.account,
+            privatekey_path=connection_details.private_key_file,
+            key_password=passphrase,
         )
         return MessageResult(token)
     except ValueError as err:
