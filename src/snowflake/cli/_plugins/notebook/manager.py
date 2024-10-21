@@ -50,16 +50,25 @@ class NotebookManager(SqlExecutionMixin):
         self,
         notebook_name: FQN,
         notebook_file: NotebookStagePath,
+        query_warehouse: str,
+        runtime_name: str,
+        compute_pool: str,
     ) -> str:
         notebook_fqn = notebook_name.using_connection(self._conn)
         stage_path = self.parse_stage_as_path(notebook_file)
 
+        runtime_query = f"RUNTIME_NAME = '{runtime_name}'\n" if runtime_name else ""
+        compute_pool_query = (
+            f"COMPUTE_POOL = '{compute_pool}'\n" if compute_pool else ""
+        )
         queries = dedent(
             f"""
             CREATE OR REPLACE NOTEBOOK {notebook_fqn.sql_identifier}
             FROM '{stage_path.parent}'
-            QUERY_WAREHOUSE = '{get_cli_context().connection.warehouse}'
+            QUERY_WAREHOUSE = '{query_warehouse or get_cli_context().connection.warehouse}'
             MAIN_FILE = '{stage_path.name}';
+            {runtime_query}
+            {compute_pool_query}
             // Cannot use IDENTIFIER(...)
             ALTER NOTEBOOK {notebook_fqn.identifier} ADD LIVE VERSION FROM LAST;
             """
