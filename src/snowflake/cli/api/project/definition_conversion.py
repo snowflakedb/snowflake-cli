@@ -422,6 +422,7 @@ def _convert_package_script_files(
     jinja_context = dict(package_name=package_name_replacement)
     post_deploy_hooks = []
     for script_file in package_scripts:
+        original_script_file = script_file
         new_contents = render_script_template(
             project_root, jinja_context, script_file, get_basic_jinja_env()
         )
@@ -431,7 +432,9 @@ def _convert_package_script_files(
             d = _get_temp_dir().name
             _, script_file = mkstemp(dir=d, suffix="_converted.sql", text=True)
         (project_root / script_file).write_text(new_contents)
-        post_deploy_hooks.append(SqlScriptHookType(sql_script=script_file))
+        hook = SqlScriptHookType(sql_script=script_file)
+        hook._display_path = original_script_file  # noqa: SLF001
+        post_deploy_hooks.append(hook)
     return post_deploy_hooks
 
 

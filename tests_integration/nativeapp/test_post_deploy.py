@@ -1,8 +1,10 @@
 # Tests that application post-deploy scripts are executed by creating a post_deploy_log table and having each post-deploy script add a record to it
+from pathlib import Path
 
 import pytest
 import yaml
 
+from tests.nativeapp.factories import ProjectV11Factory
 from tests_common import IS_WINDOWS
 from tests_integration.test_utils import (
     row_from_snowflake_session,
@@ -456,3 +458,55 @@ def test_nativeapp_post_deploy_with_windows_path(
 
         finally:
             teardown(runner, [])
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "base_command,test_project",
+    [["app", "napp_application_post_deploy_v2"]],
+)
+def test_nativeapp_post_deploy_logs_relative_paths(
+    runner, nativeapp_project_directory, base_command, test_project
+):
+    with nativeapp_project_directory(test_project):
+        result = runner.invoke_with_connection(["app", "run"])
+        for filename in [
+            "scripts/app_post_deploy1.sql",
+            "scripts/app_post_deploy2.sql",
+            "scripts/package_post_deploy1.sql",
+            "scripts/package_post_deploy2.sql",
+        ]:
+            assert f"Executing SQL script: {filename}" in result.output
+
+
+@pytest.mark.integration
+def test_nativeapp_converted_package_scripts_logs_relative_paths(
+    runner, nativeapp_teardown, temp_dir
+):
+    package_scripts = {
+        "scripts/package_script1.sql": "select 'package script 1 for {{ package_name }}'",
+        "scripts/package_script2.sql": "select 'package script 2 for {{ package_name }}'",
+    }
+    manifest = yaml.safe_dump(
+        dict(
+            manifest_version=1,
+            artifacts={
+                "setup_script": "setup.sql",
+                "readme": "README.md",
+            },
+        )
+    )
+    ProjectV11Factory(
+        pdf__native_app__package__scripts=list(package_scripts),
+        pdf__native_app__artifacts=["README.md", "setup.sql", "manifest.yml"],
+        files={
+            "README.md": "",
+            "setup.sql": "select 1",
+            "manifest.yml": manifest,
+        }
+        | package_scripts,
+    )
+    with nativeapp_teardown(project_dir=Path(temp_dir)):
+        result = runner.invoke_with_connection(["app", "run"])
+        for filename in package_scripts:
+            assert f"Executing SQL script: {filename}" in result.output
