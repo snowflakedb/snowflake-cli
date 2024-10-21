@@ -351,6 +351,16 @@ def test_lists_connection_information(mock_get_default_conn_name, runner):
                 "authenticator": "SNOWFLAKE_JWT",
             },
         },
+        {
+            "connection_name": "jwt",
+            "is_default": False,
+            "parameters": {
+                "account": "testing_account",
+                "authenticator": "SNOWFLAKE_JWT",
+                "private_key_file": "/private/key",
+                "user": "jdoe",
+            },
+        },
     ]
 
 
@@ -424,6 +434,16 @@ def test_connection_list_does_not_print_too_many_env_variables(
             "is_default": False,
             "parameters": {
                 "authenticator": "SNOWFLAKE_JWT",
+            },
+        },
+        {
+            "connection_name": "jwt",
+            "is_default": False,
+            "parameters": {
+                "account": "testing_account",
+                "authenticator": "SNOWFLAKE_JWT",
+                "private_key_file": "/private/key",
+                "user": "jdoe",
             },
         },
     ]
