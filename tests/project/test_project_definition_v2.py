@@ -736,3 +736,24 @@ def test_mixins_values_have_to_be_type_compatible_with_entities():
         "Value from mixins for property identifier is of type 'dict' while entity func expects value of type 'str'"
         in str(err)
     )
+
+def test_if_list_in_mixin_is_applied_correctly():
+    definition_input = {
+        "definition_version": "2",
+        "entities": {
+            "func": {
+                "identifier": "my_func",
+                "type": "function",
+                "handler": "foo",
+                "returns": "string",
+                "signature": "",
+                "stage": "bar",
+                "meta": {"use_mixins": ["artifact_mixin"]},
+            },
+        },
+        "mixins": {"artifact_mixin": {"external_access_integrations": ["integration_1", "integration_2"],
+                                      "artifacts": [{"src": "src", "dest": "my_project"}]},
+        },
+    }
+    project = render_definition_template(definition_input, {}).project_definition
+    assert len(project.entities["func"].artifacts) == 1

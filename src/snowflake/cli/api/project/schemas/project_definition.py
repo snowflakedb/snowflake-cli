@@ -182,19 +182,21 @@ class DefinitionV20(_ProjectDefinitionBase):
         if "mixins" not in data or "entities" not in data:
             return data
 
+        new_entities = {}
         entities = data["entities"]
         for entity_name, entity in entities.items():
             entity_mixins = entity_mixins_to_list(
                 entity.get("meta", {}).get("use_mixins")
             )
-
+            temp_entity = entity.copy()
             merged_values = cls._merge_mixins_with_entity(
                 entity_id=entity_name,
-                entity=entity,
+                entity=temp_entity,
                 entity_mixins_names=entity_mixins,
                 mixin_defs=data["mixins"],
             )
-            entities[entity_name] = merged_values
+            new_entities[entity_name] = merged_values
+        entities.update(new_entities)
         return data
 
     @classmethod
