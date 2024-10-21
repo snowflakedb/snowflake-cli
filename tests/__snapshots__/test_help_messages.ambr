@@ -1511,7 +1511,7 @@
                                                                                   
    Usage: default connection generate-jwt [OPTIONS]                               
                                                                                   
-   Generate a JWT token, which will be printed out and displayed..                
+   Generate and display a JWT token.                                              
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --account,--accountname         -a      TEXT  Account name to use when       |
@@ -1686,8 +1686,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | add            Adds a connection to configuration file.                      |
-  | generate-jwt   Generate a JWT token, which will be printed out and           |
-  |                displayed..                                                   |
+  | generate-jwt   Generate and display a JWT token.                             |
   | list           Lists configured connections.                                 |
   | set-default    Changes default connection to provided value.                 |
   | test           Tests the connection to Snowflake.                            |
@@ -9760,8 +9759,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | add            Adds a connection to configuration file.                      |
-  | generate-jwt   Generate a JWT token, which will be printed out and           |
-  |                displayed..                                                   |
+  | generate-jwt   Generate and display a JWT token.                             |
   | list           Lists configured connections.                                 |
   | set-default    Changes default connection to provided value.                 |
   | test           Tests the connection to Snowflake.                            |

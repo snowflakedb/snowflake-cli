@@ -384,7 +384,7 @@ def generate_jwt(
     ),
     **options,
 ) -> CommandResult:
-    """Generate a JWT token, which will be printed out and displayed.."""
+    """Generate and display a JWT token."""
     passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
     if not passphrase:
         passphrase = typer.prompt(
