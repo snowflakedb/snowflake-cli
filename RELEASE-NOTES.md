@@ -29,6 +29,7 @@
 * Align variables for `snow stage|git execute`. For Python files variables are stripped of leading and trailing quotes.
 * `snow spcs service list-images` now displays image tag and digest.
 * Fix `snow stage list-files` for paths with directories.
+* `snow --info` callback returns information about `SNOWFLAKE_HOME` variable.
 
 # v3.0.2
 
