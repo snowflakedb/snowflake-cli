@@ -351,6 +351,16 @@ def test_lists_connection_information(mock_get_default_conn_name, runner):
                 "authenticator": "SNOWFLAKE_JWT",
             },
         },
+        {
+            "connection_name": "jwt",
+            "is_default": False,
+            "parameters": {
+                "account": "testing_account",
+                "authenticator": "SNOWFLAKE_JWT",
+                "private_key_file": "/private/key",
+                "user": "jdoe",
+            },
+        },
     ]
 
 
@@ -424,6 +434,16 @@ def test_connection_list_does_not_print_too_many_env_variables(
             "is_default": False,
             "parameters": {
                 "authenticator": "SNOWFLAKE_JWT",
+            },
+        },
+        {
+            "connection_name": "jwt",
+            "is_default": False,
+            "parameters": {
+                "account": "testing_account",
+                "authenticator": "SNOWFLAKE_JWT",
+                "private_key_file": "/private/key",
+                "user": "jdoe",
             },
         },
     ]
@@ -1164,7 +1184,9 @@ def test_generate_jwt(mocked_get_token, runner, named_temporary_file):
         result.output
         == "Enter private key file password (Press enter if none) []: \nfunny token\n"
     )
-    mocked_get_token.assert_called_once_with("FooBar", "account1", f, "123")
+    mocked_get_token.assert_called_once_with(
+        user="FooBar", account="account1", privatekey_path=str(f), key_password="123"
+    )
 
 
 @mock.patch.dict(os.environ, {"PRIVATE_KEY_PASSPHRASE": "123"})
@@ -1191,4 +1213,61 @@ def test_generate_jwt_with_pass_phrase(mocked_get_token, runner, named_temporary
 
     assert result.exit_code == 0, result.output
     assert result.output == "funny token\n"
-    mocked_get_token.assert_called_once_with("FooBar", "account1", f, "123")
+    mocked_get_token.assert_called_once_with(
+        user="FooBar", account="account1", privatekey_path=str(f), key_password="123"
+    )
+
+
+@mock.patch(
+    "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
+)
+def test_generate_jwt_uses_config(mocked_get_token, runner, named_temporary_file):
+    mocked_get_token.return_value = "funny token"
+
+    with named_temporary_file() as f:
+        f.write_text("secret from file")
+        result = runner.invoke(
+            ["connection", "generate-jwt", "--connection", "jwt"],
+            input="123",
+        )
+
+    assert result.exit_code == 0, result.output
+    assert (
+        result.output
+        == "Enter private key file password (Press enter if none) []: \nfunny token\n"
+    )
+    mocked_get_token.assert_called_once_with(
+        user="jdoe",
+        account="testing_account",
+        privatekey_path="/private/key",
+        key_password="123",
+    )
+
+
+@pytest.mark.parametrize("attribute", ["account", "user", "private_key_file"])
+@mock.patch(
+    "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
+)
+def test_generate_jwt_raises_error_if_required_parameter_is_missing(
+    mocked_get_token, attribute, runner, named_temporary_file
+):
+    connection_details = {
+        "account": "account1",
+        "user": "FooBar",
+        "private_key_file": "/private/key",
+    }
+    del connection_details[attribute]
+    data = tomlkit.dumps({"connections": {"jwt": connection_details}})
+
+    with NamedTemporaryFile("w+", suffix="toml") as tmp_file:
+        tmp_file.write(data)
+        tmp_file.flush()
+
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            ["connection", "generate-jwt", "-c", "jwt"],
+        )
+        assert (
+            f'{attribute.capitalize().replace("_", " ")} is not set in the connection context'
+            in result.output
+        )
