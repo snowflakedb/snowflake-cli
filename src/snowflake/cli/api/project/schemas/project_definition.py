@@ -115,7 +115,17 @@ class DefinitionV11(DefinitionV10):
 
 
 class DefinitionV20(_ProjectDefinitionBase):
-    entities: Dict[str, AnnotatedEntity] = Field(title="Entity definitions.")
+    entities: Dict[str, AnnotatedEntity] = Field(
+        title="Entity definitions.", default={}
+    )
+    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
+        title="Default environment specification for this project.",
+        default=None,
+    )
+    mixins: Optional[Dict[str, Dict]] = Field(
+        title="Mixins to apply to entities",
+        default=None,
+    )
 
     @model_validator(mode="after")
     def validate_entities_identifiers(self):
@@ -162,16 +172,6 @@ class DefinitionV20(_ProjectDefinitionBase):
             raise ValueError(
                 f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
             )
-
-    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
-        title="Default environment specification for this project.",
-        default=None,
-    )
-
-    mixins: Optional[Dict[str, Dict]] = Field(
-        title="Mixins to apply to entities",
-        default=None,
-    )
 
     @model_validator(mode="before")
     @classmethod
