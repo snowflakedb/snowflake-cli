@@ -172,8 +172,8 @@ def test_sql_scripts_with_no_warehouse_no_database(
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 def test_missing_sql_script(
-    mock_execute_query,
     mock_conn,
+    mock_execute_query,
     project_directory,
 ):
     mock_conn.return_value = MockConnectionCtx()
