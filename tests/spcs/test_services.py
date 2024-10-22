@@ -435,9 +435,21 @@ def test_logs(mock_execute_query):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
     result = ServiceManager().logs(service_name, "10", container_name, 42)
-    expected_query = (
-        "call SYSTEM$GET_SERVICE_LOGS('test_service', '10', 'test_container', 42);"
+    expected_query = "call SYSTEM$GET_SERVICE_LOGS('test_service', '10', 'test_container', 42, False, '', False);"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+def test_logs_optional_parameter(mock_execute_query):
+    service_name = "test_service"
+    container_name = "test_container"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ServiceManager().logs(
+        service_name, "10", container_name, 42, False, "", False
     )
+    expected_query = "call SYSTEM$GET_SERVICE_LOGS('test_service', '10', 'test_container', 42, False, '', False);"
     mock_execute_query.assert_called_once_with(expected_query)
     assert result == cursor
 
