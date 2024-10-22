@@ -13,6 +13,8 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.snowpark.common import is_name_a_templated_one
+from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import (
     DEFAULT_ENV_FILE,
     DEFAULT_PAGES_DIR,
@@ -21,6 +23,7 @@ from snowflake.cli.api.constants import (
     SNOWPARK_SHARED_MIXIN,
 )
 from snowflake.cli.api.entities.utils import render_script_template
+from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     MetaField,
     SqlScriptHookType,
@@ -381,8 +384,14 @@ def _convert_templates_in_files(
     """Converts templates in other files to the new format"""
     # TODO handle artifacts using the "templates" processor
     # For now this only handles Native App package scripts
+    metrics = get_cli_context().metrics
+    metrics.set_counter_default(CLICounterField.PACKAGE_SCRIPTS, 0)
 
     if (na := definition_v1.native_app) and (pkg := na.package) and pkg.scripts:
+        metrics.set_counter(CLICounterField.PACKAGE_SCRIPTS, 1)
+        cli_console.warning(
+            "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
+        )
         # If the v1 definition has a Native App with a package, we know
         # that the v2 definition will have exactly one application package entity
         pkg_entity: ApplicationPackageEntityModel = list(
