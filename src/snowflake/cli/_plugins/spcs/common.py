@@ -14,8 +14,9 @@
 
 from __future__ import annotations
 
+import re
 import sys
-from typing import TextIO
+from typing import Optional, TextIO
 
 from click import ClickException
 from snowflake.cli.api.constants import ObjectType
@@ -93,6 +94,26 @@ def handle_object_already_exists(
         )
     else:
         raise error
+
+
+def extract_timestamp_from_log(log_line: str) -> Optional[str]:
+    timestamp_pattern = re.compile(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)")
+    match = timestamp_pattern.search(log_line)
+    if match:
+        return match.group(1)
+    return None
+
+
+def filter_log_timestamp(log: str, include_timestamps: bool) -> str:
+    if include_timestamps:
+        return log
+    else:
+        return re.sub(
+            r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z\s+",
+            "",
+            log,
+            flags=re.MULTILINE,
+        )
 
 
 class NoPropertiesProvidedError(ClickException):

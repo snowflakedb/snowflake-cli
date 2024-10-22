@@ -15,13 +15,16 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import List, Optional
 
 import yaml
+from dateutil import parser
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import (
     NoPropertiesProvidedError,
+    extract_timestamp_from_log,
     handle_object_already_exists,
     strip_empty_lines,
 )
@@ -133,11 +136,87 @@ class ServiceManager(SqlExecutionMixin):
         return self._execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')")
 
     def logs(
-        self, service_name: str, instance_id: str, container_name: str, num_lines: int
+        self,
+        service_name: str,
+        instance_id: str,
+        container_name: str,
+        num_lines: int,
+        previous_logs: bool = False,
+        since_timestamp: str = "",
+        include_timestamps: bool = False,
     ):
         return self._execute_query(
-            f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines});"
+            f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', "
+            f"{num_lines}, {previous_logs}, '{since_timestamp}', {include_timestamps});"
         )
+
+    def stream_logs(
+        self,
+        service_name: str,
+        instance_id: str,
+        container_name: str,
+        num_lines: int,
+        previous_logs: bool,
+        since_timestamp: str,
+        include_timestamps: bool,
+        interval_seconds: int,
+    ):
+        try:
+            prev_timestamp = since_timestamp
+            prev_content = None
+
+            while True:
+                cursor = self.logs(
+                    service_name=service_name,
+                    instance_id=instance_id,
+                    container_name=container_name,
+                    num_lines=num_lines,
+                    previous_logs=False,
+                    since_timestamp=prev_timestamp,
+                    include_timestamps=True,
+                )
+                new_logs = cursor.fetchall()
+
+                if new_logs:
+                    log_block = new_logs[0][0]
+                    log_lines = log_block.split("\n")
+                    log_lines = [line for line in log_lines if line.strip()]
+
+                    first_log_timestamp_str = extract_timestamp_from_log(log_lines[0])
+
+                    first_log_timestamp_parsed = (
+                        parser.isoparse(first_log_timestamp_str)
+                        if first_log_timestamp_str
+                        else None
+                    )
+                    prev_timestamp_parsed = (
+                        parser.isoparse(prev_timestamp) if prev_timestamp else None
+                    )
+
+                    if first_log_timestamp_parsed and (
+                        not prev_timestamp_parsed
+                        or first_log_timestamp_parsed > prev_timestamp_parsed
+                    ):
+                        yield log_lines
+                    else:
+                        matching_index = None
+                        for i, log_line in enumerate(log_lines):
+                            if prev_content and log_line == prev_content:
+                                matching_index = i
+                                break
+                        if matching_index is not None:
+                            yield log_lines[matching_index + 1 :]
+                        else:
+                            yield log_lines
+
+                    if log_lines:
+                        prev_content = log_lines[-1]
+                        prev_timestamp = extract_timestamp_from_log(prev_content)
+
+                time.sleep(interval_seconds)
+
+        except KeyboardInterrupt:
+            return
 
     def upgrade_spec(self, service_name: str, spec_path: Path):
         spec = self._read_yaml(spec_path)

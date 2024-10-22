@@ -14,9 +14,9 @@
 
 from __future__ import annotations
 
-import sys
+import itertools
 from pathlib import Path
-from typing import List, Optional
+from typing import Generator, Iterable, List, Optional, cast
 
 import typer
 from click import ClickException
@@ -26,7 +26,7 @@ from snowflake.cli._plugins.object.command_aliases import (
 )
 from snowflake.cli._plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli._plugins.spcs.common import (
-    print_log_lines,
+    filter_log_timestamp,
     validate_and_set_instances,
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
@@ -41,9 +41,11 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
+    MessageResult,
     QueryJsonValueResult,
     QueryResult,
     SingleQueryResult,
+    StreamResult,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
 
@@ -221,20 +223,62 @@ def logs(
     num_lines: int = typer.Option(
         500, "--num-lines", help="Number of lines to retrieve."
     ),
+    previous_logs: bool = typer.Option(
+        False, "--previous-logs", "-p", help="Retrieve previous logs", is_flag=True
+    ),
+    since_timestamp: Optional[str] = typer.Option(
+        "", "--since-timestamp", help="Timestamp to retrieve logs from"
+    ),
+    include_timestamps: bool = typer.Option(
+        False, "--include-timestamps", help="Include timestamps in logs", is_flag=True
+    ),
+    follow: bool = typer.Option(
+        False, "--follow", "-f", help="Continue polling for logs.", is_flag=True
+    ),
+    follow_interval: int = typer.Option(
+        5, "--watch", help="Polling interval in seconds when using the --follow flag"
+    ),
     **options,
 ):
     """
     Retrieves local logs from a service container.
     """
-    results = ServiceManager().logs(
-        service_name=name.identifier,
-        instance_id=instance_id,
-        container_name=container_name,
-        num_lines=num_lines,
-    )
-    cursor = results.fetchone()
-    logs = next(iter(cursor)).split("\n")
-    print_log_lines(sys.stdout, name, "0", logs)
+    manager = ServiceManager()
+
+    def extract_log(log):
+        return log[0] if isinstance(log, tuple) else log
+
+    if follow:
+        stream: Iterable[CommandResult] = (
+            MessageResult(
+                filter_log_timestamp("\n".join(log_batch), include_timestamps)
+            )
+            for log_batch in manager.stream_logs(
+                service_name=name.identifier,
+                container_name=container_name,
+                instance_id=instance_id,
+                num_lines=num_lines,
+                previous_logs=previous_logs,
+                since_timestamp=since_timestamp,
+                include_timestamps=include_timestamps,
+                interval_seconds=follow_interval,
+            )
+        )
+        stream = itertools.chain(stream, [MessageResult("")])
+    else:
+        logs = manager.logs(
+            service_name=name.identifier,
+            container_name=container_name,
+            instance_id=instance_id,
+            num_lines=num_lines,
+            previous_logs=previous_logs,
+            since_timestamp=since_timestamp,
+            include_timestamps=include_timestamps,
+        )
+        stream = (MessageResult(extract_log(log)) for log in logs)
+
+    # return StreamResult(stream)
+    return StreamResult(cast(Generator[CommandResult, None, None], stream))
 
 
 @app.command(requires_connection=True)
