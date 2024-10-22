@@ -30,6 +30,8 @@ from snowflake.cli.api.project.util import to_identifier
 from snowflake.cli.api.sql_execution import SqlExecutor
 from snowflake.connector import ProgrammingError
 
+# TODO: replace SqlExecutor with the smallest set of methods we want to call (abc)
+
 
 class SnowflakeSQLFacade:
     def __init__(self, sql_executor: SqlExecutor | None = None):
