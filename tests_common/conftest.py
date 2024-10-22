@@ -14,8 +14,13 @@
 
 import os
 import tempfile
+from pathlib import Path
+from unittest import mock
 
 import pytest
+
+from snowflake.cli._plugins.workspace.context import WorkspaceContext, ActionContext
+from snowflake.cli.api.console.abc import AbstractConsole
 
 
 @pytest.fixture
@@ -30,3 +35,23 @@ def temp_dir():
             # this has to happen before tmp_dir is cleaned up
             # so that we don't try to remove the cwd of the process
             os.chdir(initial_dir)
+
+
+@pytest.fixture()
+def mock_console():
+    yield mock.MagicMock(spec=AbstractConsole)
+
+
+@pytest.fixture()
+def workspace_context(mock_console):
+    return WorkspaceContext(
+        console=mock_console,
+        project_root=Path().resolve(),
+        get_default_role=lambda: "mock_role",
+        get_default_warehouse=lambda: "mock_warehouse",
+    )
+
+
+@pytest.fixture()
+def action_context():
+    return ActionContext(get_entity=lambda *args: None)

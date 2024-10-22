@@ -280,12 +280,24 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def action_version_list(
         self, action_ctx: ActionContext, *args, **kwargs
     ) -> SnowflakeCursor:
+        """
+        Get all existing versions, if defined, for an application package.
+        It executes a 'show versions in application package' query and returns all the results.
+        """
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
-        return self.version_list(
-            package_name=model.fqn.identifier,
-            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
-        )
+        package_name = model.fqn.identifier
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+
+        sql_executor = get_sql_executor()
+        with sql_executor.use_role(package_role):
+            show_obj_query = f"show versions in application package {package_name}"
+            show_obj_cursor = sql_executor.execute_query(show_obj_query)
+
+            if show_obj_cursor.rowcount is None:
+                raise SnowflakeSQLExecutionError(show_obj_query)
+
+            return show_obj_cursor
 
     def action_version_create(
         self,
@@ -484,22 +496,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
 
         return diff
-
-    @staticmethod
-    def version_list(package_name: str, package_role: str) -> SnowflakeCursor:
-        """
-        Get all existing versions, if defined, for an application package.
-        It executes a 'show versions in application package' query and returns all the results.
-        """
-        sql_executor = get_sql_executor()
-        with sql_executor.use_role(package_role):
-            show_obj_query = f"show versions in application package {package_name}"
-            show_obj_cursor = sql_executor.execute_query(show_obj_query)
-
-            if show_obj_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_obj_query)
-
-            return show_obj_cursor
 
     @classmethod
     def version_create(
