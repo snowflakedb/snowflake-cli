@@ -22,7 +22,6 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
-from click.exceptions import ClickException
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -66,17 +65,6 @@ app = SnowTyperFactory(
 app.add_typer(versions_app)
 
 log = logging.getLogger(__name__)
-
-
-@app.command("init", hidden=True)
-def app_init(**options):
-    """
-    *** Deprecated. Use snow init instead ***
-
-    Initializes a Snowflake Native App project.
-    """
-
-    raise ClickException("This command has been removed. Use `snow init` instead.")
 
 
 @app.command("bundle")

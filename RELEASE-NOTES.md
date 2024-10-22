@@ -18,6 +18,7 @@
 
 ## Deprecations
 * Added deprecation warning in the description of `snow spcs service status` and `snow spcs image-repository list-tags`.
+* Completely removed the `snow app init` as it was replaced with `snow init` in Snowflake CLI 3.0
 
 ## New additions
 * Added `snow connection generate-jwt` command to generate JWT token for Snowflake connection.
