@@ -1569,40 +1569,68 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
 @pytest.mark.parametrize(
     ["since", "expected_since_clause"],
     [
-        ("", ""),
-        ("1 hour", "and timestamp >= sysdate() - interval '1 hour'"),
-        (datetime(2024, 1, 1), "and timestamp >= '2024-01-01 00:00:00'"),
+        pytest.param("", "", id="no_since"),
+        pytest.param(
+            "1 hour",
+            "and timestamp >= sysdate() - interval '1 hour'",
+            id="since_interval",
+        ),
+        pytest.param(
+            datetime(2024, 1, 1),
+            "and timestamp >= '2024-01-01 00:00:00'",
+            id="since_datetime",
+        ),
     ],
 )
 @pytest.mark.parametrize(
     ["until", "expected_until_clause"],
     [
-        ("", ""),
-        ("20 minutes", "and timestamp <= sysdate() - interval '20 minutes'"),
-        (datetime(2024, 1, 1), "and timestamp <= '2024-01-01 00:00:00'"),
+        pytest.param("", "", id="no_until"),
+        pytest.param(
+            "20 minutes",
+            "and timestamp <= sysdate() - interval '20 minutes'",
+            id="until_interval",
+        ),
+        pytest.param(
+            datetime(2024, 1, 1),
+            "and timestamp <= '2024-01-01 00:00:00'",
+            id="until_datetime",
+        ),
     ],
 )
 @pytest.mark.parametrize(
     ["scopes", "expected_scopes_clause"],
     [
-        ([], ""),
-        (["scope_1"], "and scope:name in ('scope_1')"),
-        (["scope_1", "scope_2"], "and scope:name in ('scope_1','scope_2')"),
+        pytest.param([], "", id="no_scopes"),
+        pytest.param(["scope_1"], "and scope:name in ('scope_1')", id="single_scope"),
+        pytest.param(
+            ["scope_1", "scope_2"],
+            "and scope:name in ('scope_1','scope_2')",
+            id="multiple_scopes",
+        ),
     ],
 )
 @pytest.mark.parametrize(
     ["types", "expected_types_clause"],
     [
-        ([], ""),
-        (["log"], "and record_type in ('log')"),
-        (["log", "span"], "and record_type in ('log','span')"),
+        pytest.param([], "", id="no_types"),
+        pytest.param(["log"], "and record_type in ('log')", id="single_type"),
+        pytest.param(
+            ["log", "span"], "and record_type in ('log','span')", id="multiple_types"
+        ),
     ],
 )
 @pytest.mark.parametrize(
     ["consumer_org", "consumer_account", "consumer_app_hash", "expected_app_clause"],
     [
-        ("", "", "", f"resource_attributes:\"snow.database.name\" = 'MYAPP'"),
-        (
+        pytest.param(
+            "",
+            "",
+            "",
+            f"resource_attributes:\"snow.database.name\" = 'MYAPP'",
+            id="no_consumer",
+        ),
+        pytest.param(
             "testorg",
             "testacc",
             "",
@@ -1611,8 +1639,9 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
                 f"and resource_attributes:\"snow.application.consumer.organization\" = 'TESTORG' "
                 f"and resource_attributes:\"snow.application.consumer.name\" = 'TESTACC'"
             ),
+            id="with_consumer",
         ),
-        (
+        pytest.param(
             "testorg",
             "testacc",
             "428cdba48b74dfbbb333d5ea2cc51a78ecc56ce2",
@@ -1622,23 +1651,24 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
                 f"and resource_attributes:\"snow.application.consumer.name\" = 'TESTACC' "
                 f"and resource_attributes:\"snow.database.hash\" = '428cdba48b74dfbbb333d5ea2cc51a78ecc56ce2'"
             ),
+            id="with_consumer_app_hash",
         ),
     ],
 )
 @pytest.mark.parametrize(
     ["first", "expected_first_clause"],
     [
-        (-1, ""),
-        (0, "limit 0"),
-        (10, "limit 10"),
+        pytest.param(-1, "", id="no_first"),
+        pytest.param(0, "limit 0", id="first_0"),
+        pytest.param(10, "limit 10", id="first_10"),
     ],
 )
 @pytest.mark.parametrize(
     ["last", "expected_last_clause"],
     [
-        (-1, ""),
-        (0, "limit 0"),
-        (20, "limit 20"),
+        pytest.param(-1, "", id="no_last"),
+        pytest.param(0, "limit 0", id="last_0"),
+        pytest.param(20, "limit 20", id="last_20"),
     ],
 )
 @mock.patch(
