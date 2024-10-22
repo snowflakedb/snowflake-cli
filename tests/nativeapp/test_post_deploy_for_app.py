@@ -58,6 +58,7 @@ def test_sql_scripts(
     mock_execute_queries,
     mock_execute_query,
     temp_dir,
+    workspace_context,
 ):
     mock_conn.return_value = MockConnectionCtx()
     post_deploy_1 = dedent(
@@ -94,13 +95,8 @@ def test_sql_scripts(
     dm = DefinitionManager()
     mock_cli_ctx.return_value = dm.template_context
     app_model: ApplicationEntityModel = dm.project_definition.entities["app"]
-    ApplicationEntity.execute_post_deploy_hooks(
-        console=cc,
-        project_root=dm.project_root,
-        post_deploy_hooks=app_model.meta.post_deploy,
-        app_name=app_model.fqn.name,
-        app_warehouse=app_model.meta.warehouse or "MockWarehouse",
-    )
+    app = ApplicationEntity(app_model, workspace_context)
+    app.execute_post_deploy_hooks()
 
     mock_execute_query.assert_has_calls(
         [
@@ -139,7 +135,7 @@ def test_sql_scripts_with_no_warehouse_no_database(
         mock_cli_ctx.return_value = dm.template_context
 
         # Directly testing the function without the use_warehouse
-        # that ApplicationEntity.execute_post_deploy_hooks adds
+        # that app.execute_post_deploy_hooks adds
         execute_post_deploy_hooks(
             console=cc,
             project_root=dm.project_root,
@@ -175,48 +171,18 @@ def test_missing_sql_script(
     mock_execute_query,
     mock_conn,
     project_directory,
+    workspace_context,
 ):
     mock_conn.return_value = MockConnectionCtx()
     with project_directory("napp_post_deploy_missing_file_v2") as project_dir:
         dm = DefinitionManager()
         app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+        app = ApplicationEntity(app_model, workspace_context)
 
         with pytest.raises(MissingScriptError) as err:
-            ApplicationEntity.execute_post_deploy_hooks(
-                console=cc,
-                project_root=dm.project_root,
-                post_deploy_hooks=app_model.meta.post_deploy,
-                app_name=app_model.fqn.name,
-                app_warehouse=app_model.meta.warehouse or "MockWarehouse",
-            )
+            app.execute_post_deploy_hooks()
 
         assert err.value.message == 'Script "scripts/missing.sql" does not exist'
-
-
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock_connection()
-def test_invalid_hook_type(
-    mock_conn,
-    mock_execute_query,
-    project_directory,
-):
-    mock_hook = mock.Mock()
-    mock_hook.invalid_type = "invalid_type"
-    mock_hook.sql_script = None
-    mock_conn.return_value = MockConnectionCtx()
-    with project_directory("napp_post_deploy_v2") as project_dir:
-        dm = DefinitionManager()
-        app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
-
-        with pytest.raises(ValueError) as err:
-            ApplicationEntity.execute_post_deploy_hooks(
-                console=cc,
-                project_root=dm.project_root,
-                post_deploy_hooks=[mock_hook],
-                app_name=app_model.fqn.name,
-                app_warehouse=app_model.meta.warehouse or "MockWarehouse",
-            )
-        assert "Unsupported application post-deploy hook type" in str(err)
 
 
 @pytest.mark.parametrize(
@@ -250,6 +216,7 @@ def test_app_post_deploy_with_template(
     mock_execute_queries,
     mock_execute_query,
     project_directory,
+    workspace_context,
     template_syntax,
 ):
     mock_conn.return_value = MockConnectionCtx()
@@ -269,14 +236,9 @@ def test_app_post_deploy_with_template(
             )
         dm = DefinitionManager()
         app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+        app = ApplicationEntity(app_model, workspace_context)
 
-        ApplicationEntity.execute_post_deploy_hooks(
-            console=cc,
-            project_root=dm.project_root,
-            post_deploy_hooks=app_model.meta.post_deploy,
-            app_name=app_model.fqn.name,
-            app_warehouse=app_model.meta.warehouse or "MockWarehouse",
-        )
+        app.execute_post_deploy_hooks()
 
         mock_execute_query.assert_has_calls(
             [
@@ -310,6 +272,7 @@ def test_app_post_deploy_with_mixed_syntax_template(
     mock_execute_queries,
     mock_execute_query,
     project_directory,
+    workspace_context,
 ):
     mock_conn.return_value = MockConnectionCtx()
     mock_cli_ctx.return_value = {"ctx": {"env": {"test": "test_value"}}}
@@ -329,15 +292,9 @@ def test_app_post_deploy_with_mixed_syntax_template(
             )
         dm = DefinitionManager()
         app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
-
+        app = ApplicationEntity(app_model, workspace_context)
         with pytest.raises(InvalidTemplate) as err:
-            ApplicationEntity.execute_post_deploy_hooks(
-                console=cc,
-                project_root=dm.project_root,
-                post_deploy_hooks=app_model.meta.post_deploy,
-                app_name=app_model.fqn.name,
-                app_warehouse=app_model.meta.warehouse or "MockWarehouse",
-            )
+            app.execute_post_deploy_hooks()
 
         assert (
             "The SQL query in scripts/app_post_deploy1.sql mixes &{ ... } syntax and <% ... %> syntax."

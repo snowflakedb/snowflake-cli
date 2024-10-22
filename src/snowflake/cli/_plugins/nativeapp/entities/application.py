@@ -63,7 +63,6 @@ from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
-    PostDeployHook,
     TargetField,
 )
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
@@ -559,13 +558,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                                 )
 
                         # hooks always executed after a create or upgrade
-                        self.execute_post_deploy_hooks(
-                            console=console,
-                            project_root=project_root,
-                            post_deploy_hooks=post_deploy_hooks,
-                            app_name=app_name,
-                            app_warehouse=app_warehouse,
-                        )
+                        self.execute_post_deploy_hooks()
                         return
 
                     except ProgrammingError as err:
@@ -617,39 +610,31 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     print_messages(console, create_cursor)
 
                     # hooks always executed after a create or upgrade
-                    self.execute_post_deploy_hooks(
-                        console=console,
-                        project_root=project_root,
-                        post_deploy_hooks=post_deploy_hooks,
-                        app_name=app_name,
-                        app_warehouse=app_warehouse,
-                    )
+                    self.execute_post_deploy_hooks()
 
                 except ProgrammingError as err:
                     generic_sql_error_handler(err)
 
-    @classmethod
-    def execute_post_deploy_hooks(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        post_deploy_hooks: Optional[List[PostDeployHook]],
-        app_name: str,
-        app_warehouse: Optional[str],
-    ):
+    def execute_post_deploy_hooks(self):
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+
         get_cli_context().metrics.set_counter_default(
             CLICounterField.POST_DEPLOY_SCRIPTS, 0
         )
 
-        if post_deploy_hooks:
-            with cls.use_application_warehouse(app_warehouse):
-                execute_post_deploy_hooks(
-                    console=console,
-                    project_root=project_root,
-                    post_deploy_hooks=post_deploy_hooks,
-                    deployed_object_type="application",
-                    database_name=app_name,
-                )
+        if not (model.meta and model.meta.post_deploy):
+            return
+
+        app_warehouse = model.meta.warehouse or workspace_ctx.default_warehouse
+        with self.use_application_warehouse(app_warehouse):
+            execute_post_deploy_hooks(
+                console=workspace_ctx.console,
+                project_root=workspace_ctx.project_root,
+                post_deploy_hooks=model.meta.post_deploy,
+                deployed_object_type="application",
+                database_name=model.fqn.identifier,
+            )
 
     @staticmethod
     @contextmanager
