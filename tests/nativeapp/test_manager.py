@@ -1563,7 +1563,7 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     )
     mock_execute.side_effect = side_effects
 
-    assert ApplicationEntity.get_account_event_table() == ""
+    assert ApplicationEntity.get_account_event_table() == "NONE"
 
 
 @pytest.mark.parametrize(
