@@ -391,37 +391,164 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         *args,
         **kwargs,
     ):
+        """
+        Perform bundle, application package creation, stage upload, version and/or patch to an application package.
+        """
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
         package_name = model.fqn.identifier
-        return self.version_create(
-            console=workspace_ctx.console,
-            project_root=workspace_ctx.project_root,
-            deploy_root=workspace_ctx.project_root / model.deploy_root,
-            bundle_root=workspace_ctx.project_root / model.bundle_root,
-            generated_root=(
-                workspace_ctx.project_root / model.deploy_root / model.generated_root
-            ),
+
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
+        deploy_root = workspace_ctx.project_root / model.deploy_root
+        bundle_root = workspace_ctx.project_root / model.bundle_root
+        generated_root = (
+            workspace_ctx.project_root / model.deploy_root / model.generated_root
+        )
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        stage_fqn = f"{package_name}.{model.stage}"
+
+        is_interactive = False
+        if force:
+            policy = AllowAlwaysPolicy()
+        elif interactive:
+            is_interactive = True
+            policy = AskAlwaysPolicy()
+        else:
+            policy = DenyAlwaysPolicy()
+
+        if skip_git_check:
+            git_policy = DenyAlwaysPolicy()
+        else:
+            git_policy = AllowAlwaysPolicy()
+
+        # Make sure version is not None before proceeding any further.
+        # This will raise an exception if version information is not found. Patch can be None.
+        bundle_map = None
+        if not version:
+            console.message(
+                dedent(
+                    f"""\
+                        Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
+                        This step will bundle your app artifacts to determine the location of the manifest.yml file.
+                    """
+                )
+            )
+            bundle_map = self.bundle(
+                project_root=project_root,
+                deploy_root=deploy_root,
+                bundle_root=bundle_root,
+                generated_root=generated_root,
+                artifacts=model.artifacts,
+                package_name=package_name,
+            )
+            version, patch = find_version_info_in_manifest_file(deploy_root)
+            if not version:
+                raise ClickException(
+                    "Manifest.yml file does not contain a value for the version field."
+                )
+
+        # Check if --patch needs to throw a bad option error, either if application package does not exist or if version does not exist
+        if patch is not None:
+            try:
+                if not self.get_existing_version_info(
+                    version, package_name, package_role
+                ):
+                    raise BadOptionUsage(
+                        option_name="patch",
+                        message=f"Cannot create a custom patch when version {version} is not defined in the application package {package_name}. Try again without using --patch.",
+                    )
+            except ApplicationPackageDoesNotExistError as app_err:
+                raise BadOptionUsage(
+                    option_name="patch",
+                    message=f"Cannot create a custom patch when application package {package_name} does not exist. Try again without using --patch.",
+                )
+
+        if git_policy.should_proceed():
+            self.check_index_changes_in_git_repo(
+                console=console,
+                project_root=project_root,
+                policy=policy,
+                is_interactive=is_interactive,
+            )
+
+        self.deploy(
+            console=console,
+            project_root=project_root,
+            deploy_root=deploy_root,
+            bundle_root=bundle_root,
+            generated_root=generated_root,
             artifacts=model.artifacts,
+            bundle_map=bundle_map,
             package_name=package_name,
-            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
+            package_role=package_role,
             package_distribution=model.distribution,
             prune=True,
             recursive=True,
             paths=None,
             print_diff=True,
             validate=True,
-            stage_fqn=f"{package_name}.{model.stage}",
+            stage_fqn=stage_fqn,
             package_warehouse=(
                 (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
             ),
-            post_deploy_hooks=model.meta and model.meta.post_deploy,
+            post_deploy_hooks=(model.meta and model.meta.post_deploy),
             package_scripts=[],  # Package scripts are not supported in PDFv2
+            policy=policy,
+        )
+
+        # Warn if the version exists in a release directive(s)
+        existing_release_directives = (
+            self.get_existing_release_directive_info_for_version(
+                package_name, package_role, version
+            )
+        )
+
+        if existing_release_directives:
+            release_directive_names = ", ".join(
+                row["name"] for row in existing_release_directives
+            )
+            console.warning(
+                dedent(
+                    f"""\
+                    Version {version} already defined in application package {package_name} and in release directive(s): {release_directive_names}.
+                    """
+                )
+            )
+
+            user_prompt = (
+                f"Are you sure you want to create a new patch for version {version} in application "
+                f"package {package_name}? Once added, this operation cannot be undone."
+            )
+            if not policy.should_proceed(user_prompt):
+                if is_interactive:
+                    console.message("Not creating a new patch.")
+                    raise typer.Exit(0)
+                else:
+                    console.message(
+                        "Cannot create a new patch non-interactively without --force."
+                    )
+                    raise typer.Exit(1)
+
+        # Define a new version in the application package
+        if not self.get_existing_version_info(version, package_name, package_role):
+            self.add_new_version(
+                console=console,
+                package_name=package_name,
+                package_role=package_role,
+                stage_fqn=stage_fqn,
+                version=version,
+            )
+            return  # A new version created automatically has patch 0, we do not need to further increment the patch.
+
+        # Add a new patch to an existing (old) version
+        self.add_new_patch_to_version(
+            console=console,
+            package_name=package_name,
+            package_role=package_role,
+            stage_fqn=stage_fqn,
             version=version,
             patch=patch,
-            skip_git_check=skip_git_check,
-            force=force,
-            interactive=interactive,
         )
 
     def action_version_drop(
@@ -577,177 +704,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
 
         return diff
-
-    @classmethod
-    def version_create(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        deploy_root: Path,
-        bundle_root: Path,
-        generated_root: Path,
-        artifacts: list[PathMapping],
-        package_name: str,
-        package_role: str,
-        package_distribution: str,
-        package_warehouse: str | None,
-        prune: bool,
-        recursive: bool,
-        paths: List[Path] | None,
-        print_diff: bool,
-        validate: bool,
-        stage_fqn: str,
-        post_deploy_hooks: list[PostDeployHook] | None,
-        package_scripts: List[str],
-        version: Optional[str],
-        patch: Optional[int],
-        force: bool,
-        interactive: bool,
-        skip_git_check: bool,
-    ):
-        """
-        Perform bundle, application package creation, stage upload, version and/or patch to an application package.
-        """
-        is_interactive = False
-        if force:
-            policy = AllowAlwaysPolicy()
-        elif interactive:
-            is_interactive = True
-            policy = AskAlwaysPolicy()
-        else:
-            policy = DenyAlwaysPolicy()
-
-        if skip_git_check:
-            git_policy = DenyAlwaysPolicy()
-        else:
-            git_policy = AllowAlwaysPolicy()
-
-        # Make sure version is not None before proceeding any further.
-        # This will raise an exception if version information is not found. Patch can be None.
-        bundle_map = None
-        if not version:
-            console.message(
-                dedent(
-                    f"""\
-                        Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
-                        This step will bundle your app artifacts to determine the location of the manifest.yml file.
-                    """
-                )
-            )
-            bundle_map = cls.bundle(
-                project_root=project_root,
-                deploy_root=deploy_root,
-                bundle_root=bundle_root,
-                generated_root=generated_root,
-                artifacts=artifacts,
-                package_name=package_name,
-            )
-            version, patch = find_version_info_in_manifest_file(deploy_root)
-            if not version:
-                raise ClickException(
-                    "Manifest.yml file does not contain a value for the version field."
-                )
-
-        # Check if --patch needs to throw a bad option error, either if application package does not exist or if version does not exist
-        if patch is not None:
-            try:
-                if not cls.get_existing_version_info(
-                    version, package_name, package_role
-                ):
-                    raise BadOptionUsage(
-                        option_name="patch",
-                        message=f"Cannot create a custom patch when version {version} is not defined in the application package {package_name}. Try again without using --patch.",
-                    )
-            except ApplicationPackageDoesNotExistError as app_err:
-                raise BadOptionUsage(
-                    option_name="patch",
-                    message=f"Cannot create a custom patch when application package {package_name} does not exist. Try again without using --patch.",
-                )
-
-        if git_policy.should_proceed():
-            cls.check_index_changes_in_git_repo(
-                console=console,
-                project_root=project_root,
-                policy=policy,
-                is_interactive=is_interactive,
-            )
-
-        cls.deploy(
-            console=console,
-            project_root=project_root,
-            deploy_root=deploy_root,
-            bundle_root=bundle_root,
-            generated_root=generated_root,
-            artifacts=artifacts,
-            bundle_map=bundle_map,
-            package_name=package_name,
-            package_role=package_role,
-            package_distribution=package_distribution,
-            prune=prune,
-            recursive=recursive,
-            paths=paths,
-            print_diff=print_diff,
-            validate=validate,
-            stage_fqn=stage_fqn,
-            package_warehouse=package_warehouse,
-            post_deploy_hooks=post_deploy_hooks,
-            package_scripts=package_scripts,
-            policy=policy,
-        )
-
-        # Warn if the version exists in a release directive(s)
-        existing_release_directives = (
-            cls.get_existing_release_directive_info_for_version(
-                package_name, package_role, version
-            )
-        )
-
-        if existing_release_directives:
-            release_directive_names = ", ".join(
-                row["name"] for row in existing_release_directives
-            )
-            console.warning(
-                dedent(
-                    f"""\
-                    Version {version} already defined in application package {package_name} and in release directive(s): {release_directive_names}.
-                    """
-                )
-            )
-
-            user_prompt = (
-                f"Are you sure you want to create a new patch for version {version} in application "
-                f"package {package_name}? Once added, this operation cannot be undone."
-            )
-            if not policy.should_proceed(user_prompt):
-                if is_interactive:
-                    console.message("Not creating a new patch.")
-                    raise typer.Exit(0)
-                else:
-                    console.message(
-                        "Cannot create a new patch non-interactively without --force."
-                    )
-                    raise typer.Exit(1)
-
-        # Define a new version in the application package
-        if not cls.get_existing_version_info(version, package_name, package_role):
-            cls.add_new_version(
-                console=console,
-                package_name=package_name,
-                package_role=package_role,
-                stage_fqn=stage_fqn,
-                version=version,
-            )
-            return  # A new version created automatically has patch 0, we do not need to further increment the patch.
-
-        # Add a new patch to an existing (old) version
-        cls.add_new_patch_to_version(
-            console=console,
-            package_name=package_name,
-            package_role=package_role,
-            stage_fqn=stage_fqn,
-            version=version,
-            patch=patch,
-        )
 
     @staticmethod
     def get_existing_version_info(
