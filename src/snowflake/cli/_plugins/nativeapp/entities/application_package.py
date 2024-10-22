@@ -220,17 +220,98 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def action_drop(self, action_ctx: ActionContext, force_drop: bool, *args, **kwargs):
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
         package_name = model.fqn.identifier
         if model.meta and model.meta.role:
             package_role = model.meta.role
         else:
             package_role = workspace_ctx.default_role
 
-        self.drop(
-            console=workspace_ctx.console,
+        sql_executor = get_sql_executor()
+        needs_confirm = True
+
+        # 1. If existing application package is not found, exit gracefully
+        show_obj_row = self.get_existing_app_pkg_info(
             package_name=package_name,
             package_role=package_role,
-            force_drop=force_drop,
+        )
+        if show_obj_row is None:
+            console.warning(
+                f"Role {package_role} does not own any application package with the name {package_name}, or the application package does not exist."
+            )
+            return
+
+        with sql_executor.use_role(package_role):
+            # 2. Check for versions in the application package
+            show_versions_query = f"show versions in application package {package_name}"
+            show_versions_cursor = sql_executor.execute_query(
+                show_versions_query, cursor_class=DictCursor
+            )
+            if show_versions_cursor.rowcount is None:
+                raise SnowflakeSQLExecutionError(show_versions_query)
+
+            if show_versions_cursor.rowcount > 0:
+                # allow dropping a package with versions when --force is set
+                if not force_drop:
+                    raise CouldNotDropApplicationPackageWithVersions(
+                        "Drop versions first, or use --force to override."
+                    )
+
+        # 3. Check distribution of the existing application package
+        actual_distribution = self.get_app_pkg_distribution_in_snowflake(
+            package_name=package_name,
+            package_role=package_role,
+        )
+        if not self.verify_project_distribution(
+            console=console,
+            package_name=package_name,
+            package_role=package_role,
+            package_distribution=actual_distribution,
+        ):
+            console.warning(
+                f"Dropping application package {package_name} with distribution '{actual_distribution}'."
+            )
+
+        # 4. If distribution is internal, check if created by the Snowflake CLI
+        row_comment = show_obj_row[COMMENT_COL]
+        if actual_distribution == INTERNAL_DISTRIBUTION:
+            if row_comment in ALLOWED_SPECIAL_COMMENTS:
+                needs_confirm = False
+            else:
+                if needs_confirmation(needs_confirm, force_drop):
+                    console.warning(
+                        f"Application package {package_name} was not created by Snowflake CLI."
+                    )
+        else:
+            if needs_confirmation(needs_confirm, force_drop):
+                console.warning(
+                    f"Application package {package_name} in your Snowflake account has distribution property '{EXTERNAL_DISTRIBUTION}' and could be associated with one or more of your listings on Snowflake Marketplace."
+                )
+
+        if needs_confirmation(needs_confirm, force_drop):
+            should_drop_object = typer.confirm(
+                dedent(
+                    f"""\
+                        Application package details:
+                        Name: {package_name}
+                        Created on: {show_obj_row["created_on"]}
+                        Distribution: {actual_distribution}
+                        Owner: {show_obj_row[OWNER_COL]}
+                        Comment: {show_obj_row[COMMENT_COL]}
+                        Are you sure you want to drop it?
+                    """
+                )
+            )
+            if not should_drop_object:
+                console.message(f"Did not drop application package {package_name}.")
+                return  # The user desires to keep the application package, therefore exit gracefully
+
+        # All validations have passed, drop object
+        drop_generic_object(
+            console=console,
+            object_type="application package",
+            object_name=package_name,
+            role=package_role,
         )
 
     def action_validate(
@@ -1329,98 +1410,3 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     sql_executor.execute_query(
                         f"drop stage if exists {scratch_stage_fqn}"
                     )
-
-    @classmethod
-    def drop(
-        cls,
-        console: AbstractConsole,
-        package_name: str,
-        package_role: str,
-        force_drop: bool,
-    ):
-        sql_executor = get_sql_executor()
-        needs_confirm = True
-
-        # 1. If existing application package is not found, exit gracefully
-        show_obj_row = cls.get_existing_app_pkg_info(
-            package_name=package_name,
-            package_role=package_role,
-        )
-        if show_obj_row is None:
-            console.warning(
-                f"Role {package_role} does not own any application package with the name {package_name}, or the application package does not exist."
-            )
-            return
-
-        with sql_executor.use_role(package_role):
-            # 2. Check for versions in the application package
-            show_versions_query = f"show versions in application package {package_name}"
-            show_versions_cursor = sql_executor.execute_query(
-                show_versions_query, cursor_class=DictCursor
-            )
-            if show_versions_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_versions_query)
-
-            if show_versions_cursor.rowcount > 0:
-                # allow dropping a package with versions when --force is set
-                if not force_drop:
-                    raise CouldNotDropApplicationPackageWithVersions(
-                        "Drop versions first, or use --force to override."
-                    )
-
-        # 3. Check distribution of the existing application package
-        actual_distribution = cls.get_app_pkg_distribution_in_snowflake(
-            package_name=package_name,
-            package_role=package_role,
-        )
-        if not cls.verify_project_distribution(
-            console=console,
-            package_name=package_name,
-            package_role=package_role,
-            package_distribution=actual_distribution,
-        ):
-            console.warning(
-                f"Dropping application package {package_name} with distribution '{actual_distribution}'."
-            )
-
-        # 4. If distribution is internal, check if created by the Snowflake CLI
-        row_comment = show_obj_row[COMMENT_COL]
-        if actual_distribution == INTERNAL_DISTRIBUTION:
-            if row_comment in ALLOWED_SPECIAL_COMMENTS:
-                needs_confirm = False
-            else:
-                if needs_confirmation(needs_confirm, force_drop):
-                    console.warning(
-                        f"Application package {package_name} was not created by Snowflake CLI."
-                    )
-        else:
-            if needs_confirmation(needs_confirm, force_drop):
-                console.warning(
-                    f"Application package {package_name} in your Snowflake account has distribution property '{EXTERNAL_DISTRIBUTION}' and could be associated with one or more of your listings on Snowflake Marketplace."
-                )
-
-        if needs_confirmation(needs_confirm, force_drop):
-            should_drop_object = typer.confirm(
-                dedent(
-                    f"""\
-                        Application package details:
-                        Name: {package_name}
-                        Created on: {show_obj_row["created_on"]}
-                        Distribution: {actual_distribution}
-                        Owner: {show_obj_row[OWNER_COL]}
-                        Comment: {show_obj_row[COMMENT_COL]}
-                        Are you sure you want to drop it?
-                    """
-                )
-            )
-            if not should_drop_object:
-                console.message(f"Did not drop application package {package_name}.")
-                return  # The user desires to keep the application package, therefore exit gracefully
-
-        # All validations have passed, drop object
-        drop_generic_object(
-            console=console,
-            object_type="application package",
-            object_name=package_name,
-            role=package_role,
-        )
