@@ -61,7 +61,6 @@ def context(value: Dict[str, Any]) -> Iterator[None]:
 
 class UpdatableModel(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
-    _validation_done = False
 
     def __init__(self, /, **data: Any) -> None:
         """
@@ -157,7 +156,6 @@ class UpdatableModel(BaseModel):
         def validator_skipping_templated_str(cls, value, handler, info: ValidationInfo):
             if _is_templated(info, value):
                 return value
-            cls._validation_done = True
             return handler(value)
 
         setattr(
