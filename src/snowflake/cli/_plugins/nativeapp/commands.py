@@ -122,7 +122,7 @@ def app_diff(
         package_id,
         EntityActions.BUNDLE,
     )
-    stage_fqn = f"{package.identifier.name}.{package.stage}"
+    stage_fqn = f"{package.fqn.name}.{package.stage}"
     diff: DiffResult = compute_stage_diff(
         local_root=Path(package.deploy_root), stage_fqn=stage_fqn
     )
