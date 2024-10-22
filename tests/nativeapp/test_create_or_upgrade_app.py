@@ -46,6 +46,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.stage.diff import DiffResult
+from snowflake.cli._plugins.workspace.context import WorkspaceContext
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.abc import AbstractConsole
@@ -106,10 +107,18 @@ def _create_or_upgrade_app(
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities[package_id]
     app_model: ApplicationEntityModel = pd.entities[app_id]
+    ctx = WorkspaceContext(
+        console=console or cc,
+        project_root=dm.project_root,
+        get_default_role=lambda: "mock_role",
+        get_default_warehouse=lambda: "mock_warehouse",
+    )
+    app = ApplicationEntity(app_model, ctx)
+
     stage_fqn = f"{pkg_model.fqn.name}.{pkg_model.stage}"
 
     def drop_application_before_upgrade(cascade: bool = False):
-        ApplicationEntity.drop_application_before_upgrade(
+        app.drop_application_before_upgrade(
             console=console or cc,
             app_name=app_model.fqn.identifier,
             app_role=app_model.meta.role,
@@ -118,7 +127,7 @@ def _create_or_upgrade_app(
             cascade=cascade,
         )
 
-    return ApplicationEntity.create_or_upgrade_app(
+    return app.create_or_upgrade_app(
         console=console or cc,
         project_root=dm.project_root,
         package_name=pkg_model.fqn.name,

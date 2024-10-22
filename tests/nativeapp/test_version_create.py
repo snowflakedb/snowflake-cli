@@ -32,6 +32,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
+from snowflake.cli._plugins.workspace.context import WorkspaceContext
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
@@ -59,7 +60,14 @@ def _version_create(
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    return ApplicationPackageEntity.version_create(
+    ctx = WorkspaceContext(
+        console=cc,
+        project_root=dm.project_root,
+        get_default_role=lambda: "mock_role",
+        get_default_warehouse=lambda: "mock_warehouse",
+    )
+    pkg = ApplicationPackageEntity(pkg_model, ctx)
+    return pkg.version_create(
         console=cc,
         project_root=dm.project_root,
         deploy_root=dm.project_root / pkg_model.deploy_root,
