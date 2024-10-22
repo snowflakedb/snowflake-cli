@@ -1792,11 +1792,12 @@ def test_get_events_quoted_app_name(
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(
-    APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
-    return_value=None,
-)
-def test_get_events_no_event_table(mock_account_event_table, temp_dir, mock_cursor):
+@pytest.mark.parametrize("return_value", [None, "NONE"])
+@mock.patch(APP_ENTITY_GET_ACCOUNT_EVENT_TABLE)
+def test_get_events_no_event_table(
+    mock_account_event_table, return_value, temp_dir, mock_cursor
+):
+    mock_account_event_table.return_value = return_value
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
@@ -1810,6 +1811,69 @@ def test_get_events_no_event_table(mock_account_event_table, temp_dir, mock_curs
         ApplicationEntity.get_events(
             app_name=app_model.fqn.name, package_name=pkg_model.fqn.name
         )
+
+
+@mock.patch(
+    APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
+    return_value="db.schema.non_existent_event_table",
+)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_get_events_event_table_dne_or_unauthorized(
+    mock_execute, mock_account_event_table, temp_dir, mock_cursor
+):
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(
+                    msg="Object 'db.schema.non_existent_event_table' does not exist or not authorized.",
+                    errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
+                ),
+                mock.call(
+                    dedent(
+                        f"""\
+                        select * from (
+                            select timestamp, value::varchar value
+                            from db.schema.non_existent_event_table
+                            where (resource_attributes:"snow.database.name" = 'MYAPP')
+                            
+                            
+                            
+                            
+                            order by timestamp desc
+                            
+                        ) order by timestamp asc
+                        
+                        """
+                    ),
+                    cursor_class=DictCursor,
+                ),
+            ),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temp_dir,
+        contents=[mock_snowflake_yml_file_v2],
+    )
+
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+    with pytest.raises(ClickException) as err:
+        ApplicationEntity.get_events(
+            app_name=app_model.fqn.name, package_name=pkg_model.fqn.name
+        )
+
+    assert mock_execute.mock_calls == expected
+    assert err.match(
+        dedent(
+            """\
+                    Event table 'db.schema.non_existent_event_table' does not exist or you are not authorized to perform this operation.
+                    Please check your EVENT_TABLE parameter to ensure that it is set to a valid event table."""
+        )
+    )
 
 
 @mock.patch(
