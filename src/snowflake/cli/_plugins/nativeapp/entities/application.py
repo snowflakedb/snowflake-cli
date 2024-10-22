@@ -844,7 +844,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             raise ValueError("first and last cannot be used together")
 
         account_event_table = cls.get_account_event_table()
-        if account_event_table == "NONE":
+        if not account_event_table or account_event_table == "NONE":
             raise NoEventTableForAccount()
 
         # resource_attributes uses the unquoted/uppercase app and package name
@@ -976,7 +976,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         query = "show parameters like 'event_table' in account"
         sql_executor = get_sql_executor()
         results = sql_executor.execute_query(query, cursor_class=DictCursor)
-        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "NONE")
+        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""

@@ -1563,7 +1563,7 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     )
     mock_execute.side_effect = side_effects
 
-    assert ApplicationEntity.get_account_event_table() == "NONE"
+    assert ApplicationEntity.get_account_event_table() == ""
 
 
 @pytest.mark.parametrize(
@@ -1794,7 +1794,7 @@ def test_get_events_quoted_app_name(
 
 @mock.patch(
     APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
-    return_value="NONE",
+    return_value=None,
 )
 def test_get_events_no_event_table(mock_account_event_table, temp_dir, mock_cursor):
     create_named_file(
