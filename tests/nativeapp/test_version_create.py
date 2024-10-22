@@ -32,6 +32,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
+from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
@@ -59,27 +60,15 @@ def _version_create(
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    return ApplicationPackageEntity.version_create(
+    ctx = WorkspaceContext(
         console=cc,
         project_root=dm.project_root,
-        deploy_root=dm.project_root / pkg_model.deploy_root,
-        bundle_root=dm.project_root / pkg_model.bundle_root,
-        generated_root=(
-            dm.project_root / pkg_model.deploy_root / pkg_model.generated_root
-        ),
-        artifacts=pkg_model.artifacts,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
-        prune=True,
-        recursive=True,
-        paths=None,
-        print_diff=True,
-        validate=True,
-        stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.stage}",
-        package_warehouse=pkg_model.meta.warehouse,
-        post_deploy_hooks=pkg_model.meta.post_deploy,
-        package_scripts=[],
+        get_default_role=lambda: "mock_role",
+        get_default_warehouse=lambda: "mock_warehouse",
+    )
+    pkg = ApplicationPackageEntity(pkg_model, ctx)
+    return pkg.action_version_create(
+        action_ctx=mock.Mock(spec=ActionContext),
         version=version,
         patch=patch,
         force=force,
