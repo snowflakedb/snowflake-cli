@@ -391,6 +391,8 @@ class StageManager(SqlExecutionMixin):
             stage_path = self.build_path(stage_path_str)
 
         all_files_list = self._get_files_list_from_stage(stage_path.root_path())
+        if not all_files_list:
+            raise ClickException(f"No files found on stage '{stage_path}'")
 
         all_files_with_stage_name_prefix = [
             stage_path_parts.get_directory(file) for file in all_files_list
@@ -480,10 +482,6 @@ class StageManager(SqlExecutionMixin):
         self, stage_path: StagePath, pattern: str | None = None
     ) -> List[str]:
         files_list_result = self.list_files(stage_path, pattern=pattern).fetchall()
-
-        if not files_list_result:
-            raise ClickException(f"No files found on stage '{stage_path}'")
-
         return [f["name"] for f in files_list_result]
 
     def _filter_files_list(
