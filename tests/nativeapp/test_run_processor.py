@@ -46,6 +46,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.stage.diff import DiffResult
+from snowflake.cli._plugins.workspace.context import WorkspaceContext
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.abc import AbstractConsole
@@ -62,7 +63,6 @@ from snowflake.cli.api.exceptions import (
     NoWarehouseSelectedInSessionError,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.api.project.util import extract_schema
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -106,10 +106,17 @@ def _create_or_upgrade_app(
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities[package_id]
     app_model: ApplicationEntityModel = pd.entities[app_id]
+    ctx = WorkspaceContext(
+        console=console or cc,
+        project_root=dm.project_root,
+        get_default_role=lambda: "mock_role",
+        get_default_warehouse=lambda: "mock_warehouse",
+    )
+    app = ApplicationEntity(app_model, ctx)
     stage_fqn = f"{pkg_model.fqn.name}.{pkg_model.stage}"
 
     def drop_application_before_upgrade(cascade: bool = False):
-        ApplicationEntity.drop_application_before_upgrade(
+        app.drop_application_before_upgrade(
             console=console or cc,
             app_name=app_model.fqn.identifier,
             app_role=app_model.meta.role,
@@ -118,21 +125,10 @@ def _create_or_upgrade_app(
             cascade=cascade,
         )
 
-    return ApplicationEntity.create_or_upgrade_app(
-        console=console or cc,
-        project_root=dm.project_root,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        app_name=app_model.fqn.identifier,
-        app_role=app_model.meta.role,
-        app_warehouse=app_model.meta.warehouse,
-        stage_schema=extract_schema(stage_fqn),
+    return app.create_or_upgrade_app(
+        package_model=pkg_model,
         stage_fqn=stage_fqn,
-        debug_mode=app_model.debug,
-        policy=policy,
         install_method=install_method,
-        is_interactive=is_interactive,
-        post_deploy_hooks=app_model.meta.post_deploy,
         drop_application_before_upgrade=drop_application_before_upgrade,
     )
 

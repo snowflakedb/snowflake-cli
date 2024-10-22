@@ -134,18 +134,17 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         *args,
         **kwargs,
     ):
+        """
+        Create or upgrade the application object using the given strategy
+        (unversioned dev, versioned dev, or same-account release directive).
+        """
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
         app_name = model.fqn.identifier
-        debug_mode = model.debug
         if model.meta:
             app_role = model.meta.role or workspace_ctx.default_role
-            app_warehouse = model.meta.warehouse or workspace_ctx.default_warehouse
-            post_deploy_hooks = model.meta.post_deploy
         else:
             app_role = workspace_ctx.default_role
-            app_warehouse = workspace_ctx.default_warehouse
-            post_deploy_hooks = None
 
         package_entity: ApplicationPackageEntity = action_ctx.get_entity(
             model.from_.target
@@ -161,7 +160,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         if not stage_fqn:
             stage_fqn = f"{package_name}.{package_model.stage}"
-        stage_schema = extract_schema(stage_fqn)
 
         is_interactive = False
         if force:
@@ -194,25 +192,47 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 cascade=cascade,
             )
 
-        self.deploy(
-            console=workspace_ctx.console,
-            project_root=workspace_ctx.project_root,
-            app_name=app_name,
-            app_role=app_role,
-            app_warehouse=app_warehouse,
-            package_name=package_name,
-            package_role=package_role,
-            stage_schema=stage_schema,
+        # same-account release directive
+        if from_release_directive:
+            self.create_or_upgrade_app(
+                package_model=package_model,
+                stage_fqn=stage_fqn,
+                install_method=SameAccountInstallMethod.release_directive(),
+                drop_application_before_upgrade=drop_application_before_upgrade,
+            )
+            return
+
+        # versioned dev
+        if version:
+            try:
+                version_exists = package_entity.get_existing_version_info(
+                    version=version,
+                    package_name=package_name,
+                    package_role=package_role,
+                )
+                if not version_exists:
+                    raise UsageError(
+                        f"Application package {package_name} does not have any version {version} defined. Use 'snow app version create' to define a version in the application package first."
+                    )
+            except ApplicationPackageDoesNotExistError as app_err:
+                raise UsageError(
+                    f"Application package {package_name} does not exist. Use 'snow app version create' to first create an application package and then define a version in it."
+                )
+
+            self.create_or_upgrade_app(
+                package_model=package_model,
+                stage_fqn=stage_fqn,
+                install_method=SameAccountInstallMethod.versioned_dev(version, patch),
+                drop_application_before_upgrade=drop_application_before_upgrade,
+            )
+            return
+
+        # unversioned dev
+        deploy_package()
+        self.create_or_upgrade_app(
+            package_model=package_model,
             stage_fqn=stage_fqn,
-            debug_mode=debug_mode,
-            validate=validate,
-            from_release_directive=from_release_directive,
-            is_interactive=is_interactive,
-            policy=policy,
-            version=version,
-            patch=patch,
-            post_deploy_hooks=post_deploy_hooks,
-            deploy_package=deploy_package,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
             drop_application_before_upgrade=drop_application_before_upgrade,
         )
 
@@ -469,130 +489,39 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
     def application_object_to_str(obj: ApplicationOwnedObject) -> str:
         return f"({obj['type']}) {obj['name']}"
 
-    @classmethod
-    def deploy(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        app_name: str,
-        app_role: str,
-        app_warehouse: str,
-        package_name: str,
-        package_role: str,
-        stage_schema: str,
-        stage_fqn: str,
-        debug_mode: bool,
-        validate: bool,
-        from_release_directive: bool,
-        is_interactive: bool,
-        policy: PolicyBase,
-        deploy_package: Callable,
-        version: Optional[str] = None,
-        patch: Optional[int] = None,
-        post_deploy_hooks: Optional[List[PostDeployHook]] = None,
-        drop_application_before_upgrade: Optional[Callable] = None,
-    ):
-        """
-        Create or upgrade the application object using the given strategy
-        (unversioned dev, versioned dev, or same-account release directive).
-        """
-
-        # same-account release directive
-        if from_release_directive:
-            cls.create_or_upgrade_app(
-                console=console,
-                project_root=project_root,
-                package_name=package_name,
-                package_role=package_role,
-                app_name=app_name,
-                app_role=app_role,
-                app_warehouse=app_warehouse,
-                stage_schema=stage_schema,
-                stage_fqn=stage_fqn,
-                debug_mode=debug_mode,
-                policy=policy,
-                install_method=SameAccountInstallMethod.release_directive(),
-                is_interactive=is_interactive,
-                post_deploy_hooks=post_deploy_hooks,
-                drop_application_before_upgrade=drop_application_before_upgrade,
-            )
-            return
-
-        # versioned dev
-        if version:
-            try:
-                version_exists = ApplicationPackageEntity.get_existing_version_info(
-                    version=version,
-                    package_name=package_name,
-                    package_role=package_role,
-                )
-                if not version_exists:
-                    raise UsageError(
-                        f"Application package {package_name} does not have any version {version} defined. Use 'snow app version create' to define a version in the application package first."
-                    )
-            except ApplicationPackageDoesNotExistError as app_err:
-                raise UsageError(
-                    f"Application package {package_name} does not exist. Use 'snow app version create' to first create an application package and then define a version in it."
-                )
-
-            cls.create_or_upgrade_app(
-                console=console,
-                project_root=project_root,
-                package_name=package_name,
-                package_role=package_role,
-                app_name=app_name,
-                app_role=app_role,
-                app_warehouse=app_warehouse,
-                stage_schema=stage_schema,
-                stage_fqn=stage_fqn,
-                debug_mode=debug_mode,
-                policy=policy,
-                install_method=SameAccountInstallMethod.versioned_dev(version, patch),
-                is_interactive=is_interactive,
-                post_deploy_hooks=post_deploy_hooks,
-                drop_application_before_upgrade=drop_application_before_upgrade,
-            )
-            return
-
-        # unversioned dev
-        deploy_package()
-        cls.create_or_upgrade_app(
-            console=console,
-            project_root=project_root,
-            package_name=package_name,
-            package_role=package_role,
-            app_name=app_name,
-            app_role=app_role,
-            app_warehouse=app_warehouse,
-            stage_schema=stage_schema,
-            stage_fqn=stage_fqn,
-            debug_mode=debug_mode,
-            policy=policy,
-            install_method=SameAccountInstallMethod.unversioned_dev(),
-            is_interactive=is_interactive,
-            post_deploy_hooks=post_deploy_hooks,
-            drop_application_before_upgrade=drop_application_before_upgrade,
-        )
-
-    @classmethod
     def create_or_upgrade_app(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        package_name: str,
-        package_role: str,
-        app_name: str,
-        app_role: str,
-        app_warehouse: Optional[str],
-        stage_schema: Optional[str],
+        self,
+        package_model: ApplicationPackageEntityModel,
         stage_fqn: str,
-        debug_mode: bool,
-        policy: PolicyBase,
         install_method: SameAccountInstallMethod,
-        is_interactive: bool = False,
-        post_deploy_hooks: Optional[List[PostDeployHook]] = None,
         drop_application_before_upgrade: Optional[Callable] = None,
     ):
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
+
+        app_name = model.fqn.identifier
+        debug_mode = model.debug
+        if model.meta:
+            app_role = model.meta.role or workspace_ctx.default_role
+            app_warehouse = model.meta.warehouse or workspace_ctx.default_warehouse
+            post_deploy_hooks = model.meta.post_deploy
+        else:
+            app_role = workspace_ctx.default_role
+            app_warehouse = workspace_ctx.default_warehouse
+            post_deploy_hooks = None
+
+        package_name = package_model.fqn.identifier
+        if package_model.meta and package_model.meta.role:
+            package_role = package_model.meta.role
+        else:
+            package_role = workspace_ctx.default_role
+
+        if not stage_fqn:
+            stage_fqn = f"{package_name}.{package_model.stage}"
+        stage_schema = extract_schema(stage_fqn)
+
         sql_executor = get_sql_executor()
         with sql_executor.use_role(app_role):
 
@@ -600,10 +529,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             with sql_executor.use_warehouse(app_warehouse):
 
                 # 2. Check for an existing application by the same name
-                show_app_row = cls.get_existing_app_info_static(
-                    app_name=app_name,
-                    app_role=app_role,
-                )
+                show_app_row = self.get_existing_app_info()
 
                 # 3. If existing application is found, perform a few validations and upgrade the application object.
                 if show_app_row:
@@ -633,7 +559,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                                 )
 
                         # hooks always executed after a create or upgrade
-                        cls.execute_post_deploy_hooks(
+                        self.execute_post_deploy_hooks(
                             console=console,
                             project_root=project_root,
                             post_deploy_hooks=post_deploy_hooks,
@@ -691,7 +617,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     print_messages(console, create_cursor)
 
                     # hooks always executed after a create or upgrade
-                    cls.execute_post_deploy_hooks(
+                    self.execute_post_deploy_hooks(
                         console=console,
                         project_root=project_root,
                         post_deploy_hooks=post_deploy_hooks,
