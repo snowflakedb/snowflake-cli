@@ -1794,7 +1794,7 @@ def test_get_events_quoted_app_name(
 
 @mock.patch(
     APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
-    return_value=None,
+    return_value="NONE",
 )
 def test_get_events_no_event_table(mock_account_event_table, temp_dir, mock_cursor):
     create_named_file(
