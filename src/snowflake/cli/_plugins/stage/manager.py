@@ -629,7 +629,7 @@ class StageManager(SqlExecutionMixin):
         requirements = self._check_for_requirements_file(stage_path)
         self.snowpark_session.add_packages(*requirements)
 
-        @sproc(is_permanent=False)
+        @sproc(is_permanent=False, session=self.snowpark_session)
         def _python_execution_procedure(
             _: Session, file_path: str, variables: Dict | None = None
         ) -> None:
@@ -666,7 +666,7 @@ class StageManager(SqlExecutionMixin):
         from snowflake.snowpark.exceptions import SnowparkSQLException
 
         try:
-            self._python_exe_procedure(self.get_standard_stage_prefix(file_stage_path), variables)  # type: ignore
+            self._python_exe_procedure(self.get_standard_stage_prefix(file_stage_path), variables, session=self.snowpark_session)  # type: ignore
             return StageManager._success_result(file=original_file)
         except SnowparkSQLException as e:
             StageManager._handle_execution_exception(on_error=on_error, exception=e)
