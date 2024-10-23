@@ -390,8 +390,8 @@ def render_definition_template(
         definition,
         update_action=lambda val: template_env.render(val, final_context),
     )
-
-    project_definition = build_project_definition(**definition)
+    with context({"is_duplicated_run": True}):
+        project_definition = build_project_definition(**definition)
 
     # Use the values originally provided by the user as the template context
     # This intentionally doesn't reflect any field changes made by

@@ -29,7 +29,6 @@ from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
 )
-from snowflake.cli.api.project.schemas.updatable_model import context
 from snowflake.cli.api.project.schemas.v1.native_app.application import (
     Application,
     ApplicationV11,
@@ -133,8 +132,7 @@ def convert_project_definition_to_v2(
     else:
         # Context is needed, as the Pydantic model here will be evaluated only once
         # and without context, the mixins won't be applied
-        with context({}):
-            definition_v2 = ProjectDefinitionV2(**data)
+        definition_v2 = ProjectDefinitionV2(**data)
 
     # If the user's files have any template tags in them, they
     # also need to be migrated to point to the v2 entities
