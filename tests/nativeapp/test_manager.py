@@ -1362,6 +1362,7 @@ def test_validate_use_scratch_stage(mock_execute, mock_deploy, temp_dir, mock_cu
         stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}",
         interactive=False,
         force=True,
+        run_post_deploy_hooks=False,
     )
     assert mock_execute.mock_calls == expected
 
@@ -1437,6 +1438,7 @@ def test_validate_failing_drops_scratch_stage(
         stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}",
         interactive=False,
         force=True,
+        run_post_deploy_hooks=False,
     )
     assert mock_execute.mock_calls == expected
 

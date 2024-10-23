@@ -544,6 +544,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         stage_fqn: str,
         interactive: bool,
         force: bool,
+        run_post_deploy_hooks: bool = True,
     ) -> DiffResult:
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
@@ -609,13 +610,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 print_diff=print_diff,
             )
 
-            self.execute_post_deploy_hooks(
-                console=console,
-                project_root=project_root,
-                post_deploy_hooks=(model.meta and model.meta.post_deploy),
-                package_name=package_name,
-                package_warehouse=package_warehouse,
-            )
+            if run_post_deploy_hooks:
+                self.execute_post_deploy_hooks(
+                    console=console,
+                    project_root=project_root,
+                    post_deploy_hooks=(model.meta and model.meta.post_deploy),
+                    package_name=package_name,
+                    package_warehouse=package_warehouse,
+                )
 
         if validate:
             self.validate_setup_script(
@@ -1140,6 +1142,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 stage_fqn=scratch_stage_fqn,
                 interactive=interactive,
                 force=force,
+                run_post_deploy_hooks=False,
             )
         prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
         sql_executor = get_sql_executor()
