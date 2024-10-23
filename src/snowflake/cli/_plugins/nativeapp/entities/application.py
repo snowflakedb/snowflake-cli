@@ -56,6 +56,7 @@ from snowflake.cli.api.errno import (
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
     CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
     CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
     ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
@@ -844,7 +845,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             raise ValueError("first and last cannot be used together")
 
         account_event_table = cls.get_account_event_table()
-        if not account_event_table:
+        if not account_event_table or account_event_table == "NONE":
             raise NoEventTableForAccount()
 
         # resource_attributes uses the unquoted/uppercase app and package name
@@ -919,7 +920,16 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         try:
             return sql_executor.execute_query(query, cursor_class=DictCursor).fetchall()
         except ProgrammingError as err:
-            generic_sql_error_handler(err)
+            if err.errno == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
+                raise ClickException(
+                    dedent(
+                        f"""\
+                    Event table '{account_event_table}' does not exist or you are not authorized to perform this operation.
+                    Please check your EVENT_TABLE parameter to ensure that it is set to a valid event table."""
+                    )
+                ) from err
+            else:
+                generic_sql_error_handler(err)
 
     @classmethod
     def stream_events(
