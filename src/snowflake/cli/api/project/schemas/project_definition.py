@@ -20,8 +20,8 @@ from typing import Any, Dict, List, Optional, Union
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
 from pydantic_core.core_schema import ValidationInfo
-
 from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import (
     TargetField,
@@ -117,13 +117,8 @@ class DefinitionV11(DefinitionV10):
 
 
 class DefinitionV20(_ProjectDefinitionBase):
+    _applied_mixins: Dict[str, List] = {}
     entities: Dict[str, AnnotatedEntity] = Field(title="Entity definitions.")
-
-
-    def __init__(self, **data):
-        print("Running init")
-        super().__init__(**data)
-
 
     @model_validator(mode="after")
     def validate_entities_identifiers(self):
@@ -190,23 +185,21 @@ class DefinitionV20(_ProjectDefinitionBase):
         if "mixins" not in data or "entities" not in data:
             return data
 
-        if (flag:= info.context.get("skip_validation_on_templates") if info.context else False):
-            entities = data["entities"]
-            for entity_name, entity in entities.items():
-                entity_mixins = entity_mixins_to_list(
-                    entity.get("meta", {}).get("use_mixins")
-                )
+        entities = data["entities"]
+        for entity_name, entity in entities.items():
+            entity_mixins = entity_mixins_to_list(
+                entity.get("meta", {}).get("use_mixins")
+            )
 
-                merged_values = cls._merge_mixins_with_entity(
-                    entity_id=entity_name,
-                    entity=entity,
-                    entity_mixins_names=entity_mixins,
-                    mixin_defs=data["mixins"],
-                )
-                entities[entity_name] = merged_values
+            merged_values = cls._merge_mixins_with_entity(
+                entity_id=entity_name,
+                entity=entity,
+                entity_mixins_names=entity_mixins,
+                mixin_defs=data["mixins"],
+            )
+            entities[entity_name] = merged_values
 
         return data
-
 
     @classmethod
     def _merge_mixins_with_entity(
@@ -217,15 +210,16 @@ class DefinitionV20(_ProjectDefinitionBase):
         mixin_defs: dict,
     ) -> dict:
         # Validate mixins
-        print("applying mixins")
         for mixin_name in entity_mixins_names:
             if mixin_name not in mixin_defs:
                 raise ValueError(f"Mixin {mixin_name} not defined")
-
+        context = get_cli_context()
         # Build object override data from mixins
         data: dict = {}
         for mx_name in entity_mixins_names:
-            data = cls._merge_data(data, mixin_defs[mx_name])
+            if mx_name not in cls._applied_mixins.default.get(entity_id, []):  # type: ignore
+                data = cls._merge_data(data, mixin_defs[mx_name])
+                cls._mark_mixin_as_applied_for_entity(entity_id, mx_name)  # type: ignore
 
         for key, override_value in data.items():
             if key not in get_allowed_fields_for_entity(entity):
@@ -282,6 +276,12 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     def get_entities_by_type(self, entity_type: str):
         return {i: e for i, e in self.entities.items() if e.get_type() == entity_type}
+
+    @classmethod
+    def _mark_mixin_as_applied_for_entity(cls, entity_id: str, mixin_name: str):
+        if entity_id not in cls._applied_mixins.default:  # type: ignore
+            cls._applied_mixins.default[entity_id] = []  # type: ignore
+        cls._applied_mixins.default[entity_id].append(mixin_name)  # type: ignore
 
 
 def build_project_definition(**data) -> ProjectDefinition:

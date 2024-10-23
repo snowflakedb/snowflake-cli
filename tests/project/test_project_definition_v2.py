@@ -737,6 +737,7 @@ def test_mixins_values_have_to_be_type_compatible_with_entities():
         in str(err)
     )
 
+
 def test_if_list_in_mixin_is_applied_correctly():
     definition_input = {
         "definition_version": "2",
@@ -751,8 +752,11 @@ def test_if_list_in_mixin_is_applied_correctly():
                 "meta": {"use_mixins": ["artifact_mixin"]},
             },
         },
-        "mixins": {"artifact_mixin": {"external_access_integrations": ["integration_1", "integration_2"],
-                                      "artifacts": [{"src": "src", "dest": "my_project"}]},
+        "mixins": {
+            "artifact_mixin": {
+                "external_access_integrations": ["integration_1", "integration_2"],
+                "artifacts": [{"src": "src", "dest": "my_project"}],
+            },
         },
     }
     project = render_definition_template(definition_input, {}).project_definition
