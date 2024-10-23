@@ -46,7 +46,6 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ObjectPropertyNotFoundError,
     SetupScriptFailedValidation,
 )
-from snowflake.cli._plugins.nativeapp.policy import AllowAlwaysPolicy
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePathType,
@@ -1353,29 +1352,16 @@ def test_validate_use_scratch_stage(mock_execute, mock_deploy, temp_dir, mock_cu
 
     pd = wm._project_definition  # noqa: SLF001
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    project_root = wm._project_root  # noqa: SLF001
     mock_deploy.assert_called_with(
-        console=cc,
-        project_root=project_root,
-        deploy_root=project_root / pkg_model.deploy_root,
-        bundle_root=project_root / pkg_model.bundle_root,
-        generated_root=(
-            project_root / pkg_model.deploy_root / pkg_model.generated_root
-        ),
-        artifacts=pkg_model.artifacts,
         bundle_map=None,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
         prune=True,
         recursive=True,
         paths=[],
         print_diff=False,
         validate=False,
         stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}",
-        package_warehouse=pkg_model.meta.warehouse,
-        post_deploy_hooks=[],
-        policy=AllowAlwaysPolicy(),
+        interactive=False,
+        force=True,
     )
     assert mock_execute.mock_calls == expected
 
@@ -1441,29 +1427,16 @@ def test_validate_failing_drops_scratch_stage(
 
     pd = wm._project_definition  # noqa: SLF001
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    project_root = wm._project_root  # noqa: SLF001
     mock_deploy.assert_called_with(
-        console=cc,
-        project_root=project_root,
-        deploy_root=project_root / pkg_model.deploy_root,
-        bundle_root=project_root / pkg_model.bundle_root,
-        generated_root=(
-            project_root / pkg_model.deploy_root / pkg_model.generated_root
-        ),
-        artifacts=pkg_model.artifacts,
         bundle_map=None,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
         prune=True,
         recursive=True,
         paths=[],
         print_diff=False,
         validate=False,
         stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}",
-        package_warehouse=pkg_model.meta.warehouse,
-        post_deploy_hooks=[],
-        policy=AllowAlwaysPolicy(),
+        interactive=False,
+        force=True,
     )
     assert mock_execute.mock_calls == expected
 
@@ -1511,7 +1484,12 @@ def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
 
     wm = _get_wm()
     pkg = wm.get_entity("app_pkg")
-    assert pkg.get_validation_result(use_scratch_stage=False) == failure_data
+    assert (
+        pkg.get_validation_result(
+            use_scratch_stage=False, interactive=False, force=True
+        )
+        == failure_data
+    )
     assert mock_execute.mock_calls == expected
 
 

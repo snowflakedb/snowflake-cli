@@ -352,7 +352,11 @@ def app_validate(
     package_id = options["package_entity_id"]
     package = ws.get_entity(package_id)
     if cli_context.output_format == OutputFormat.JSON:
-        return ObjectResult(package.get_validation_result(use_scratch_stage=True))
+        return ObjectResult(
+            package.get_validation_result(
+                use_scratch_stage=True, interactive=False, force=True
+            )
+        )
 
     ws.perform_action(
         package_id,

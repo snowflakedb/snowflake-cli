@@ -177,40 +177,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         **kwargs,
     ):
         model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        package_name = model.fqn.identifier
-
-        if force:
-            policy = AllowAlwaysPolicy()
-        elif interactive:
-            policy = AskAlwaysPolicy()
-        else:
-            policy = DenyAlwaysPolicy()
-
-        return self.deploy(
-            console=workspace_ctx.console,
-            project_root=workspace_ctx.project_root,
-            deploy_root=workspace_ctx.project_root / model.deploy_root,
-            bundle_root=workspace_ctx.project_root / model.bundle_root,
-            generated_root=(
-                workspace_ctx.project_root / model.deploy_root / model.generated_root
-            ),
-            artifacts=model.artifacts,
+        return self._deploy(
             bundle_map=None,
-            package_name=package_name,
-            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
-            package_distribution=model.distribution,
             prune=prune,
             recursive=recursive,
             paths=paths,
             print_diff=True,
             validate=validate,
-            stage_fqn=stage_fqn or f"{package_name}.{model.stage}",
-            package_warehouse=(
-                (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
-            ),
-            post_deploy_hooks=model.meta and model.meta.post_deploy,
-            policy=policy,
+            stage_fqn=stage_fqn or f"{model.fqn.identifier}.{model.stage}",
+            interactive=interactive,
+            force=force,
         )
 
     def action_drop(self, action_ctx: ActionContext, force_drop: bool, *args, **kwargs):
@@ -319,40 +295,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         *args,
         **kwargs,
     ):
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        package_name = model.fqn.identifier
-        if force:
-            policy = AllowAlwaysPolicy()
-        elif interactive:
-            policy = AskAlwaysPolicy()
-        else:
-            policy = DenyAlwaysPolicy()
-
         self.validate_setup_script(
-            console=workspace_ctx.console,
-            project_root=workspace_ctx.project_root,
-            deploy_root=workspace_ctx.project_root / model.deploy_root,
-            bundle_root=workspace_ctx.project_root / model.bundle_root,
-            generated_root=(
-                workspace_ctx.project_root / model.deploy_root / model.generated_root
-            ),
-            artifacts=model.artifacts,
-            package_name=package_name,
-            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
-            package_distribution=model.distribution,
-            prune=True,
-            recursive=True,
-            paths=[],
-            stage_fqn=f"{package_name}.{model.stage}",
-            package_warehouse=(
-                (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
-            ),
-            policy=policy,
             use_scratch_stage=use_scratch_stage,
-            scratch_stage_fqn=f"{package_name}.{model.scratch_stage}",
+            interactive=interactive,
+            force=force,
         )
-        workspace_ctx.console.message("Setup script is valid")
+        self._workspace_ctx.console.message("Setup script is valid")
 
     def action_version_list(
         self, action_ctx: ActionContext, *args, **kwargs
@@ -468,28 +416,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 is_interactive=is_interactive,
             )
 
-        self.deploy(
-            console=console,
-            project_root=project_root,
-            deploy_root=deploy_root,
-            bundle_root=bundle_root,
-            generated_root=generated_root,
-            artifacts=model.artifacts,
+        self._deploy(
             bundle_map=bundle_map,
-            package_name=package_name,
-            package_role=package_role,
-            package_distribution=model.distribution,
             prune=True,
             recursive=True,
-            paths=None,
+            paths=[],
             print_diff=True,
             validate=True,
             stage_fqn=stage_fqn,
-            package_warehouse=(
-                (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
-            ),
-            post_deploy_hooks=(model.meta and model.meta.post_deploy),
-            policy=policy,
+            interactive=interactive,
+            force=force,
         )
 
         # Warn if the version exists in a release directive(s)
@@ -597,42 +533,55 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         compiler.compile_artifacts()
         return bundle_map
 
-    @classmethod
-    def deploy(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        deploy_root: Path,
-        bundle_root: Path,
-        generated_root: Path,
-        artifacts: list[PathMapping],
+    def _deploy(
+        self,
         bundle_map: BundleMap | None,
-        package_name: str,
-        package_role: str,
-        package_distribution: str,
-        package_warehouse: str | None,
         prune: bool,
         recursive: bool,
-        paths: List[Path] | None,
+        paths: list[Path],
         print_diff: bool,
         validate: bool,
         stage_fqn: str,
-        post_deploy_hooks: list[PostDeployHook] | None,
-        policy: PolicyBase,
+        interactive: bool,
+        force: bool,
     ) -> DiffResult:
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        package_name = model.fqn.identifier
+        if force:
+            policy = AllowAlwaysPolicy()
+        elif interactive:
+            policy = AskAlwaysPolicy()
+        else:
+            policy = DenyAlwaysPolicy()
+
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
+        deploy_root = workspace_ctx.project_root / model.deploy_root
+        bundle_root = workspace_ctx.project_root / model.bundle_root
+        generated_root = (
+            workspace_ctx.project_root / model.deploy_root / model.generated_root
+        )
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        package_distribution = model.distribution
+        stage_fqn = stage_fqn or f"{package_name}.{model.stage}"
+        package_warehouse = (
+            model.meta and model.meta.warehouse
+        ) or workspace_ctx.default_warehouse
+
         # 1. Create a bundle if one wasn't passed in
-        bundle_map = bundle_map or cls.bundle(
+        bundle_map = bundle_map or self.bundle(
             project_root=project_root,
             deploy_root=deploy_root,
             bundle_root=bundle_root,
             generated_root=generated_root,
-            artifacts=artifacts,
+            artifacts=model.artifacts,
             package_name=package_name,
         )
 
         # 2. Create an empty application package, if none exists
         try:
-            cls.create_app_package(
+            self.create_app_package(
                 console=console,
                 package_name=package_name,
                 package_role=package_role,
@@ -660,33 +609,19 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 print_diff=print_diff,
             )
 
-            cls.execute_post_deploy_hooks(
+            self.execute_post_deploy_hooks(
                 console=console,
                 project_root=project_root,
-                post_deploy_hooks=post_deploy_hooks,
+                post_deploy_hooks=(model.meta and model.meta.post_deploy),
                 package_name=package_name,
                 package_warehouse=package_warehouse,
             )
 
         if validate:
-            cls.validate_setup_script(
-                console=console,
-                project_root=project_root,
-                deploy_root=deploy_root,
-                bundle_root=bundle_root,
-                generated_root=generated_root,
-                artifacts=artifacts,
-                package_name=package_name,
-                package_role=package_role,
-                package_distribution=package_distribution,
-                prune=prune,
-                recursive=recursive,
-                paths=paths,
-                stage_fqn=stage_fqn,
-                package_warehouse=package_warehouse,
-                policy=policy,
+            self.validate_setup_script(
                 use_scratch_stage=False,
-                scratch_stage_fqn="",
+                interactive=interactive,
+                force=force,
             )
 
         return diff
@@ -1155,47 +1090,18 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     database_name=package_name,
                 )
 
-    @classmethod
     def validate_setup_script(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        deploy_root: Path,
-        bundle_root: Path,
-        generated_root: Path,
-        artifacts: list[PathMapping],
-        package_name: str,
-        package_role: str,
-        package_distribution: str,
-        package_warehouse: str | None,
-        prune: bool,
-        recursive: bool,
-        paths: List[Path] | None,
-        stage_fqn: str,
-        policy: PolicyBase,
-        use_scratch_stage: bool,
-        scratch_stage_fqn: str,
+        self, use_scratch_stage: bool, interactive: bool, force: bool
     ):
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+
         """Validates Native App setup script SQL."""
         with console.phase(f"Validating Snowflake Native App setup script."):
-            validation_result = cls.get_validation_result_static(
-                console=console,
-                project_root=project_root,
-                deploy_root=deploy_root,
-                bundle_root=bundle_root,
-                generated_root=generated_root,
-                artifacts=artifacts,
-                package_name=package_name,
-                package_role=package_role,
-                package_distribution=package_distribution,
-                prune=prune,
-                recursive=recursive,
-                paths=paths,
-                stage_fqn=stage_fqn,
-                package_warehouse=package_warehouse,
-                policy=policy,
+            validation_result = self.get_validation_result(
                 use_scratch_stage=use_scratch_stage,
-                scratch_stage_fqn=scratch_stage_fqn,
+                force=force,
+                interactive=interactive,
             )
 
             # First print warnings, regardless of the outcome of validation
@@ -1212,78 +1118,28 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             if validation_result["status"] == "FAIL":
                 raise SetupScriptFailedValidation()
 
-    def get_validation_result(self, use_scratch_stage: bool = True):
+    def get_validation_result(
+        self, use_scratch_stage: bool, interactive: bool, force: bool
+    ):
+        """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
         package_name = model.fqn.identifier
-        return self.get_validation_result_static(
-            console=workspace_ctx.console,
-            project_root=workspace_ctx.project_root,
-            deploy_root=workspace_ctx.project_root / model.deploy_root,
-            bundle_root=workspace_ctx.project_root / model.bundle_root,
-            generated_root=(
-                workspace_ctx.project_root / model.deploy_root / model.generated_root
-            ),
-            artifacts=model.artifacts,
-            package_name=package_name,
-            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
-            package_distribution=model.distribution,
-            prune=True,
-            recursive=True,
-            paths=[],
-            stage_fqn=f"{package_name}.{model.stage}",
-            package_warehouse=(
-                (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
-            ),
-            policy=AllowAlwaysPolicy(),
-            use_scratch_stage=use_scratch_stage,
-            scratch_stage_fqn=f"{package_name}.{model.scratch_stage}",
-        )
 
-    @classmethod
-    def get_validation_result_static(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        deploy_root: Path,
-        bundle_root: Path,
-        generated_root: Path,
-        artifacts: list[PathMapping],
-        package_name: str,
-        package_role: str,
-        package_distribution: str,
-        package_warehouse: str | None,
-        prune: bool,
-        recursive: bool,
-        paths: List[Path] | None,
-        stage_fqn: str,
-        policy: PolicyBase,
-        use_scratch_stage: bool,
-        scratch_stage_fqn: str,
-    ):
-        """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
+        stage_fqn = f"{package_name}.{model.stage}"
+        scratch_stage_fqn = f"{package_name}.{model.scratch_stage}"
         if use_scratch_stage:
             stage_fqn = scratch_stage_fqn
-            cls.deploy(
-                console=console,
-                project_root=project_root,
-                deploy_root=deploy_root,
-                bundle_root=bundle_root,
-                generated_root=generated_root,
-                artifacts=artifacts,
+            self._deploy(
                 bundle_map=None,
-                package_name=package_name,
-                package_role=package_role,
-                package_distribution=package_distribution,
-                prune=prune,
-                recursive=recursive,
-                paths=paths,
+                prune=True,
+                recursive=True,
+                paths=[],
                 print_diff=False,
                 validate=False,
-                stage_fqn=stage_fqn,
-                package_warehouse=package_warehouse,
-                post_deploy_hooks=[],
-                policy=policy,
+                stage_fqn=scratch_stage_fqn,
+                interactive=interactive,
+                force=force,
             )
         prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
         sql_executor = get_sql_executor()
@@ -1301,7 +1157,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             return json.loads(cursor.fetchone()[0])
         finally:
             if use_scratch_stage:
-                console.step(f"Dropping stage {scratch_stage_fqn}.")
+                workspace_ctx.console.step(f"Dropping stage {scratch_stage_fqn}.")
+                package_role = (
+                    model.meta and model.meta.role
+                ) or workspace_ctx.default_role
                 with sql_executor.use_role(package_role):
                     sql_executor.execute_query(
                         f"drop stage if exists {scratch_stage_fqn}"

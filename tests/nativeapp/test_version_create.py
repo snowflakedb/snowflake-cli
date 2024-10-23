@@ -397,7 +397,7 @@ def test_process_no_version_exists_throws_bad_option_exception_two(
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
-@mock.patch.object(ApplicationPackageEntity, "deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -452,7 +452,7 @@ def test_process_no_existing_release_directives_or_versions(
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
-@mock.patch.object(ApplicationPackageEntity, "deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -515,7 +515,7 @@ def test_process_no_existing_release_directives_w_existing_version(
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
-@mock.patch.object(ApplicationPackageEntity, "deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -574,7 +574,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
-@mock.patch.object(ApplicationPackageEntity, "deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
