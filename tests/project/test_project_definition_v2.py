@@ -620,7 +620,6 @@ def test_mixin_order_sequence_merge_order():
             },
         },
     }
-    # pd = DefinitionV20(**definition_input)
     pd = render_definition_template(definition_input, {}).project_definition
     entities = pd.entities
     assert entities["no_mixin"].external_access_integrations == ["entity_int"]

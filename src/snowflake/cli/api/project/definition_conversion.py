@@ -131,8 +131,8 @@ def convert_project_definition_to_v2(
         # since the file won't be re-read as it would be for a permanent conversion
         definition_v2 = render_definition_template(data, {}).project_definition
     else:
-        # Exact values of context are irrelevant.
-        # It just can't be none, so the mixins are applied
+        # Context is needed, as the Pydantic model here will be evaluated only once
+        # and without context, the mixins won't be applied
         with context({}):
             definition_v2 = ProjectDefinitionV2(**data)
 
