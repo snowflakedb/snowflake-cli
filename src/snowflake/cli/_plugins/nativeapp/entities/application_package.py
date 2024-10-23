@@ -31,6 +31,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
     CouldNotDropApplicationPackageWithVersions,
+    ObjectPropertyNotFoundError,
     SetupScriptFailedValidation,
 )
 from snowflake.cli._plugins.nativeapp.policy import (
@@ -39,6 +40,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
     DenyAlwaysPolicy,
     PolicyBase,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
@@ -218,17 +220,98 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def action_drop(self, action_ctx: ActionContext, force_drop: bool, *args, **kwargs):
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
         package_name = model.fqn.identifier
         if model.meta and model.meta.role:
             package_role = model.meta.role
         else:
             package_role = workspace_ctx.default_role
 
-        self.drop(
-            console=workspace_ctx.console,
+        sql_executor = get_sql_executor()
+        needs_confirm = True
+
+        # 1. If existing application package is not found, exit gracefully
+        show_obj_row = self.get_existing_app_pkg_info(
             package_name=package_name,
             package_role=package_role,
-            force_drop=force_drop,
+        )
+        if show_obj_row is None:
+            console.warning(
+                f"Role {package_role} does not own any application package with the name {package_name}, or the application package does not exist."
+            )
+            return
+
+        with sql_executor.use_role(package_role):
+            # 2. Check for versions in the application package
+            show_versions_query = f"show versions in application package {package_name}"
+            show_versions_cursor = sql_executor.execute_query(
+                show_versions_query, cursor_class=DictCursor
+            )
+            if show_versions_cursor.rowcount is None:
+                raise SnowflakeSQLExecutionError(show_versions_query)
+
+            if show_versions_cursor.rowcount > 0:
+                # allow dropping a package with versions when --force is set
+                if not force_drop:
+                    raise CouldNotDropApplicationPackageWithVersions(
+                        "Drop versions first, or use --force to override."
+                    )
+
+        # 3. Check distribution of the existing application package
+        actual_distribution = self.get_app_pkg_distribution_in_snowflake(
+            package_name=package_name,
+            package_role=package_role,
+        )
+        if not self.verify_project_distribution(
+            console=console,
+            package_name=package_name,
+            package_role=package_role,
+            package_distribution=actual_distribution,
+        ):
+            console.warning(
+                f"Dropping application package {package_name} with distribution '{actual_distribution}'."
+            )
+
+        # 4. If distribution is internal, check if created by the Snowflake CLI
+        row_comment = show_obj_row[COMMENT_COL]
+        if actual_distribution == INTERNAL_DISTRIBUTION:
+            if row_comment in ALLOWED_SPECIAL_COMMENTS:
+                needs_confirm = False
+            else:
+                if needs_confirmation(needs_confirm, force_drop):
+                    console.warning(
+                        f"Application package {package_name} was not created by Snowflake CLI."
+                    )
+        else:
+            if needs_confirmation(needs_confirm, force_drop):
+                console.warning(
+                    f"Application package {package_name} in your Snowflake account has distribution property '{EXTERNAL_DISTRIBUTION}' and could be associated with one or more of your listings on Snowflake Marketplace."
+                )
+
+        if needs_confirmation(needs_confirm, force_drop):
+            should_drop_object = typer.confirm(
+                dedent(
+                    f"""\
+                        Application package details:
+                        Name: {package_name}
+                        Created on: {show_obj_row["created_on"]}
+                        Distribution: {actual_distribution}
+                        Owner: {show_obj_row[OWNER_COL]}
+                        Comment: {show_obj_row[COMMENT_COL]}
+                        Are you sure you want to drop it?
+                    """
+                )
+            )
+            if not should_drop_object:
+                console.message(f"Did not drop application package {package_name}.")
+                return  # The user desires to keep the application package, therefore exit gracefully
+
+        # All validations have passed, drop object
+        drop_generic_object(
+            console=console,
+            object_type="application package",
+            object_name=package_name,
+            role=package_role,
         )
 
     def action_validate(
@@ -269,8 +352,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             package_warehouse=(
                 (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
             ),
-            post_deploy_hooks=model.meta and model.meta.post_deploy,
-            package_scripts=[],  # Package scripts are not supported in PDFv2
             policy=policy,
             use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=f"{package_name}.{model.scratch_stage}",
@@ -280,12 +361,24 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def action_version_list(
         self, action_ctx: ActionContext, *args, **kwargs
     ) -> SnowflakeCursor:
+        """
+        Get all existing versions, if defined, for an application package.
+        It executes a 'show versions in application package' query and returns all the results.
+        """
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
-        return self.version_list(
-            package_name=model.fqn.identifier,
-            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
-        )
+        package_name = model.fqn.identifier
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+
+        sql_executor = get_sql_executor()
+        with sql_executor.use_role(package_role):
+            show_obj_query = f"show versions in application package {package_name}"
+            show_obj_cursor = sql_executor.execute_query(show_obj_query)
+
+            if show_obj_cursor.rowcount is None:
+                raise SnowflakeSQLExecutionError(show_obj_query)
+
+            return show_obj_cursor
 
     def action_version_create(
         self,
@@ -298,37 +391,164 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         *args,
         **kwargs,
     ):
+        """
+        Perform bundle, application package creation, stage upload, version and/or patch to an application package.
+        """
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
         package_name = model.fqn.identifier
-        return self.version_create(
-            console=workspace_ctx.console,
-            project_root=workspace_ctx.project_root,
-            deploy_root=workspace_ctx.project_root / model.deploy_root,
-            bundle_root=workspace_ctx.project_root / model.bundle_root,
-            generated_root=(
-                workspace_ctx.project_root / model.deploy_root / model.generated_root
-            ),
+
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
+        deploy_root = workspace_ctx.project_root / model.deploy_root
+        bundle_root = workspace_ctx.project_root / model.bundle_root
+        generated_root = (
+            workspace_ctx.project_root / model.deploy_root / model.generated_root
+        )
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        stage_fqn = f"{package_name}.{model.stage}"
+
+        is_interactive = False
+        if force:
+            policy = AllowAlwaysPolicy()
+        elif interactive:
+            is_interactive = True
+            policy = AskAlwaysPolicy()
+        else:
+            policy = DenyAlwaysPolicy()
+
+        if skip_git_check:
+            git_policy = DenyAlwaysPolicy()
+        else:
+            git_policy = AllowAlwaysPolicy()
+
+        # Make sure version is not None before proceeding any further.
+        # This will raise an exception if version information is not found. Patch can be None.
+        bundle_map = None
+        if not version:
+            console.message(
+                dedent(
+                    f"""\
+                        Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
+                        This step will bundle your app artifacts to determine the location of the manifest.yml file.
+                    """
+                )
+            )
+            bundle_map = self.bundle(
+                project_root=project_root,
+                deploy_root=deploy_root,
+                bundle_root=bundle_root,
+                generated_root=generated_root,
+                artifacts=model.artifacts,
+                package_name=package_name,
+            )
+            version, patch = find_version_info_in_manifest_file(deploy_root)
+            if not version:
+                raise ClickException(
+                    "Manifest.yml file does not contain a value for the version field."
+                )
+
+        # Check if --patch needs to throw a bad option error, either if application package does not exist or if version does not exist
+        if patch is not None:
+            try:
+                if not self.get_existing_version_info(
+                    version, package_name, package_role
+                ):
+                    raise BadOptionUsage(
+                        option_name="patch",
+                        message=f"Cannot create a custom patch when version {version} is not defined in the application package {package_name}. Try again without using --patch.",
+                    )
+            except ApplicationPackageDoesNotExistError as app_err:
+                raise BadOptionUsage(
+                    option_name="patch",
+                    message=f"Cannot create a custom patch when application package {package_name} does not exist. Try again without using --patch.",
+                )
+
+        if git_policy.should_proceed():
+            self.check_index_changes_in_git_repo(
+                console=console,
+                project_root=project_root,
+                policy=policy,
+                is_interactive=is_interactive,
+            )
+
+        self.deploy(
+            console=console,
+            project_root=project_root,
+            deploy_root=deploy_root,
+            bundle_root=bundle_root,
+            generated_root=generated_root,
             artifacts=model.artifacts,
+            bundle_map=bundle_map,
             package_name=package_name,
-            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
+            package_role=package_role,
             package_distribution=model.distribution,
             prune=True,
             recursive=True,
             paths=None,
             print_diff=True,
             validate=True,
-            stage_fqn=f"{package_name}.{model.stage}",
+            stage_fqn=stage_fqn,
             package_warehouse=(
                 (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
             ),
-            post_deploy_hooks=model.meta and model.meta.post_deploy,
+            post_deploy_hooks=(model.meta and model.meta.post_deploy),
             package_scripts=[],  # Package scripts are not supported in PDFv2
+            policy=policy,
+        )
+
+        # Warn if the version exists in a release directive(s)
+        existing_release_directives = (
+            self.get_existing_release_directive_info_for_version(
+                package_name, package_role, version
+            )
+        )
+
+        if existing_release_directives:
+            release_directive_names = ", ".join(
+                row["name"] for row in existing_release_directives
+            )
+            console.warning(
+                dedent(
+                    f"""\
+                    Version {version} already defined in application package {package_name} and in release directive(s): {release_directive_names}.
+                    """
+                )
+            )
+
+            user_prompt = (
+                f"Are you sure you want to create a new patch for version {version} in application "
+                f"package {package_name}? Once added, this operation cannot be undone."
+            )
+            if not policy.should_proceed(user_prompt):
+                if is_interactive:
+                    console.message("Not creating a new patch.")
+                    raise typer.Exit(0)
+                else:
+                    console.message(
+                        "Cannot create a new patch non-interactively without --force."
+                    )
+                    raise typer.Exit(1)
+
+        # Define a new version in the application package
+        if not self.get_existing_version_info(version, package_name, package_role):
+            self.add_new_version(
+                console=console,
+                package_name=package_name,
+                package_role=package_role,
+                stage_fqn=stage_fqn,
+                version=version,
+            )
+            return  # A new version created automatically has patch 0, we do not need to further increment the patch.
+
+        # Add a new patch to an existing (old) version
+        self.add_new_patch_to_version(
+            console=console,
+            package_name=package_name,
+            package_role=package_role,
+            stage_fqn=stage_fqn,
             version=version,
             patch=patch,
-            skip_git_check=skip_git_check,
-            force=force,
-            interactive=interactive,
         )
 
     def action_version_drop(
@@ -428,16 +648,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             console.warning(e.message)
             if not policy.should_proceed("Proceed with using this package?"):
                 raise typer.Abort() from e
-        with get_sql_executor().use_role(package_role):
-            cls.apply_package_scripts(
-                console=console,
-                package_scripts=package_scripts,
-                package_warehouse=package_warehouse,
-                project_root=project_root,
-                package_role=package_role,
-                package_name=package_name,
-            )
 
+        cls.apply_package_scripts(
+            console=console,
+            package_scripts=package_scripts,
+            package_warehouse=package_warehouse,
+            project_root=project_root,
+            package_role=package_role,
+            package_name=package_name,
+        )
+        with get_sql_executor().use_role(package_role):
             # 3. Upload files from deploy root local folder to the above stage
             stage_schema = extract_schema(stage_fqn)
             diff = sync_deploy_root_with_stage(
@@ -478,201 +698,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 paths=paths,
                 stage_fqn=stage_fqn,
                 package_warehouse=package_warehouse,
-                post_deploy_hooks=post_deploy_hooks,
-                package_scripts=package_scripts,
                 policy=policy,
                 use_scratch_stage=False,
                 scratch_stage_fqn="",
             )
 
         return diff
-
-    @staticmethod
-    def version_list(package_name: str, package_role: str) -> SnowflakeCursor:
-        """
-        Get all existing versions, if defined, for an application package.
-        It executes a 'show versions in application package' query and returns all the results.
-        """
-        sql_executor = get_sql_executor()
-        with sql_executor.use_role(package_role):
-            show_obj_query = f"show versions in application package {package_name}"
-            show_obj_cursor = sql_executor.execute_query(show_obj_query)
-
-            if show_obj_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_obj_query)
-
-            return show_obj_cursor
-
-    @classmethod
-    def version_create(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        deploy_root: Path,
-        bundle_root: Path,
-        generated_root: Path,
-        artifacts: list[PathMapping],
-        package_name: str,
-        package_role: str,
-        package_distribution: str,
-        package_warehouse: str | None,
-        prune: bool,
-        recursive: bool,
-        paths: List[Path] | None,
-        print_diff: bool,
-        validate: bool,
-        stage_fqn: str,
-        post_deploy_hooks: list[PostDeployHook] | None,
-        package_scripts: List[str],
-        version: Optional[str],
-        patch: Optional[int],
-        force: bool,
-        interactive: bool,
-        skip_git_check: bool,
-    ):
-        """
-        Perform bundle, application package creation, stage upload, version and/or patch to an application package.
-        """
-        is_interactive = False
-        if force:
-            policy = AllowAlwaysPolicy()
-        elif interactive:
-            is_interactive = True
-            policy = AskAlwaysPolicy()
-        else:
-            policy = DenyAlwaysPolicy()
-
-        if skip_git_check:
-            git_policy = DenyAlwaysPolicy()
-        else:
-            git_policy = AllowAlwaysPolicy()
-
-        # Make sure version is not None before proceeding any further.
-        # This will raise an exception if version information is not found. Patch can be None.
-        bundle_map = None
-        if not version:
-            console.message(
-                dedent(
-                    f"""\
-                        Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
-                        This step will bundle your app artifacts to determine the location of the manifest.yml file.
-                    """
-                )
-            )
-            bundle_map = cls.bundle(
-                project_root=project_root,
-                deploy_root=deploy_root,
-                bundle_root=bundle_root,
-                generated_root=generated_root,
-                artifacts=artifacts,
-                package_name=package_name,
-            )
-            version, patch = find_version_info_in_manifest_file(deploy_root)
-            if not version:
-                raise ClickException(
-                    "Manifest.yml file does not contain a value for the version field."
-                )
-
-        # Check if --patch needs to throw a bad option error, either if application package does not exist or if version does not exist
-        if patch is not None:
-            try:
-                if not cls.get_existing_version_info(
-                    version, package_name, package_role
-                ):
-                    raise BadOptionUsage(
-                        option_name="patch",
-                        message=f"Cannot create a custom patch when version {version} is not defined in the application package {package_name}. Try again without using --patch.",
-                    )
-            except ApplicationPackageDoesNotExistError as app_err:
-                raise BadOptionUsage(
-                    option_name="patch",
-                    message=f"Cannot create a custom patch when application package {package_name} does not exist. Try again without using --patch.",
-                )
-
-        if git_policy.should_proceed():
-            cls.check_index_changes_in_git_repo(
-                console=console,
-                project_root=project_root,
-                policy=policy,
-                is_interactive=is_interactive,
-            )
-
-        cls.deploy(
-            console=console,
-            project_root=project_root,
-            deploy_root=deploy_root,
-            bundle_root=bundle_root,
-            generated_root=generated_root,
-            artifacts=artifacts,
-            bundle_map=bundle_map,
-            package_name=package_name,
-            package_role=package_role,
-            package_distribution=package_distribution,
-            prune=prune,
-            recursive=recursive,
-            paths=paths,
-            print_diff=print_diff,
-            validate=validate,
-            stage_fqn=stage_fqn,
-            package_warehouse=package_warehouse,
-            post_deploy_hooks=post_deploy_hooks,
-            package_scripts=package_scripts,
-            policy=policy,
-        )
-
-        # Warn if the version exists in a release directive(s)
-        existing_release_directives = (
-            cls.get_existing_release_directive_info_for_version(
-                package_name, package_role, version
-            )
-        )
-
-        if existing_release_directives:
-            release_directive_names = ", ".join(
-                row["name"] for row in existing_release_directives
-            )
-            console.warning(
-                dedent(
-                    f"""\
-                    Version {version} already defined in application package {package_name} and in release directive(s): {release_directive_names}.
-                    """
-                )
-            )
-
-            user_prompt = (
-                f"Are you sure you want to create a new patch for version {version} in application "
-                f"package {package_name}? Once added, this operation cannot be undone."
-            )
-            if not policy.should_proceed(user_prompt):
-                if is_interactive:
-                    console.message("Not creating a new patch.")
-                    raise typer.Exit(0)
-                else:
-                    console.message(
-                        "Cannot create a new patch non-interactively without --force."
-                    )
-                    raise typer.Exit(1)
-
-        # Define a new version in the application package
-        if not cls.get_existing_version_info(version, package_name, package_role):
-            cls.add_new_version(
-                console=console,
-                package_name=package_name,
-                package_role=package_role,
-                stage_fqn=stage_fqn,
-                version=version,
-            )
-            return  # A new version created automatically has patch 0, we do not need to further increment the patch.
-
-        # Add a new patch to an existing (old) version
-        cls.add_new_patch_to_version(
-            console=console,
-            package_name=package_name,
-            package_role=package_role,
-            stage_fqn=stage_fqn,
-            version=version,
-            patch=patch,
-        )
 
     @staticmethod
     def get_existing_version_info(
@@ -708,7 +739,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 if err.msg.__contains__("does not exist or not authorized"):
                     raise ApplicationPackageDoesNotExistError(package_name)
                 else:
-                    generic_sql_error_handler(err=err, role=package_role)
+                    generic_sql_error_handler(err=err)
                     return None
 
     @classmethod
@@ -999,13 +1030,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 for row in desc_cursor:
                     if row[0].lower() == "distribution":
                         return row[1].lower()
-        raise ProgrammingError(
-            msg=dedent(
-                f"""\
-                Could not find the 'distribution' attribute for application package {package_name} in the output of SQL query:
-                'describe application package {package_name}'
-                """
-            )
+        raise ObjectPropertyNotFoundError(
+            property_name="distribution",
+            object_type="application package",
+            object_name=package_name,
         )
 
     @classmethod
@@ -1095,17 +1123,15 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
         # once we're sure all the templates expanded correctly, execute all of them
-        with cls.use_package_warehouse(
-            package_warehouse=package_warehouse,
-        ):
-            try:
-                for i, queries in enumerate(queued_queries):
-                    console.step(f"Applying package script: {package_scripts[i]}")
-                    get_sql_executor().execute_queries(queries)
-            except ProgrammingError as err:
-                generic_sql_error_handler(
-                    err, role=package_role, warehouse=package_warehouse
-                )
+        for i, queries in enumerate(queued_queries):
+            script_name = package_scripts[i]
+            console.step(f"Applying package script: {script_name}")
+            get_snowflake_facade().execute_user_script(
+                queries=queries,
+                script_name=script_name,
+                role=package_role,
+                warehouse=package_warehouse,
+            )
 
     @classmethod
     def create_app_package(
@@ -1119,7 +1145,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         Creates the application package with our up-to-date stage if none exists.
         """
 
-        # 1. Check for existing existing application package
+        # 1. Check for existing application package
         show_obj_row = cls.get_existing_app_pkg_info(
             package_name=package_name,
             package_role=package_role,
@@ -1205,8 +1231,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         recursive: bool,
         paths: List[Path] | None,
         stage_fqn: str,
-        post_deploy_hooks: list[PostDeployHook] | None,
-        package_scripts: List[str],
         policy: PolicyBase,
         use_scratch_stage: bool,
         scratch_stage_fqn: str,
@@ -1228,8 +1252,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 paths=paths,
                 stage_fqn=stage_fqn,
                 package_warehouse=package_warehouse,
-                post_deploy_hooks=post_deploy_hooks,
-                package_scripts=package_scripts,
                 policy=policy,
                 use_scratch_stage=use_scratch_stage,
                 scratch_stage_fqn=scratch_stage_fqn,
@@ -1272,8 +1294,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             package_warehouse=(
                 (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
             ),
-            post_deploy_hooks=model.meta and model.meta.post_deploy,
-            package_scripts=[],  # Package scripts are not supported in PDFv2
             policy=AllowAlwaysPolicy(),
             use_scratch_stage=use_scratch_stage,
             scratch_stage_fqn=f"{package_name}.{model.scratch_stage}",
@@ -1296,8 +1316,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         recursive: bool,
         paths: List[Path] | None,
         stage_fqn: str,
-        post_deploy_hooks: list[PostDeployHook] | None,
-        package_scripts: List[str],
         policy: PolicyBase,
         use_scratch_stage: bool,
         scratch_stage_fqn: str,
@@ -1323,8 +1341,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 validate=False,
                 stage_fqn=stage_fqn,
                 package_warehouse=package_warehouse,
-                post_deploy_hooks=post_deploy_hooks,
-                package_scripts=package_scripts,
+                post_deploy_hooks=[],
+                package_scripts=[],
                 policy=policy,
             )
         prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
@@ -1348,98 +1366,3 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     sql_executor.execute_query(
                         f"drop stage if exists {scratch_stage_fqn}"
                     )
-
-    @classmethod
-    def drop(
-        cls,
-        console: AbstractConsole,
-        package_name: str,
-        package_role: str,
-        force_drop: bool,
-    ):
-        sql_executor = get_sql_executor()
-        needs_confirm = True
-
-        # 1. If existing application package is not found, exit gracefully
-        show_obj_row = cls.get_existing_app_pkg_info(
-            package_name=package_name,
-            package_role=package_role,
-        )
-        if show_obj_row is None:
-            console.warning(
-                f"Role {package_role} does not own any application package with the name {package_name}, or the application package does not exist."
-            )
-            return
-
-        with sql_executor.use_role(package_role):
-            # 2. Check for versions in the application package
-            show_versions_query = f"show versions in application package {package_name}"
-            show_versions_cursor = sql_executor.execute_query(
-                show_versions_query, cursor_class=DictCursor
-            )
-            if show_versions_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_versions_query)
-
-            if show_versions_cursor.rowcount > 0:
-                # allow dropping a package with versions when --force is set
-                if not force_drop:
-                    raise CouldNotDropApplicationPackageWithVersions(
-                        "Drop versions first, or use --force to override."
-                    )
-
-        # 3. Check distribution of the existing application package
-        actual_distribution = cls.get_app_pkg_distribution_in_snowflake(
-            package_name=package_name,
-            package_role=package_role,
-        )
-        if not cls.verify_project_distribution(
-            console=console,
-            package_name=package_name,
-            package_role=package_role,
-            package_distribution=actual_distribution,
-        ):
-            console.warning(
-                f"Dropping application package {package_name} with distribution '{actual_distribution}'."
-            )
-
-        # 4. If distribution is internal, check if created by the Snowflake CLI
-        row_comment = show_obj_row[COMMENT_COL]
-        if actual_distribution == INTERNAL_DISTRIBUTION:
-            if row_comment in ALLOWED_SPECIAL_COMMENTS:
-                needs_confirm = False
-            else:
-                if needs_confirmation(needs_confirm, force_drop):
-                    console.warning(
-                        f"Application package {package_name} was not created by Snowflake CLI."
-                    )
-        else:
-            if needs_confirmation(needs_confirm, force_drop):
-                console.warning(
-                    f"Application package {package_name} in your Snowflake account has distribution property '{EXTERNAL_DISTRIBUTION}' and could be associated with one or more of your listings on Snowflake Marketplace."
-                )
-
-        if needs_confirmation(needs_confirm, force_drop):
-            should_drop_object = typer.confirm(
-                dedent(
-                    f"""\
-                        Application package details:
-                        Name: {package_name}
-                        Created on: {show_obj_row["created_on"]}
-                        Distribution: {actual_distribution}
-                        Owner: {show_obj_row[OWNER_COL]}
-                        Comment: {show_obj_row[COMMENT_COL]}
-                        Are you sure you want to drop it?
-                    """
-                )
-            )
-            if not should_drop_object:
-                console.message(f"Did not drop application package {package_name}.")
-                return  # The user desires to keep the application package, therefore exit gracefully
-
-        # All validations have passed, drop object
-        drop_generic_object(
-            console=console,
-            object_type="application package",
-            object_name=package_name,
-            role=package_role,
-        )

@@ -335,10 +335,10 @@ def execute(
     """
     Execute immediate all files from the repository path. Files can be filtered with glob like pattern,
     e.g. `@my_repo/branches/main/*.sql`, `@my_repo/branches/main/dev/*`. Only files with `.sql`
-    extension will be executed.
+    or `.py` extension will be executed.
     """
     results = GitManager().execute(
-        stage_path=repository_path,
+        stage_path_str=repository_path,
         on_error=on_error,
         variables=variables,
         requires_temporary_stage=True,

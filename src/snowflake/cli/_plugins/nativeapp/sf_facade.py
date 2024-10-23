@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import annotations
+from snowflake.cli._plugins.nativeapp.sf_sql_facade import SnowflakeSQLFacade
 
-VERSION = "3.2.0.dev0"
+
+def get_snowflake_facade() -> SnowflakeSQLFacade:
+    """Returns a Snowflake Facade"""
+    return SnowflakeSQLFacade()

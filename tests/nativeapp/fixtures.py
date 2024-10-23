@@ -14,10 +14,38 @@
 
 import unittest.mock as mock
 
+import factory
 import pytest
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
+from snowflake.cli._plugins.nativeapp.entities.application import (
+    ApplicationEntity,
+    ApplicationEntityModel,
+)
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntity,
+    ApplicationPackageEntityModel,
+)
+
+from tests.nativeapp.factories import (
+    ApplicationEntityModelFactory,
+    ApplicationPackageEntityModelFactory,
+)
 
 
 @pytest.fixture()
 def mock_bundle_map():
     yield mock.Mock(spec=BundleMap)
+
+
+@pytest.fixture()
+def application_package_entity(workspace_context):
+    data = ApplicationPackageEntityModelFactory(identifier=factory.Faker("word"))
+    model = ApplicationPackageEntityModel(**data)
+    return ApplicationPackageEntity(model, workspace_context)
+
+
+@pytest.fixture()
+def application_entity(workspace_context):
+    data = ApplicationEntityModelFactory(identifier=factory.Faker("word"))
+    model = ApplicationEntityModel(**data)
+    return ApplicationEntity(model, workspace_context)

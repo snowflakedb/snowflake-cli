@@ -33,6 +33,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 from snowflake.cli._plugins.nativeapp.exceptions import (
     CouldNotDropApplicationPackageWithVersions,
 )
+from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.utils import drop_generic_object
@@ -74,12 +75,17 @@ def _drop_application(
     dm = DefinitionManager()
     pd = dm.project_definition
     app_model: ApplicationEntityModel = pd.entities["myapp"]
-    return ApplicationEntity.drop(
+    ctx = WorkspaceContext(
         console=console or cc,
-        app_name=app_model.fqn.name,
-        app_role=app_model.meta.role,
-        auto_yes=auto_yes,
+        project_root=dm.project_root,
+        get_default_role=lambda: "mock_role",
+        get_default_warehouse=lambda: "mock_warehouse",
+    )
+    app = ApplicationEntity(app_model, ctx)
+    return app.action_drop(
+        action_ctx=mock.Mock(spec=ActionContext),
         interactive=interactive,
+        force_drop=auto_yes,
         cascade=cascade,
     )
 
@@ -88,10 +94,15 @@ def _drop_package(auto_yes: bool, console: AbstractConsole | None = None):
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    return ApplicationPackageEntity.drop(
+    ctx = WorkspaceContext(
         console=console or cc,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
+        project_root=dm.project_root,
+        get_default_role=lambda: "mock_role",
+        get_default_warehouse=lambda: "mock_warehouse",
+    )
+    pkg = ApplicationPackageEntity(pkg_model, ctx)
+    return pkg.action_drop(
+        action_ctx=mock.Mock(spec=ActionContext),
         force_drop=auto_yes,
     )
 

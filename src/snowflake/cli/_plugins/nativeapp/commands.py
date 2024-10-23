@@ -22,7 +22,6 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
-from click.exceptions import ClickException
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -68,17 +67,6 @@ app.add_typer(versions_app)
 log = logging.getLogger(__name__)
 
 
-@app.command("init", hidden=True)
-def app_init(**options):
-    """
-    *** Deprecated. Use snow init instead ***
-
-    Initializes a Snowflake Native App project.
-    """
-
-    raise ClickException("This command has been removed. Use `snow init` instead.")
-
-
 @app.command("bundle")
 @with_project_definition()
 @force_project_definition_v2()
@@ -122,7 +110,7 @@ def app_diff(
         package_id,
         EntityActions.BUNDLE,
     )
-    stage_fqn = f"{package.identifier.name}.{package.stage}"
+    stage_fqn = f"{package.fqn.name}.{package.stage}"
     diff: DiffResult = compute_stage_diff(
         local_root=Path(package.deploy_root), stage_fqn=stage_fqn
     )

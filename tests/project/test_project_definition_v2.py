@@ -216,6 +216,12 @@ from tests.nativeapp.factories import ProjectV11Factory
         ],
         [
             {
+                "env": {"string": "string", "int": 42, "bool": True},
+            },
+            None,
+        ],
+        [
+            {
                 "mixins": {
                     "snowpark_shared": {
                         "stage": "dev",
@@ -390,10 +396,10 @@ def test_v1_to_v2_conversion_in_memory_package_scripts(temp_dir):
     assert Path(package_script_filename).read_text() == package_script
 
     # But the converted definition has a reference to a tempfile
-    # that contains the converted package script
+    # that contains the literal package name
     assert (
         Path(definition_v2.entities["pkg"].meta.post_deploy[0].sql_script).read_text()
-        == "select '<% ctx.entities.pkg.identifier %>';"
+        == f"select '{definition_v2.entities['pkg'].fqn.name}';"
     )
 
 

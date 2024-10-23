@@ -43,12 +43,13 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
     NoEventTableForAccount,
+    ObjectPropertyNotFoundError,
     SetupScriptFailedValidation,
 )
 from snowflake.cli._plugins.nativeapp.policy import AllowAlwaysPolicy
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
-    StagePath,
+    StagePathType,
 )
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.console import cli_console as cc
@@ -60,7 +61,10 @@ from snowflake.cli.api.entities.utils import (
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
 )
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.exceptions import (
+    DoesNotExistOrUnauthorizedError,
+    SnowflakeSQLExecutionError,
+)
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.util import extract_schema
 from snowflake.connector import ProgrammingError
@@ -76,7 +80,6 @@ from tests.nativeapp.utils import (
     APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
     ENTITIES_UTILS_MODULE,
-    NATIVEAPP_MODULE,
     SQL_EXECUTOR_EXECUTE,
     mock_execute_helper,
     mock_snowflake_yml_file_v2,
@@ -85,19 +88,6 @@ from tests.nativeapp.utils import (
 )
 from tests.testing_utils.files_and_dirs import create_named_file
 from tests.testing_utils.fixtures import MockConnectionCtx
-
-mock_project_definition_override = {
-    "native_app": {
-        "application": {
-            "name": "sample_application_name",
-            "role": "sample_application_role",
-        },
-        "package": {
-            "name": "sample_package_name",
-            "role": "sample_package_role",
-        },
-    }
-}
 
 
 def _get_dm(working_dir: Optional[str] = None):
@@ -123,7 +113,7 @@ def test_sync_deploy_root_with_stage(
     mock_cursor,
 ):
     mock_execute.return_value = mock_cursor([("old_role",)], [])
-    mock_diff_result = DiffResult(different=[StagePath("setup.sql")])
+    mock_diff_result = DiffResult(different=[StagePathType("setup.sql")])
     mock_compute_stage_diff.return_value = mock_diff_result
     mock_local_diff_with_stage.return_value = None
     current_working_directory = os.getcwd()
@@ -178,24 +168,22 @@ def test_sync_deploy_root_with_stage(
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
 @mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "prune,only_on_stage_files,expected_warn",
     [
         [
             True,
-            [StagePath("only-stage.txt")],
+            [StagePathType("only-stage.txt")],
             False,
         ],
         [
             False,
-            [StagePath("only-stage-1.txt"), StagePath("only-stage-2.txt")],
+            [StagePathType("only-stage-1.txt"), StagePathType("only-stage-2.txt")],
             True,
         ],
     ],
 )
 def test_sync_deploy_root_with_stage_prune(
-    mock_warning,
     mock_compute_stage_diff,
     mock_local_diff_with_stage,
     mock_execute,
@@ -216,8 +204,9 @@ def test_sync_deploy_root_with_stage_prune(
     mock_bundle_map = mock.Mock(spec=BundleMap)
     package_name = pkg_model.fqn.identifier
     stage_fqn = f"{package_name}.{pkg_model.stage}"
+    mock_console = mock.MagicMock()
     sync_deploy_root_with_stage(
-        console=cc,
+        console=mock_console,
         deploy_root=dm.project_root / pkg_model.deploy_root,
         package_name=package_name,
         stage_schema=extract_schema(stage_fqn),
@@ -234,14 +223,13 @@ def test_sync_deploy_root_with_stage_prune(
 {files_str}
 
 Use the --prune flag to delete them from the stage."""
-        mock_warning.assert_called_once_with(warn_message)
+        mock_console.warning.assert_called_once_with(warn_message)
     else:
-        mock_warning.assert_not_called()
+        mock_console.warning.assert_not_called()
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_cursor):
-
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -287,7 +275,6 @@ def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_curs
 def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     mock_execute, temp_dir, mock_cursor
 ):
-
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -296,9 +283,8 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
             ),
             (None, mock.call("use role package_role")),
             (
-                ProgrammingError(
+                DoesNotExistOrUnauthorizedError(
                     msg="Application package app_pkg does not exist or not authorized.",
-                    errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
                 ),
                 mock.call("describe application package app_pkg"),
             ),
@@ -317,7 +303,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
 
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(DoesNotExistOrUnauthorizedError):
         ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
             pkg_model.fqn.name, pkg_model.meta.role
         )
@@ -329,7 +315,6 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
 def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
     mock_execute, temp_dir, mock_cursor
 ):
-
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -365,7 +350,6 @@ def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
 def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     mock_execute, temp_dir, mock_cursor
 ):
-
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -392,17 +376,24 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
 
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(ObjectPropertyNotFoundError) as err:
         ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
             pkg_model.fqn.name, pkg_model.meta.role
         )
 
     assert mock_execute.mock_calls == expected
+    assert err.match(
+        dedent(
+            f"""\
+        Could not find the 'distribution' attribute for application package app_pkg in the output of SQL query:
+        'describe application package app_pkg'
+        """
+        )
+    )
 
 
 @mock_get_app_pkg_distribution_in_sf()
 def test_is_app_pkg_distribution_same_in_sf_w_arg(mock_mismatch, temp_dir):
-
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -474,10 +465,7 @@ def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir)
 
 
 @mock_get_app_pkg_distribution_in_sf()
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
-def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
-    mock_warning, mock_mismatch, temp_dir
-):
+def test_is_app_pkg_distribution_same_in_sf_has_mismatch(mock_mismatch, temp_dir):
     mock_mismatch.return_value = "external"
 
     current_working_directory = os.getcwd()
@@ -489,13 +477,14 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    mock_console = mock.MagicMock()
     assert not ApplicationPackageEntity.verify_project_distribution(
-        console=cc,
+        console=mock_console,
         package_name=pkg_model.fqn.name,
         package_role=pkg_model.meta.role,
         package_distribution=pkg_model.distribution,
     )
-    mock_warning.assert_called_once_with(
+    mock_console.warning.assert_called_once_with(
         "Application package app_pkg in your Snowflake account has distribution property external,\nwhich does not match the value specified in project definition file: internal.\n"
     )
 
@@ -895,13 +884,11 @@ def test_create_app_pkg_different_owner(
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
     [False, True],
 )
 def test_create_app_pkg_external_distribution(
-    mock_warning,
     mock_is_distribution_same,
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
@@ -926,14 +913,15 @@ def test_create_app_pkg_external_distribution(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    mock_console = mock.MagicMock()
     ApplicationPackageEntity.create_app_package(
-        console=cc,
+        console=mock_console,
         package_name=pkg_model.fqn.name,
         package_role=pkg_model.meta.role,
         package_distribution=pkg_model.distribution,
     )
     if not is_pkg_distribution_same:
-        mock_warning.assert_called_once_with(
+        mock_console.warning.assert_called_once_with(
             "Continuing to execute `snow app run` on application package app_pkg with distribution 'external'."
         )
 
@@ -942,7 +930,6 @@ def test_create_app_pkg_external_distribution(
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same, special_comment",
     [
@@ -953,7 +940,6 @@ def test_create_app_pkg_external_distribution(
     ],
 )
 def test_create_app_pkg_internal_distribution_special_comment(
-    mock_warning,
     mock_is_distribution_same,
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
@@ -979,14 +965,15 @@ def test_create_app_pkg_internal_distribution_special_comment(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    mock_console = mock.MagicMock()
     ApplicationPackageEntity.create_app_package(
-        console=cc,
+        console=mock_console,
         package_name=pkg_model.fqn.name,
         package_role=pkg_model.meta.role,
         package_distribution=pkg_model.distribution,
     )
     if not is_pkg_distribution_same:
-        mock_warning.assert_called_once_with(
+        mock_console.warning.assert_called_once_with(
             "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
         )
 
@@ -995,13 +982,11 @@ def test_create_app_pkg_internal_distribution_special_comment(
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @pytest.mark.parametrize(
     "is_pkg_distribution_same",
     [False, True],
 )
 def test_create_app_pkg_internal_distribution_no_special_comment(
-    mock_warning,
     mock_is_distribution_same,
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
@@ -1026,16 +1011,17 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    mock_console = mock.MagicMock()
     with pytest.raises(ApplicationPackageAlreadyExistsError):
         ApplicationPackageEntity.create_app_package(
-            console=cc,
+            console=mock_console,
             package_name=pkg_model.fqn.name,
             package_role=pkg_model.meta.role,
             package_distribution=pkg_model.distribution,
         )
 
     if not is_pkg_distribution_same:
-        mock_warning.assert_called_once_with(
+        mock_console.warning.assert_called_once_with(
             "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
         )
 
@@ -1106,7 +1092,7 @@ def test_get_paths_to_sync(
 
     paths_to_sync = [Path(p) for p in paths_to_sync]
     result = _get_stage_paths_to_sync(paths_to_sync, Path("deploy/"))
-    assert result.sort() == [StagePath(p) for p in expected_result].sort()
+    assert result.sort() == [StagePathType(p) for p in expected_result].sort()
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -1143,7 +1129,7 @@ def test_validate_passing(mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+@mock.patch("snowflake.cli._plugins.workspace.manager.cc.warning")
 def test_validate_passing_with_warnings(
     mock_warning, mock_execute, temp_dir, mock_cursor
 ):
@@ -1191,7 +1177,7 @@ def test_validate_passing_with_warnings(
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
+@mock.patch("snowflake.cli._plugins.workspace.manager.cc.warning")
 def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
@@ -1388,7 +1374,7 @@ def test_validate_use_scratch_stage(mock_execute, mock_deploy, temp_dir, mock_cu
         validate=False,
         stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}",
         package_warehouse=pkg_model.meta.warehouse,
-        post_deploy_hooks=pkg_model.meta.post_deploy,
+        post_deploy_hooks=[],
         package_scripts=[],
         policy=AllowAlwaysPolicy(),
     )
@@ -1477,7 +1463,7 @@ def test_validate_failing_drops_scratch_stage(
         validate=False,
         stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}",
         package_warehouse=pkg_model.meta.warehouse,
-        post_deploy_hooks=pkg_model.meta.post_deploy,
+        post_deploy_hooks=[],
         package_scripts=[],
         policy=AllowAlwaysPolicy(),
     )
@@ -1583,40 +1569,68 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
 @pytest.mark.parametrize(
     ["since", "expected_since_clause"],
     [
-        ("", ""),
-        ("1 hour", "and timestamp >= sysdate() - interval '1 hour'"),
-        (datetime(2024, 1, 1), "and timestamp >= '2024-01-01 00:00:00'"),
+        pytest.param("", "", id="no_since"),
+        pytest.param(
+            "1 hour",
+            "and timestamp >= sysdate() - interval '1 hour'",
+            id="since_interval",
+        ),
+        pytest.param(
+            datetime(2024, 1, 1),
+            "and timestamp >= '2024-01-01 00:00:00'",
+            id="since_datetime",
+        ),
     ],
 )
 @pytest.mark.parametrize(
     ["until", "expected_until_clause"],
     [
-        ("", ""),
-        ("20 minutes", "and timestamp <= sysdate() - interval '20 minutes'"),
-        (datetime(2024, 1, 1), "and timestamp <= '2024-01-01 00:00:00'"),
+        pytest.param("", "", id="no_until"),
+        pytest.param(
+            "20 minutes",
+            "and timestamp <= sysdate() - interval '20 minutes'",
+            id="until_interval",
+        ),
+        pytest.param(
+            datetime(2024, 1, 1),
+            "and timestamp <= '2024-01-01 00:00:00'",
+            id="until_datetime",
+        ),
     ],
 )
 @pytest.mark.parametrize(
     ["scopes", "expected_scopes_clause"],
     [
-        ([], ""),
-        (["scope_1"], "and scope:name in ('scope_1')"),
-        (["scope_1", "scope_2"], "and scope:name in ('scope_1','scope_2')"),
+        pytest.param([], "", id="no_scopes"),
+        pytest.param(["scope_1"], "and scope:name in ('scope_1')", id="single_scope"),
+        pytest.param(
+            ["scope_1", "scope_2"],
+            "and scope:name in ('scope_1','scope_2')",
+            id="multiple_scopes",
+        ),
     ],
 )
 @pytest.mark.parametrize(
     ["types", "expected_types_clause"],
     [
-        ([], ""),
-        (["log"], "and record_type in ('log')"),
-        (["log", "span"], "and record_type in ('log','span')"),
+        pytest.param([], "", id="no_types"),
+        pytest.param(["log"], "and record_type in ('log')", id="single_type"),
+        pytest.param(
+            ["log", "span"], "and record_type in ('log','span')", id="multiple_types"
+        ),
     ],
 )
 @pytest.mark.parametrize(
     ["consumer_org", "consumer_account", "consumer_app_hash", "expected_app_clause"],
     [
-        ("", "", "", f"resource_attributes:\"snow.database.name\" = 'MYAPP'"),
-        (
+        pytest.param(
+            "",
+            "",
+            "",
+            f"resource_attributes:\"snow.database.name\" = 'MYAPP'",
+            id="no_consumer",
+        ),
+        pytest.param(
             "testorg",
             "testacc",
             "",
@@ -1625,8 +1639,9 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
                 f"and resource_attributes:\"snow.application.consumer.organization\" = 'TESTORG' "
                 f"and resource_attributes:\"snow.application.consumer.name\" = 'TESTACC'"
             ),
+            id="with_consumer",
         ),
-        (
+        pytest.param(
             "testorg",
             "testacc",
             "428cdba48b74dfbbb333d5ea2cc51a78ecc56ce2",
@@ -1636,23 +1651,24 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
                 f"and resource_attributes:\"snow.application.consumer.name\" = 'TESTACC' "
                 f"and resource_attributes:\"snow.database.hash\" = '428cdba48b74dfbbb333d5ea2cc51a78ecc56ce2'"
             ),
+            id="with_consumer_app_hash",
         ),
     ],
 )
 @pytest.mark.parametrize(
     ["first", "expected_first_clause"],
     [
-        (-1, ""),
-        (0, "limit 0"),
-        (10, "limit 10"),
+        pytest.param(-1, "", id="no_first"),
+        pytest.param(0, "limit 0", id="first_0"),
+        pytest.param(10, "limit 10", id="first_10"),
     ],
 )
 @pytest.mark.parametrize(
     ["last", "expected_last_clause"],
     [
-        (-1, ""),
-        (0, "limit 0"),
-        (20, "limit 20"),
+        pytest.param(-1, "", id="no_last"),
+        pytest.param(0, "limit 0", id="last_0"),
+        pytest.param(20, "limit 20", id="last_20"),
     ],
 )
 @mock.patch(

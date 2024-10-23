@@ -178,3 +178,24 @@ def test_sql_large_lobs_in_memory_tables(runner):
     )
 
     assert "VARCHAR(134217728)" in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "template",
+    [
+        "<% ctx.env.monty_python %>",
+        "&{ ctx.env.monty_python }",
+    ],
+)
+def test_sql_with_variables_from_project(runner, project_directory, template):
+    with project_directory("sql"):
+        result = runner.invoke_with_connection_json(
+            [
+                "sql",
+                "-q",
+                f"select '{template}' as var",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert result.json == [{"VAR": "Knights of Nii"}]

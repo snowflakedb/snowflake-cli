@@ -9,6 +9,9 @@ from click import ClickException
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
 )
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli._plugins.snowpark.common import is_name_a_templated_one
 from snowflake.cli.api.constants import (
     DEFAULT_ENV_FILE,
@@ -19,6 +22,7 @@ from snowflake.cli.api.constants import (
 )
 from snowflake.cli.api.entities.utils import render_script_template
 from snowflake.cli.api.project.schemas.entities.common import (
+    MetaField,
     SqlScriptHookType,
 )
 from snowflake.cli.api.project.schemas.project_definition import (
@@ -83,23 +87,31 @@ def _is_field_defined(template_context: Optional[Dict[str, Any]], *path: str) ->
 
 def convert_project_definition_to_v2(
     project_root: Path,
-    pd: ProjectDefinition,
+    definition_v1: ProjectDefinition,
     accept_templates: bool = False,
     template_context: Optional[Dict[str, Any]] = None,
     in_memory: bool = False,
 ) -> ProjectDefinitionV2:
-    _check_if_project_definition_meets_requirements(pd, accept_templates)
+    _check_if_project_definition_meets_requirements(definition_v1, accept_templates)
 
-    snowpark_data = convert_snowpark_to_v2_data(pd.snowpark) if pd.snowpark else {}
-    streamlit_data = convert_streamlit_to_v2_data(pd.streamlit) if pd.streamlit else {}
-    native_app_data = (
-        convert_native_app_to_v2_data(
-            project_root, pd.native_app, template_context, in_memory
-        )
-        if pd.native_app
+    snowpark_data = (
+        convert_snowpark_to_v2_data(definition_v1.snowpark)
+        if definition_v1.snowpark
         else {}
     )
-    envs = convert_envs_to_v2(pd)
+    streamlit_data = (
+        convert_streamlit_to_v2_data(definition_v1.streamlit)
+        if definition_v1.streamlit
+        else {}
+    )
+    native_app_data = (
+        convert_native_app_to_v2_data(
+            project_root, definition_v1.native_app, template_context
+        )
+        if definition_v1.native_app
+        else {}
+    )
+    envs = convert_envs_to_v2(definition_v1)
 
     data = {
         "definition_version": "2",
@@ -116,8 +128,15 @@ def convert_project_definition_to_v2(
     if in_memory:
         # If this is an in-memory conversion, we need to evaluate templates right away
         # since the file won't be re-read as it would be for a permanent conversion
-        return render_definition_template(data, {}).project_definition
-    return ProjectDefinitionV2(**data)
+        definition_v2 = render_definition_template(data, {}).project_definition
+    else:
+        definition_v2 = ProjectDefinitionV2(**data)
+
+    # If the user's files have any template tags in them, they
+    # also need to be migrated to point to the v2 entities
+    _convert_templates_in_files(project_root, definition_v1, definition_v2, in_memory)
+
+    return definition_v2
 
 
 def convert_snowpark_to_v2_data(snowpark: Snowpark) -> Dict[str, Any]:
@@ -224,7 +243,6 @@ def convert_native_app_to_v2_data(
     project_root: Path,
     native_app: NativeApp,
     template_context: Optional[Dict[str, Any]] = None,
-    in_memory: bool = False,
 ) -> Dict[str, Any]:
     def _make_meta(obj: Application | Package):
         meta = {}
@@ -269,34 +287,6 @@ def convert_native_app_to_v2_data(
         # which use POSIX paths as default values
         return manifest_path.relative_to(project_root).as_posix()
 
-    def _make_template(template: str) -> str:
-        return f"{PROJECT_TEMPLATE_VARIABLE_OPENING} {template} {PROJECT_TEMPLATE_VARIABLE_CLOSING}"
-
-    def _convert_package_script_files(package_scripts: list[str]):
-        # PDFv2 doesn't support package scripts, only post-deploy scripts, so we
-        # need to convert the Jinja syntax from {{ }} to <% %>
-        # Luckily, package scripts only support {{ package_name }}, so let's convert that tag
-        # to v2 template syntax by running it though the template process with a fake
-        # package name that's actually a valid v2 template, which will be evaluated
-        # when the script is used as a post-deploy script
-        fake_package_replacement_template = _make_template(
-            f"ctx.entities.{package_entity_name}.identifier"
-        )
-        jinja_context = dict(package_name=fake_package_replacement_template)
-        post_deploy_hooks = []
-        for script_file in package_scripts:
-            new_contents = render_script_template(
-                project_root, jinja_context, script_file, get_basic_jinja_env()
-            )
-            if in_memory:
-                # If we're converting the definition in-memory, we can't touch
-                # the package scripts on disk, so we'll write them to a temporary file
-                d = _get_temp_dir().name
-                _, script_file = mkstemp(dir=d, suffix="_converted.sql", text=True)
-            (project_root / script_file).write_text(new_contents)
-            post_deploy_hooks.append(SqlScriptHookType(sql_script=script_file))
-        return post_deploy_hooks
-
     package_entity_name = "pkg"
     if (
         native_app.package
@@ -334,12 +324,11 @@ def convert_native_app_to_v2_data(
             package["distribution"] = native_app.package.distribution
         package_meta = _make_meta(native_app.package)
         if native_app.package.scripts:
-            converted_post_deploy_hooks = _convert_package_script_files(
-                native_app.package.scripts
-            )
-            package_meta["post_deploy"] = (
-                package_meta.get("post_deploy", []) + converted_post_deploy_hooks
-            )
+            # Package scripts are not supported in PDFv2 but we
+            # don't convert them here, conversion is deferred until
+            # the final v2 Pydantic model is available
+            # (see _convert_templates_in_files())
+            pass
         if package_meta:
             package["meta"] = package_meta
 
@@ -381,6 +370,76 @@ def convert_envs_to_v2(pd: ProjectDefinition):
         data = {k: v for k, v in pd.env.items()}
         return data
     return None
+
+
+def _convert_templates_in_files(
+    project_root: Path,
+    definition_v1: ProjectDefinition,
+    definition_v2: ProjectDefinitionV2,
+    in_memory: bool,
+):
+    """Converts templates in other files to the new format"""
+    # TODO handle artifacts using the "templates" processor
+    # For now this only handles Native App package scripts
+
+    if (na := definition_v1.native_app) and (pkg := na.package) and pkg.scripts:
+        # If the v1 definition has a Native App with a package, we know
+        # that the v2 definition will have exactly one application package entity
+        pkg_entity: ApplicationPackageEntityModel = list(
+            definition_v2.get_entities_by_type(
+                ApplicationPackageEntityModel.get_type()
+            ).values()
+        )[0]
+        converted_post_deploy_hooks = _convert_package_script_files(
+            project_root, pkg.scripts, pkg_entity, in_memory
+        )
+        if pkg_entity.meta is None:
+            pkg_entity.meta = MetaField()
+        if pkg_entity.meta.post_deploy is None:
+            pkg_entity.meta.post_deploy = []
+        pkg_entity.meta.post_deploy += converted_post_deploy_hooks
+
+
+def _convert_package_script_files(
+    project_root: Path,
+    package_scripts: list[str],
+    pkg_model: ApplicationPackageEntityModel,
+    in_memory: bool,
+):
+    # PDFv2 doesn't support package scripts, only post-deploy scripts, so we
+    # need to convert the Jinja syntax from {{ }} to <% %>
+    # Luckily, package scripts only support {{ package_name }}, so let's convert that tag
+    # to v2 template syntax by running it though the template process with a fake
+    # package name that's actually a valid v2 template, which will be evaluated
+    # when the script is used as a post-deploy script
+    # If we're doing an in-memory conversion, we can just hardcode the converted
+    # package name directly into the script since it's being written to a temporary file
+    package_name_replacement = (
+        pkg_model.fqn.name
+        if in_memory
+        else _make_template(f"ctx.entities.{pkg_model.entity_id}.identifier")
+    )
+    jinja_context = dict(package_name=package_name_replacement)
+    post_deploy_hooks = []
+    for script_file in package_scripts:
+        original_script_file = script_file
+        new_contents = render_script_template(
+            project_root, jinja_context, script_file, get_basic_jinja_env()
+        )
+        if in_memory:
+            # If we're converting the definition in-memory, we can't touch
+            # the package scripts on disk, so we'll write them to a temporary file
+            d = _get_temp_dir().name
+            _, script_file = mkstemp(dir=d, suffix="_converted.sql", text=True)
+        (project_root / script_file).write_text(new_contents)
+        hook = SqlScriptHookType(sql_script=script_file)
+        hook._display_path = original_script_file  # noqa: SLF001
+        post_deploy_hooks.append(hook)
+    return post_deploy_hooks
+
+
+def _make_template(template: str) -> str:
+    return f"{PROJECT_TEMPLATE_VARIABLE_OPENING} {template} {PROJECT_TEMPLATE_VARIABLE_CLOSING}"
 
 
 def _check_if_project_definition_meets_requirements(

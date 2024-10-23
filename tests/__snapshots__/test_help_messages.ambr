@@ -1514,14 +1514,68 @@
    Generate a JWT token, which will be printed out and displayed..                
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --account,--accountname         -a      TEXT  Account name to use when       |
-  |                                               authenticating with Snowflake. |
-  | --user,--username               -u      TEXT  Username to connect to         |
-  |                                               Snowflake.                     |
-  | --private-key,--private-key-p…  -k      FILE  Path to file containing        |
-  |                                               private key                    |
-  |                                               [default: None]                |
-  | --help                          -h            Show this message and exit.    |
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml. |
+  |                                                 Default: default.            |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses connection defined with |
+  |                                                 command line parameters,     |
+  |                                                 instead of one defined in    |
+  |                                                 config                       |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -1983,7 +2037,8 @@
                                                                                   
    Execute immediate all files from the repository path. Files can be filtered    
    with glob like pattern, e.g. @my_repo/branches/main/*.sql,                     
-   @my_repo/branches/main/dev/*. Only files with .sql extension will be executed. 
+   @my_repo/branches/main/dev/*. Only files with .sql or .py extension will be    
+   executed.                                                                      
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    repository_path      TEXT  Path to git repository stage with scope      |
@@ -2672,7 +2727,7 @@
   | execute         Execute immediate all files from the repository path. Files  |
   |                 can be filtered with glob like pattern, e.g.                 |
   |                 @my_repo/branches/main/*.sql, @my_repo/branches/main/dev/*.  |
-  |                 Only files with .sql extension will be executed.             |
+  |                 Only files with .sql or .py extension will be executed.      |
   | fetch           Fetch changes from origin to Snowflake repository.           |
   | list            Lists all available git repositories.                        |
   | list-branches   List all branches in the repository.                         |
@@ -6042,7 +6097,9 @@
                                                                                   
    Usage: default spcs image-repository list-tags [OPTIONS] NAME                  
                                                                                   
-   Lists tags for the given image in a repository.                                
+   (deprecated)                                                                   
+   Lists tags for the given image in a repository. This command is deprecated and 
+   will be removed in a future release. Use list-images instead.                  
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the image repository. For example:        |
@@ -6328,11 +6385,14 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create        Creates a new image repository in the current schema.          |
+  | create        Creates a new image repository in the current                  |
+  |               schema.                                                        |
   | drop          Drops image repository with given name.                        |
   | list          Lists all available image repositories.                        |
   | list-images   Lists images in the given repository.                          |
-  | list-tags     Lists tags for the given image in a repository.                |
+  | list-tags     Lists tags for the given image in a repository.  (deprecated)  |
+  |               This command is deprecated and will be removed                 |
+  |               in a future release. Use list-images instead.                  |
   | url           Returns the URL for the given repository.                      |
   +------------------------------------------------------------------------------+
   
@@ -6773,12 +6833,279 @@
   
   '''
 # ---
+# name: test_help_messages[spcs.service.list-containers]
+  '''
+                                                                                  
+   Usage: default spcs service list-containers [OPTIONS] NAME                     
+                                                                                  
+   Lists all service containers in a service.                                     
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
+  |                      [required]                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml. |
+  |                                                 Default: default.            |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses connection defined with |
+  |                                                 command line parameters,     |
+  |                                                 instead of one defined in    |
+  |                                                 config                       |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contains additional  |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[spcs.service.list-endpoints]
   '''
                                                                                   
    Usage: default spcs service list-endpoints [OPTIONS] NAME                      
                                                                                   
    Lists the endpoints in a service.                                              
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
+  |                      [required]                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml. |
+  |                                                 Default: default.            |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses connection defined with |
+  |                                                 command line parameters,     |
+  |                                                 instead of one defined in    |
+  |                                                 config                       |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contains additional  |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[spcs.service.list-instances]
+  '''
+                                                                                  
+   Usage: default spcs service list-instances [OPTIONS] NAME                      
+                                                                                  
+   Lists all service instances in a service.                                      
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    name      TEXT  Identifier of the service. For example: my_service      |
+  |                      [required]                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml. |
+  |                                                 Default: default.            |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses connection defined with |
+  |                                                 command line parameters,     |
+  |                                                 instead of one defined in    |
+  |                                                 config                       |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contains additional  |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[spcs.service.list-roles]
+  '''
+                                                                                  
+   Usage: default spcs service list-roles [OPTIONS] NAME                          
+                                                                                  
+   Lists all service roles in a service.                                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service. For example: my_service      |
@@ -7179,6 +7506,17 @@
   |                                                             service function |
   |                                                             or ingress is    |
   |                                                             called.          |
+  | --eai-name                                TEXT              Identifies       |
+  |                                                             External Access  |
+  |                                                             Integrations(EA… |
+  |                                                             that the service |
+  |                                                             can access. This |
+  |                                                             option may be    |
+  |                                                             specified        |
+  |                                                             multiple times   |
+  |                                                             for multiple     |
+  |                                                             EAIs.            |
+  |                                                             [default: None]  |
   | --comment                                 TEXT              Comment for the  |
   |                                                             service.         |
   | --help             -h                                       Show this        |
@@ -7265,7 +7603,11 @@
                                                                                   
    Usage: default spcs service status [OPTIONS] NAME                              
                                                                                   
-   Retrieves the status of a service.                                             
+   (deprecated)                                                                   
+   Retrieves the status of a service. This command is deprecated and will be      
+   removed in a future release. Use describe instead to get service status and    
+   use list-instances and list-containers to get more detailed information about  
+   service instances and containers.                                              
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service. For example: my_service      |
@@ -7642,21 +7984,35 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create           Creates a new service in the current schema.                |
-  | describe         Provides description of service.                            |
-  | drop             Drops service with given name.                              |
-  | execute-job      Creates and executes a job service in the current schema.   |
-  | list             Lists all available services.                               |
-  | list-endpoints   Lists the endpoints in a service.                           |
-  | logs             Retrieves local logs from a service container.              |
-  | resume           Resumes the service from a SUSPENDED state.                 |
-  | set              Sets one or more properties for the service.                |
-  | status           Retrieves the status of a service.                          |
-  | suspend          Suspends the service, shutting down and deleting all its    |
-  |                  containers.                                                 |
-  | unset            Resets one or more properties for the service to their      |
-  |                  default value(s).                                           |
-  | upgrade          Updates an existing service with a new specification file.  |
+  | create            Creates a new service in the current                       |
+  |                   schema.                                                    |
+  | describe          Provides description of service.                           |
+  | drop              Drops service with given name.                             |
+  | execute-job       Creates and executes a job service in the                  |
+  |                   current schema.                                            |
+  | list              Lists all available services.                              |
+  | list-containers   Lists all service containers in a service.                 |
+  | list-endpoints    Lists the endpoints in a service.                          |
+  | list-instances    Lists all service instances in a service.                  |
+  | list-roles        Lists all service roles in a service.                      |
+  | logs              Retrieves local logs from a service                        |
+  |                   container.                                                 |
+  | resume            Resumes the service from a SUSPENDED state.                |
+  | set               Sets one or more properties for the                        |
+  |                   service.                                                   |
+  | status            Retrieves the status of a service. This      (deprecated)  |
+  |                   command is deprecated and will be removed                  |
+  |                   in a future release. Use describe instead                  |
+  |                   to get service status and use                              |
+  |                   list-instances and list-containers to get                  |
+  |                   more detailed information about service                    |
+  |                   instances and containers.                                  |
+  | suspend           Suspends the service, shutting down and                    |
+  |                   deleting all its containers.                               |
+  | unset             Resets one or more properties for the                      |
+  |                   service to their default value(s).                         |
+  | upgrade           Updates an existing service with a new                     |
+  |                   specification file.                                        |
   +------------------------------------------------------------------------------+
   
   
@@ -8373,7 +8729,8 @@
    Lists the stage contents.                                                      
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    stage_name      TEXT  Identifier of the stage. For example: @my_stage   |
+  | *    stage_name      TEXT  Identifier of the stage. For example:             |
+  |                            @my_stage/path                                    |
   |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -9485,7 +9842,7 @@
   | execute         Execute immediate all files from the repository path. Files  |
   |                 can be filtered with glob like pattern, e.g.                 |
   |                 @my_repo/branches/main/*.sql, @my_repo/branches/main/dev/*.  |
-  |                 Only files with .sql extension will be executed.             |
+  |                 Only files with .sql or .py extension will be executed.      |
   | fetch           Fetch changes from origin to Snowflake repository.           |
   | list            Lists all available git repositories.                        |
   | list-branches   List all branches in the repository.                         |
@@ -9651,11 +10008,14 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create        Creates a new image repository in the current schema.          |
+  | create        Creates a new image repository in the current                  |
+  |               schema.                                                        |
   | drop          Drops image repository with given name.                        |
   | list          Lists all available image repositories.                        |
   | list-images   Lists images in the given repository.                          |
-  | list-tags     Lists tags for the given image in a repository.                |
+  | list-tags     Lists tags for the given image in a repository.  (deprecated)  |
+  |               This command is deprecated and will be removed                 |
+  |               in a future release. Use list-images instead.                  |
   | url           Returns the URL for the given repository.                      |
   +------------------------------------------------------------------------------+
   
@@ -9673,21 +10033,35 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create           Creates a new service in the current schema.                |
-  | describe         Provides description of service.                            |
-  | drop             Drops service with given name.                              |
-  | execute-job      Creates and executes a job service in the current schema.   |
-  | list             Lists all available services.                               |
-  | list-endpoints   Lists the endpoints in a service.                           |
-  | logs             Retrieves local logs from a service container.              |
-  | resume           Resumes the service from a SUSPENDED state.                 |
-  | set              Sets one or more properties for the service.                |
-  | status           Retrieves the status of a service.                          |
-  | suspend          Suspends the service, shutting down and deleting all its    |
-  |                  containers.                                                 |
-  | unset            Resets one or more properties for the service to their      |
-  |                  default value(s).                                           |
-  | upgrade          Updates an existing service with a new specification file.  |
+  | create            Creates a new service in the current                       |
+  |                   schema.                                                    |
+  | describe          Provides description of service.                           |
+  | drop              Drops service with given name.                             |
+  | execute-job       Creates and executes a job service in the                  |
+  |                   current schema.                                            |
+  | list              Lists all available services.                              |
+  | list-containers   Lists all service containers in a service.                 |
+  | list-endpoints    Lists the endpoints in a service.                          |
+  | list-instances    Lists all service instances in a service.                  |
+  | list-roles        Lists all service roles in a service.                      |
+  | logs              Retrieves local logs from a service                        |
+  |                   container.                                                 |
+  | resume            Resumes the service from a SUSPENDED state.                |
+  | set               Sets one or more properties for the                        |
+  |                   service.                                                   |
+  | status            Retrieves the status of a service. This      (deprecated)  |
+  |                   command is deprecated and will be removed                  |
+  |                   in a future release. Use describe instead                  |
+  |                   to get service status and use                              |
+  |                   list-instances and list-containers to get                  |
+  |                   more detailed information about service                    |
+  |                   instances and containers.                                  |
+  | suspend           Suspends the service, shutting down and                    |
+  |                   deleting all its containers.                               |
+  | unset             Resets one or more properties for the                      |
+  |                   service to their default value(s).                         |
+  | upgrade           Updates an existing service with a new                     |
+  |                   specification file.                                        |
   +------------------------------------------------------------------------------+
   
   

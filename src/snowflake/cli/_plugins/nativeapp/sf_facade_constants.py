@@ -12,6 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import annotations
+from enum import Enum
 
-VERSION = "3.2.0.dev0"
+
+class UseObjectType(Enum):
+    DATABASE = "database"
+    ROLE = "role"
+    WAREHOUSE = "warehouse"
+
+    def __str__(self):
+        return self.value

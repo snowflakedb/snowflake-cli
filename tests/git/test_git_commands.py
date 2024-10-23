@@ -19,6 +19,7 @@ from unittest import mock
 import pytest
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import DictCursor, ProgrammingError
 
 EXAMPLE_URL = "https://github.com/an-example-repo.git"
@@ -127,7 +128,8 @@ def test_copy_to_local_file_system(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     mock_iter.return_value = (
-        x for x in [f"{repo_prefix}file.txt", f"{repo_prefix}dir/file_in_dir.txt"]
+        StagePath.from_git_str(x)
+        for x in [f"{repo_prefix}file.txt", f"{repo_prefix}dir/file_in_dir.txt"]
     )
     mock_iter.__len__.return_value = 2
     mock_result.result = {"file": "mock"}
@@ -542,17 +544,17 @@ def test_api_integration_and_secrets_get_unique_names(
     [
         (
             "@repo/branches/main/",
-            "@repo/branches/main/",
+            "@repo/branches/main",
             ["/s1.sql", "/a/S3.sql"],
         ),
         (
             "@repo/branches/main/a",
-            "@repo/branches/main/",
+            "@repo/branches/main",
             ["/a/S3.sql"],
         ),
         (
             "@db.schema.repo/branches/main/",
-            "@db.schema.repo/branches/main/",
+            "@db.schema.repo/branches/main",
             [
                 "/s1.sql",
                 "/a/S3.sql",
@@ -560,17 +562,17 @@ def test_api_integration_and_secrets_get_unique_names(
         ),
         (
             "@db.schema.repo/branches/main/s1.sql",
-            "@db.schema.repo/branches/main/",
+            "@db.schema.repo/branches/main",
             ["/s1.sql"],
         ),
         (
             "@DB.SCHEMA.REPO/branches/main/s1.sql",
-            "@DB.SCHEMA.REPO/branches/main/",
+            "@DB.SCHEMA.REPO/branches/main",
             ["/s1.sql"],
         ),
         (
             "@DB.schema.REPO/branches/main/a/S3.sql",
-            "@DB.schema.REPO/branches/main/",
+            "@DB.schema.REPO/branches/main",
             ["/a/S3.sql"],
         ),
     ],
@@ -604,7 +606,7 @@ def test_execute(
         "create temporary stage if not exists IDENTIFIER('FOO.BAR.snowflake_cli_tmp_stage_123')"
     )
     assert copy_call == mock.call(
-        f"copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from {expected_stage}"
+        f"copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from {expected_stage}/"
     )
     assert ls_call == mock.call(
         f"ls @FOO.BAR.snowflake_cli_tmp_stage_123", cursor_class=DictCursor
@@ -621,7 +623,7 @@ def test_execute(
     [
         (
             "@repo/branches/main/",
-            "@repo/branches/main/",
+            "@repo/branches/main",
             [
                 "/S2.sql",
                 "/s1.sql",
@@ -630,17 +632,17 @@ def test_execute(
         ),
         (
             "@repo/branches/main/s1.sql",
-            "@repo/branches/main/",
+            "@repo/branches/main",
             ["/s1.sql"],
         ),
         (
             "@repo/branches/main/S2.sql",
-            "@repo/branches/main/",
+            "@repo/branches/main",
             ["/S2.sql"],
         ),
         (
             "@repo/branches/main/a/s3.sql",
-            "@repo/branches/main/",
+            "@repo/branches/main",
             ["/a/s3.sql"],
         ),
     ],
@@ -674,7 +676,7 @@ def test_execute_new_git_repository_list_files(
         "create temporary stage if not exists IDENTIFIER('FOO.BAR.snowflake_cli_tmp_stage_123')"
     )
     assert copy_call == mock.call(
-        f"copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from {expected_stage}"
+        f"copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from {expected_stage}/"
     )
     assert ls_call == mock.call(
         f"ls @FOO.BAR.snowflake_cli_tmp_stage_123", cursor_class=DictCursor
@@ -691,7 +693,7 @@ def test_execute_new_git_repository_list_files(
     [
         (
             '@repo/branches/"feature/commit"/',
-            '@repo/branches/"feature/commit"/',
+            '@repo/branches/"feature/commit"',
             [
                 "/s1.sql",
                 "/a/S3.sql",
@@ -699,21 +701,21 @@ def test_execute_new_git_repository_list_files(
         ),
         (
             '@repo/branches/"feature/commit"/s1.sql',
-            '@repo/branches/"feature/commit"/',
+            '@repo/branches/"feature/commit"',
             [
                 "/s1.sql",
             ],
         ),
         (
             '@repo/branches/"feature/commit"/a/',
-            '@repo/branches/"feature/commit"/',
+            '@repo/branches/"feature/commit"',
             [
                 "/a/S3.sql",
             ],
         ),
         (
             '@db.schema.repo/branches/"feature/commit"/',
-            '@db.schema.repo/branches/"feature/commit"/',
+            '@db.schema.repo/branches/"feature/commit"',
             [
                 "/s1.sql",
                 "/a/S3.sql",
@@ -750,7 +752,7 @@ def test_execute_slash_in_repository_name(
         "create temporary stage if not exists IDENTIFIER('FOO.BAR.snowflake_cli_tmp_stage_123')"
     )
     assert copy_call == mock.call(
-        f"copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from {expected_stage}"
+        f"copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from {expected_stage}/"
     )
     assert ls_call == mock.call(
         f"ls @FOO.BAR.snowflake_cli_tmp_stage_123", cursor_class=DictCursor

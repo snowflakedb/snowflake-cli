@@ -134,18 +134,17 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         *args,
         **kwargs,
     ):
+        """
+        Create or upgrade the application object using the given strategy
+        (unversioned dev, versioned dev, or same-account release directive).
+        """
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
         app_name = model.fqn.identifier
-        debug_mode = model.debug
         if model.meta:
             app_role = model.meta.role or workspace_ctx.default_role
-            app_warehouse = model.meta.warehouse or workspace_ctx.default_warehouse
-            post_deploy_hooks = model.meta.post_deploy
         else:
             app_role = workspace_ctx.default_role
-            app_warehouse = workspace_ctx.default_warehouse
-            post_deploy_hooks = None
 
         package_entity: ApplicationPackageEntity = action_ctx.get_entity(
             model.from_.target
@@ -161,7 +160,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         if not stage_fqn:
             stage_fqn = f"{package_name}.{package_model.stage}"
-        stage_schema = extract_schema(stage_fqn)
 
         is_interactive = False
         if force:
@@ -185,72 +183,56 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             )
 
         def drop_application_before_upgrade(cascade: bool = False):
-            if cascade:
-                try:
-                    if application_objects := self.get_objects_owned_by_application(
-                        app_name, app_role
-                    ):
-                        application_objects_str = self.application_objects_to_str(
-                            application_objects
-                        )
-                        workspace_ctx.console.message(
-                            f"The following objects are owned by application {app_name} and need to be dropped:\n{application_objects_str}"
-                        )
-                except ProgrammingError as err:
-                    if err.errno != APPLICATION_NO_LONGER_AVAILABLE:
-                        generic_sql_error_handler(err)
-                    workspace_ctx.console.warning(
-                        "The application owns other objects but they could not be determined."
-                    )
-                user_prompt = "Do you want the Snowflake CLI to drop these objects, then drop the existing application object and recreate it?"
-            else:
-                user_prompt = "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
+            self.drop_application_before_upgrade(
+                console=workspace_ctx.console,
+                app_name=app_name,
+                app_role=app_role,
+                policy=policy,
+                is_interactive=is_interactive,
+                cascade=cascade,
+            )
 
-            if not policy.should_proceed(user_prompt):
-                if is_interactive:
-                    workspace_ctx.console.message(
-                        "Not upgrading the application object."
-                    )
-                    raise typer.Exit(0)
-                else:
-                    workspace_ctx.console.message(
-                        "Cannot upgrade the application object non-interactively without --force."
-                    )
-                    raise typer.Exit(1)
+        # same-account release directive
+        if from_release_directive:
+            self.create_or_upgrade_app(
+                package_model=package_model,
+                stage_fqn=stage_fqn,
+                install_method=SameAccountInstallMethod.release_directive(),
+                drop_application_before_upgrade=drop_application_before_upgrade,
+            )
+            return
+
+        # versioned dev
+        if version:
             try:
-                cascade_msg = " (cascade)" if cascade else ""
-                workspace_ctx.console.step(
-                    f"Dropping application object {app_name}{cascade_msg}."
+                version_exists = package_entity.get_existing_version_info(
+                    version=version,
+                    package_name=package_name,
+                    package_role=package_role,
                 )
-                cascade_sql = " cascade" if cascade else ""
-                sql_executor = get_sql_executor()
-                sql_executor.execute_query(f"drop application {app_name}{cascade_sql}")
-            except ProgrammingError as err:
-                if err.errno == APPLICATION_OWNS_EXTERNAL_OBJECTS and not cascade:
-                    # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
-                    return drop_application_before_upgrade(cascade=True)
-                else:
-                    generic_sql_error_handler(err)
+                if not version_exists:
+                    raise UsageError(
+                        f"Application package {package_name} does not have any version {version} defined. Use 'snow app version create' to define a version in the application package first."
+                    )
+            except ApplicationPackageDoesNotExistError as app_err:
+                raise UsageError(
+                    f"Application package {package_name} does not exist. Use 'snow app version create' to first create an application package and then define a version in it."
+                )
 
-        self.deploy(
-            console=workspace_ctx.console,
-            project_root=workspace_ctx.project_root,
-            app_name=app_name,
-            app_role=app_role,
-            app_warehouse=app_warehouse,
-            package_name=package_name,
-            package_role=package_role,
-            stage_schema=stage_schema,
+            self.create_or_upgrade_app(
+                package_model=package_model,
+                stage_fqn=stage_fqn,
+                install_method=SameAccountInstallMethod.versioned_dev(version, patch),
+                drop_application_before_upgrade=drop_application_before_upgrade,
+            )
+            return
+
+        # unversioned dev
+        deploy_package()
+        self.create_or_upgrade_app(
+            package_model=package_model,
             stage_fqn=stage_fqn,
-            debug_mode=debug_mode,
-            validate=validate,
-            from_release_directive=from_release_directive,
-            is_interactive=is_interactive,
-            policy=policy,
-            version=version,
-            patch=patch,
-            post_deploy_hooks=post_deploy_hooks,
-            deploy_package=deploy_package,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
             drop_application_before_upgrade=drop_application_before_upgrade,
         )
 
@@ -263,19 +245,142 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         *args,
         **kwargs,
     ):
+        """
+        Attempts to drop the application object if all validations and user prompts allow so.
+        """
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
         app_name = model.fqn.identifier
         if model.meta and model.meta.role:
             app_role = model.meta.role
         else:
             app_role = workspace_ctx.default_role
-        self.drop(
-            console=workspace_ctx.console,
+
+        needs_confirm = True
+
+        # 1. If existing application is not found, exit gracefully
+        show_obj_row = self.get_existing_app_info_static(
             app_name=app_name,
             app_role=app_role,
-            auto_yes=force_drop,
-            interactive=interactive,
+        )
+        if show_obj_row is None:
+            console.warning(
+                f"Role {app_role} does not own any application object with the name {app_name}, or the application object does not exist."
+            )
+            return
+
+        # 2. Check if created by the Snowflake CLI
+        row_comment = show_obj_row[COMMENT_COL]
+        if row_comment not in ALLOWED_SPECIAL_COMMENTS and needs_confirmation(
+            needs_confirm, force_drop
+        ):
+            should_drop_object = typer.confirm(
+                dedent(
+                    f"""\
+                        Application object {app_name} was not created by Snowflake CLI.
+                        Application object details:
+                        Name: {app_name}
+                        Created on: {show_obj_row["created_on"]}
+                        Source: {show_obj_row["source"]}
+                        Owner: {show_obj_row[OWNER_COL]}
+                        Comment: {show_obj_row[COMMENT_COL]}
+                        Version: {show_obj_row["version"]}
+                        Patch: {show_obj_row["patch"]}
+                        Are you sure you want to drop it?
+                    """
+                )
+            )
+            if not should_drop_object:
+                console.message(f"Did not drop application object {app_name}.")
+                # The user desires to keep the app, therefore we can't proceed since it would
+                # leave behind an orphan app when we get to dropping the package
+                raise typer.Abort()
+
+        # 3. Check for application objects owned by the application
+        # This query will fail if the application package has already been dropped, so handle this case gracefully
+        has_objects_to_drop = False
+        message_prefix = ""
+        cascade_true_message = ""
+        cascade_false_message = ""
+        interactive_prompt = ""
+        non_interactive_abort = ""
+        try:
+            if application_objects := self.get_objects_owned_by_application(
+                app_name=app_name,
+                app_role=app_role,
+            ):
+                has_objects_to_drop = True
+                message_prefix = (
+                    f"The following objects are owned by application {app_name}"
+                )
+                cascade_true_message = f"{message_prefix} and will be dropped:"
+                cascade_false_message = f"{message_prefix} and will NOT be dropped:"
+                interactive_prompt = "Would you like to drop these objects in addition to the application? [y/n/ABORT]"
+                non_interactive_abort = "Re-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application"
+        except ProgrammingError as e:
+            if e.errno != APPLICATION_NO_LONGER_AVAILABLE:
+                raise
+            application_objects = []
+            message_prefix = (
+                f"Could not determine which objects are owned by application {app_name}"
+            )
+            has_objects_to_drop = True  # potentially, but we don't know what they are
+            cascade_true_message = (
+                f"{message_prefix}, an unknown number of objects will be dropped."
+            )
+            cascade_false_message = f"{message_prefix}, they will NOT be dropped."
+            interactive_prompt = f"Would you like to drop an unknown set of objects in addition to the application? [y/n/ABORT]"
+            non_interactive_abort = f"Re-run teardown again with --cascade or --no-cascade to specify whether any objects should be dropped along with the application."
+
+        if has_objects_to_drop:
+            if cascade is True:
+                # If the user explicitly passed the --cascade flag
+                console.message(cascade_true_message)
+                with console.indented():
+                    for obj in application_objects:
+                        console.message(self.application_object_to_str(obj))
+            elif cascade is False:
+                # If the user explicitly passed the --no-cascade flag
+                console.message(cascade_false_message)
+                with console.indented():
+                    for obj in application_objects:
+                        console.message(self.application_object_to_str(obj))
+            elif interactive:
+                # If the user didn't pass any cascade flag and the session is interactive
+                console.message(message_prefix)
+                with console.indented():
+                    for obj in application_objects:
+                        console.message(self.application_object_to_str(obj))
+                user_response = typer.prompt(
+                    interactive_prompt,
+                    show_default=False,
+                    default="ABORT",
+                ).lower()
+                if user_response in ["y", "yes"]:
+                    cascade = True
+                elif user_response in ["n", "no"]:
+                    cascade = False
+                else:
+                    raise typer.Abort()
+            else:
+                # Else abort since we don't know what to do and can't ask the user
+                console.message(message_prefix)
+                with console.indented():
+                    for obj in application_objects:
+                        console.message(self.application_object_to_str(obj))
+                console.message(non_interactive_abort)
+                raise typer.Abort()
+        elif cascade is None:
+            # If there's nothing to drop, set cascade to an explicit False value
+            cascade = False
+
+        # 4. All validations have passed, drop object
+        drop_generic_object(
+            console=console,
+            object_type="application",
+            object_name=app_name,
+            role=app_role,
             cascade=cascade,
         )
 
@@ -331,148 +436,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 last=last,
             )
 
-    @classmethod
-    def drop(
-        cls,
-        console: AbstractConsole,
-        app_name: str,
-        app_role: str,
-        auto_yes: bool,
-        interactive: bool = False,
-        cascade: Optional[bool] = None,
-    ):
-        """
-        Attempts to drop the application object if all validations and user prompts allow so.
-        """
-
-        needs_confirm = True
-
-        # 1. If existing application is not found, exit gracefully
-        show_obj_row = cls.get_existing_app_info_static(
-            app_name=app_name,
-            app_role=app_role,
-        )
-        if show_obj_row is None:
-            console.warning(
-                f"Role {app_role} does not own any application object with the name {app_name}, or the application object does not exist."
-            )
-            return
-
-        # 2. Check if created by the Snowflake CLI
-        row_comment = show_obj_row[COMMENT_COL]
-        if row_comment not in ALLOWED_SPECIAL_COMMENTS and needs_confirmation(
-            needs_confirm, auto_yes
-        ):
-            should_drop_object = typer.confirm(
-                dedent(
-                    f"""\
-                        Application object {app_name} was not created by Snowflake CLI.
-                        Application object details:
-                        Name: {app_name}
-                        Created on: {show_obj_row["created_on"]}
-                        Source: {show_obj_row["source"]}
-                        Owner: {show_obj_row[OWNER_COL]}
-                        Comment: {show_obj_row[COMMENT_COL]}
-                        Version: {show_obj_row["version"]}
-                        Patch: {show_obj_row["patch"]}
-                        Are you sure you want to drop it?
-                    """
-                )
-            )
-            if not should_drop_object:
-                console.message(f"Did not drop application object {app_name}.")
-                # The user desires to keep the app, therefore we can't proceed since it would
-                # leave behind an orphan app when we get to dropping the package
-                raise typer.Abort()
-
-        # 3. Check for application objects owned by the application
-        # This query will fail if the application package has already been dropped, so handle this case gracefully
-        has_objects_to_drop = False
-        message_prefix = ""
-        cascade_true_message = ""
-        cascade_false_message = ""
-        interactive_prompt = ""
-        non_interactive_abort = ""
-        try:
-            if application_objects := cls.get_objects_owned_by_application(
-                app_name=app_name,
-                app_role=app_role,
-            ):
-                has_objects_to_drop = True
-                message_prefix = (
-                    f"The following objects are owned by application {app_name}"
-                )
-                cascade_true_message = f"{message_prefix} and will be dropped:"
-                cascade_false_message = f"{message_prefix} and will NOT be dropped:"
-                interactive_prompt = "Would you like to drop these objects in addition to the application? [y/n/ABORT]"
-                non_interactive_abort = "Re-run teardown again with --cascade or --no-cascade to specify whether these objects should be dropped along with the application"
-        except ProgrammingError as e:
-            if e.errno != APPLICATION_NO_LONGER_AVAILABLE:
-                raise
-            application_objects = []
-            message_prefix = (
-                f"Could not determine which objects are owned by application {app_name}"
-            )
-            has_objects_to_drop = True  # potentially, but we don't know what they are
-            cascade_true_message = (
-                f"{message_prefix}, an unknown number of objects will be dropped."
-            )
-            cascade_false_message = f"{message_prefix}, they will NOT be dropped."
-            interactive_prompt = f"Would you like to drop an unknown set of objects in addition to the application? [y/n/ABORT]"
-            non_interactive_abort = f"Re-run teardown again with --cascade or --no-cascade to specify whether any objects should be dropped along with the application."
-
-        if has_objects_to_drop:
-            if cascade is True:
-                # If the user explicitly passed the --cascade flag
-                console.message(cascade_true_message)
-                with console.indented():
-                    for obj in application_objects:
-                        console.message(cls.application_object_to_str(obj))
-            elif cascade is False:
-                # If the user explicitly passed the --no-cascade flag
-                console.message(cascade_false_message)
-                with console.indented():
-                    for obj in application_objects:
-                        console.message(cls.application_object_to_str(obj))
-            elif interactive:
-                # If the user didn't pass any cascade flag and the session is interactive
-                console.message(message_prefix)
-                with console.indented():
-                    for obj in application_objects:
-                        console.message(cls.application_object_to_str(obj))
-                user_response = typer.prompt(
-                    interactive_prompt,
-                    show_default=False,
-                    default="ABORT",
-                ).lower()
-                if user_response in ["y", "yes"]:
-                    cascade = True
-                elif user_response in ["n", "no"]:
-                    cascade = False
-                else:
-                    raise typer.Abort()
-            else:
-                # Else abort since we don't know what to do and can't ask the user
-                console.message(message_prefix)
-                with console.indented():
-                    for obj in application_objects:
-                        console.message(cls.application_object_to_str(obj))
-                console.message(non_interactive_abort)
-                raise typer.Abort()
-        elif cascade is None:
-            # If there's nothing to drop, set cascade to an explicit False value
-            cascade = False
-
-        # 4. All validations have passed, drop object
-        drop_generic_object(
-            console=console,
-            object_type="application",
-            object_name=app_name,
-            role=app_role,
-            cascade=cascade,
-        )
-        return  # The application object was successfully dropped, therefore exit gracefully
-
     @staticmethod
     def get_objects_owned_by_application(
         app_name: str,
@@ -507,130 +470,39 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
     def application_object_to_str(obj: ApplicationOwnedObject) -> str:
         return f"({obj['type']}) {obj['name']}"
 
-    @classmethod
-    def deploy(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        app_name: str,
-        app_role: str,
-        app_warehouse: str,
-        package_name: str,
-        package_role: str,
-        stage_schema: str,
-        stage_fqn: str,
-        debug_mode: bool,
-        validate: bool,
-        from_release_directive: bool,
-        is_interactive: bool,
-        policy: PolicyBase,
-        deploy_package: Callable,
-        version: Optional[str] = None,
-        patch: Optional[int] = None,
-        post_deploy_hooks: Optional[List[PostDeployHook]] = None,
-        drop_application_before_upgrade: Optional[Callable] = None,
-    ):
-        """
-        Create or upgrade the application object using the given strategy
-        (unversioned dev, versioned dev, or same-account release directive).
-        """
-
-        # same-account release directive
-        if from_release_directive:
-            cls.create_or_upgrade_app(
-                console=console,
-                project_root=project_root,
-                package_name=package_name,
-                package_role=package_role,
-                app_name=app_name,
-                app_role=app_role,
-                app_warehouse=app_warehouse,
-                stage_schema=stage_schema,
-                stage_fqn=stage_fqn,
-                debug_mode=debug_mode,
-                policy=policy,
-                install_method=SameAccountInstallMethod.release_directive(),
-                is_interactive=is_interactive,
-                post_deploy_hooks=post_deploy_hooks,
-                drop_application_before_upgrade=drop_application_before_upgrade,
-            )
-            return
-
-        # versioned dev
-        if version:
-            try:
-                version_exists = ApplicationPackageEntity.get_existing_version_info(
-                    version=version,
-                    package_name=package_name,
-                    package_role=package_role,
-                )
-                if not version_exists:
-                    raise UsageError(
-                        f"Application package {package_name} does not have any version {version} defined. Use 'snow app version create' to define a version in the application package first."
-                    )
-            except ApplicationPackageDoesNotExistError as app_err:
-                raise UsageError(
-                    f"Application package {package_name} does not exist. Use 'snow app version create' to first create an application package and then define a version in it."
-                )
-
-            cls.create_or_upgrade_app(
-                console=console,
-                project_root=project_root,
-                package_name=package_name,
-                package_role=package_role,
-                app_name=app_name,
-                app_role=app_role,
-                app_warehouse=app_warehouse,
-                stage_schema=stage_schema,
-                stage_fqn=stage_fqn,
-                debug_mode=debug_mode,
-                policy=policy,
-                install_method=SameAccountInstallMethod.versioned_dev(version, patch),
-                is_interactive=is_interactive,
-                post_deploy_hooks=post_deploy_hooks,
-                drop_application_before_upgrade=drop_application_before_upgrade,
-            )
-            return
-
-        # unversioned dev
-        deploy_package()
-        cls.create_or_upgrade_app(
-            console=console,
-            project_root=project_root,
-            package_name=package_name,
-            package_role=package_role,
-            app_name=app_name,
-            app_role=app_role,
-            app_warehouse=app_warehouse,
-            stage_schema=stage_schema,
-            stage_fqn=stage_fqn,
-            debug_mode=debug_mode,
-            policy=policy,
-            install_method=SameAccountInstallMethod.unversioned_dev(),
-            is_interactive=is_interactive,
-            post_deploy_hooks=post_deploy_hooks,
-            drop_application_before_upgrade=drop_application_before_upgrade,
-        )
-
-    @classmethod
     def create_or_upgrade_app(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        package_name: str,
-        package_role: str,
-        app_name: str,
-        app_role: str,
-        app_warehouse: Optional[str],
-        stage_schema: Optional[str],
+        self,
+        package_model: ApplicationPackageEntityModel,
         stage_fqn: str,
-        debug_mode: bool,
-        policy: PolicyBase,
         install_method: SameAccountInstallMethod,
-        is_interactive: bool = False,
-        post_deploy_hooks: Optional[List[PostDeployHook]] = None,
         drop_application_before_upgrade: Optional[Callable] = None,
     ):
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
+
+        app_name = model.fqn.identifier
+        debug_mode = model.debug
+        if model.meta:
+            app_role = model.meta.role or workspace_ctx.default_role
+            app_warehouse = model.meta.warehouse or workspace_ctx.default_warehouse
+            post_deploy_hooks = model.meta.post_deploy
+        else:
+            app_role = workspace_ctx.default_role
+            app_warehouse = workspace_ctx.default_warehouse
+            post_deploy_hooks = None
+
+        package_name = package_model.fqn.identifier
+        if package_model.meta and package_model.meta.role:
+            package_role = package_model.meta.role
+        else:
+            package_role = workspace_ctx.default_role
+
+        if not stage_fqn:
+            stage_fqn = f"{package_name}.{package_model.stage}"
+        stage_schema = extract_schema(stage_fqn)
+
         sql_executor = get_sql_executor()
         with sql_executor.use_role(app_role):
 
@@ -638,10 +510,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             with sql_executor.use_warehouse(app_warehouse):
 
                 # 2. Check for an existing application by the same name
-                show_app_row = cls.get_existing_app_info_static(
-                    app_name=app_name,
-                    app_role=app_role,
-                )
+                show_app_row = self.get_existing_app_info()
 
                 # 3. If existing application is found, perform a few validations and upgrade the application object.
                 if show_app_row:
@@ -671,7 +540,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                                 )
 
                         # hooks always executed after a create or upgrade
-                        cls.execute_post_deploy_hooks(
+                        self.execute_post_deploy_hooks(
                             console=console,
                             project_root=project_root,
                             post_deploy_hooks=post_deploy_hooks,
@@ -729,7 +598,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     print_messages(console, create_cursor)
 
                     # hooks always executed after a create or upgrade
-                    cls.execute_post_deploy_hooks(
+                    self.execute_post_deploy_hooks(
                         console=console,
                         project_root=project_root,
                         post_deploy_hooks=post_deploy_hooks,
@@ -799,6 +668,66 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             return sql_executor.show_specific_object(
                 "applications", app_name, name_col=NAME_COL
             )
+
+    @classmethod
+    def drop_application_before_upgrade(
+        cls,
+        console: AbstractConsole,
+        app_name: str,
+        app_role: str,
+        policy: PolicyBase,
+        is_interactive: bool,
+        cascade: bool = False,
+    ):
+        if cascade:
+            try:
+                if application_objects := cls.get_objects_owned_by_application(
+                    app_name, app_role
+                ):
+                    application_objects_str = cls.application_objects_to_str(
+                        application_objects
+                    )
+                    console.message(
+                        f"The following objects are owned by application {app_name} and need to be dropped:\n{application_objects_str}"
+                    )
+            except ProgrammingError as err:
+                if err.errno != APPLICATION_NO_LONGER_AVAILABLE:
+                    generic_sql_error_handler(err)
+                console.warning(
+                    "The application owns other objects but they could not be determined."
+                )
+            user_prompt = "Do you want the Snowflake CLI to drop these objects, then drop the existing application object and recreate it?"
+        else:
+            user_prompt = "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
+
+        if not policy.should_proceed(user_prompt):
+            if is_interactive:
+                console.message("Not upgrading the application object.")
+                raise typer.Exit(0)
+            else:
+                console.message(
+                    "Cannot upgrade the application object non-interactively without --force."
+                )
+                raise typer.Exit(1)
+        try:
+            cascade_msg = " (cascade)" if cascade else ""
+            console.step(f"Dropping application object {app_name}{cascade_msg}.")
+            cascade_sql = " cascade" if cascade else ""
+            sql_executor = get_sql_executor()
+            sql_executor.execute_query(f"drop application {app_name}{cascade_sql}")
+        except ProgrammingError as err:
+            if err.errno == APPLICATION_OWNS_EXTERNAL_OBJECTS and not cascade:
+                # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
+                return cls.drop_application_before_upgrade(
+                    console=console,
+                    app_name=app_name,
+                    app_role=app_role,
+                    policy=policy,
+                    is_interactive=is_interactive,
+                    cascade=True,
+                )
+            else:
+                generic_sql_error_handler(err)
 
     @classmethod
     def get_events(
