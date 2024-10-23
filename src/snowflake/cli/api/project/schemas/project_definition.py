@@ -184,7 +184,7 @@ class DefinitionV20(_ProjectDefinitionBase):
             return data
 
         duplicated_run = (
-            info.context.get("duplicated_run", False) if info.context else False
+            info.context.get("is_duplicated_run", False) if info.context else False
         )
         if not duplicated_run:
             entities = data["entities"]
