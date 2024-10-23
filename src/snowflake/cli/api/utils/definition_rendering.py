@@ -285,9 +285,7 @@ def _add_defaults_to_definition(original_definition: Definition) -> Definition:
     with context({"skip_validation_on_templates": True}):
         # pass a flag to Pydantic to skip validation for templated scalars
         # populate the defaults
-        project_definition = build_project_definition(
-            **copy.deepcopy(original_definition)
-        )
+        project_definition = build_project_definition(**original_definition)
 
     definition_with_defaults = project_definition.model_dump(
         exclude_none=True, warnings=False, by_alias=True
@@ -392,8 +390,8 @@ def render_definition_template(
         definition,
         update_action=lambda val: template_env.render(val, final_context),
     )
-
-    project_definition = build_project_definition(**definition)
+    with context({"is_duplicated_run": True}):
+        project_definition = build_project_definition(**definition)
 
     # Use the values originally provided by the user as the template context
     # This intentionally doesn't reflect any field changes made by
