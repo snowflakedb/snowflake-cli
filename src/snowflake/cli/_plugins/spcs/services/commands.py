@@ -131,7 +131,7 @@ def create(
     external_access_integrations: Optional[List[str]] = typer.Option(
         None,
         "--eai-name",
-        help="Identifies External Access Integrations(EAI) that the service can access. This option may be specified multiple times for multiple EAIs.",
+        help="Identifies external access integrations (EAI) that the service can access. This option may be specified multiple times for multiple EAIs.",
     ),
     query_warehouse: Optional[str] = QueryWarehouseOption(),
     tags: Optional[List[Tag]] = TagOption(help="Tag for the service."),
@@ -174,7 +174,7 @@ def execute_job(
     external_access_integrations: Optional[List[str]] = typer.Option(
         None,
         "--eai-name",
-        help="Identifies External Access Integrations(EAI) that the job service can access. This option may be specified multiple times for multiple EAIs.",
+        help="Identifies external access integrations (EAI) that the job service can access. This option may be specified multiple times for multiple EAIs.",
     ),
     query_warehouse: Optional[str] = QueryWarehouseOption(),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
@@ -311,7 +311,7 @@ def set_property(
     external_access_integrations: Optional[List[str]] = typer.Option(
         None,
         "--eai-name",
-        help="Identifies External Access Integrations(EAI) that the service can access. This option may be specified multiple times for multiple EAIs.",
+        help="Identifies external access integrations (EAI) that the service can access. This option may be specified multiple times for multiple EAIs.",
     ),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP, show_default=False),
     **options,

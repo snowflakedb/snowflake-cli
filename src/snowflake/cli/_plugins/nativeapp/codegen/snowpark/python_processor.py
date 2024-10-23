@@ -132,12 +132,12 @@ def _execute_in_sandbox(
         )
     except SandboxExecutionError as sdbx_err:
         cc.warning(
-            f"Could not fetch Snowpark objects from {py_file} due to {sdbx_err}, continuing execution for the rest of the python files."
+            f"Could not fetch Snowpark objects from {py_file} due to {sdbx_err}, continuing execution for the rest of the Python files."
         )
         return None
     except Exception as err:
         cc.warning(
-            f"Could not fetch Snowpark objects from {py_file} due to {err}, continuing execution for the rest of the python files."
+            f"Could not fetch Snowpark objects from {py_file} due to {err}, continuing execution for the rest of the Python files."
         )
         return None
 
@@ -145,22 +145,22 @@ def _execute_in_sandbox(
         cc.warning(
             f"Could not fetch Snowpark objects from {py_file} due to the following error:\n {completed_process.stderr}"
         )
-        cc.warning("Continuing execution for the rest of the python files.")
+        cc.warning("Continuing execution for the rest of the Python files.")
         return None
 
     try:
         return json.loads(completed_process.stdout)
     except Exception as exc:
         cc.warning(
-            f"Could not load JSON into python due to the following exception: {exc}"
+            f"Could not load JSON into Python due to the following exception: {exc}"
         )
-        cc.warning(f"Continuing execution for the rest of the python files.")
+        cc.warning(f"Continuing execution for the rest of the Python files.")
         return None
 
 
 class SnowparkAnnotationProcessor(ArtifactProcessor):
     """
-    Built-in Processor to discover Snowpark-annotated objects in a given set of python files,
+    Built-in Processor to discover Snowpark-annotated objects in a given set of Python files,
     and generate SQL code for creation of extension functions based on those discovered objects.
     """
 
@@ -174,7 +174,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         **kwargs,
     ) -> None:
         """
-        Collects code annotations from Snowpark python files containing extension functions and augments the existing
+        Collects code annotations from Snowpark Python files containing extension functions and augments the existing
         setup script with generated SQL that registers these functions.
         """
 
@@ -360,7 +360,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
 
     def generate_new_sql_file_name(self, py_file: Path) -> Path:
         """
-        Generates a SQL filename for the generated root from the python file, and creates its parent directories.
+        Generates a SQL filename for the generated root from the Python file, and creates its parent directories.
         """
         relative_py_file = py_file.relative_to(self._bundle_ctx.deploy_root)
         sql_file = Path(

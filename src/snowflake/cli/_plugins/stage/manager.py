@@ -621,7 +621,7 @@ class StageManager(SqlExecutionMixin):
         """Prepares Snowpark session for executing Python code remotely."""
         if sys.version_info >= PYTHON_3_12:
             raise ClickException(
-                f"Executing python files is not supported in Python >= 3.12. Current version: {sys.version}"
+                f"Executing Python files is not supported in Python >= 3.12. Current version: {sys.version}"
             )
 
         from snowflake.snowpark.functions import sproc
@@ -635,7 +635,7 @@ class StageManager(SqlExecutionMixin):
         def _python_execution_procedure(
             _: Session, file_path: str, variables: Dict | None = None
         ) -> None:
-            """Snowpark session-scoped stored procedure to execute content of provided python file."""
+            """Snowpark session-scoped stored procedure to execute content of provided Python file."""
             import json
 
             from snowflake.snowpark.files import SnowflakeFile

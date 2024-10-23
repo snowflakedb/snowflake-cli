@@ -29,10 +29,10 @@ EnvVars = Mapping[str, str]  # Only support str -> str for cross-platform compat
 
 
 class SandboxExecutionError(ClickException):
-    """An error occurred while executing a python script."""
+    """An error occurred while executing a Python script."""
 
     def __init__(self, error: str):
-        super().__init__(f"Failed to execute python script. {error}")
+        super().__init__(f"Failed to execute Python script. {error}")
 
 
 def _get_active_venv_dir() -> Optional[str]:
@@ -63,7 +63,7 @@ def _execute_python_interpreter(
     env_vars: Optional[EnvVars],
 ) -> subprocess.CompletedProcess:
     if not python_executable:
-        raise SandboxExecutionError("No python executable found")
+        raise SandboxExecutionError("No Python executable found")
 
     if isinstance(python_executable, str) or isinstance(python_executable, Path):
         args = [python_executable]
@@ -106,7 +106,7 @@ def _execute_in_venv(
             f"venv path must be an existing directory: {resolved_venv_path}"
         )
 
-    # find the python interpreter for this environment. There is no need to activate environment prior to invoking the
+    # find the Python interpreter for this environment. There is no need to activate environment prior to invoking the
     # interpreter, as venv maintains the invariant that invoking any of the scripts will set up the virtual environment
     # correctly. activation scripts are only used for convenience in interactive shells.
     if _is_ms_windows():
@@ -116,7 +116,7 @@ def _execute_in_venv(
 
     if not python_executable.is_file():
         raise SandboxExecutionError(
-            f"No venv python executable found: {resolved_venv_path}"
+            f"No venv Python executable found: {resolved_venv_path}"
         )
 
     return _execute_python_interpreter(
@@ -189,14 +189,14 @@ def execute_script_in_sandbox(
     **kwargs,
 ) -> subprocess.CompletedProcess:
     """
-    Executes a python script in a sandboxed environment, and returns its output. The script is executed in a different
+    Executes a Python script in a sandboxed environment, and returns its output. The script is executed in a different
     process. The execution environment is determined by the `env_type` argument. By default, the logic will attempt
     to auto-detect the correct environment by looking for an active venv or conda environment. If none can be found, it
-    will use the system's default python executable, as determined by the user's path. As a last resort, the current
-    python execution environment will be used (still in a subprocess).
+    will use the system's default Python executable, as determined by the user's path. As a last resort, the current
+    Python execution environment will be used (still in a subprocess).
 
     Parameters:
-        script_source (str): The python script to be executed, as a string.
+        script_source (str): The Python script to be executed, as a string.
         env_type: The type of execution environment to use (default: ExecutionEnvironmentType.AUTO_DETECT).
         cwd (Optional[Union[str, Path]]): An optional path to use as the current directory when executing the script.
         timeout (Optional[int]): An optional timeout in seconds when executing the script. Defaults to no timeout.
@@ -248,7 +248,7 @@ def execute_script_in_sandbox(
 class SandboxEnvBuilder(EnvBuilder):
     """
     A virtual environment builder that can be used to build an environment suitable for
-    executing user-provided python scripts in an isolated sandbox.
+    executing user-provided Python scripts in an isolated sandbox.
     """
 
     def __init__(self, path: Path, **kwargs) -> None:
