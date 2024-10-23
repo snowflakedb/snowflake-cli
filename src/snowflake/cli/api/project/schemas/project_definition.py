@@ -20,7 +20,6 @@ from typing import Any, Dict, List, Optional, Union
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
 from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import (
     TargetField,
@@ -116,6 +115,8 @@ class DefinitionV11(DefinitionV10):
 
 
 class DefinitionV20(_ProjectDefinitionBase):
+    # Pydantic wraps below attribute in its own class ModelPrivateAttr,
+    # so to access the value we need to use .default
     _applied_mixins: Dict[str, List] = {}
     entities: Dict[str, AnnotatedEntity] = Field(
         title="Entity definitions.", default={}
@@ -212,7 +213,7 @@ class DefinitionV20(_ProjectDefinitionBase):
         for mixin_name in entity_mixins_names:
             if mixin_name not in mixin_defs:
                 raise ValueError(f"Mixin {mixin_name} not defined")
-        context = get_cli_context()
+
         # Build object override data from mixins
         data: dict = {}
         for mx_name in entity_mixins_names:
