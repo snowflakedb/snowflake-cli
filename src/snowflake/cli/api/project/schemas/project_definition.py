@@ -19,7 +19,6 @@ from typing import Any, Dict, List, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
-from pydantic_core.core_schema import ValidationInfo
 from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.project.errors import SchemaValidationError
@@ -178,7 +177,7 @@ class DefinitionV20(_ProjectDefinitionBase):
 
     @model_validator(mode="before")
     @classmethod
-    def apply_mixins(cls, data: Dict, info: ValidationInfo) -> Dict:
+    def apply_mixins(cls, data: Dict) -> Dict:
         """
         Applies mixins to those entities, whose meta field contains the mixin name.
         """
