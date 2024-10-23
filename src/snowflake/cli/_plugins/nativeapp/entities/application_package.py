@@ -352,11 +352,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
         stage_fqn = f"{package_name}.{model.stage}"
 
-        is_interactive = False
         if force:
             policy = AllowAlwaysPolicy()
         elif interactive:
-            is_interactive = True
             policy = AskAlwaysPolicy()
         else:
             policy = DenyAlwaysPolicy()
@@ -395,9 +393,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         # Check if --patch needs to throw a bad option error, either if application package does not exist or if version does not exist
         if patch is not None:
             try:
-                if not self.get_existing_version_info(
-                    version, package_name, package_role
-                ):
+                if not self.get_existing_version_info(version):
                     raise BadOptionUsage(
                         option_name="patch",
                         message=f"Cannot create a custom patch when version {version} is not defined in the application package {package_name}. Try again without using --patch.",
@@ -409,12 +405,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
 
         if git_policy.should_proceed():
-            self.check_index_changes_in_git_repo(
-                console=console,
-                project_root=project_root,
-                policy=policy,
-                is_interactive=is_interactive,
-            )
+            self.check_index_changes_in_git_repo(policy=policy, interactive=interactive)
 
         self._deploy(
             bundle_map=bundle_map,
@@ -430,9 +421,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         # Warn if the version exists in a release directive(s)
         existing_release_directives = (
-            self.get_existing_release_directive_info_for_version(
-                package_name, package_role, version
-            )
+            self.get_existing_release_directive_info_for_version(version)
         )
 
         if existing_release_directives:
@@ -452,7 +441,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 f"package {package_name}? Once added, this operation cannot be undone."
             )
             if not policy.should_proceed(user_prompt):
-                if is_interactive:
+                if interactive:
                     console.message("Not creating a new patch.")
                     raise typer.Exit(0)
                 else:
@@ -462,25 +451,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     raise typer.Exit(1)
 
         # Define a new version in the application package
-        if not self.get_existing_version_info(version, package_name, package_role):
-            self.add_new_version(
-                console=console,
-                package_name=package_name,
-                package_role=package_role,
-                stage_fqn=stage_fqn,
-                version=version,
-            )
+        if not self.get_existing_version_info(version):
+            self.add_new_version(version)
             return  # A new version created automatically has patch 0, we do not need to further increment the patch.
 
         # Add a new patch to an existing (old) version
-        self.add_new_patch_to_version(
-            console=console,
-            package_name=package_name,
-            package_role=package_role,
-            stage_fqn=stage_fqn,
-            version=version,
-            patch=patch,
-        )
+        self.add_new_patch_to_version(version=version, patch=patch)
 
     def action_version_drop(
         self,
@@ -582,12 +558,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         # 2. Create an empty application package, if none exists
         try:
-            self.create_app_package(
-                console=console,
-                package_name=package_name,
-                package_role=package_role,
-                package_distribution=package_distribution,
-            )
+            self.create_app_package()
         except ApplicationPackageAlreadyExistsError as e:
             console.warning(e.message)
             if not policy.should_proceed("Proceed with using this package?"):
@@ -628,18 +599,18 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         return diff
 
-    @staticmethod
-    def get_existing_version_info(
-        version: str,
-        package_name: str,
-        package_role: str,
-    ) -> Optional[dict]:
+    def get_existing_version_info(self, version: str) -> Optional[dict]:
         """
         Get the latest patch on an existing version by name in the application package.
         Executes 'show versions like ... in application package' query and returns
         the latest patch in the version as a single row, if one exists. Otherwise,
         returns None.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        package_name = model.fqn.identifier
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+
         sql_executor = get_sql_executor()
         with sql_executor.use_role(package_role):
             try:
@@ -665,17 +636,18 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     generic_sql_error_handler(err=err)
                     return None
 
-    @classmethod
     def get_existing_release_directive_info_for_version(
-        cls,
-        package_name: str,
-        package_role: str,
-        version: str,
+        self, version: str
     ) -> List[dict]:
         """
         Get all existing release directives, if present, set on the version defined in an application package.
         It executes a 'show release directives in application package' query and returns the filtered results, if they exist.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        package_name = model.fqn.identifier
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+
         sql_executor = get_sql_executor()
         with sql_executor.use_role(package_role):
             show_obj_query = (
@@ -695,18 +667,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
             return show_obj_rows
 
-    @classmethod
-    def add_new_version(
-        cls,
-        console: AbstractConsole,
-        package_name: str,
-        package_role: str,
-        stage_fqn: str,
-        version: str,
-    ) -> None:
+    def add_new_version(self, version: str) -> None:
         """
         Defines a new version in an existing application package.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        package_name = model.fqn.identifier
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        stage_fqn = f"{package_name}.{model.stage}"
+
         # Make the version a valid identifier, adding quotes if necessary
         version = to_identifier(version)
         sql_executor = get_sql_executor()
@@ -726,19 +697,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 f"Version {version} created for application package {package_name}."
             )
 
-    @classmethod
-    def add_new_patch_to_version(
-        cls,
-        console: AbstractConsole,
-        package_name: str,
-        package_role: str,
-        stage_fqn: str,
-        version: str,
-        patch: Optional[int] = None,
-    ):
+    def add_new_patch_to_version(self, version: str, patch: Optional[int] = None):
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        package_name = model.fqn.identifier
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        stage_fqn = f"{package_name}.{model.stage}"
+
         # Make the version a valid identifier, adding quotes if necessary
         version = to_identifier(version)
         sql_executor = get_sql_executor()
@@ -763,13 +732,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 f"Patch {new_patch} created for version {version} defined in application package {package_name}."
             )
 
-    @classmethod
     def check_index_changes_in_git_repo(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        policy: PolicyBase,
-        is_interactive: bool,
+        self, policy: PolicyBase, interactive: bool
     ) -> None:
         """
         Checks if the project root, i.e. the native apps project is a git repository. If it is a git repository,
@@ -778,6 +742,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         from git import Repo
         from git.exc import InvalidGitRepositoryError
+
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
 
         try:
             repo = Repo(project_root, search_parent_directories=True)
@@ -796,7 +764,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     "Do you still want to continue?"
                 )
                 if not policy.should_proceed(user_prompt):
-                    if is_interactive:
+                    if interactive:
                         console.message("Not creating a new version.")
                         raise typer.Exit(0)
                     else:
@@ -1011,31 +979,30 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
             )
 
-    @classmethod
-    def create_app_package(
-        cls,
-        console: AbstractConsole,
-        package_name: str,
-        package_role: str,
-        package_distribution: str,
-    ) -> None:
+    def create_app_package(self) -> None:
         """
         Creates the application package with our up-to-date stage if none exists.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        package_name = model.fqn.identifier
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        package_distribution = model.distribution
 
         # 1. Check for existing application package
-        show_obj_row = cls.get_existing_app_pkg_info(
+        show_obj_row = self.get_existing_app_pkg_info(
             package_name=package_name,
             package_role=package_role,
         )
 
         if show_obj_row:
             # 2. Check distribution of the existing application package
-            actual_distribution = cls.get_app_pkg_distribution_in_snowflake(
+            actual_distribution = self.get_app_pkg_distribution_in_snowflake(
                 package_name=package_name,
                 package_role=package_role,
             )
-            if not cls.verify_project_distribution(
+            if not self.verify_project_distribution(
                 console=console,
                 package_name=package_name,
                 package_role=package_role,
