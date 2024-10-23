@@ -396,7 +396,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         )
         if follow:
             return self.stream_events(
-                app_name=model.fqn.identifier,
                 package_name=package_model.fqn.identifier,
                 interval_seconds=interval_seconds,
                 since=since,
@@ -409,7 +408,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             )
         else:
             return self.get_events(
-                app_name=model.fqn.identifier,
                 package_name=package_model.fqn.identifier,
                 since=since,
                 until=until,
@@ -696,10 +694,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             else:
                 generic_sql_error_handler(err)
 
-    @classmethod
     def get_events(
-        cls,
-        app_name: str,
+        self,
         package_name: str,
         since: str | datetime | None = None,
         until: str | datetime | None = None,
@@ -711,13 +707,16 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         first: int = -1,
         last: int = -1,
     ):
+        model = self._entity_model
+        app_name = model.fqn.identifier
+
         record_types = record_types or []
         scopes = scopes or []
 
         if first >= 0 and last >= 0:
             raise ValueError("first and last cannot be used together")
 
-        account_event_table = cls.get_account_event_table()
+        account_event_table = self.get_account_event_table()
         if not account_event_table or account_event_table == "NONE":
             raise NoEventTableForAccount()
 
@@ -804,10 +803,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             else:
                 generic_sql_error_handler(err)
 
-    @classmethod
     def stream_events(
-        cls,
-        app_name: str,
+        self,
         package_name: str,
         interval_seconds: int,
         since: str | datetime | None = None,
@@ -819,8 +816,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         last: int = -1,
     ) -> Generator[dict, None, None]:
         try:
-            events = cls.get_events(
-                app_name=app_name,
+            events = self.get_events(
                 package_name=package_name,
                 since=since,
                 record_types=record_types,
@@ -836,8 +832,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             while True:  # Then infinite poll for new events
                 time.sleep(interval_seconds)
                 previous_events = events
-                events = cls.get_events(
-                    app_name=app_name,
+                events = self.get_events(
                     package_name=package_name,
                     since=last_event_time,
                     record_types=record_types,
