@@ -182,8 +182,11 @@ class DefinitionV20(_ProjectDefinitionBase):
         """
         if "mixins" not in data or "entities" not in data:
             return data
-        context = info.context if info.context else None
-        if context:
+
+        # As in many cases, validation is run twice, but only one time with context,
+        # the check below allows to skip applying mixins on the second run
+        context = info.context
+        if context is not None:
             entities = data["entities"]
             for entity_name, entity in entities.items():
                 entity_mixins = entity_mixins_to_list(

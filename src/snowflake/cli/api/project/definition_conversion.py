@@ -133,7 +133,7 @@ def convert_project_definition_to_v2(
     else:
         # Exact values of context are irrelevant.
         # It just can't be none, so the mixins are applied
-        with context({"convesion_in_memory": False}):
+        with context({}):
             definition_v2 = ProjectDefinitionV2(**data)
 
     # If the user's files have any template tags in them, they
