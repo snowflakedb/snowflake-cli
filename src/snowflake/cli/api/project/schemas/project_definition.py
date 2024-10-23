@@ -183,8 +183,6 @@ class DefinitionV20(_ProjectDefinitionBase):
         if "mixins" not in data or "entities" not in data:
             return data
 
-        # As in many cases, validation is run twice, but only one time with context,
-        # the check below allows to skip applying mixins on the second run
         duplicated_run = (
             info.context.get("duplicated_run", False) if info.context else False
         )
