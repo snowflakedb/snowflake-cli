@@ -42,9 +42,8 @@ from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
 
-class SqlExecutor:
-    def __init__(self, connection: SnowflakeConnection | None = None):
-        self._snowpark_session = None
+class BaseSqlExecutor:
+    def __init__(self, connection: SnowflakeConnection | None = None) -> None:
         self._connection = connection
 
     @property
@@ -89,6 +88,12 @@ class SqlExecutor:
 
     def execute_queries(self, queries: str, **kwargs):
         return self._execute_queries(queries, **kwargs)
+
+
+class SqlExecutor(BaseSqlExecutor):
+    def __init__(self, connection: SnowflakeConnection | None = None):
+        super().__init__(connection)
+        self._snowpark_session = None
 
     def use(self, object_type: ObjectType, name: str):
         try:
