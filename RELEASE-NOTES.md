@@ -40,6 +40,7 @@
 * Align variables for `snow stage|git execute`. For Python files variables are stripped of leading and trailing quotes.
 * `snow spcs service list-images` now displays image tag and digest.
 * Fix `snow stage list-files` for paths with directories.
+* Fix for list fields in mixins applied twice
 
 # v3.0.2
 
