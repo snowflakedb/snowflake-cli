@@ -84,7 +84,7 @@ ConnectionOption = typer.Option(
     "--connection",
     "-c",
     "--environment",
-    help=f"Name of the connection, as defined in your `config.toml`. Default: `default`.",
+    help=f"Name of the connection, as defined in your `config.toml` file. Default: `default`.",
     callback=_connection_callback("connection_name"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
@@ -277,7 +277,7 @@ MfaPasscodeOption = typer.Option(
 EnableDiagOption = typer.Option(
     False,
     "--enable-diag",
-    help="Run python connector diagnostic test",
+    help="Run Python connector diagnostic test",
     callback=_connection_callback("enable_diag"),
     show_default=False,
     is_flag=True,
@@ -350,7 +350,7 @@ VerboseOption = typer.Option(
 DebugOption = typer.Option(
     False,
     "--debug",
-    help="Displays log entries for log levels `debug` and higher; debug logs contains additional information.",
+    help="Displays log entries for log levels `debug` and higher; debug logs contain additional information.",
     callback=_context_callback("enable_tracebacks"),
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
@@ -407,9 +407,9 @@ def variables_option(description: str):
 
 
 ExecuteVariablesOption = variables_option(
-    'Variables for the execution context. For example: `-D "<key>=<value>"`. '
-    "For SQL files variables are use to expand the template and any unknown variable will cause an error. "
-    "For Python files variables are used to update os.environ dictionary. Provided keys are capitalized to adhere to best practices."
+    'Variables for the execution context; for example: `-D "<key>=<value>"`. '
+    "For SQL files, variables are used to expand the template, and any unknown variable will cause an error (consider embedding quoting in the file)."
+    "For Python files, variables are used to update the os.environ dictionary. Provided keys are capitalized to adhere to best practices. "
     "In case of SQL files string values must be quoted in `''` (consider embedding quoting in the file).",
 )
 
@@ -489,7 +489,7 @@ def identifier_argument(
 ) -> typer.Argument:
     return typer.Argument(
         ...,
-        help=f"Identifier of the {sf_object}. For example: {example}",
+        help=f"Identifier of the {sf_object}; for example: {example}",
         show_default=False,
         click_type=click_type,
         callback=callback,

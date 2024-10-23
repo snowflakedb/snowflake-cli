@@ -213,7 +213,7 @@ def execute(
     **options,
 ):
     """
-    Execute immediate all files from the stage path. Files can be filtered with glob like pattern,
+    Execute immediate all files from the stage path. Files can be filtered with a glob-like pattern,
     e.g. `@stage/*.sql`, `@stage/dev/*`. Only files with `.sql` extension will be executed.
     """
     results = StageManager().execute(
