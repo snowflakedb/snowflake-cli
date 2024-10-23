@@ -51,7 +51,6 @@ from snowflake.cli.api.entities.utils import (
     drop_generic_object,
     execute_post_deploy_hooks,
     generic_sql_error_handler,
-    render_script_templates,
     sync_deploy_root_with_stage,
     validation_item_to_str,
 )
@@ -76,7 +75,6 @@ from snowflake.cli.api.project.util import (
     to_identifier,
     unquote_identifier,
 )
-from snowflake.cli.api.rendering.jinja import get_basic_jinja_env
 from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -212,7 +210,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
             ),
             post_deploy_hooks=model.meta and model.meta.post_deploy,
-            package_scripts=[],  # Package scripts are not supported in PDFv2
             policy=policy,
         )
 
@@ -322,7 +319,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
             ),
             post_deploy_hooks=model.meta and model.meta.post_deploy,
-            package_scripts=[],  # Package scripts are not supported in PDFv2
             version=version,
             patch=patch,
             skip_git_check=skip_git_check,
@@ -402,7 +398,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         validate: bool,
         stage_fqn: str,
         post_deploy_hooks: list[PostDeployHook] | None,
-        package_scripts: List[str],
         policy: PolicyBase,
     ) -> DiffResult:
         # 1. Create a bundle if one wasn't passed in
@@ -427,16 +422,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             console.warning(e.message)
             if not policy.should_proceed("Proceed with using this package?"):
                 raise typer.Abort() from e
-        with get_sql_executor().use_role(package_role):
-            cls.apply_package_scripts(
-                console=console,
-                package_scripts=package_scripts,
-                package_warehouse=package_warehouse,
-                project_root=project_root,
-                package_role=package_role,
-                package_name=package_name,
-            )
 
+        with get_sql_executor().use_role(package_role):
             # 3. Upload files from deploy root local folder to the above stage
             stage_schema = extract_schema(stage_fqn)
             diff = sync_deploy_root_with_stage(
@@ -520,7 +507,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         validate: bool,
         stage_fqn: str,
         post_deploy_hooks: list[PostDeployHook] | None,
-        package_scripts: List[str],
         version: Optional[str],
         patch: Optional[int],
         force: bool,
@@ -613,7 +599,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             stage_fqn=stage_fqn,
             package_warehouse=package_warehouse,
             post_deploy_hooks=post_deploy_hooks,
-            package_scripts=package_scripts,
             policy=policy,
         )
 
@@ -1055,51 +1040,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
 
     @classmethod
-    def apply_package_scripts(
-        cls,
-        console: AbstractConsole,
-        package_scripts: List[str],
-        package_warehouse: Optional[str],
-        project_root: Path,
-        package_role: str,
-        package_name: str,
-    ) -> None:
-        """
-        Assuming the application package exists and we are using the correct role,
-        applies all package scripts in-order to the application package.
-        """
-
-        metrics = get_cli_context().metrics
-        metrics.set_counter_default(CLICounterField.PACKAGE_SCRIPTS, 0)
-
-        if not package_scripts:
-            return
-
-        metrics.set_counter(CLICounterField.PACKAGE_SCRIPTS, 1)
-
-        console.warning(
-            "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
-        )
-
-        queued_queries = render_script_templates(
-            project_root,
-            dict(package_name=package_name),
-            package_scripts,
-            get_basic_jinja_env(),
-        )
-
-        # once we're sure all the templates expanded correctly, execute all of them
-        with cls.use_package_warehouse(
-            package_warehouse=package_warehouse,
-        ):
-            try:
-                for i, queries in enumerate(queued_queries):
-                    console.step(f"Applying package script: {package_scripts[i]}")
-                    get_sql_executor().execute_queries(queries)
-            except ProgrammingError as err:
-                generic_sql_error_handler(err)
-
-    @classmethod
     def create_app_package(
         cls,
         console: AbstractConsole,
@@ -1308,7 +1248,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 stage_fqn=stage_fqn,
                 package_warehouse=package_warehouse,
                 post_deploy_hooks=[],
-                package_scripts=[],
                 policy=policy,
             )
         prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)

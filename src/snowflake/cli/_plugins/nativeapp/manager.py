@@ -256,16 +256,6 @@ class NativeAppManager:
             package_distribution=self.package_distribution,
         )
 
-    def _apply_package_scripts(self) -> None:
-        return ApplicationPackageEntity.apply_package_scripts(
-            console=cc,
-            package_scripts=self.package_scripts,
-            package_warehouse=self.package_warehouse,
-            project_root=self.project_root,
-            package_role=self.package_role,
-            package_name=self.package_name,
-        )
-
     def execute_app_post_deploy_hooks(self) -> None:
         execute_post_deploy_hooks(
             console=cc,
