@@ -79,7 +79,6 @@ def _version_create(
         stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.stage}",
         package_warehouse=pkg_model.meta.warehouse,
         post_deploy_hooks=pkg_model.meta.post_deploy,
-        package_scripts=[],
         version=version,
         patch=patch,
         force=force,
