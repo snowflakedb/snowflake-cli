@@ -21,7 +21,7 @@
   list([
     dict({
       'Error': None,
-      'File': '@snowcli_testing_repo/branches/main/tests_integration/test_data/projects/stage_execute_without_requirements/script_template.py',
+      'File': '@snowcli_testing_repo/branches/"pjob/SNOW-1758029-remove-necessity-of-requirements-txt-for-git-execute"/tests_integration/test_data/projects/stage_execute_without_requirements/script_template.py',
       'Status': 'SUCCESS',
     }),
   ])
