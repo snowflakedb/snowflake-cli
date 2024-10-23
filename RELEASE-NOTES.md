@@ -22,6 +22,8 @@
 
 ## Fixes and improvements
 * `snow --info` callback returns information about `SNOWFLAKE_HOME` variable.
+* Removed requirement of existence of any `requirements.txt` file for Python code execution via `snow git execute` command.
+  Before the fix the file (even empty) was required to make the execution working.
 
 
 # v3.1.0
