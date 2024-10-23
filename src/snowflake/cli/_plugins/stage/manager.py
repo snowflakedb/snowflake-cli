@@ -260,7 +260,7 @@ class StageManager(SqlExecutionMixin):
         query = f"ls {stage_path}"
         if pattern is not None:
             query += f" pattern = '{pattern}'"
-        return self._execute_query(query, cursor_class=DictCursor)
+        return self.execute_query(query, cursor_class=DictCursor)
 
     @staticmethod
     def _assure_is_existing_directory(path: Path) -> None:
@@ -275,7 +275,7 @@ class StageManager(SqlExecutionMixin):
         spath = self.build_path(stage_path)
         self._assure_is_existing_directory(dest_path)
         dest_directory = f"{dest_path}/"
-        return self._execute_query(
+        return self.execute_query(
             f"get {spath.path_for_sql()} {self._to_uri(dest_directory)} parallel={parallel}"
         )
 
@@ -291,7 +291,7 @@ class StageManager(SqlExecutionMixin):
             )
             self._assure_is_existing_directory(local_dir)
 
-            result = self._execute_query(
+            result = self.execute_query(
                 f"get {file_path.path_for_sql()} {self._to_uri(f'{local_dir}/')} parallel={parallel}"
             )
             results.append(result)
@@ -317,7 +317,7 @@ class StageManager(SqlExecutionMixin):
             spath = self.build_path(stage_path)
             local_resolved_path = path_resolver(str(local_path))
             log.info("Uploading %s to %s", local_resolved_path, stage_path)
-            cursor = self._execute_query(
+            cursor = self.execute_query(
                 f"put {self._to_uri(local_resolved_path)} {spath.path_for_sql()} "
                 f"auto_compress={str(auto_compress).lower()} parallel={parallel} overwrite={overwrite}"
             )
@@ -339,7 +339,7 @@ class StageManager(SqlExecutionMixin):
         # Destination needs to end with /
         dest = destination_stage_path.absolute_path().rstrip("/") + "/"
         query = f"copy files into {dest} from {source_stage_path}"
-        return self._execute_query(query)
+        return self.execute_query(query)
 
     def remove(
         self, stage_name: str, path: str, role: Optional[str] = None
@@ -352,7 +352,7 @@ class StageManager(SqlExecutionMixin):
         """
         with self.use_role(role) if role else nullcontext():
             stage_path = self.build_path(stage_name) / path
-            return self._execute_query(f"remove {stage_path.path_for_sql()}")
+            return self.execute_query(f"remove {stage_path.path_for_sql()}")
 
     def create(
         self, fqn: FQN, comment: Optional[str] = None, temporary: bool = False
@@ -361,7 +361,7 @@ class StageManager(SqlExecutionMixin):
         query = f"create {temporary_str}stage if not exists {fqn.sql_identifier}"
         if comment:
             query += f" comment='{comment}'"
-        return self._execute_query(query)
+        return self.execute_query(query)
 
     def iter_stage(self, stage_path: StagePath):
         for file in self.list_files(stage_path.absolute_path()).fetchall():
@@ -559,7 +559,7 @@ class StageManager(SqlExecutionMixin):
             query = f"execute immediate from {self.quote_stage_name(file_stage_path)}"
             if variables:
                 query += variables
-            self._execute_query(query)
+            self.execute_query(query)
             return StageManager._success_result(file=original_file)
         except ProgrammingError as e:
             StageManager._handle_execution_exception(on_error=on_error, exception=e)

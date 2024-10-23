@@ -22,7 +22,7 @@ from snowflake.cli._plugins.notebook.manager import NotebookManager
 from snowflake.cli.api.identifiers import FQN
 
 
-@mock.patch.object(NotebookManager, "_execute_query")
+@mock.patch.object(NotebookManager, "execute_query")
 def test_execute(mock_execute):
     _ = NotebookManager().execute(notebook_name=FQN.from_string("MY_NOTEBOOK"))
     mock_execute.assert_called_once_with(
@@ -44,7 +44,7 @@ def test_get_url(mock_url):
 
 
 @mock.patch("snowflake.cli._plugins.notebook.manager.make_snowsight_url")
-@mock.patch.object(NotebookManager, "_execute_queries")
+@mock.patch.object(NotebookManager, "execute_queries")
 @mock.patch("snowflake.cli._plugins.notebook.manager.get_cli_context")
 def test_create(mock_ctx, mock_execute, mock_url):
     type(mock_ctx().connection).warehouse = PropertyMock(return_value="MY_WH")

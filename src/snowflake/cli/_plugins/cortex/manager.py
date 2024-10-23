@@ -180,7 +180,7 @@ class CortexManager(SqlExecutionMixin):
 
     def _query_cortex_result_str(self, query: str) -> str:
         try:
-            cursor = self._execute_query(query, cursor_class=DictCursor)
+            cursor = self.execute_query(query, cursor_class=DictCursor)
             if cursor.rowcount is None:
                 raise SnowflakeSQLExecutionError(query)
             return str(cursor.fetchone()["CORTEX_RESULT"])

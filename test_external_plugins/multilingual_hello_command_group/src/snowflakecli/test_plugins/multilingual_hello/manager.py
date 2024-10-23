@@ -28,4 +28,4 @@ class MultilingualHelloManager(SqlExecutionMixin):
             prefix = "Hallo"
         elif language == HelloLanguage.pl:
             prefix = "Czesc"
-        return self._execute_query(f"SELECT '{prefix} {name}!' as greeting")
+        return self.execute_query(f"SELECT '{prefix} {name}!' as greeting")

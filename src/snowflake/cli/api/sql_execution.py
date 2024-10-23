@@ -43,17 +43,26 @@ from snowflake.connector.errors import ProgrammingError
 
 
 class BaseSqlExecutor:
+    """
+    Base class for executing SQL queries on a Snowflake connection.
+
+    This class provides methods to execute single or multiple SQL queries and handle the connection context.
+    It also includes logging capabilities.
+    """
+
     def __init__(self, connection: SnowflakeConnection | None = None) -> None:
         self._connection = connection
 
     @property
     def _conn(self) -> SnowflakeConnection:
+        """Returns the current Snowflake connection, either from the instance or the global CLI context."""
         if self._connection:
             return self._connection
         return get_cli_context().connection
 
     @cached_property
     def _log(self):
+        """Returns a logger instance for logging debug information."""
         return logging.getLogger(__name__)
 
     def _execute_string(
@@ -76,34 +85,35 @@ class BaseSqlExecutor:
         )
         return stream_generator if return_cursors else list()
 
-    def _execute_query(self, query: str, **kwargs):
-        *_, last_result = self._execute_queries(query, **kwargs)
+    def execute_query(self, query: str, **kwargs):
+        """Executes a single SQL query and returns the result"""
+        *_, last_result = list(self._execute_string(dedent(query), **kwargs))
         return last_result
 
-    def _execute_queries(self, queries: str, **kwargs):
-        return list(self._execute_string(dedent(queries), **kwargs))
-
-    def execute_query(self, query: str, **kwargs):
-        return self._execute_query(query, **kwargs)
-
     def execute_queries(self, queries: str, **kwargs):
-        return self._execute_queries(queries, **kwargs)
+        """Executes multiple SQL queries (passed as one string) and returns the results as a list"""
+        return list(self._execute_string(dedent(queries), **kwargs))
 
 
 class SqlExecutor(BaseSqlExecutor):
+    """
+    SqlExecutor extends BaseSqlExecutor and provides additional methods to manage roles, warehouses,
+    and create specific objects like secrets and API integrations.
+    """
+
     def __init__(self, connection: SnowflakeConnection | None = None):
         super().__init__(connection)
         self._snowpark_session = None
 
     def use(self, object_type: ObjectType, name: str):
         try:
-            self._execute_query(f"use {object_type.value.sf_name} {name}")
+            self.execute_query(f"use {object_type.value.sf_name} {name}")
         except ProgrammingError as err:
             # Rewrite the error to make the message more useful.
             raise CouldNotUseObjectError(object_type=object_type, name=name) from err
 
     def current_role(self) -> str:
-        return self._execute_query(f"select current_role()").fetchone()[0]
+        return self.execute_query(f"select current_role()").fetchone()[0]
 
     @contextmanager
     def use_role(self, new_role: str):
@@ -115,17 +125,15 @@ class SqlExecutor(BaseSqlExecutor):
         is_different_role = new_role.lower() != prev_role.lower()
         if is_different_role:
             self._log.debug("Assuming different role: %s", new_role)
-            self._execute_query(f"use role {new_role}")
+            self.execute_query(f"use role {new_role}")
         try:
             yield
         finally:
             if is_different_role:
-                self._execute_query(f"use role {prev_role}")
+                self.execute_query(f"use role {prev_role}")
 
     def session_has_warehouse(self) -> bool:
-        result = self._execute_query(
-            "select current_warehouse() is not null"
-        ).fetchone()
+        result = self.execute_query("select current_warehouse() is not null").fetchone()
         return bool(result[0])
 
     @contextmanager
@@ -136,7 +144,7 @@ class SqlExecutor(BaseSqlExecutor):
         If there is no default warehouse in the account, it will throw an error.
         """
 
-        wh_result = self._execute_query(f"select current_warehouse()").fetchone()
+        wh_result = self.execute_query(f"select current_warehouse()").fetchone()
         # If user has an assigned default warehouse, prev_wh will contain a value even if the warehouse is suspended.
         try:
             prev_wh = wh_result[0]
@@ -158,7 +166,7 @@ class SqlExecutor(BaseSqlExecutor):
     def create_password_secret(
         self, name: FQN, username: str, password: str
     ) -> SnowflakeCursor:
-        return self._execute_query(
+        return self.execute_query(
             f"""
             create secret {name.sql_identifier}
             type = password
@@ -170,7 +178,7 @@ class SqlExecutor(BaseSqlExecutor):
     def create_api_integration(
         self, name: FQN, api_provider: str, allowed_prefix: str, secret: Optional[str]
     ) -> SnowflakeCursor:
-        return self._execute_query(
+        return self.execute_query(
             f"""
             create api integration {name.sql_identifier}
             api_provider = {api_provider}
@@ -185,7 +193,7 @@ class SqlExecutor(BaseSqlExecutor):
         Check that a database and schema are provided before executing the query. Useful for operating on schema level objects.
         """
         self.check_database_and_schema_provided(name)
-        return self._execute_query(query, **kwargs)
+        return self.execute_query(query, **kwargs)
 
     def check_database_and_schema_provided(self, name: Optional[str] = None) -> None:
         """
@@ -245,7 +253,7 @@ class SqlExecutor(BaseSqlExecutor):
                 show_obj_query, name=name, cursor_class=DictCursor
             )
         else:
-            show_obj_cursor = self._execute_query(  # type: ignore
+            show_obj_cursor = self.execute_query(  # type: ignore
                 show_obj_query, cursor_class=DictCursor
             )
 

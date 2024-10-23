@@ -52,11 +52,11 @@ class ObjectManager(SqlExecutionMixin):
             query += f" like '{like}'"
         if scope[0] is not None:
             query += f" in {scope[0].replace('-', ' ')} {scope[1]}"
-        return self._execute_query(query, **kwargs)
+        return self.execute_query(query, **kwargs)
 
     def drop(self, *, object_type: str, fqn: FQN) -> SnowflakeCursor:
         object_name = _get_object_names(object_type).sf_name
-        return self._execute_query(f"drop {object_name} {fqn.sql_identifier}")
+        return self.execute_query(f"drop {object_name} {fqn.sql_identifier}")
 
     def describe(self, *, object_type: str, fqn: FQN):
         # Image repository is the only supported object that does not have a DESCRIBE command.
@@ -65,7 +65,7 @@ class ObjectManager(SqlExecutionMixin):
                 f"Describe is currently not supported for object of type image-repository"
             )
         object_name = _get_object_names(object_type).sf_name
-        return self._execute_query(f"describe {object_name} {fqn.sql_identifier}")
+        return self.execute_query(f"describe {object_name} {fqn.sql_identifier}")
 
     def object_exists(self, *, object_type: str, fqn: FQN):
         try:
