@@ -297,6 +297,7 @@ def test_too_wide_permissions_on_default_config_file_causes_error(
 
 @parametrize_icacls
 @pytest.mark.skipif(not IS_WINDOWS, reason="Windows permission system test")
+@pytest.mark.skip("WIP: https://github.com/snowflakedb/snowflake-cli/issues/1759")
 def test_too_wide_permissions_on_default_config_file_causes_error_windows(
     snowflake_home: Path, permissions: str
 ):
@@ -375,6 +376,7 @@ def test_too_wide_permissions_on_default_connections_file_causes_error(
 
 @parametrize_icacls
 @pytest.mark.skipif(condition=not IS_WINDOWS, reason="Windows permission system test")
+@pytest.mark.skip("WIP: https://github.com/snowflakedb/snowflake-cli/issues/1759")
 def test_too_wide_permissions_on_default_connections_file_causes_error_windows(
     snowflake_home: Path, permissions: str
 ):

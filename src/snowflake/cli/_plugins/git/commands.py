@@ -333,7 +333,7 @@ def execute(
     **options,
 ):
     """
-    Execute immediate all files from the repository path. Files can be filtered with glob like pattern,
+    Execute immediate all files from the repository path. Files can be filtered with a glob-like pattern,
     e.g. `@my_repo/branches/main/*.sql`, `@my_repo/branches/main/dev/*`. Only files with `.sql`
     or `.py` extension will be executed.
     """
