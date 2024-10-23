@@ -285,9 +285,7 @@ def _add_defaults_to_definition(original_definition: Definition) -> Definition:
     with context({"skip_validation_on_templates": True}):
         # pass a flag to Pydantic to skip validation for templated scalars
         # populate the defaults
-        project_definition = build_project_definition(
-            **copy.deepcopy(original_definition)
-        )
+        project_definition = build_project_definition(**original_definition)
 
     definition_with_defaults = project_definition.model_dump(
         exclude_none=True, warnings=False, by_alias=True

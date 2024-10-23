@@ -29,6 +29,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
 )
+from snowflake.cli.api.project.schemas.updatable_model import context
 from snowflake.cli.api.project.schemas.v1.native_app.application import (
     Application,
     ApplicationV11,
@@ -130,7 +131,10 @@ def convert_project_definition_to_v2(
         # since the file won't be re-read as it would be for a permanent conversion
         definition_v2 = render_definition_template(data, {}).project_definition
     else:
-        definition_v2 = ProjectDefinitionV2(**data)
+        # Exact values of context are irrelevant.
+        # It just can't be none, so the mixins are applied
+        with context({"convesion_in_memory": False}):
+            definition_v2 = ProjectDefinitionV2(**data)
 
     # If the user's files have any template tags in them, they
     # also need to be migrated to point to the v2 entities
