@@ -22,6 +22,8 @@
 
 ## Fixes and improvements
 * `snow --info` callback returns information about `SNOWFLAKE_HOME` variable.
+* Removed requirement of existence of any `requirements.txt` file for Python code execution via `snow git execute` command.
+  Before the fix the file (even empty) was required to make the execution working.
 
 
 # v3.1.0
@@ -40,6 +42,7 @@
 * Align variables for `snow stage|git execute`. For Python files variables are stripped of leading and trailing quotes.
 * `snow spcs service list-images` now displays image tag and digest.
 * Fix `snow stage list-files` for paths with directories.
+* Fix for list fields in mixins applied twice
 
 # v3.0.2
 

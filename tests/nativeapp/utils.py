@@ -43,7 +43,7 @@ APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION = (
 APP_ENTITY_GET_ACCOUNT_EVENT_TABLE = f"{APP_ENTITY}.get_account_event_table"
 
 APP_PACKAGE_ENTITY = "snowflake.cli._plugins.nativeapp.entities.application_package.ApplicationPackageEntity"
-APP_PACKAGE_ENTITY_DEPLOY = f"{APP_PACKAGE_ENTITY}.deploy"
+APP_PACKAGE_ENTITY_DEPLOY = f"{APP_PACKAGE_ENTITY}._deploy"
 APP_PACKAGE_ENTITY_DISTRIBUTION_IN_SF = (
     f"{APP_PACKAGE_ENTITY}.get_app_pkg_distribution_in_snowflake"
 )
