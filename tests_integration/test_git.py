@@ -11,11 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import sys
+import time
 
 import pytest
 from snowflake.connector.errors import ProgrammingError
 from pathlib import Path
 import tempfile
+
+from tests_integration.test_utils import contains_row_with
 
 FILE_IN_REPO = "RELEASE-NOTES.md"
 
@@ -300,6 +304,43 @@ def test_execute_python(runner, test_database, sf_git_repository, snapshot):
 
     assert result.exit_code == 0
     assert result.json == snapshot
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    sys.version_info >= (3, 12), reason="Snowpark is not supported in Python >= 3.12"
+)
+@pytest.mark.skip(
+    "Requires merging changes to the main branch"
+)  # TODO: remove after merging to the main branch
+def test_git_execute_python_without_requirements(
+    snowflake_session,
+    runner,
+    test_database,
+    test_root_path,
+    snapshot,
+    sf_git_repository,
+):
+    test_id = f"FOO{time.time_ns()}"
+    result = runner.invoke_with_connection_json(
+        [
+            "git",
+            "execute",
+            f"@{sf_git_repository.lower()}/branches/main/tests_integration/test_data/projects/stage_execute_without_requirements",
+            "-D",
+            f"test_database_name={test_database}",
+            "-D",
+            f"TEST_ID={test_id}",
+        ]
+    )
+    assert result.exit_code == 0
+    assert result.json == snapshot
+
+    # Assert side effect created by executed script
+    *_, schemas = snowflake_session.execute_string(
+        f"show schemas like '{test_id}' in database {test_database};"
+    )
+    assert len(list(schemas)) == 1
 
 
 @pytest.mark.integration

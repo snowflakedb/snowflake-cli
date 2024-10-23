@@ -867,8 +867,11 @@ def test_execute_from_user_stage(
 
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+@mock.patch(f"{STAGE_MANAGER}.snowpark_session")
 @skip_python_3_12
-def test_execute_with_variables(mock_bootstrap, mock_execute, mock_cursor, runner):
+def test_execute_with_variables(
+    mock_snowpark_session, mock_bootstrap, mock_execute, mock_cursor, runner
+):
     mock_execute.return_value = mock_cursor(
         [{"name": "exe/s1.sql"}, {"name": "exe/s2.py"}], []
     )
@@ -907,6 +910,7 @@ def test_execute_with_variables(mock_bootstrap, mock_execute, mock_cursor, runne
             "key4": "NULL",
             "key5": "var=value",
         },
+        session=mock_snowpark_session,
     )
 
 
@@ -1000,8 +1004,11 @@ def test_execute_no_files_for_stage_path(
 
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+@mock.patch(f"{STAGE_MANAGER}.snowpark_session")
 @skip_python_3_12
-def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner):
+def test_execute_stop_on_error(
+    mock_snowpark_session, mock_bootstrap, mock_execute, mock_cursor, runner
+):
     error_message = "Error"
     mock_execute.side_effect = [
         mock_cursor(
@@ -1027,17 +1034,23 @@ def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner
         mock.call(f"execute immediate from @exe/s2.sql"),
     ]
     assert mock_bootstrap.return_value.mock_calls == [
-        mock.call("@exe/p1.py", {}),
-        mock.call("@exe/p2.py", {}),
+        mock.call("@exe/p1.py", {}, session=mock_snowpark_session),
+        mock.call("@exe/p2.py", {}, session=mock_snowpark_session),
     ]
     assert error_message in result.output
 
 
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+@mock.patch(f"{STAGE_MANAGER}.snowpark_session")
 @skip_python_3_12
 def test_execute_continue_on_error(
-    mock_bootstrap, mock_execute, mock_cursor, runner, os_agnostic_snapshot
+    mock_snowpark_session,
+    mock_bootstrap,
+    mock_execute,
+    mock_cursor,
+    runner,
+    os_agnostic_snapshot,
 ):
     from snowflake.snowpark.exceptions import SnowparkSQLException
 
@@ -1071,8 +1084,8 @@ def test_execute_continue_on_error(
     ]
 
     assert mock_bootstrap.return_value.mock_calls == [
-        mock.call("@exe/p1.py", {}),
-        mock.call("@exe/p2.py", {}),
+        mock.call("@exe/p1.py", {}, session=mock_snowpark_session),
+        mock.call("@exe/p2.py", {}, session=mock_snowpark_session),
     ]
 
 
