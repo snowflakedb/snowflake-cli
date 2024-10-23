@@ -26,7 +26,6 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
-from snowflake.cli.api.project.schemas.entities.common import SqlScriptHookType
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.utils import (
@@ -164,16 +163,7 @@ def test_deploy(
         print_diff=True,
     )
     mock_validate.assert_called_once()
-    mock_execute_post_deploy_hooks.assert_called_once_with(
-        console=mock_console,
-        project_root=app_pkg._workspace_ctx.project_root,  # noqa SLF001
-        post_deploy_hooks=[
-            SqlScriptHookType(sql_script="scripts/package_post_deploy1.sql"),
-            SqlScriptHookType(sql_script="scripts/package_post_deploy2.sql"),
-        ],
-        package_name="pkg",
-        package_warehouse="wh",
-    )
+    mock_execute_post_deploy_hooks.assert_called_once_with()
     assert mock_execute.mock_calls == expected
 
 

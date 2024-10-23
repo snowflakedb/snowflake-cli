@@ -43,7 +43,6 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -64,7 +63,6 @@ from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
-    PostDeployHook,
     TargetField,
 )
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
@@ -532,13 +530,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                                 )
 
                         # hooks always executed after a create or upgrade
-                        self.execute_post_deploy_hooks(
-                            console=console,
-                            project_root=project_root,
-                            post_deploy_hooks=post_deploy_hooks,
-                            app_name=app_name,
-                            app_warehouse=app_warehouse,
-                        )
+                        self.execute_post_deploy_hooks()
                         return
 
                     except ProgrammingError as err:
@@ -590,32 +582,28 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     print_messages(console, create_cursor)
 
                     # hooks always executed after a create or upgrade
-                    self.execute_post_deploy_hooks(
-                        console=console,
-                        project_root=project_root,
-                        post_deploy_hooks=post_deploy_hooks,
-                        app_name=app_name,
-                        app_warehouse=app_warehouse,
-                    )
+                    self.execute_post_deploy_hooks()
 
                 except ProgrammingError as err:
                     generic_sql_error_handler(err)
 
-    @classmethod
-    def execute_post_deploy_hooks(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        post_deploy_hooks: Optional[List[PostDeployHook]],
-        app_name: str,
-        app_warehouse: Optional[str],
-    ):
+    def execute_post_deploy_hooks(self):
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
+        app_name = model.fqn.identifier
+        app_warehouse = (
+            model.meta and model.meta.warehouse
+        ) or workspace_ctx.default_warehouse
+        post_deploy_hooks = model.meta and model.meta.post_deploy
+
         get_cli_context().metrics.set_counter_default(
             CLICounterField.POST_DEPLOY_SCRIPTS, 0
         )
 
         if post_deploy_hooks:
-            with cls.use_application_warehouse(app_warehouse):
+            with self.use_application_warehouse(app_warehouse):
                 execute_post_deploy_hooks(
                     console=console,
                     project_root=project_root,

@@ -52,6 +52,7 @@ def test_package_post_deploy_scripts(
     mock_execute_query,
     project_directory,
     mock_cursor,
+    workspace_context,
 ):
     mock_conn.return_value = MockConnectionCtx()
     with project_directory("napp_post_deploy_v2") as project_dir:
@@ -59,11 +60,12 @@ def test_package_post_deploy_scripts(
         pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities[
             "myapp_pkg"
         ]
+        pkg = ApplicationPackageEntity(pkg_model, workspace_context)
         mock_cli_ctx.return_value = dm.template_context
         side_effects, expected = mock_execute_helper(
             [
                 (
-                    mock_cursor([("MockWarehouse",)], []),
+                    mock_cursor([(workspace_context.default_warehouse,)], []),
                     mock.call("select current_warehouse()"),
                 ),
                 (None, mock.call("use database myapp_pkg_test_user")),
@@ -72,13 +74,7 @@ def test_package_post_deploy_scripts(
         )
         mock_execute_query.side_effect = side_effects
 
-        ApplicationPackageEntity.execute_post_deploy_hooks(
-            console=cc,
-            project_root=project_dir,
-            post_deploy_hooks=pkg_model.meta.post_deploy,
-            package_name=pkg_model.fqn.name,
-            package_warehouse=pkg_model.meta.warehouse or "MockWarehouse",
-        )
+        pkg.execute_post_deploy_hooks()
 
         assert mock_execute_query.mock_calls == expected
         assert mock_execute_queries.mock_calls == [
@@ -234,6 +230,7 @@ def test_package_post_deploy_scripts_with_templates(
     project_directory,
     template_syntax,
     mock_cursor,
+    workspace_context,
 ):
     mock_conn.return_value = MockConnectionCtx()
     with project_directory("napp_post_deploy_v2") as project_dir:
@@ -253,12 +250,13 @@ def test_package_post_deploy_scripts_with_templates(
         pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities[
             "myapp_pkg"
         ]
+        pkg = ApplicationPackageEntity(pkg_model, workspace_context)
         mock_cli_ctx.return_value = dm.template_context
 
         side_effects, expected = mock_execute_helper(
             [
                 (
-                    mock_cursor([("MockWarehouse",)], []),
+                    mock_cursor([(workspace_context.default_warehouse,)], []),
                     mock.call("select current_warehouse()"),
                 ),
                 (None, mock.call("use database myapp_pkg_test_user")),
@@ -267,13 +265,7 @@ def test_package_post_deploy_scripts_with_templates(
         )
         mock_execute_query.side_effect = side_effects
 
-        ApplicationPackageEntity.execute_post_deploy_hooks(
-            console=cc,
-            project_root=project_dir,
-            post_deploy_hooks=pkg_model.meta.post_deploy,
-            package_name=pkg_model.fqn.name,
-            package_warehouse=pkg_model.meta.warehouse or "MockWarehouse",
-        )
+        pkg.execute_post_deploy_hooks()
 
         assert mock_execute_query.mock_calls == expected
         assert mock_execute_queries.mock_calls == [
