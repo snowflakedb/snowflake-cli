@@ -36,7 +36,7 @@ class UnsupportedArtifactProcessorError(ClickException):
 
 
 def is_python_file_artifact(src: Path, _: Path):
-    """Determines whether the provided source path is an existing python file."""
+    """Determines whether the provided source path is an existing Python file."""
     return src.is_file() and src.suffix == ".py"
 
 

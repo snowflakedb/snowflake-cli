@@ -167,14 +167,14 @@ class NativeAppSetupProcessor(ArtifactProcessor):
             )
         except Exception as e:
             raise ClickException(
-                f"Exception while executing python setup script logic: {e}"
+                f"Exception while executing Python setup script logic: {e}"
             )
 
         if result.returncode == 0:
             return json.loads(result.stdout)
         else:
             raise ClickException(
-                f"Failed to execute python setup script logic: {result.stderr}"
+                f"Failed to execute Python setup script logic: {result.stderr}"
             )
 
     def _edit_setup_sql(self, modifications: List[dict]) -> None:
