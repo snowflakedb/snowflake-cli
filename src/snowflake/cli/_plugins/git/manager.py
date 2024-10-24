@@ -84,13 +84,13 @@ class GitManager(StageManager):
         return StagePath.from_git_str(stage_path)
 
     def show_branches(self, repo_name: str, like: str) -> SnowflakeCursor:
-        return self._execute_query(f"show git branches like '{like}' in {repo_name}")
+        return self.execute_query(f"show git branches like '{like}' in {repo_name}")
 
     def show_tags(self, repo_name: str, like: str) -> SnowflakeCursor:
-        return self._execute_query(f"show git tags like '{like}' in {repo_name}")
+        return self.execute_query(f"show git tags like '{like}' in {repo_name}")
 
     def fetch(self, fqn: FQN) -> SnowflakeCursor:
-        return self._execute_query(f"alter git repository {fqn} fetch")
+        return self.execute_query(f"alter git repository {fqn} fetch")
 
     def create(
         self, repo_name: FQN, api_integration: str, url: str, secret: str
@@ -104,7 +104,7 @@ class GitManager(StageManager):
         )
         if secret is not None:
             query += f"git_credentials = {secret}\n"
-        return self._execute_query(query)
+        return self.execute_query(query)
 
     @staticmethod
     def get_stage_from_path(path: str):

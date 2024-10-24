@@ -27,7 +27,7 @@ from snowflake.connector.cursor import DictCursor
 
 @mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._conn")
 @mock.patch(
-    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._execute_query"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.execute_query"
 )
 def test_registry_get_token(mock_execute, mock_conn, mock_cursor, runner):
     mock_execute.return_value = mock_cursor(
@@ -58,7 +58,7 @@ MOCK_REPO_COLUMNS = [
 
 @mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._conn")
 @mock.patch(
-    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._execute_query"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.execute_query"
 )
 def test_get_registry_url(mock_execute, mock_conn, mock_cursor):
     mock_row = [
@@ -84,7 +84,7 @@ def test_get_registry_url(mock_execute, mock_conn, mock_cursor):
 
 @mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._conn")
 @mock.patch(
-    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._execute_query"
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.execute_query"
 )
 def test_get_registry_url_no_repositories(mock_execute, mock_conn, mock_cursor):
     mock_execute.return_value = mock_cursor(

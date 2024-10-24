@@ -56,18 +56,18 @@ class ComputePoolManager(SqlExecutionMixin):
             query.append(f"COMMENT = {comment}")
 
         try:
-            return self._execute_query(strip_empty_lines(query))
+            return self.execute_query(strip_empty_lines(query))
         except ProgrammingError as e:
             handle_object_already_exists(e, ObjectType.COMPUTE_POOL, pool_name)
 
     def stop(self, pool_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"alter compute pool {pool_name} stop all")
+        return self.execute_query(f"alter compute pool {pool_name} stop all")
 
     def suspend(self, pool_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"alter compute pool {pool_name} suspend")
+        return self.execute_query(f"alter compute pool {pool_name} suspend")
 
     def resume(self, pool_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"alter compute pool {pool_name} resume")
+        return self.execute_query(f"alter compute pool {pool_name} resume")
 
     def set_property(
         self,
@@ -95,7 +95,7 @@ class ComputePoolManager(SqlExecutionMixin):
         for property_name, value in property_pairs:
             if value is not None:
                 query.append(f"{property_name} = {value}")
-        return self._execute_query(strip_empty_lines(query))
+        return self.execute_query(strip_empty_lines(query))
 
     def unset_property(
         self, pool_name: str, auto_resume: bool, auto_suspend_secs: bool, comment: bool
@@ -113,9 +113,7 @@ class ComputePoolManager(SqlExecutionMixin):
             )
         unset_list = [property_name for property_name, value in property_pairs if value]
         query = f"alter compute pool {pool_name} unset {','.join(unset_list)}"
-        return self._execute_query(query)
+        return self.execute_query(query)
 
     def status(self, pool_name: str):
-        return self._execute_query(
-            f"call system$get_compute_pool_status('{pool_name}')"
-        )
+        return self.execute_query(f"call system$get_compute_pool_status('{pool_name}')")

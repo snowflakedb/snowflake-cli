@@ -177,7 +177,7 @@ class AnacondaPackagesManager(SqlExecutionMixin):
         return AnacondaPackages(packages)
 
     def _query_snowflake_for_available_packages(self) -> dict[str, AvailablePackage]:
-        cursor = self._execute_query(
+        cursor = self.execute_query(
             "select package_name, version from snowflake.information_schema.packages where language = 'python'",
             cursor_class=DictCursor,
         )

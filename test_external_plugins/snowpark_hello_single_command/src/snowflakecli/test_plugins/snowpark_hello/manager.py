@@ -25,6 +25,6 @@ class SnowparkHelloManager(SqlExecutionMixin):
     ).internal_config["greeting"]
 
     def say_hello(self, name: str) -> SnowflakeCursor:
-        return self._execute_query(
+        return self.execute_query(
             f"SELECT '{self._greeting} {name}! You are in Snowpark!' as greeting"
         )

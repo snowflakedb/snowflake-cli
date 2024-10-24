@@ -58,9 +58,9 @@ class SnowparkObjectManager(SqlExecutionMixin):
         self, execution_identifier: str, object_type: SnowparkObject
     ) -> SnowflakeCursor:
         if object_type == SnowparkObject.FUNCTION:
-            return self._execute_query(f"select {execution_identifier}")
+            return self.execute_query(f"select {execution_identifier}")
         if object_type == SnowparkObject.PROCEDURE:
-            return self._execute_query(f"call {execution_identifier}")
+            return self.execute_query(f"call {execution_identifier}")
         raise UsageError(f"Unknown object type: {object_type}.")
 
     def create_or_replace(
@@ -95,7 +95,7 @@ class SnowparkObjectManager(SqlExecutionMixin):
         if isinstance(entity, ProcedureEntityModel) and entity.execute_as_caller:
             query.append("execute as caller")
 
-        return self._execute_query("\n".join(query))
+        return self.execute_query("\n".join(query))
 
     def deploy_entity(
         self,

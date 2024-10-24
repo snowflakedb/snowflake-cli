@@ -17,7 +17,7 @@ mock_streamlit_exists = mock.patch(
 
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.get_url")
-@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager._execute_query")
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
 @mock_streamlit_exists
 def test_deploy_streamlit(mock_execute_query, _, mock_stage_manager, temp_dir):
     mock_stage_manager().get_standard_stage_prefix.return_value = "stage_root"
@@ -55,7 +55,7 @@ def test_deploy_streamlit(mock_execute_query, _, mock_stage_manager, temp_dir):
 
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.get_url")
-@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager._execute_query")
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
 @mock_streamlit_exists
 def test_deploy_streamlit_with_api_integrations(
     mock_execute_query, _, mock_stage_manager, temp_dir
@@ -97,7 +97,7 @@ def test_deploy_streamlit_with_api_integrations(
 
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.get_url")
-@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager._execute_query")
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
 @mock_streamlit_exists
 def test_deploy_streamlit_with_comment(
     mock_execute_query, _, mock_stage_manager, temp_dir
@@ -134,7 +134,7 @@ def test_deploy_streamlit_with_comment(
     )
 
 
-@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager._execute_query")
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
 @mock_streamlit_exists
 def test_execute_streamlit(mock_execute_query):
     app_name = FQN(database="DB", schema="SH", name="my_streamlit_app")

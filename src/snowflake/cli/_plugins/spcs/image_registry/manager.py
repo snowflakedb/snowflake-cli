@@ -36,7 +36,7 @@ class RegistryManager(SqlExecutionMixin):
         """
         Get token to authenticate with registry.
         """
-        self._execute_query(
+        self.execute_query(
             "alter session set PYTHON_CONNECTOR_QUERY_RESULT_FORMAT = 'json'"
         ).fetchall()
         # disable session deletion
@@ -75,7 +75,7 @@ class RegistryManager(SqlExecutionMixin):
 
     def get_registry_url(self) -> str:
         repositories_query = "show image repositories in account"
-        result_set = self._execute_query(repositories_query, cursor_class=DictCursor)
+        result_set = self.execute_query(repositories_query, cursor_class=DictCursor)
         results = result_set.fetchall()
         if len(results) == 0:
             raise NoImageRepositoriesFoundError()

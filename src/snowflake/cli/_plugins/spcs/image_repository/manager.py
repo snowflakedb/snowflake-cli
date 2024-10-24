@@ -84,4 +84,4 @@ class ImageRepositoryManager(SqlExecutionMixin):
             )
 
     def list_images(self, repo_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"show images in image repository {repo_name}")
+        return self.execute_query(f"show images in image repository {repo_name}")

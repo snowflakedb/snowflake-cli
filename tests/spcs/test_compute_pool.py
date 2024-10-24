@@ -36,7 +36,7 @@ from tests_integration.testing_utils.assertions.test_result_assertions import (
 
 
 @patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
 )
 def test_create(mock_execute_query):
     pool_name = "test_pool"
@@ -141,7 +141,7 @@ def test_create_pool_cli(mock_create, runner):
 
 
 @patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
 )
 @patch("snowflake.cli._plugins.spcs.compute_pool.manager.handle_object_already_exists")
 def test_create_compute_pool_already_exists(mock_handle, mock_execute):
@@ -164,7 +164,7 @@ def test_create_compute_pool_already_exists(mock_handle, mock_execute):
 
 
 @patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
 )
 def test_create_compute_pool_if_not_exists(mock_execute_query):
     cursor = Mock(spec=SnowflakeCursor)
@@ -197,7 +197,7 @@ def test_create_compute_pool_if_not_exists(mock_execute_query):
 
 
 @patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
 )
 def test_stop(mock_execute_query):
     pool_name = "test_pool"
@@ -210,7 +210,7 @@ def test_stop(mock_execute_query):
 
 
 @patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
 )
 def test_suspend(mock_execute_query):
     pool_name = "test_pool"
@@ -247,7 +247,7 @@ def test_suspend_cli(mock_suspend, mock_cursor, runner):
 
 
 @patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
 )
 def test_resume(mock_execute_query):
     pool_name = "test_pool"
@@ -301,7 +301,7 @@ def test_compute_pool_name_callback_invalid(mock_is_valid):
 
 
 @patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
 )
 def test_set_property(mock_execute_query):
     pool_name = "test_pool"
@@ -402,7 +402,7 @@ def test_set_property_no_properties_cli(mock_set, runner):
 
 
 @patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
 )
 def test_unset_property(mock_execute_query):
     pool_name = "test_pool"
@@ -477,7 +477,7 @@ def test_unset_property_with_args(runner):
 
 
 @patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager._execute_query"
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
 )
 def test_status(mock_execute_query):
     pool_name = "test_pool"
