@@ -224,7 +224,6 @@ def test_not_found_default_connection_from_evn_variable(test_root_path):
     )
 
 
-@pytest.mark.skip("Fixing it in this PR")
 def test_no_copy_of_connection_to_config_toml_on_setting_default_connection(
     test_snowcli_config, snowflake_home
 ):
@@ -232,27 +231,43 @@ def test_no_copy_of_connection_to_config_toml_on_setting_default_connection(
 
     connections_toml = snowflake_home / "connections.toml"
     connections_toml.write_text(
-        """[asdf1234]
-    database = "asdf_database"
-    user = "asdf"
-    account = "asdf"
+        """[asdf_a]
+    database = "asdf_a_database"
+    user = "asdf_a"
+    account = "asdf_a"
+    
+    [asdf_b]
+    database = "asdf_b_database"
+    user = "asdf_b"
+    account = "asdf_b"
     """
     )
     config_init(test_snowcli_config)
-    set_config_value(section=None, key="default_connection_name", value="asdf1234")
+    set_config_value(section=None, key="default_connection_name", value="asdf_b")
 
-    assert CONFIG_MANAGER["default_connection_name"] == "asdf1234"
+    assert CONFIG_MANAGER["default_connection_name"] == "asdf_b"
     assert CONFIG_MANAGER["connections"] == {
-        "asdf1234": {
-            "database": "asdf1234_database",
-            "user": "asdf1234",
-            "account": "asdf1234",
-        }
+        "asdf_a": {
+            "database": "asdf_a_database",
+            "user": "asdf_a",
+            "account": "asdf_a",
+        },
+        "asdf_b": {
+            "database": "asdf_b_database",
+            "user": "asdf_b",
+            "account": "asdf_b",
+        },
     }
     with open(connections_toml) as f:
-        assert f.read().count("asdf1234") == 4
+        connection_toml_content = f.read()
+        assert connection_toml_content.count("asdf_a") == 4
+        assert connection_toml_content.count("asdf_b") == 4
     with open(test_snowcli_config) as f:
-        assert f.read().count("asdf1234") == 1  # only default_config_name setting
+        config_toml_content = f.read()
+        assert config_toml_content.count("asdf_a") == 0
+        assert (
+            config_toml_content.count("asdf_b") == 1
+        )  # only default_config_name setting
 
 
 def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_home):
