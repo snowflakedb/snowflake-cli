@@ -42,6 +42,7 @@ class _CliGlobalContextManager:
     )
 
     output_format: OutputFormat = OutputFormat.TABLE
+    full_width_table: bool = False
     silent: bool = False
     verbose: bool = False
     experimental: bool = False
@@ -162,6 +163,10 @@ class _CliGlobalContextAccess:
     @property
     def output_format(self) -> OutputFormat:
         return self._manager.output_format
+
+    @property
+    def full_width_table(self) -> bool:
+        return self._manager.full_width_table
 
     @property
     def verbose(self) -> bool:
