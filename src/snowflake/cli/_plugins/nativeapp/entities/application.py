@@ -593,9 +593,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         console = workspace_ctx.console
         project_root = workspace_ctx.project_root
         app_name = model.fqn.identifier
-        app_warehouse = (
-            model.meta and model.meta.warehouse
-        ) or workspace_ctx.default_warehouse
         post_deploy_hooks = model.meta and model.meta.post_deploy
 
         get_cli_context().metrics.set_counter_default(
@@ -603,7 +600,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         )
 
         if post_deploy_hooks:
-            with self.use_application_warehouse(app_warehouse):
+            with self.use_application_warehouse():
                 execute_post_deploy_hooks(
                     console=console,
                     project_root=project_root,
@@ -612,11 +609,14 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     database_name=app_name,
                 )
 
-    @staticmethod
     @contextmanager
-    def use_application_warehouse(
-        app_warehouse: Optional[str],
-    ):
+    def use_application_warehouse(self):
+        model = self._entity_model
+        ctx = self._workspace_ctx
+        app_warehouse = (
+            model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)
+        ) or to_identifier(ctx.default_warehouse)
+
         if app_warehouse:
             with get_sql_executor().use_warehouse(app_warehouse):
                 yield
@@ -871,19 +871,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
-        model = self._entity_model
-        ctx = self._workspace_ctx
-        warehouse = (
-            model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)
-        ) or to_identifier(ctx.default_warehouse)
-        return self.get_snowsight_url_static(model.fqn.name, warehouse)
-
-    # Temporary static entrypoint until NativeAppManager.get_snowsight_url() is removed
-    @classmethod
-    def get_snowsight_url_static(cls, app_name: str, app_warehouse: str) -> str:
-        """Returns the URL that can be used to visit this app via Snowsight."""
-        name = identifier_for_url(app_name)
-        with cls.use_application_warehouse(app_warehouse):
+        name = identifier_for_url(self._entity_model.fqn.name)
+        with self.use_application_warehouse():
             sql_executor = get_sql_executor()
             return make_snowsight_url(
                 sql_executor._conn, f"/#/apps/application/{name}"  # noqa: SLF001

@@ -687,6 +687,7 @@ def test_get_snowsight_url_with_pdf_warehouse(
     fallback_side_effect,
     temp_dir,
     mock_cursor,
+    workspace_context,
 ):
     mock_conn.return_value = MockConnectionCtx(warehouse=warehouse)
     mock_snowsight_host.return_value = "https://host"
@@ -713,10 +714,9 @@ def test_get_snowsight_url_with_pdf_warehouse(
 
     dm = _get_dm()
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+    app = ApplicationEntity(app_model, workspace_context)
     assert (
-        ApplicationEntity.get_snowsight_url_static(
-            app_model.fqn.name, app_model.meta.warehouse
-        )
+        app.get_snowsight_url()
         == "https://host/organization/account/#/apps/application/MYAPP"
     )
     assert mock_execute_query.mock_calls == expected + fallback_warehouse_call
@@ -738,12 +738,6 @@ def test_get_snowsight_url_with_pdf_warehouse(
             [mock.call("select current_warehouse()")],
             [None],
         ),
-        (
-            "napp_project_2",
-            None,
-            [],
-            [],
-        ),
     ],
     indirect=["project_definition_files"],
 )
@@ -758,6 +752,7 @@ def test_get_snowsight_url_without_pdf_warehouse(
     expected_calls,
     fallback_side_effect,
     mock_cursor,
+    workspace_context,
 ):
     mock_conn.return_value = MockConnectionCtx(warehouse=warehouse)
     mock_snowsight_host.return_value = "https://host"
@@ -772,18 +767,12 @@ def test_get_snowsight_url_without_pdf_warehouse(
 
     dm = _get_dm(str(working_dir))
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp_polly"]
-    if warehouse:
-        assert (
-            ApplicationEntity.get_snowsight_url_static(app_model.fqn.name, warehouse)
-            == "https://host/organization/account/#/apps/application/MYAPP_POLLY"
-        )
-    else:
-        with pytest.raises(ClickException) as err:
-            ApplicationEntity.get_snowsight_url_static(
-                app_model.fqn.name, app_model.meta.warehouse
-            )
-        assert "Application warehouse cannot be empty." in err.value.message
-
+    app = ApplicationEntity(app_model, workspace_context)
+    workspace_context.get_default_warehouse = lambda: warehouse
+    assert (
+        app.get_snowsight_url()
+        == "https://host/organization/account/#/apps/application/MYAPP_POLLY"
+    )
     assert mock_execute_query.mock_calls == expected_calls
 
 
