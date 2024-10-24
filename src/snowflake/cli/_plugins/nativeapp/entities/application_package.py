@@ -60,7 +60,6 @@ from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
-    PostDeployHook,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
@@ -582,13 +581,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
 
             if run_post_deploy_hooks:
-                self.execute_post_deploy_hooks(
-                    console=console,
-                    project_root=project_root,
-                    post_deploy_hooks=(model.meta and model.meta.post_deploy),
-                    package_name=package_name,
-                    package_warehouse=package_warehouse,
-                )
+                self.execute_post_deploy_hooks()
 
         if validate:
             self.validate_setup_script(
@@ -1036,21 +1029,23 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
             )
 
-    @classmethod
-    def execute_post_deploy_hooks(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        post_deploy_hooks: Optional[List[PostDeployHook]],
-        package_name: str,
-        package_warehouse: Optional[str],
-    ):
+    def execute_post_deploy_hooks(self):
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
+        package_name = model.fqn.identifier
+        package_warehouse = (
+            model.meta and model.meta.warehouse
+        ) or workspace_ctx.default_warehouse
+        post_deploy_hooks = model.meta and model.meta.post_deploy
+
         get_cli_context().metrics.set_counter_default(
             CLICounterField.POST_DEPLOY_SCRIPTS, 0
         )
 
         if post_deploy_hooks:
-            with cls.use_package_warehouse(package_warehouse):
+            with self.use_package_warehouse(package_warehouse):
                 execute_post_deploy_hooks(
                     console=console,
                     project_root=project_root,
