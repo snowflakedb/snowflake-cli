@@ -340,9 +340,18 @@ def _get_envs_for_path(*path) -> dict:
     }
 
 
-def _dump_config(conf_file_cache: Dict):
+def _dump_config(whole_conf_cache: Dict):
+    config_toml_dict = whole_conf_cache.copy()
+
+    if CONNECTIONS_FILE.exists():
+        # update connections in connections.toml
+        _update_connections_toml(whole_conf_cache.get("connections") or {})
+        # to config.toml save only connections from config.toml
+        connections_to_save_in_config_toml = _read_config_file_toml().get("connections")
+        config_toml_dict["connections"] = connections_to_save_in_config_toml
+
     with SecurePath(CONFIG_MANAGER.file_path).open("w+") as fh:
-        dump(conf_file_cache, fh)
+        dump(config_toml_dict, fh)
 
 
 def _check_default_config_files_permissions() -> None:
@@ -371,6 +380,11 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
             return "UNKNOWN"
 
     return {k: _bool_or_unknown(v) for k, v in flags.items()}
+
+
+def _read_config_file_toml() -> dict:
+    with open(CONFIG_MANAGER.file_path, "r") as f:
+        return tomlkit.loads(f.read()).unwrap()
 
 
 def _read_connections_toml() -> dict:
