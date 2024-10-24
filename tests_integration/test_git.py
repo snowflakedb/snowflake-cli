@@ -310,9 +310,6 @@ def test_execute_python(runner, test_database, sf_git_repository, snapshot):
 @pytest.mark.skipif(
     sys.version_info >= (3, 12), reason="Snowpark is not supported in Python >= 3.12"
 )
-@pytest.mark.skip(
-    "Requires merging changes to the main branch"
-)  # TODO: remove after merging to the main branch
 def test_git_execute_python_without_requirements(
     snowflake_session,
     runner,
