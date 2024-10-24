@@ -224,7 +224,7 @@ def test_not_found_default_connection_from_evn_variable(test_root_path):
     )
 
 
-def test_no_copy_of_connection_to_config_toml_on_setting_default_connection(
+def test_correct_updates_of_connections_on_setting_default_connection(
     test_snowcli_config, snowflake_home
 ):
     from snowflake.cli.api.config import CONFIG_MANAGER
@@ -245,29 +245,55 @@ def test_no_copy_of_connection_to_config_toml_on_setting_default_connection(
     config_init(test_snowcli_config)
     set_config_value(section=None, key="default_connection_name", value="asdf_b")
 
-    assert CONFIG_MANAGER["default_connection_name"] == "asdf_b"
-    assert CONFIG_MANAGER["connections"] == {
-        "asdf_a": {
-            "database": "asdf_a_database",
-            "user": "asdf_a",
-            "account": "asdf_a",
-        },
-        "asdf_b": {
-            "database": "asdf_b_database",
-            "user": "asdf_b",
-            "account": "asdf_b",
-        },
-    }
+    def assert_correct_connections_loaded():
+        assert CONFIG_MANAGER["default_connection_name"] == "asdf_b"
+        assert CONFIG_MANAGER["connections"] == {
+            "asdf_a": {
+                "database": "asdf_a_database",
+                "user": "asdf_a",
+                "account": "asdf_a",
+            },
+            "asdf_b": {
+                "database": "asdf_b_database",
+                "user": "asdf_b",
+                "account": "asdf_b",
+            },
+        }
+
+    assert_correct_connections_loaded()
+
     with open(connections_toml) as f:
         connection_toml_content = f.read()
-        assert connection_toml_content.count("asdf_a") == 4
-        assert connection_toml_content.count("asdf_b") == 4
+        assert (
+            connection_toml_content.count("asdf_a") == 4
+        )  # connection still exists in connections.toml
+        assert (
+            connection_toml_content.count("asdf_b") == 4
+        )  # connection still exists in connections.toml
+        assert (
+            connection_toml_content.count("jwt") == 0
+        )  # connection from config.toml isn't copied to connections.toml
     with open(test_snowcli_config) as f:
         config_toml_content = f.read()
-        assert config_toml_content.count("asdf_a") == 0
+        assert (
+            config_toml_content.count("asdf_a") == 0
+        )  # connection from connections.toml isn't copied to config.toml
         assert (
             config_toml_content.count("asdf_b") == 1
-        )  # only default_config_name setting
+        )  # only default_config_name setting, connection from connections.toml isn't copied to config.toml
+        assert (
+            config_toml_content.count("connections.full") == 1
+        )  # connection still exists in config.toml
+        assert (
+            config_toml_content.count("connections.jwt") == 1
+        )  # connection still exists in config.toml
+        assert (
+            config_toml_content.count("dummy_flag = true") == 1
+        )  # other settings are not erased
+
+    # reinit config file and recheck loaded connections
+    config_init(test_snowcli_config)
+    assert_correct_connections_loaded()
 
 
 def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_home):
