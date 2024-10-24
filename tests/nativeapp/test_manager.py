@@ -1651,6 +1651,7 @@ def test_get_events(
     expected_first_clause,
     last,
     expected_last_clause,
+    workspace_context,
 ):
     create_named_file(
         file_name="snowflake.yml",
@@ -1693,8 +1694,8 @@ def test_get_events(
             "app_pkg"
         ]
         app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
-        return ApplicationEntity.get_events(
-            app_name=app_model.fqn.name,
+        app = ApplicationEntity(app_model, workspace_context)
+        return app.get_events(
             package_name=pkg_model.fqn.name,
             since=since,
             until=until,
@@ -1722,7 +1723,7 @@ def test_get_events(
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_events_quoted_app_name(
-    mock_execute, mock_account_event_table, temp_dir, mock_cursor
+    mock_execute, mock_account_event_table, temp_dir, mock_cursor, workspace_context
 ):
     create_named_file(
         file_name="snowflake.yml",
@@ -1767,19 +1768,15 @@ def test_get_events_quoted_app_name(
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
-    assert (
-        ApplicationEntity.get_events(
-            app_name=app_model.fqn.name, package_name=pkg_model.fqn.name
-        )
-        == events
-    )
+    app = ApplicationEntity(app_model, workspace_context)
+    assert app.get_events(package_name=pkg_model.fqn.name) == events
     assert mock_execute.mock_calls == expected
 
 
 @pytest.mark.parametrize("return_value", [None, "NONE"])
 @mock.patch(APP_ENTITY_GET_ACCOUNT_EVENT_TABLE)
 def test_get_events_no_event_table(
-    mock_account_event_table, return_value, temp_dir, mock_cursor
+    mock_account_event_table, return_value, temp_dir, mock_cursor, workspace_context
 ):
     mock_account_event_table.return_value = return_value
     create_named_file(
@@ -1791,10 +1788,9 @@ def test_get_events_no_event_table(
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+    app = ApplicationEntity(app_model, workspace_context)
     with pytest.raises(NoEventTableForAccount):
-        ApplicationEntity.get_events(
-            app_name=app_model.fqn.name, package_name=pkg_model.fqn.name
-        )
+        app.get_events(package_name=pkg_model.fqn.name)
 
 
 @mock.patch(
@@ -1803,7 +1799,7 @@ def test_get_events_no_event_table(
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_events_event_table_dne_or_unauthorized(
-    mock_execute, mock_account_event_table, temp_dir, mock_cursor
+    mock_execute, mock_account_event_table, temp_dir, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -1845,10 +1841,9 @@ def test_get_events_event_table_dne_or_unauthorized(
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+    app = ApplicationEntity(app_model, workspace_context)
     with pytest.raises(ClickException) as err:
-        ApplicationEntity.get_events(
-            app_name=app_model.fqn.name, package_name=pkg_model.fqn.name
-        )
+        app.get_events(package_name=pkg_model.fqn.name)
 
     assert mock_execute.mock_calls == expected
     assert err.match(
@@ -1865,7 +1860,9 @@ def test_get_events_event_table_dne_or_unauthorized(
     return_value="db.schema.event_table",
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cursor):
+def test_stream_events(
+    mock_execute, mock_account_event_table, temp_dir, mock_cursor, workspace_context
+):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
@@ -1960,11 +1957,9 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
-    stream = ApplicationEntity.stream_events(
-        app_name=app_model.fqn.name,
-        package_name=pkg_model.fqn.name,
-        interval_seconds=0,
-        last=last,
+    app = ApplicationEntity(app_model, workspace_context)
+    stream = app.stream_events(
+        package_name=pkg_model.fqn.name, interval_seconds=0, last=last
     )
     for call in events:
         for event in call:
