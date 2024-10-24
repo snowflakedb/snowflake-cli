@@ -25,6 +25,7 @@ from snowflake.cli.api.config import (
     get_connection_dict,
     get_default_connection_dict,
     get_env_variable_name,
+    set_config_value,
 )
 from snowflake.cli.api.exceptions import MissingConfiguration
 
@@ -221,6 +222,37 @@ def test_not_found_default_connection_from_evn_variable(test_root_path):
         ex.value.message
         == "Couldn't find connection for default connection `not_existed_connection`. Specify connection name or configure default connection."
     )
+
+
+@pytest.mark.skip("Fixing it in this PR")
+def test_no_copy_of_connection_to_config_toml_on_setting_default_connection(
+    test_snowcli_config, snowflake_home
+):
+    from snowflake.cli.api.config import CONFIG_MANAGER
+
+    connections_toml = snowflake_home / "connections.toml"
+    connections_toml.write_text(
+        """[asdf1234]
+    database = "asdf_database"
+    user = "asdf"
+    account = "asdf"
+    """
+    )
+    config_init(test_snowcli_config)
+    set_config_value(section=None, key="default_connection_name", value="asdf1234")
+
+    assert CONFIG_MANAGER["default_connection_name"] == "asdf1234"
+    assert CONFIG_MANAGER["connections"] == {
+        "asdf1234": {
+            "database": "asdf1234_database",
+            "user": "asdf1234",
+            "account": "asdf1234",
+        }
+    }
+    with open(connections_toml) as f:
+        assert f.read().count("asdf1234") == 4
+    with open(test_snowcli_config) as f:
+        assert f.read().count("asdf1234") == 1  # only default_config_name setting
 
 
 def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_home):
