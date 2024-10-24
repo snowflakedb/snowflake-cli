@@ -177,40 +177,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         **kwargs,
     ):
         model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        package_name = model.fqn.identifier
-
-        if force:
-            policy = AllowAlwaysPolicy()
-        elif interactive:
-            policy = AskAlwaysPolicy()
-        else:
-            policy = DenyAlwaysPolicy()
-
-        return self.deploy(
-            console=workspace_ctx.console,
-            project_root=workspace_ctx.project_root,
-            deploy_root=workspace_ctx.project_root / model.deploy_root,
-            bundle_root=workspace_ctx.project_root / model.bundle_root,
-            generated_root=(
-                workspace_ctx.project_root / model.deploy_root / model.generated_root
-            ),
-            artifacts=model.artifacts,
+        return self._deploy(
             bundle_map=None,
-            package_name=package_name,
-            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
-            package_distribution=model.distribution,
             prune=prune,
             recursive=recursive,
             paths=paths,
             print_diff=True,
             validate=validate,
-            stage_fqn=stage_fqn or f"{package_name}.{model.stage}",
-            package_warehouse=(
-                (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
-            ),
-            post_deploy_hooks=model.meta and model.meta.post_deploy,
-            policy=policy,
+            stage_fqn=stage_fqn or f"{model.fqn.identifier}.{model.stage}",
+            interactive=interactive,
+            force=force,
         )
 
     def action_drop(self, action_ctx: ActionContext, force_drop: bool, *args, **kwargs):
@@ -319,40 +295,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         *args,
         **kwargs,
     ):
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        package_name = model.fqn.identifier
-        if force:
-            policy = AllowAlwaysPolicy()
-        elif interactive:
-            policy = AskAlwaysPolicy()
-        else:
-            policy = DenyAlwaysPolicy()
-
         self.validate_setup_script(
-            console=workspace_ctx.console,
-            project_root=workspace_ctx.project_root,
-            deploy_root=workspace_ctx.project_root / model.deploy_root,
-            bundle_root=workspace_ctx.project_root / model.bundle_root,
-            generated_root=(
-                workspace_ctx.project_root / model.deploy_root / model.generated_root
-            ),
-            artifacts=model.artifacts,
-            package_name=package_name,
-            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
-            package_distribution=model.distribution,
-            prune=True,
-            recursive=True,
-            paths=[],
-            stage_fqn=f"{package_name}.{model.stage}",
-            package_warehouse=(
-                (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
-            ),
-            policy=policy,
             use_scratch_stage=use_scratch_stage,
-            scratch_stage_fqn=f"{package_name}.{model.scratch_stage}",
+            interactive=interactive,
+            force=force,
         )
-        workspace_ctx.console.message("Setup script is valid")
+        self._workspace_ctx.console.message("Setup script is valid")
 
     def action_version_list(
         self, action_ctx: ActionContext, *args, **kwargs
@@ -404,11 +352,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
         stage_fqn = f"{package_name}.{model.stage}"
 
-        is_interactive = False
         if force:
             policy = AllowAlwaysPolicy()
         elif interactive:
-            is_interactive = True
             policy = AskAlwaysPolicy()
         else:
             policy = DenyAlwaysPolicy()
@@ -447,9 +393,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         # Check if --patch needs to throw a bad option error, either if application package does not exist or if version does not exist
         if patch is not None:
             try:
-                if not self.get_existing_version_info(
-                    version, package_name, package_role
-                ):
+                if not self.get_existing_version_info(version):
                     raise BadOptionUsage(
                         option_name="patch",
                         message=f"Cannot create a custom patch when version {version} is not defined in the application package {package_name}. Try again without using --patch.",
@@ -461,42 +405,23 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
 
         if git_policy.should_proceed():
-            self.check_index_changes_in_git_repo(
-                console=console,
-                project_root=project_root,
-                policy=policy,
-                is_interactive=is_interactive,
-            )
+            self.check_index_changes_in_git_repo(policy=policy, interactive=interactive)
 
-        self.deploy(
-            console=console,
-            project_root=project_root,
-            deploy_root=deploy_root,
-            bundle_root=bundle_root,
-            generated_root=generated_root,
-            artifacts=model.artifacts,
+        self._deploy(
             bundle_map=bundle_map,
-            package_name=package_name,
-            package_role=package_role,
-            package_distribution=model.distribution,
             prune=True,
             recursive=True,
-            paths=None,
+            paths=[],
             print_diff=True,
             validate=True,
             stage_fqn=stage_fqn,
-            package_warehouse=(
-                (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
-            ),
-            post_deploy_hooks=(model.meta and model.meta.post_deploy),
-            policy=policy,
+            interactive=interactive,
+            force=force,
         )
 
         # Warn if the version exists in a release directive(s)
         existing_release_directives = (
-            self.get_existing_release_directive_info_for_version(
-                package_name, package_role, version
-            )
+            self.get_existing_release_directive_info_for_version(version)
         )
 
         if existing_release_directives:
@@ -516,7 +441,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 f"package {package_name}? Once added, this operation cannot be undone."
             )
             if not policy.should_proceed(user_prompt):
-                if is_interactive:
+                if interactive:
                     console.message("Not creating a new patch.")
                     raise typer.Exit(0)
                 else:
@@ -526,25 +451,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     raise typer.Exit(1)
 
         # Define a new version in the application package
-        if not self.get_existing_version_info(version, package_name, package_role):
-            self.add_new_version(
-                console=console,
-                package_name=package_name,
-                package_role=package_role,
-                stage_fqn=stage_fqn,
-                version=version,
-            )
+        if not self.get_existing_version_info(version):
+            self.add_new_version(version)
             return  # A new version created automatically has patch 0, we do not need to further increment the patch.
 
         # Add a new patch to an existing (old) version
-        self.add_new_patch_to_version(
-            console=console,
-            package_name=package_name,
-            package_role=package_role,
-            stage_fqn=stage_fqn,
-            version=version,
-            patch=patch,
-        )
+        self.add_new_patch_to_version(version=version, patch=patch)
 
     def action_version_drop(
         self,
@@ -597,47 +509,56 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         compiler.compile_artifacts()
         return bundle_map
 
-    @classmethod
-    def deploy(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        deploy_root: Path,
-        bundle_root: Path,
-        generated_root: Path,
-        artifacts: list[PathMapping],
+    def _deploy(
+        self,
         bundle_map: BundleMap | None,
-        package_name: str,
-        package_role: str,
-        package_distribution: str,
-        package_warehouse: str | None,
         prune: bool,
         recursive: bool,
-        paths: List[Path] | None,
+        paths: list[Path],
         print_diff: bool,
         validate: bool,
         stage_fqn: str,
-        post_deploy_hooks: list[PostDeployHook] | None,
-        policy: PolicyBase,
+        interactive: bool,
+        force: bool,
+        run_post_deploy_hooks: bool = True,
     ) -> DiffResult:
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        package_name = model.fqn.identifier
+        if force:
+            policy = AllowAlwaysPolicy()
+        elif interactive:
+            policy = AskAlwaysPolicy()
+        else:
+            policy = DenyAlwaysPolicy()
+
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
+        deploy_root = workspace_ctx.project_root / model.deploy_root
+        bundle_root = workspace_ctx.project_root / model.bundle_root
+        generated_root = (
+            workspace_ctx.project_root / model.deploy_root / model.generated_root
+        )
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        package_distribution = model.distribution
+        stage_fqn = stage_fqn or f"{package_name}.{model.stage}"
+        package_warehouse = (
+            model.meta and model.meta.warehouse
+        ) or workspace_ctx.default_warehouse
+
         # 1. Create a bundle if one wasn't passed in
-        bundle_map = bundle_map or cls.bundle(
+        bundle_map = bundle_map or self.bundle(
             project_root=project_root,
             deploy_root=deploy_root,
             bundle_root=bundle_root,
             generated_root=generated_root,
-            artifacts=artifacts,
+            artifacts=model.artifacts,
             package_name=package_name,
         )
 
         # 2. Create an empty application package, if none exists
         try:
-            cls.create_app_package(
-                console=console,
-                package_name=package_name,
-                package_role=package_role,
-                package_distribution=package_distribution,
-            )
+            self.create_app_package()
         except ApplicationPackageAlreadyExistsError as e:
             console.warning(e.message)
             if not policy.should_proceed("Proceed with using this package?"):
@@ -660,49 +581,36 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 print_diff=print_diff,
             )
 
-            cls.execute_post_deploy_hooks(
-                console=console,
-                project_root=project_root,
-                post_deploy_hooks=post_deploy_hooks,
-                package_name=package_name,
-                package_warehouse=package_warehouse,
-            )
+            if run_post_deploy_hooks:
+                self.execute_post_deploy_hooks(
+                    console=console,
+                    project_root=project_root,
+                    post_deploy_hooks=(model.meta and model.meta.post_deploy),
+                    package_name=package_name,
+                    package_warehouse=package_warehouse,
+                )
 
         if validate:
-            cls.validate_setup_script(
-                console=console,
-                project_root=project_root,
-                deploy_root=deploy_root,
-                bundle_root=bundle_root,
-                generated_root=generated_root,
-                artifacts=artifacts,
-                package_name=package_name,
-                package_role=package_role,
-                package_distribution=package_distribution,
-                prune=prune,
-                recursive=recursive,
-                paths=paths,
-                stage_fqn=stage_fqn,
-                package_warehouse=package_warehouse,
-                policy=policy,
+            self.validate_setup_script(
                 use_scratch_stage=False,
-                scratch_stage_fqn="",
+                interactive=interactive,
+                force=force,
             )
 
         return diff
 
-    @staticmethod
-    def get_existing_version_info(
-        version: str,
-        package_name: str,
-        package_role: str,
-    ) -> Optional[dict]:
+    def get_existing_version_info(self, version: str) -> Optional[dict]:
         """
         Get the latest patch on an existing version by name in the application package.
         Executes 'show versions like ... in application package' query and returns
         the latest patch in the version as a single row, if one exists. Otherwise,
         returns None.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        package_name = model.fqn.identifier
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+
         sql_executor = get_sql_executor()
         with sql_executor.use_role(package_role):
             try:
@@ -728,17 +636,18 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     generic_sql_error_handler(err=err)
                     return None
 
-    @classmethod
     def get_existing_release_directive_info_for_version(
-        cls,
-        package_name: str,
-        package_role: str,
-        version: str,
+        self, version: str
     ) -> List[dict]:
         """
         Get all existing release directives, if present, set on the version defined in an application package.
         It executes a 'show release directives in application package' query and returns the filtered results, if they exist.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        package_name = model.fqn.identifier
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+
         sql_executor = get_sql_executor()
         with sql_executor.use_role(package_role):
             show_obj_query = (
@@ -758,18 +667,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
             return show_obj_rows
 
-    @classmethod
-    def add_new_version(
-        cls,
-        console: AbstractConsole,
-        package_name: str,
-        package_role: str,
-        stage_fqn: str,
-        version: str,
-    ) -> None:
+    def add_new_version(self, version: str) -> None:
         """
         Defines a new version in an existing application package.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        package_name = model.fqn.identifier
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        stage_fqn = f"{package_name}.{model.stage}"
+
         # Make the version a valid identifier, adding quotes if necessary
         version = to_identifier(version)
         sql_executor = get_sql_executor()
@@ -789,19 +697,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 f"Version {version} created for application package {package_name}."
             )
 
-    @classmethod
-    def add_new_patch_to_version(
-        cls,
-        console: AbstractConsole,
-        package_name: str,
-        package_role: str,
-        stage_fqn: str,
-        version: str,
-        patch: Optional[int] = None,
-    ):
+    def add_new_patch_to_version(self, version: str, patch: Optional[int] = None):
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        package_name = model.fqn.identifier
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        stage_fqn = f"{package_name}.{model.stage}"
+
         # Make the version a valid identifier, adding quotes if necessary
         version = to_identifier(version)
         sql_executor = get_sql_executor()
@@ -826,13 +732,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 f"Patch {new_patch} created for version {version} defined in application package {package_name}."
             )
 
-    @classmethod
     def check_index_changes_in_git_repo(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        policy: PolicyBase,
-        is_interactive: bool,
+        self, policy: PolicyBase, interactive: bool
     ) -> None:
         """
         Checks if the project root, i.e. the native apps project is a git repository. If it is a git repository,
@@ -841,6 +742,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         from git import Repo
         from git.exc import InvalidGitRepositoryError
+
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
 
         try:
             repo = Repo(project_root, search_parent_directories=True)
@@ -859,7 +764,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     "Do you still want to continue?"
                 )
                 if not policy.should_proceed(user_prompt):
-                    if is_interactive:
+                    if interactive:
                         console.message("Not creating a new version.")
                         raise typer.Exit(0)
                     else:
@@ -1074,31 +979,30 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
             )
 
-    @classmethod
-    def create_app_package(
-        cls,
-        console: AbstractConsole,
-        package_name: str,
-        package_role: str,
-        package_distribution: str,
-    ) -> None:
+    def create_app_package(self) -> None:
         """
         Creates the application package with our up-to-date stage if none exists.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        package_name = model.fqn.identifier
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        package_distribution = model.distribution
 
         # 1. Check for existing application package
-        show_obj_row = cls.get_existing_app_pkg_info(
+        show_obj_row = self.get_existing_app_pkg_info(
             package_name=package_name,
             package_role=package_role,
         )
 
         if show_obj_row:
             # 2. Check distribution of the existing application package
-            actual_distribution = cls.get_app_pkg_distribution_in_snowflake(
+            actual_distribution = self.get_app_pkg_distribution_in_snowflake(
                 package_name=package_name,
                 package_role=package_role,
             )
-            if not cls.verify_project_distribution(
+            if not self.verify_project_distribution(
                 console=console,
                 package_name=package_name,
                 package_role=package_role,
@@ -1155,47 +1059,18 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     database_name=package_name,
                 )
 
-    @classmethod
     def validate_setup_script(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        deploy_root: Path,
-        bundle_root: Path,
-        generated_root: Path,
-        artifacts: list[PathMapping],
-        package_name: str,
-        package_role: str,
-        package_distribution: str,
-        package_warehouse: str | None,
-        prune: bool,
-        recursive: bool,
-        paths: List[Path] | None,
-        stage_fqn: str,
-        policy: PolicyBase,
-        use_scratch_stage: bool,
-        scratch_stage_fqn: str,
+        self, use_scratch_stage: bool, interactive: bool, force: bool
     ):
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+
         """Validates Native App setup script SQL."""
         with console.phase(f"Validating Snowflake Native App setup script."):
-            validation_result = cls.get_validation_result_static(
-                console=console,
-                project_root=project_root,
-                deploy_root=deploy_root,
-                bundle_root=bundle_root,
-                generated_root=generated_root,
-                artifacts=artifacts,
-                package_name=package_name,
-                package_role=package_role,
-                package_distribution=package_distribution,
-                prune=prune,
-                recursive=recursive,
-                paths=paths,
-                stage_fqn=stage_fqn,
-                package_warehouse=package_warehouse,
-                policy=policy,
+            validation_result = self.get_validation_result(
                 use_scratch_stage=use_scratch_stage,
-                scratch_stage_fqn=scratch_stage_fqn,
+                force=force,
+                interactive=interactive,
             )
 
             # First print warnings, regardless of the outcome of validation
@@ -1212,78 +1087,29 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             if validation_result["status"] == "FAIL":
                 raise SetupScriptFailedValidation()
 
-    def get_validation_result(self, use_scratch_stage: bool = True):
+    def get_validation_result(
+        self, use_scratch_stage: bool, interactive: bool, force: bool
+    ):
+        """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
         package_name = model.fqn.identifier
-        return self.get_validation_result_static(
-            console=workspace_ctx.console,
-            project_root=workspace_ctx.project_root,
-            deploy_root=workspace_ctx.project_root / model.deploy_root,
-            bundle_root=workspace_ctx.project_root / model.bundle_root,
-            generated_root=(
-                workspace_ctx.project_root / model.deploy_root / model.generated_root
-            ),
-            artifacts=model.artifacts,
-            package_name=package_name,
-            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
-            package_distribution=model.distribution,
-            prune=True,
-            recursive=True,
-            paths=[],
-            stage_fqn=f"{package_name}.{model.stage}",
-            package_warehouse=(
-                (model.meta and model.meta.warehouse) or workspace_ctx.default_warehouse
-            ),
-            policy=AllowAlwaysPolicy(),
-            use_scratch_stage=use_scratch_stage,
-            scratch_stage_fqn=f"{package_name}.{model.scratch_stage}",
-        )
 
-    @classmethod
-    def get_validation_result_static(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        deploy_root: Path,
-        bundle_root: Path,
-        generated_root: Path,
-        artifacts: list[PathMapping],
-        package_name: str,
-        package_role: str,
-        package_distribution: str,
-        package_warehouse: str | None,
-        prune: bool,
-        recursive: bool,
-        paths: List[Path] | None,
-        stage_fqn: str,
-        policy: PolicyBase,
-        use_scratch_stage: bool,
-        scratch_stage_fqn: str,
-    ):
-        """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
+        stage_fqn = f"{package_name}.{model.stage}"
+        scratch_stage_fqn = f"{package_name}.{model.scratch_stage}"
         if use_scratch_stage:
             stage_fqn = scratch_stage_fqn
-            cls.deploy(
-                console=console,
-                project_root=project_root,
-                deploy_root=deploy_root,
-                bundle_root=bundle_root,
-                generated_root=generated_root,
-                artifacts=artifacts,
+            self._deploy(
                 bundle_map=None,
-                package_name=package_name,
-                package_role=package_role,
-                package_distribution=package_distribution,
-                prune=prune,
-                recursive=recursive,
-                paths=paths,
+                prune=True,
+                recursive=True,
+                paths=[],
                 print_diff=False,
                 validate=False,
-                stage_fqn=stage_fqn,
-                package_warehouse=package_warehouse,
-                post_deploy_hooks=[],
-                policy=policy,
+                stage_fqn=scratch_stage_fqn,
+                interactive=interactive,
+                force=force,
+                run_post_deploy_hooks=False,
             )
         prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
         sql_executor = get_sql_executor()
@@ -1301,7 +1127,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             return json.loads(cursor.fetchone()[0])
         finally:
             if use_scratch_stage:
-                console.step(f"Dropping stage {scratch_stage_fqn}.")
+                workspace_ctx.console.step(f"Dropping stage {scratch_stage_fqn}.")
+                package_role = (
+                    model.meta and model.meta.role
+                ) or workspace_ctx.default_role
                 with sql_executor.use_role(package_role):
                     sql_executor.execute_query(
                         f"drop stage if exists {scratch_stage_fqn}"

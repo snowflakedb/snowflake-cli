@@ -46,7 +46,6 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ObjectPropertyNotFoundError,
     SetupScriptFailedValidation,
 )
-from snowflake.cli._plugins.nativeapp.policy import AllowAlwaysPolicy
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePathType,
@@ -792,7 +791,11 @@ def test_get_snowsight_url_without_pdf_warehouse(
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO, return_value=None)
 def test_create_app_pkg_no_existing_package(
-    mock_get_existing_app_pkg_info, mock_execute, temp_dir, mock_cursor
+    mock_get_existing_app_pkg_info,
+    mock_execute,
+    temp_dir,
+    mock_cursor,
+    workspace_context,
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -827,12 +830,8 @@ def test_create_app_pkg_no_existing_package(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
-    ApplicationPackageEntity.create_app_package(
-        console=cc,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    pkg.create_app_package()
     assert mock_execute.mock_calls == expected
     mock_get_existing_app_pkg_info.assert_called_once()
 
@@ -849,6 +848,7 @@ def test_create_app_pkg_different_owner(
     mock_execute,
     temp_dir,
     mock_cursor,
+    workspace_context,
 ):
     mock_get_existing_app_pkg_info.return_value = {
         "name": "APP_PKG",
@@ -868,14 +868,10 @@ def test_create_app_pkg_different_owner(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
     # Invoke create when the package already exists, but the owner is the current role.
     # This is expected to succeed with no warnings.
-    ApplicationPackageEntity.create_app_package(
-        console=cc,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
-    )
+    pkg.create_app_package()
 
     mock_execute.assert_not_called()
 
@@ -894,6 +890,7 @@ def test_create_app_pkg_external_distribution(
     mock_get_existing_app_pkg_info,
     is_pkg_distribution_same,
     temp_dir,
+    workspace_context,
 ):
     mock_is_distribution_same.return_value = is_pkg_distribution_same
     mock_get_distribution.return_value = "external"
@@ -913,15 +910,11 @@ def test_create_app_pkg_external_distribution(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
-    mock_console = mock.MagicMock()
-    ApplicationPackageEntity.create_app_package(
-        console=mock_console,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    workspace_context.console = mock.MagicMock()
+    pkg.create_app_package()
     if not is_pkg_distribution_same:
-        mock_console.warning.assert_called_once_with(
+        workspace_context.console.warning.assert_called_once_with(
             "Continuing to execute `snow app run` on application package app_pkg with distribution 'external'."
         )
 
@@ -946,6 +939,7 @@ def test_create_app_pkg_internal_distribution_special_comment(
     is_pkg_distribution_same,
     special_comment,
     temp_dir,
+    workspace_context,
 ):
     mock_is_distribution_same.return_value = is_pkg_distribution_same
     mock_get_distribution.return_value = "internal"
@@ -965,15 +959,11 @@ def test_create_app_pkg_internal_distribution_special_comment(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
-    mock_console = mock.MagicMock()
-    ApplicationPackageEntity.create_app_package(
-        console=mock_console,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    workspace_context.console = mock.MagicMock()
+    pkg.create_app_package()
     if not is_pkg_distribution_same:
-        mock_console.warning.assert_called_once_with(
+        workspace_context.console.warning.assert_called_once_with(
             "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
         )
 
@@ -992,6 +982,7 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
     mock_get_existing_app_pkg_info,
     is_pkg_distribution_same,
     temp_dir,
+    workspace_context,
 ):
     mock_is_distribution_same.return_value = is_pkg_distribution_same
     mock_get_distribution.return_value = "internal"
@@ -1011,17 +1002,13 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
-    mock_console = mock.MagicMock()
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    workspace_context.console = mock.MagicMock()
     with pytest.raises(ApplicationPackageAlreadyExistsError):
-        ApplicationPackageEntity.create_app_package(
-            console=mock_console,
-            package_name=pkg_model.fqn.name,
-            package_role=pkg_model.meta.role,
-            package_distribution=pkg_model.distribution,
-        )
+        pkg.create_app_package()
 
     if not is_pkg_distribution_same:
-        mock_console.warning.assert_called_once_with(
+        workspace_context.console.warning.assert_called_once_with(
             "Continuing to execute `snow app run` on application package app_pkg with distribution 'internal'."
         )
 
@@ -1038,6 +1025,7 @@ def test_existing_app_pkg_without_special_comment(
     mock_is_distribution_same,
     temp_dir,
     mock_cursor,
+    workspace_context,
 ):
     mock_get_existing_app_pkg_info.return_value = {
         "name": "APP_PKG",
@@ -1057,13 +1045,9 @@ def test_existing_app_pkg_without_special_comment(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
     with pytest.raises(ApplicationPackageAlreadyExistsError):
-        ApplicationPackageEntity.create_app_package(
-            console=cc,
-            package_name=pkg_model.fqn.name,
-            package_role=pkg_model.meta.role,
-            package_distribution=pkg_model.distribution,
-        )
+        pkg.create_app_package()
 
 
 @pytest.mark.parametrize(
@@ -1353,29 +1337,17 @@ def test_validate_use_scratch_stage(mock_execute, mock_deploy, temp_dir, mock_cu
 
     pd = wm._project_definition  # noqa: SLF001
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    project_root = wm._project_root  # noqa: SLF001
     mock_deploy.assert_called_with(
-        console=cc,
-        project_root=project_root,
-        deploy_root=project_root / pkg_model.deploy_root,
-        bundle_root=project_root / pkg_model.bundle_root,
-        generated_root=(
-            project_root / pkg_model.deploy_root / pkg_model.generated_root
-        ),
-        artifacts=pkg_model.artifacts,
         bundle_map=None,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
         prune=True,
         recursive=True,
         paths=[],
         print_diff=False,
         validate=False,
         stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}",
-        package_warehouse=pkg_model.meta.warehouse,
-        post_deploy_hooks=[],
-        policy=AllowAlwaysPolicy(),
+        interactive=False,
+        force=True,
+        run_post_deploy_hooks=False,
     )
     assert mock_execute.mock_calls == expected
 
@@ -1441,29 +1413,17 @@ def test_validate_failing_drops_scratch_stage(
 
     pd = wm._project_definition  # noqa: SLF001
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    project_root = wm._project_root  # noqa: SLF001
     mock_deploy.assert_called_with(
-        console=cc,
-        project_root=project_root,
-        deploy_root=project_root / pkg_model.deploy_root,
-        bundle_root=project_root / pkg_model.bundle_root,
-        generated_root=(
-            project_root / pkg_model.deploy_root / pkg_model.generated_root
-        ),
-        artifacts=pkg_model.artifacts,
         bundle_map=None,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
         prune=True,
         recursive=True,
         paths=[],
         print_diff=False,
         validate=False,
         stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}",
-        package_warehouse=pkg_model.meta.warehouse,
-        post_deploy_hooks=[],
-        policy=AllowAlwaysPolicy(),
+        interactive=False,
+        force=True,
+        run_post_deploy_hooks=False,
     )
     assert mock_execute.mock_calls == expected
 
@@ -1511,7 +1471,12 @@ def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
 
     wm = _get_wm()
     pkg = wm.get_entity("app_pkg")
-    assert pkg.get_validation_result(use_scratch_stage=False) == failure_data
+    assert (
+        pkg.get_validation_result(
+            use_scratch_stage=False, interactive=False, force=True
+        )
+        == failure_data
+    )
     assert mock_execute.mock_calls == expected
 
 

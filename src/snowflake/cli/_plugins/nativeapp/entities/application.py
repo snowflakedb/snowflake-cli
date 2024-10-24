@@ -185,11 +185,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         def drop_application_before_upgrade(cascade: bool = False):
             self.drop_application_before_upgrade(
-                console=workspace_ctx.console,
-                app_name=app_name,
-                app_role=app_role,
                 policy=policy,
-                is_interactive=is_interactive,
+                interactive=is_interactive,
                 cascade=cascade,
             )
 
@@ -206,11 +203,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         # versioned dev
         if version:
             try:
-                version_exists = package_entity.get_existing_version_info(
-                    version=version,
-                    package_name=package_name,
-                    package_role=package_role,
-                )
+                version_exists = package_entity.get_existing_version_info(version)
                 if not version_exists:
                     raise UsageError(
                         f"Application package {package_name} does not have any version {version} defined. Use 'snow app version create' to define a version in the application package first."
@@ -307,10 +300,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         interactive_prompt = ""
         non_interactive_abort = ""
         try:
-            if application_objects := self.get_objects_owned_by_application(
-                app_name=app_name,
-                app_role=app_role,
-            ):
+            if application_objects := self.get_objects_owned_by_application():
                 has_objects_to_drop = True
                 message_prefix = (
                     f"The following objects are owned by application {app_name}"
@@ -437,14 +427,15 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 last=last,
             )
 
-    @staticmethod
-    def get_objects_owned_by_application(
-        app_name: str,
-        app_role: str,
-    ) -> List[ApplicationOwnedObject]:
+    def get_objects_owned_by_application(self) -> List[ApplicationOwnedObject]:
         """
         Returns all application objects owned by this application.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        app_name = model.fqn.identifier
+        app_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+
         sql_executor = get_sql_executor()
         with sql_executor.use_role(app_role):
             results = sql_executor.execute_query(
@@ -670,22 +661,20 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 "applications", app_name, name_col=NAME_COL
             )
 
-    @classmethod
     def drop_application_before_upgrade(
-        cls,
-        console: AbstractConsole,
-        app_name: str,
-        app_role: str,
+        self,
         policy: PolicyBase,
-        is_interactive: bool,
+        interactive: bool,
         cascade: bool = False,
     ):
+        model = self._entity_model
+        console = self._workspace_ctx.console
+        app_name = model.fqn.identifier
+
         if cascade:
             try:
-                if application_objects := cls.get_objects_owned_by_application(
-                    app_name, app_role
-                ):
-                    application_objects_str = cls.application_objects_to_str(
+                if application_objects := self.get_objects_owned_by_application():
+                    application_objects_str = self.application_objects_to_str(
                         application_objects
                     )
                     console.message(
@@ -702,7 +691,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             user_prompt = "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
 
         if not policy.should_proceed(user_prompt):
-            if is_interactive:
+            if interactive:
                 console.message("Not upgrading the application object.")
                 raise typer.Exit(0)
             else:
@@ -719,12 +708,9 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         except ProgrammingError as err:
             if err.errno == APPLICATION_OWNS_EXTERNAL_OBJECTS and not cascade:
                 # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
-                return cls.drop_application_before_upgrade(
-                    console=console,
-                    app_name=app_name,
-                    app_role=app_role,
+                return self.drop_application_before_upgrade(
                     policy=policy,
-                    is_interactive=is_interactive,
+                    interactive=interactive,
                     cascade=True,
                 )
             else:
