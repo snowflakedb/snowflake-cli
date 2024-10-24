@@ -489,7 +489,9 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(mock_mismatch, temp_dir
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
+def test_get_existing_app_info_app_exists(
+    mock_execute, temp_dir, mock_cursor, workspace_context
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -525,16 +527,17 @@ def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
 
     dm = _get_dm()
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
-    show_obj_row = ApplicationEntity.get_existing_app_info_static(
-        app_model.fqn.name, app_model.meta.role
-    )
+    app = ApplicationEntity(app_model, workspace_context)
+    show_obj_row = app.get_existing_app_info()
     assert show_obj_row is not None
     assert show_obj_row[NAME_COL] == "MYAPP"
     assert mock_execute.mock_calls == expected
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_cursor):
+def test_get_existing_app_info_app_does_not_exist(
+    mock_execute, temp_dir, mock_cursor, workspace_context
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -560,9 +563,8 @@ def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_c
 
     dm = _get_dm()
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
-    show_obj_row = ApplicationEntity.get_existing_app_info_static(
-        app_model.fqn.name, app_model.meta.role
-    )
+    app = ApplicationEntity(app_model, workspace_context)
+    show_obj_row = app.get_existing_app_info()
     assert show_obj_row is None
     assert mock_execute.mock_calls == expected
 

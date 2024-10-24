@@ -252,10 +252,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         needs_confirm = True
 
         # 1. If existing application is not found, exit gracefully
-        show_obj_row = self.get_existing_app_info_static(
-            app_name=app_name,
-            app_role=app_role,
-        )
+        show_obj_row = self.get_existing_app_info()
         if show_obj_row is None:
             console.warning(
                 f"Role {app_role} does not own any application object with the name {app_name}, or the application object does not exist."
@@ -631,22 +628,17 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             )
 
     def get_existing_app_info(self) -> Optional[dict]:
-        model = self._entity_model
-        ctx = self._workspace_ctx
-        role = (model.meta and model.meta.role) or ctx.default_role
-        return self.get_existing_app_info_static(model.fqn.name, role)
-
-    # Temporary static entrypoint until NativeAppManager.get_existing_app_info() is removed
-    @staticmethod
-    def get_existing_app_info_static(app_name: str, app_role: str) -> Optional[dict]:
         """
         Check for an existing application object by the same name as in project definition, in account.
         It executes a 'show applications like' query and returns the result as single row, if one exists.
         """
+        model = self._entity_model
+        ctx = self._workspace_ctx
+        role = (model.meta and model.meta.role) or ctx.default_role
         sql_executor = get_sql_executor()
-        with sql_executor.use_role(app_role):
+        with sql_executor.use_role(role):
             return sql_executor.show_specific_object(
-                "applications", app_name, name_col=NAME_COL
+                "applications", model.fqn.name, name_col=NAME_COL
             )
 
     def drop_application_before_upgrade(
