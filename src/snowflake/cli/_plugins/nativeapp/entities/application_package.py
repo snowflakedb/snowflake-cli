@@ -954,11 +954,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             return False
         return True
 
-    @staticmethod
     @contextmanager
-    def use_package_warehouse(
-        package_warehouse: Optional[str],
-    ):
+    def use_package_warehouse(self):
+        model = self._entity_model
+        ctx = self._workspace_ctx
+        package_warehouse = (
+            model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)
+        ) or to_identifier(ctx.default_warehouse)
+
         if package_warehouse:
             with get_sql_executor().use_warehouse(package_warehouse):
                 yield
@@ -1035,9 +1038,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         console = workspace_ctx.console
         project_root = workspace_ctx.project_root
         package_name = model.fqn.identifier
-        package_warehouse = (
-            model.meta and model.meta.warehouse
-        ) or workspace_ctx.default_warehouse
         post_deploy_hooks = model.meta and model.meta.post_deploy
 
         get_cli_context().metrics.set_counter_default(
@@ -1045,7 +1045,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
         if post_deploy_hooks:
-            with self.use_package_warehouse(package_warehouse):
+            with self.use_package_warehouse():
                 execute_post_deploy_hooks(
                     console=console,
                     project_root=project_root,
