@@ -227,7 +227,7 @@ def logs(
         False, "--previous-logs", "-p", help="Retrieve previous logs", is_flag=True
     ),
     since_timestamp: Optional[str] = typer.Option(
-        "", "--since-timestamp", help="Timestamp to retrieve logs from"
+        "", "--since", help="Timestamp to retrieve logs from"
     ),
     include_timestamps: bool = typer.Option(
         False, "--include-timestamps", help="Include timestamps in logs", is_flag=True
@@ -236,7 +236,9 @@ def logs(
         False, "--follow", "-f", help="Continue polling for logs.", is_flag=True
     ),
     follow_interval: int = typer.Option(
-        5, "--watch", help="Polling interval in seconds when using the --follow flag"
+        5,
+        "--follow_interval",
+        help="Polling interval in seconds when using the --follow flag",
     ),
     **options,
 ):

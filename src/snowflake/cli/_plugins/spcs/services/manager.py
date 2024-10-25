@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import List, Optional
 
 import yaml
-from dateutil import parser
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import (
     NoPropertiesProvidedError,
@@ -182,34 +181,13 @@ class ServiceManager(SqlExecutionMixin):
                     log_lines = log_block.split("\n")
                     log_lines = [line for line in log_lines if line.strip()]
 
-                    first_log_timestamp_str = extract_timestamp_from_log(log_lines[0])
-
-                    first_log_timestamp_parsed = (
-                        parser.isoparse(first_log_timestamp_str)
-                        if first_log_timestamp_str
-                        else None
-                    )
-                    prev_timestamp_parsed = (
-                        parser.isoparse(prev_timestamp) if prev_timestamp else None
-                    )
-
-                    if first_log_timestamp_parsed and (
-                        not prev_timestamp_parsed
-                        or first_log_timestamp_parsed > prev_timestamp_parsed
-                    ):
-                        yield log_lines
-                    else:
-                        matching_index = None
-                        for i, log_line in enumerate(log_lines):
-                            if prev_content and log_line == prev_content:
-                                matching_index = i
-                                break
-                        if matching_index is not None:
+                    if log_lines:
+                        if prev_content and prev_content in log_lines:
+                            matching_index = log_lines.index(prev_content)
                             yield log_lines[matching_index + 1 :]
                         else:
                             yield log_lines
 
-                    if log_lines:
                         prev_content = log_lines[-1]
                         prev_timestamp = extract_timestamp_from_log(prev_content)
 
