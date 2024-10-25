@@ -260,6 +260,7 @@ def test_correct_updates_of_connections_on_setting_default_connection(
             },
         }
 
+    # assert correct connections in memory after setting default connection name
     assert_correct_connections_loaded()
 
     with open(connections_toml) as f:
