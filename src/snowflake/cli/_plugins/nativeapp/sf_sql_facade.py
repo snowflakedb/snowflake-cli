@@ -194,7 +194,16 @@ class SnowflakeSQLFacade:
             except Exception as err:
                 handle_unclassified_error(err, f"Failed to run script {script_name}.")
 
-    def get_account_event_table(self) -> str:
+    def get_account_event_table(self, role: str | None = None) -> str | None:
+        """
+        Returns the name of the event table for the account.
+        If the account has no event table set up or the event table is set to NONE, returns None.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
         query = "show parameters like 'event_table' in account"
-        results = self._sql_executor.execute_query(query, cursor_class=DictCursor)
-        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
+        with self._use_role_optional(role):
+            results = self._sql_executor.execute_query(query, cursor_class=DictCursor)
+        table = next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), None)
+        if table is None or table == "NONE":
+            return None
+        return table

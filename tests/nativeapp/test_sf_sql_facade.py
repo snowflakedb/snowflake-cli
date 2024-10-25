@@ -859,12 +859,26 @@ def test_use_db_bubbles_errors(
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_account_event_table(mock_execute_query, mock_cursor):
-    event_table = "db.schema.event_table"
+@pytest.mark.parametrize(
+    "parameter_value,event_table",
+    [
+        ["db.schema.event_table", "db.schema.event_table"],
+        [None, None],
+        ["NONE", None],
+    ],
+)
+def test_account_event_table(
+    mock_execute_query, mock_cursor, parameter_value, event_table
+):
+    query_result = (
+        [dict(key="EVENT_TABLE", value=parameter_value)]
+        if parameter_value is not None
+        else []
+    )
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([dict(key="EVENT_TABLE", value=event_table)], []),
+                mock_cursor(query_result, []),
                 mock.call(
                     "show parameters like 'event_table' in account",
                     cursor_class=DictCursor,
@@ -875,21 +889,3 @@ def test_account_event_table(mock_execute_query, mock_cursor):
     mock_execute_query.side_effect = side_effects
 
     assert sql_facade.get_account_event_table() == event_table
-
-
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_account_event_table_not_set_up(mock_execute_query, mock_cursor):
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show parameters like 'event_table' in account",
-                    cursor_class=DictCursor,
-                ),
-            ),
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
-
-    assert sql_facade.get_account_event_table() == ""

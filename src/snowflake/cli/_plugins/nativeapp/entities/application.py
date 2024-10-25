@@ -699,7 +699,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             raise ValueError("first and last cannot be used together")
 
         account_event_table = get_snowflake_facade().get_account_event_table()
-        if not account_event_table or account_event_table == "NONE":
+        if account_event_table is None:
             raise NoEventTableForAccount()
 
         # resource_attributes uses the unquoted/uppercase app and package name
