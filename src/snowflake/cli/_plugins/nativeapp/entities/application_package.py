@@ -145,18 +145,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     """
 
     def action_bundle(self, action_ctx: ActionContext, *args, **kwargs):
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        return self.bundle(
-            project_root=workspace_ctx.project_root,
-            deploy_root=workspace_ctx.project_root / model.deploy_root,
-            bundle_root=workspace_ctx.project_root / model.bundle_root,
-            generated_root=(
-                workspace_ctx.project_root / model.deploy_root / model.generated_root
-            ),
-            package_name=model.identifier,
-            artifacts=model.artifacts,
-        )
+        return self._bundle()
 
     def action_deploy(
         self,
@@ -327,13 +316,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         package_name = model.fqn.identifier
 
         console = workspace_ctx.console
-        project_root = workspace_ctx.project_root
         deploy_root = workspace_ctx.project_root / model.deploy_root
-        bundle_root = workspace_ctx.project_root / model.bundle_root
-        generated_root = (
-            workspace_ctx.project_root / model.deploy_root / model.generated_root
-        )
-        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
         stage_fqn = f"{package_name}.{model.stage}"
 
         if force:
@@ -360,14 +343,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     """
                 )
             )
-            bundle_map = self.bundle(
-                project_root=project_root,
-                deploy_root=deploy_root,
-                bundle_root=bundle_root,
-                generated_root=generated_root,
-                artifacts=model.artifacts,
-                package_name=package_name,
-            )
+            bundle_map = self._bundle()
             version, patch = find_version_info_in_manifest_file(deploy_root)
             if not version:
                 raise ClickException(
@@ -459,15 +435,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         package_name = model.fqn.identifier
 
         console = workspace_ctx.console
-        project_root = workspace_ctx.project_root
         deploy_root = workspace_ctx.project_root / model.deploy_root
-        bundle_root = workspace_ctx.project_root / model.bundle_root
-        generated_root = (
-            workspace_ctx.project_root / model.deploy_root / model.generated_root
-        )
-        artifacts = model.artifacts
         package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
-        package_distribution = model.distribution
 
         if force:
             interactive = False
@@ -500,14 +469,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     """
                 )
             )
-            self.bundle(
-                project_root=project_root,
-                deploy_root=deploy_root,
-                bundle_root=bundle_root,
-                generated_root=generated_root,
-                artifacts=artifacts,
-                package_name=package_name,
-            )
+            self._bundle()
             version, _ = find_version_info_in_manifest_file(deploy_root)
             if not version:
                 raise ClickException(
@@ -551,19 +513,21 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             f"Version {version} in application package {package_name} dropped successfully."
         )
 
-    @staticmethod
-    def bundle(
-        project_root: Path,
-        deploy_root: Path,
-        bundle_root: Path,
-        generated_root: Path,
-        artifacts: list[PathMapping],
-        package_name: str,
-    ):
-        bundle_map = build_bundle(project_root, deploy_root, artifacts)
+    def _bundle(self):
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+
+        project_root = workspace_ctx.project_root
+        deploy_root = workspace_ctx.project_root / model.deploy_root
+        bundle_root = workspace_ctx.project_root / model.bundle_root
+        generated_root = (
+            workspace_ctx.project_root / model.deploy_root / model.generated_root
+        )
+
+        bundle_map = build_bundle(project_root, deploy_root, model.artifacts)
         bundle_context = BundleContext(
-            package_name=package_name,
-            artifacts=artifacts,
+            package_name=model.fqn.identifier,
+            artifacts=model.artifacts,
             project_root=project_root,
             bundle_root=bundle_root,
             deploy_root=deploy_root,
@@ -597,25 +561,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             policy = DenyAlwaysPolicy()
 
         console = workspace_ctx.console
-        project_root = workspace_ctx.project_root
         deploy_root = workspace_ctx.project_root / model.deploy_root
-        bundle_root = workspace_ctx.project_root / model.bundle_root
-        generated_root = (
-            workspace_ctx.project_root / model.deploy_root / model.generated_root
-        )
         package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
-        package_distribution = model.distribution
         stage_fqn = stage_fqn or f"{package_name}.{model.stage}"
 
         # 1. Create a bundle if one wasn't passed in
-        bundle_map = bundle_map or self.bundle(
-            project_root=project_root,
-            deploy_root=deploy_root,
-            bundle_root=bundle_root,
-            generated_root=generated_root,
-            artifacts=model.artifacts,
-            package_name=package_name,
-        )
+        bundle_map = bundle_map or self._bundle()
 
         # 2. Create an empty application package, if none exists
         try:
