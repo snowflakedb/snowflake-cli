@@ -40,6 +40,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -697,7 +698,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         if first >= 0 and last >= 0:
             raise ValueError("first and last cannot be used together")
 
-        account_event_table = _get_account_event_table()
+        account_event_table = get_snowflake_facade().get_account_event_table()
         if not account_event_table or account_event_table == "NONE":
             raise NoEventTableForAccount()
 
@@ -876,10 +877,3 @@ def _application_objects_to_str(
 
 def _application_object_to_str(obj: ApplicationOwnedObject) -> str:
     return f"({obj['type']}) {obj['name']}"
-
-
-def _get_account_event_table():
-    query = "show parameters like 'event_table' in account"
-    sql_executor = get_sql_executor()
-    results = sql_executor.execute_query(query, cursor_class=DictCursor)
-    return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")

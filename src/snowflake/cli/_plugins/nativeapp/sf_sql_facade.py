@@ -28,7 +28,7 @@ from snowflake.cli.api.errno import (
 )
 from snowflake.cli.api.project.util import to_identifier
 from snowflake.cli.api.sql_execution import SqlExecutor
-from snowflake.connector import ProgrammingError
+from snowflake.connector import DictCursor, ProgrammingError
 
 
 class SnowflakeSQLFacade:
@@ -193,3 +193,8 @@ class SnowflakeSQLFacade:
                     raise UserScriptError(script_name, err.msg) from err
             except Exception as err:
                 handle_unclassified_error(err, f"Failed to run script {script_name}.")
+
+    def get_account_event_table(self) -> str:
+        query = "show parameters like 'event_table' in account"
+        results = self._sql_executor.execute_query(query, cursor_class=DictCursor)
+        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")

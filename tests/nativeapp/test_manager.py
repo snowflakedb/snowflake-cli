@@ -34,7 +34,6 @@ from snowflake.cli._plugins.nativeapp.constants import (
 from snowflake.cli._plugins.nativeapp.entities.application import (
     ApplicationEntity,
     ApplicationEntityModel,
-    _get_account_event_table,
 )
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
@@ -75,12 +74,12 @@ from tests.nativeapp.patch_utils import (
     mock_get_app_pkg_distribution_in_sf,
 )
 from tests.nativeapp.utils import (
-    APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
     APP_PACKAGE_ENTITY_DEPLOY,
     APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
     ENTITIES_UTILS_MODULE,
     SQL_EXECUTOR_EXECUTE,
+    SQL_FACADE_GET_ACCOUNT_EVENT_TABLE,
     mock_execute_helper,
     mock_snowflake_yml_file_v2,
     quoted_override_yml_file_v2,
@@ -1461,55 +1460,6 @@ def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_account_event_table(mock_execute, temp_dir, mock_cursor):
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file_v2],
-    )
-
-    event_table = "db.schema.event_table"
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([dict(key="EVENT_TABLE", value=event_table)], []),
-                mock.call(
-                    "show parameters like 'event_table' in account",
-                    cursor_class=DictCursor,
-                ),
-            ),
-        ]
-    )
-    mock_execute.side_effect = side_effects
-
-    assert _get_account_event_table() == event_table
-
-
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=temp_dir,
-        contents=[mock_snowflake_yml_file_v2],
-    )
-
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show parameters like 'event_table' in account",
-                    cursor_class=DictCursor,
-                ),
-            ),
-        ]
-    )
-    mock_execute.side_effect = side_effects
-
-    assert _get_account_event_table() == ""
-
-
 @pytest.mark.parametrize(
     ["since", "expected_since_clause"],
     [
@@ -1616,7 +1566,7 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     ],
 )
 @mock.patch(
-    APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
+    SQL_FACADE_GET_ACCOUNT_EVENT_TABLE,
     return_value="db.schema.event_table",
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -1708,7 +1658,7 @@ def test_get_events(
 
 
 @mock.patch(
-    APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
+    SQL_FACADE_GET_ACCOUNT_EVENT_TABLE,
     return_value="db.schema.event_table",
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -1764,7 +1714,7 @@ def test_get_events_quoted_app_name(
 
 
 @pytest.mark.parametrize("return_value", [None, "NONE"])
-@mock.patch(APP_ENTITY_GET_ACCOUNT_EVENT_TABLE)
+@mock.patch(SQL_FACADE_GET_ACCOUNT_EVENT_TABLE)
 def test_get_events_no_event_table(
     mock_account_event_table, return_value, temp_dir, mock_cursor, workspace_context
 ):
@@ -1784,7 +1734,7 @@ def test_get_events_no_event_table(
 
 
 @mock.patch(
-    APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
+    SQL_FACADE_GET_ACCOUNT_EVENT_TABLE,
     return_value="db.schema.non_existent_event_table",
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -1846,7 +1796,7 @@ def test_get_events_event_table_dne_or_unauthorized(
 
 
 @mock.patch(
-    APP_ENTITY_GET_ACCOUNT_EVENT_TABLE,
+    SQL_FACADE_GET_ACCOUNT_EVENT_TABLE,
     return_value="db.schema.event_table",
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
