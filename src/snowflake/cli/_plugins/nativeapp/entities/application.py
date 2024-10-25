@@ -119,24 +119,24 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
     """
 
     @property
-    def project_root(self):
+    def project_root(self) -> Path:
         return self._workspace_ctx.project_root
 
     @property
-    def package_entity_id(self):
+    def package_entity_id(self) -> str:
         return self._entity_model.from_.target
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._entity_model.fqn.name
 
     @property
-    def role(self):
+    def role(self) -> str:
         model = self._entity_model
         return (model.meta and model.meta.role) or self._workspace_ctx.default_role
 
     @property
-    def warehouse(self):
+    def warehouse(self) -> str:
         model = self._entity_model
         return (
             model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)

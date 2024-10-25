@@ -59,6 +59,7 @@ from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
+    SqlScriptHookType,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
@@ -148,47 +149,47 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     """
 
     @property
-    def project_root(self):
+    def project_root(self) -> Path:
         return self._workspace_ctx.project_root
 
     @property
-    def deploy_root(self):
+    def deploy_root(self) -> Path:
         return self.project_root / self._entity_model.deploy_root
 
     @property
-    def bundle_root(self):
+    def bundle_root(self) -> Path:
         return self.project_root / self._entity_model.bundle_root
 
     @property
-    def generated_root(self):
+    def generated_root(self) -> Path:
         return self.deploy_root / self._entity_model.generated_root
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._entity_model.fqn.name
 
     @property
-    def role(self):
+    def role(self) -> str:
         model = self._entity_model
         return (model.meta and model.meta.role) or self._workspace_ctx.default_role
 
     @property
-    def warehouse(self):
+    def warehouse(self) -> str:
         model = self._entity_model
         return (
             model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)
         ) or to_identifier(self._workspace_ctx.default_warehouse)
 
     @property
-    def stage_fqn(self):
+    def stage_fqn(self) -> str:
         return f"{self.name}.{self._entity_model.stage}"
 
     @property
-    def scratch_stage_fqn(self):
+    def scratch_stage_fqn(self) -> str:
         return f"{self.name}.{self._entity_model.scratch_stage}"
 
     @property
-    def post_deploy_hooks(self):
+    def post_deploy_hooks(self) -> list[SqlScriptHookType] | None:
         model = self._entity_model
         return model.meta and model.meta.post_deploy
 
