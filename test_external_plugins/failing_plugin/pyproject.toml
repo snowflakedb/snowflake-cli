@@ -20,7 +20,7 @@ build-backend = "setuptools.build_meta"
 name = "override-build-in-commands"
 requires-python = ">=3.8"
 dependencies = [
-    "snowflake-cli-labs>=2.0.0"
+    "snowflake-cli>=2.0.0"
 ]
 version = "0.0.1"
 
