@@ -147,6 +147,51 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     A Native App application package.
     """
 
+    @property
+    def project_root(self):
+        return self._workspace_ctx.project_root
+
+    @property
+    def deploy_root(self):
+        return self.project_root / self._entity_model.deploy_root
+
+    @property
+    def bundle_root(self):
+        return self.project_root / self._entity_model.bundle_root
+
+    @property
+    def generated_root(self):
+        return self.deploy_root / self._entity_model.generated_root
+
+    @property
+    def name(self):
+        return self._entity_model.fqn.name
+
+    @property
+    def role(self):
+        model = self._entity_model
+        return (model.meta and model.meta.role) or self._workspace_ctx.default_role
+
+    @property
+    def warehouse(self):
+        model = self._entity_model
+        return (
+            model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)
+        ) or to_identifier(self._workspace_ctx.default_warehouse)
+
+    @property
+    def stage_fqn(self):
+        return f"{self.name}.{self._entity_model.stage}"
+
+    @property
+    def scratch_stage_fqn(self):
+        return f"{self.name}.{self._entity_model.scratch_stage}"
+
+    @property
+    def post_deploy_hooks(self):
+        model = self._entity_model
+        return model.meta and model.meta.post_deploy
+
     def action_bundle(self, action_ctx: ActionContext, *args, **kwargs):
         return self._bundle()
 
@@ -163,7 +208,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         *args,
         **kwargs,
     ):
-        model = self._entity_model
         return self._deploy(
             bundle_map=None,
             prune=prune,
@@ -171,21 +215,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             paths=paths,
             print_diff=True,
             validate=validate,
-            stage_fqn=stage_fqn or f"{model.fqn.identifier}.{model.stage}",
+            stage_fqn=stage_fqn or self.stage_fqn,
             interactive=interactive,
             force=force,
         )
 
     def action_drop(self, action_ctx: ActionContext, force_drop: bool, *args, **kwargs):
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        console = workspace_ctx.console
-        package_name = model.fqn.identifier
-        if model.meta and model.meta.role:
-            package_role = model.meta.role
-        else:
-            package_role = workspace_ctx.default_role
-
+        console = self._workspace_ctx.console
         sql_executor = get_sql_executor()
         needs_confirm = True
 
@@ -193,13 +229,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         show_obj_row = self.get_existing_app_pkg_info()
         if show_obj_row is None:
             console.warning(
-                f"Role {package_role} does not own any application package with the name {package_name}, or the application package does not exist."
+                f"Role {self.role} does not own any application package with the name {self.name}, or the application package does not exist."
             )
             return
 
-        with sql_executor.use_role(package_role):
+        with sql_executor.use_role(self.role):
             # 2. Check for versions in the application package
-            show_versions_query = f"show versions in application package {package_name}"
+            show_versions_query = f"show versions in application package {self.name}"
             show_versions_cursor = sql_executor.execute_query(
                 show_versions_query, cursor_class=DictCursor
             )
@@ -217,7 +253,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         actual_distribution = self.get_app_pkg_distribution_in_snowflake()
         if not self.verify_project_distribution():
             console.warning(
-                f"Dropping application package {package_name} with distribution '{actual_distribution}'."
+                f"Dropping application package {self.name} with distribution '{actual_distribution}'."
             )
 
         # 4. If distribution is internal, check if created by the Snowflake CLI
@@ -228,12 +264,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             else:
                 if needs_confirmation(needs_confirm, force_drop):
                     console.warning(
-                        f"Application package {package_name} was not created by Snowflake CLI."
+                        f"Application package {self.name} was not created by Snowflake CLI."
                     )
         else:
             if needs_confirmation(needs_confirm, force_drop):
                 console.warning(
-                    f"Application package {package_name} in your Snowflake account has distribution property '{EXTERNAL_DISTRIBUTION}' and could be associated with one or more of your listings on Snowflake Marketplace."
+                    f"Application package {self.name} in your Snowflake account has distribution property '{EXTERNAL_DISTRIBUTION}' and could be associated with one or more of your listings on Snowflake Marketplace."
                 )
 
         if needs_confirmation(needs_confirm, force_drop):
@@ -241,7 +277,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 dedent(
                     f"""\
                         Application package details:
-                        Name: {package_name}
+                        Name: {self.name}
                         Created on: {show_obj_row["created_on"]}
                         Distribution: {actual_distribution}
                         Owner: {show_obj_row[OWNER_COL]}
@@ -251,15 +287,15 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
             )
             if not should_drop_object:
-                console.message(f"Did not drop application package {package_name}.")
+                console.message(f"Did not drop application package {self.name}.")
                 return  # The user desires to keep the application package, therefore exit gracefully
 
         # All validations have passed, drop object
         drop_generic_object(
             console=console,
             object_type="application package",
-            object_name=package_name,
-            role=package_role,
+            object_name=(self.name),
+            role=(self.role),
         )
 
     def action_validate(
@@ -285,14 +321,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         Get all existing versions, if defined, for an application package.
         It executes a 'show versions in application package' query and returns all the results.
         """
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        package_name = model.fqn.identifier
-        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
-
         sql_executor = get_sql_executor()
-        with sql_executor.use_role(package_role):
-            show_obj_query = f"show versions in application package {package_name}"
+        with sql_executor.use_role(self.role):
+            show_obj_query = f"show versions in application package {self.name}"
             show_obj_cursor = sql_executor.execute_query(show_obj_query)
 
             if show_obj_cursor.rowcount is None:
@@ -314,13 +345,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         """
         Perform bundle, application package creation, stage upload, version and/or patch to an application package.
         """
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        package_name = model.fqn.identifier
-
-        console = workspace_ctx.console
-        deploy_root = workspace_ctx.project_root / model.deploy_root
-        stage_fqn = f"{package_name}.{model.stage}"
+        console = self._workspace_ctx.console
 
         if force:
             policy = AllowAlwaysPolicy()
@@ -347,7 +372,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
             )
             bundle_map = self._bundle()
-            version, patch = find_version_info_in_manifest_file(deploy_root)
+            version, patch = find_version_info_in_manifest_file(self.deploy_root)
             if not version:
                 raise ClickException(
                     "Manifest.yml file does not contain a value for the version field."
@@ -359,12 +384,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 if not self.get_existing_version_info(version):
                     raise BadOptionUsage(
                         option_name="patch",
-                        message=f"Cannot create a custom patch when version {version} is not defined in the application package {package_name}. Try again without using --patch.",
+                        message=f"Cannot create a custom patch when version {version} is not defined in the application package {self.name}. Try again without using --patch.",
                     )
             except ApplicationPackageDoesNotExistError as app_err:
                 raise BadOptionUsage(
                     option_name="patch",
-                    message=f"Cannot create a custom patch when application package {package_name} does not exist. Try again without using --patch.",
+                    message=f"Cannot create a custom patch when application package {self.name} does not exist. Try again without using --patch.",
                 )
 
         if git_policy.should_proceed():
@@ -377,7 +402,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             paths=[],
             print_diff=True,
             validate=True,
-            stage_fqn=stage_fqn,
+            stage_fqn=self.stage_fqn,
             interactive=interactive,
             force=force,
         )
@@ -394,14 +419,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             console.warning(
                 dedent(
                     f"""\
-                    Version {version} already defined in application package {package_name} and in release directive(s): {release_directive_names}.
+                    Version {version} already defined in application package {self.name} and in release directive(s): {release_directive_names}.
                     """
                 )
             )
 
             user_prompt = (
                 f"Are you sure you want to create a new patch for version {version} in application "
-                f"package {package_name}? Once added, this operation cannot be undone."
+                f"package {self.name}? Once added, this operation cannot be undone."
             )
             if not policy.should_proceed(user_prompt):
                 if interactive:
@@ -433,13 +458,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         """
         Drops a version defined in an application package. If --force is provided, then no user prompts will be executed.
         """
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        package_name = model.fqn.identifier
-
-        console = workspace_ctx.console
-        deploy_root = workspace_ctx.project_root / model.deploy_root
-        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        console = self._workspace_ctx.console
 
         if force:
             interactive = False
@@ -450,7 +469,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         # 1. Check for existing an existing application package
         show_obj_row = self.get_existing_app_pkg_info()
         if not show_obj_row:
-            raise ApplicationPackageDoesNotExistError(package_name)
+            raise ApplicationPackageDoesNotExistError(self.name)
 
         # 2. Check distribution of the existing application package
         actual_distribution = self.get_app_pkg_distribution_in_snowflake()
@@ -459,7 +478,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         ):
             console.warning(
                 f"Continuing to execute version drop on application package "
-                f"{package_name} with distribution '{actual_distribution}'."
+                f"{self.name} with distribution '{actual_distribution}'."
             )
 
         # 3. If the user did not pass in a version string, determine from manifest.yml
@@ -473,7 +492,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
             )
             self._bundle()
-            version, _ = find_version_info_in_manifest_file(deploy_root)
+            version, _ = find_version_info_in_manifest_file(self.deploy_root)
             if not version:
                 raise ClickException(
                     "Manifest.yml file does not contain a value for the version field."
@@ -483,13 +502,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         version = to_identifier(version)
 
         console.step(
-            f"About to drop version {version} in application package {package_name}."
+            f"About to drop version {version} in application package {self.name}."
         )
 
         # If user did not provide --force, ask for confirmation
         user_prompt = (
             f"Are you sure you want to drop version {version} "
-            f"in application package {package_name}? "
+            f"in application package {self.name}? "
             f"Once dropped, this operation cannot be undone."
         )
         if not policy.should_proceed(user_prompt):
@@ -504,37 +523,28 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         # Drop the version
         sql_executor = get_sql_executor()
-        with sql_executor.use_role(package_role):
+        with sql_executor.use_role(self.role):
             try:
                 sql_executor.execute_query(
-                    f"alter application package {package_name} drop version {version}"
+                    f"alter application package {self.name} drop version {version}"
                 )
             except ProgrammingError as err:
                 raise err  # e.g. version is referenced in a release directive(s)
 
         console.message(
-            f"Version {version} in application package {package_name} dropped successfully."
+            f"Version {version} in application package {self.name} dropped successfully."
         )
 
     def _bundle(self):
         model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-
-        project_root = workspace_ctx.project_root
-        deploy_root = workspace_ctx.project_root / model.deploy_root
-        bundle_root = workspace_ctx.project_root / model.bundle_root
-        generated_root = (
-            workspace_ctx.project_root / model.deploy_root / model.generated_root
-        )
-
-        bundle_map = build_bundle(project_root, deploy_root, model.artifacts)
+        bundle_map = build_bundle(self.project_root, self.deploy_root, model.artifacts)
         bundle_context = BundleContext(
-            package_name=model.fqn.identifier,
+            package_name=self.name,
             artifacts=model.artifacts,
-            project_root=project_root,
-            bundle_root=bundle_root,
-            deploy_root=deploy_root,
-            generated_root=generated_root,
+            project_root=self.project_root,
+            bundle_root=self.bundle_root,
+            deploy_root=self.deploy_root,
+            generated_root=self.generated_root,
         )
         compiler = NativeAppCompiler(bundle_context)
         compiler.compile_artifacts()
@@ -555,7 +565,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     ) -> DiffResult:
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
-        package_name = model.fqn.identifier
         if force:
             policy = AllowAlwaysPolicy()
         elif interactive:
@@ -564,9 +573,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             policy = DenyAlwaysPolicy()
 
         console = workspace_ctx.console
-        deploy_root = workspace_ctx.project_root / model.deploy_root
-        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
-        stage_fqn = stage_fqn or f"{package_name}.{model.stage}"
+        stage_fqn = stage_fqn or self.stage_fqn
 
         # 1. Create a bundle if one wasn't passed in
         bundle_map = bundle_map or self._bundle()
@@ -579,16 +586,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             if not policy.should_proceed("Proceed with using this package?"):
                 raise typer.Abort() from e
 
-        with get_sql_executor().use_role(package_role):
+        with get_sql_executor().use_role(self.role):
             # 3. Upload files from deploy root local folder to the above stage
             stage_schema = extract_schema(stage_fqn)
             diff = sync_deploy_root_with_stage(
                 console=console,
-                deploy_root=deploy_root,
-                package_name=package_name,
+                deploy_root=self.deploy_root,
+                package_name=self.name,
                 stage_schema=stage_schema,
                 bundle_map=bundle_map,
-                role=package_role,
+                role=self.role,
                 prune=prune,
                 recursive=recursive,
                 stage_fqn=stage_fqn,
@@ -615,15 +622,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         the latest patch in the version as a single row, if one exists. Otherwise,
         returns None.
         """
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        package_name = model.fqn.identifier
-        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
-
         sql_executor = get_sql_executor()
-        with sql_executor.use_role(package_role):
+        with sql_executor.use_role(self.role):
             try:
-                query = f"show versions like {identifier_to_show_like_pattern(version)} in application package {package_name}"
+                query = f"show versions like {identifier_to_show_like_pattern(version)} in application package {self.name}"
                 cursor = sql_executor.execute_query(query, cursor_class=DictCursor)
 
                 if cursor.rowcount is None:
@@ -640,7 +642,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
             except ProgrammingError as err:
                 if err.msg.__contains__("does not exist or not authorized"):
-                    raise ApplicationPackageDoesNotExistError(package_name)
+                    raise ApplicationPackageDoesNotExistError(self.name)
                 else:
                     generic_sql_error_handler(err=err)
                     return None
@@ -652,15 +654,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         Get all existing release directives, if present, set on the version defined in an application package.
         It executes a 'show release directives in application package' query and returns the filtered results, if they exist.
         """
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        package_name = model.fqn.identifier
-        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
-
         sql_executor = get_sql_executor()
-        with sql_executor.use_role(package_role):
+        with sql_executor.use_role(self.role):
             show_obj_query = (
-                f"show release directives in application package {package_name}"
+                f"show release directives in application package {self.name}"
             )
             show_obj_cursor = sql_executor.execute_query(
                 show_obj_query, cursor_class=DictCursor
@@ -680,55 +677,45 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         """
         Defines a new version in an existing application package.
         """
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        console = workspace_ctx.console
-        package_name = model.fqn.identifier
-        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
-        stage_fqn = f"{package_name}.{model.stage}"
+        console = self._workspace_ctx.console
 
         # Make the version a valid identifier, adding quotes if necessary
         version = to_identifier(version)
         sql_executor = get_sql_executor()
-        with sql_executor.use_role(package_role):
+        with sql_executor.use_role(self.role):
             console.step(
-                f"Defining a new version {version} in application package {package_name}"
+                f"Defining a new version {version} in application package {self.name}"
             )
             add_version_query = dedent(
                 f"""\
-                    alter application package {package_name}
+                    alter application package {self.name}
                         add version {version}
-                        using @{stage_fqn}
+                        using @{self.stage_fqn}
                 """
             )
             sql_executor.execute_query(add_version_query, cursor_class=DictCursor)
             console.message(
-                f"Version {version} created for application package {package_name}."
+                f"Version {version} created for application package {self.name}."
             )
 
     def add_new_patch_to_version(self, version: str, patch: Optional[int] = None):
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
         """
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        console = workspace_ctx.console
-        package_name = model.fqn.identifier
-        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
-        stage_fqn = f"{package_name}.{model.stage}"
+        console = self._workspace_ctx.console
 
         # Make the version a valid identifier, adding quotes if necessary
         version = to_identifier(version)
         sql_executor = get_sql_executor()
-        with sql_executor.use_role(package_role):
+        with sql_executor.use_role(self.role):
             console.step(
-                f"Adding new patch to version {version} defined in application package {package_name}"
+                f"Adding new patch to version {version} defined in application package {self.name}"
             )
             add_version_query = dedent(
                 f"""\
-                    alter application package {package_name}
+                    alter application package {self.name}
                         add patch {patch if patch else ""} for version {version}
-                        using @{stage_fqn}
+                        using @{self.stage_fqn}
                 """
             )
             result_cursor = sql_executor.execute_query(
@@ -738,7 +725,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             show_row = result_cursor.fetchall()[0]
             new_patch = show_row["patch"]
             console.message(
-                f"Patch {new_patch} created for version {version} defined in application package {package_name}."
+                f"Patch {new_patch} created for version {version} defined in application package {self.name}."
             )
 
     def check_index_changes_in_git_repo(
@@ -752,12 +739,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         from git import Repo
         from git.exc import InvalidGitRepositoryError
 
-        workspace_ctx = self._workspace_ctx
-        console = workspace_ctx.console
-        project_root = workspace_ctx.project_root
+        console = self._workspace_ctx.console
 
         try:
-            repo = Repo(project_root, search_parent_directories=True)
+            repo = Repo(self.project_root, search_parent_directories=True)
             assert repo.git_dir is not None
 
             # Check if the repo has any changes, including untracked files
@@ -790,30 +775,21 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         Check for an existing application package by the same name as in project definition, in account.
         It executes a 'show application packages like' query and returns the result as single row, if one exists.
         """
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
-
         sql_executor = get_sql_executor()
-        with sql_executor.use_role(package_role):
+        with sql_executor.use_role(self.role):
             return sql_executor.show_specific_object(
-                "application packages", model.fqn.identifier, name_col=NAME_COL
+                "application packages", self.name, name_col=NAME_COL
             )
 
     def get_app_pkg_distribution_in_snowflake(self) -> str:
         """
         Returns the 'distribution' attribute of a 'describe application package' SQL query, in lowercase.
         """
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        package_name = model.fqn.identifier
-        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
-
         sql_executor = get_sql_executor()
-        with sql_executor.use_role(package_role):
+        with sql_executor.use_role(self.role):
             try:
                 desc_cursor = sql_executor.execute_query(
-                    f"describe application package {package_name}"
+                    f"describe application package {self.name}"
                 )
             except ProgrammingError as err:
                 generic_sql_error_handler(err)
@@ -827,7 +803,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         raise ObjectPropertyNotFoundError(
             property_name="distribution",
             object_type="application package",
-            object_name=package_name,
+            object_name=self.name,
         )
 
     def verify_project_distribution(
@@ -851,7 +827,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             workspace_ctx.console.warning(
                 dedent(
                     f"""\
-                    Application package {model.fqn.identifier} in your Snowflake account has distribution property {actual_distribution},
+                    Application package {self.name} in your Snowflake account has distribution property {actual_distribution},
                     which does not match the value specified in project definition file: {project_def_distribution}.
                     """
                 )
@@ -861,14 +837,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     @contextmanager
     def use_package_warehouse(self):
-        model = self._entity_model
-        ctx = self._workspace_ctx
-        package_warehouse = (
-            model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)
-        ) or to_identifier(ctx.default_warehouse)
-
-        if package_warehouse:
-            with get_sql_executor().use_warehouse(package_warehouse):
+        if self.warehouse:
+            with get_sql_executor().use_warehouse(self.warehouse):
                 yield
         else:
             raise ClickException(
@@ -885,11 +855,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         Creates the application package with our up-to-date stage if none exists.
         """
         model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        console = workspace_ctx.console
-        package_name = model.fqn.identifier
-        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
-        package_distribution = model.distribution
+        console = self._workspace_ctx.console
 
         # 1. Check for existing application package
         show_obj_row = self.get_existing_app_pkg_info()
@@ -901,7 +867,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 expected_distribution=actual_distribution
             ):
                 console.warning(
-                    f"Continuing to execute `snow app run` on application package {package_name} with distribution '{actual_distribution}'."
+                    f"Continuing to execute `snow app run` on application package {self.name} with distribution '{actual_distribution}'."
                 )
 
             # 3. If actual_distribution is external, skip comment check
@@ -909,44 +875,39 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 row_comment = show_obj_row[COMMENT_COL]
 
                 if row_comment not in ALLOWED_SPECIAL_COMMENTS:
-                    raise ApplicationPackageAlreadyExistsError(package_name)
+                    raise ApplicationPackageAlreadyExistsError(self.name)
 
             return
 
         # If no application package pre-exists, create an application package, with the specified distribution in the project definition file.
         sql_executor = get_sql_executor()
-        with sql_executor.use_role(package_role):
-            console.step(f"Creating new application package {package_name} in account.")
+        with sql_executor.use_role(self.role):
+            console.step(f"Creating new application package {self.name} in account.")
             sql_executor.execute_query(
                 dedent(
                     f"""\
-                    create application package {package_name}
+                    create application package {self.name}
                         comment = {SPECIAL_COMMENT}
-                        distribution = {package_distribution}
+                        distribution = {model.distribution}
                 """
                 )
             )
 
     def execute_post_deploy_hooks(self):
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        console = workspace_ctx.console
-        project_root = workspace_ctx.project_root
-        package_name = model.fqn.identifier
-        post_deploy_hooks = model.meta and model.meta.post_deploy
+        console = self._workspace_ctx.console
 
         get_cli_context().metrics.set_counter_default(
             CLICounterField.POST_DEPLOY_SCRIPTS, 0
         )
 
-        if post_deploy_hooks:
+        if self.post_deploy_hooks:
             with self.use_package_warehouse():
                 execute_post_deploy_hooks(
                     console=console,
-                    project_root=project_root,
-                    post_deploy_hooks=post_deploy_hooks,
+                    project_root=self.project_root,
+                    post_deploy_hooks=self.post_deploy_hooks,
                     deployed_object_type="application package",
-                    database_name=package_name,
+                    database_name=self.name,
                 )
 
     def validate_setup_script(
@@ -981,14 +942,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         self, use_scratch_stage: bool, interactive: bool, force: bool
     ):
         """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
-        model = self._entity_model
-        workspace_ctx = self._workspace_ctx
-        package_name = model.fqn.identifier
-
-        stage_fqn = f"{package_name}.{model.stage}"
-        scratch_stage_fqn = f"{package_name}.{model.scratch_stage}"
+        stage_fqn = self.stage_fqn
         if use_scratch_stage:
-            stage_fqn = scratch_stage_fqn
+            stage_fqn = self.scratch_stage_fqn
             self._deploy(
                 bundle_map=None,
                 prune=True,
@@ -996,7 +952,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 paths=[],
                 print_diff=False,
                 validate=False,
-                stage_fqn=scratch_stage_fqn,
+                stage_fqn=self.scratch_stage_fqn,
                 interactive=interactive,
                 force=force,
                 run_post_deploy_hooks=False,
@@ -1009,7 +965,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
         except ProgrammingError as err:
             if err.errno == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
-                raise ApplicationPackageDoesNotExistError(package_name)
+                raise ApplicationPackageDoesNotExistError(self.name)
             generic_sql_error_handler(err)
         else:
             if not cursor.rowcount:
@@ -1017,11 +973,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             return json.loads(cursor.fetchone()[0])
         finally:
             if use_scratch_stage:
-                workspace_ctx.console.step(f"Dropping stage {scratch_stage_fqn}.")
-                package_role = (
-                    model.meta and model.meta.role
-                ) or workspace_ctx.default_role
-                with sql_executor.use_role(package_role):
+                self._workspace_ctx.console.step(
+                    f"Dropping stage {self.scratch_stage_fqn}."
+                )
+                with sql_executor.use_role(self.role):
                     sql_executor.execute_query(
-                        f"drop stage if exists {scratch_stage_fqn}"
+                        f"drop stage if exists {self.scratch_stage_fqn}"
                     )
