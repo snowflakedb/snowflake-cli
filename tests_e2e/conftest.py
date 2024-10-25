@@ -27,6 +27,10 @@ from tests_common import IS_WINDOWS
 
 TEST_DIR = Path(__file__).parent
 
+pytest_plugins = [
+    "tests_common",
+]
+
 
 def _clean_output(text: str):
     """
