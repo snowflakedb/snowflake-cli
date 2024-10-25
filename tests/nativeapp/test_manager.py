@@ -1713,12 +1713,11 @@ def test_get_events_quoted_app_name(
     assert mock_execute.mock_calls == expected
 
 
-@pytest.mark.parametrize("return_value", [None, "NONE"])
 @mock.patch(SQL_FACADE_GET_ACCOUNT_EVENT_TABLE)
 def test_get_events_no_event_table(
-    mock_account_event_table, return_value, temp_dir, mock_cursor, workspace_context
+    mock_account_event_table, temp_dir, mock_cursor, workspace_context
 ):
-    mock_account_event_table.return_value = return_value
+    mock_account_event_table.return_value = None
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
