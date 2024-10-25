@@ -345,6 +345,9 @@ def _dump_config(config_and_connections: Dict):
 
     if CONNECTIONS_FILE.exists():
         # update connections in connections.toml
+        # it will add only connections (maybe updated) which were originally read from connections.toml
+        # it won't add connections from config.toml
+        # because config manager doesn't have connections from config.toml if connections.toml exists
         _update_connections_toml(config_and_connections.get("connections") or {})
         # to config.toml save only connections from config.toml
         connections_to_save_in_config_toml = _read_config_file_toml().get("connections")
