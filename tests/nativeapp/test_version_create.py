@@ -274,7 +274,7 @@ def test_add_new_patch_custom(
 
 # Test version create when user did not pass in a version AND we could not find a version in the manifest file either
 @mock.patch(
-    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity._bundle",
     return_value=None,
 )
 @mock.patch(
