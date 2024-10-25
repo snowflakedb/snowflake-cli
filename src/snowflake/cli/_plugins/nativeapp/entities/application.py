@@ -42,7 +42,6 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 )
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -59,7 +58,6 @@ from snowflake.cli.api.errno import (
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
     ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
-from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
@@ -465,18 +463,15 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
         console = workspace_ctx.console
-        project_root = workspace_ctx.project_root
 
         app_name = model.fqn.identifier
         debug_mode = model.debug
         if model.meta:
             app_role = model.meta.role or workspace_ctx.default_role
             app_warehouse = model.meta.warehouse or workspace_ctx.default_warehouse
-            post_deploy_hooks = model.meta.post_deploy
         else:
             app_role = workspace_ctx.default_role
             app_warehouse = workspace_ctx.default_warehouse
-            post_deploy_hooks = None
 
         package_name = package_model.fqn.identifier
         if package_model.meta and package_model.meta.role:
@@ -587,22 +582,22 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         workspace_ctx = self._workspace_ctx
         console = workspace_ctx.console
         project_root = workspace_ctx.project_root
+        app_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        app_warehouse = (
+            model.meta and model.meta.warehouse
+        ) or workspace_ctx.default_warehouse
         app_name = model.fqn.identifier
         post_deploy_hooks = model.meta and model.meta.post_deploy
 
-        get_cli_context().metrics.set_counter_default(
-            CLICounterField.POST_DEPLOY_SCRIPTS, 0
+        execute_post_deploy_hooks(
+            console=console,
+            project_root=project_root,
+            post_deploy_hooks=post_deploy_hooks,
+            deployed_object_type="application",
+            role_name=app_role,
+            warehouse_name=app_warehouse,
+            database_name=app_name,
         )
-
-        if post_deploy_hooks:
-            with self.use_application_warehouse():
-                execute_post_deploy_hooks(
-                    console=console,
-                    project_root=project_root,
-                    post_deploy_hooks=post_deploy_hooks,
-                    deployed_object_type="application",
-                    database_name=app_name,
-                )
 
     @contextmanager
     def use_application_warehouse(self):

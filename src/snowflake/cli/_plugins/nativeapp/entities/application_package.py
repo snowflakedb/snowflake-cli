@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from contextlib import contextmanager
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Literal, Optional, Union
@@ -44,7 +43,6 @@ from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -55,7 +53,6 @@ from snowflake.cli.api.entities.utils import (
 )
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
-from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
@@ -609,9 +606,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
         package_distribution = model.distribution
         stage_fqn = stage_fqn or f"{package_name}.{model.stage}"
-        package_warehouse = (
-            model.meta and model.meta.warehouse
-        ) or workspace_ctx.default_warehouse
 
         # 1. Create a bundle if one wasn't passed in
         bundle_map = bundle_map or self.bundle(
@@ -648,8 +642,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 print_diff=print_diff,
             )
 
-            if run_post_deploy_hooks:
-                self.execute_post_deploy_hooks()
+        if run_post_deploy_hooks:
+            self.execute_post_deploy_hooks()
 
         if validate:
             self.validate_setup_script(
@@ -911,27 +905,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             return False
         return True
 
-    @contextmanager
-    def use_package_warehouse(self):
-        model = self._entity_model
-        ctx = self._workspace_ctx
-        package_warehouse = (
-            model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)
-        ) or to_identifier(ctx.default_warehouse)
-
-        if package_warehouse:
-            with get_sql_executor().use_warehouse(package_warehouse):
-                yield
-        else:
-            raise ClickException(
-                dedent(
-                    f"""\
-                Application package warehouse cannot be empty.
-                Please provide a value for it in your connection information or your project definition file.
-                """
-                )
-            )
-
     def create_app_package(self) -> None:
         """
         Creates the application package with our up-to-date stage if none exists.
@@ -984,22 +957,22 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         workspace_ctx = self._workspace_ctx
         console = workspace_ctx.console
         project_root = workspace_ctx.project_root
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        package_warehouse = (
+            model.meta and model.meta.warehouse
+        ) or workspace_ctx.default_warehouse
         package_name = model.fqn.identifier
         post_deploy_hooks = model.meta and model.meta.post_deploy
 
-        get_cli_context().metrics.set_counter_default(
-            CLICounterField.POST_DEPLOY_SCRIPTS, 0
+        execute_post_deploy_hooks(
+            console=console,
+            project_root=project_root,
+            post_deploy_hooks=post_deploy_hooks,
+            deployed_object_type="application package",
+            role_name=package_role,
+            warehouse_name=package_warehouse,
+            database_name=package_name,
         )
-
-        if post_deploy_hooks:
-            with self.use_package_warehouse():
-                execute_post_deploy_hooks(
-                    console=console,
-                    project_root=project_root,
-                    post_deploy_hooks=post_deploy_hooks,
-                    deployed_object_type="application package",
-                    database_name=package_name,
-                )
 
     def validate_setup_script(
         self, use_scratch_stage: bool, interactive: bool, force: bool
