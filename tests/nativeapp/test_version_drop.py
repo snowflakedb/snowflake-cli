@@ -99,7 +99,7 @@ def test_process_has_no_existing_app_pkg(
 )
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(
-    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity._bundle",
     return_value=None,
 )
 @mock.patch(
@@ -141,7 +141,7 @@ def test_process_no_version_from_user_no_version_in_manifest(
 )
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(
-    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity._bundle",
     return_value=None,
 )
 @mock.patch(
@@ -191,7 +191,7 @@ def test_process_drop_cannot_complete(
 )
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(
-    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity._bundle",
     return_value=None,
 )
 @mock.patch(
@@ -251,7 +251,7 @@ def test_process_drop_from_manifest(
 )
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(
-    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity._bundle",
     return_value=None,
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
