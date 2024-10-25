@@ -28,7 +28,7 @@ from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
-from snowflake.connector import DatabaseError, Error
+from snowflake.connector import DatabaseError, DictCursor, Error
 from snowflake.connector.errors import (
     InternalServerError,
     ProgrammingError,
@@ -856,3 +856,36 @@ def test_use_db_bubbles_errors(
             pass
 
     assert error_message in str(err)
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@pytest.mark.parametrize(
+    "parameter_value,event_table",
+    [
+        ["db.schema.event_table", "db.schema.event_table"],
+        [None, None],
+        ["NONE", None],
+    ],
+)
+def test_account_event_table(
+    mock_execute_query, mock_cursor, parameter_value, event_table
+):
+    query_result = (
+        [dict(key="EVENT_TABLE", value=parameter_value)]
+        if parameter_value is not None
+        else []
+    )
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(query_result, []),
+                mock.call(
+                    "show parameters like 'event_table' in account",
+                    cursor_class=DictCursor,
+                ),
+            ),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    assert sql_facade.get_account_event_table() == event_table
