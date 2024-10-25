@@ -43,7 +43,6 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -64,7 +63,6 @@ from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
-    PostDeployHook,
     TargetField,
 )
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
@@ -254,10 +252,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         needs_confirm = True
 
         # 1. If existing application is not found, exit gracefully
-        show_obj_row = self.get_existing_app_info_static(
-            app_name=app_name,
-            app_role=app_role,
-        )
+        show_obj_row = self.get_existing_app_info()
         if show_obj_row is None:
             console.warning(
                 f"Role {app_role} does not own any application object with the name {app_name}, or the application object does not exist."
@@ -401,7 +396,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         )
         if follow:
             return self.stream_events(
-                app_name=model.fqn.identifier,
                 package_name=package_model.fqn.identifier,
                 interval_seconds=interval_seconds,
                 since=since,
@@ -414,7 +408,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             )
         else:
             return self.get_events(
-                app_name=model.fqn.identifier,
                 package_name=package_model.fqn.identifier,
                 since=since,
                 until=until,
@@ -532,13 +525,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                                 )
 
                         # hooks always executed after a create or upgrade
-                        self.execute_post_deploy_hooks(
-                            console=console,
-                            project_root=project_root,
-                            post_deploy_hooks=post_deploy_hooks,
-                            app_name=app_name,
-                            app_warehouse=app_warehouse,
-                        )
+                        self.execute_post_deploy_hooks()
                         return
 
                     except ProgrammingError as err:
@@ -590,32 +577,25 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     print_messages(console, create_cursor)
 
                     # hooks always executed after a create or upgrade
-                    self.execute_post_deploy_hooks(
-                        console=console,
-                        project_root=project_root,
-                        post_deploy_hooks=post_deploy_hooks,
-                        app_name=app_name,
-                        app_warehouse=app_warehouse,
-                    )
+                    self.execute_post_deploy_hooks()
 
                 except ProgrammingError as err:
                     generic_sql_error_handler(err)
 
-    @classmethod
-    def execute_post_deploy_hooks(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        post_deploy_hooks: Optional[List[PostDeployHook]],
-        app_name: str,
-        app_warehouse: Optional[str],
-    ):
+    def execute_post_deploy_hooks(self):
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
+        app_name = model.fqn.identifier
+        post_deploy_hooks = model.meta and model.meta.post_deploy
+
         get_cli_context().metrics.set_counter_default(
             CLICounterField.POST_DEPLOY_SCRIPTS, 0
         )
 
         if post_deploy_hooks:
-            with cls.use_application_warehouse(app_warehouse):
+            with self.use_application_warehouse():
                 execute_post_deploy_hooks(
                     console=console,
                     project_root=project_root,
@@ -624,11 +604,14 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     database_name=app_name,
                 )
 
-    @staticmethod
     @contextmanager
-    def use_application_warehouse(
-        app_warehouse: Optional[str],
-    ):
+    def use_application_warehouse(self):
+        model = self._entity_model
+        ctx = self._workspace_ctx
+        app_warehouse = (
+            model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)
+        ) or to_identifier(ctx.default_warehouse)
+
         if app_warehouse:
             with get_sql_executor().use_warehouse(app_warehouse):
                 yield
@@ -643,22 +626,17 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             )
 
     def get_existing_app_info(self) -> Optional[dict]:
-        model = self._entity_model
-        ctx = self._workspace_ctx
-        role = (model.meta and model.meta.role) or ctx.default_role
-        return self.get_existing_app_info_static(model.fqn.name, role)
-
-    # Temporary static entrypoint until NativeAppManager.get_existing_app_info() is removed
-    @staticmethod
-    def get_existing_app_info_static(app_name: str, app_role: str) -> Optional[dict]:
         """
         Check for an existing application object by the same name as in project definition, in account.
         It executes a 'show applications like' query and returns the result as single row, if one exists.
         """
+        model = self._entity_model
+        ctx = self._workspace_ctx
+        role = (model.meta and model.meta.role) or ctx.default_role
         sql_executor = get_sql_executor()
-        with sql_executor.use_role(app_role):
+        with sql_executor.use_role(role):
             return sql_executor.show_specific_object(
-                "applications", app_name, name_col=NAME_COL
+                "applications", model.fqn.name, name_col=NAME_COL
             )
 
     def drop_application_before_upgrade(
@@ -716,10 +694,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             else:
                 generic_sql_error_handler(err)
 
-    @classmethod
     def get_events(
-        cls,
-        app_name: str,
+        self,
         package_name: str,
         since: str | datetime | None = None,
         until: str | datetime | None = None,
@@ -731,13 +707,16 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         first: int = -1,
         last: int = -1,
     ):
+        model = self._entity_model
+        app_name = model.fqn.identifier
+
         record_types = record_types or []
         scopes = scopes or []
 
         if first >= 0 and last >= 0:
             raise ValueError("first and last cannot be used together")
 
-        account_event_table = cls.get_account_event_table()
+        account_event_table = self.get_account_event_table()
         if not account_event_table or account_event_table == "NONE":
             raise NoEventTableForAccount()
 
@@ -824,10 +803,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             else:
                 generic_sql_error_handler(err)
 
-    @classmethod
     def stream_events(
-        cls,
-        app_name: str,
+        self,
         package_name: str,
         interval_seconds: int,
         since: str | datetime | None = None,
@@ -839,8 +816,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         last: int = -1,
     ) -> Generator[dict, None, None]:
         try:
-            events = cls.get_events(
-                app_name=app_name,
+            events = self.get_events(
                 package_name=package_name,
                 since=since,
                 record_types=record_types,
@@ -856,8 +832,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             while True:  # Then infinite poll for new events
                 time.sleep(interval_seconds)
                 previous_events = events
-                events = cls.get_events(
-                    app_name=app_name,
+                events = self.get_events(
                     package_name=package_name,
                     since=last_event_time,
                     record_types=record_types,
@@ -883,19 +858,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
-        model = self._entity_model
-        ctx = self._workspace_ctx
-        warehouse = (
-            model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)
-        ) or to_identifier(ctx.default_warehouse)
-        return self.get_snowsight_url_static(model.fqn.name, warehouse)
-
-    # Temporary static entrypoint until NativeAppManager.get_snowsight_url() is removed
-    @classmethod
-    def get_snowsight_url_static(cls, app_name: str, app_warehouse: str) -> str:
-        """Returns the URL that can be used to visit this app via Snowsight."""
-        name = identifier_for_url(app_name)
-        with cls.use_application_warehouse(app_warehouse):
+        name = identifier_for_url(self._entity_model.fqn.name)
+        with self.use_application_warehouse():
             sql_executor = get_sql_executor()
             return make_snowsight_url(
                 sql_executor._conn, f"/#/apps/application/{name}"  # noqa: SLF001

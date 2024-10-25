@@ -14,7 +14,7 @@
                                                                                   
    Usage: snow [OPTIONS] COMMAND [ARGS]...                                        
                                                                                   
-   Snowflake CLI tool for developers [v3.1.0]                                     
+   Snowflake CLI tool for developers [v3.2.0.dev0]                                
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --version                           Shows version of the Snowflake CLI       |

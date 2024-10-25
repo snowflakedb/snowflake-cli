@@ -228,7 +228,9 @@ Use the --prune flag to delete them from the stage."""
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_cursor):
+def test_get_app_pkg_distribution_in_snowflake(
+    mock_execute, temp_dir, mock_cursor, workspace_context
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -261,18 +263,15 @@ def test_get_app_pkg_distribution_in_snowflake(mock_execute, temp_dir, mock_curs
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
-    actual_distribution = (
-        ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
-            pkg_model.fqn.name, pkg_model.meta.role
-        )
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    actual_distribution = pkg.get_app_pkg_distribution_in_snowflake()
     assert actual_distribution == "external"
     assert mock_execute.mock_calls == expected
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
-    mock_execute, temp_dir, mock_cursor
+    mock_execute, temp_dir, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -301,18 +300,17 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
 
     with pytest.raises(DoesNotExistOrUnauthorizedError):
-        ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
-            pkg_model.fqn.name, pkg_model.meta.role
-        )
+        pkg.get_app_pkg_distribution_in_snowflake()
 
     assert mock_execute.mock_calls == expected
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
-    mock_execute, temp_dir, mock_cursor
+    mock_execute, temp_dir, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -336,18 +334,17 @@ def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
 
     with pytest.raises(SnowflakeSQLExecutionError):
-        ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
-            pkg_model.fqn.name, pkg_model.meta.role
-        )
+        pkg.get_app_pkg_distribution_in_snowflake()
 
     assert mock_execute.mock_calls == expected
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
-    mock_execute, temp_dir, mock_cursor
+    mock_execute, temp_dir, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -374,11 +371,10 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
 
     with pytest.raises(ObjectPropertyNotFoundError) as err:
-        ApplicationPackageEntity.get_app_pkg_distribution_in_snowflake(
-            pkg_model.fqn.name, pkg_model.meta.role
-        )
+        pkg.get_app_pkg_distribution_in_snowflake()
 
     assert mock_execute.mock_calls == expected
     assert err.match(
@@ -392,7 +388,9 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
 
 
 @mock_get_app_pkg_distribution_in_sf()
-def test_is_app_pkg_distribution_same_in_sf_w_arg(mock_mismatch, temp_dir):
+def test_is_app_pkg_distribution_same_in_sf_w_arg(
+    mock_mismatch, temp_dir, workspace_context
+):
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -417,18 +415,15 @@ def test_is_app_pkg_distribution_same_in_sf_w_arg(mock_mismatch, temp_dir):
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
-    assert not ApplicationPackageEntity.verify_project_distribution(
-        console=cc,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
-        expected_distribution="internal",
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    assert not pkg.verify_project_distribution(expected_distribution="internal")
     mock_mismatch.assert_not_called()
 
 
 @mock_get_app_pkg_distribution_in_sf()
-def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir):
+def test_is_app_pkg_distribution_same_in_sf_no_mismatch(
+    mock_mismatch, temp_dir, workspace_context
+):
     mock_mismatch.return_value = "external"
 
     current_working_directory = os.getcwd()
@@ -455,16 +450,14 @@ def test_is_app_pkg_distribution_same_in_sf_no_mismatch(mock_mismatch, temp_dir)
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
-    assert ApplicationPackageEntity.verify_project_distribution(
-        console=cc,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    assert pkg.verify_project_distribution()
 
 
 @mock_get_app_pkg_distribution_in_sf()
-def test_is_app_pkg_distribution_same_in_sf_has_mismatch(mock_mismatch, temp_dir):
+def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
+    mock_mismatch, temp_dir, workspace_context
+):
     mock_mismatch.return_value = "external"
 
     current_working_directory = os.getcwd()
@@ -476,20 +469,18 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(mock_mismatch, temp_dir
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
-    mock_console = mock.MagicMock()
-    assert not ApplicationPackageEntity.verify_project_distribution(
-        console=mock_console,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
-    )
-    mock_console.warning.assert_called_once_with(
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    workspace_context.console = mock.MagicMock()
+    assert not pkg.verify_project_distribution()
+    workspace_context.console.warning.assert_called_once_with(
         "Application package app_pkg in your Snowflake account has distribution property external,\nwhich does not match the value specified in project definition file: internal.\n"
     )
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
+def test_get_existing_app_info_app_exists(
+    mock_execute, temp_dir, mock_cursor, workspace_context
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -525,16 +516,17 @@ def test_get_existing_app_info_app_exists(mock_execute, temp_dir, mock_cursor):
 
     dm = _get_dm()
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
-    show_obj_row = ApplicationEntity.get_existing_app_info_static(
-        app_model.fqn.name, app_model.meta.role
-    )
+    app = ApplicationEntity(app_model, workspace_context)
+    show_obj_row = app.get_existing_app_info()
     assert show_obj_row is not None
     assert show_obj_row[NAME_COL] == "MYAPP"
     assert mock_execute.mock_calls == expected
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_cursor):
+def test_get_existing_app_info_app_does_not_exist(
+    mock_execute, temp_dir, mock_cursor, workspace_context
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -560,15 +552,16 @@ def test_get_existing_app_info_app_does_not_exist(mock_execute, temp_dir, mock_c
 
     dm = _get_dm()
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
-    show_obj_row = ApplicationEntity.get_existing_app_info_static(
-        app_model.fqn.name, app_model.meta.role
-    )
+    app = ApplicationEntity(app_model, workspace_context)
+    show_obj_row = app.get_existing_app_info()
     assert show_obj_row is None
     assert mock_execute.mock_calls == expected
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_get_existing_app_pkg_info_app_pkg_exists(mock_execute, temp_dir, mock_cursor):
+def test_get_existing_app_pkg_info_app_pkg_exists(
+    mock_execute, temp_dir, mock_cursor, workspace_context
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -607,9 +600,8 @@ def test_get_existing_app_pkg_info_app_pkg_exists(mock_execute, temp_dir, mock_c
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
-    show_obj_row = ApplicationPackageEntity.get_existing_app_pkg_info(
-        pkg_model.fqn.name, pkg_model.meta.role
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    show_obj_row = pkg.get_existing_app_pkg_info()
     assert show_obj_row is not None
     assert show_obj_row[NAME_COL] == "APP_PKG"
     assert mock_execute.mock_calls == expected
@@ -617,7 +609,7 @@ def test_get_existing_app_pkg_info_app_pkg_exists(mock_execute, temp_dir, mock_c
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
-    mock_execute, temp_dir, mock_cursor
+    mock_execute, temp_dir, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -647,9 +639,8 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
 
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
-    show_obj_row = ApplicationPackageEntity.get_existing_app_pkg_info(
-        pkg_model.fqn.name, pkg_model.meta.role
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    show_obj_row = pkg.get_existing_app_pkg_info()
     assert show_obj_row is None
     assert mock_execute.mock_calls == expected
 
@@ -687,6 +678,7 @@ def test_get_snowsight_url_with_pdf_warehouse(
     fallback_side_effect,
     temp_dir,
     mock_cursor,
+    workspace_context,
 ):
     mock_conn.return_value = MockConnectionCtx(warehouse=warehouse)
     mock_snowsight_host.return_value = "https://host"
@@ -713,10 +705,9 @@ def test_get_snowsight_url_with_pdf_warehouse(
 
     dm = _get_dm()
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+    app = ApplicationEntity(app_model, workspace_context)
     assert (
-        ApplicationEntity.get_snowsight_url_static(
-            app_model.fqn.name, app_model.meta.warehouse
-        )
+        app.get_snowsight_url()
         == "https://host/organization/account/#/apps/application/MYAPP"
     )
     assert mock_execute_query.mock_calls == expected + fallback_warehouse_call
@@ -738,12 +729,6 @@ def test_get_snowsight_url_with_pdf_warehouse(
             [mock.call("select current_warehouse()")],
             [None],
         ),
-        (
-            "napp_project_2",
-            None,
-            [],
-            [],
-        ),
     ],
     indirect=["project_definition_files"],
 )
@@ -758,6 +743,7 @@ def test_get_snowsight_url_without_pdf_warehouse(
     expected_calls,
     fallback_side_effect,
     mock_cursor,
+    workspace_context,
 ):
     mock_conn.return_value = MockConnectionCtx(warehouse=warehouse)
     mock_snowsight_host.return_value = "https://host"
@@ -772,18 +758,12 @@ def test_get_snowsight_url_without_pdf_warehouse(
 
     dm = _get_dm(str(working_dir))
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp_polly"]
-    if warehouse:
-        assert (
-            ApplicationEntity.get_snowsight_url_static(app_model.fqn.name, warehouse)
-            == "https://host/organization/account/#/apps/application/MYAPP_POLLY"
-        )
-    else:
-        with pytest.raises(ClickException) as err:
-            ApplicationEntity.get_snowsight_url_static(
-                app_model.fqn.name, app_model.meta.warehouse
-            )
-        assert "Application warehouse cannot be empty." in err.value.message
-
+    app = ApplicationEntity(app_model, workspace_context)
+    workspace_context.get_default_warehouse = lambda: warehouse
+    assert (
+        app.get_snowsight_url()
+        == "https://host/organization/account/#/apps/application/MYAPP_POLLY"
+    )
     assert mock_execute_query.mock_calls == expected_calls
 
 
@@ -1660,6 +1640,7 @@ def test_get_events(
     expected_first_clause,
     last,
     expected_last_clause,
+    workspace_context,
 ):
     create_named_file(
         file_name="snowflake.yml",
@@ -1702,8 +1683,8 @@ def test_get_events(
             "app_pkg"
         ]
         app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
-        return ApplicationEntity.get_events(
-            app_name=app_model.fqn.name,
+        app = ApplicationEntity(app_model, workspace_context)
+        return app.get_events(
             package_name=pkg_model.fqn.name,
             since=since,
             until=until,
@@ -1731,7 +1712,7 @@ def test_get_events(
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_events_quoted_app_name(
-    mock_execute, mock_account_event_table, temp_dir, mock_cursor
+    mock_execute, mock_account_event_table, temp_dir, mock_cursor, workspace_context
 ):
     create_named_file(
         file_name="snowflake.yml",
@@ -1776,19 +1757,15 @@ def test_get_events_quoted_app_name(
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
-    assert (
-        ApplicationEntity.get_events(
-            app_name=app_model.fqn.name, package_name=pkg_model.fqn.name
-        )
-        == events
-    )
+    app = ApplicationEntity(app_model, workspace_context)
+    assert app.get_events(package_name=pkg_model.fqn.name) == events
     assert mock_execute.mock_calls == expected
 
 
 @pytest.mark.parametrize("return_value", [None, "NONE"])
 @mock.patch(APP_ENTITY_GET_ACCOUNT_EVENT_TABLE)
 def test_get_events_no_event_table(
-    mock_account_event_table, return_value, temp_dir, mock_cursor
+    mock_account_event_table, return_value, temp_dir, mock_cursor, workspace_context
 ):
     mock_account_event_table.return_value = return_value
     create_named_file(
@@ -1800,10 +1777,9 @@ def test_get_events_no_event_table(
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+    app = ApplicationEntity(app_model, workspace_context)
     with pytest.raises(NoEventTableForAccount):
-        ApplicationEntity.get_events(
-            app_name=app_model.fqn.name, package_name=pkg_model.fqn.name
-        )
+        app.get_events(package_name=pkg_model.fqn.name)
 
 
 @mock.patch(
@@ -1812,7 +1788,7 @@ def test_get_events_no_event_table(
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_events_event_table_dne_or_unauthorized(
-    mock_execute, mock_account_event_table, temp_dir, mock_cursor
+    mock_execute, mock_account_event_table, temp_dir, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -1854,10 +1830,9 @@ def test_get_events_event_table_dne_or_unauthorized(
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+    app = ApplicationEntity(app_model, workspace_context)
     with pytest.raises(ClickException) as err:
-        ApplicationEntity.get_events(
-            app_name=app_model.fqn.name, package_name=pkg_model.fqn.name
-        )
+        app.get_events(package_name=pkg_model.fqn.name)
 
     assert mock_execute.mock_calls == expected
     assert err.match(
@@ -1874,7 +1849,9 @@ def test_get_events_event_table_dne_or_unauthorized(
     return_value="db.schema.event_table",
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cursor):
+def test_stream_events(
+    mock_execute, mock_account_event_table, temp_dir, mock_cursor, workspace_context
+):
     create_named_file(
         file_name="snowflake.yml",
         dir_name=temp_dir,
@@ -1969,11 +1946,9 @@ def test_stream_events(mock_execute, mock_account_event_table, temp_dir, mock_cu
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
-    stream = ApplicationEntity.stream_events(
-        app_name=app_model.fqn.name,
-        package_name=pkg_model.fqn.name,
-        interval_seconds=0,
-        last=last,
+    app = ApplicationEntity(app_model, workspace_context)
+    stream = app.stream_events(
+        package_name=pkg_model.fqn.name, interval_seconds=0, last=last
     )
     for call in events:
         for event in call:

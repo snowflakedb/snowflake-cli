@@ -45,7 +45,6 @@ from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -60,7 +59,6 @@ from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
-    PostDeployHook,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
@@ -203,10 +201,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         needs_confirm = True
 
         # 1. If existing application package is not found, exit gracefully
-        show_obj_row = self.get_existing_app_pkg_info(
-            package_name=package_name,
-            package_role=package_role,
-        )
+        show_obj_row = self.get_existing_app_pkg_info()
         if show_obj_row is None:
             console.warning(
                 f"Role {package_role} does not own any application package with the name {package_name}, or the application package does not exist."
@@ -230,16 +225,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     )
 
         # 3. Check distribution of the existing application package
-        actual_distribution = self.get_app_pkg_distribution_in_snowflake(
-            package_name=package_name,
-            package_role=package_role,
-        )
-        if not self.verify_project_distribution(
-            console=console,
-            package_name=package_name,
-            package_role=package_role,
-            package_distribution=actual_distribution,
-        ):
+        actual_distribution = self.get_app_pkg_distribution_in_snowflake()
+        if not self.verify_project_distribution():
             console.warning(
                 f"Dropping application package {package_name} with distribution '{actual_distribution}'."
             )
@@ -467,24 +454,104 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         *args,
         **kwargs,
     ):
+        """
+        Drops a version defined in an application package. If --force is provided, then no user prompts will be executed.
+        """
         model = self._entity_model
         workspace_ctx = self._workspace_ctx
         package_name = model.fqn.identifier
-        return self.version_drop(
-            console=workspace_ctx.console,
-            project_root=workspace_ctx.project_root,
-            deploy_root=workspace_ctx.project_root / model.deploy_root,
-            bundle_root=workspace_ctx.project_root / model.bundle_root,
-            generated_root=(
-                workspace_ctx.project_root / model.deploy_root / model.generated_root
-            ),
-            artifacts=model.artifacts,
-            package_name=package_name,
-            package_role=(model.meta and model.meta.role) or workspace_ctx.default_role,
-            package_distribution=model.distribution,
-            version=version,
-            force=force,
-            interactive=interactive,
+
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
+        deploy_root = workspace_ctx.project_root / model.deploy_root
+        bundle_root = workspace_ctx.project_root / model.bundle_root
+        generated_root = (
+            workspace_ctx.project_root / model.deploy_root / model.generated_root
+        )
+        artifacts = model.artifacts
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+        package_distribution = model.distribution
+
+        if force:
+            interactive = False
+            policy = AllowAlwaysPolicy()
+        else:
+            policy = AskAlwaysPolicy() if interactive else DenyAlwaysPolicy()
+
+        # 1. Check for existing an existing application package
+        show_obj_row = self.get_existing_app_pkg_info()
+        if not show_obj_row:
+            raise ApplicationPackageDoesNotExistError(package_name)
+
+        # 2. Check distribution of the existing application package
+        actual_distribution = self.get_app_pkg_distribution_in_snowflake()
+        if not self.verify_project_distribution(
+            expected_distribution=actual_distribution
+        ):
+            console.warning(
+                f"Continuing to execute version drop on application package "
+                f"{package_name} with distribution '{actual_distribution}'."
+            )
+
+        # 3. If the user did not pass in a version string, determine from manifest.yml
+        if not version:
+            console.message(
+                dedent(
+                    f"""\
+                        Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
+                        This step will bundle your app artifacts to determine the location of the manifest.yml file.
+                    """
+                )
+            )
+            self.bundle(
+                project_root=project_root,
+                deploy_root=deploy_root,
+                bundle_root=bundle_root,
+                generated_root=generated_root,
+                artifacts=artifacts,
+                package_name=package_name,
+            )
+            version, _ = find_version_info_in_manifest_file(deploy_root)
+            if not version:
+                raise ClickException(
+                    "Manifest.yml file does not contain a value for the version field."
+                )
+
+        # Make the version a valid identifier, adding quotes if necessary
+        version = to_identifier(version)
+
+        console.step(
+            f"About to drop version {version} in application package {package_name}."
+        )
+
+        # If user did not provide --force, ask for confirmation
+        user_prompt = (
+            f"Are you sure you want to drop version {version} "
+            f"in application package {package_name}? "
+            f"Once dropped, this operation cannot be undone."
+        )
+        if not policy.should_proceed(user_prompt):
+            if interactive:
+                console.message("Not dropping version.")
+                raise typer.Exit(0)
+            else:
+                console.message(
+                    "Cannot drop version non-interactively without --force."
+                )
+                raise typer.Exit(1)
+
+        # Drop the version
+        sql_executor = get_sql_executor()
+        with sql_executor.use_role(package_role):
+            try:
+                sql_executor.execute_query(
+                    f"alter application package {package_name} drop version {version}"
+                )
+            except ProgrammingError as err:
+                raise err  # e.g. version is referenced in a release directive(s)
+
+        console.message(
+            f"Version {version} in application package {package_name} dropped successfully."
         )
 
     @staticmethod
@@ -582,13 +649,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
 
             if run_post_deploy_hooks:
-                self.execute_post_deploy_hooks(
-                    console=console,
-                    project_root=project_root,
-                    post_deploy_hooks=(model.meta and model.meta.post_deploy),
-                    package_name=package_name,
-                    package_warehouse=package_warehouse,
-                )
+                self.execute_post_deploy_hooks()
 
         if validate:
             self.validate_setup_script(
@@ -776,136 +837,30 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         except InvalidGitRepositoryError:
             pass  # not a git repository, which is acceptable
 
-    @classmethod
-    def version_drop(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        deploy_root: Path,
-        bundle_root: Path,
-        generated_root: Path,
-        artifacts: list[PathMapping],
-        package_name: str,
-        package_role: str,
-        package_distribution: str,
-        version: Optional[str],
-        force: bool,
-        interactive: bool,
-    ):
-        """
-        Drops a version defined in an application package. If --force is provided, then no user prompts will be executed.
-        """
-        if force:
-            interactive = False
-            policy = AllowAlwaysPolicy()
-        else:
-            policy = AskAlwaysPolicy() if interactive else DenyAlwaysPolicy()
-
-        # 1. Check for existing an existing application package
-        show_obj_row = cls.get_existing_app_pkg_info(package_name, package_role)
-        if not show_obj_row:
-            raise ApplicationPackageDoesNotExistError(package_name)
-
-        # 2. Check distribution of the existing application package
-        actual_distribution = cls.get_app_pkg_distribution_in_snowflake(
-            package_name, package_role
-        )
-        if not cls.verify_project_distribution(
-            console=console,
-            package_name=package_name,
-            package_role=package_role,
-            package_distribution=package_distribution,
-            expected_distribution=actual_distribution,
-        ):
-            console.warning(
-                f"Continuing to execute version drop on application package "
-                f"{package_name} with distribution '{actual_distribution}'."
-            )
-
-        # 3. If the user did not pass in a version string, determine from manifest.yml
-        if not version:
-            console.message(
-                dedent(
-                    f"""\
-                        Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
-                        This step will bundle your app artifacts to determine the location of the manifest.yml file.
-                    """
-                )
-            )
-            cls.bundle(
-                project_root=project_root,
-                deploy_root=deploy_root,
-                bundle_root=bundle_root,
-                generated_root=generated_root,
-                artifacts=artifacts,
-                package_name=package_name,
-            )
-            version, _ = find_version_info_in_manifest_file(deploy_root)
-            if not version:
-                raise ClickException(
-                    "Manifest.yml file does not contain a value for the version field."
-                )
-
-        # Make the version a valid identifier, adding quotes if necessary
-        version = to_identifier(version)
-
-        console.step(
-            f"About to drop version {version} in application package {package_name}."
-        )
-
-        # If user did not provide --force, ask for confirmation
-        user_prompt = (
-            f"Are you sure you want to drop version {version} "
-            f"in application package {package_name}? "
-            f"Once dropped, this operation cannot be undone."
-        )
-        if not policy.should_proceed(user_prompt):
-            if interactive:
-                console.message("Not dropping version.")
-                raise typer.Exit(0)
-            else:
-                console.message(
-                    "Cannot drop version non-interactively without --force."
-                )
-                raise typer.Exit(1)
-
-        # Drop the version
-        sql_executor = get_sql_executor()
-        with sql_executor.use_role(package_role):
-            try:
-                sql_executor.execute_query(
-                    f"alter application package {package_name} drop version {version}"
-                )
-            except ProgrammingError as err:
-                raise err  # e.g. version is referenced in a release directive(s)
-
-        console.message(
-            f"Version {version} in application package {package_name} dropped successfully."
-        )
-
-    @staticmethod
-    def get_existing_app_pkg_info(
-        package_name: str,
-        package_role: str,
-    ) -> Optional[dict]:
+    def get_existing_app_pkg_info(self) -> Optional[dict]:
         """
         Check for an existing application package by the same name as in project definition, in account.
         It executes a 'show application packages like' query and returns the result as single row, if one exists.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+
         sql_executor = get_sql_executor()
         with sql_executor.use_role(package_role):
             return sql_executor.show_specific_object(
-                "application packages", package_name, name_col=NAME_COL
+                "application packages", model.fqn.identifier, name_col=NAME_COL
             )
 
-    @staticmethod
-    def get_app_pkg_distribution_in_snowflake(
-        package_name: str,
-        package_role: str,
-    ) -> str:
+    def get_app_pkg_distribution_in_snowflake(self) -> str:
         """
         Returns the 'distribution' attribute of a 'describe application package' SQL query, in lowercase.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        package_name = model.fqn.identifier
+        package_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+
         sql_executor = get_sql_executor()
         with sql_executor.use_role(package_role):
             try:
@@ -927,33 +882,28 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             object_name=package_name,
         )
 
-    @classmethod
     def verify_project_distribution(
-        cls,
-        console: AbstractConsole,
-        package_name: str,
-        package_role: str,
-        package_distribution: str,
+        self,
         expected_distribution: Optional[str] = None,
     ) -> bool:
         """
         Returns true if the 'distribution' attribute of an existing application package in snowflake
         is the same as the the attribute specified in project definition file.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+
         actual_distribution = (
             expected_distribution
             if expected_distribution
-            else cls.get_app_pkg_distribution_in_snowflake(
-                package_name=package_name,
-                package_role=package_role,
-            )
+            else self.get_app_pkg_distribution_in_snowflake()
         )
-        project_def_distribution = package_distribution.lower()
+        project_def_distribution = model.distribution.lower()
         if actual_distribution != project_def_distribution:
-            console.warning(
+            workspace_ctx.console.warning(
                 dedent(
                     f"""\
-                    Application package {package_name} in your Snowflake account has distribution property {actual_distribution},
+                    Application package {model.fqn.identifier} in your Snowflake account has distribution property {actual_distribution},
                     which does not match the value specified in project definition file: {project_def_distribution}.
                     """
                 )
@@ -961,11 +911,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             return False
         return True
 
-    @staticmethod
     @contextmanager
-    def use_package_warehouse(
-        package_warehouse: Optional[str],
-    ):
+    def use_package_warehouse(self):
+        model = self._entity_model
+        ctx = self._workspace_ctx
+        package_warehouse = (
+            model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)
+        ) or to_identifier(ctx.default_warehouse)
+
         if package_warehouse:
             with get_sql_executor().use_warehouse(package_warehouse):
                 yield
@@ -991,23 +944,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         package_distribution = model.distribution
 
         # 1. Check for existing application package
-        show_obj_row = self.get_existing_app_pkg_info(
-            package_name=package_name,
-            package_role=package_role,
-        )
+        show_obj_row = self.get_existing_app_pkg_info()
 
         if show_obj_row:
             # 2. Check distribution of the existing application package
-            actual_distribution = self.get_app_pkg_distribution_in_snowflake(
-                package_name=package_name,
-                package_role=package_role,
-            )
+            actual_distribution = self.get_app_pkg_distribution_in_snowflake()
             if not self.verify_project_distribution(
-                console=console,
-                package_name=package_name,
-                package_role=package_role,
-                package_distribution=package_distribution,
-                expected_distribution=actual_distribution,
+                expected_distribution=actual_distribution
             ):
                 console.warning(
                     f"Continuing to execute `snow app run` on application package {package_name} with distribution '{actual_distribution}'."
@@ -1036,21 +979,20 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
             )
 
-    @classmethod
-    def execute_post_deploy_hooks(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        post_deploy_hooks: Optional[List[PostDeployHook]],
-        package_name: str,
-        package_warehouse: Optional[str],
-    ):
+    def execute_post_deploy_hooks(self):
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
+        package_name = model.fqn.identifier
+        post_deploy_hooks = model.meta and model.meta.post_deploy
+
         get_cli_context().metrics.set_counter_default(
             CLICounterField.POST_DEPLOY_SCRIPTS, 0
         )
 
         if post_deploy_hooks:
-            with cls.use_package_warehouse(package_warehouse):
+            with self.use_package_warehouse():
                 execute_post_deploy_hooks(
                     console=console,
                     project_root=project_root,
