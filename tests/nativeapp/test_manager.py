@@ -34,6 +34,7 @@ from snowflake.cli._plugins.nativeapp.constants import (
 from snowflake.cli._plugins.nativeapp.entities.application import (
     ApplicationEntity,
     ApplicationEntityModel,
+    _get_account_event_table,
 )
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
@@ -1482,7 +1483,7 @@ def test_account_event_table(mock_execute, temp_dir, mock_cursor):
     )
     mock_execute.side_effect = side_effects
 
-    assert ApplicationEntity.get_account_event_table() == event_table
+    assert _get_account_event_table() == event_table
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -1506,7 +1507,7 @@ def test_account_event_table_not_set_up(mock_execute, temp_dir, mock_cursor):
     )
     mock_execute.side_effect = side_effects
 
-    assert ApplicationEntity.get_account_event_table() == ""
+    assert _get_account_event_table() == ""
 
 
 @pytest.mark.parametrize(
