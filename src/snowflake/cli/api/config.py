@@ -383,11 +383,11 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
 
 
 def _read_config_file_toml() -> dict:
-    return tomlkit.loads(CONFIG_MANAGER.file_path.read_text())
+    return tomlkit.loads(CONFIG_MANAGER.file_path.read_text()).unwrap()
 
 
 def _read_connections_toml() -> dict:
-    return tomlkit.loads(CONNECTIONS_FILE.read_text())
+    return tomlkit.loads(CONNECTIONS_FILE.read_text()).unwrap()
 
 
 def _update_connections_toml(connections: dict):
