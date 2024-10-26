@@ -26,6 +26,7 @@ from snowflake.cli._plugins.object.command_aliases import (
 )
 from snowflake.cli._plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli._plugins.spcs.common import (
+    extract_log,
     filter_log_timestamp,
     validate_and_set_instances,
 )
@@ -38,6 +39,7 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -237,7 +239,7 @@ def logs(
     ),
     follow_interval: int = typer.Option(
         2,
-        "--follow_interval",
+        "--follow-interval",
         help="Polling interval in seconds when using the --follow flag",
     ),
     **options,
@@ -245,10 +247,13 @@ def logs(
     """
     Retrieves local logs from a service container.
     """
-    manager = ServiceManager()
+    if follow:
+        if previous_logs:
+            raise IncompatibleParametersError(["--follow", "--previous-logs"])
+        if num_lines != 500:
+            raise IncompatibleParametersError(["--follow", "--num-lines"])
 
-    def extract_log(log):
-        return log[0] if isinstance(log, tuple) else log
+    manager = ServiceManager()
 
     if follow:
         stream: Iterable[CommandResult] = (

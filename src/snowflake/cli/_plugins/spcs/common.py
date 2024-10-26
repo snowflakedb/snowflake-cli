@@ -95,6 +95,10 @@ def handle_object_already_exists(
         raise error
 
 
+def extract_log(log):
+    return log[0] if isinstance(log, tuple) else log
+
+
 def filter_log_timestamp(log: str, include_timestamps: bool) -> str:
     if include_timestamps:
         return log
