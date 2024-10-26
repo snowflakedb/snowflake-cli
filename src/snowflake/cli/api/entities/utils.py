@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from textwrap import dedent
 from typing import Any, List, NoReturn, Optional
 
 import jinja2
@@ -16,7 +15,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 from snowflake.cli._plugins.nativeapp.utils import verify_exists, verify_no_directories
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
-    StagePath,
+    StagePathType,
     compute_stage_diff,
     preserve_from_diff,
     sync_local_diff_with_stage,
@@ -30,7 +29,11 @@ from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.exceptions import (
+    DoesNotExistOrUnauthorizedError,
+    NoWarehouseSelectedInSessionError,
+    SnowflakeSQLExecutionError,
+)
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.rendering.sql_templates import (
@@ -41,46 +44,21 @@ from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
 
-def generic_sql_error_handler(
-    err: ProgrammingError, role: Optional[str] = None, warehouse: Optional[str] = None
-) -> NoReturn:
+def generic_sql_error_handler(err: ProgrammingError) -> NoReturn:
     # Potential refactor: If moving away from Python 3.8 and 3.9 to >= 3.10, use match ... case
-    if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
-        raise ProgrammingError(
-            msg=dedent(
-                f"""\
-                Received error message '{err.msg}' while executing SQL statement.
-                '{role}' may not have access to warehouse '{warehouse}'.
-                Please grant usage privilege on warehouse to this role.
-                """
-            ),
-            errno=err.errno,
-        )
+    if (
+        err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
+        or "does not exist or not authorized" in err.msg
+    ):
+        raise DoesNotExistOrUnauthorizedError(msg=err.msg) from err
     elif err.errno == NO_WAREHOUSE_SELECTED_IN_SESSION:
-        raise ProgrammingError(
-            msg=dedent(
-                f"""\
-                Received error message '{err.msg}' while executing SQL statement.
-                Please provide a warehouse for the active session role in your project definition file, config.toml file, or via command line.
-                """
-            ),
-            errno=err.errno,
-        )
-    elif "does not exist or not authorized" in err.msg:
-        raise ProgrammingError(
-            msg=dedent(
-                f"""\
-                Received error message '{err.msg}' while executing SQL statement.
-                Please check the name of the resource you are trying to query or the permissions of the role you are using to run the query.
-                """
-            )
-        )
+        raise NoWarehouseSelectedInSessionError(msg=err.msg) from err
     raise err
 
 
 def _get_stage_paths_to_sync(
     local_paths_to_sync: List[Path], deploy_root: Path
-) -> List[StagePath]:
+) -> List[StagePathType]:
     """
     Takes a list of paths (files and directories), returning a list of all files recursively relative to the deploy root.
     """
@@ -254,9 +232,11 @@ def execute_post_deploy_hooks(
 
     with console.phase(f"Executing {deployed_object_type} post-deploy actions"):
         sql_scripts_paths = []
+        display_paths = []
         for hook in post_deploy_hooks:
             if hook.sql_script:
                 sql_scripts_paths.append(hook.sql_script)
+                display_paths.append(hook.display_path)
             else:
                 raise ValueError(
                     f"Unsupported {deployed_object_type} post-deploy hook type: {hook}"
@@ -268,7 +248,7 @@ def execute_post_deploy_hooks(
             sql_scripts_paths,
         )
 
-        for index, sql_script_path in enumerate(sql_scripts_paths):
+        for index, sql_script_path in enumerate(display_paths):
             console.step(f"Executing SQL script: {sql_script_path}")
             _execute_sql_script(
                 script_content=scripts_content_list[index],

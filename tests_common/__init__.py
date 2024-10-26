@@ -13,6 +13,7 @@
 # limitations under the License.
 import platform
 
+from tests_common.conftest import *
 from tests_common.path_utils import *
 
 IS_WINDOWS = platform.system() == "Windows"

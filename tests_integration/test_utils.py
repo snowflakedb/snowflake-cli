@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import datetime
-from functools import wraps
-from unittest import mock
-from typing import Any, Dict, List
+import os
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any, Dict, List
+from unittest.mock import MagicMock
 
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.telemetry import TelemetryField
 
 
 @contextmanager
@@ -80,3 +80,15 @@ def not_contains_row_with(rows: List[Dict[str, Any]], values: Dict[str, Any]) ->
         if row.items() >= values_items:
             return False
     return True
+
+
+def extract_first_telemetry_message_of_type(
+    mock_telemetry: MagicMock, message_type: str
+) -> Dict[str, Any]:
+    # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+    return next(
+        args.args[0].to_dict()["message"]
+        for args in mock_telemetry.call_args_list
+        if args.args[0].to_dict().get("message").get(TelemetryField.KEY_TYPE.value)
+        == message_type
+    )

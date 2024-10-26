@@ -202,6 +202,15 @@ class ServiceManager(SqlExecutionMixin):
     def list_endpoints(self, service_name: str) -> SnowflakeCursor:
         return self._execute_query(f"show endpoints in service {service_name}")
 
+    def list_instances(self, service_name: str) -> SnowflakeCursor:
+        return self._execute_query(f"show service instances in service {service_name}")
+
+    def list_containers(self, service_name: str) -> SnowflakeCursor:
+        return self._execute_query(f"show service containers in service {service_name}")
+
+    def list_roles(self, service_name: str) -> SnowflakeCursor:
+        return self._execute_query(f"show roles in service {service_name}")
+
     def suspend(self, service_name: str):
         return self._execute_query(f"alter service {service_name} suspend")
 
@@ -215,6 +224,7 @@ class ServiceManager(SqlExecutionMixin):
         max_instances: Optional[int],
         query_warehouse: Optional[str],
         auto_resume: Optional[bool],
+        external_access_integrations: Optional[List[str]],
         comment: Optional[str],
     ):
         property_pairs = [
@@ -222,6 +232,7 @@ class ServiceManager(SqlExecutionMixin):
             ("max_instances", max_instances),
             ("query_warehouse", query_warehouse),
             ("auto_resume", auto_resume),
+            ("external_access_integrations", external_access_integrations),
             ("comment", comment),
         ]
 
@@ -230,10 +241,31 @@ class ServiceManager(SqlExecutionMixin):
             raise NoPropertiesProvidedError(
                 f"No properties specified for service '{service_name}'. Please provide at least one property to set."
             )
-        query: List[str] = [f"alter service {service_name} set"]
-        for property_name, value in property_pairs:
-            if value is not None:
-                query.append(f"{property_name} = {value}")
+        query: List[str] = [f"alter service {service_name} set "]
+
+        if min_instances is not None:
+            query.append(f" min_instances = {min_instances}")
+
+        if max_instances is not None:
+            query.append(f" max_instances = {max_instances}")
+
+        if query_warehouse is not None:
+            query.append(f" query_warehouse = {query_warehouse}")
+
+        if auto_resume is not None:
+            query.append(f" auto_resume = {auto_resume}")
+
+        if external_access_integrations is not None:
+            external_access_integration_list = ",".join(
+                f"{e}" for e in external_access_integrations
+            )
+            query.append(
+                f"external_access_integrations = ({external_access_integration_list})"
+            )
+
+        if comment is not None:
+            query.append(f" comment = {comment}")
+
         return self._execute_query(strip_empty_lines(query))
 
     def unset_property(

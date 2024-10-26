@@ -38,6 +38,7 @@ from snowflake.cli.api.commands.flags import (
     OnErrorOption,
     PatternOption,
     identifier_stage_argument,
+    identifier_stage_path_argument,
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -60,6 +61,10 @@ app = SnowTyperFactory(
 )
 
 StageNameArgument = identifier_stage_argument(sf_object="stage", example="@my_stage")
+StagePathArgument = identifier_stage_path_argument(
+    sf_object="stage", example="@my_stage/path"
+)
+
 
 add_object_command_aliases(
     app=app,
@@ -74,7 +79,7 @@ add_object_command_aliases(
 
 @app.command("list-files", requires_connection=True)
 def stage_list_files(
-    stage_name: str = StageNameArgument, pattern=PatternOption, **options
+    stage_name: str = StagePathArgument, pattern=PatternOption, **options
 ) -> CommandResult:
     """
     Lists the stage contents.
@@ -208,11 +213,11 @@ def execute(
     **options,
 ):
     """
-    Execute immediate all files from the stage path. Files can be filtered with glob like pattern,
+    Execute immediate all files from the stage path. Files can be filtered with a glob-like pattern,
     e.g. `@stage/*.sql`, `@stage/dev/*`. Only files with `.sql` extension will be executed.
     """
     results = StageManager().execute(
-        stage_path=stage_path, on_error=on_error, variables=variables
+        stage_path_str=stage_path, on_error=on_error, variables=variables
     )
     return CollectionResult(results)
 

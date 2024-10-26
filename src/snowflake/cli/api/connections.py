@@ -22,7 +22,7 @@ from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
 from typing import Optional
 
-from snowflake.cli.api.config import get_default_connection_name
+from snowflake.cli.api.config import get_connection_dict, get_default_connection_name
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.compat import IS_WINDOWS
@@ -78,6 +78,17 @@ class ConnectionContext:
             if key not in field_map:
                 raise KeyError(f"{key} is not a field of {self.__class__.__name__}")
             setattr(self, key, value)
+
+    def update_from_config(self) -> ConnectionContext:
+        connection_config = get_connection_dict(connection_name=self.connection_name)
+        if "private_key_path" in connection_config:
+            connection_config["private_key_file"] = connection_config[
+                "private_key_path"
+            ]
+            del connection_config["private_key_path"]
+
+        self.update(**connection_config)
+        return self
 
     def __repr__(self) -> str:
         """Minimal repr where None values have their keys omitted."""

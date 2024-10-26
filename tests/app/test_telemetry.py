@@ -16,6 +16,12 @@ import os
 import uuid
 from unittest import mock
 
+import pytest
+import typer
+from click import ClickException
+from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import CouldNotUseObjectError
+from snowflake.connector import ProgrammingError
 from snowflake.connector.version import VERSION as DRIVER_VERSION
 
 
@@ -46,6 +52,9 @@ def test_executing_command_sends_telemetry_usage_data(
         .to_dict()
     )
 
+    del usage_command_event["message"][
+        "command_ci_environment"
+    ]  # to avoid side effect from CI
     assert usage_command_event == {
         "message": {
             "driver_type": "PythonConnector",
@@ -70,6 +79,36 @@ def test_executing_command_sends_telemetry_usage_data(
         },
         "timestamp": "123",
     }
+
+
+@pytest.mark.parametrize(
+    "ci_type, env_var",
+    [
+        ("GITHUB_ACTIONS", "GITHUB_ACTIONS"),
+        ("GITLAB_CI", "GITLAB_CI"),
+        ("CIRCLECI", "CIRCLECI"),
+        ("JENKINS", "JENKINS_URL"),
+        ("JENKINS", "HUDSON_URL"),
+        ("AZURE_DEVOPS", "TF_BUILD"),
+    ],
+)
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_executing_command_sends_ci_usage_data(_, mock_conn, runner, env_var, ci_type):
+    with mock.patch.dict(os.environ, {env_var: "true"}, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert usage_command_event["message"]["command_ci_environment"] == ci_type
 
 
 @mock.patch(
@@ -147,3 +186,24 @@ def test_failing_executing_command_sends_telemetry_data(
         and result_command_event["message"]["command_execution_id"]
         == "8a2225b3800c4017a4a9eab941db58fa"
     )
+
+
+@pytest.mark.parametrize(
+    "error,is_cli",
+    [
+        (ProgrammingError(), False),
+        (ClickException("message"), True),
+        (
+            CouldNotUseObjectError(object_type=ObjectType.WAREHOUSE, name="warehouse"),
+            True,
+        ),
+        (typer.Abort(), True),
+        (typer.Exit(), True),
+        (BrokenPipeError(), True),
+        (RuntimeError(), False),
+    ],
+)
+def test_cli_exception_classification(error: Exception, is_cli: bool):
+    from snowflake.cli._app.telemetry import _is_cli_exception
+
+    assert _is_cli_exception(error) == is_cli

@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
+from pydantic_core.core_schema import ValidationInfo
 from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import (
@@ -115,7 +116,17 @@ class DefinitionV11(DefinitionV10):
 
 
 class DefinitionV20(_ProjectDefinitionBase):
-    entities: Dict[str, AnnotatedEntity] = Field(title="Entity definitions.")
+    entities: Dict[str, AnnotatedEntity] = Field(
+        title="Entity definitions.", default={}
+    )
+    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
+        title="Default environment specification for this project.",
+        default=None,
+    )
+    mixins: Optional[Dict[str, Dict]] = Field(
+        title="Mixins to apply to entities",
+        default=None,
+    )
 
     @model_validator(mode="after")
     def validate_entities_identifiers(self):
@@ -163,38 +174,32 @@ class DefinitionV20(_ProjectDefinitionBase):
                 f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
             )
 
-    env: Optional[Dict[str, Union[str, int, bool]]] = Field(
-        title="Default environment specification for this project.",
-        default=None,
-    )
-
-    mixins: Optional[Dict[str, Dict]] = Field(
-        title="Mixins to apply to entities",
-        default=None,
-    )
-
     @model_validator(mode="before")
     @classmethod
-    def apply_mixins(cls, data: Dict) -> Dict:
+    def apply_mixins(cls, data: Dict, info: ValidationInfo) -> Dict:
         """
         Applies mixins to those entities, whose meta field contains the mixin name.
         """
         if "mixins" not in data or "entities" not in data:
             return data
 
-        entities = data["entities"]
-        for entity_name, entity in entities.items():
-            entity_mixins = entity_mixins_to_list(
-                entity.get("meta", {}).get("use_mixins")
-            )
+        duplicated_run = (
+            info.context.get("is_duplicated_run", False) if info.context else False
+        )
+        if not duplicated_run:
+            entities = data["entities"]
+            for entity_name, entity in entities.items():
+                entity_mixins = entity_mixins_to_list(
+                    entity.get("meta", {}).get("use_mixins")
+                )
 
-            merged_values = cls._merge_mixins_with_entity(
-                entity_id=entity_name,
-                entity=entity,
-                entity_mixins_names=entity_mixins,
-                mixin_defs=data["mixins"],
-            )
-            entities[entity_name] = merged_values
+                merged_values = cls._merge_mixins_with_entity(
+                    entity_id=entity_name,
+                    entity=entity,
+                    entity_mixins_names=entity_mixins,
+                    mixin_defs=data["mixins"],
+                )
+                entities[entity_name] = merged_values
         return data
 
     @classmethod
@@ -325,6 +330,6 @@ def get_allowed_fields_for_entity(entity: Dict[str, Any]) -> List[str]:
 def _unique_extend(list_a: List, list_b: List) -> List:
     new_list = list(list_a)
     for item in list_b:
-        if item not in list_a:
+        if all(item != x for x in list_a):
             new_list.append(item)
     return new_list

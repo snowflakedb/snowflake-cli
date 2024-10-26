@@ -169,7 +169,7 @@ class AnacondaPackagesManager(SqlExecutionMixin):
 
     def find_packages_available_in_snowflake_anaconda(self) -> AnacondaPackages:
         """
-        Finds python packages available in Snowflake to use in functions and stored procedures.
+        Finds Python packages available in Snowflake to use in functions and stored procedures.
         It tries to get the list of packages using SQL query
         but if the try fails then the fallback is to parse JSON containing info about Snowflake's Anaconda channel.
         """
@@ -178,7 +178,7 @@ class AnacondaPackagesManager(SqlExecutionMixin):
 
     def _query_snowflake_for_available_packages(self) -> dict[str, AvailablePackage]:
         cursor = self._execute_query(
-            "select package_name, version from information_schema.packages where language = 'python'",
+            "select package_name, version from snowflake.information_schema.packages where language = 'python'",
             cursor_class=DictCursor,
         )
         if cursor.rowcount is None or cursor.rowcount == 0:

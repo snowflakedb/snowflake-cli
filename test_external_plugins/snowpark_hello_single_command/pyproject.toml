@@ -20,7 +20,7 @@ build-backend = "setuptools.build_meta"
 name = "snowflakecli-test-snowpark-hello-plugin"
 requires-python = ">=3.8"
 dependencies = [
-    "snowflake-cli-labs>=1.1.0"
+    "snowflake-cli>=1.1.0"
 ]
 version = "0.0.1"
 

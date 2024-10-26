@@ -194,7 +194,7 @@ def deannotate_module_source(
 
     module_lines = module_source.splitlines()
     for definition in definitions:
-        # Comment out all decorators. As per the python grammar, decorators must be terminated by a
+        # Comment out all decorators. As per the Python grammar, decorators must be terminated by a
         # new line, so the line ranges can't overlap.
         for decorator in definition.decorator_list:
             decorator_id = _get_decorator_id(decorator)

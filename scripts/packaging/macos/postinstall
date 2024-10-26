@@ -16,7 +16,7 @@ export PATH=$dest:\$PATH" >>$profile
 }
 
 echo "[DEBUG] Parameters: $1 $2"
-SNOWFLAKE_CLI_DEST=$2/SnowflakeCLI.app/Contents/MacOS/snow/
+SNOWFLAKE_CLI_DEST=$2/SnowflakeCLI.app/Contents/MacOS/
 
 SNOWFLAKE_CLI_LOGIN_SHELL=~/.profile
 if [[ -e ~/.zprofile ]]; then

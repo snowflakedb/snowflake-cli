@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import platform
 import sys
 from dataclasses import dataclass
@@ -141,6 +142,7 @@ def _info_callback(value: bool):
                 {"key": "python_version", "value": sys.version},
                 {"key": "system_info", "value": platform.platform()},
                 {"key": "feature_flags", "value": get_feature_flags_section()},
+                {"key": "SNOWFLAKE_HOME", "value": os.getenv("SNOWFLAKE_HOME")},
             ],
         )
         print_result(result, output_format=OutputFormat.JSON)
@@ -155,6 +157,7 @@ def app_factory() -> SnowCliMainTyper:
         invoke_without_command=True,
         epilog=new_version_msg,
         result_callback=show_new_version_banner_callback(new_version_msg),
+        help=f"Snowflake CLI tool for developers [v{__about__.VERSION}]",
     )
     def default(
         ctx: typer.Context,

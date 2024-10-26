@@ -12,8 +12,8 @@
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
-  |                                                 defined in your config.toml. |
-  |                                                 Default: default.            |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
   | --host                                 TEXT     Host address for the         |
   |                                                 connection. Overrides the    |
   |                                                 value specified for the      |
@@ -65,7 +65,7 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run python connector         |
+  | --enable-diag                                   Run Python connector         |
   |                                                 diagnostic test              |
   | --diag-log-path                        TEXT     Diagnostic report path       |
   | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
@@ -77,7 +77,7 @@
   | --verbose  -v                    Displays log entries for log levels info    |
   |                                  and higher.                                 |
   | --debug                          Displays log entries for log levels debug   |
-  |                                  and higher; debug logs contains additional  |
+  |                                  and higher; debug logs contain additional   |
   |                                  information.                                |
   | --silent                         Turns off intermediate output to console.   |
   +------------------------------------------------------------------------------+
@@ -102,7 +102,7 @@
   | --verbose  -v                    Displays log entries for log levels info    |
   |                                  and higher.                                 |
   | --debug                          Displays log entries for log levels debug   |
-  |                                  and higher; debug logs contains additional  |
+  |                                  and higher; debug logs contain additional   |
   |                                  information.                                |
   | --silent                         Turns off intermediate output to console.   |
   +------------------------------------------------------------------------------+
@@ -149,7 +149,7 @@
   | --verbose  -v                    Displays log entries for log levels info    |
   |                                  and higher.                                 |
   | --debug                          Displays log entries for log levels debug   |
-  |                                  and higher; debug logs contains additional  |
+  |                                  and higher; debug logs contain additional   |
   |                                  information.                                |
   | --silent                         Turns off intermediate output to console.   |
   +------------------------------------------------------------------------------+

@@ -17,7 +17,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "snowflake-cli-labs"
+name = "snowflake-cli"
 authors = [{ name = "Snowflake Inc." }]
 license = { file = "LICENSE" }
 dynamic = ["version"]
@@ -29,7 +29,7 @@ dependencies = [
   "pluggy==1.5.0",
   "PyYAML==6.0.2",
   "packaging",
-  "rich==13.8.1",
+  "rich==13.9.2",
   "requests==2.32.3",
   "requirements-parser==0.11.0",
   "setuptools==75.1.0",
@@ -57,11 +57,13 @@ classifiers = [
 
 [project.optional-dependencies]
 development = [
-  "coverage==7.6.1",
+  "coverage==7.6.3",
   "pre-commit>=3.5.0",
   "pytest==8.3.3",
   "pytest-randomly==3.15.0",
-  "syrupy==4.7.1",
+  "syrupy==4.7.2",
+  "factory-boy==3.3.1",
+  "Faker==30.3.0",
 ]
 packaging = ["pyinstaller~=6.10"]
 
@@ -79,7 +81,7 @@ exclude_also = ["@(abc\\.)?abstractmethod", "@(abc\\.)?abstractproperty"]
 path = "src/snowflake/cli/__about__.py"
 
 [tool.hatch.build.targets.sdist]
-exclude = ["/.github"]
+exclude = ["/.github", "/.compat"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/snowflake"]
@@ -95,6 +97,7 @@ test-cov = [
   "coverage run --source=snowflake.cli --module pytest -m loaded_modules tests/ ",
   "coverage report",
 ]
+legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
 
 [tool.hatch.envs.packaging]
 python = "3.11"
@@ -128,21 +131,22 @@ test = ["pytest -m performance"]
 [tool.hatch.envs.integration]
 template = "integration"
 pre-install-commands = [
-  "pip install test_external_plugins/snowpark_hello_single_command",
-  "pip install test_external_plugins/multilingual_hello_command_group",
+  # Disabled due to repo migration
+  # "pip install test_external_plugins/snowpark_hello_single_command",
+  # "pip install test_external_plugins/multilingual_hello_command_group",
   "pip install pytest-xdist",
 ]
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
 test = [
-  "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/spcs",
+  "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/spcs tests_integration/",
 ]
 test-spcs = [
   "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs",
 ]
 test_qa = [
-  "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration",
+  "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/",
 ]
 
 [[tool.hatch.envs.local.matrix]]

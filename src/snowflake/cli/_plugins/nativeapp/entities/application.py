@@ -40,10 +40,10 @@ from snowflake.cli._plugins.nativeapp.policy import (
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
-from snowflake.cli._plugins.workspace.action_context import ActionContext
+from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -53,8 +53,10 @@ from snowflake.cli.api.entities.utils import (
 )
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
+    APPLICATION_OWNS_EXTERNAL_OBJECTS,
     CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
     CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
     ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
@@ -62,7 +64,6 @@ from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
-    PostDeployHook,
     TargetField,
 )
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
@@ -70,6 +71,7 @@ from snowflake.cli.api.project.util import (
     append_test_resource_suffix,
     extract_schema,
     identifier_for_url,
+    to_identifier,
     unquote_identifier,
 )
 from snowflake.connector import DictCursor, ProgrammingError
@@ -118,7 +120,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
     def action_deploy(
         self,
-        ctx: ActionContext,
+        action_ctx: ActionContext,
         from_release_directive: bool,
         prune: bool,
         recursive: bool,
@@ -132,19 +134,21 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         *args,
         **kwargs,
     ):
+        """
+        Create or upgrade the application object using the given strategy
+        (unversioned dev, versioned dev, or same-account release directive).
+        """
         model = self._entity_model
+        workspace_ctx = self._workspace_ctx
         app_name = model.fqn.identifier
-        debug_mode = model.debug
         if model.meta:
-            app_role = model.meta.role or ctx.default_role
-            app_warehouse = model.meta.warehouse or ctx.default_warehouse
-            post_deploy_hooks = model.meta.post_deploy
+            app_role = model.meta.role or workspace_ctx.default_role
         else:
-            app_role = ctx.default_role
-            app_warehouse = ctx.default_warehouse
-            post_deploy_hooks = None
+            app_role = workspace_ctx.default_role
 
-        package_entity: ApplicationPackageEntity = ctx.get_entity(model.from_.target)
+        package_entity: ApplicationPackageEntity = action_ctx.get_entity(
+            model.from_.target
+        )
         package_model: ApplicationPackageEntityModel = (
             package_entity._entity_model  # noqa: SLF001
         )
@@ -152,11 +156,10 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         if package_model.meta and package_model.meta.role:
             package_role = package_model.meta.role
         else:
-            package_role = ctx.default_role
+            package_role = workspace_ctx.default_role
 
         if not stage_fqn:
             stage_fqn = f"{package_name}.{package_model.stage}"
-        stage_schema = extract_schema(stage_fqn)
 
         is_interactive = False
         if force:
@@ -169,7 +172,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         def deploy_package():
             package_entity.action_deploy(
-                ctx=ctx,
+                action_ctx=action_ctx,
                 prune=True,
                 recursive=True,
                 paths=[],
@@ -179,72 +182,78 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 force=force,
             )
 
-        self.deploy(
-            console=ctx.console,
-            project_root=ctx.project_root,
-            app_name=app_name,
-            app_role=app_role,
-            app_warehouse=app_warehouse,
-            package_name=package_name,
-            package_role=package_role,
-            stage_schema=stage_schema,
+        def drop_application_before_upgrade(cascade: bool = False):
+            self.drop_application_before_upgrade(
+                policy=policy,
+                interactive=is_interactive,
+                cascade=cascade,
+            )
+
+        # same-account release directive
+        if from_release_directive:
+            self.create_or_upgrade_app(
+                package_model=package_model,
+                stage_fqn=stage_fqn,
+                install_method=SameAccountInstallMethod.release_directive(),
+                drop_application_before_upgrade=drop_application_before_upgrade,
+            )
+            return
+
+        # versioned dev
+        if version:
+            try:
+                version_exists = package_entity.get_existing_version_info(version)
+                if not version_exists:
+                    raise UsageError(
+                        f"Application package {package_name} does not have any version {version} defined. Use 'snow app version create' to define a version in the application package first."
+                    )
+            except ApplicationPackageDoesNotExistError as app_err:
+                raise UsageError(
+                    f"Application package {package_name} does not exist. Use 'snow app version create' to first create an application package and then define a version in it."
+                )
+
+            self.create_or_upgrade_app(
+                package_model=package_model,
+                stage_fqn=stage_fqn,
+                install_method=SameAccountInstallMethod.versioned_dev(version, patch),
+                drop_application_before_upgrade=drop_application_before_upgrade,
+            )
+            return
+
+        # unversioned dev
+        deploy_package()
+        self.create_or_upgrade_app(
+            package_model=package_model,
             stage_fqn=stage_fqn,
-            debug_mode=debug_mode,
-            validate=validate,
-            from_release_directive=from_release_directive,
-            is_interactive=is_interactive,
-            policy=policy,
-            version=version,
-            patch=patch,
-            post_deploy_hooks=post_deploy_hooks,
-            deploy_package=deploy_package,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            drop_application_before_upgrade=drop_application_before_upgrade,
         )
 
     def action_drop(
         self,
-        ctx: ActionContext,
+        action_ctx: ActionContext,
         interactive: bool,
         force_drop: bool = False,
         cascade: Optional[bool] = None,
         *args,
         **kwargs,
     ):
+        """
+        Attempts to drop the application object if all validations and user prompts allow so.
+        """
         model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
         app_name = model.fqn.identifier
         if model.meta and model.meta.role:
             app_role = model.meta.role
         else:
-            app_role = ctx.default_role
-        self.drop(
-            console=ctx.console,
-            app_name=app_name,
-            app_role=app_role,
-            auto_yes=force_drop,
-            interactive=interactive,
-            cascade=cascade,
-        )
-
-    @classmethod
-    def drop(
-        cls,
-        console: AbstractConsole,
-        app_name: str,
-        app_role: str,
-        auto_yes: bool,
-        interactive: bool = False,
-        cascade: Optional[bool] = None,
-    ):
-        """
-        Attempts to drop the application object if all validations and user prompts allow so.
-        """
+            app_role = workspace_ctx.default_role
 
         needs_confirm = True
 
         # 1. If existing application is not found, exit gracefully
-        show_obj_row = cls.get_existing_app_info(
-            app_name=app_name,
-            app_role=app_role,
-        )
+        show_obj_row = self.get_existing_app_info()
         if show_obj_row is None:
             console.warning(
                 f"Role {app_role} does not own any application object with the name {app_name}, or the application object does not exist."
@@ -254,7 +263,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         # 2. Check if created by the Snowflake CLI
         row_comment = show_obj_row[COMMENT_COL]
         if row_comment not in ALLOWED_SPECIAL_COMMENTS and needs_confirmation(
-            needs_confirm, auto_yes
+            needs_confirm, force_drop
         ):
             should_drop_object = typer.confirm(
                 dedent(
@@ -287,10 +296,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         interactive_prompt = ""
         non_interactive_abort = ""
         try:
-            if application_objects := cls.get_objects_owned_by_application(
-                app_name=app_name,
-                app_role=app_role,
-            ):
+            if application_objects := self.get_objects_owned_by_application():
                 has_objects_to_drop = True
                 message_prefix = (
                     f"The following objects are owned by application {app_name}"
@@ -320,19 +326,19 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 console.message(cascade_true_message)
                 with console.indented():
                     for obj in application_objects:
-                        console.message(cls.application_object_to_str(obj))
+                        console.message(_application_object_to_str(obj))
             elif cascade is False:
                 # If the user explicitly passed the --no-cascade flag
                 console.message(cascade_false_message)
                 with console.indented():
                     for obj in application_objects:
-                        console.message(cls.application_object_to_str(obj))
+                        console.message(_application_object_to_str(obj))
             elif interactive:
                 # If the user didn't pass any cascade flag and the session is interactive
                 console.message(message_prefix)
                 with console.indented():
                     for obj in application_objects:
-                        console.message(cls.application_object_to_str(obj))
+                        console.message(_application_object_to_str(obj))
                 user_response = typer.prompt(
                     interactive_prompt,
                     show_default=False,
@@ -349,7 +355,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 console.message(message_prefix)
                 with console.indented():
                     for obj in application_objects:
-                        console.message(cls.application_object_to_str(obj))
+                        console.message(_application_object_to_str(obj))
                 console.message(non_interactive_abort)
                 raise typer.Abort()
         elif cascade is None:
@@ -364,16 +370,66 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             role=app_role,
             cascade=cascade,
         )
-        return  # The application object was successfully dropped, therefore exit gracefully
 
-    @staticmethod
-    def get_objects_owned_by_application(
-        app_name: str,
-        app_role: str,
-    ) -> List[ApplicationOwnedObject]:
+    def action_events(
+        self,
+        action_ctx: ActionContext,
+        since: str | datetime | None = None,
+        until: str | datetime | None = None,
+        record_types: list[str] | None = None,
+        scopes: list[str] | None = None,
+        consumer_org: str = "",
+        consumer_account: str = "",
+        consumer_app_hash: str = "",
+        first: int = -1,
+        last: int = -1,
+        follow: bool = False,
+        interval_seconds: int = 10,
+        *args,
+        **kwargs,
+    ):
+        model = self._entity_model
+        package_entity: ApplicationPackageEntity = action_ctx.get_entity(
+            model.from_.target
+        )
+        package_model: ApplicationPackageEntityModel = (
+            package_entity._entity_model  # noqa: SLF001
+        )
+        if follow:
+            return self.stream_events(
+                package_name=package_model.fqn.identifier,
+                interval_seconds=interval_seconds,
+                since=since,
+                record_types=record_types,
+                scopes=scopes,
+                consumer_org=consumer_org,
+                consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
+                last=last,
+            )
+        else:
+            return self.get_events(
+                package_name=package_model.fqn.identifier,
+                since=since,
+                until=until,
+                record_types=record_types,
+                scopes=scopes,
+                consumer_org=consumer_org,
+                consumer_account=consumer_account,
+                consumer_app_hash=consumer_app_hash,
+                first=first,
+                last=last,
+            )
+
+    def get_objects_owned_by_application(self) -> List[ApplicationOwnedObject]:
         """
         Returns all application objects owned by this application.
         """
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        app_name = model.fqn.identifier
+        app_role = (model.meta and model.meta.role) or workspace_ctx.default_role
+
         sql_executor = get_sql_executor()
         with sql_executor.use_role(app_role):
             results = sql_executor.execute_query(
@@ -381,149 +437,39 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             ).fetchall()
             return [{"name": row[1], "type": row[2]} for row in results]
 
-    @classmethod
-    def application_objects_to_str(
-        cls, application_objects: list[ApplicationOwnedObject]
-    ) -> str:
-        """
-        Returns a list in an "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
-        (COMPUTE_POOL) POOL_NAME
-        (DATABASE) DB_NAME
-        (SCHEMA) DB_NAME.PUBLIC
-        ...
-        """
-        return "\n".join(
-            [cls.application_object_to_str(obj) for obj in application_objects]
-        )
-
-    @staticmethod
-    def application_object_to_str(obj: ApplicationOwnedObject) -> str:
-        return f"({obj['type']}) {obj['name']}"
-
-    @classmethod
-    def deploy(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        app_name: str,
-        app_role: str,
-        app_warehouse: str,
-        package_name: str,
-        package_role: str,
-        stage_schema: str,
-        stage_fqn: str,
-        debug_mode: bool,
-        validate: bool,
-        from_release_directive: bool,
-        is_interactive: bool,
-        policy: PolicyBase,
-        deploy_package: Callable,
-        version: Optional[str] = None,
-        patch: Optional[int] = None,
-        post_deploy_hooks: Optional[List[PostDeployHook]] = None,
-        drop_application_before_upgrade: Optional[Callable] = None,
-    ):
-        """
-        Create or upgrade the application object using the given strategy
-        (unversioned dev, versioned dev, or same-account release directive).
-        """
-
-        # same-account release directive
-        if from_release_directive:
-            cls.create_or_upgrade_app(
-                console=console,
-                project_root=project_root,
-                package_name=package_name,
-                package_role=package_role,
-                app_name=app_name,
-                app_role=app_role,
-                app_warehouse=app_warehouse,
-                stage_schema=stage_schema,
-                stage_fqn=stage_fqn,
-                debug_mode=debug_mode,
-                policy=policy,
-                install_method=SameAccountInstallMethod.release_directive(),
-                is_interactive=is_interactive,
-                post_deploy_hooks=post_deploy_hooks,
-                drop_application_before_upgrade=drop_application_before_upgrade,
-            )
-            return
-
-        # versioned dev
-        if version:
-            try:
-                version_exists = ApplicationPackageEntity.get_existing_version_info(
-                    version=version,
-                    package_name=package_name,
-                    package_role=package_role,
-                )
-                if not version_exists:
-                    raise UsageError(
-                        f"Application package {package_name} does not have any version {version} defined. Use 'snow app version create' to define a version in the application package first."
-                    )
-            except ApplicationPackageDoesNotExistError as app_err:
-                raise UsageError(
-                    f"Application package {package_name} does not exist. Use 'snow app version create' to first create an application package and then define a version in it."
-                )
-
-            cls.create_or_upgrade_app(
-                console=console,
-                project_root=project_root,
-                package_name=package_name,
-                package_role=package_role,
-                app_name=app_name,
-                app_role=app_role,
-                app_warehouse=app_warehouse,
-                stage_schema=stage_schema,
-                stage_fqn=stage_fqn,
-                debug_mode=debug_mode,
-                policy=policy,
-                install_method=SameAccountInstallMethod.versioned_dev(version, patch),
-                is_interactive=is_interactive,
-                post_deploy_hooks=post_deploy_hooks,
-                drop_application_before_upgrade=drop_application_before_upgrade,
-            )
-            return
-
-        # unversioned dev
-        deploy_package()
-        cls.create_or_upgrade_app(
-            console=console,
-            project_root=project_root,
-            package_name=package_name,
-            package_role=package_role,
-            app_name=app_name,
-            app_role=app_role,
-            app_warehouse=app_warehouse,
-            stage_schema=stage_schema,
-            stage_fqn=stage_fqn,
-            debug_mode=debug_mode,
-            policy=policy,
-            install_method=SameAccountInstallMethod.unversioned_dev(),
-            is_interactive=is_interactive,
-            post_deploy_hooks=post_deploy_hooks,
-            drop_application_before_upgrade=drop_application_before_upgrade,
-        )
-
-    @classmethod
     def create_or_upgrade_app(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        package_name: str,
-        package_role: str,
-        app_name: str,
-        app_role: str,
-        app_warehouse: Optional[str],
-        stage_schema: Optional[str],
+        self,
+        package_model: ApplicationPackageEntityModel,
         stage_fqn: str,
-        debug_mode: bool,
-        policy: PolicyBase,
         install_method: SameAccountInstallMethod,
-        is_interactive: bool = False,
-        post_deploy_hooks: Optional[List[PostDeployHook]] = None,
         drop_application_before_upgrade: Optional[Callable] = None,
     ):
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
+
+        app_name = model.fqn.identifier
+        debug_mode = model.debug
+        if model.meta:
+            app_role = model.meta.role or workspace_ctx.default_role
+            app_warehouse = model.meta.warehouse or workspace_ctx.default_warehouse
+            post_deploy_hooks = model.meta.post_deploy
+        else:
+            app_role = workspace_ctx.default_role
+            app_warehouse = workspace_ctx.default_warehouse
+            post_deploy_hooks = None
+
+        package_name = package_model.fqn.identifier
+        if package_model.meta and package_model.meta.role:
+            package_role = package_model.meta.role
+        else:
+            package_role = workspace_ctx.default_role
+
+        if not stage_fqn:
+            stage_fqn = f"{package_name}.{package_model.stage}"
+        stage_schema = extract_schema(stage_fqn)
+
         sql_executor = get_sql_executor()
         with sql_executor.use_role(app_role):
 
@@ -531,10 +477,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             with sql_executor.use_warehouse(app_warehouse):
 
                 # 2. Check for an existing application by the same name
-                show_app_row = cls.get_existing_app_info(
-                    app_name=app_name,
-                    app_role=app_role,
-                )
+                show_app_row = self.get_existing_app_info()
 
                 # 3. If existing application is found, perform a few validations and upgrade the application object.
                 if show_app_row:
@@ -564,13 +507,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                                 )
 
                         # hooks always executed after a create or upgrade
-                        cls.execute_post_deploy_hooks(
-                            console=console,
-                            project_root=project_root,
-                            post_deploy_hooks=post_deploy_hooks,
-                            app_name=app_name,
-                            app_warehouse=app_warehouse,
-                        )
+                        self.execute_post_deploy_hooks()
                         return
 
                     except ProgrammingError as err:
@@ -622,32 +559,25 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     print_messages(console, create_cursor)
 
                     # hooks always executed after a create or upgrade
-                    cls.execute_post_deploy_hooks(
-                        console=console,
-                        project_root=project_root,
-                        post_deploy_hooks=post_deploy_hooks,
-                        app_name=app_name,
-                        app_warehouse=app_warehouse,
-                    )
+                    self.execute_post_deploy_hooks()
 
                 except ProgrammingError as err:
                     generic_sql_error_handler(err)
 
-    @classmethod
-    def execute_post_deploy_hooks(
-        cls,
-        console: AbstractConsole,
-        project_root: Path,
-        post_deploy_hooks: Optional[List[PostDeployHook]],
-        app_name: str,
-        app_warehouse: Optional[str],
-    ):
+    def execute_post_deploy_hooks(self):
+        model = self._entity_model
+        workspace_ctx = self._workspace_ctx
+        console = workspace_ctx.console
+        project_root = workspace_ctx.project_root
+        app_name = model.fqn.identifier
+        post_deploy_hooks = model.meta and model.meta.post_deploy
+
         get_cli_context().metrics.set_counter_default(
             CLICounterField.POST_DEPLOY_SCRIPTS, 0
         )
 
         if post_deploy_hooks:
-            with cls.use_application_warehouse(app_warehouse):
+            with self.use_application_warehouse():
                 execute_post_deploy_hooks(
                     console=console,
                     project_root=project_root,
@@ -656,11 +586,14 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     database_name=app_name,
                 )
 
-    @staticmethod
     @contextmanager
-    def use_application_warehouse(
-        app_warehouse: Optional[str],
-    ):
+    def use_application_warehouse(self):
+        model = self._entity_model
+        ctx = self._workspace_ctx
+        app_warehouse = (
+            model.meta and model.meta.warehouse and to_identifier(model.meta.warehouse)
+        ) or to_identifier(ctx.default_warehouse)
+
         if app_warehouse:
             with get_sql_executor().use_warehouse(app_warehouse):
                 yield
@@ -674,25 +607,77 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 )
             )
 
-    @staticmethod
-    def get_existing_app_info(
-        app_name: str,
-        app_role: str,
-    ) -> Optional[dict]:
+    def get_existing_app_info(self) -> Optional[dict]:
         """
         Check for an existing application object by the same name as in project definition, in account.
         It executes a 'show applications like' query and returns the result as single row, if one exists.
         """
+        model = self._entity_model
+        ctx = self._workspace_ctx
+        role = (model.meta and model.meta.role) or ctx.default_role
         sql_executor = get_sql_executor()
-        with sql_executor.use_role(app_role):
+        with sql_executor.use_role(role):
             return sql_executor.show_specific_object(
-                "applications", app_name, name_col=NAME_COL
+                "applications", model.fqn.name, name_col=NAME_COL
             )
 
-    @classmethod
+    def drop_application_before_upgrade(
+        self,
+        policy: PolicyBase,
+        interactive: bool,
+        cascade: bool = False,
+    ):
+        model = self._entity_model
+        console = self._workspace_ctx.console
+        app_name = model.fqn.identifier
+
+        if cascade:
+            try:
+                if application_objects := self.get_objects_owned_by_application():
+                    application_objects_str = _application_objects_to_str(
+                        application_objects
+                    )
+                    console.message(
+                        f"The following objects are owned by application {app_name} and need to be dropped:\n{application_objects_str}"
+                    )
+            except ProgrammingError as err:
+                if err.errno != APPLICATION_NO_LONGER_AVAILABLE:
+                    generic_sql_error_handler(err)
+                console.warning(
+                    "The application owns other objects but they could not be determined."
+                )
+            user_prompt = "Do you want the Snowflake CLI to drop these objects, then drop the existing application object and recreate it?"
+        else:
+            user_prompt = "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
+
+        if not policy.should_proceed(user_prompt):
+            if interactive:
+                console.message("Not upgrading the application object.")
+                raise typer.Exit(0)
+            else:
+                console.message(
+                    "Cannot upgrade the application object non-interactively without --force."
+                )
+                raise typer.Exit(1)
+        try:
+            cascade_msg = " (cascade)" if cascade else ""
+            console.step(f"Dropping application object {app_name}{cascade_msg}.")
+            cascade_sql = " cascade" if cascade else ""
+            sql_executor = get_sql_executor()
+            sql_executor.execute_query(f"drop application {app_name}{cascade_sql}")
+        except ProgrammingError as err:
+            if err.errno == APPLICATION_OWNS_EXTERNAL_OBJECTS and not cascade:
+                # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
+                return self.drop_application_before_upgrade(
+                    policy=policy,
+                    interactive=interactive,
+                    cascade=True,
+                )
+            else:
+                generic_sql_error_handler(err)
+
     def get_events(
-        cls,
-        app_name: str,
+        self,
         package_name: str,
         since: str | datetime | None = None,
         until: str | datetime | None = None,
@@ -704,6 +689,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         first: int = -1,
         last: int = -1,
     ):
+        model = self._entity_model
+        app_name = model.fqn.identifier
 
         record_types = record_types or []
         scopes = scopes or []
@@ -711,8 +698,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         if first >= 0 and last >= 0:
             raise ValueError("first and last cannot be used together")
 
-        account_event_table = cls.get_account_event_table()
-        if not account_event_table:
+        account_event_table = get_snowflake_facade().get_account_event_table()
+        if account_event_table is None:
             raise NoEventTableForAccount()
 
         # resource_attributes uses the unquoted/uppercase app and package name
@@ -787,12 +774,19 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         try:
             return sql_executor.execute_query(query, cursor_class=DictCursor).fetchall()
         except ProgrammingError as err:
-            generic_sql_error_handler(err)
+            if err.errno == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
+                raise ClickException(
+                    dedent(
+                        f"""\
+                    Event table '{account_event_table}' does not exist or you are not authorized to perform this operation.
+                    Please check your EVENT_TABLE parameter to ensure that it is set to a valid event table."""
+                    )
+                ) from err
+            else:
+                generic_sql_error_handler(err)
 
-    @classmethod
     def stream_events(
-        cls,
-        app_name: str,
+        self,
         package_name: str,
         interval_seconds: int,
         since: str | datetime | None = None,
@@ -804,8 +798,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         last: int = -1,
     ) -> Generator[dict, None, None]:
         try:
-            events = cls.get_events(
-                app_name=app_name,
+            events = self.get_events(
                 package_name=package_name,
                 since=since,
                 record_types=record_types,
@@ -821,8 +814,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             while True:  # Then infinite poll for new events
                 time.sleep(interval_seconds)
                 previous_events = events
-                events = cls.get_events(
-                    app_name=app_name,
+                events = self.get_events(
                     package_name=package_name,
                     since=last_event_time,
                     record_types=record_types,
@@ -839,18 +831,10 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         except KeyboardInterrupt:
             return
 
-    @staticmethod
-    def get_account_event_table():
-        query = "show parameters like 'event_table' in account"
-        sql_executor = get_sql_executor()
-        results = sql_executor.execute_query(query, cursor_class=DictCursor)
-        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
-
-    @classmethod
-    def get_snowsight_url(cls, app_name: str, app_warehouse: str | None) -> str:
+    def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
-        name = identifier_for_url(app_name)
-        with cls.use_application_warehouse(app_warehouse):
+        name = identifier_for_url(self._entity_model.fqn.name)
+        with self.use_application_warehouse():
             sql_executor = get_sql_executor()
             return make_snowsight_url(
                 sql_executor._conn, f"/#/apps/application/{name}"  # noqa: SLF001
@@ -876,3 +860,20 @@ def _new_events_only(previous_events: list[dict], new_events: list[dict]) -> lis
         # either be in both lists or in new_events only
         new_events.remove(event)
     return new_events
+
+
+def _application_objects_to_str(
+    application_objects: list[ApplicationOwnedObject],
+) -> str:
+    """
+    Returns a list in an "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
+    (COMPUTE_POOL) POOL_NAME
+    (DATABASE) DB_NAME
+    (SCHEMA) DB_NAME.PUBLIC
+    ...
+    """
+    return "\n".join([_application_object_to_str(obj) for obj in application_objects])
+
+
+def _application_object_to_str(obj: ApplicationOwnedObject) -> str:
+    return f"({obj['type']}) {obj['name']}"

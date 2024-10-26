@@ -26,15 +26,13 @@ Snowflake CLI is an open-source command-line tool explicitly designed for develo
 
 With Snowflake CLI, developers can create, manage, update, and view apps running on Snowflake across workloads such as Streamlit in Snowflake, the Snowflake Native App Framework, Snowpark Container Services, and Snowpark. It supports a range of Snowflake features, including user-defined functions, stored procedures, Streamlit in Snowflake, and SQL execution.
 
-
 **Note**: Snowflake CLI is in Public Preview (PuPr).
 
-Docs: https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/index.
+Docs: <https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/index>.
 
-Quick start: https://quickstarts.snowflake.com/guide/getting-started-with-snowflake-cli
+Quick start: <https://quickstarts.snowflake.com/guide/getting-started-with-snowflake-cli>
 
-Cheatsheet: https://github.com/Snowflake-Labs/sf-cheatsheets/blob/main/snowflake-cli.md
-
+Cheatsheet: <https://github.com/Snowflake-Labs/sf-cheatsheets/blob/main/snowflake-cli.md>
 
 ## Install Snowflake CLI
 
@@ -43,7 +41,7 @@ Cheatsheet: https://github.com/Snowflake-Labs/sf-cheatsheets/blob/main/snowflake
 We recommend installing Snowflake CLI in isolated environment using [pipx](https://pipx.pypa.io/stable/). Requires Python >= 3.10
 
 ```bash
-pipx install snowflake-cli-labs
+pipx install snowflake-cli
 snow --help
 ```
 
@@ -76,4 +74,4 @@ You should now be able to run `snow` and get the CLI message.
 ## Get involved
 
 Have a feature idea? Running into a bug? Want to contribute? We'd love to hear from you!
-Please open or review issues, open pull requests, or reach out to us on developers@snowflake.com
+Please open or review issues, open pull requests, or reach out to us on <developers@snowflake.com>
