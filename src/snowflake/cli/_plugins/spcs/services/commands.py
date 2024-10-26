@@ -236,7 +236,7 @@ def logs(
         False, "--follow", "-f", help="Continue polling for logs.", is_flag=True
     ),
     follow_interval: int = typer.Option(
-        5,
+        2,
         "--follow_interval",
         help="Polling interval in seconds when using the --follow flag",
     ),
@@ -253,7 +253,9 @@ def logs(
     if follow:
         stream: Iterable[CommandResult] = (
             MessageResult(
-                filter_log_timestamp("\n".join(log_batch), include_timestamps)
+                "\n".join(
+                    filter_log_timestamp(log, include_timestamps) for log in log_batch
+                )
             )
             for log_batch in manager.stream_logs(
                 service_name=name.identifier,
@@ -279,7 +281,6 @@ def logs(
         )
         stream = (MessageResult(extract_log(log)) for log in logs)
 
-    # return StreamResult(stream)
     return StreamResult(cast(Generator[CommandResult, None, None], stream))
 
 

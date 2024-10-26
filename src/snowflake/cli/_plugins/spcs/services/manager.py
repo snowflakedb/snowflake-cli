@@ -23,7 +23,7 @@ import yaml
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import (
     NoPropertiesProvidedError,
-    extract_timestamp_from_log,
+    _new_logs_only,
     handle_object_already_exists,
     strip_empty_lines,
 )
@@ -162,7 +162,7 @@ class ServiceManager(SqlExecutionMixin):
     ):
         try:
             prev_timestamp = since_timestamp
-            prev_content = None
+            prev_log_records: List[str] = []
 
             while True:
                 cursor = self.logs(
@@ -178,18 +178,16 @@ class ServiceManager(SqlExecutionMixin):
 
                 if new_logs:
                     log_block = new_logs[0][0]
-                    log_lines = log_block.split("\n")
-                    log_lines = [line for line in log_lines if line.strip()]
+                    new_log_records = log_block.split("\n")
+                    new_log_records = [line for line in new_log_records if line.strip()]
+                    if new_log_records:
+                        new_log_lines = _new_logs_only(
+                            prev_log_records, new_log_records
+                        )
+                        yield new_log_lines
 
-                    if log_lines:
-                        if prev_content and prev_content in log_lines:
-                            matching_index = log_lines.index(prev_content)
-                            yield log_lines[matching_index + 1 :]
-                        else:
-                            yield log_lines
-
-                        prev_content = log_lines[-1]
-                        prev_timestamp = extract_timestamp_from_log(prev_content)
+                        prev_log_records = new_log_lines
+                        prev_timestamp = prev_log_records[-1].split(" ", 1)[0]
 
                 time.sleep(interval_seconds)
 

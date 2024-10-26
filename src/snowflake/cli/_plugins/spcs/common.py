@@ -14,9 +14,8 @@
 
 from __future__ import annotations
 
-import re
 import sys
-from typing import Optional, TextIO
+from typing import TextIO
 
 from click import ClickException
 from snowflake.cli.api.constants import ObjectType
@@ -96,24 +95,36 @@ def handle_object_already_exists(
         raise error
 
 
-def extract_timestamp_from_log(log_line: str) -> Optional[str]:
-    timestamp_pattern = re.compile(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)")
-    match = timestamp_pattern.search(log_line)
-    if match:
-        return match.group(1)
-    return None
-
-
 def filter_log_timestamp(log: str, include_timestamps: bool) -> str:
     if include_timestamps:
         return log
     else:
-        return re.sub(
-            r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z\s+",
-            "",
-            log,
-            flags=re.MULTILINE,
-        )
+        return log.split(" ", 1)[1] if " " in log else log
+
+
+def _new_logs_only(
+    prev_log_records: list[str], new_log_records: list[str]
+) -> list[str]:
+    # Sort the log records, we get time-ordered logs
+    # due to ISO 8601 timestamp format in the log content
+    # eg: 2024-10-22T01:12:29.873896187Z Count: 1
+    # prev_log_records_sorted = sorted(prev_log_records)
+    new_log_records_sorted = sorted(new_log_records)
+
+    # Get the first new log record to establish the overlap point
+    first_new_log_record = new_log_records_sorted[0]
+
+    # Traverse previous logs in reverse and remove duplicates from new logs
+    for prev_log in reversed(prev_log_records):
+        # Stop if the previous log is earlier than the first new log
+        if prev_log < first_new_log_record:
+            break
+
+        # Remove matching previous logs from the new logs list
+        if prev_log in new_log_records_sorted:
+            new_log_records_sorted.remove(prev_log)
+
+    return new_log_records_sorted
 
 
 class NoPropertiesProvidedError(ClickException):
