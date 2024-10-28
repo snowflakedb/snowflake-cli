@@ -59,7 +59,7 @@ from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
-    SqlScriptHookType,
+    PostDeployHook,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
@@ -189,7 +189,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         return f"{self.name}.{self._entity_model.scratch_stage}"
 
     @property
-    def post_deploy_hooks(self) -> list[SqlScriptHookType] | None:
+    def post_deploy_hooks(self) -> list[PostDeployHook] | None:
         model = self._entity_model
         return model.meta and model.meta.post_deploy
 

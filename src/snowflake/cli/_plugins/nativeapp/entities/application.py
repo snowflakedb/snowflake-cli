@@ -64,6 +64,7 @@ from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
+    PostDeployHook,
     TargetField,
 )
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
@@ -143,7 +144,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         ) or to_identifier(self._workspace_ctx.default_warehouse)
 
     @property
-    def post_deploy_hooks(self):
+    def post_deploy_hooks(self) -> list[PostDeployHook] | None:
         model = self._entity_model
         return model.meta and model.meta.post_deploy
 
