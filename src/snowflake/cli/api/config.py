@@ -340,9 +340,21 @@ def _get_envs_for_path(*path) -> dict:
     }
 
 
-def _dump_config(conf_file_cache: Dict):
+def _dump_config(config_and_connections: Dict):
+    config_toml_dict = config_and_connections.copy()
+
+    if CONNECTIONS_FILE.exists():
+        # update connections in connections.toml
+        # it will add only connections (maybe updated) which were originally read from connections.toml
+        # it won't add connections from config.toml
+        # because config manager doesn't have connections from config.toml if connections.toml exists
+        _update_connections_toml(config_and_connections.get("connections") or {})
+        # to config.toml save only connections from config.toml
+        connections_to_save_in_config_toml = _read_config_file_toml().get("connections")
+        config_toml_dict["connections"] = connections_to_save_in_config_toml
+
     with SecurePath(CONFIG_MANAGER.file_path).open("w+") as fh:
-        dump(conf_file_cache, fh)
+        dump(config_toml_dict, fh)
 
 
 def _check_default_config_files_permissions() -> None:
@@ -373,9 +385,12 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
     return {k: _bool_or_unknown(v) for k, v in flags.items()}
 
 
+def _read_config_file_toml() -> dict:
+    return tomlkit.loads(CONFIG_MANAGER.file_path.read_text()).unwrap()
+
+
 def _read_connections_toml() -> dict:
-    with open(CONNECTIONS_FILE, "r") as f:
-        return tomlkit.loads(f.read()).unwrap()
+    return tomlkit.loads(CONNECTIONS_FILE.read_text()).unwrap()
 
 
 def _update_connections_toml(connections: dict):

@@ -40,6 +40,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -325,19 +326,19 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 console.message(cascade_true_message)
                 with console.indented():
                     for obj in application_objects:
-                        console.message(self.application_object_to_str(obj))
+                        console.message(_application_object_to_str(obj))
             elif cascade is False:
                 # If the user explicitly passed the --no-cascade flag
                 console.message(cascade_false_message)
                 with console.indented():
                     for obj in application_objects:
-                        console.message(self.application_object_to_str(obj))
+                        console.message(_application_object_to_str(obj))
             elif interactive:
                 # If the user didn't pass any cascade flag and the session is interactive
                 console.message(message_prefix)
                 with console.indented():
                     for obj in application_objects:
-                        console.message(self.application_object_to_str(obj))
+                        console.message(_application_object_to_str(obj))
                 user_response = typer.prompt(
                     interactive_prompt,
                     show_default=False,
@@ -354,7 +355,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 console.message(message_prefix)
                 with console.indented():
                     for obj in application_objects:
-                        console.message(self.application_object_to_str(obj))
+                        console.message(_application_object_to_str(obj))
                 console.message(non_interactive_abort)
                 raise typer.Abort()
         elif cascade is None:
@@ -435,25 +436,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 f"show objects owned by application {app_name}"
             ).fetchall()
             return [{"name": row[1], "type": row[2]} for row in results]
-
-    @classmethod
-    def application_objects_to_str(
-        cls, application_objects: list[ApplicationOwnedObject]
-    ) -> str:
-        """
-        Returns a list in an "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
-        (COMPUTE_POOL) POOL_NAME
-        (DATABASE) DB_NAME
-        (SCHEMA) DB_NAME.PUBLIC
-        ...
-        """
-        return "\n".join(
-            [cls.application_object_to_str(obj) for obj in application_objects]
-        )
-
-    @staticmethod
-    def application_object_to_str(obj: ApplicationOwnedObject) -> str:
-        return f"({obj['type']}) {obj['name']}"
 
     def create_or_upgrade_app(
         self,
@@ -652,7 +634,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         if cascade:
             try:
                 if application_objects := self.get_objects_owned_by_application():
-                    application_objects_str = self.application_objects_to_str(
+                    application_objects_str = _application_objects_to_str(
                         application_objects
                     )
                     console.message(
@@ -716,8 +698,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         if first >= 0 and last >= 0:
             raise ValueError("first and last cannot be used together")
 
-        account_event_table = self.get_account_event_table()
-        if not account_event_table or account_event_table == "NONE":
+        account_event_table = get_snowflake_facade().get_account_event_table()
+        if account_event_table is None:
             raise NoEventTableForAccount()
 
         # resource_attributes uses the unquoted/uppercase app and package name
@@ -849,13 +831,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         except KeyboardInterrupt:
             return
 
-    @staticmethod
-    def get_account_event_table():
-        query = "show parameters like 'event_table' in account"
-        sql_executor = get_sql_executor()
-        results = sql_executor.execute_query(query, cursor_class=DictCursor)
-        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
-
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
         name = identifier_for_url(self._entity_model.fqn.name)
@@ -885,3 +860,20 @@ def _new_events_only(previous_events: list[dict], new_events: list[dict]) -> lis
         # either be in both lists or in new_events only
         new_events.remove(event)
     return new_events
+
+
+def _application_objects_to_str(
+    application_objects: list[ApplicationOwnedObject],
+) -> str:
+    """
+    Returns a list in an "(Object Type) Object Name" format. Database-level and schema-level object names are fully qualified:
+    (COMPUTE_POOL) POOL_NAME
+    (DATABASE) DB_NAME
+    (SCHEMA) DB_NAME.PUBLIC
+    ...
+    """
+    return "\n".join([_application_object_to_str(obj) for obj in application_objects])
+
+
+def _application_object_to_str(obj: ApplicationOwnedObject) -> str:
+    return f"({obj['type']}) {obj['name']}"
