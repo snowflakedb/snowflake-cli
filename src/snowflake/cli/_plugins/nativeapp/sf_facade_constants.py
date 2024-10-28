@@ -19,6 +19,7 @@ class UseObjectType(Enum):
     DATABASE = "database"
     ROLE = "role"
     WAREHOUSE = "warehouse"
+    SCHEMA = "schema"
 
     def __str__(self):
         return self.value

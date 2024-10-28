@@ -45,12 +45,13 @@ from snowflake.cli._plugins.nativeapp.policy import (
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
+from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import CouldNotUseObjectError
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.workspace.context import WorkspaceContext
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.abc import AbstractConsole
-from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
@@ -59,7 +60,6 @@ from snowflake.cli.api.errno import (
     INSUFFICIENT_PRIVILEGES,
 )
 from snowflake.cli.api.exceptions import (
-    CouldNotUseObjectError,
     NoWarehouseSelectedInSessionError,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
@@ -149,7 +149,7 @@ def test_create_dev_app_w_warehouse_access_exception(
             ),
             (
                 CouldNotUseObjectError(
-                    object_type=ObjectType.WAREHOUSE, name="app_warehouse"
+                    object_type=UseObjectType.WAREHOUSE, name="app_warehouse"
                 ),
                 mock.call("use warehouse app_warehouse"),
             ),
@@ -1236,7 +1236,7 @@ def test_upgrade_app_warehouse_error(
             ),
             (
                 CouldNotUseObjectError(
-                    object_type=ObjectType.WAREHOUSE, name="app_warehouse"
+                    object_type=UseObjectType.WAREHOUSE, name="app_warehouse"
                 ),
                 mock.call("use warehouse app_warehouse"),
             ),

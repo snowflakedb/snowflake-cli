@@ -22,7 +22,7 @@ from unittest import mock
 import pytest
 import tomlkit
 from snowflake.cli._app.secret import SecretType
-from snowflake.cli.api.constants import ObjectType
+from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 
 from tests.testing_utils.files_and_dirs import pushd
 from tests_common import IS_WINDOWS
@@ -506,10 +506,10 @@ def test_connection_test(mock_connect, mock_om, runner):
 
     conn = mock_connect.return_value
     assert mock_om.return_value.use.mock_calls == [
-        mock.call(object_type=ObjectType.ROLE, name=f'"{conn.role}"'),
-        mock.call(object_type=ObjectType.DATABASE, name=f'"{conn.database}"'),
-        mock.call(object_type=ObjectType.SCHEMA, name=f'"{conn.schema}"'),
-        mock.call(object_type=ObjectType.WAREHOUSE, name=f'"{conn.warehouse}"'),
+        mock.call(object_type=UseObjectType.ROLE, name=f'"{conn.role}"'),
+        mock.call(object_type=UseObjectType.DATABASE, name=f'"{conn.database}"'),
+        mock.call(object_type=UseObjectType.SCHEMA, name=f'"{conn.schema}"'),
+        mock.call(object_type=UseObjectType.WAREHOUSE, name=f'"{conn.warehouse}"'),
     ]
 
 
@@ -886,7 +886,6 @@ def test_connection_details_are_resolved_using_environment_variables(
     mock_connect, env, test_snowcli_config, runner
 ):
     with mock.patch.dict(os.environ, env, clear=True):
-
         result = runner.invoke(["sql", "-q", "select 1", "-c", "empty"])
 
         assert result.exit_code == 0, result.output
@@ -927,7 +926,6 @@ def test_flags_take_precedence_before_environment_variables(
     mock_connect, env, test_snowcli_config, runner
 ):
     with mock.patch.dict(os.environ, env, clear=True):
-
         result = runner.invoke(
             [
                 "sql",
@@ -1104,7 +1102,6 @@ def _run_connection_add_with_path_provided_as_prompt(
 def test_new_connection_is_added_to_connections_toml(
     runner, os_agnostic_snapshot, named_temporary_file, snowflake_home
 ):
-
     connections_toml = Path(snowflake_home) / "connections.toml"
     connections_toml.touch()
     connections_toml.write_text(

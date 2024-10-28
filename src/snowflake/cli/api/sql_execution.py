@@ -21,11 +21,11 @@ from io import StringIO
 from textwrap import dedent
 from typing import Iterable, Optional, Tuple
 
+from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
+from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import CouldNotUseObjectError
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
-    CouldNotUseObjectError,
     DatabaseNotProvidedError,
     SchemaNotProvidedError,
     ShowSpecificObjectMultipleRowsError,
@@ -90,7 +90,7 @@ class SqlExecutor:
     def execute_queries(self, queries: str, **kwargs):
         return self._execute_queries(queries, **kwargs)
 
-    def use(self, object_type: ObjectType, name: str):
+    def use(self, object_type: UseObjectType, name: str):
         try:
             self._execute_query(f"use {object_type.value.sf_name} {name}")
         except ProgrammingError as err:
@@ -143,12 +143,12 @@ class SqlExecutor:
         try:
             if is_different_wh:
                 self._log.debug("Using warehouse: %s", new_wh)
-                self.use(object_type=ObjectType.WAREHOUSE, name=new_wh)
+                self.use(object_type=UseObjectType.WAREHOUSE, name=new_wh)
             yield
         finally:
             if prev_wh and is_different_wh:
                 self._log.debug("Switching back to warehouse: %s", prev_wh)
-                self.use(object_type=ObjectType.WAREHOUSE, name=prev_wh)
+                self.use(object_type=UseObjectType.WAREHOUSE, name=prev_wh)
 
     def create_password_secret(
         self, name: FQN, username: str, password: str

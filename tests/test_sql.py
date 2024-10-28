@@ -16,8 +16,8 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
-from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     ShowSpecificObjectMultipleRowsError,
     SnowflakeSQLExecutionError,
@@ -298,9 +298,9 @@ def test_show_specific_object_multiple_rows(mock_execute_query):
 @pytest.mark.parametrize(
     "_object",
     [
-        ObjectType.WAREHOUSE,
-        ObjectType.ROLE,
-        ObjectType.DATABASE,
+        UseObjectType.WAREHOUSE,
+        UseObjectType.ROLE,
+        UseObjectType.DATABASE,
     ],
 )
 @mock.patch("snowflake.cli.api.sql_execution.SqlExecutionMixin._execute_query")

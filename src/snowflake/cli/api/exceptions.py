@@ -217,13 +217,6 @@ class DoesNotExistOrUnauthorizedError(ClickException):
         )
 
 
-class CouldNotUseObjectError(ClickException):
-    def __init__(self, object_type: ObjectType, name: str):
-        super().__init__(
-            f"Could not use {object_type} {name}. Object does not exist, or operation cannot be performed."
-        )
-
-
 class ShowSpecificObjectMultipleRowsError(RuntimeError):
     def __init__(self, show_obj_query: str):
         super().__init__(

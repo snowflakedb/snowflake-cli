@@ -17,7 +17,7 @@ from snowflake.connector import ProgrammingError
 
 from snowflake.cli._app.telemetry import CLITelemetryField, TelemetryEvent
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED
-from snowflake.cli.api.exceptions import CouldNotUseObjectError
+from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import CouldNotUseObjectError
 from tests.nativeapp.factories import ProjectV11Factory
 from tests.project.fixtures import *
 from tests_integration.test_utils import extract_first_telemetry_message_of_type

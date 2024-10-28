@@ -26,6 +26,7 @@ from snowflake.cli._plugins.connection.util import (
     strip_and_check_if_exists,
     strip_if_value_present,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
@@ -42,7 +43,6 @@ from snowflake.cli.api.config import (
     set_config_value,
 )
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -309,13 +309,13 @@ def test(
         schema = conn.schema
 
         if conn.role:
-            om.use(object_type=ObjectType.ROLE, name=f'"{conn.role}"')
+            om.use(object_type=UseObjectType.ROLE, name=f'"{conn.role}"')
         if conn.database:
-            om.use(object_type=ObjectType.DATABASE, name=f'"{conn.database}"')
+            om.use(object_type=UseObjectType.DATABASE, name=f'"{conn.database}"')
         if schema:
-            om.use(object_type=ObjectType.SCHEMA, name=f'"{schema}"')
+            om.use(object_type=UseObjectType.SCHEMA, name=f'"{schema}"')
         if conn.warehouse:
-            om.use(object_type=ObjectType.WAREHOUSE, name=f'"{conn.warehouse}"')
+            om.use(object_type=UseObjectType.WAREHOUSE, name=f'"{conn.warehouse}"')
 
     except ProgrammingError as err:
         raise ClickException(str(err))

@@ -19,8 +19,8 @@ from unittest import mock
 import pytest
 import typer
 from click import ClickException
-from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.exceptions import CouldNotUseObjectError
+from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
+from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import CouldNotUseObjectError
 from snowflake.connector import ProgrammingError
 from snowflake.connector.version import VERSION as DRIVER_VERSION
 
@@ -194,7 +194,9 @@ def test_failing_executing_command_sends_telemetry_data(
         (ProgrammingError(), False),
         (ClickException("message"), True),
         (
-            CouldNotUseObjectError(object_type=ObjectType.WAREHOUSE, name="warehouse"),
+            CouldNotUseObjectError(
+                object_type=UseObjectType.WAREHOUSE, name="warehouse"
+            ),
             True,
         ),
         (typer.Abort(), True),
