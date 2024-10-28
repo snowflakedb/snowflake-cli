@@ -107,7 +107,9 @@ class RestApi:
         url = f"{SF_REST_API_URL_PREFIX}/databases/{db_name}/schemas/{schema_name}"
         return self._fetch_endpoint_exists(url)
 
-    def determine_url_for_create_query(self, object_type: str) -> str:
+    def determine_url_for_create_query(
+        self, object_type: str, replace: bool = False, if_not_exists: bool = False
+    ) -> str:
         """
         Determine an url for creating an object of given type via REST API.
         If URL cannot be determined, the function throws CannotDetermineCreateURLException exception.
@@ -124,8 +126,14 @@ class RestApi:
         """
         plural_object_type = _pluralize_object_type(object_type)
 
+        query_params = ""
+
+        if replace or if_not_exists:
+            param = "ifNotExists" if if_not_exists else "orReplace"
+            query_params = f"?createMode={param}"
+
         if self.get_endpoint_exists(
-            url := f"{SF_REST_API_URL_PREFIX}/{plural_object_type}/"
+            url := f"{SF_REST_API_URL_PREFIX}/{plural_object_type}/{query_params}"
         ):
             return url
 
@@ -137,7 +145,7 @@ class RestApi:
         if not self._database_exists(db):
             raise DatabaseNotExistsException(f"Database '{db}' does not exist.")
         if self.get_endpoint_exists(
-            url := f"{SF_REST_API_URL_PREFIX}/databases/{db}/{plural_object_type}/"
+            url := f"{SF_REST_API_URL_PREFIX}/databases/{db}/{plural_object_type}/{query_params}"
         ):
             return url
 
@@ -149,7 +157,7 @@ class RestApi:
         if not self._schema_exists(db_name=db, schema_name=schema):
             raise SchemaNotExistsException(f"Schema '{schema}' does not exist.")
         if self.get_endpoint_exists(
-            url := f"{SF_REST_API_URL_PREFIX}/databases/{self.conn.database}/schemas/{self.conn.schema}/{plural_object_type}/"
+            url := f"{SF_REST_API_URL_PREFIX}/databases/{self.conn.database}/schemas/{self.conn.schema}/{plural_object_type}/{query_params}"
         ):
             return url
 
