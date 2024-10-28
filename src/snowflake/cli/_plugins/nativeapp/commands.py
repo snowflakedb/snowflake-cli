@@ -48,7 +48,10 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.common import EntityActions
-from snowflake.cli.api.exceptions import IncompatibleParametersError
+from snowflake.cli.api.exceptions import (
+    IncompatibleParametersError,
+    UnmetParametersError,
+)
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -452,7 +455,7 @@ def app_events(
     if (consumer_org and not consumer_account) or (
         consumer_account and not consumer_org
     ):
-        raise IncompatibleParametersError(["--consumer-org", "--consumer-account"])
+        raise UnmetParametersError(["--consumer-org", "--consumer-account"])
 
     if follow:
         if until:
