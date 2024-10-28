@@ -126,7 +126,7 @@ def test_sync_deploy_root_with_stage(
 
     assert mock_diff_result.has_changes()
     mock_bundle_map = mock.Mock(spec=BundleMap)
-    package_name = pkg_model.fqn.identifier
+    package_name = pkg_model.fqn.name
     stage_fqn = f"{package_name}.{pkg_model.stage}"
     sync_deploy_root_with_stage(
         console=cc,
@@ -201,7 +201,7 @@ def test_sync_deploy_root_with_stage_prune(
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
 
     mock_bundle_map = mock.Mock(spec=BundleMap)
-    package_name = pkg_model.fqn.identifier
+    package_name = pkg_model.fqn.name
     stage_fqn = f"{package_name}.{pkg_model.stage}"
     mock_console = mock.MagicMock()
     sync_deploy_root_with_stage(
