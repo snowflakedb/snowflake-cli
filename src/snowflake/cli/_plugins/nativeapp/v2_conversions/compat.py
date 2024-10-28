@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import inspect
 from functools import wraps
-from typing import Any, Dict, Optional, Type, TypeVar, Union
+from typing import Optional, Type, TypeVar
 
 import typer
 from click import ClickException
@@ -34,13 +34,10 @@ from snowflake.cli.api.project.definition_conversion import (
 )
 from snowflake.cli.api.project.schemas.entities.common import EntityModelBase
 from snowflake.cli.api.project.schemas.project_definition import (
-    DefinitionV11,
     DefinitionV20,
     ProjectDefinition,
     ProjectDefinitionV1,
 )
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
-from snowflake.cli.api.utils.definition_rendering import render_definition_template
 
 APP_AND_PACKAGE_OPTIONS = [
     inspect.Parameter(
@@ -62,91 +59,6 @@ APP_AND_PACKAGE_OPTIONS = [
         ),
     ),
 ]
-
-
-def _convert_v2_artifact_to_v1_dict(
-    v2_artifact: Union[PathMapping, str]
-) -> Union[Dict, str]:
-    if isinstance(v2_artifact, PathMapping):
-        return {
-            "src": v2_artifact.src,
-            "dest": v2_artifact.dest,
-            "processors": v2_artifact.processors,
-        }
-    return v2_artifact
-
-
-def _pdf_v2_to_v1(
-    v2_definition: DefinitionV20,
-    package_entity_id: str = "",
-    app_entity_id: str = "",
-    app_required: bool = False,
-) -> DefinitionV11:
-    pdfv1: Dict[str, Any] = {"definition_version": "1.1", "native_app": {}}
-
-    app_definition, app_package_definition = _find_app_and_package_entities(
-        v2_definition=v2_definition,
-        package_entity_id=package_entity_id,
-        app_entity_id=app_entity_id,
-        app_required=app_required,
-    )
-
-    # NativeApp
-    if app_definition and app_definition.fqn.identifier:
-        pdfv1["native_app"]["name"] = app_definition.fqn.identifier
-    else:
-        pdfv1["native_app"]["name"] = app_package_definition.fqn.identifier.split(
-            "_pkg_"
-        )[0]
-    pdfv1["native_app"]["artifacts"] = [
-        _convert_v2_artifact_to_v1_dict(a) for a in app_package_definition.artifacts
-    ]
-    pdfv1["native_app"]["source_stage"] = app_package_definition.stage
-    pdfv1["native_app"]["bundle_root"] = app_package_definition.bundle_root
-    pdfv1["native_app"]["generated_root"] = app_package_definition.generated_root
-    pdfv1["native_app"]["deploy_root"] = app_package_definition.deploy_root
-    pdfv1["native_app"]["scratch_stage"] = app_package_definition.scratch_stage
-
-    # Package
-    pdfv1["native_app"]["package"] = {}
-    pdfv1["native_app"]["package"]["name"] = app_package_definition.fqn.identifier
-    if app_package_definition.distribution:
-        pdfv1["native_app"]["package"][
-            "distribution"
-        ] = app_package_definition.distribution
-    if app_package_definition.meta and app_package_definition.meta.post_deploy:
-        pdfv1["native_app"]["package"][
-            "post_deploy"
-        ] = app_package_definition.meta.post_deploy
-    if app_package_definition.meta:
-        if app_package_definition.meta.role:
-            pdfv1["native_app"]["package"]["role"] = app_package_definition.meta.role
-        if app_package_definition.meta.warehouse:
-            pdfv1["native_app"]["package"][
-                "warehouse"
-            ] = app_package_definition.meta.warehouse
-
-    # Application
-    if app_definition:
-        pdfv1["native_app"]["application"] = {}
-        pdfv1["native_app"]["application"]["name"] = app_definition.fqn.identifier
-        if app_definition.debug:
-            pdfv1["native_app"]["application"]["debug"] = app_definition.debug
-        if app_definition.meta:
-            if app_definition.meta.role:
-                pdfv1["native_app"]["application"]["role"] = app_definition.meta.role
-            if app_definition.meta.warehouse:
-                pdfv1["native_app"]["application"][
-                    "warehouse"
-                ] = app_definition.meta.warehouse
-            if app_definition.meta.post_deploy:
-                pdfv1["native_app"]["application"][
-                    "post_deploy"
-                ] = app_definition.meta.post_deploy
-
-    result = render_definition_template(pdfv1, {})
-    # Override the definition object in global context
-    return result.project_definition
 
 
 def _find_app_and_package_entities(
