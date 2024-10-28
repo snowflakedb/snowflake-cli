@@ -113,6 +113,7 @@ def _create_or_upgrade_app(
         get_default_warehouse=lambda: "mock_warehouse",
     )
     app = ApplicationEntity(app_model, ctx)
+    pkg = ApplicationPackageEntity(pkg_model, ctx)
     stage_fqn = f"{pkg_model.fqn.name}.{pkg_model.stage}"
 
     def drop_application_before_upgrade(cascade: bool = False):
@@ -123,7 +124,7 @@ def _create_or_upgrade_app(
         )
 
     return app.create_or_upgrade_app(
-        package_model=pkg_model,
+        package=pkg,
         stage_fqn=stage_fqn,
         install_method=install_method,
         drop_application_before_upgrade=drop_application_before_upgrade,
