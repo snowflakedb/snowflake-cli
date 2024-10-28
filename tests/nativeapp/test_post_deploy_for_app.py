@@ -37,14 +37,14 @@ from tests.nativeapp.factories import (
 from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (
     CLI_GLOBAL_TEMPLATE_CONTEXT,
-    SQL_EXECUTOR_EXECUTE,
-    SQL_EXECUTOR_EXECUTE_QUERIES,
+    SQL_FACADE_EXECUTE_USER_SCRIPT,
 )
 from tests.testing_utils.fixtures import MockConnectionCtx
 
 MOCK_CONNECTION_DB = "tests.testing_utils.fixtures.MockConnectionCtx.database"
 MOCK_CONNECTION_WH = "tests.testing_utils.fixtures.MockConnectionCtx.warehouse"
 
+DEFAULT_POST_DEPLOY_FILENAME_1 = "scripts/app_post_deploy1.sql"
 DEFAULT_POST_DEPLOY_CONTENT_1 = dedent(
     """\
         -- app post-deploy script (1/2)
@@ -55,6 +55,7 @@ DEFAULT_POST_DEPLOY_CONTENT_1 = dedent(
 )
 
 DEFAULT_POST_DEPLOY_CONTENT_2 = "-- app post-deploy script (2/2)\n"
+DEFAULT_POST_DEPLOY_FILENAME_2 = "scripts/app_post_deploy2.sql"
 
 
 def app_post_deploy_project_factory(
@@ -70,31 +71,29 @@ def app_post_deploy_project_factory(
                 identifier="myapp",
                 fromm__target="pkg",
                 meta__post_deploy=[
-                    {"sql_script": "scripts/app_post_deploy1.sql"},
-                    {"sql_script": "scripts/app_post_deploy2.sql"},
+                    {"sql_script": DEFAULT_POST_DEPLOY_FILENAME_1},
+                    {"sql_script": DEFAULT_POST_DEPLOY_FILENAME_2},
                 ],
             ),
         ),
         pdf__env__foo="bar",
         files={
-            "scripts/app_post_deploy1.sql": custom_post_deploy_content_1
+            DEFAULT_POST_DEPLOY_FILENAME_1: custom_post_deploy_content_1
             or DEFAULT_POST_DEPLOY_CONTENT_1,
-            "scripts/app_post_deploy2.sql": custom_post_deploy_content_2
+            DEFAULT_POST_DEPLOY_FILENAME_2: custom_post_deploy_content_2
             or DEFAULT_POST_DEPLOY_CONTENT_2,
         },
     )
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(SQL_FACADE_EXECUTE_USER_SCRIPT)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
 def test_sql_scripts(
     mock_conn,
     mock_cli_ctx,
-    mock_execute_queries,
-    mock_execute_query,
+    mock_sqlfacade_execute_user_script,
     temp_dir,
     workspace_context,
 ):
@@ -107,23 +106,28 @@ def test_sql_scripts(
     app = ApplicationEntity(app_model, workspace_context)
     app.execute_post_deploy_hooks()
 
-    mock_execute_query.assert_has_calls(
-        [
-            mock.call(f"use database {app_model.fqn.name}"),
-            mock.call(f"use database {app_model.fqn.name}"),
-        ],
-        any_order=True,
-    )
-    assert mock_execute_queries.mock_calls == [
-        mock.call(DEFAULT_POST_DEPLOY_CONTENT_1),
-        mock.call(DEFAULT_POST_DEPLOY_CONTENT_2),
+    assert mock_sqlfacade_execute_user_script.mock_calls == [
+        mock.call(
+            queries=DEFAULT_POST_DEPLOY_CONTENT_1,
+            script_name=DEFAULT_POST_DEPLOY_FILENAME_1,
+            role=app.role,
+            warehouse=app.warehouse,
+            database=app.name,
+        ),
+        mock.call(
+            queries=DEFAULT_POST_DEPLOY_CONTENT_2,
+            script_name=DEFAULT_POST_DEPLOY_FILENAME_2,
+            role=app.role,
+            warehouse=app.warehouse,
+            database=app.name,
+        ),
     ]
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_EXECUTE_USER_SCRIPT)
 @mock_connection()
 def test_missing_sql_script(
-    mock_execute_query, mock_conn, project_directory, workspace_context
+    mock_sqlfacade_execute_user_script, mock_conn, project_directory, workspace_context
 ):
     mock_conn.return_value = MockConnectionCtx()
     with project_directory("napp_post_deploy_missing_file_v2") as project_dir:
@@ -157,16 +161,14 @@ def test_post_deploy_hook_schema(args, expected_error):
 @pytest.mark.parametrize(
     "template_syntax", [("<% ctx.env.test %>"), ("&{ ctx.env.test }")]
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(SQL_FACADE_EXECUTE_USER_SCRIPT)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
 def test_app_post_deploy_with_template(
     mock_conn,
     mock_cli_ctx,
-    mock_execute_queries,
-    mock_execute_query,
+    mock_sqlfacade_execute_user_script,
     project_directory,
     template_syntax,
     workspace_context,
@@ -191,38 +193,38 @@ def test_app_post_deploy_with_template(
 
     app.execute_post_deploy_hooks()
 
-    mock_execute_query.assert_has_calls(
-        [
-            mock.call(f"use database {app_model.fqn.name}"),
-            mock.call(f"use database {app_model.fqn.name}"),
-        ],
-        any_order=True,
-    )
-    assert mock_execute_queries.mock_calls == [
-        # Verify template variables were expanded correctly
+    assert mock_sqlfacade_execute_user_script.mock_calls == [
         mock.call(
-            dedent(
-                """\
-            -- app post-deploy script (1/2)
+            queries=dedent(
+                f"""\
+                -- app post-deploy script (1/2)
 
-            select 'test_value';
-            """
-            )
+                select 'test_value';
+                """
+            ),
+            script_name=DEFAULT_POST_DEPLOY_FILENAME_1,
+            role=app.role,
+            warehouse=app.warehouse,
+            database=app.name,
         ),
-        mock.call("-- app post-deploy script (2/2)\n"),
+        mock.call(
+            queries=DEFAULT_POST_DEPLOY_CONTENT_2,
+            script_name=DEFAULT_POST_DEPLOY_FILENAME_2,
+            role=app.role,
+            warehouse=app.warehouse,
+            database=app.name,
+        ),
     ]
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(SQL_FACADE_EXECUTE_USER_SCRIPT)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
 def test_app_post_deploy_with_mixed_syntax_template(
     mock_conn,
     mock_cli_ctx,
-    mock_execute_queries,
-    mock_execute_query,
+    mock_sqlfacade_execute_user_script,
     project_directory,
     workspace_context,
     temp_dir,

@@ -30,7 +30,6 @@ from snowflake.cli.api.entities.utils import execute_post_deploy_hooks
 from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
-from snowflake.connector import ProgrammingError
 
 from tests.nativeapp.factories import (
     ApplicationEntityModelFactory,
@@ -41,12 +40,11 @@ from tests.nativeapp.factories import (
 from tests.nativeapp.patch_utils import mock_connection
 from tests.nativeapp.utils import (
     CLI_GLOBAL_TEMPLATE_CONTEXT,
-    SQL_EXECUTOR_EXECUTE,
-    SQL_EXECUTOR_EXECUTE_QUERIES,
-    mock_execute_helper,
+    SQL_FACADE_EXECUTE_USER_SCRIPT,
 )
 from tests.testing_utils.fixtures import MockConnectionCtx
 
+DEFAULT_POST_DEPLOY_FILENAME_1 = "scripts/pkg_post_deploy1.sql"
 DEFAULT_POST_DEPLOY_CONTENT_1 = dedent(
     """\
     -- package post-deploy script (1/2)
@@ -56,6 +54,7 @@ DEFAULT_POST_DEPLOY_CONTENT_1 = dedent(
     """
 )
 
+DEFAULT_POST_DEPLOY_FILENAME_2 = "scripts/pkg_post_deploy2.sql"
 DEFAULT_POST_DEPLOY_CONTENT_2 = "-- package post-deploy script (2/2)\n"
 
 
@@ -68,8 +67,8 @@ def pkg_post_deploy_project_factory(
             pkg=ApplicationPackageEntityModelFactory(
                 identifier="myapp_pkg",
                 meta__post_deploy=[
-                    {"sql_script": "scripts/pkg_post_deploy1.sql"},
-                    {"sql_script": "scripts/pkg_post_deploy2.sql"},
+                    {"sql_script": DEFAULT_POST_DEPLOY_FILENAME_1},
+                    {"sql_script": DEFAULT_POST_DEPLOY_FILENAME_2},
                 ],
             ),
             app=ApplicationEntityModelFactory(
@@ -79,24 +78,22 @@ def pkg_post_deploy_project_factory(
         ),
         pdf__env__foo="bar",
         files={
-            "scripts/pkg_post_deploy1.sql": custom_post_deploy_content_1
+            DEFAULT_POST_DEPLOY_FILENAME_1: custom_post_deploy_content_1
             or DEFAULT_POST_DEPLOY_CONTENT_1,
-            "scripts/pkg_post_deploy2.sql": custom_post_deploy_content_2
+            DEFAULT_POST_DEPLOY_FILENAME_2: custom_post_deploy_content_2
             or DEFAULT_POST_DEPLOY_CONTENT_2,
         },
     )
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(SQL_FACADE_EXECUTE_USER_SCRIPT)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
 def test_package_post_deploy_scripts(
     mock_conn,
     mock_cli_ctx,
-    mock_execute_queries,
-    mock_execute_query,
+    mock_sqlfacade_execute_user_script,
     project_directory,
     mock_cursor,
     workspace_context,
@@ -113,31 +110,32 @@ def test_package_post_deploy_scripts(
 
     pkg.execute_post_deploy_hooks()
 
-    mock_execute_query.assert_has_calls(
-        [
-            mock.call("select current_warehouse()"),
-            mock.call(f"use database {pkg_model.fqn.name}"),
-            mock.call(f"use database {pkg_model.fqn.name}"),
-        ],
-        any_order=True,
-    )
-    assert mock_execute_queries.mock_calls == [
-        # Verify template variables were expanded correctly
-        mock.call(DEFAULT_POST_DEPLOY_CONTENT_1),
-        mock.call(DEFAULT_POST_DEPLOY_CONTENT_2),
+    assert mock_sqlfacade_execute_user_script.mock_calls == [
+        mock.call(
+            queries=DEFAULT_POST_DEPLOY_CONTENT_1,
+            script_name=DEFAULT_POST_DEPLOY_FILENAME_1,
+            role=pkg.role,
+            warehouse=pkg.warehouse,
+            database=pkg.name,
+        ),
+        mock.call(
+            queries=DEFAULT_POST_DEPLOY_CONTENT_2,
+            script_name=DEFAULT_POST_DEPLOY_FILENAME_2,
+            role=pkg.role,
+            warehouse=pkg.warehouse,
+            database=pkg.name,
+        ),
     ]
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(SQL_FACADE_EXECUTE_USER_SCRIPT)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
 def test_package_post_deploy_scripts_with_no_scripts(
     mock_conn,
     mock_cli_ctx,
-    mock_execute_queries,
-    mock_execute_query,
+    mock_sqlfacade_execute_user_script,
     project_directory,
     workspace_context,
     temp_dir,
@@ -170,18 +168,17 @@ def test_package_post_deploy_scripts_with_no_scripts(
         warehouse_name=workspace_context.default_warehouse,
     )
 
-    assert mock_execute_query.mock_calls == []
-    assert mock_execute_queries.mock_calls == []
+    assert mock_sqlfacade_execute_user_script.mock_calls == []
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_EXECUTE_USER_SCRIPT)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
 def test_package_post_deploy_scripts_with_non_existing_scripts(
     mock_conn,
     mock_cli_ctx,
-    mock_execute_query,
+    mock_sqlfacade_execute_user_script,
     project_directory,
     mock_cursor,
     workspace_context,
@@ -209,16 +206,6 @@ def test_package_post_deploy_scripts_with_non_existing_scripts(
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["pkg"]
     mock_cli_ctx.return_value = dm.template_context
 
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("MockWarehouse",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
-
     with pytest.raises(MissingScriptError) as err:
         execute_post_deploy_hooks(
             console=cc,
@@ -236,16 +223,14 @@ def test_package_post_deploy_scripts_with_non_existing_scripts(
     )
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(SQL_FACADE_EXECUTE_USER_SCRIPT)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
 def test_package_post_deploy_scripts_with_sql_error(
     mock_conn,
     mock_cli_ctx,
-    mock_execute_queries,
-    mock_execute_query,
+    mock_sqlfacade_execute_user_script,
     project_directory,
     workspace_context,
     temp_dir,
@@ -257,7 +242,9 @@ def test_package_post_deploy_scripts_with_sql_error(
     dm = DefinitionManager()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["pkg"]
     mock_cli_ctx.return_value = dm.template_context
-    mock_execute_queries.side_effect = ProgrammingError()
+    mock_sqlfacade_execute_user_script.side_effect = UserScriptError(
+        "script.sql", "Error message."
+    )
 
     with pytest.raises(UserScriptError):
         execute_post_deploy_hooks(
@@ -303,16 +290,14 @@ def test_package_scripts_and_post_deploy_found(
 @pytest.mark.parametrize(
     "template_syntax", [("<% ctx.env.test %>"), ("&{ ctx.env.test }")]
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(SQL_FACADE_EXECUTE_USER_SCRIPT)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
 def test_package_post_deploy_scripts_with_templates(
     mock_conn,
     mock_cli_ctx,
-    mock_execute_queries,
-    mock_execute_query,
+    mock_sqlfacade_execute_user_script,
     project_directory,
     template_syntax,
     mock_cursor,
@@ -338,39 +323,38 @@ def test_package_post_deploy_scripts_with_templates(
 
     pkg.execute_post_deploy_hooks()
 
-    mock_execute_query.assert_has_calls(
-        [
-            mock.call("select current_warehouse()"),
-            mock.call(f"use database {pkg_model.fqn.name}"),
-            mock.call(f"use database {pkg_model.fqn.name}"),
-        ],
-        any_order=True,
-    )
-    assert mock_execute_queries.mock_calls == [
-        # Verify template variables were expanded correctly
+    assert mock_sqlfacade_execute_user_script.mock_calls == [
         mock.call(
-            dedent(
+            queries=dedent(
                 """\
-                -- package post-deploy script (1/2)
+            -- package post-deploy script (1/2)
 
-                select 'test_value';
-                """
-            )
+            select 'test_value';
+            """
+            ),
+            script_name=DEFAULT_POST_DEPLOY_FILENAME_1,
+            role=pkg.role,
+            warehouse=pkg.warehouse,
+            database=pkg.name,
         ),
-        mock.call("-- package post-deploy script (2/2)\n"),
+        mock.call(
+            queries=DEFAULT_POST_DEPLOY_CONTENT_2,
+            script_name=DEFAULT_POST_DEPLOY_FILENAME_2,
+            role=pkg.role,
+            warehouse=pkg.warehouse,
+            database=pkg.name,
+        ),
     ]
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
+@mock.patch(SQL_FACADE_EXECUTE_USER_SCRIPT)
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, new_callable=mock.PropertyMock)
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 @mock_connection()
 def test_package_post_deploy_scripts_with_mix_syntax_templates(
     mock_conn,
     mock_cli_ctx,
-    mock_execute_queries,
-    mock_execute_query,
+    mock_sqlfacade_execute_user_script,
     project_directory,
     workspace_context,
     temp_dir,
