@@ -79,7 +79,9 @@ def _version_create(
 
 # Test get_existing_release_directive_info_for_version returns release directives info correctly
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_get_existing_release_direction_info(mock_execute, temp_dir, mock_cursor):
+def test_get_existing_release_direction_info(
+    mock_execute, temp_dir, mock_cursor, workspace_context
+):
     version = "V1"
     side_effects, expected = mock_execute_helper(
         [
@@ -117,11 +119,8 @@ def test_get_existing_release_direction_info(mock_execute, temp_dir, mock_cursor
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    result = ApplicationPackageEntity.get_existing_release_directive_info_for_version(
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        version=version,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    result = pkg.get_existing_release_directive_info_for_version(version=version)
     assert mock_execute.mock_calls == expected
     assert len(result) == 2
 
@@ -132,7 +131,9 @@ def test_get_existing_release_direction_info(mock_execute, temp_dir, mock_cursor
     ["version", "version_identifier"],
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
 )
-def test_add_version(mock_execute, temp_dir, mock_cursor, version, version_identifier):
+def test_add_version(
+    mock_execute, temp_dir, mock_cursor, version, version_identifier, workspace_context
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -168,13 +169,8 @@ def test_add_version(mock_execute, temp_dir, mock_cursor, version, version_ident
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    ApplicationPackageEntity.add_new_version(
-        console=cc,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.stage}",
-        version=version,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    pkg.add_new_version(version=version)
     assert mock_execute.mock_calls == expected
 
 
@@ -185,7 +181,7 @@ def test_add_version(mock_execute, temp_dir, mock_cursor, version, version_ident
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
 )
 def test_add_new_patch_auto(
-    mock_execute, temp_dir, mock_cursor, version, version_identifier
+    mock_execute, temp_dir, mock_cursor, version, version_identifier, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -222,13 +218,8 @@ def test_add_new_patch_auto(
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    ApplicationPackageEntity.add_new_patch_to_version(
-        console=cc,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.stage}",
-        version=version,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    pkg.add_new_patch_to_version(version=version)
     assert mock_execute.mock_calls == expected
 
 
@@ -239,7 +230,7 @@ def test_add_new_patch_auto(
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
 )
 def test_add_new_patch_custom(
-    mock_execute, temp_dir, mock_cursor, version, version_identifier
+    mock_execute, temp_dir, mock_cursor, version, version_identifier, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -276,20 +267,14 @@ def test_add_new_patch_custom(
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    ApplicationPackageEntity.add_new_patch_to_version(
-        console=cc,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.stage}",
-        version=version,
-        patch=12,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    pkg.add_new_patch_to_version(version=version, patch=12)
     assert mock_execute.mock_calls == expected
 
 
 # Test version create when user did not pass in a version AND we could not find a version in the manifest file either
 @mock.patch(
-    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity._bundle",
     return_value=None,
 )
 @mock.patch(

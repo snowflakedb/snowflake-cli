@@ -113,20 +113,18 @@ def _create_or_upgrade_app(
         get_default_warehouse=lambda: "mock_warehouse",
     )
     app = ApplicationEntity(app_model, ctx)
+    pkg = ApplicationPackageEntity(pkg_model, ctx)
     stage_fqn = f"{pkg_model.fqn.name}.{pkg_model.stage}"
 
     def drop_application_before_upgrade(cascade: bool = False):
         app.drop_application_before_upgrade(
-            console=console or cc,
-            app_name=app_model.fqn.identifier,
-            app_role=app_model.meta.role,
             policy=policy,
-            is_interactive=is_interactive,
+            interactive=is_interactive,
             cascade=cascade,
         )
 
     return app.create_or_upgrade_app(
-        package_model=pkg_model,
+        package=pkg,
         stage_fqn=stage_fqn,
         install_method=install_method,
         drop_application_before_upgrade=drop_application_before_upgrade,
@@ -1950,7 +1948,9 @@ def test_upgrade_app_recreate_app_from_version(
 
 # Test get_existing_version_info returns version info correctly
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_get_existing_version_info(mock_execute, temp_dir, mock_cursor):
+def test_get_existing_version_info(
+    mock_execute, temp_dir, mock_cursor, workspace_context
+):
     version = "V1"
     side_effects, expected = mock_execute_helper(
         [
@@ -1992,10 +1992,7 @@ def test_get_existing_version_info(mock_execute, temp_dir, mock_cursor):
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    result = ApplicationPackageEntity.get_existing_version_info(
-        version=version,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    result = pkg.get_existing_version_info(version=version)
     assert mock_execute.mock_calls == expected
     assert result["version"] == version

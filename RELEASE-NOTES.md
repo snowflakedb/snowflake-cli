@@ -25,6 +25,8 @@
 * `snow --info` callback returns information about `SNOWFLAKE_HOME` variable.
 * Removed requirement of existence of any `requirements.txt` file for Python code execution via `snow git execute` command.
   Before the fix the file (even empty) was required to make the execution working.
+* Fixed saving of the config file updates when `connections.toml` exists.
+  Removed incorrect copying of connections from `connections.toml` to `config.toml`.
 
 
 

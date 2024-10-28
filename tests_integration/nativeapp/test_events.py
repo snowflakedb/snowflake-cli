@@ -75,7 +75,7 @@ def test_app_events_paired_options(
         result = runner.invoke_with_connection(["app", "events", *command])
         assert_that_result_is_usage_error(
             result,
-            f"Parameters '{flag_names[0]}' and '{flag_names[1]}' are incompatible and cannot be used simultaneously.",
+            f"Parameters '{flag_names[0]}' and '{flag_names[1]}' must be used simultaneously.",
         )
 
 
