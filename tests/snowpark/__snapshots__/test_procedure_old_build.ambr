@@ -1,0 +1,56 @@
+# serializer version: 1
+# name: test_deploy_procedure_fails_if_integration_does_not_exists
+  '''
+  Performing initial validation
+  Checking remote state
+  +- Error ----------------------------------------------------------------------+
+  | Following external access integration does not exists in Snowflake:          |
+  | external_2                                                                   |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_procedure_fails_if_object_exists_and_no_replace
+  '''
+  Performing initial validation
+  Checking remote state
+  +- Error ----------------------------------------------------------------------+
+  | Following objects already exists. Consider using --replace.                  |
+  | procedure: procedureName                                                     |
+  | procedure: test                                                              |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_procedure_fully_qualified_name[database error]
+  '''
+  Performing initial validation
+  Checking remote state
+  +- Error ----------------------------------------------------------------------+
+  | Database provided but name                                                   |
+  | 'custom_database.custom_schema.fqn_procedure_error' is fully qualified name. |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_procedure_fully_qualified_name_duplicated_schema[schema error]
+  '''
+  Performing initial validation
+  Checking remote state
+  +- Error ----------------------------------------------------------------------+
+  | Schema provided but name 'custom_schema.fqn_procedure_error' is fully        |
+  | qualified name.                                                              |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_procedure_secrets_without_external_access
+  '''
+  Performing initial validation
+  Checking remote state
+  +- Error ----------------------------------------------------------------------+
+  | procedureName defined with secrets but without external integration.         |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
