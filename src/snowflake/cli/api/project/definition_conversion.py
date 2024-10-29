@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import shutil
+import tempfile
+from copy import deepcopy
 from pathlib import Path
 from tempfile import TemporaryDirectory, mkstemp
 from typing import Any, Dict, Literal, Optional
@@ -8,6 +11,12 @@ from typing import Any, Dict, Literal, Optional
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
+    symlink_or_copy,
+)
+from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
+from snowflake.cli._plugins.nativeapp.codegen.compiler import TEMPLATES_PROCESSOR
+from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor import (
+    TemplatesProcessor,
 )
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
@@ -46,6 +55,7 @@ from snowflake.cli.api.project.schemas.v1.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
 from snowflake.cli.api.rendering.jinja import get_basic_jinja_env
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
+from snowflake.cli.api.utils.dict_utils import deep_merge_dicts
 
 log = logging.getLogger(__name__)
 
@@ -107,7 +117,7 @@ def convert_project_definition_to_v2(
         if definition_v1.streamlit
         else {}
     )
-    native_app_data = (
+    native_app_data, native_app_template_context = (
         convert_native_app_to_v2_data(
             project_root, definition_v1.native_app, template_context
         )
@@ -137,7 +147,15 @@ def convert_project_definition_to_v2(
 
     # If the user's files have any template tags in them, they
     # also need to be migrated to point to the v2 entities
-    _convert_templates_in_files(project_root, definition_v1, definition_v2, in_memory)
+    replacement_template_context = deepcopy(template_context) or {}
+    deep_merge_dicts(replacement_template_context, native_app_template_context)
+    _convert_templates_in_files(
+        project_root,
+        definition_v1,
+        definition_v2,
+        in_memory,
+        replacement_template_context,
+    )
 
     return definition_v2
 
@@ -246,7 +264,7 @@ def convert_native_app_to_v2_data(
     project_root: Path,
     native_app: NativeApp,
     template_context: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+) -> tuple[dict[str, Any], dict[str, Any]]:
     def _make_meta(obj: Application | Package):
         meta = {}
         if obj.role:
@@ -360,12 +378,63 @@ def convert_native_app_to_v2_data(
         ):
             app["debug"] = native_app.application.debug
 
-    return {
+    pdfv2_yml = {
         "entities": {
             package_entity_name: package,
             app_entity_name: app,
         }
     }
+    template_replacements = {
+        "ctx": {
+            "native_app": {
+                "name": native_app.name,  # This is a literal since there's no equivalent in v2
+                # omitting "artifacts" since lists are not supported in templates
+                "bundle_root": _make_template(
+                    f"ctx.entities.{package_entity_name}.bundle_root"
+                ),
+                "deploy_root": _make_template(
+                    f"ctx.entities.{package_entity_name}.deploy_root"
+                ),
+                "generated_root": _make_template(
+                    f"ctx.entities.{package_entity_name}.generated_root"
+                ),
+                "source_stage": _make_template(
+                    f"ctx.entities.{package_entity_name}.stage"
+                ),
+                "scratch_stage": _make_template(
+                    f"ctx.entities.{package_entity_name}.scratch_stage"
+                ),
+                "package": {
+                    # omitting "scripts" since lists are not supported in templates
+                    "role": _make_template(
+                        f"ctx.entities.{package_entity_name}.meta.role"
+                    ),
+                    "name": _make_template(
+                        f"ctx.entities.{package_entity_name}.identifier"
+                    ),
+                    "warehouse": _make_template(
+                        f"ctx.entities.{package_entity_name}.meta.warehouse"
+                    ),
+                    "distribution": _make_template(
+                        f"ctx.entities.{package_entity_name}.distribution"
+                    ),
+                    # omitting "post_deploy" since lists are not supported in templates
+                },
+                "application": {
+                    "role": _make_template(f"ctx.entities.{app_entity_name}.meta.role"),
+                    "name": _make_template(
+                        f"ctx.entities.{app_entity_name}.identifier"
+                    ),
+                    "warehouse": _make_template(
+                        f"ctx.entities.{app_entity_name}.meta.warehouse"
+                    ),
+                    "debug": _make_template(f"ctx.entities.{app_entity_name}.debug"),
+                    # omitting "post_deploy" since lists are not supported in templates
+                },
+            }
+        }
+    }
+    return pdfv2_yml, template_replacements
 
 
 def convert_envs_to_v2(pd: ProjectDefinition):
@@ -380,33 +449,118 @@ def _convert_templates_in_files(
     definition_v1: ProjectDefinition,
     definition_v2: ProjectDefinitionV2,
     in_memory: bool,
+    replacement_template_context: dict[str, Any],
 ):
     """Converts templates in other files to the new format"""
-    # TODO handle artifacts using the "templates" processor
-    # For now this only handles Native App package scripts
-    metrics = get_cli_context().metrics
-    metrics.set_counter_default(CLICounterField.PACKAGE_SCRIPTS, 0)
+    # Set up fakers so that references to ctx.env. and fn.
+    # get templated to the same literal, since those references
+    # are the same in v1 and v2
+    replacement_template_context["ctx"]["env"] = _EnvFaker()
+    replacement_template_context["fn"] = _FnFaker()
 
-    if (na := definition_v1.native_app) and (pkg := na.package) and pkg.scripts:
-        metrics.set_counter(CLICounterField.PACKAGE_SCRIPTS, 1)
-        cli_console.warning(
-            "WARNING: native_app.package.scripts is deprecated. Please migrate to using native_app.package.post_deploy."
-        )
-        # If the v1 definition has a Native App with a package, we know
+    metrics = get_cli_context().metrics
+
+    if na := definition_v1.native_app:
+        # If the v1 definition has a Native App, we know
         # that the v2 definition will have exactly one application package entity
-        pkg_entity: ApplicationPackageEntityModel = list(
+        pkg_model: ApplicationPackageEntityModel = list(
             definition_v2.get_entities_by_type(
                 ApplicationPackageEntityModel.get_type()
             ).values()
         )[0]
-        converted_post_deploy_hooks = _convert_package_script_files(
-            project_root, pkg.scripts, pkg_entity, in_memory
-        )
-        if pkg_entity.meta is None:
-            pkg_entity.meta = MetaField()
-        if pkg_entity.meta.post_deploy is None:
-            pkg_entity.meta.post_deploy = []
-        pkg_entity.meta.post_deploy += converted_post_deploy_hooks
+
+        # Convert templates in artifacts by passing them through the TemplatesProcessor
+        # but providing a context that maps v1 template references to the equivalent v2
+        # references instead of resolving to literals
+        # For example, replacement_template_context might look like
+        # {
+        #     "ctx": {
+        #         "native_app": {
+        #             "bundle_root": "<% ctx.entities.pkg.bundle_root %>",
+        #             "deploy_root": "<% ctx.entities.pkg.deploy_root %>",
+        #             "application": {
+        #                 "name": "<% ctx.entities.app.identifier %>",
+        #             }
+        #             and so on...
+        #          }
+        #     }
+        # }
+        # We only convert files on-disk if the "templates" processor is used in the artifacts
+        # and if we're doing a permanent conversion. If we're doing an in-memory conversion,
+        # the CLI global template context is already populated with the v1 definition, so
+        # we don't want to convert the v1 template references in artifact files
+        if not in_memory and any(
+            processor.name == TEMPLATES_PROCESSOR
+            for artifact in pkg_model.artifacts
+            for processor in artifact.processors
+        ):
+            metrics.set_counter(CLICounterField.TEMPLATES_PROCESSOR, 1)
+
+            # Create a temporary directory to hold the expanded templates,
+            # as if a bundle step had been run but without affecting any
+            # files on disk outside of the artifacts we want to convert
+            with tempfile.TemporaryDirectory() as d:
+                deploy_root = Path(d)
+                bundle_ctx = BundleContext(
+                    package_name=pkg_model.identifier,
+                    artifacts=pkg_model.artifacts,
+                    project_root=project_root,
+                    bundle_root=project_root / pkg_model.bundle_root,
+                    deploy_root=deploy_root,
+                    generated_root=(
+                        project_root / deploy_root / pkg_model.generated_root
+                    ),
+                )
+                template_processor = TemplatesProcessor(bundle_ctx)
+                for artifact in na.artifacts:
+                    for processor in artifact.processors:
+                        if processor.name == TEMPLATES_PROCESSOR:
+                            bundle_map = BundleMap(
+                                project_root=project_root, deploy_root=deploy_root
+                            )
+                            bundle_map.add(artifact)
+
+                            for src, dest in bundle_map.all_mappings(
+                                absolute=True, expand_directories=False
+                            ):
+                                # Copy the mapping from the source root to the deploy root,
+                                # since the processor expects the artifacts to have
+                                # already been bundled (we can't call build_bundle() since it
+                                # checks that the deploy_root is a child of the project_root,
+                                # which isn't the case here)
+                                symlink_or_copy(src, dest, deploy_root=deploy_root)
+
+                            for src, dest in bundle_map.all_mappings(
+                                absolute=True, expand_directories=True
+                            ):
+                                if src.is_dir():
+                                    continue
+                                # We call the implementation directly instead of calling process()
+                                # since we need access to the BundleMap to copy files anyways
+                                template_processor.expand_templates_in_file(
+                                    src, dest, replacement_template_context
+                                )
+                                # Copy the expanded file back to its original source location if it was modified
+                                if not dest.is_symlink():
+                                    shutil.copyfile(dest, src)
+
+        # Convert package script files to post-deploy hooks
+        metrics.set_counter_default(CLICounterField.PACKAGE_SCRIPTS, 0)
+        if (pkg := na.package) and pkg.scripts:
+            metrics.set_counter(CLICounterField.PACKAGE_SCRIPTS, 1)
+            cli_console.warning(
+                "WARNING: native_app.package.scripts is deprecated. "
+                "Please migrate to using native_app.package.post_deploy."
+            )
+
+            converted_post_deploy_hooks = _convert_package_script_files(
+                project_root, pkg.scripts, pkg_model, in_memory
+            )
+            if pkg_model.meta is None:
+                pkg_model.meta = MetaField()
+            if pkg_model.meta.post_deploy is None:
+                pkg_model.meta.post_deploy = []
+            pkg_model.meta.post_deploy += converted_post_deploy_hooks
 
 
 def _convert_package_script_files(
@@ -445,6 +599,18 @@ def _convert_package_script_files(
         hook._display_path = original_script_file  # noqa: SLF001
         post_deploy_hooks.append(hook)
     return post_deploy_hooks
+
+
+class _EnvFaker:
+    def __getitem__(self, item):
+        return _make_template(f"ctx.env.{item}")
+
+
+class _FnFaker:
+    def __getitem__(self, item):
+        return lambda *args, **kwargs: _make_template(
+            f"fn.{item}({', '.join(repr(a) for a in args)})"
+        )
 
 
 def _make_template(template: str) -> str:

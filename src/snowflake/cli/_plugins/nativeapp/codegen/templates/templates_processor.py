@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import jinja2
 from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
@@ -49,7 +49,9 @@ class TemplatesProcessor(ArtifactProcessor):
     Processor class to perform template expansion on all relevant artifacts (specified in the project definition file).
     """
 
-    def expand_templates_in_file(self, src: Path, dest: Path) -> None:
+    def expand_templates_in_file(
+        self, src: Path, dest: Path, template_context: dict[str, Any] | None = None
+    ) -> None:
         """
         Expand templates in the file.
         """
@@ -74,7 +76,7 @@ class TemplatesProcessor(ArtifactProcessor):
                         else get_client_side_jinja_env()
                     )
                     expanded_template = jinja_env.from_string(file.contents).render(
-                        get_cli_context().template_context
+                        template_context or get_cli_context().template_context
                     )
 
                 # For now, we are printing the source file path in the error message
