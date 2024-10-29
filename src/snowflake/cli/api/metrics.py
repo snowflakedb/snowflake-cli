@@ -16,7 +16,7 @@ from __future__ import annotations
 import time
 import uuid
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import ClassVar, Dict, Iterator, List, Optional
 
 
@@ -133,36 +133,33 @@ class CLIMetricsSpan:
         }
 
 
+@dataclass
 class CLIMetrics:
     """
     Class to track various metrics across the execution of a command
     """
 
     # limit for number of nested spans throughout execution
-    IN_PROGRESS_SPANS_DEPTH_LIMIT = 5
+    IN_PROGRESS_SPANS_DEPTH_LIMIT: ClassVar[int] = 5
     # limit for number of total spans being reported
-    COMPLETED_SPANS_TOTAL_LIMIT = 100
+    COMPLETED_SPANS_TOTAL_LIMIT: ClassVar[int] = 100
 
-    def __init__(self):
-        self._counters: Dict[str, int] = {}
-        # stack of in progress steps as command is executing
-        self._in_progress_spans: List[CLIMetricsSpan] = []
-        # list of finished steps for telemetry to process
-        self._completed_spans: List[CLIMetricsSpan] = []
-        # count of spans dropped due to reaching depth limit
-        self.num_spans_past_depth_limit: int = 0
-        # count of spans dropped due to reaching total limit
-        self.num_spans_past_total_limit: int = 0
-        # monotonic clock time of when this class was initialized to approximate when the command first started executing
-        self.monotonic_start = time.monotonic()
+    _counters: Dict[str, int] = field(init=False, default_factory=dict)
+    # stack of in progress spans as command is executing
+    _in_progress_spans: List[CLIMetricsSpan] = field(init=False, default_factory=list)
+    # list of finished steps for telemetry to process
+    _completed_spans: List[CLIMetricsSpan] = field(init=False, default_factory=list)
+    # count of spans dropped due to reaching depth limit
+    num_spans_past_depth_limit: int = field(init=False, default=0)
+    # count of spans dropped due to reaching total limit
+    num_spans_past_total_limit: int = field(init=False, default=0)
+    # monotonic clock time of when this class was initialized to approximate when the command first started executing
+    monotonic_start: float = field(
+        init=False, default_factory=time.monotonic, compare=False
+    )
 
-    def __eq__(self, other):
-        if isinstance(other, CLIMetrics):
-            return (
-                self._counters == other._counters
-                and self._completed_spans == other._completed_spans
-            )
-        return False
+    def clone(self) -> CLIMetrics:
+        return replace(self)
 
     def get_counter(self, name: str) -> Optional[int]:
         return self._counters.get(name)
