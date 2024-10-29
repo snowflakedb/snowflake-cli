@@ -105,8 +105,9 @@ class ApplicationPackageEntityModel(EntityModelBase):
         title="Distribution of the application package created by the Snowflake CLI",
         default="internal",
     )
-    manifest: str = Field(
-        title="Path to manifest.yml",
+    manifest: Optional[str] = Field(
+        title="Path to manifest.yml relative to stage root",
+        default="manifest.yml",
     )
 
     @field_validator("identifier")
