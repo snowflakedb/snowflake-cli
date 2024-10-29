@@ -203,10 +203,6 @@ def test_metrics_spans_parent_with_two_children_same_name():
     )
 
 
-def test_metrics_spans_duplicate_name_spans_with_one_under_parent():
-    pass
-
-
 def test_metrics_spans_error_is_propagated():
     # given
     metrics = CLIMetrics()
