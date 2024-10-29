@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import time
 import uuid
 
 import pytest
@@ -60,7 +61,9 @@ def test_metrics_spans_single_span_no_error_or_parent():
     metrics = CLIMetrics()
 
     # when
+    time.sleep(0.001)
     with metrics.start_span("span1") as span1:
+        time.sleep(0.001)
         assert metrics.current_span is span1
 
     assert metrics.current_span is None
