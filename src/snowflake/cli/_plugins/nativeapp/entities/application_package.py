@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from contextlib import contextmanager
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Literal, Optional, Union
@@ -44,7 +43,6 @@ from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -55,7 +53,6 @@ from snowflake.cli.api.entities.utils import (
 )
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
-from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
@@ -604,8 +601,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 print_diff=print_diff,
             )
 
-            if run_post_deploy_hooks:
-                self.execute_post_deploy_hooks()
+        if run_post_deploy_hooks:
+            self.execute_post_deploy_hooks()
 
         if validate:
             self.validate_setup_script(
@@ -836,21 +833,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             return False
         return True
 
-    @contextmanager
-    def use_package_warehouse(self):
-        if self.warehouse:
-            with get_sql_executor().use_warehouse(self.warehouse):
-                yield
-        else:
-            raise ClickException(
-                dedent(
-                    f"""\
-                Application package warehouse cannot be empty.
-                Please provide a value for it in your connection information or your project definition file.
-                """
-                )
-            )
-
     def create_app_package(self) -> None:
         """
         Creates the application package with our up-to-date stage if none exists.
@@ -895,21 +877,15 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
 
     def execute_post_deploy_hooks(self):
-        console = self._workspace_ctx.console
-
-        get_cli_context().metrics.set_counter_default(
-            CLICounterField.POST_DEPLOY_SCRIPTS, 0
+        execute_post_deploy_hooks(
+            console=self._workspace_ctx.console,
+            project_root=self.project_root,
+            post_deploy_hooks=self.post_deploy_hooks,
+            deployed_object_type="application package",
+            role_name=self.role,
+            warehouse_name=self.warehouse,
+            database_name=self.name,
         )
-
-        if self.post_deploy_hooks:
-            with self.use_package_warehouse():
-                execute_post_deploy_hooks(
-                    console=console,
-                    project_root=self.project_root,
-                    post_deploy_hooks=self.post_deploy_hooks,
-                    deployed_object_type="application package",
-                    database_name=self.name,
-                )
 
     def validate_setup_script(
         self, use_scratch_stage: bool, interactive: bool, force: bool
