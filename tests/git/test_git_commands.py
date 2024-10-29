@@ -198,14 +198,24 @@ def test_setup_already_exists_error(mock_om_describe, mock_connector, runner, mo
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
-def test_setup_invalid_url_error(mock_om_describe, mock_connector, runner, mock_ctx):
+@pytest.mark.parametrize(
+    "cli_options, stdin",
+    [
+        ([], ["http://invalid_url.git", "s"]),
+        (["--url", "http://invalid_url.git"], []),
+    ],
+)
+def test_setup_invalid_url_error(
+    mock_om_describe, mock_connector, runner, mock_ctx, cli_options, stdin
+):
     mock_om_describe.side_effect = ProgrammingError(
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
     )
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    communication = "http://invalid_url.git\ns"
-    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+    result = runner.invoke(
+        ["git", "setup", "repo_name"] + cli_options, input="\n".join(stdin)
+    )
 
     assert result.exit_code == 1, result.output
     assert "Error" in result.output
@@ -215,8 +225,44 @@ def test_setup_invalid_url_error(mock_om_describe, mock_connector, runner, mock_
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@pytest.mark.parametrize(
+    "cli_options, stdin, expected_stdout",
+    [
+        (  # Case 0
+            [],  # No CLI options
+            [EXAMPLE_URL, "n", "existing_api_integration", ""],  # STDIN
+            [  # Expected STDOUT
+                "Origin url: https://github.com/an-example-repo.git",
+                "Use secret for authentication? [y/N]: n",
+                "API integration identifier (will be created if not exists) [repo_name_api_integration]: existing_api_integration",
+                "Using existing API integration 'existing_api_integration'.",
+            ],
+        ),
+        (  # Case 1
+            [  # CLI options
+                "--url",
+                EXAMPLE_URL,
+                "--no-secret",
+                "--api-integration",
+                "existing_api_integration",
+            ],
+            [],  # No STDIN
+            [  # Expected STDOUT
+                "Using existing API integration 'existing_api_integration'.",
+            ],
+        ),
+    ],
+)
 def test_setup_no_secret_existing_api(
-    mock_om_show, mock_om_describe, mock_connector, runner, mock_ctx, mock_cursor
+    mock_om_show,
+    mock_om_describe,
+    mock_connector,
+    runner,
+    mock_ctx,
+    mock_cursor,
+    cli_options,
+    stdin,
+    expected_stdout,
 ):
     mock_om_show.return_value = mock_cursor([], [])
     mock_om_describe.side_effect = [
@@ -229,20 +275,12 @@ def test_setup_no_secret_existing_api(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    communication = "\n".join([EXAMPLE_URL, "n", "existing_api_integration", ""])
-    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+    result = runner.invoke(
+        ["git", "setup", "repo_name"] + cli_options, input="\n".join(stdin)
+    )
 
     assert result.exit_code == 0, result.output
-    assert result.output.startswith(
-        "\n".join(
-            [
-                "Origin url: https://github.com/an-example-repo.git",
-                "Use secret for authentication? [y/N]: n",
-                "API integration identifier (will be created if not exists) [repo_name_api_integration]: existing_api_integration",
-                "Using existing API integration 'existing_api_integration'.",
-            ]
-        )
-    )
+    assert result.output.startswith("\n".join(expected_stdout))
     assert ctx.get_query() == dedent(
         """
         create git repository IDENTIFIER('repo_name')
