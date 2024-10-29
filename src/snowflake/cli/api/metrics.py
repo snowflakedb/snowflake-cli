@@ -85,12 +85,13 @@ class CLIMetricsSpan:
     EXECUTION_TIME_KEY: ClassVar[str] = "execution_time"
     ERROR_KEY: ClassVar[str] = "error"
 
-    # ensure we get unique ids for each step for the parent-child link in case of steps with the same name
-    step_id: str = field(init=False, default_factory=lambda: uuid.uuid4().hex)
     name: str
     # start time of this step relative to when the command first started executing
     start_time: float
-    parent: Optional[CLIMetricsSpan] = field(default=None)
+    parent: Optional[CLIMetricsSpan] = None
+
+    # ensure we get unique ids for each step for the parent-child link in case of steps with the same name
+    step_id: str = field(init=False, default_factory=lambda: uuid.uuid4().hex)
     execution_time: Optional[float] = field(init=False, default=None)
     error: Optional[BaseException] = field(init=False, default=None)
 
