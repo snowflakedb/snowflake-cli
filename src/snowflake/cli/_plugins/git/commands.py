@@ -127,7 +127,6 @@ def setup(
         "--url",
         help="Origin URL.",
         show_default=False,
-        click_type=IdentifierType(),
     ),
     no_secret: Optional[bool] = typer.Option(
         False,
@@ -230,18 +229,21 @@ def setup(
             )
 
     # API integration is an account-level object
-    api_integration = FQN.from_string(f"{repository_name.name}_api_integration")
-    api_integration.set_name(
-        provided_api_integration_identifier
-        or typer.prompt(
-            "API integration identifier (will be created if not exists)",
-            default=_unique_new_object_name(
-                om,
-                object_type=ObjectType.INTEGRATION,
-                proposed_fqn=api_integration,
-            ),
+    if provided_api_integration_identifier:
+        api_integration = provided_api_integration_identifier
+    else:
+        api_integration = FQN.from_string(f"{repository_name.name}_api_integration")
+        api_integration.set_name(
+            provided_api_integration_identifier
+            or typer.prompt(
+                "API integration identifier (will be created if not exists)",
+                default=_unique_new_object_name(
+                    om,
+                    object_type=ObjectType.INTEGRATION,
+                    proposed_fqn=api_integration,
+                ),
+            )
         )
-    )
 
     if should_create_secret:
         manager.create_password_secret(
