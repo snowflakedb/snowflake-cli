@@ -153,13 +153,13 @@ class StagePath:
             return str_path.rstrip("/") + "/"
         return str_path
 
-    def joinpath(self, path: str) -> StagePath:
+    def joinpath(self, path: str | Path) -> StagePath:
         if self.is_file():
             raise ValueError("Cannot join path to a file")
 
         return StagePath(
             stage_name=self._stage_name,
-            path=PurePosixPath(self._path) / path.lstrip("/"),
+            path=PurePosixPath(self._path) / str(path).lstrip("/"),
             git_ref=self._git_ref,
         )
 

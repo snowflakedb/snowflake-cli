@@ -18,14 +18,17 @@ import fnmatch
 import glob
 import logging
 import re
+import shutil
 import sys
 import time
+from collections import deque
 from contextlib import nullcontext
 from dataclasses import dataclass
 from os import path
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from textwrap import dedent
-from typing import Dict, List, Optional, Union
+from typing import Deque, Dict, Generator, List, Optional, Union
 
 from click import ClickException
 from snowflake.cli._plugins.snowpark.package_utils import parse_requirements
@@ -306,6 +309,7 @@ class StageManager(SqlExecutionMixin):
         overwrite: bool = False,
         role: Optional[str] = None,
         auto_compress: bool = False,
+        use_dict_cursor: bool = False,
     ) -> SnowflakeCursor:
         """
         This method will take a file path from the user's system and put it into a Snowflake stage,
@@ -313,15 +317,107 @@ class StageManager(SqlExecutionMixin):
         If provided with a role, then temporarily use this role to perform the operation above,
         and switch back to the original role for the next commands to run.
         """
+        if "*" not in str(local_path):
+            local_path = (
+                str(local_path) + "/*" if Path(local_path).is_dir() else str(local_path)
+            )
         with self.use_role(role) if role else nullcontext():
             spath = self.build_path(stage_path)
             local_resolved_path = path_resolver(str(local_path))
             log.info("Uploading %s to %s", local_resolved_path, stage_path)
             cursor = self._execute_query(
                 f"put {self._to_uri(local_resolved_path)} {spath.path_for_sql()} "
-                f"auto_compress={str(auto_compress).lower()} parallel={parallel} overwrite={overwrite}"
+                f"auto_compress={str(auto_compress).lower()} parallel={parallel} overwrite={overwrite}",
+                cursor_class=DictCursor if use_dict_cursor else None,
             )
         return cursor
+
+    def put_recursive(
+        self,
+        local_path: Path,
+        stage_path: str,
+        parallel: int = 4,
+        overwrite: bool = False,
+        role: Optional[str] = None,
+        auto_compress: bool = False,
+    ) -> Generator[dict, None, None]:
+        # To avoid cyclic import
+        from snowflake.cli._plugins.nativeapp.artifacts import symlink_or_copy
+
+        glob_pattern = (
+            str(local_path / "**/*") if local_path.is_dir() else str(local_path)
+        )
+
+        with TemporaryDirectory() as tmp:
+            temp_dir = Path(tmp)
+
+            # Create a symlink or copy the file to the temp directory
+            for file_or_dir in glob.glob(glob_pattern, recursive=True):
+                symlink_or_copy(
+                    src=Path(file_or_dir),
+                    dst=temp_dir / file_or_dir,
+                    deploy_root=temp_dir,
+                    recursive=False,
+                )
+
+            # Find the deepest directories, we will be iterating from bottom to top
+            deepest_dirs_list = self._find_deepest_directories(temp_dir)
+
+            while deepest_dirs_list:
+                # Remove as visited
+                directory = deepest_dirs_list.pop(0)
+
+                # We end if we reach the root directory
+                if directory == temp_dir:
+                    break
+
+                # Upload the directory content, at this moment the directory has only files
+                destination = StagePath.from_stage_str(
+                    stage_path
+                ) / directory.relative_to(temp_dir)
+                results: list[dict] = self.put(
+                    local_path=directory,
+                    stage_path=destination,
+                    parallel=parallel,
+                    overwrite=overwrite,
+                    role=role,
+                    auto_compress=auto_compress,
+                    use_dict_cursor=True,
+                ).fetchall()
+
+                # Rewrite results to have resolved paths for better UX
+                for item in results:
+                    item["source"] = (directory / item["source"]).relative_to(temp_dir)
+                    item["target"] = str(destination / item["target"])
+                    yield item
+
+                # Add parent directory to the list if it's not already there
+                if directory.parent not in deepest_dirs_list:
+                    deepest_dirs_list.append(directory.parent)
+
+                # Remove the directory so the parent directory will contain only files
+                shutil.rmtree(directory)
+
+    @staticmethod
+    def _find_deepest_directories(root_directory: Path) -> list[Path]:
+        """
+        BFS to find the deepest directories. Build a tree of directories
+        structure and return leaves.
+        """
+        deepest_dirs: set[Path] = set()
+        queue: Deque[Path] = deque()
+        queue.append(root_directory)
+        while queue:
+            current_dir = queue.popleft()
+            children_directories = list(d for d in current_dir.iterdir() if d.is_dir())
+            if not children_directories:
+                deepest_dirs.add(current_dir)
+            else:
+                queue.extend(children_directories)
+        deepest_dirs_list = sorted(
+            list(deepest_dirs), key=lambda d: len(d.parts), reverse=True
+        )
+        return deepest_dirs_list
 
     def copy_files(self, source_path: str, destination_path: str) -> SnowflakeCursor:
         source_stage_path = self.build_path(source_path)

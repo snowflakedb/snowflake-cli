@@ -37,7 +37,7 @@ class ObjectResult(CommandResult):
 
 
 class CollectionResult(CommandResult):
-    def __init__(self, elements: t.Iterable[t.Dict]):
+    def __init__(self, elements: t.Iterable[t.Dict] | t.Generator[t.Dict, None, None]):
         self._elements = elements
 
     @property

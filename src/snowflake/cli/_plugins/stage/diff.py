@@ -221,7 +221,7 @@ def put_files_on_stage(
 
 
 def sync_local_diff_with_stage(
-    role: str, deploy_root_path: Path, diff_result: DiffResult, stage_fqn: str
+    role: str | None, deploy_root_path: Path, diff_result: DiffResult, stage_fqn: str
 ):
     """
     Syncs a given local directory's contents with a Snowflake stage, including removing old files, and re-uploading modified and new files.
