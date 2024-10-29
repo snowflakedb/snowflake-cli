@@ -608,7 +608,7 @@ class _EnvFaker:
 
 class _FnFaker:
     def __getitem__(self, item):
-        return lambda *args, **kwargs: _make_template(
+        return lambda *args: _make_template(
             f"fn.{item}({', '.join(repr(a) for a in args)})"
         )
 
