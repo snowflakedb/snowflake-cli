@@ -18,7 +18,7 @@ import itertools
 import logging
 from os import path
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import typer
 from click import ClickException
@@ -31,6 +31,7 @@ from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.flags import (
     ExecuteVariablesOption,
+    IdentifierType,
     OnErrorOption,
     PatternOption,
     identifier_argument,
@@ -39,6 +40,7 @@ from snowflake.cli.api.commands.flags import (
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.output.types import CollectionResult, CommandResult, QueryResult
 from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.connector import DictCursor
@@ -120,6 +122,47 @@ def _unique_new_object_name(
 @app.command("setup", requires_connection=True)
 def setup(
     repository_name: FQN = RepoNameArgument,
+    url: Optional[str] = typer.Option(
+        None,
+        "--url",
+        help="Origin URL.",
+        show_default=False,
+        click_type=IdentifierType(),
+    ),
+    no_secret: Optional[bool] = typer.Option(
+        False,
+        "--no-secret",
+        help="Mark that your repository does not require a secret.",
+        is_flag=True,
+        show_default=False,
+    ),
+    provided_secret_identifier: Optional[FQN] = typer.Option(
+        None,
+        "--secret",
+        help="The identifier of the secret (will be created if not exists).",
+        show_default=False,
+        click_type=IdentifierType(),
+    ),
+    new_secret_user: Optional[str] = typer.Option(
+        None,
+        "--new-secret-user",
+        help="An user being a part of a new secret definition.",
+        show_default=False,
+    ),
+    new_secret_password: Optional[str] = typer.Option(
+        None,
+        "--new-secret-password",
+        "--new-secret-token",
+        help="A password or a token being a part of new a secret definition.",
+        show_default=False,
+    ),
+    provided_api_integration_identifier: Optional[FQN] = typer.Option(
+        None,
+        "--api-integration",
+        help="The identifier of the API integration (will be created if not exists).",
+        show_default=False,
+        click_type=IdentifierType(),
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -127,7 +170,7 @@ def setup(
 
     ## Usage notes
 
-    You will be prompted for:
+    You can use options to specify details, otherwise you will be prompted for:
 
     * url - address of repository to be used for git clone operation
 
@@ -136,14 +179,20 @@ def setup(
 
     * API integration - object allowing Snowflake to interact with git repository.
     """
+    _validate_exclusivity_of_git_setup_params(
+        no_secret, provided_secret_identifier, new_secret_user, new_secret_password
+    )
+
     manager = GitManager()
     om = ObjectManager()
     _assure_repository_does_not_exist(om, repository_name)
 
-    url = typer.prompt("Origin url")
+    url = url or typer.prompt("Origin url")
     _validate_origin_url(url)
 
-    secret_needed = typer.confirm("Use secret for authentication?")
+    secret_needed = (
+        False if no_secret else typer.confirm("Use secret for authentication?")
+    )
     should_create_secret = False
     secret_name = None
     if secret_needed:
@@ -157,7 +206,7 @@ def setup(
                 om, object_type=ObjectType.SECRET, proposed_fqn=default_secret_name
             ),
         )
-        secret_name = FQN.from_string(
+        secret_name = provided_secret_identifier or FQN.from_string(
             typer.prompt(
                 "Secret identifier (will be created if not exists)",
                 default=default_secret_name.name,
@@ -175,13 +224,16 @@ def setup(
         else:
             should_create_secret = True
             cli_console.step(f"Secret '{secret_name}' will be created")
-            secret_username = typer.prompt("username")
-            secret_password = typer.prompt("password/token", hide_input=True)
+            secret_username = new_secret_user or typer.prompt("username")
+            secret_password = new_secret_password or typer.prompt(
+                "password/token", hide_input=True
+            )
 
     # API integration is an account-level object
     api_integration = FQN.from_string(f"{repository_name.name}_api_integration")
     api_integration.set_name(
-        typer.prompt(
+        provided_api_integration_identifier
+        or typer.prompt(
             "API integration identifier (will be created if not exists)",
             default=_unique_new_object_name(
                 om,
@@ -218,6 +270,23 @@ def setup(
             secret=secret_name,
         )
     )
+
+
+def _validate_exclusivity_of_git_setup_params(
+    no_secret: Optional[bool],
+    provided_secret_identifier: Optional[FQN],
+    new_secret_user: Optional[str],
+    new_secret_password: Optional[str],
+):
+    def validate_incompability_with_no_secret(
+        param_name: str, param_value: Optional[Any]
+    ):
+        if no_secret and param_value:
+            raise IncompatibleParametersError([param_name, "--no-secret"])
+
+    validate_incompability_with_no_secret("--secret", provided_secret_identifier)
+    validate_incompability_with_no_secret("--new-secret-user", new_secret_user)
+    validate_incompability_with_no_secret("--new-secret-password", new_secret_password)
 
 
 @app.command(
