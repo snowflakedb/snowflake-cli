@@ -122,7 +122,7 @@ def convert_project_definition_to_v2(
             project_root, definition_v1.native_app, template_context
         )
         if definition_v1.native_app
-        else {}
+        else ({}, {})
     )
     envs = convert_envs_to_v2(definition_v1)
 
@@ -149,13 +149,14 @@ def convert_project_definition_to_v2(
     # also need to be migrated to point to the v2 entities
     replacement_template_context = deepcopy(template_context) or {}
     deep_merge_dicts(replacement_template_context, native_app_template_context)
-    _convert_templates_in_files(
-        project_root,
-        definition_v1,
-        definition_v2,
-        in_memory,
-        replacement_template_context,
-    )
+    if replacement_template_context:
+        _convert_templates_in_files(
+            project_root,
+            definition_v1,
+            definition_v2,
+            in_memory,
+            replacement_template_context,
+        )
 
     return definition_v2
 
