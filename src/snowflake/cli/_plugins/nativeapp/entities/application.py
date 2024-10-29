@@ -43,7 +43,6 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -60,7 +59,6 @@ from snowflake.cli.api.errno import (
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
     ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
-from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
@@ -538,21 +536,15 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     generic_sql_error_handler(err)
 
     def execute_post_deploy_hooks(self):
-        console = self._workspace_ctx.console
-
-        get_cli_context().metrics.set_counter_default(
-            CLICounterField.POST_DEPLOY_SCRIPTS, 0
+        execute_post_deploy_hooks(
+            console=self._workspace_ctx.console,
+            project_root=self.project_root,
+            post_deploy_hooks=self.post_deploy_hooks,
+            deployed_object_type="application",
+            role_name=self.role,
+            warehouse_name=self.warehouse,
+            database_name=self.name,
         )
-
-        if self.post_deploy_hooks:
-            with self.use_application_warehouse():
-                execute_post_deploy_hooks(
-                    console=console,
-                    project_root=self.project_root,
-                    post_deploy_hooks=self.post_deploy_hooks,
-                    deployed_object_type="application",
-                    database_name=self.name,
-                )
 
     @contextmanager
     def use_application_warehouse(self):
