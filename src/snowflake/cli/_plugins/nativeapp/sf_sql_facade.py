@@ -25,7 +25,7 @@ from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
-from snowflake.cli.api.project.util import to_identifier
+from snowflake.cli.api.project.util import same_identifier, to_identifier
 from snowflake.cli.api.sql_execution import BaseSqlExecutor, SqlExecutor
 from snowflake.connector import DictCursor, ProgrammingError
 
@@ -54,110 +54,74 @@ class SnowflakeSQLFacade:
             handle_unclassified_error(err, f"Failed to use {object_type} {name}.")
 
     @contextmanager
+    def _use_object_optional(self, object_type: UseObjectType, name: str | None):
+        """
+        Call sql to use snowflake object with error handling
+        @param object_type: ObjectType, type of snowflake object to use
+        @param name: object name, will be cast to a valid snowflake identifier.
+        """
+        if name is None:
+            yield
+            return
+
+        try:
+            current_obj_result_row = self._sql_executor.execute_query(
+                f"select current_{object_type}()"
+            ).fetchone()
+        except Exception as err:
+            return handle_unclassified_error(
+                err, f"Failed to select current {object_type}."
+            )
+
+        try:
+            prev_obj = current_obj_result_row[0]
+        except IndexError:
+            prev_obj = None
+
+        if prev_obj is not None and same_identifier(prev_obj, name):
+            yield
+            return
+
+        self._log.debug(f"Switching to {object_type}: {name}")
+        self._use_object(object_type, to_identifier(name))
+        try:
+            yield
+        finally:
+            if prev_obj is not None:
+                self._log.debug(f"Switching back to {object_type}: {prev_obj}")
+                self._use_object(object_type, prev_obj)
+
     def _use_warehouse_optional(self, new_wh: str | None):
         """
         Switches to a different warehouse for a while, then switches back.
         This is a no-op if the requested warehouse is already active or if no warehouse is passed in.
         @param new_wh: Name of the warehouse to use. If not a valid Snowflake identifier, will be converted before use.
         """
-        if new_wh is None:
-            yield
-            return
+        return self._use_object_optional(UseObjectType.WAREHOUSE, new_wh)
 
-        valid_wh_name = to_identifier(new_wh)
-
-        try:
-            wh_result = self._sql_executor.execute_query(
-                "select current_warehouse()"
-            ).fetchone()
-        except Exception as err:
-            return handle_unclassified_error(err, "Failed to select current warehouse.")
-
-        # If user has an assigned default warehouse, prev_wh will contain a value even if the warehouse is suspended.
-        try:
-            prev_wh = wh_result[0]
-        except:
-            prev_wh = None
-        # new_wh is not None, and should already be a valid identifier, no additional check is performed here.
-        is_different_wh = valid_wh_name != prev_wh
-        if is_different_wh:
-            self._log.debug(f"Using warehouse: {valid_wh_name}")
-            self._use_object(UseObjectType.WAREHOUSE, valid_wh_name)
-        try:
-            yield
-        finally:
-            if is_different_wh and prev_wh is not None:
-                self._log.debug(f"Switching back to warehouse: {prev_wh}")
-                self._use_object(UseObjectType.WAREHOUSE, prev_wh)
-
-    @contextmanager
     def _use_role_optional(self, new_role: str | None):
         """
         Switches to a different role for a while, then switches back.
         This is a no-op if the requested role is already active or if no role is passed in.
         @param new_role: Name of the role to use. If not a valid Snowflake identifier, will be converted before use.
         """
-        if new_role is None:
-            yield
-            return
+        return self._use_object_optional(UseObjectType.ROLE, new_role)
 
-        valid_role_name = to_identifier(new_role)
-        try:
-            prev_role_res = self._sql_executor.execute_query(
-                "select current_role()"
-            ).fetchone()
-        except Exception as err:
-            return handle_unclassified_error(err, "Failed to select current role.")
-
-        prev_role = prev_role_res[0]
-        is_different_role = valid_role_name.lower() != prev_role.lower()
-        if is_different_role:
-            self._log.debug(f"Assuming different role: {valid_role_name}")
-            self._use_object(UseObjectType.ROLE, valid_role_name)
-        try:
-            yield
-        finally:
-            if is_different_role:
-                self._log.debug(f"Switching back to role: {prev_role}")
-                self._use_object(UseObjectType.ROLE, prev_role)
-
-    @contextmanager
     def _use_database_optional(self, database_name: str | None):
         """
         Switch to database `database_name`, then switches back.
         This is a no-op if the requested database is already selected or if no database_name is passed in.
         @param database_name: Name of the database to use. If not a valid Snowflake identifier, will be converted before use.
         """
+        return self._use_object_optional(UseObjectType.DATABASE, database_name)
 
-        if database_name is None:
-            yield
-            return
-
-        valid_name = to_identifier(database_name)
-
-        try:
-            db_result = self._sql_executor.execute_query(
-                "select current_database()"
-            ).fetchone()
-        except Exception as err:
-            return handle_unclassified_error(err, "Failed to select current database.")
-
-        try:
-            prev_db = db_result[0]
-        except:
-            prev_db = None
-
-        is_different_db = valid_name != prev_db
-        if is_different_db:
-            self._log.debug(f"Using database {valid_name}")
-            self._use_object(UseObjectType.DATABASE, valid_name)
-
-        try:
-            yield
-        finally:
-            if is_different_db and prev_db is not None:
-                self._log.debug(f"Switching back to database: {prev_db}")
-                self._use_object(UseObjectType.DATABASE, prev_db)
+    def _use_schema_optional(self, schema_name: str | None):
+        """
+        Switch to schema `schema_name`, then switches back.
+        This is a no-op if the requested schema is already selected or if no schema_name is passed in.
+        @param schema_name: Name of the schema to use. If not a valid Snowflake identifier, will be converted before use.
+        """
+        return self._use_object_optional(UseObjectType.SCHEMA, schema_name)
 
     def execute_user_script(
         self,

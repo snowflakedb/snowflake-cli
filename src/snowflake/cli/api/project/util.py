@@ -154,6 +154,25 @@ def unquote_identifier(identifier: str) -> str:
     return identifier.upper()
 
 
+def same_identifier(id1: str, id2: str) -> bool:
+    """
+    Returns whether two identifiers refer to the same object.
+
+    Two unquoted identifiers are considered the same if they are equal when both are converted to uppercase
+    Two quoted identifiers are considered the same if they are exactly equal
+    An unquoted identifier and a quoted identifier are considered the same
+      if the quoted identifier is equal to the unquoted identifier
+      when the unquoted identifier is converted to uppercase and quoted
+    """
+    # Canonicalize the identifiers by converting unquoted identifiers to uppercase and leaving quoted identifiers as is
+    canonical_id1 = id1.upper() if is_valid_unquoted_identifier(id1) else id1
+    canonical_id2 = id2.upper() if is_valid_unquoted_identifier(id2) else id2
+
+    # The canonical identifiers are equal if they are equal when both are quoted
+    # (if they are already quoted, this is a no-op)
+    return to_quoted_identifier(canonical_id1) == to_quoted_identifier(canonical_id2)
+
+
 def identifier_for_url(identifier: str) -> str:
     """
     Returns a version of this identifier that can be used as part of a URL.
