@@ -94,9 +94,6 @@ class CLIMetricsSpan:
     step_id: str = field(init=False, default_factory=lambda: uuid.uuid4().hex)
     execution_time: Optional[float] = field(init=False, default=None)
     error: Optional[BaseException] = field(init=False, default=None)
-    # on windows, time.monotonic[_ns] only provides 7 digits of precision,
-    # so we need another property to tiebreak sorting or order is not deterministic
-    created_timestamp: float = field(init=False, default_factory=time.time)
 
     # start time of the step from the monotonic clock in order to calculate execution time
     _monotonic_start: float = field(init=False, default_factory=time.monotonic)
@@ -245,6 +242,6 @@ class CLIMetrics:
             step.to_dict()
             for step in sorted(
                 self._completed_spans,
-                key=lambda step: (step.start_time, step.created_timestamp),
+                key=lambda step: step.start_time,
             )
         ]

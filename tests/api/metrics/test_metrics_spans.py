@@ -107,9 +107,12 @@ def test_metrics_spans_parent_with_one_child():
     # when
     with metrics.start_span("parent") as parent:
         assert metrics.current_span is parent
+        # on windows, these sleeps are required to avoid the steps ending up on the same timestamps/monotonic starts
+        time.sleep(0.001)
 
         with metrics.start_span("child") as child:
             assert metrics.current_span is child
+            time.sleep(0.001)
 
         assert metrics.current_span is parent
 
@@ -133,11 +136,11 @@ def test_metrics_spans_parent_with_one_child():
 
     assert (
         parent_dict[CLIMetricsSpan.EXECUTION_TIME_KEY]
-        >= child_dict[CLIMetricsSpan.EXECUTION_TIME_KEY]
+        > child_dict[CLIMetricsSpan.EXECUTION_TIME_KEY]
     )
     assert (
         parent_dict[CLIMetricsSpan.START_TIME_KEY]
-        <= child_dict[CLIMetricsSpan.START_TIME_KEY]
+        < child_dict[CLIMetricsSpan.START_TIME_KEY]
     )
 
 
@@ -148,14 +151,17 @@ def test_metrics_spans_parent_with_two_children_same_name():
     # when
     with metrics.start_span("parent") as parent:
         assert metrics.current_span is parent
+        time.sleep(0.001)
 
         with metrics.start_span("child") as child1:
             assert metrics.current_span is child1
+            time.sleep(0.001)
 
         assert metrics.current_span is parent
 
         with metrics.start_span("child") as child2:
             assert metrics.current_span is child2
+            time.sleep(0.001)
 
         assert metrics.current_span is parent
 
@@ -192,17 +198,17 @@ def test_metrics_spans_parent_with_two_children_same_name():
 
     assert (
         parent_dict[CLIMetricsSpan.EXECUTION_TIME_KEY]
-        >= child1_dict[CLIMetricsSpan.EXECUTION_TIME_KEY]
+        > child1_dict[CLIMetricsSpan.EXECUTION_TIME_KEY]
     )
     assert (
         parent_dict[CLIMetricsSpan.EXECUTION_TIME_KEY]
-        >= child2_dict[CLIMetricsSpan.EXECUTION_TIME_KEY]
+        > child2_dict[CLIMetricsSpan.EXECUTION_TIME_KEY]
     )
 
     assert (
         parent_dict[CLIMetricsSpan.START_TIME_KEY]
-        <= child1_dict[CLIMetricsSpan.START_TIME_KEY]
-        <= child2_dict[CLIMetricsSpan.START_TIME_KEY]
+        < child1_dict[CLIMetricsSpan.START_TIME_KEY]
+        < child2_dict[CLIMetricsSpan.START_TIME_KEY]
     )
 
 
