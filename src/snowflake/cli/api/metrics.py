@@ -86,8 +86,7 @@ class CLIMetricsSpan:
     ERROR_KEY: ClassVar[str] = "error"
 
     name: str
-    # start time of this step relative to when the command first started executing
-    start_time: float
+    start_time: float  # relative to when the command first started executing
     parent: Optional[CLIMetricsSpan] = None
 
     # ensure we get unique ids for each step for the parent-child link in case of steps with the same name
