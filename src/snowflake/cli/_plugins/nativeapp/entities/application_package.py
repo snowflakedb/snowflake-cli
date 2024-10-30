@@ -42,6 +42,9 @@ from snowflake.cli._plugins.nativeapp.policy import (
     PolicyBase,
 )
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
+from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
+    InsufficientPrivilegesError,
+)
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
@@ -399,22 +402,26 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
         # Warn if the version exists in a release directive(s)
-        existing_release_directives = (
-            self.get_existing_release_directive_info_for_version(resolved_version)
-        )
-
-        if existing_release_directives:
-            release_directive_names = ", ".join(
-                row["name"] for row in existing_release_directives
+        try:
+            existing_release_directives = (
+                self.get_existing_release_directive_info_for_version(resolved_version)
             )
-            console.warning(
-                dedent(
-                    f"""\
-                    Version {resolved_version} already defined in application package {self.name} and in release directive(s): {release_directive_names}.
-                    """
+        except InsufficientPrivilegesError:
+            warning = (
+                "Could not check for existing release directives due to insufficient privileges. "
+                "The MANAGE RELEASES privilege is required to check for existing release directives."
+            )
+        else:
+            if existing_release_directives:
+                release_directive_names = ", ".join(
+                    row["name"] for row in existing_release_directives
                 )
-            )
+                warning = f"Version {resolved_version} already defined in application package {self.name} and in release directive(s): {release_directive_names}."
+            else:
+                warning = ""
 
+        if warning:
+            console.warning(warning)
             user_prompt = (
                 f"Are you sure you want to create a new patch for version {resolved_version} in application "
                 f"package {self.name}? Once added, this operation cannot be undone."
@@ -648,24 +655,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         Get all existing release directives, if present, set on the version defined in an application package.
         It executes a 'show release directives in application package' query and returns the filtered results, if they exist.
         """
-        sql_executor = get_sql_executor()
-        with sql_executor.use_role(self.role):
-            show_obj_query = (
-                f"show release directives in application package {self.name}"
-            )
-            show_obj_cursor = sql_executor.execute_query(
-                show_obj_query, cursor_class=DictCursor
-            )
-
-            if show_obj_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_obj_query)
-
-            show_obj_rows = find_all_rows(
-                show_obj_cursor,
-                lambda row: row[VERSION_COL] == unquote_identifier(version),
-            )
-
-            return show_obj_rows
+        release_directives = get_snowflake_facade().show_release_directives(
+            self.name, self.role
+        )
+        return [
+            directive
+            for directive in release_directives
+            if directive[VERSION_COL] == unquote_identifier(version)
+        ]
 
     def add_new_version(self, version: str, label: str | None = None) -> None:
         """
