@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 from snowflake.connector import DictCursor
 
+from tests.stage.test_stage import RecursiveUploadTester, NESTED_STRUCTURE
 from tests_integration.test_utils import (
     contains_row_with,
     not_contains_row_with,
@@ -613,3 +614,200 @@ def test_stage_list(runner, test_database):
         )
         assert result.exit_code == 0, result.output
         assert result.json[0]["name"] == f"{stage_name}/under/directory/test.txt"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("pattern", ["", "**/*", "**"])
+def test_recursive_upload(temp_dir, pattern, runner, test_database):
+    stage_name = "@recursive_upload"
+    runner.invoke_with_connection_json(["stage", "create", stage_name])
+
+    tester = RecursiveUploadTester(temp_dir)
+    tester.prepare(structure=NESTED_STRUCTURE)
+
+    result = runner.invoke_with_connection_json(
+        ["stage", "copy", temp_dir + "/" + pattern, stage_name, "--recursive"]
+    )
+
+    assert len(result.json) == 9
+    assert result.json == [
+        {
+            "message": "",
+            "source": "dir2/dir21/dir211/dir2111/file21111.py",
+            "source_compression": "NONE",
+            "source_size": 8,
+            "status": "UPLOADED",
+            "target": "@recursive_upload/dir2/dir21/dir211/dir2111/file21111.py",
+            "target_compression": "NONE",
+            "target_size": 16,
+        },
+        {
+            "message": "",
+            "source": "dir3/dir32/file321",
+            "source_compression": "NONE",
+            "source_size": 8,
+            "status": "UPLOADED",
+            "target": "@recursive_upload/dir3/dir32/file321",
+            "target_compression": "NONE",
+            "target_size": 16,
+        },
+        {
+            "message": "",
+            "source": "dir1/dir12/file121.py",
+            "source_compression": "NONE",
+            "source_size": 8,
+            "status": "UPLOADED",
+            "target": "@recursive_upload/dir1/dir12/file121.py",
+            "target_compression": "NONE",
+            "target_size": 16,
+        },
+        {
+            "message": "",
+            "source": "dir1/dir12/file122.md",
+            "source_compression": "NONE",
+            "source_size": 8,
+            "status": "UPLOADED",
+            "target": "@recursive_upload/dir1/dir12/file122.md",
+            "target_compression": "NONE",
+            "target_size": 16,
+        },
+        {
+            "message": "",
+            "source": "dir3/file31",
+            "source_compression": "NONE",
+            "source_size": 8,
+            "status": "UPLOADED",
+            "target": "@recursive_upload/dir3/file31",
+            "target_compression": "NONE",
+            "target_size": 16,
+        },
+        {
+            "message": "",
+            "source": "dir1/file1.py",
+            "source_compression": "NONE",
+            "source_size": 8,
+            "status": "UPLOADED",
+            "target": "@recursive_upload/dir1/file1.py",
+            "target_compression": "NONE",
+            "target_size": 16,
+        },
+        {
+            "message": "",
+            "source": "dir1/file1.txt",
+            "source_compression": "NONE",
+            "source_size": 8,
+            "status": "UPLOADED",
+            "target": "@recursive_upload/dir1/file1.txt",
+            "target_compression": "NONE",
+            "target_size": 16,
+        },
+        {
+            "message": "",
+            "source": "dir2/file21",
+            "source_compression": "NONE",
+            "source_size": 8,
+            "status": "UPLOADED",
+            "target": "@recursive_upload/dir2/file21",
+            "target_compression": "NONE",
+            "target_size": 16,
+        },
+        {
+            "message": "",
+            "source": "file4.foo",
+            "source_compression": "NONE",
+            "source_size": 8,
+            "status": "UPLOADED",
+            "target": "@recursive_upload/file4.foo",
+            "target_compression": "NONE",
+            "target_size": 16,
+        },
+    ]
+
+
+@pytest.mark.integration
+def test_recursive_upload_with_empty_dir(temp_dir):
+    structure = {}
+
+    tester = RecursiveUploadTester(temp_dir)
+    tester.prepare(structure=structure)
+    _ = tester.execute(local_path=temp_dir)
+
+    assert tester.calls == []
+
+
+@pytest.mark.integration
+def test_recursive_upload_glob_file_pattern(temp_dir, runner, test_database):
+    stage_name = "@recursive_upload"
+    runner.invoke_with_connection_json(["stage", "create", stage_name])
+
+    tester = RecursiveUploadTester(temp_dir)
+    tester.prepare(structure=NESTED_STRUCTURE)
+
+    result = runner.invoke_with_connection_json(
+        ["stage", "copy", f"{temp_dir}/**/*.py", stage_name, "--recursive"]
+    )
+
+    assert result.exit_code == 0, result.output
+
+    assert len(result.json) == 3
+    assert result.json == [
+        {
+            "message": "",
+            "source": "dir2/dir21/dir211/dir2111/file21111.py",
+            "source_compression": "NONE",
+            "source_size": 8,
+            "status": "UPLOADED",
+            "target": "@recursive_upload/dir2/dir21/dir211/dir2111/file21111.py",
+            "target_compression": "NONE",
+            "target_size": 16,
+        },
+        {
+            "message": "",
+            "source": "dir1/dir12/file121.py",
+            "source_compression": "NONE",
+            "source_size": 8,
+            "status": "UPLOADED",
+            "target": "@recursive_upload/dir1/dir12/file121.py",
+            "target_compression": "NONE",
+            "target_size": 16,
+        },
+        {
+            "message": "",
+            "source": "dir1/file1.py",
+            "source_compression": "NONE",
+            "source_size": 8,
+            "status": "UPLOADED",
+            "target": "@recursive_upload/dir1/file1.py",
+            "target_compression": "NONE",
+            "target_size": 16,
+        },
+    ]
+
+
+@pytest.mark.integration
+def test_recursive_upload_no_recursive_glob_pattern(temp_dir, runner, test_database):
+    stage_name = "@recursive_upload"
+    runner.invoke_with_connection_json(["stage", "create", stage_name])
+
+    tester = RecursiveUploadTester(temp_dir)
+    tester.prepare(structure=NESTED_STRUCTURE)
+
+    result = runner.invoke_with_connection_json(
+        ["stage", "copy", f"{temp_dir}/*.foo", stage_name, "--recursive"]
+    )
+
+    assert result.exit_code == 0, result.output
+
+    assert len(result.json) == 1
+    assert result.json == [
+        {
+            "message": "",
+            "source": "file4.foo",
+            "source_compression": "NONE",
+            "source_size": 8,
+            "status": "UPLOADED",
+            "target": f"{stage_name}/file4.foo",
+            "target_compression": "NONE",
+            "target_size": 16,
+        }
+    ]

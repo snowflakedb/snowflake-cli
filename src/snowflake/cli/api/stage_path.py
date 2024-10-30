@@ -237,5 +237,8 @@ class StagePath:
     def __str__(self):
         return self.absolute_path()
 
+    def __repr__(self):
+        return str(self)
+
     def __eq__(self, other):
         return self.absolute_path() == other.absolute_path()

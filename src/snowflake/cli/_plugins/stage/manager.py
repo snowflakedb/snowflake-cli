@@ -17,6 +17,7 @@ from __future__ import annotations
 import fnmatch
 import glob
 import logging
+import os
 import re
 import shutil
 import sys
@@ -30,7 +31,7 @@ from tempfile import TemporaryDirectory
 from textwrap import dedent
 from typing import Deque, Dict, Generator, List, Optional, Union
 
-from click import ClickException
+from click import ClickException, UsageError
 from snowflake.cli._plugins.snowpark.package_utils import parse_requirements
 from snowflake.cli.api.commands.common import (
     OnErrorType,
@@ -332,6 +333,23 @@ class StageManager(SqlExecutionMixin):
             )
         return cursor
 
+    @staticmethod
+    def _symlink_or_copy(source_root: Path, source_file_or_dir: Path, dest_dir: Path):
+        from snowflake.cli._plugins.nativeapp.artifacts import resolve_without_follow
+
+        absolute_src = resolve_without_follow(source_file_or_dir)
+        dest_path = dest_dir / source_file_or_dir.relative_to(source_root)
+
+        if absolute_src.is_file():
+            try:
+                os.symlink(absolute_src, dest_path)
+            except OSError:
+                if not dest_path.parent.exists():
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(absolute_src, dest_path)
+        else:
+            dest_path.mkdir(exist_ok=True, parents=True)
+
     def put_recursive(
         self,
         local_path: Path,
@@ -341,55 +359,64 @@ class StageManager(SqlExecutionMixin):
         role: Optional[str] = None,
         auto_compress: bool = False,
     ) -> Generator[dict, None, None]:
-        # To avoid cyclic import
-        from snowflake.cli._plugins.nativeapp.artifacts import symlink_or_copy
+        if local_path.is_file():
+            raise UsageError("Cannot use recursive upload with a single file.")
 
-        glob_pattern = (
-            str(local_path / "**/*") if local_path.is_dir() else str(local_path)
-        )
+        if local_path.is_dir():
+            root = local_path
+            glob_pattern = str(local_path / "**/*")
+        else:
+            root = Path([p for p in local_path.parents if p.is_dir()][0])
+            glob_pattern = str(local_path)
 
         with TemporaryDirectory() as tmp:
-            temp_dir = Path(tmp)
+            temp_dir_with_copy = Path(tmp)
 
             # Create a symlink or copy the file to the temp directory
-            for file_or_dir in glob.glob(glob_pattern, recursive=True):
-                symlink_or_copy(
-                    src=Path(file_or_dir),
-                    dst=temp_dir / file_or_dir,
-                    deploy_root=temp_dir,
-                    recursive=False,
+            for file_or_dir in glob.iglob(glob_pattern, recursive=True):
+                self._symlink_or_copy(
+                    source_root=root,
+                    source_file_or_dir=Path(file_or_dir),
+                    dest_dir=temp_dir_with_copy,
                 )
 
             # Find the deepest directories, we will be iterating from bottom to top
-            deepest_dirs_list = self._find_deepest_directories(temp_dir)
+            deepest_dirs_list = self._find_deepest_directories(temp_dir_with_copy)
 
             while deepest_dirs_list:
                 # Remove as visited
                 directory = deepest_dirs_list.pop(0)
 
-                # We end if we reach the root directory
-                if directory == temp_dir:
-                    break
+                # We reached root but there are still directories to process
+                if directory == temp_dir_with_copy and deepest_dirs_list:
+                    continue
 
                 # Upload the directory content, at this moment the directory has only files
-                destination = StagePath.from_stage_str(
-                    stage_path
-                ) / directory.relative_to(temp_dir)
-                results: list[dict] = self.put(
-                    local_path=directory,
-                    stage_path=destination,
-                    parallel=parallel,
-                    overwrite=overwrite,
-                    role=role,
-                    auto_compress=auto_compress,
-                    use_dict_cursor=True,
-                ).fetchall()
+                if list(directory.iterdir()):
+                    destination = StagePath.from_stage_str(
+                        stage_path
+                    ) / directory.relative_to(temp_dir_with_copy)
+                    results: list[dict] = self.put(
+                        local_path=directory,
+                        stage_path=destination,
+                        parallel=parallel,
+                        overwrite=overwrite,
+                        role=role,
+                        auto_compress=auto_compress,
+                        use_dict_cursor=True,
+                    ).fetchall()
 
-                # Rewrite results to have resolved paths for better UX
-                for item in results:
-                    item["source"] = (directory / item["source"]).relative_to(temp_dir)
-                    item["target"] = str(destination / item["target"])
-                    yield item
+                    # Rewrite results to have resolved paths for better UX
+                    for item in results:
+                        item["source"] = (directory / item["source"]).relative_to(
+                            temp_dir_with_copy
+                        )
+                        item["target"] = str(destination / item["target"])
+                        yield item
+
+                # We end if we reach the root directory
+                if directory == temp_dir_with_copy:
+                    break
 
                 # Add parent directory to the list if it's not already there
                 if directory.parent not in deepest_dirs_list:
@@ -404,16 +431,17 @@ class StageManager(SqlExecutionMixin):
         BFS to find the deepest directories. Build a tree of directories
         structure and return leaves.
         """
-        deepest_dirs: set[Path] = set()
+        deepest_dirs: list[Path] = list()
+
         queue: Deque[Path] = deque()
         queue.append(root_directory)
         while queue:
             current_dir = queue.popleft()
             children_directories = list(d for d in current_dir.iterdir() if d.is_dir())
-            if not children_directories:
-                deepest_dirs.add(current_dir)
+            if not children_directories and current_dir not in deepest_dirs:
+                deepest_dirs.append(current_dir)
             else:
-                queue.extend(children_directories)
+                queue.extend([c for c in children_directories if c not in deepest_dirs])
         deepest_dirs_list = sorted(
             list(deepest_dirs), key=lambda d: len(d.parts), reverse=True
         )
