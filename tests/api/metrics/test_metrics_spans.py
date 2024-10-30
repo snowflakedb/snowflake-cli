@@ -61,9 +61,9 @@ def test_metrics_spans_single_span_no_error_or_parent():
     metrics = CLIMetrics()
 
     # when
-    time.sleep(0.001)
+    time.sleep(0.1)
     with metrics.start_span("span1") as span1:
-        time.sleep(0.001)
+        time.sleep(0.1)
         assert metrics.current_span is span1
 
     assert metrics.current_span is None
@@ -107,12 +107,13 @@ def test_metrics_spans_parent_with_one_child():
     # when
     with metrics.start_span("parent") as parent:
         assert metrics.current_span is parent
-        # on windows, these sleeps are required to avoid the steps ending up on the same timestamps/monotonic starts
-        time.sleep(0.001)
+        # on windows, these sleeps are required to avoid the steps ending up on the same
+        # timestamps/monotonic starts and ensure a deterministic order for the completed steps
+        time.sleep(0.1)
 
         with metrics.start_span("child") as child:
             assert metrics.current_span is child
-            time.sleep(0.001)
+            time.sleep(0.1)
 
         assert metrics.current_span is parent
 
@@ -151,17 +152,17 @@ def test_metrics_spans_parent_with_two_children_same_name():
     # when
     with metrics.start_span("parent") as parent:
         assert metrics.current_span is parent
-        time.sleep(0.001)
+        time.sleep(0.1)
 
         with metrics.start_span("child") as child1:
             assert metrics.current_span is child1
-            time.sleep(0.001)
+            time.sleep(0.1)
 
         assert metrics.current_span is parent
 
         with metrics.start_span("child") as child2:
             assert metrics.current_span is child2
-            time.sleep(0.001)
+            time.sleep(0.1)
 
         assert metrics.current_span is parent
 
