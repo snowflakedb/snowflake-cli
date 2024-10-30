@@ -22,7 +22,7 @@ from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 from tests_common import IS_WINDOWS
 
@@ -236,7 +236,7 @@ def test_stage_copy_local_to_remote(mock_execute, runner, mock_cursor):
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
         f"put file://{Path(tmp_dir).resolve()}/* @stageName auto_compress=true parallel=42 overwrite=True",
-        cursor_class=None,
+        cursor_class=SnowflakeCursor,
     )
 
 
@@ -260,7 +260,7 @@ def test_stage_copy_local_to_remote_quoted_stage(mock_execute, runner, mock_curs
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
         f"put file://{Path(tmp_dir).resolve()}/* '@\"stage name\"' auto_compress=false parallel=42 overwrite=True",
-        cursor_class=None,
+        cursor_class=SnowflakeCursor,
     )
 
 
@@ -305,7 +305,7 @@ def test_stage_copy_local_to_remote_quoted_path(
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
         f"put {file_uri} @stageName auto_compress=false parallel=42 overwrite=True",
-        cursor_class=None,
+        cursor_class=SnowflakeCursor,
     )
 
 
@@ -329,7 +329,7 @@ def test_stage_copy_local_to_remote_star(mock_execute, runner, mock_cursor):
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
         f"put file://{Path(tmp_dir).resolve()}/*.py @stageName auto_compress=false parallel=42 overwrite=True",
-        cursor_class=None,
+        cursor_class=SnowflakeCursor,
     )
 
 
@@ -697,7 +697,7 @@ def test_stage_internal_put(mock_execute, mock_cursor):
             mock.call("use role new_role"),
             mock.call(
                 f"put file://{Path(tmp_dir).resolve()}/* @stageName auto_compress=false parallel=4 overwrite=False",
-                cursor_class=None,
+                cursor_class=SnowflakeCursor,
             ),
             mock.call("use role old_role"),
         ]
@@ -715,7 +715,7 @@ def test_stage_internal_put_quoted_stage(mock_execute, mock_cursor):
             mock.call("use role new_role"),
             mock.call(
                 f"put file://{Path(tmp_dir).resolve()}/* '@\"stage name\"' auto_compress=false parallel=4 overwrite=False",
-                cursor_class=None,
+                cursor_class=SnowflakeCursor,
             ),
             mock.call("use role old_role"),
         ]
@@ -753,7 +753,7 @@ def test_stage_internal_put_quoted_path(
             mock.call("use role new_role"),
             mock.call(
                 f"put {src_uri} @stageName auto_compress=false parallel=4 overwrite=False",
-                cursor_class=None,
+                cursor_class=SnowflakeCursor,
             ),
             mock.call("use role old_role"),
         ]

@@ -439,7 +439,10 @@ class StageManager(SqlExecutionMixin):
         queue.append(root_directory)
         while queue:
             current_dir = queue.popleft()
-            children_directories = list(d for d in current_dir.iterdir() if d.is_dir())
+            # Sorted to have deterministic order
+            children_directories = sorted(
+                list(d for d in current_dir.iterdir() if d.is_dir())
+            )
             if not children_directories and current_dir not in deepest_dirs:
                 deepest_dirs.append(current_dir)
             else:
