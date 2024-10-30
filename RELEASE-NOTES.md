@@ -19,7 +19,7 @@
 ## Deprecations
 
 ## New additions
-
+* Added `--retain-comments` option to `snow sql` command to allow passing comments to Snowflake.
 ## Fixes and improvements
 * `snow --info` callback returns information about `SNOWFLAKE_HOME` variable.
 * Removed requirement of existence of any `requirements.txt` file for Python code execution via `snow git execute` command.
