@@ -94,6 +94,9 @@ class CLIMetricsSpan:
     step_id: str = field(init=False, default_factory=lambda: uuid.uuid4().hex)
     execution_time: Optional[float] = field(init=False, default=None)
     error: Optional[BaseException] = field(init=False, default=None)
+    # on windows, time.monotonic[_ns] only provides 7 digits of precision,
+    # so we need another property to tiebreak sorting or order is not deterministic
+    created_timestamp: float = field(init=False, default_factory=time.time)
 
     # start time of the step from the monotonic clock in order to calculate execution time
     _monotonic_start: float = field(init=False, default_factory=time.monotonic)
@@ -150,14 +153,15 @@ class CLIMetrics:
     _in_progress_spans: List[CLIMetricsSpan] = field(init=False, default_factory=list)
     # list of finished steps for telemetry to process
     _completed_spans: List[CLIMetricsSpan] = field(init=False, default_factory=list)
+    # monotonic clock time of when this class was initialized to approximate when the command first started executing
+    _monotonic_start: float = field(
+        init=False, default_factory=time.monotonic, compare=False
+    )
+
     # count of spans dropped due to reaching depth limit
     num_spans_past_depth_limit: int = field(init=False, default=0)
     # count of spans dropped due to reaching total limit
     num_spans_past_total_limit: int = field(init=False, default=0)
-    # monotonic clock time of when this class was initialized to approximate when the command first started executing
-    monotonic_start: float = field(
-        init=False, default_factory=time.monotonic, compare=False
-    )
 
     def clone(self) -> CLIMetrics:
         return replace(self)
@@ -201,7 +205,7 @@ class CLIMetrics:
         """
         new_step = CLIMetricsSpan(
             name=name,
-            start_time=time.monotonic() - self.monotonic_start,
+            start_time=time.monotonic() - self._monotonic_start,
             parent=self.current_span,
         )
 
@@ -239,5 +243,8 @@ class CLIMetrics:
         """
         return [
             step.to_dict()
-            for step in sorted(self._completed_spans, key=lambda step: step.start_time)
+            for step in sorted(
+                self._completed_spans,
+                key=lambda step: (step.start_time, step.created_timestamp),
+            )
         ]
