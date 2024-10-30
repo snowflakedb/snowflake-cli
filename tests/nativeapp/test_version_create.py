@@ -32,6 +32,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
+from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
@@ -59,27 +60,15 @@ def _version_create(
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    return ApplicationPackageEntity.version_create(
+    ctx = WorkspaceContext(
         console=cc,
         project_root=dm.project_root,
-        deploy_root=dm.project_root / pkg_model.deploy_root,
-        bundle_root=dm.project_root / pkg_model.bundle_root,
-        generated_root=(
-            dm.project_root / pkg_model.deploy_root / pkg_model.generated_root
-        ),
-        artifacts=pkg_model.artifacts,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
-        prune=True,
-        recursive=True,
-        paths=None,
-        print_diff=True,
-        validate=True,
-        stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.stage}",
-        package_warehouse=pkg_model.meta.warehouse,
-        post_deploy_hooks=pkg_model.meta.post_deploy,
-        package_scripts=[],
+        get_default_role=lambda: "mock_role",
+        get_default_warehouse=lambda: "mock_warehouse",
+    )
+    pkg = ApplicationPackageEntity(pkg_model, ctx)
+    return pkg.action_version_create(
+        action_ctx=mock.Mock(spec=ActionContext),
         version=version,
         patch=patch,
         force=force,
@@ -90,7 +79,9 @@ def _version_create(
 
 # Test get_existing_release_directive_info_for_version returns release directives info correctly
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_get_existing_release_direction_info(mock_execute, temp_dir, mock_cursor):
+def test_get_existing_release_direction_info(
+    mock_execute, temp_dir, mock_cursor, workspace_context
+):
     version = "V1"
     side_effects, expected = mock_execute_helper(
         [
@@ -128,11 +119,8 @@ def test_get_existing_release_direction_info(mock_execute, temp_dir, mock_cursor
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    result = ApplicationPackageEntity.get_existing_release_directive_info_for_version(
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        version=version,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    result = pkg.get_existing_release_directive_info_for_version(version=version)
     assert mock_execute.mock_calls == expected
     assert len(result) == 2
 
@@ -143,7 +131,9 @@ def test_get_existing_release_direction_info(mock_execute, temp_dir, mock_cursor
     ["version", "version_identifier"],
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
 )
-def test_add_version(mock_execute, temp_dir, mock_cursor, version, version_identifier):
+def test_add_version(
+    mock_execute, temp_dir, mock_cursor, version, version_identifier, workspace_context
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -179,13 +169,8 @@ def test_add_version(mock_execute, temp_dir, mock_cursor, version, version_ident
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    ApplicationPackageEntity.add_new_version(
-        console=cc,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.stage}",
-        version=version,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    pkg.add_new_version(version=version)
     assert mock_execute.mock_calls == expected
 
 
@@ -196,7 +181,7 @@ def test_add_version(mock_execute, temp_dir, mock_cursor, version, version_ident
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
 )
 def test_add_new_patch_auto(
-    mock_execute, temp_dir, mock_cursor, version, version_identifier
+    mock_execute, temp_dir, mock_cursor, version, version_identifier, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -233,13 +218,8 @@ def test_add_new_patch_auto(
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    ApplicationPackageEntity.add_new_patch_to_version(
-        console=cc,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.stage}",
-        version=version,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    pkg.add_new_patch_to_version(version=version)
     assert mock_execute.mock_calls == expected
 
 
@@ -250,7 +230,7 @@ def test_add_new_patch_auto(
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
 )
 def test_add_new_patch_custom(
-    mock_execute, temp_dir, mock_cursor, version, version_identifier
+    mock_execute, temp_dir, mock_cursor, version, version_identifier, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -287,20 +267,14 @@ def test_add_new_patch_custom(
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    ApplicationPackageEntity.add_new_patch_to_version(
-        console=cc,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        stage_fqn=f"{pkg_model.fqn.name}.{pkg_model.stage}",
-        version=version,
-        patch=12,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    pkg.add_new_patch_to_version(version=version, patch=12)
     assert mock_execute.mock_calls == expected
 
 
 # Test version create when user did not pass in a version AND we could not find a version in the manifest file either
 @mock.patch(
-    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity._bundle",
     return_value=None,
 )
 @mock.patch(
@@ -408,7 +382,7 @@ def test_process_no_version_exists_throws_bad_option_exception_two(
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
-@mock.patch.object(ApplicationPackageEntity, "deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -463,7 +437,7 @@ def test_process_no_existing_release_directives_or_versions(
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
-@mock.patch.object(ApplicationPackageEntity, "deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -526,7 +500,7 @@ def test_process_no_existing_release_directives_w_existing_version(
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
-@mock.patch.object(ApplicationPackageEntity, "deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -585,7 +559,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
-@mock.patch.object(ApplicationPackageEntity, "deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",

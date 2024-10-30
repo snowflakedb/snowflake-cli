@@ -26,7 +26,6 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
-from snowflake.cli.api.project.schemas.entities.common import SqlScriptHookType
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.utils import (
@@ -164,37 +163,30 @@ def test_deploy(
         print_diff=True,
     )
     mock_validate.assert_called_once()
-    mock_execute_post_deploy_hooks.assert_called_once_with(
-        console=mock_console,
-        project_root=app_pkg._workspace_ctx.project_root,  # noqa SLF001
-        post_deploy_hooks=[
-            SqlScriptHookType(sql_script="scripts/package_post_deploy1.sql"),
-            SqlScriptHookType(sql_script="scripts/package_post_deploy2.sql"),
-        ],
-        package_name="pkg",
-        package_warehouse="wh",
-    )
+    mock_execute_post_deploy_hooks.assert_called_once_with()
     assert mock_execute.mock_calls == expected
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_version_list(mock_execute, mock_cursor):
-    package_role = "package_role"
-    package_name = "test_pkg"
+def test_version_list(
+    mock_execute, application_package_entity, action_context, mock_cursor
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
     side_effects, expected = mock_execute_helper(
         [
             (
                 mock_cursor([("old_role",)], []),
                 mock.call("select current_role()"),
             ),
-            (None, mock.call(f"use role {package_role}")),
+            (None, mock.call(f"use role {pkg_model.meta.role}")),
             (
                 mock_cursor([], []),
-                mock.call(f"show versions in application package {package_name}"),
+                mock.call(f"show versions in application package {pkg_model.fqn.name}"),
             ),
             (None, mock.call("use role old_role")),
         ]
     )
     mock_execute.side_effect = side_effects
-    ApplicationPackageEntity.version_list(package_name, package_role)
+    application_package_entity.action_version_list(action_context)
     assert mock_execute.mock_calls == expected

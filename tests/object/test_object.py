@@ -265,3 +265,18 @@ def test_object_create_with_multiple_json_sources(runner):
             result,
             f"Parameters 'object_attributes' and '--json' are incompatible and cannot be used simultaneously.",
         )
+
+
+def test_replace_and_not_exists_cannot_be_used_together(runner, os_agnostic_snapshot):
+    result = runner.invoke(
+        [
+            "object",
+            "create",
+            "schema",
+            "name=schema_name",
+            "--replace",
+            "--if-not-exists",
+        ]
+    )
+    assert result.exit_code == 2, result.output
+    assert result.output == os_agnostic_snapshot

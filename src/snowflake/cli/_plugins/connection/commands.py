@@ -343,7 +343,7 @@ def test(
 @app.command(requires_connection=False)
 def set_default(
     name: str = typer.Argument(
-        help="Name of the connection, as defined in your `config.toml`",
+        help="Name of the connection, as defined in your `config.toml` file",
         show_default=False,
     ),
     **options,

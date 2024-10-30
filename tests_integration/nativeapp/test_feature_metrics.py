@@ -103,7 +103,7 @@ def test_sql_templating_emits_counter(
                 CLICounterField.TEMPLATES_PROCESSOR: 0,
                 CLICounterField.PDF_TEMPLATES: 1,
                 CLICounterField.POST_DEPLOY_SCRIPTS: 1,
-                CLICounterField.PACKAGE_SCRIPTS: 0,
+                CLICounterField.PACKAGE_SCRIPTS: 1,
             },
         ),
         # ensure post deploy scripts are picked up for v2
@@ -115,7 +115,6 @@ def test_sql_templating_emits_counter(
                 CLICounterField.TEMPLATES_PROCESSOR: 0,
                 CLICounterField.PDF_TEMPLATES: 1,
                 CLICounterField.POST_DEPLOY_SCRIPTS: 1,
-                CLICounterField.PACKAGE_SCRIPTS: 0,
             },
         ),
     ],

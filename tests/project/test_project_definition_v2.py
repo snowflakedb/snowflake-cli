@@ -256,7 +256,7 @@ from tests.nativeapp.factories import ProjectV11Factory
 def test_project_definition_v2_schema(definition_input, expected_error):
     definition_input["definition_version"] = "2"
     try:
-        DefinitionV20(**definition_input)
+        _ = render_definition_template(definition_input, {})
     except SchemaValidationError as err:
         if expected_error:
             if type(expected_error) == str:
@@ -469,7 +469,7 @@ def test_mixin_with_unknown_entity_key_raises_error():
         "mixins": {"schema_mixin": {"unknown_key": "NA"}},
     }
     with pytest.raises(SchemaValidationError) as err:
-        DefinitionV20(**definition_input)
+        _ = render_definition_template(definition_input, {})
 
     assert "Unsupported key 'unknown_key' for entity func of type function" in str(err)
 
@@ -565,7 +565,7 @@ def test_mixin_order_scalar():
             },
         },
     }
-    pd = DefinitionV20(**definition_input)
+    pd = render_definition_template(definition_input, {}).project_definition
     entities = pd.entities
     assert entities["no_mixin"].stage == stage_from_entity
     assert entities["mix1_only"].stage == "mix1"
@@ -620,7 +620,7 @@ def test_mixin_order_sequence_merge_order():
             },
         },
     }
-    pd = DefinitionV20(**definition_input)
+    pd = render_definition_template(definition_input, {}).project_definition
     entities = pd.entities
     assert entities["no_mixin"].external_access_integrations == ["entity_int"]
     assert entities["mix1_only"].external_access_integrations == ["mix1_int"]
@@ -688,7 +688,7 @@ def test_mixin_order_mapping_merge_order():
             },
         },
     }
-    pd = DefinitionV20(**definition_input)
+    pd = render_definition_template(definition_input, {}).project_definition
     entities = pd.entities
     assert entities["no_mixin"].secrets == {
         "entity_key": "entity_value",
@@ -742,3 +742,28 @@ def test_mixins_values_have_to_be_type_compatible_with_entities():
         "Value from mixins for property identifier is of type 'dict' while entity func expects value of type 'str'"
         in str(err)
     )
+
+
+def test_if_list_in_mixin_is_applied_correctly():
+    definition_input = {
+        "definition_version": "2",
+        "entities": {
+            "func": {
+                "identifier": "my_func",
+                "type": "function",
+                "handler": "foo",
+                "returns": "string",
+                "signature": "",
+                "stage": "bar",
+                "meta": {"use_mixins": ["artifact_mixin"]},
+            },
+        },
+        "mixins": {
+            "artifact_mixin": {
+                "external_access_integrations": ["integration_1", "integration_2"],
+                "artifacts": [{"src": "src", "dest": "my_project"}],
+            },
+        },
+    }
+    project = render_definition_template(definition_input, {}).project_definition
+    assert len(project.entities["func"].artifacts) == 1

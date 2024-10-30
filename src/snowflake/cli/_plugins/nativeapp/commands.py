@@ -22,7 +22,6 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
-from click.exceptions import ClickException
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -49,7 +48,10 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.common import EntityActions
-from snowflake.cli.api.exceptions import IncompatibleParametersError
+from snowflake.cli.api.exceptions import (
+    IncompatibleParametersError,
+    UnmetParametersError,
+)
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -66,17 +68,6 @@ app = SnowTyperFactory(
 app.add_typer(versions_app)
 
 log = logging.getLogger(__name__)
-
-
-@app.command("init", hidden=True)
-def app_init(**options):
-    """
-    *** Deprecated. Use snow init instead ***
-
-    Initializes a Snowflake Native App project.
-    """
-
-    raise ClickException("This command has been removed. Use `snow init` instead.")
 
 
 @app.command("bundle")
@@ -122,7 +113,7 @@ def app_diff(
         package_id,
         EntityActions.BUNDLE,
     )
-    stage_fqn = f"{package.identifier.name}.{package.stage}"
+    stage_fqn = f"{package.fqn.name}.{package.stage}"
     diff: DiffResult = compute_stage_diff(
         local_root=Path(package.deploy_root), stage_fqn=stage_fqn
     )
@@ -364,7 +355,11 @@ def app_validate(
     package_id = options["package_entity_id"]
     package = ws.get_entity(package_id)
     if cli_context.output_format == OutputFormat.JSON:
-        return ObjectResult(package.get_validation_result(use_scratch_stage=True))
+        return ObjectResult(
+            package.get_validation_result(
+                use_scratch_stage=True, interactive=False, force=True
+            )
+        )
 
     ws.perform_action(
         package_id,
@@ -460,7 +455,7 @@ def app_events(
     if (consumer_org and not consumer_account) or (
         consumer_account and not consumer_org
     ):
-        raise IncompatibleParametersError(["--consumer-org", "--consumer-account"])
+        raise UnmetParametersError(["--consumer-org", "--consumer-account"])
 
     if follow:
         if until:

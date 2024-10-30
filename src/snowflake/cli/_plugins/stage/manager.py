@@ -391,6 +391,8 @@ class StageManager(SqlExecutionMixin):
             stage_path = self.build_path(stage_path_str)
 
         all_files_list = self._get_files_list_from_stage(stage_path.root_path())
+        if not all_files_list:
+            raise ClickException(f"No files found on stage '{stage_path}'")
 
         all_files_with_stage_name_prefix = [
             stage_path_parts.get_directory(file) for file in all_files_list
@@ -480,10 +482,6 @@ class StageManager(SqlExecutionMixin):
         self, stage_path: StagePath, pattern: str | None = None
     ) -> List[str]:
         files_list_result = self.list_files(stage_path, pattern=pattern).fetchall()
-
-        if not files_list_result:
-            raise ClickException(f"No files found on stage '{stage_path}'")
-
         return [f["name"] for f in files_list_result]
 
     def _filter_files_list(
@@ -621,7 +619,7 @@ class StageManager(SqlExecutionMixin):
         """Prepares Snowpark session for executing Python code remotely."""
         if sys.version_info >= PYTHON_3_12:
             raise ClickException(
-                f"Executing python files is not supported in Python >= 3.12. Current version: {sys.version}"
+                f"Executing Python files is not supported in Python >= 3.12. Current version: {sys.version}"
             )
 
         from snowflake.snowpark.functions import sproc
@@ -631,11 +629,11 @@ class StageManager(SqlExecutionMixin):
         requirements = self._check_for_requirements_file(stage_path)
         self.snowpark_session.add_packages(*requirements)
 
-        @sproc(is_permanent=False)
+        @sproc(is_permanent=False, session=self.snowpark_session)
         def _python_execution_procedure(
             _: Session, file_path: str, variables: Dict | None = None
         ) -> None:
-            """Snowpark session-scoped stored procedure to execute content of provided python file."""
+            """Snowpark session-scoped stored procedure to execute content of provided Python file."""
             import json
 
             from snowflake.snowpark.files import SnowflakeFile
@@ -668,7 +666,7 @@ class StageManager(SqlExecutionMixin):
         from snowflake.snowpark.exceptions import SnowparkSQLException
 
         try:
-            self._python_exe_procedure(self.get_standard_stage_prefix(file_stage_path), variables)  # type: ignore
+            self._python_exe_procedure(self.get_standard_stage_prefix(file_stage_path), variables, session=self.snowpark_session)  # type: ignore
             return StageManager._success_result(file=original_file)
         except SnowparkSQLException as e:
             StageManager._handle_execution_exception(on_error=on_error, exception=e)

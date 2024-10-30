@@ -51,7 +51,7 @@
     JSON file containing conversation history to be used to generate a completion. Cannot be combined with TEXT argument.
   
   :samp:`--connection, -c, --environment {TEXT}`
-    Name of the connection, as defined in your `config.toml`. Default: `default`.
+    Name of the connection, as defined in your `config.toml` file. Default: `default`.
   
   :samp:`--host {TEXT}`
     Host address for the connection. Overrides the value specified for the connection.
@@ -96,7 +96,7 @@
     Token to use for multi-factor authentication (MFA).
   
   :samp:`--enable-diag`
-    Run python connector diagnostic test. Default: False.
+    Run Python connector diagnostic test. Default: False.
   
   :samp:`--diag-log-path {TEXT}`
     Diagnostic report path. Default: <temporary_directory>.
@@ -111,7 +111,7 @@
     Displays log entries for log levels `info` and higher. Default: False.
   
   :samp:`--debug`
-    Displays log entries for log levels `debug` and higher; debug logs contains additional information. Default: False.
+    Displays log entries for log levels `debug` and higher; debug logs contain additional information. Default: False.
   
   :samp:`--silent`
     Turns off intermediate output to console. Default: False.

@@ -19,15 +19,22 @@
 ## Deprecations
 
 ## New additions
+* Added `--retain-comments` option to `snow sql` command to allow passing comments to Snowflake.
+* Added `--replace` and `--if-not-exists` options to `snow object create` command.
 
 ## Fixes and improvements
 * `snow --info` callback returns information about `SNOWFLAKE_HOME` variable.
+* Removed requirement of existence of any `requirements.txt` file for Python code execution via `snow git execute` command.
+  Before the fix the file (even empty) was required to make the execution working.
+* Fixed saving of the config file updates when `connections.toml` exists.
+  Removed incorrect copying of connections from `connections.toml` to `config.toml`.
 
 
 # v3.1.0
 
 ## Deprecations
 * Added deprecation warning in the description of `snow spcs service status` and `snow spcs image-repository list-tags`.
+* Completely removed the `snow app init` as it was replaced with `snow init` in Snowflake CLI 3.0
 
 ## New additions
 * Added `snow connection generate-jwt` command to generate JWT token for Snowflake connection.
@@ -39,6 +46,7 @@
 * Align variables for `snow stage|git execute`. For Python files variables are stripped of leading and trailing quotes.
 * `snow spcs service list-images` now displays image tag and digest.
 * Fix `snow stage list-files` for paths with directories.
+* Fix for list fields in mixins applied twice
 
 # v3.0.2
 

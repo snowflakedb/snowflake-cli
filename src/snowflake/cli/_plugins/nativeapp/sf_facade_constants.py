@@ -12,17 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+from enum import Enum
 
-[project]
-name = "snowflakecli-test-multilingual-hello-plugin"
-requires-python = ">=3.8"
-dependencies = [
-    "snowflake-cli>=1.1.0"
-]
-version = "0.0.1"
 
-[project.entry-points."snowflake.cli.plugin.command"]
-multilingual-hello = "snowflakecli.test_plugins.multilingual_hello.plugin_spec"
+class UseObjectType(Enum):
+    DATABASE = "database"
+    ROLE = "role"
+    WAREHOUSE = "warehouse"
+
+    def __str__(self):
+        return self.value

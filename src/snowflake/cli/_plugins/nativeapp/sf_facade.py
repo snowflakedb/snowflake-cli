@@ -12,17 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+from snowflake.cli._plugins.nativeapp.sf_sql_facade import SnowflakeSQLFacade
 
-[project]
-name = "snowflakecli-test-multilingual-hello-plugin"
-requires-python = ">=3.8"
-dependencies = [
-    "snowflake-cli>=1.1.0"
-]
-version = "0.0.1"
 
-[project.entry-points."snowflake.cli.plugin.command"]
-multilingual-hello = "snowflakecli.test_plugins.multilingual_hello.plugin_spec"
+def get_snowflake_facade() -> SnowflakeSQLFacade:
+    """Returns a Snowflake Facade"""
+    return SnowflakeSQLFacade()

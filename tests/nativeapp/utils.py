@@ -17,16 +17,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional, Set
-
-from snowflake.cli._plugins.nativeapp.project_model import (
-    NativeAppProjectModel,
-)
-from snowflake.cli.api.project.schemas.v1.native_app.native_app import NativeApp
+from typing import List, Set
 
 from tests.nativeapp.factories import ProjectV10Factory
 
-NATIVEAPP_MODULE = "snowflake.cli._plugins.nativeapp.manager"
 TYPER_CONFIRM = "typer.confirm"
 TYPER_PROMPT = "typer.prompt"
 ENTITIES_COMMON_MODULE = "snowflake.cli.api.entities.common"
@@ -39,35 +33,16 @@ CLI_GLOBAL_TEMPLATE_CONTEXT = (
     "snowflake.cli.api.cli_global_context._CliGlobalContextAccess.template_context"
 )
 
-NATIVEAPP_MANAGER = f"{NATIVEAPP_MODULE}.NativeAppManager"
-
-NATIVEAPP_MANAGER_APP_PKG_DISTRIBUTION_IN_SF = (
-    f"{NATIVEAPP_MANAGER}.get_app_pkg_distribution_in_snowflake"
-)
-NATIVEAPP_MANAGER_IS_APP_PKG_DISTRIBUTION_SAME = (
-    f"{NATIVEAPP_MANAGER}.verify_project_distribution"
-)
-NATIVEAPP_MANAGER_GET_EXISTING_APP_PKG_INFO = (
-    f"{NATIVEAPP_MANAGER}.get_existing_app_pkg_info"
-)
-NATIVEAPP_MANAGER_GET_OBJECTS_OWNED_BY_APPLICATION = (
-    f"{NATIVEAPP_MANAGER}.get_objects_owned_by_application"
-)
-NATIVEAPP_MANAGER_BUILD_BUNDLE = f"{NATIVEAPP_MANAGER}.build_bundle"
-NATIVEAPP_MANAGER_DEPLOY = f"{NATIVEAPP_MANAGER}.deploy"
-NATIVEAPP_MANAGER_VALIDATE = f"{NATIVEAPP_MANAGER}.validate"
-
 APP_ENTITY_MODULE = "snowflake.cli._plugins.nativeapp.entities.application"
 APP_ENTITY = f"{APP_ENTITY_MODULE}.ApplicationEntity"
-APP_ENTITY_GET_EXISTING_APP_INFO = f"{APP_ENTITY}.get_existing_app_info_static"
+APP_ENTITY_GET_EXISTING_APP_INFO = f"{APP_ENTITY}.get_existing_app_info"
 APP_ENTITY_DROP_GENERIC_OBJECT = f"{APP_ENTITY_MODULE}.drop_generic_object"
 APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION = (
     f"{APP_ENTITY}.get_objects_owned_by_application"
 )
-APP_ENTITY_GET_ACCOUNT_EVENT_TABLE = f"{APP_ENTITY}.get_account_event_table"
 
 APP_PACKAGE_ENTITY = "snowflake.cli._plugins.nativeapp.entities.application_package.ApplicationPackageEntity"
-APP_PACKAGE_ENTITY_DEPLOY = f"{APP_PACKAGE_ENTITY}.deploy"
+APP_PACKAGE_ENTITY_DEPLOY = f"{APP_PACKAGE_ENTITY}._deploy"
 APP_PACKAGE_ENTITY_DISTRIBUTION_IN_SF = (
     f"{APP_PACKAGE_ENTITY}.get_app_pkg_distribution_in_snowflake"
 )
@@ -86,6 +61,11 @@ APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME = (
 
 SQL_EXECUTOR_EXECUTE = f"{ENTITIES_COMMON_MODULE}.SqlExecutor._execute_query"
 SQL_EXECUTOR_EXECUTE_QUERIES = f"{ENTITIES_COMMON_MODULE}.SqlExecutor._execute_queries"
+
+SQL_FACADE_MODULE = "snowflake.cli._plugins.nativeapp.sf_facade"
+SQL_FACADE = f"{SQL_FACADE_MODULE}.SnowflakeSQLFacade"
+SQL_FACADE_GET_ACCOUNT_EVENT_TABLE = f"{SQL_FACADE}.get_account_event_table"
+SQL_FACADE_EXECUTE_USER_SCRIPT = f"{SQL_FACADE}.execute_user_script"
 
 mock_snowflake_yml_file = dedent(
     """\
@@ -224,17 +204,6 @@ def assert_dir_snapshot(root: Path, os_agnostic_snapshot) -> None:
             assert (
                 snapshot_contents == os_agnostic_snapshot
             ), f"\nExpected:\n{os_agnostic_snapshot}\nGot:\n{snapshot_contents}"
-
-
-def create_native_app_project_model(
-    project_definition: NativeApp, project_root: Optional[Path] = None
-) -> NativeAppProjectModel:
-    if project_root is None:
-        project_root = Path().resolve()
-    return NativeAppProjectModel(
-        project_definition=project_definition,
-        project_root=project_root,
-    )
 
 
 # POC to replicate tests/test_data/projects/integration sample project

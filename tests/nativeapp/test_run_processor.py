@@ -46,8 +46,10 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.stage.diff import DiffResult
+from snowflake.cli._plugins.workspace.context import WorkspaceContext
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.errno import (
@@ -61,7 +63,6 @@ from snowflake.cli.api.exceptions import (
     NoWarehouseSelectedInSessionError,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
-from snowflake.cli.api.project.util import extract_schema
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -71,7 +72,6 @@ from tests.nativeapp.patch_utils import (
 from tests.nativeapp.utils import (
     APP_ENTITY_GET_EXISTING_APP_INFO,
     APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
-    NATIVEAPP_MODULE,
     SQL_EXECUTOR_EXECUTE,
     TYPER_CONFIRM,
     mock_execute_helper,
@@ -100,38 +100,33 @@ def _create_or_upgrade_app(
     is_interactive: bool = False,
     package_id: str = "app_pkg",
     app_id: str = "myapp",
+    console: AbstractConsole | None = None,
 ):
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities[package_id]
     app_model: ApplicationEntityModel = pd.entities[app_id]
+    ctx = WorkspaceContext(
+        console=console or cc,
+        project_root=dm.project_root,
+        get_default_role=lambda: "mock_role",
+        get_default_warehouse=lambda: "mock_warehouse",
+    )
+    app = ApplicationEntity(app_model, ctx)
+    pkg = ApplicationPackageEntity(pkg_model, ctx)
     stage_fqn = f"{pkg_model.fqn.name}.{pkg_model.stage}"
 
     def drop_application_before_upgrade(cascade: bool = False):
-        ApplicationEntity.drop_application_before_upgrade(
-            console=cc,
-            app_name=app_model.fqn.identifier,
-            app_role=app_model.meta.role,
+        app.drop_application_before_upgrade(
             policy=policy,
-            is_interactive=is_interactive,
+            interactive=is_interactive,
             cascade=cascade,
         )
 
-    return ApplicationEntity.create_or_upgrade_app(
-        console=cc,
-        project_root=dm.project_root,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        app_name=app_model.fqn.identifier,
-        app_role=app_model.meta.role,
-        app_warehouse=app_model.meta.warehouse,
-        stage_schema=extract_schema(stage_fqn),
+    return app.create_or_upgrade_app(
+        package=pkg,
         stage_fqn=stage_fqn,
-        debug_mode=app_model.debug,
-        policy=policy,
         install_method=install_method,
-        is_interactive=is_interactive,
-        post_deploy_hooks=app_model.meta.post_deploy,
         drop_application_before_upgrade=drop_application_before_upgrade,
     )
 
@@ -248,7 +243,6 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
 # Test create_dev_app with no existing application AND create returns a warning
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(f"{NATIVEAPP_MODULE}.cc.warning")
 @mock_connection()
 @pytest.mark.parametrize(
     "existing_app_info",
@@ -264,7 +258,6 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
 )
 def test_create_or_upgrade_dev_app_with_warning(
     mock_conn,
-    mock_warning,
     mock_execute,
     mock_get_existing_app_info,
     temp_dir,
@@ -333,12 +326,15 @@ def test_create_or_upgrade_dev_app_with_warning(
     )
 
     assert not mock_diff_result.has_changes()
+    mock_console = mock.MagicMock()
     _create_or_upgrade_app(
-        policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
+        policy=MagicMock(),
+        install_method=SameAccountInstallMethod.unversioned_dev(),
+        console=mock_console,
     )
     assert mock_execute.mock_calls == expected
 
-    mock_warning.assert_has_calls([mock.call(msg) for msg in status_messages])
+    mock_console.warning.assert_has_calls([mock.call(msg) for msg in status_messages])
 
 
 # Test create_dev_app with no existing application AND create succeeds AND app role != package role
@@ -1952,7 +1948,9 @@ def test_upgrade_app_recreate_app_from_version(
 
 # Test get_existing_version_info returns version info correctly
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_get_existing_version_info(mock_execute, temp_dir, mock_cursor):
+def test_get_existing_version_info(
+    mock_execute, temp_dir, mock_cursor, workspace_context
+):
     version = "V1"
     side_effects, expected = mock_execute_helper(
         [
@@ -1994,10 +1992,7 @@ def test_get_existing_version_info(mock_execute, temp_dir, mock_cursor):
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    result = ApplicationPackageEntity.get_existing_version_info(
-        version=version,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-    )
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    result = pkg.get_existing_version_info(version=version)
     assert mock_execute.mock_calls == expected
     assert result["version"] == version
