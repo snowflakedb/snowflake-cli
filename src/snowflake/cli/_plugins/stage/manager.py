@@ -331,7 +331,7 @@ class StageManager(SqlExecutionMixin):
             cursor = self._execute_query(
                 f"put {self._to_uri(local_resolved_path)} {spath.path_for_sql()} "
                 f"auto_compress={str(auto_compress).lower()} parallel={parallel} overwrite={overwrite}",
-                cursor_class=DictCursor if use_dict_cursor else None,
+                cursor_class=DictCursor if use_dict_cursor else SnowflakeCursor,
             )
         return cursor
 
