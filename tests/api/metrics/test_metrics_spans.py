@@ -13,7 +13,6 @@
 # limitations under the License.
 import time
 import uuid
-from dataclasses import asdict
 
 import pytest
 from snowflake.cli.api.metrics import (
@@ -120,8 +119,6 @@ def test_metrics_spans_parent_with_one_child():
     assert len(metrics.completed_spans) == 2
     parent_dict, child_dict = metrics.completed_spans
 
-    assert asdict(child) == child_dict == asdict(parent) == parent_dict
-
     assert parent_dict[CLIMetricsSpan.ID_KEY] != child_dict[CLIMetricsSpan.ID_KEY]
     assert (
         child_dict[CLIMetricsSpan.PARENT_ID_KEY] == parent_dict[CLIMetricsSpan.ID_KEY]
@@ -167,15 +164,6 @@ def test_metrics_spans_parent_with_two_children_same_name():
     # then
     assert len(metrics.completed_spans) == 3
     parent_dict, child1_dict, child2_dict = metrics.completed_spans
-
-    assert (
-        asdict(child1)
-        == child1_dict
-        == asdict(child2)
-        == child2_dict
-        == asdict(parent)
-        == parent_dict
-    )
 
     assert (
         parent_dict[CLIMetricsSpan.ID_KEY]
