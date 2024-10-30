@@ -236,7 +236,11 @@ def _collect_git_setup_secret_details(
     new_secret_password: Optional[str],
 ) -> _GitSetupSecretDetails:
     secret_needed = (
-        False if use_no_secret else typer.confirm("Use secret for authentication?")
+        False
+        if use_no_secret
+        else True
+        if provided_secret_identifier or use_new_secret_default_name
+        else typer.confirm("Use secret for authentication?")
     )
     should_create_secret = False
     secret_name = None
