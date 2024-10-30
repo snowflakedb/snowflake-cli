@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added `--retain-comments` option to `snow sql` command to allow passing comments to Snowflake.
 * Added `--replace` and `--if-not-exists` options to `snow object create` command.
 
 ## Fixes and improvements
@@ -27,7 +28,6 @@
   Before the fix the file (even empty) was required to make the execution working.
 * Fixed saving of the config file updates when `connections.toml` exists.
   Removed incorrect copying of connections from `connections.toml` to `config.toml`.
-
 
 
 # v3.1.0

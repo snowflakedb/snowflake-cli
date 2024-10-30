@@ -39,6 +39,7 @@ class SqlManager(SqlExecutionMixin):
         files: List[Path] | None,
         std_in: bool,
         data: Dict | None = None,
+        retain_comments: bool = False,
     ) -> Tuple[IsSingleStatement, Iterable[SnowflakeCursor]]:
         inputs = [query, files, std_in]
         # Check if any two inputs were provided simultaneously
@@ -50,7 +51,9 @@ class SqlManager(SqlExecutionMixin):
         if std_in:
             query = sys.stdin.read()
         if query:
-            return self._execute_single_query(query=query, data=data)
+            return self._execute_single_query(
+                query=query, data=data, retain_comments=retain_comments
+            )
 
         if files:
             # Multiple files
@@ -61,7 +64,7 @@ class SqlManager(SqlExecutionMixin):
                     file_size_limit_mb=UNLIMITED
                 )
                 single_statement, result = self._execute_single_query(
-                    query=query_from_file, data=data
+                    query=query_from_file, data=data, retain_comments=retain_comments
                 )
                 results.append(result)
 
@@ -73,7 +76,7 @@ class SqlManager(SqlExecutionMixin):
         raise UsageError("Use either query, filename or input option.")
 
     def _execute_single_query(
-        self, query: str, data: Dict | None = None
+        self, query: str, data: Dict | None = None, retain_comments: bool = False
     ) -> Tuple[IsSingleStatement, Iterable[SnowflakeCursor]]:
         try:
             query = transpile_snowsql_templates(query)
@@ -83,7 +86,9 @@ class SqlManager(SqlExecutionMixin):
 
         statements = tuple(
             statement
-            for statement, _ in split_statements(StringIO(query), remove_comments=True)
+            for statement, _ in split_statements(
+                StringIO(query), remove_comments=not retain_comments
+            )
         )
         single_statement = len(statements) == 1
 
