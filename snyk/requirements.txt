@@ -2,7 +2,7 @@ jinja2==3.1.4
 pluggy==1.5.0
 PyYAML==6.0.2
 packaging
-rich==13.9.2
+rich==13.9.3
 requests==2.32.3
 requirements-parser==0.11.0
 setuptools==75.1.0
@@ -15,10 +15,10 @@ urllib3>=1.24.3,<2.3
 GitPython==3.1.43
 pip
 pydantic==2.9.2
-coverage==7.6.3
+coverage==7.6.4
 pre-commit>=3.5.0
 pytest==8.3.3
-pytest-randomly==3.15.0
+pytest-randomly==3.16.0
 syrupy==4.7.2
 factory-boy==3.3.1
-Faker==30.3.0
+Faker==30.8.1
