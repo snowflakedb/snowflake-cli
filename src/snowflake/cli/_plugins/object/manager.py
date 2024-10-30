@@ -74,9 +74,17 @@ class ObjectManager(SqlExecutionMixin):
         except ProgrammingError:
             return False
 
-    def create(self, object_type: str, object_data: Dict[str, Any]) -> str:
+    def create(
+        self,
+        object_type: str,
+        object_data: Dict[str, Any],
+        replace: bool = False,
+        if_not_exists: bool = False,
+    ) -> str:
         rest = RestApi(self._conn)
-        url = rest.determine_url_for_create_query(object_type=object_type)
+        url = rest.determine_url_for_create_query(
+            object_type=object_type, replace=replace, if_not_exists=if_not_exists
+        )
         try:
             response = rest.send_rest_request(url=url, method="post", data=object_data)
         except Exception as err:

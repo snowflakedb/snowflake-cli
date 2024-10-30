@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any, Dict, Optional
+from urllib.parse import parse_qsl, urlencode, urlparse
 
 from click import ClickException
 from snowflake.cli.api.constants import SF_REST_API_URL_PREFIX
@@ -107,7 +108,9 @@ class RestApi:
         url = f"{SF_REST_API_URL_PREFIX}/databases/{db_name}/schemas/{schema_name}"
         return self._fetch_endpoint_exists(url)
 
-    def determine_url_for_create_query(self, object_type: str) -> str:
+    def determine_url_for_create_query(
+        self, object_type: str, replace: bool = False, if_not_exists: bool = False
+    ) -> str:
         """
         Determine an url for creating an object of given type via REST API.
         If URL cannot be determined, the function throws CannotDetermineCreateURLException exception.
@@ -124,10 +127,16 @@ class RestApi:
         """
         plural_object_type = _pluralize_object_type(object_type)
 
+        query_params = {}
+
+        if replace or if_not_exists:
+            param = "ifNotExists" if if_not_exists else "orReplace"
+            query_params = {"createMode": param}
+
         if self.get_endpoint_exists(
             url := f"{SF_REST_API_URL_PREFIX}/{plural_object_type}/"
         ):
-            return url
+            return self._add_query_parameters_to_url(url, query_params)
 
         db = self.conn.database
         if not db:
@@ -139,7 +148,7 @@ class RestApi:
         if self.get_endpoint_exists(
             url := f"{SF_REST_API_URL_PREFIX}/databases/{db}/{plural_object_type}/"
         ):
-            return url
+            return self._add_query_parameters_to_url(url, query_params)
 
         schema = self.conn.schema
         if not schema:
@@ -151,11 +160,24 @@ class RestApi:
         if self.get_endpoint_exists(
             url := f"{SF_REST_API_URL_PREFIX}/databases/{self.conn.database}/schemas/{self.conn.schema}/{plural_object_type}/"
         ):
-            return url
+            return self._add_query_parameters_to_url(url, query_params)
 
         raise CannotDetermineCreateURLException(
             f"Create operation for type {object_type} is not supported. Try using `sql -q 'CREATE ...'` command."
         )
+
+    @staticmethod
+    def _add_query_parameters_to_url(url: str, query_params: Dict[str, Any]) -> str:
+        """
+        Updates existing url with new query parameters.
+        They should be passed as key-value pairs in query_params dict.
+        """
+        if not query_params:
+            return url
+        url_parts = urlparse(url)
+        query = dict(parse_qsl(url_parts.query))
+        query.update(query_params)
+        return url_parts._replace(query=urlencode(query)).geturl()
 
 
 class DatabaseNotDefinedException(ClickException):
