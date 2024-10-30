@@ -19,6 +19,8 @@
 ## Deprecations
 
 ## New additions
+* Added `--retain-comments` option to `snow sql` command to allow passing comments to Snowflake.
+* Added `--replace` and `--if-not-exists` options to `snow object create` command.
 
 ## Fixes and improvements
 * `snow --info` callback returns information about `SNOWFLAKE_HOME` variable.

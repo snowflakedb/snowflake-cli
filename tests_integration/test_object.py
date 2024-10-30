@@ -347,3 +347,35 @@ def test_create_error_undefined_database(runner):
         "Database not defined in connection. Please try again with `--database` flag."
         in result.output
     )
+
+
+@pytest.mark.int
+def test_object_create_if_not_exist_and_replace(runner, test_database):
+
+    result = runner.invoke_with_connection(
+        ["object", "create", "schema", "name=schema_name"]
+    )
+    assert result.exit_code == 0, result.output
+
+    # Creating already existing object should fail
+    result = runner.invoke_with_connection(
+        ["object", "create", "schema", "name=schema_name"]
+    )
+    assert result.exit_code == 1, result.output
+    assert (
+        "409 conflict: object you're trying to create already exists." in result.output
+    )
+
+    # With --if-not-exists flag, it should not fail, however object should not be created
+    result = runner.invoke_with_connection(
+        ["object", "create", "schema", "name=schema_name", "--if-not-exists"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "already exists, statement succeeded." in result.output
+
+    # With --replace flag, it should not fail and object should be created
+    result = runner.invoke_with_connection(
+        ["object", "create", "schema", "name=schema_name", "--replace"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "successfully created" in result.output
