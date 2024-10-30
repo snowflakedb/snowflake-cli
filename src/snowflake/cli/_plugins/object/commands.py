@@ -21,6 +21,8 @@ from click import ClickException
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.commands.flags import (
     IdentifierType,
+    IfNotExistsOption,
+    ReplaceOption,
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -145,6 +147,8 @@ def create(
     object_type: str = ObjectArgument,
     object_attributes: Optional[List[str]] = ObjectAttributesArgument,
     object_json: str = ObjectDefinitionJsonOption,
+    if_not_exists: bool = IfNotExistsOption(),
+    replace: bool = ReplaceOption(),
     **options,
 ):
     """
@@ -176,5 +180,10 @@ def create(
             "Provide either list of object attributes, or object definition in JSON format"
         )
 
-    result = ObjectManager().create(object_type=object_type, object_data=object_data)
+    result = ObjectManager().create(
+        object_type=object_type,
+        object_data=object_data,
+        if_not_exists=if_not_exists,
+        replace=replace,
+    )
     return MessageResult(result)

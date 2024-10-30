@@ -3190,11 +3190,15 @@
   |                                                     object.                  |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --json          TEXT  Object definition in JSON format, for example          |
-  |                       '{"name": "my_db", "comment": "created with Snowflake  |
-  |                       CLI"}'. Check documentation for the full list of       |
-  |                       available parameters for every object.                 |
-  | --help  -h            Show this message and exit.                            |
+  | --json                   TEXT  Object definition in JSON format, for example |
+  |                                '{"name": "my_db", "comment": "created with   |
+  |                                Snowflake CLI"}'. Check documentation for the |
+  |                                full list of available parameters for every   |
+  |                                object.                                       |
+  | --if-not-exists                Only apply this operation if the specified    |
+  |                                object does not already exist.                |
+  | --replace                      Replace this object if it already exists.     |
+  | --help           -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
