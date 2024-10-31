@@ -25,8 +25,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
     ApplicationPackageEntityModel,
 )
-from snowflake.cli._plugins.workspace.action_context import ActionContext
-from snowflake.cli.api.project.schemas.entities.common import SqlScriptHookType
+from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.utils import (
@@ -45,14 +44,20 @@ def _get_app_pkg_entity(project_directory):
                 **project_definition["entities"]["pkg"]
             )
             mock_console = mock.MagicMock()
-            action_ctx = ActionContext(
+            workspace_ctx = WorkspaceContext(
                 console=mock_console,
                 project_root=project_root,
                 get_default_role=lambda: "app_role",
                 get_default_warehouse=lambda: "wh",
+            )
+            action_ctx = ActionContext(
                 get_entity=lambda *args: None,
             )
-            return ApplicationPackageEntity(model), action_ctx, mock_console
+            return (
+                ApplicationPackageEntity(model, workspace_ctx),
+                action_ctx,
+                mock_console,
+            )
 
 
 def test_bundle(project_directory):
@@ -144,7 +149,9 @@ def test_deploy(
 
     mock_sync.assert_called_once_with(
         console=mock_console,
-        deploy_root=Path("output/deploy"),
+        deploy_root=(
+            app_pkg._workspace_ctx.project_root / Path("output/deploy")  # noqa SLF001
+        ),
         package_name="pkg",
         stage_schema="app_src",
         bundle_map=mock.ANY,
@@ -156,37 +163,30 @@ def test_deploy(
         print_diff=True,
     )
     mock_validate.assert_called_once()
-    mock_execute_post_deploy_hooks.assert_called_once_with(
-        console=mock_console,
-        project_root=bundle_ctx.project_root,
-        post_deploy_hooks=[
-            SqlScriptHookType(sql_script="scripts/package_post_deploy1.sql"),
-            SqlScriptHookType(sql_script="scripts/package_post_deploy2.sql"),
-        ],
-        package_name="pkg",
-        package_warehouse="wh",
-    )
+    mock_execute_post_deploy_hooks.assert_called_once_with()
     assert mock_execute.mock_calls == expected
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_version_list(mock_execute, mock_cursor):
-    package_role = "package_role"
-    package_name = "test_pkg"
+def test_version_list(
+    mock_execute, application_package_entity, action_context, mock_cursor
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
     side_effects, expected = mock_execute_helper(
         [
             (
                 mock_cursor([("old_role",)], []),
                 mock.call("select current_role()"),
             ),
-            (None, mock.call(f"use role {package_role}")),
+            (None, mock.call(f"use role {pkg_model.meta.role}")),
             (
                 mock_cursor([], []),
-                mock.call(f"show versions in application package {package_name}"),
+                mock.call(f"show versions in application package {pkg_model.fqn.name}"),
             ),
             (None, mock.call("use role old_role")),
         ]
     )
     mock_execute.side_effect = side_effects
-    ApplicationPackageEntity.version_list(package_name, package_role)
+    application_package_entity.action_version_list(action_context)
     assert mock_execute.mock_calls == expected

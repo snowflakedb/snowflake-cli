@@ -12,24 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from shlex import split
-from typing import Dict, Any
+from typing import Dict
 from unittest import mock
-from unittest.mock import MagicMock
 
+from snowflake.cli._app.telemetry import TelemetryEvent
 from snowflake.cli.api.metrics import CLICounterField
 from tests.project.fixtures import *
-
-
-def _extract_first_result_executing_command_telemetry_message(
-    mock_telemetry: MagicMock,
-) -> Dict[str, Any]:
-    # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
-    return next(
-        args.args[0].to_dict()["message"]
-        for args in mock_telemetry.call_args_list
-        if args.args[0].to_dict().get("message").get("type")
-        == "result_executing_command"
-    )
+from tests_integration.test_utils import extract_first_telemetry_message_of_type
 
 
 @pytest.mark.integration
@@ -60,7 +49,9 @@ def test_sql_templating_emits_counter(
 
     assert result.exit_code == 0
 
-    message = _extract_first_result_executing_command_telemetry_message(mock_telemetry)
+    message = extract_first_telemetry_message_of_type(
+        mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
+    )
 
     assert message["counters"][CLICounterField.SQL_TEMPLATES] == expected_counter
 
@@ -103,14 +94,15 @@ def test_sql_templating_emits_counter(
                 CLICounterField.PACKAGE_SCRIPTS: 0,
             },
         ),
-        # ensure that package scripts are picked up
+        # package scripts are auto-converted to post deploy scripts in v1
         (
             "app deploy",
             "integration_external",
             {
                 CLICounterField.SNOWPARK_PROCESSOR: 0,
                 CLICounterField.TEMPLATES_PROCESSOR: 0,
-                CLICounterField.POST_DEPLOY_SCRIPTS: 0,
+                CLICounterField.PDF_TEMPLATES: 1,
+                CLICounterField.POST_DEPLOY_SCRIPTS: 1,
                 CLICounterField.PACKAGE_SCRIPTS: 1,
             },
         ),
@@ -123,7 +115,6 @@ def test_sql_templating_emits_counter(
                 CLICounterField.TEMPLATES_PROCESSOR: 0,
                 CLICounterField.PDF_TEMPLATES: 1,
                 CLICounterField.POST_DEPLOY_SCRIPTS: 1,
-                CLICounterField.PACKAGE_SCRIPTS: 0,
             },
         ),
     ],
@@ -148,8 +139,8 @@ def test_nativeapp_feature_counter_has_expected_value(
     with nativeapp_project_directory(test_project):
         runner.invoke_with_connection(split(command), env=local_test_env)
 
-        message = _extract_first_result_executing_command_telemetry_message(
-            mock_telemetry
+        message = extract_first_telemetry_message_of_type(
+            mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
         )
 
         assert message["counters"] == expected_counters

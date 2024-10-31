@@ -23,7 +23,7 @@ from snowflake.cli._plugins.snowpark.package_utils import (
 def test_snowpark_build_no_deprecated_warnings_by_default(
     mock_download, runner, project_directory
 ):
-    mock_download.return_value = DownloadUnavailablePackagesResult(succeeded=True)
+    mock_download.return_value = DownloadUnavailablePackagesResult()
     with project_directory("snowpark_functions"):
         result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
         assert result.exit_code == 0, result.output

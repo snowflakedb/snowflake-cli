@@ -19,6 +19,7 @@ from unittest import mock
 import pytest
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -188,7 +189,7 @@ def test_stage_copy_remote_to_local_quoted_uri_recursive(
     mock_execute, runner, mock_cursor, raw_path, expected_uri
 ):
     mock_execute.side_effect = [
-        mock_cursor([{"name": "stageName/file"}], []),
+        mock_cursor([{"name": "stageName/file.py"}], []),
         mock_cursor([(raw_path)], ["file"]),
     ]
     with TemporaryDirectory() as tmp_dir:
@@ -209,7 +210,7 @@ def test_stage_copy_remote_to_local_quoted_uri_recursive(
     assert result.exit_code == 0, result.output
     assert mock_execute.mock_calls == [
         mock.call("ls @stageName", cursor_class=DictCursor),
-        mock.call(f"get @stageName/file {file_uri} parallel=4"),
+        mock.call(f"get @stageName/file.py {file_uri} parallel=4"),
     ]
 
 
@@ -866,8 +867,11 @@ def test_execute_from_user_stage(
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+@mock.patch(f"{STAGE_MANAGER}.snowpark_session")
 @skip_python_3_12
-def test_execute_with_variables(mock_bootstrap, mock_execute, mock_cursor, runner):
+def test_execute_with_variables(
+    mock_snowpark_session, mock_bootstrap, mock_execute, mock_cursor, runner
+):
     mock_execute.return_value = mock_cursor(
         [{"name": "exe/s1.sql"}, {"name": "exe/s2.py"}], []
     )
@@ -900,12 +904,13 @@ def test_execute_with_variables(mock_bootstrap, mock_execute, mock_cursor, runne
     mock_bootstrap.return_value.assert_called_once_with(
         "@exe/s2.py",
         {
-            "key1": "'string value'",
+            "key1": "string value",
             "key2": "1",
             "KEY3": "TRUE",
             "key4": "NULL",
-            "key5": "'var=value'",
+            "key5": "var=value",
         },
+        session=mock_snowpark_session,
     )
 
 
@@ -973,9 +978,9 @@ def test_execute_not_existing_stage(mock_execute, mock_cursor, runner):
 @pytest.mark.parametrize(
     "stage_path,expected_message",
     [
-        ("exe/*.txt", "No files matched pattern 'exe/*.txt'"),
-        ("exe/directory", "No files matched pattern 'exe/directory'"),
-        ("exe/some_file.sql", "No files matched pattern 'exe/some_file.sql'"),
+        ("exe/*.txt", "No files matched pattern '@exe/*.txt'"),
+        ("exe/directory", "No files matched pattern '@exe/directory'"),
+        ("exe/some_file.sql", "No files matched pattern '@exe/some_file.sql'"),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
@@ -999,8 +1004,11 @@ def test_execute_no_files_for_stage_path(
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+@mock.patch(f"{STAGE_MANAGER}.snowpark_session")
 @skip_python_3_12
-def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner):
+def test_execute_stop_on_error(
+    mock_snowpark_session, mock_bootstrap, mock_execute, mock_cursor, runner
+):
     error_message = "Error"
     mock_execute.side_effect = [
         mock_cursor(
@@ -1026,17 +1034,23 @@ def test_execute_stop_on_error(mock_bootstrap, mock_execute, mock_cursor, runner
         mock.call(f"execute immediate from @exe/s2.sql"),
     ]
     assert mock_bootstrap.return_value.mock_calls == [
-        mock.call("@exe/p1.py", {}),
-        mock.call("@exe/p2.py", {}),
+        mock.call("@exe/p1.py", {}, session=mock_snowpark_session),
+        mock.call("@exe/p2.py", {}, session=mock_snowpark_session),
     ]
     assert error_message in result.output
 
 
 @mock.patch(f"{STAGE_MANAGER}._execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
+@mock.patch(f"{STAGE_MANAGER}.snowpark_session")
 @skip_python_3_12
 def test_execute_continue_on_error(
-    mock_bootstrap, mock_execute, mock_cursor, runner, os_agnostic_snapshot
+    mock_snowpark_session,
+    mock_bootstrap,
+    mock_execute,
+    mock_cursor,
+    runner,
+    os_agnostic_snapshot,
 ):
     from snowflake.snowpark.exceptions import SnowparkSQLException
 
@@ -1070,8 +1084,8 @@ def test_execute_continue_on_error(
     ]
 
     assert mock_bootstrap.return_value.mock_calls == [
-        mock.call("@exe/p1.py", {}),
-        mock.call("@exe/p2.py", {}),
+        mock.call("@exe/p1.py", {}, session=mock_snowpark_session),
+        mock.call("@exe/p2.py", {}, session=mock_snowpark_session),
     ]
 
 
@@ -1105,7 +1119,7 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
         (["my_stage/dir/parallel/requirements.txt"], None, []),
         (
             ["my_stage/dir/files/requirements.txt"],
-            "db.schema.my_stage/dir/files/requirements.txt",
+            "@db.schema.my_stage/dir/files/requirements.txt",
             ["aaa", "bbb"],
         ),
         (
@@ -1114,12 +1128,12 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
                 "my_stage/dir/requirements.txt",
                 "my_stage/dir/files/requirements.txt",
             ],
-            "db.schema.my_stage/dir/files/requirements.txt",
+            "@db.schema.my_stage/dir/files/requirements.txt",
             ["aaa", "bbb"],
         ),
         (
             ["my_stage/requirements.txt"],
-            "db.schema.my_stage/requirements.txt",
+            "@db.schema.my_stage/requirements.txt",
             ["aaa", "bbb"],
         ),
     ],
@@ -1145,7 +1159,7 @@ def test_stage_manager_check_for_requirements_file(
     ):
         with mock.patch.object(StageManager, "get", get_mock) as get_mock:
             result = sm._check_for_requirements_file(  # noqa: SLF001
-                stage_path_parts=sm._stage_path_part_factory(input_path)  # noqa: SLF001
+                stage_path=StagePath.from_stage_str(input_path)
             )
 
     assert result == packages

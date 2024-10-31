@@ -91,6 +91,15 @@
     }),
   ])
 # ---
+# name: test_stage_execute_python_without_requirements
+  list([
+    dict({
+      'Error': None,
+      'File': '@test_stage_execute_without_requirements/script_template.py',
+      'Status': 'SUCCESS',
+    }),
+  ])
+# ---
 # name: test_user_stage_execute
   list([
     dict({

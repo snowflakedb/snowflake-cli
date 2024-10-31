@@ -79,7 +79,7 @@ class DeflakePlugin:
 
         # Retry if the test reports that it should retry (report.should_retry is
         # set by us in pytest_runtest_makereport below)
-        if any(report.should_retry for report in reports):
+        if any(getattr(report, "should_retry", False) for report in reports):
             self.runner.runtestprotocol(item, nextitem=nextitem)
 
         # Close the log line for this test
@@ -142,7 +142,7 @@ class DeflakePlugin:
         self, report: TestReport
     ) -> tuple[str, str, str] | None:
         # Hook into the terminal reporting of the test status
-        if report.should_retry:
+        if getattr(report, "should_retry", False):
             # Don't log a status for this yet since it's not final
             return "", "", ""
         if report.outcome == FLAKY:

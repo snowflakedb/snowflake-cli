@@ -35,6 +35,8 @@ from snowflake.cli.api.project.schemas.project_definition import (
 from snowflake.cli.api.project.schemas.v1.snowpark.callable import _CallableBase
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 
+from tests.nativeapp.factories import ProjectV11Factory
+
 
 @pytest.mark.parametrize(
     "definition_input,expected_error",
@@ -214,6 +216,12 @@ from snowflake.cli.api.utils.definition_rendering import render_definition_templ
         ],
         [
             {
+                "env": {"string": "string", "int": 42, "bool": True},
+            },
+            None,
+        ],
+        [
+            {
                 "mixins": {
                     "snowpark_shared": {
                         "stage": "dev",
@@ -248,7 +256,7 @@ from snowflake.cli.api.utils.definition_rendering import render_definition_templ
 def test_project_definition_v2_schema(definition_input, expected_error):
     definition_input["definition_version"] = "2"
     try:
-        DefinitionV20(**definition_input)
+        _ = render_definition_template(definition_input, {})
     except SchemaValidationError as err:
         if expected_error:
             if type(expected_error) == str:
@@ -367,6 +375,34 @@ def test_v1_to_v2_conversion(
             _assert_entities_are_equal(v1_function, v2_function)
 
 
+def test_v1_to_v2_conversion_in_memory_package_scripts(temp_dir):
+    package_script = "select '{{ package_name }}';"
+    package_script_filename = "scripts/package-script.sql"
+    ProjectV11Factory(
+        pdf__native_app__package__scripts=[package_script_filename],
+        pdf__native_app__artifacts=["app/manifest.yml"],
+        files={
+            package_script_filename: package_script,
+            "app/manifest.yml": "",  # It just needs to exist for the definition conversion
+        },
+    )
+
+    definition_v1 = DefinitionManager(temp_dir).project_definition
+    definition_v2 = convert_project_definition_to_v2(
+        Path(temp_dir), definition_v1, in_memory=True
+    )
+
+    # Actual contents of package script in project was not changed
+    assert Path(package_script_filename).read_text() == package_script
+
+    # But the converted definition has a reference to a tempfile
+    # that contains the literal package name
+    assert (
+        Path(definition_v2.entities["pkg"].meta.post_deploy[0].sql_script).read_text()
+        == f"select '{definition_v2.entities['pkg'].fqn.name}';"
+    )
+
+
 # TODO:
 # 1. rewrite projects to have one big definition covering all complex positive cases
 # 2. Add negative case - entity uses non-existent mixin
@@ -433,7 +469,7 @@ def test_mixin_with_unknown_entity_key_raises_error():
         "mixins": {"schema_mixin": {"unknown_key": "NA"}},
     }
     with pytest.raises(SchemaValidationError) as err:
-        DefinitionV20(**definition_input)
+        _ = render_definition_template(definition_input, {})
 
     assert "Unsupported key 'unknown_key' for entity func of type function" in str(err)
 
@@ -529,7 +565,7 @@ def test_mixin_order_scalar():
             },
         },
     }
-    pd = DefinitionV20(**definition_input)
+    pd = render_definition_template(definition_input, {}).project_definition
     entities = pd.entities
     assert entities["no_mixin"].stage == stage_from_entity
     assert entities["mix1_only"].stage == "mix1"
@@ -584,7 +620,7 @@ def test_mixin_order_sequence_merge_order():
             },
         },
     }
-    pd = DefinitionV20(**definition_input)
+    pd = render_definition_template(definition_input, {}).project_definition
     entities = pd.entities
     assert entities["no_mixin"].external_access_integrations == ["entity_int"]
     assert entities["mix1_only"].external_access_integrations == ["mix1_int"]
@@ -652,7 +688,7 @@ def test_mixin_order_mapping_merge_order():
             },
         },
     }
-    pd = DefinitionV20(**definition_input)
+    pd = render_definition_template(definition_input, {}).project_definition
     entities = pd.entities
     assert entities["no_mixin"].secrets == {
         "entity_key": "entity_value",
@@ -706,3 +742,28 @@ def test_mixins_values_have_to_be_type_compatible_with_entities():
         "Value from mixins for property identifier is of type 'dict' while entity func expects value of type 'str'"
         in str(err)
     )
+
+
+def test_if_list_in_mixin_is_applied_correctly():
+    definition_input = {
+        "definition_version": "2",
+        "entities": {
+            "func": {
+                "identifier": "my_func",
+                "type": "function",
+                "handler": "foo",
+                "returns": "string",
+                "signature": "",
+                "stage": "bar",
+                "meta": {"use_mixins": ["artifact_mixin"]},
+            },
+        },
+        "mixins": {
+            "artifact_mixin": {
+                "external_access_integrations": ["integration_1", "integration_2"],
+                "artifacts": [{"src": "src", "dest": "my_project"}],
+            },
+        },
+    }
+    project = render_definition_template(definition_input, {}).project_definition
+    assert len(project.entities["func"].artifacts) == 1

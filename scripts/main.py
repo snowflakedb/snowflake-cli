@@ -50,11 +50,14 @@ def main():
         release_notes = REPO_ROOT / "RELEASE-NOTES.md"
         with release_notes.open("r") as fh:
             current_content = fh.readlines()
-        current_content[0] = f"# v{new_version}\n"
+
+        license_txt = current_content[:15]
+        current_content[16] = f"# v{new_version}\n"
         new_content = [
+            *license_txt,
             *EMPTY_RELEASE_NOTES.splitlines(keepends=True),
             "\n",
-            *current_content,
+            *current_content[16:],
         ]
         with release_notes.open("w+") as fh:
             fh.writelines(new_content)

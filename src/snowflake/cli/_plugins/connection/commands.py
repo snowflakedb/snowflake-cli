@@ -18,9 +18,10 @@ import logging
 import os.path
 
 import typer
-from click import ClickException, Context, Parameter  # type: ignore
+from click import ClickException, Context, Parameter, UsageError  # type: ignore
 from click.core import ParameterSource  # type: ignore
 from click.types import StringParamType
+from snowflake import connector
 from snowflake.cli._plugins.connection.util import (
     strip_and_check_if_exists,
     strip_if_value_present,
@@ -342,7 +343,7 @@ def test(
 @app.command(requires_connection=False)
 def set_default(
     name: str = typer.Argument(
-        help="Name of the connection, as defined in your `config.toml`",
+        help="Name of the connection, as defined in your `config.toml` file",
         show_default=False,
     ),
     **options,
@@ -351,3 +352,41 @@ def set_default(
     get_connection_dict(connection_name=name)
     set_config_value(section=None, key="default_connection_name", value=name)
     return MessageResult(f"Default connection set to: {name}")
+
+
+@app.command(requires_connection=True)
+def generate_jwt(
+    **options,
+) -> CommandResult:
+    """Generate a JWT token, which will be printed out and displayed.."""
+    connection_details = get_cli_context().connection_context.update_from_config()
+
+    msq_template = (
+        "{} is not set in the connection context, but required for JWT generation."
+    )
+    if not connection_details.user:
+        raise UsageError(msq_template.format("User"))
+    if not connection_details.account:
+        raise UsageError(msq_template.format("Account"))
+    if not connection_details.private_key_file:
+        raise UsageError(msq_template.format("Private key file"))
+
+    passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
+    if not passphrase:
+        passphrase = typer.prompt(
+            "Enter private key file password (Press enter if none)",
+            hide_input=True,
+            type=str,
+            default="",
+        )
+
+    try:
+        token = connector.auth.get_token_from_private_key(
+            user=connection_details.user,
+            account=connection_details.account,
+            privatekey_path=connection_details.private_key_file,
+            key_password=passphrase,
+        )
+        return MessageResult(token)
+    except ValueError as err:
+        raise ClickException(str(err))

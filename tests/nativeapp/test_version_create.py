@@ -22,6 +22,7 @@ from click import BadOptionUsage, ClickException
 from snowflake.cli._plugins.nativeapp.constants import SPECIAL_COMMENT
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
+    ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
@@ -31,9 +32,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
-from snowflake.cli._plugins.nativeapp.version.version_processor import (
-    NativeAppVersionCreateProcessor,
-)
+from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
@@ -42,28 +41,47 @@ from tests.nativeapp.utils import (
     APPLICATION_PACKAGE_ENTITY_MODULE,
     SQL_EXECUTOR_EXECUTE,
     mock_execute_helper,
-    mock_snowflake_yml_file,
+    mock_snowflake_yml_file_v2,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
-
-CREATE_PROCESSOR = "NativeAppVersionCreateProcessor"
 
 allow_always_policy = AllowAlwaysPolicy()
 ask_always_policy = AskAlwaysPolicy()
 deny_always_policy = DenyAlwaysPolicy()
 
 
-def _get_version_create_processor():
+def _version_create(
+    version: str | None,
+    patch: int | None,
+    force: bool,
+    interactive: bool,
+    skip_git_check: bool,
+):
     dm = DefinitionManager()
-    return NativeAppVersionCreateProcessor(
-        project_definition=dm.project_definition.native_app,
+    pd = dm.project_definition
+    pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
+    ctx = WorkspaceContext(
+        console=cc,
         project_root=dm.project_root,
+        get_default_role=lambda: "mock_role",
+        get_default_warehouse=lambda: "mock_warehouse",
+    )
+    pkg = ApplicationPackageEntity(pkg_model, ctx)
+    return pkg.action_version_create(
+        action_ctx=mock.Mock(spec=ActionContext),
+        version=version,
+        patch=patch,
+        force=force,
+        interactive=interactive,
+        skip_git_check=skip_git_check,
     )
 
 
 # Test get_existing_release_directive_info_for_version returns release directives info correctly
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_get_existing_release_direction_info(mock_execute, temp_dir, mock_cursor):
+def test_get_existing_release_direction_info(
+    mock_execute, temp_dir, mock_cursor, workspace_context
+):
     version = "V1"
     side_effects, expected = mock_execute_helper(
         [
@@ -95,15 +113,14 @@ def test_get_existing_release_direction_info(mock_execute, temp_dir, mock_cursor
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_create_processor()
-    result = ApplicationPackageEntity.get_existing_release_directive_info_for_version(
-        package_name=processor.package_name,
-        package_role=processor.package_role,
-        version=version,
-    )
+    dm = DefinitionManager()
+    pd = dm.project_definition
+    pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    result = pkg.get_existing_release_directive_info_for_version(version=version)
     assert mock_execute.mock_calls == expected
     assert len(result) == 2
 
@@ -114,7 +131,9 @@ def test_get_existing_release_direction_info(mock_execute, temp_dir, mock_cursor
     ["version", "version_identifier"],
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
 )
-def test_add_version(mock_execute, temp_dir, mock_cursor, version, version_identifier):
+def test_add_version(
+    mock_execute, temp_dir, mock_cursor, version, version_identifier, workspace_context
+):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -144,17 +163,14 @@ def test_add_version(mock_execute, temp_dir, mock_cursor, version, version_ident
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_create_processor()
-    ApplicationPackageEntity.add_new_version(
-        console=cc,
-        package_name=processor.package_name,
-        package_role=processor.package_role,
-        stage_fqn=processor.stage_fqn,
-        version=version,
-    )
+    dm = DefinitionManager()
+    pd = dm.project_definition
+    pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    pkg.add_new_version(version=version)
     assert mock_execute.mock_calls == expected
 
 
@@ -165,7 +181,7 @@ def test_add_version(mock_execute, temp_dir, mock_cursor, version, version_ident
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
 )
 def test_add_new_patch_auto(
-    mock_execute, temp_dir, mock_cursor, version, version_identifier
+    mock_execute, temp_dir, mock_cursor, version, version_identifier, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -196,17 +212,14 @@ def test_add_new_patch_auto(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_create_processor()
-    ApplicationPackageEntity.add_new_patch_to_version(
-        console=cc,
-        package_name=processor.package_name,
-        package_role=processor.package_role,
-        stage_fqn=processor.stage_fqn,
-        version=version,
-    )
+    dm = DefinitionManager()
+    pd = dm.project_definition
+    pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    pkg.add_new_patch_to_version(version=version)
     assert mock_execute.mock_calls == expected
 
 
@@ -217,7 +230,7 @@ def test_add_new_patch_auto(
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
 )
 def test_add_new_patch_custom(
-    mock_execute, temp_dir, mock_cursor, version, version_identifier
+    mock_execute, temp_dir, mock_cursor, version, version_identifier, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -248,24 +261,20 @@ def test_add_new_patch_custom(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_create_processor()
-    ApplicationPackageEntity.add_new_patch_to_version(
-        console=cc,
-        package_name=processor.package_name,
-        package_role=processor.package_role,
-        stage_fqn=processor.stage_fqn,
-        version=version,
-        patch=12,
-    )
+    dm = DefinitionManager()
+    pd = dm.project_definition
+    pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    pkg.add_new_patch_to_version(version=version, patch=12)
     assert mock_execute.mock_calls == expected
 
 
 # Test version create when user did not pass in a version AND we could not find a version in the manifest file either
 @mock.patch(
-    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity._bundle",
     return_value=None,
 )
 @mock.patch(
@@ -287,12 +296,11 @@ def test_process_no_version_from_user_no_version_in_manifest(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_create_processor()
     with pytest.raises(ClickException):
-        processor.process(
+        _version_create(
             version=None,
             patch=None,
             force=force,
@@ -321,12 +329,11 @@ def test_process_no_version_exists_throws_bad_option_exception_one(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_create_processor()
     with pytest.raises(BadOptionUsage):
-        processor.process(
+        _version_create(
             version="v1",
             patch=12,
             force=force,
@@ -354,12 +361,11 @@ def test_process_no_version_exists_throws_bad_option_exception_two(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_create_processor()
     with pytest.raises(BadOptionUsage):
-        processor.process(
+        _version_create(
             version="v1",
             patch=12,
             force=force,
@@ -376,7 +382,7 @@ def test_process_no_version_exists_throws_bad_option_exception_two(
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
-@mock.patch.object(ApplicationPackageEntity, "deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -406,11 +412,10 @@ def test_process_no_existing_release_directives_or_versions(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_create_processor()
-    processor.process(
+    _version_create(
         version=version,
         patch=None,
         force=force,
@@ -432,7 +437,7 @@ def test_process_no_existing_release_directives_or_versions(
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
-@mock.patch.object(ApplicationPackageEntity, "deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -470,11 +475,10 @@ def test_process_no_existing_release_directives_w_existing_version(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_create_processor()
-    processor.process(
+    _version_create(
         version=version,
         patch=12,
         force=force,
@@ -496,7 +500,7 @@ def test_process_no_existing_release_directives_w_existing_version(
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
-@mock.patch.object(ApplicationPackageEntity, "deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -533,12 +537,11 @@ def test_process_existing_release_directives_user_does_not_proceed(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_create_processor()
     with pytest.raises(typer.Exit):
-        processor.process(
+        _version_create(
             version=version,
             patch=12,
             force=False,
@@ -556,7 +559,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
-@mock.patch.object(ApplicationPackageEntity, "deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -604,11 +607,10 @@ def test_process_existing_release_directives_w_existing_version_two(
     create_named_file(
         file_name="snowflake.yml",
         dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file],
+        contents=[mock_snowflake_yml_file_v2],
     )
 
-    processor = _get_version_create_processor()
-    processor.process(
+    _version_create(
         version=version,
         patch=12,
         force=force,

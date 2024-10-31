@@ -12,11 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import shutil
 import subprocess
 import sys
-import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -28,6 +26,10 @@ from snowflake.cli.api.secure_path import SecurePath
 from tests_common import IS_WINDOWS
 
 TEST_DIR = Path(__file__).parent
+
+pytest_plugins = [
+    "tests_common",
+]
 
 
 def _clean_output(text: str):
@@ -86,16 +88,6 @@ def disable_colors_and_styles_in_output(monkeypatch):
     monkeypatch.setenv("TERM", "unknown")
 
 
-@pytest.fixture
-def temp_dir():
-    initial_dir = os.getcwd()
-    tmp = tempfile.TemporaryDirectory()
-    os.chdir(tmp.name)
-    yield tmp.name
-    os.chdir(initial_dir)
-    tmp.cleanup()
-
-
 @pytest.fixture(scope="session")
 def snowcli(test_root_path):
     with TemporaryDirectory() as tmp_dir:
@@ -138,7 +130,7 @@ def _install_snowcli_with_external_plugin(
     python = _python_path(venv_path)
     _pip_install(
         python,
-        test_root_path / f"../dist/snowflake_cli_labs-{version}-py3-none-any.whl",
+        test_root_path / f"../dist/snowflake_cli-{version}-py3-none-any.whl",
     )
     _pip_install(
         python,
