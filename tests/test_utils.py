@@ -15,6 +15,7 @@
 import json
 import os
 from pathlib import Path
+from textwrap import dedent
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -292,22 +293,14 @@ def test_get_host_region(host, expected):
     assert get_host_region(host) == expected
 
 
-def test_get_ui_parameters_no_params():
-    connection = MagicMock()
-    cursor = MagicMock()
-    connection.execute_string.return_value = (None, cursor)
-    cursor.fetchall.return_value = []
-    assert get_ui_parameters(connection) == {}
-
-    assert connection.execute_string.has_calls([])
-
-
-expected_ui_params_query = f"""
+expected_ui_params_query = dedent(
+    f"""
     select value['value']::string as PARAM_VALUE, value['name']::string as PARAM_NAME from table(flatten(
         input => parse_json(SYSTEM$BOOTSTRAP_DATA_REQUEST()),
         path => 'clientParamsInfo'
     )) where value['name'] in ('ENABLE_EVENT_SHARING_V2_IN_THE_SAME_ACCOUNT', 'ENFORCE_MANDATORY_FILTERS_FOR_SAME_ACCOUNT_INSTALLATION', 'UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT');
     """
+)
 
 
 def test_get_ui_parameters_no_param():
@@ -328,12 +321,12 @@ def test_get_ui_parameters_one_param():
     connection.execute_string.return_value = (None, cursor)
     cursor.fetchall.return_value = [
         {
-            "PARAM_NAME": UIParameter.ENABLE_REGIONLESS_REDIRECT.value,
+            "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
             "PARAM_VALUE": "true",
         }
     ]
     assert get_ui_parameters(connection) == {
-        UIParameter.ENABLE_REGIONLESS_REDIRECT: "true"
+        UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "true"
     }
 
     connection.execute_string.assert_called_with(
@@ -347,17 +340,17 @@ def test_get_ui_parameters_multiple_params():
     connection.execute_string.return_value = (None, cursor)
     cursor.fetchall.return_value = [
         {
-            "PARAM_NAME": UIParameter.ENABLE_REGIONLESS_REDIRECT.value,
+            "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
             "PARAM_VALUE": "true",
         },
         {
-            "PARAM_NAME": UIParameter.EVENT_SHARING_V2.value,
+            "PARAM_NAME": UIParameter.NA_EVENT_SHARING_V2.value,
             "PARAM_VALUE": "false",
         },
     ]
     assert get_ui_parameters(connection) == {
-        UIParameter.ENABLE_REGIONLESS_REDIRECT: "true",
-        UIParameter.EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "true",
+        UIParameter.NA_EVENT_SHARING_V2: "false",
     }
 
     connection.execute_string.assert_called_with(
@@ -371,12 +364,12 @@ def test_get_ui_parameter_with_value():
     connection.execute_string.return_value = (None, cursor)
     cursor.fetchall.return_value = [
         {
-            "PARAM_NAME": UIParameter.ENABLE_REGIONLESS_REDIRECT.value,
+            "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
             "PARAM_VALUE": "true",
         }
     ]
     assert (
-        get_ui_parameter(connection, UIParameter.ENABLE_REGIONLESS_REDIRECT, "false")
+        get_ui_parameter(connection, UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, "false")
         == "true"
     )
 
@@ -387,12 +380,12 @@ def test_get_ui_parameter_with_empty_value_then_use_empty_value():
     connection.execute_string.return_value = (None, cursor)
     cursor.fetchall.return_value = [
         {
-            "PARAM_NAME": UIParameter.ENABLE_REGIONLESS_REDIRECT.value,
+            "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
             "PARAM_VALUE": "",
         }
     ]
     assert (
-        get_ui_parameter(connection, UIParameter.ENABLE_REGIONLESS_REDIRECT, "false")
+        get_ui_parameter(connection, UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, "false")
         == ""
     )
 
@@ -403,6 +396,6 @@ def test_get_ui_parameter_with_no_value_then_use_default():
     connection.execute_string.return_value = (None, cursor)
     cursor.fetchall.return_value = []
     assert (
-        get_ui_parameter(connection, UIParameter.ENABLE_REGIONLESS_REDIRECT, "false")
+        get_ui_parameter(connection, UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, "false")
         == "false"
     )
