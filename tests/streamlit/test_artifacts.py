@@ -3,8 +3,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
-from snowflake.connector import ProgrammingError
+from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.connector.compat import IS_WINDOWS
 
 
@@ -110,13 +109,14 @@ from snowflake.connector.compat import IS_WINDOWS
     ],
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
-@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.StageManager.put")
+@mock.patch(
+    "snowflake.cli._plugins.connection.util.get_ui_parameters",
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 def test_deploy_with_artifacts(
+    mock_param,
     mock_sm_put,
-    mock_om_show,
-    mock_om_describe,
     mock_conn,
     mock_cursor,
     runner,
@@ -126,15 +126,11 @@ def test_deploy_with_artifacts(
     artifacts,
     paths,
 ):
-    mock_om_describe.side_effect = ProgrammingError(
-        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
-    )
     ctx = mock_ctx(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
-                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "my_account"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
         )
@@ -158,6 +154,7 @@ def test_deploy_with_artifacts(
             [
                 "streamlit",
                 "deploy",
+                "--replace",
             ]
         )
         assert result.exit_code == 0, result.output
@@ -252,13 +249,14 @@ def test_deploy_with_artifacts(
     ],
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
-@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.StageManager.put")
+@mock.patch(
+    "snowflake.cli._plugins.connection.util.get_ui_parameters",
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 def test_deploy_with_artifacts_from_other_directory(
+    mock_param,
     mock_sm_put,
-    mock_om_show,
-    mock_om_describe,
     mock_conn,
     mock_cursor,
     runner,
@@ -268,9 +266,6 @@ def test_deploy_with_artifacts_from_other_directory(
     artifacts,
     paths,
 ):
-    mock_om_describe.side_effect = ProgrammingError(
-        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
-    )
     ctx = mock_ctx(
         mock_cursor(
             rows=[
@@ -297,7 +292,7 @@ def test_deploy_with_artifacts_from_other_directory(
             streamlit_files + [artifacts],
         )
 
-        result = runner.invoke(["streamlit", "deploy", "-p", tmp])
+        result = runner.invoke(["streamlit", "deploy", "-p", tmp, "--replace"])
         assert result.exit_code == 0, result.output
 
         put_calls = _extract_put_calls(mock_sm_put)

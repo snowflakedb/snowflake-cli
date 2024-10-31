@@ -97,7 +97,7 @@ class Artefact:
         self.project_root = project_root
         self.path = path
         self.dest = dest
-        if self.dest and not self.is_dest_a_file() and not self.dest.endswith("/"):
+        if self.dest and not self._is_dest_a_file() and not self.dest.endswith("/"):
             self.dest = self.dest + "/"
 
     @property
@@ -106,11 +106,10 @@ class Artefact:
             before_wildcard = str(self.path).split("*")[0]
             last_part = Path(before_wildcard).absolute().parts[-1]
             return last_part + ".zip"
-        elif (self.project_root / self.path).is_dir():
+        if (self.project_root / self.path).is_dir():
             return self.path.stem + ".zip"
-        elif (self.project_root / self.path).is_file():
-            if self.is_dest_a_file():
-                return Path(self.dest).name  # type: ignore
+        if (self.project_root / self.path).is_file() and self._is_dest_a_file():
+            return Path(self.dest).name  # type: ignore
         return self.path.name
 
     @property
@@ -120,6 +119,8 @@ class Artefact:
         """
         deploy_root = self.deploy_root()
         path = self._path_until_asterix() if "*" in str(self.path) else self.path.parent
+        if self._is_dest_a_file():
+            return deploy_root / self.dest  # type: ignore
         return deploy_root / (self.dest or path) / self._artefact_name
 
     def upload_path(self, stage: FQN | str | None) -> str:
@@ -132,15 +133,16 @@ class Artefact:
 
         stage_path = PurePosixPath(f"@{stage}")
         if self.dest:
-            if self.is_dest_a_file():
-                stage_path = stage_path / PurePosixPath(self.dest).parent
-            else:
-                stage_path = stage_path / self.dest
+            stage_path /= (
+                PurePosixPath(self.dest).parent if self._is_dest_a_file() else self.dest
+            )
         else:
-            if "*" in str(self.path):
-                stage_path = stage_path / self._path_until_asterix()
-            else:
-                stage_path = stage_path / PurePosixPath(self.path).parent
+            stage_path /= (
+                self._path_until_asterix()
+                if "*" in str(self.path)
+                else PurePosixPath(self.path).parent
+            )
+
         return str(stage_path) + "/"
 
     def import_path(self, stage: FQN | str | None) -> str:
@@ -150,7 +152,7 @@ class Artefact:
     def deploy_root(self) -> Path:
         return self.project_root / "output"
 
-    def is_dest_a_file(self) -> bool:
+    def _is_dest_a_file(self) -> bool:
         if not self.dest:
             return False
         return re.search(r"\.[a-zA-Z0-9]{2,4}$", self.dest) is not None
