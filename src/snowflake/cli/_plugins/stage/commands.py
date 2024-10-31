@@ -141,7 +141,7 @@ def copy(
         )
     return _put(
         recursive=recursive,
-        source_path=source_path,
+        source_path=Path(source_path),
         destination_path=destination_path,
         parallel=parallel,
         overwrite=overwrite,
@@ -247,23 +247,27 @@ def get(recursive: bool, source_path: str, destination_path: str, parallel: int)
 
 def _put(
     recursive: bool,
-    source_path: str,
+    source_path: Path,
     destination_path: str,
     parallel: int,
     overwrite: bool,
     auto_compress: bool,
 ):
-    if recursive:
-        raise click.ClickException("Recursive flag for upload is not supported.")
-
-    source = Path(source_path).resolve()
-    local_path = str(source) + "/*" if source.is_dir() else str(source)
-
-    cursor = StageManager().put(
-        local_path=local_path,
-        stage_path=destination_path,
-        overwrite=overwrite,
-        parallel=parallel,
-        auto_compress=auto_compress,
-    )
-    return QueryResult(cursor)
+    if recursive and not source_path.is_file():
+        cursor_generator = StageManager().put_recursive(
+            local_path=source_path,
+            stage_path=destination_path,
+            overwrite=overwrite,
+            parallel=parallel,
+            auto_compress=auto_compress,
+        )
+        return CollectionResult(cursor_generator)
+    else:
+        cursor = StageManager().put(
+            local_path=source_path.resolve(),
+            stage_path=destination_path,
+            overwrite=overwrite,
+            parallel=parallel,
+            auto_compress=auto_compress,
+        )
+        return QueryResult(cursor)
