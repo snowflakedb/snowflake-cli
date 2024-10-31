@@ -7309,14 +7309,20 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --container-name          TEXT     Name of the container.                 |
-  |                                       [required]                             |
-  | *  --instance-id             TEXT     ID of the service instance, starting   |
-  |                                       with 0.                                |
-  |                                       [required]                             |
-  |    --num-lines               INTEGER  Number of lines to retrieve.           |
-  |                                       [default: 500]                         |
-  |    --help            -h               Show this message and exit.            |
+  | *  --container-name              TEXT     Name of the container.             |
+  |                                           [required]                         |
+  | *  --instance-id                 TEXT     ID of the service instance,        |
+  |                                           starting with 0.                   |
+  |                                           [required]                         |
+  |    --num-lines                   INTEGER  Number of lines to retrieve.       |
+  |                                           [default: 500]                     |
+  |    --since                       TEXT     Timestamp to retrieve logs from    |
+  |    --include-timestamps                   Include timestamps in logs         |
+  |    --follow              -f               Continue polling for logs.         |
+  |    --follow-interval             INTEGER  Polling interval in seconds when   |
+  |                                           using the --follow flag            |
+  |                                           [default: 2]                       |
+  |    --help                -h               Show this message and exit.        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
