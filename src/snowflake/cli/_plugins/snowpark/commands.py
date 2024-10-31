@@ -384,7 +384,6 @@ def build(
     if FeatureFlag.ENABLE_SNOWPARK_NEW_BUILD.is_enabled():
         for entity in get_snowpark_entities(pd).values():
             for artifact in entity.artifacts:
-                # artifacts.add(Artefact(project_root=project_paths.project_root, path=Path(artifact.src), dest=artifact.dest if artifact.dest else None))
                 artifacts.add(project_paths.get_artefact_dto(artifact))
 
         with cli_console.phase("Preparing artifacts for source code"):
@@ -418,7 +417,6 @@ def build(
 
         with cli_console.phase("Preparing artifacts for source code"):
             for artefact in artifacts:
-                # artefact_dto = project_paths.get_artefact_dto_old_build(artefact)
                 artefact.build()
 
     return MessageResult(f"Build done.")
