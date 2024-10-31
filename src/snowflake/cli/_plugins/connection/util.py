@@ -17,7 +17,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Optional
+from enum import Enum
+from functools import lru_cache
+from typing import Any, Dict, Optional
 
 from click.exceptions import ClickException
 from snowflake.connector import SnowflakeConnection
@@ -25,12 +27,6 @@ from snowflake.connector.cursor import DictCursor
 
 log = logging.getLogger(__name__)
 
-REGIONLESS_QUERY = """
-    select value['value'] as REGIONLESS from table(flatten(
-        input => parse_json(SYSTEM$BOOTSTRAP_DATA_REQUEST()),
-        path => 'clientParamsInfo'
-    )) where value['name'] = 'UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT';
-"""
 
 ALLOWLIST_QUERY = "SELECT SYSTEM$ALLOWLIST()"
 SNOWFLAKE_DEPLOYMENT = "SNOWFLAKE_DEPLOYMENT"
@@ -54,6 +50,53 @@ class MissingConnectionRegionError(ClickException):
         )
 
 
+class UIParameter(Enum):
+    ENABLE_REGIONLESS_REDIRECT = "UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT"
+    EVENT_SHARING_V2 = "ENABLE_EVENT_SHARING_V2_IN_THE_SAME_ACCOUNT"
+    ENFORCE_MANDATORY_FILTERS = (
+        "ENFORCE_MANDATORY_FILTERS_FOR_SAME_ACCOUNT_INSTALLATION"
+    )
+
+
+def get_ui_parameter(
+    conn: SnowflakeConnection, parameter: UIParameter, default: Any
+) -> str:
+    """
+    Returns the value of a single UI parameter.
+    If the parameter is not found, the default value is returned.
+    """
+
+    if not isinstance(parameter, UIParameter):
+        raise ValueError("Parameter must be a UIParameters enum")
+
+    ui_parameters = get_ui_parameters(conn)
+    return ui_parameters.get(parameter, default)
+
+
+@lru_cache(maxsize=None)
+def get_ui_parameters(conn: SnowflakeConnection) -> Dict[UIParameter, Any]:
+    """
+    Returns the UI parameters from the SYSTEM$BOOTSTRAP_DATA_REQUEST function
+    """
+
+    parameters_to_fetch = sorted(
+        [param.value for param in UIParameter.__members__.values()]
+    )
+
+    query = f"""
+    select value['value']::string as PARAM_VALUE, value['name']::string as PARAM_NAME from table(flatten(
+        input => parse_json(SYSTEM$BOOTSTRAP_DATA_REQUEST()),
+        path => 'clientParamsInfo'
+    )) where value['name'] in ('{"', '".join(parameters_to_fetch)}');
+    """
+
+    *_, cursor = conn.execute_string(query, cursor_class=DictCursor)
+
+    return {
+        UIParameter(row["PARAM_NAME"]): row["PARAM_VALUE"] for row in cursor.fetchall()
+    }
+
+
 def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
     """
     Determines if the deployment this connection refers to uses
@@ -62,8 +105,12 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
     assume it's regionless, as this is true for most production deployments.
     """
     try:
-        *_, cursor = conn.execute_string(REGIONLESS_QUERY, cursor_class=DictCursor)
-        return cursor.fetchone()["REGIONLESS"].lower() == "true"
+        return (
+            get_ui_parameter(
+                conn, UIParameter.ENABLE_REGIONLESS_REDIRECT, "true"
+            ).lower()
+            == "true"
+        )
     except:
         log.warning(
             "Cannot determine regionless redirect; assuming True.", exc_info=True
