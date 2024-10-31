@@ -225,9 +225,6 @@ def logs(
     num_lines: int = typer.Option(
         500, "--num-lines", help="Number of lines to retrieve."
     ),
-    previous_logs: bool = typer.Option(
-        False, "--previous-logs", "-p", help="Retrieve previous logs", is_flag=True
-    ),
     since_timestamp: Optional[str] = typer.Option(
         "", "--since", help="Timestamp to retrieve logs from"
     ),
@@ -248,8 +245,6 @@ def logs(
     Retrieves local logs from a service container.
     """
     if follow:
-        if previous_logs:
-            raise IncompatibleParametersError(["--follow", "--previous-logs"])
         if num_lines != 500:
             raise IncompatibleParametersError(["--follow", "--num-lines"])
 
@@ -267,9 +262,7 @@ def logs(
                 container_name=container_name,
                 instance_id=instance_id,
                 num_lines=num_lines,
-                previous_logs=previous_logs,
                 since_timestamp=since_timestamp,
-                include_timestamps=include_timestamps,
                 interval_seconds=follow_interval,
             )
         )
@@ -280,7 +273,6 @@ def logs(
             container_name=container_name,
             instance_id=instance_id,
             num_lines=num_lines,
-            previous_logs=previous_logs,
             since_timestamp=since_timestamp,
             include_timestamps=include_timestamps,
         )

@@ -140,13 +140,12 @@ class ServiceManager(SqlExecutionMixin):
         instance_id: str,
         container_name: str,
         num_lines: int,
-        previous_logs: bool = False,
         since_timestamp: str = "",
         include_timestamps: bool = False,
     ):
         return self._execute_query(
             f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', "
-            f"{num_lines}, {previous_logs}, '{since_timestamp}', {include_timestamps});"
+            f"{num_lines}, False, '{since_timestamp}', {include_timestamps});"
         )
 
     def stream_logs(
@@ -155,9 +154,7 @@ class ServiceManager(SqlExecutionMixin):
         instance_id: str,
         container_name: str,
         num_lines: int,
-        previous_logs: bool,
         since_timestamp: str,
-        include_timestamps: bool,
         interval_seconds: int,
     ):
         try:
@@ -170,7 +167,6 @@ class ServiceManager(SqlExecutionMixin):
                     instance_id=instance_id,
                     container_name=container_name,
                     num_lines=num_lines,
-                    previous_logs=False,
                     since_timestamp=prev_timestamp,
                     include_timestamps=True,
                 )
