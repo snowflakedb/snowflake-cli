@@ -1266,21 +1266,21 @@ def test_recursive_upload(temp_dir, pattern):
             stage_path=StagePath.from_stage_str("@stageName/dir2/dir21/dir211/dir2111"),
         ),
         dict(
-            local_path=tmp_created_by_copy / "dir3/dir32/",
-            stage_path=StagePath.from_stage_str("@stageName/dir3/dir32"),
-        ),
-        dict(
             local_path=tmp_created_by_copy / "dir1/dir12/",
             stage_path=StagePath.from_stage_str("@stageName/dir1/dir12"),
         ),
-        # Next level
         dict(
-            local_path=tmp_created_by_copy / "dir3/",
-            stage_path=StagePath.from_stage_str("@stageName/dir3"),
+            local_path=tmp_created_by_copy / "dir3/dir32/",
+            stage_path=StagePath.from_stage_str("@stageName/dir3/dir32"),
         ),
+        # Next level
         dict(
             local_path=tmp_created_by_copy / "dir1/",
             stage_path=StagePath.from_stage_str("@stageName/dir1"),
+        ),
+        dict(
+            local_path=tmp_created_by_copy / "dir3/",
+            stage_path=StagePath.from_stage_str("@stageName/dir3"),
         ),
         # Next level
         dict(
