@@ -71,7 +71,7 @@ def get_ui_parameter(
     return ui_parameters.get(parameter, default)
 
 
-@lru_cache(maxsize=None)
+@lru_cache()
 def get_ui_parameters(conn: SnowflakeConnection) -> Dict[UIParameter, Any]:
     """
     Returns the UI parameters from the SYSTEM$BOOTSTRAP_DATA_REQUEST function
