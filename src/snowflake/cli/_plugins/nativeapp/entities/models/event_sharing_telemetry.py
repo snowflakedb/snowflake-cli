@@ -5,7 +5,7 @@ from pydantic import Field, field_validator, model_validator
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
 
-class Telemetry(UpdatableModel):
+class EventSharingTelemetry(UpdatableModel):
     authorize_event_sharing: Optional[bool] = Field(
         title="Whether to authorize Snowflake to share application usage data with application package provider. This automatically enables the sharing of required telemetry events.",
         default=None,

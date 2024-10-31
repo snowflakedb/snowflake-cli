@@ -34,7 +34,9 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
     ApplicationPackageEntityModel,
 )
-from snowflake.cli._plugins.nativeapp.entities.models.telemetry import Telemetry
+from snowflake.cli._plugins.nativeapp.entities.models.event_sharing_telemetry import (
+    EventSharingTelemetry,
+)
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageDoesNotExistError,
     NoEventTableForAccount,
@@ -105,7 +107,7 @@ class ApplicationEntityModel(EntityModelBase):
         title="Whether to enable debug mode when using a named stage to create an application object",
         default=None,
     )
-    telemetry: Optional[Telemetry] = Field(
+    telemetry: Optional[EventSharingTelemetry] = Field(
         title="Telemetry configuration for the application",
         default=None,
     )
