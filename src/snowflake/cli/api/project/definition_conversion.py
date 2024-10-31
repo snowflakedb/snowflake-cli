@@ -490,6 +490,7 @@ def _convert_templates_in_files(
         # and if we're doing a permanent conversion. If we're doing an in-memory conversion,
         # the CLI global template context is already populated with the v1 definition, so
         # we don't want to convert the v1 template references in artifact files
+        metrics.set_counter_default(CLICounterField.TEMPLATES_PROCESSOR, 0)
         if not in_memory and any(
             processor.name == TEMPLATES_PROCESSOR
             for artifact in pkg_model.artifacts
