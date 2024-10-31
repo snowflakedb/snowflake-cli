@@ -32,6 +32,10 @@ from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     FunctionEntityModel,
     ProcedureEntityModel,
 )
+from snowflake.cli._plugins.spcs.entities.service import (
+    ServiceEntity,
+    ServiceEntityModel,
+)
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
@@ -43,6 +47,7 @@ Entity = Union[
     StreamlitEntity,
     ProcedureEntity,
     FunctionEntity,
+    ServiceEntity,
 ]
 EntityModel = Union[
     ApplicationEntityModel,
@@ -50,6 +55,7 @@ EntityModel = Union[
     StreamlitEntityModel,
     FunctionEntityModel,
     ProcedureEntityModel,
+    ServiceEntityModel,
 ]
 
 ALL_ENTITIES: List[Entity] = [*get_args(Entity)]
