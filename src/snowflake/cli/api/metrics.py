@@ -16,6 +16,7 @@ from __future__ import annotations
 import time
 import uuid
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from typing import ClassVar, Dict, Iterator, List, Optional
 
@@ -153,6 +154,10 @@ class CLIMetrics:
     _monotonic_start: float = field(
         init=False, default_factory=time.monotonic, compare=False
     )
+    # thread local values to support concurrent operations on metrics
+    _current_span_context: ContextVar[Optional[CLIMetricsSpan]] = field(
+        init=False, default_factory=lambda: ContextVar("current_span", default=None)
+    )
 
     # count of spans dropped due to reaching depth limit
     num_spans_past_depth_limit: int = field(init=False, default=0)
@@ -183,49 +188,61 @@ class CLIMetrics:
 
     @property
     def current_span(self) -> Optional[CLIMetricsSpan]:
+        if self._current_span_context.get():
+            return self._current_span_context.get()
         return self._in_progress_spans[-1] if len(self._in_progress_spans) > 0 else None
 
+    @current_span.setter
+    def current_span(self, new_span: Optional[CLIMetricsSpan]) -> None:
+        self._current_span_context.set(new_span)
+
     @contextmanager
-    def start_span(self, name: str) -> Iterator[CLIMetricsSpan]:
+    def start_span(
+        self, name: str, parent: Optional[CLIMetricsSpan] = None
+    ) -> Iterator[CLIMetricsSpan]:
         """
         Starts a new span that tracks various metrics throughout its execution
 
-        Assumes that parent steps contain the entirety of their child steps
-        Parent steps are automatically populated as the most recently executed step, like a stack
-
-        Only one span can be active at a time; once one span finishes its parent becomes the active span
+        Assumes that parent spans contain the entirety of their child spans
+        If not provided, parent spans are automatically populated as the most recently executed spans
 
         Spans are not emitted in telemetry if depth/total limits are exceeded
 
         :raises CliMetricsInvalidUsageError: if the step name is empty
         """
-        new_step = CLIMetricsSpan(
+        prev_span = self.current_span
+
+        new_span = CLIMetricsSpan(
             name=name,
             start_time=time.monotonic() - self._monotonic_start,
-            parent=self.current_span,
+            parent=parent or prev_span,
         )
 
         if len(self._in_progress_spans) >= self.IN_PROGRESS_SPANS_DEPTH_LIMIT:
             self.num_spans_past_depth_limit += 1
         else:
-            self._in_progress_spans.append(new_step)
+            self._in_progress_spans.append(new_span)
+
+        self.current_span = new_span
 
         try:
-            yield new_step
+            yield new_span
         except BaseException as err:
-            new_step.finish(error=err)
+            new_span.finish(error=err)
             raise
         else:
-            new_step.finish()
+            new_span.finish()
         finally:
             if len(self._completed_spans) >= self.COMPLETED_SPANS_TOTAL_LIMIT:
                 self.num_spans_past_total_limit += 1
 
-            if new_step in self._in_progress_spans:
-                self._in_progress_spans.remove(new_step)
+            if new_span in self._in_progress_spans:
+                self._in_progress_spans.remove(new_span)
 
                 if len(self._completed_spans) < self.COMPLETED_SPANS_TOTAL_LIMIT:
-                    self._completed_spans.append(new_step)
+                    self._completed_spans.append(new_span)
+
+            self.current_span = prev_span
 
     @property
     def counters(self) -> Dict[str, int]:

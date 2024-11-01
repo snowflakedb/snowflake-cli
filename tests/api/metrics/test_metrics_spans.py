@@ -11,8 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import concurrent.futures
 import time
 import uuid
+from typing import Optional
 
 import pytest
 from snowflake.cli.api.metrics import (
@@ -213,6 +215,63 @@ def test_metrics_spans_parent_with_two_children_same_name():
     )
 
 
+def test_metrics_explicit_parents_intertwined_retains_correct_hierarchy():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    with metrics.start_span("one") as span_one:
+        with metrics.start_span("two") as span_two:
+            with metrics.start_span("three", parent=span_one):
+                pass
+            assert metrics.current_span is span_two
+
+
+def test_metrics_concurrent_spans_with_explicit_parent():
+    # given
+    metrics = CLIMetrics()
+
+    with metrics.start_span("parent") as parent_span:
+
+        def parallel_operation(seq_num: int):
+            with metrics.start_span("child", parent=parent_span) as local_span:
+                # make sure other threads finish in reverse order for the assertions
+                time.sleep(0.3 - 0.1 * seq_num)
+                # the local thread's current span should be the one started in the thread
+                assert metrics.current_span is local_span
+
+            # we make no guarantees whether metrics.current_span is parent_span here
+
+        # when
+        executor = concurrent.futures.ThreadPoolExecutor()
+        futures = [executor.submit(parallel_operation, seq_num=i) for i in range(3)]
+
+        # the current thread should have the same span as before
+        assert metrics.current_span is parent_span
+
+        executor.shutdown(wait=True)
+        # reraise assertion errors encountered in threads
+        for future in futures:
+            if future.exception():
+                pytest.fail(str(future.exception()))
+
+    # then
+    parent_dict, *other_span_dicts = metrics.completed_spans
+
+    for span_dict in other_span_dicts:
+        assert (
+            span_dict[CLIMetricsSpan.PARENT_KEY] == parent_dict[CLIMetricsSpan.NAME_KEY]
+        )
+        assert (
+            span_dict[CLIMetricsSpan.EXECUTION_TIME_KEY]
+            <= parent_dict[CLIMetricsSpan.EXECUTION_TIME_KEY]
+        )
+        assert (
+            span_dict[CLIMetricsSpan.START_TIME_KEY]
+            >= parent_dict[CLIMetricsSpan.START_TIME_KEY]
+        )
+
+
 def test_metrics_spans_error_is_propagated():
     # given
     metrics = CLIMetrics()
@@ -286,3 +345,20 @@ def test_metrics_spans_passing_total_and_depth_limit_should_add_to_both_counters
         metrics.num_spans_past_total_limit == CLIMetrics.IN_PROGRESS_SPANS_DEPTH_LIMIT
     )
     assert metrics.num_spans_past_depth_limit == 10
+
+
+def test_metrics_spans_passing_depth_limit_retains_correct_parent_chain():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    def create_span(n: int, prev_span: Optional[CLIMetricsSpan]):
+        if n <= 0:
+            return
+
+        with metrics.start_span(f"nested_span-{n}") as span:
+            # then
+            assert span.parent is prev_span
+            create_span(n - 1, span)
+
+    create_span(CLIMetrics.IN_PROGRESS_SPANS_DEPTH_LIMIT + 5, None)
