@@ -156,7 +156,9 @@ class CLIMetrics:
     )
     # thread local values to support concurrent operations on metrics
     _current_span_context: ContextVar[Optional[CLIMetricsSpan]] = field(
-        init=False, default_factory=lambda: ContextVar("current_span", default=None)
+        init=False,
+        default_factory=lambda: ContextVar("current_span", default=None),
+        compare=False,
     )
 
     # count of spans dropped due to reaching depth limit

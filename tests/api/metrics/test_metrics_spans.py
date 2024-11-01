@@ -234,6 +234,7 @@ def test_metrics_concurrent_spans_with_explicit_parent():
     with metrics.start_span("parent") as parent_span:
 
         def parallel_operation(seq_num: int):
+            time.sleep(0.1 * seq_num)
             with metrics.start_span("child", parent=parent_span) as local_span:
                 # make sure other threads finish in reverse order for the assertions
                 time.sleep(0.3 - 0.1 * seq_num)
