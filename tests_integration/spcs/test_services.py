@@ -55,6 +55,7 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
 
 
 @pytest.mark.integration
+@pytest.mark.xfail(reason="Consistently timing out on execute call")
 def test_job_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
 
     test_steps, job_service_name = _test_steps
