@@ -11,7 +11,7 @@ from typing import Any, Dict, Literal, Optional
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
-    symlink_or_copy,
+    bundle_artifacts,
 )
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli._plugins.nativeapp.codegen.compiler import TEMPLATES_PROCESSOR
@@ -516,35 +516,22 @@ def _convert_templates_in_files(
                     ),
                 )
                 template_processor = TemplatesProcessor(bundle_ctx)
-                for artifact in artifacts_to_template:
-                    bundle_map = BundleMap(
-                        project_root=project_root, deploy_root=deploy_root
+                bundle_map = bundle_artifacts(
+                    project_root, deploy_root, artifacts_to_template
+                )
+                for src, dest in bundle_map.all_mappings(
+                    absolute=True, expand_directories=True
+                ):
+                    if src.is_dir():
+                        continue
+                    # We call the implementation directly instead of calling process()
+                    # since we need access to the BundleMap to copy files anyways
+                    template_processor.expand_templates_in_file(
+                        src, dest, replacement_template_context
                     )
-                    bundle_map.add(artifact)
-
-                    for src, dest in bundle_map.all_mappings(
-                        absolute=True, expand_directories=False
-                    ):
-                        # Copy the mapping from the source root to the deploy root,
-                        # since the processor expects the artifacts to have
-                        # already been bundled (we can't call build_bundle() since it
-                        # checks that the deploy_root is a child of the project_root,
-                        # which isn't the case here)
-                        symlink_or_copy(src, dest, deploy_root=deploy_root)
-
-                    for src, dest in bundle_map.all_mappings(
-                        absolute=True, expand_directories=True
-                    ):
-                        if src.is_dir():
-                            continue
-                        # We call the implementation directly instead of calling process()
-                        # since we need access to the BundleMap to copy files anyways
-                        template_processor.expand_templates_in_file(
-                            src, dest, replacement_template_context
-                        )
-                        # Copy the expanded file back to its original source location if it was modified
-                        if not dest.is_symlink():
-                            shutil.copyfile(dest, src)
+                    # Copy the expanded file back to its original source location if it was modified
+                    if not dest.is_symlink():
+                        shutil.copyfile(dest, src)
 
         # Convert package script files to post-deploy hooks
         metrics.set_counter_default(CLICounterField.PACKAGE_SCRIPTS, 0)
