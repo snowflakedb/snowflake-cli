@@ -52,8 +52,6 @@ def test_metrics_spans_initialization_empty():
 
     # then
     assert metrics.completed_spans == []
-    assert metrics.num_spans_past_total_limit == 0
-    assert metrics.num_spans_past_depth_limit == 0
 
 
 def test_metrics_spans_single_span_no_error_or_parent():

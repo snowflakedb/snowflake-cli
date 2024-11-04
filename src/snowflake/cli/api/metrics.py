@@ -149,11 +149,6 @@ class CLIMetrics:
         init=False, default_factory=time.monotonic, compare=False
     )
 
-    # count of spans dropped due to reaching depth limit
-    num_spans_past_depth_limit: int = field(init=False, default=0)
-    # count of spans dropped due to reaching total limit
-    num_spans_past_total_limit: int = field(init=False, default=0)
-
     def clone(self) -> CLIMetrics:
         return replace(self)
 
