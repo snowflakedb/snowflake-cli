@@ -575,62 +575,143 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         return bundle_map
 
     def _inject_spcs(self, spcs_services: list[ServiceEntity]):
+        procedures_schema = "_procedures"
+        service_schema = "_services"
+        role = "_spcs_generation_role"
+
         manifest_path = find_manifest_file(self.deploy_root)
         manifest = yaml.safe_load(manifest_path.read_text())
         if "configuration" not in manifest:
             manifest["configuration"] = {}
         existing_grant_callback = manifest["configuration"].get("grant_callback")
-        wrapper_grant_callback = "_spcs_generation.grant_callback"
-        manifest["configuration"]["grant_callback"] = wrapper_grant_callback
+        manifest["configuration"][
+            "grant_callback"
+        ] = f"{procedures_schema}.grant_callback"
         # TODO set default_web_endpoint in manifest?
         if manifest_path.is_symlink():
             manifest_path.unlink()
         manifest_path.write_text(yaml.safe_dump(manifest, sort_keys=False))
 
-        generated_setup_script = self._spcs_grant_callback(
-            name=wrapper_grant_callback,
-            service=spcs_services[0]._entity_model,  # noqa SLF001
-            existing_grant_callback=existing_grant_callback,
+        service_model = spcs_services[0]._entity_model  # noqa SLF001
+        self._mod_setup_script(
+            {
+                "preamble.sql": self._spcs_preamble(
+                    procedures_schema, service_schema, role
+                ),
+                "procedures.sql": self._spcs_procedures(
+                    service_model, procedures_schema, service_schema, role
+                ),
+                "grant_callback.sql": self._spcs_grant_callback(
+                    existing_grant_callback, procedures_schema, role
+                ),
+            }
         )
+
+    def _mod_setup_script(self, mods: dict[str, str]):
+        spcs_dir = self.generated_root / "__spcs"
+        spcs_dir.mkdir(parents=True, exist_ok=True)
+        spcs_stage_dir = spcs_dir.relative_to(self.deploy_root)
+
+        setup_script_mods = ["\n"]
+        for filename, contents in mods.items():
+            (spcs_dir / filename).write_text(contents)
+            setup_script_mods.append(
+                f"execute immediate from '{str(spcs_stage_dir)}/{filename}';"
+            )
 
         setup_script_path = find_setup_script_file(self.deploy_root)
         setup_script = setup_script_path.read_text()
         if setup_script_path.is_symlink():
             setup_script_path.unlink()
-        setup_script_path.write_text(setup_script + generated_setup_script)
+        setup_script_path.write_text(setup_script + "\n".join(setup_script_mods))
+
+    @staticmethod
+    def _spcs_preamble(procedures_schema: str, service_schema: str, role: str):
+        return dedent(
+            f"""\
+            -- Begin generated SPCS preamble, this section is managed by the Snowflake CLI
+            create or alter versioned schema {procedures_schema};
+            create schema if not exists {service_schema};
+            create application role if not exists {role};
+            -- End generated SPCS preamble
+            """
+        )
+
+    @staticmethod
+    def _spcs_procedures(
+        service: ServiceEntityModel,
+        procedures_schema: str,
+        service_schema: str,
+        role: str,
+    ):
+        return dedent(
+            f"""\
+            -- Begin generated SPCS procedures, this section is managed by the Snowflake CLI
+            create or replace procedure {procedures_schema}.create_compute_pool()
+            returns varchar
+            language sql
+            execute as owner
+            as $$
+                begin
+                    create compute pool if not exists {service.compute_pool}
+                        min_nodes = {service.min_nodes}
+                        max_nodes = {service.max_nodes}
+                        instance_family = {service.instance_family};
+                    return 'Compute pool created';
+                end;
+            $$;
+
+            create or replace procedure {procedures_schema}.create_service()
+            returns varchar
+            language sql
+            execute as owner
+            as $$
+                begin
+                    create service if not exists {service_schema}.{service.fqn.name}
+                        in compute pool {service.compute_pool}
+                        from specification_file = '{service.specification_file}';
+                    return 'Service created';
+                end;
+            $$;
+
+            create or replace procedure {procedures_schema}.start_app()
+            returns varchar
+            language sql
+            execute as owner
+            as $$
+                begin
+                    call {procedures_schema}.create_compute_pool();
+                    call {procedures_schema}.create_service();
+                    return 'App started';
+                end;
+            $$;
+            grant usage on procedure {procedures_schema}.start_app() to application role {role};
+            -- End generated SPCS procedures
+            """
+        )
 
     @staticmethod
     def _spcs_grant_callback(
-        name: str, service: ServiceEntityModel, existing_grant_callback: str
+        existing_grant_callback: str, procedures_schema: str, role: str
     ):
         return dedent(
             f"""\
             -- Begin generated SPCS services, this section is managed by the Snowflake CLI
-            create schema if not exists _spcs_generation;
-
-            create or replace procedure {name}(privileges array)
+            create or replace procedure {procedures_schema}.grant_callback(privileges array)
             returns string
             as $$
             begin
-              {f'call {existing_grant_callback}(privileges);' if existing_grant_callback else ''}
-              if (array_contains('CREATE COMPUTE POOL'::variant, privileges)) then
-                 create compute pool if not exists {service.compute_pool}
-                     min_nodes = {service.min_nodes}
-                     max_nodes = {service.max_nodes}
-                     instance_family = {service.instance_family};
-              end if;
-              if (array_contains('BIND SERVICE ENDPOINT'::variant, privileges)) then
-                 create service if not exists _spcs_generation.{service.fqn.name}
-                  in compute pool {service.compute_pool}
-                  from specification_file = '{service.specification_file}';
-              end if;
-              return 'done';
+                {f'call {existing_grant_callback}(privileges);' if existing_grant_callback else ''}
+                if (array_contains('CREATE COMPUTE POOL'::variant, privileges)) then
+                    call {procedures_schema}.create_compute_pool();
+                end if;
+                if (array_contains('BIND SERVICE ENDPOINT'::variant, privileges)) then
+                    call {procedures_schema}.create_service();
+                end if;
+                return 'done';
             end;
             $$;
-
-            create application role if not exists _spcs_generation_role;
-            grant usage on procedure {name}(array) to application role _spcs_generation_role;
-
+            grant usage on procedure {procedures_schema}.grant_callback(array) to application role {role};
             -- End generated SPCS services
             """
         )
