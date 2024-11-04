@@ -13,7 +13,6 @@
 # limitations under the License.
 import time
 import uuid
-from typing import Optional
 
 import pytest
 from snowflake.cli.api.metrics import (
@@ -240,61 +239,3 @@ def test_metrics_spans_empty_name_raises_error():
 
     # then
     assert err.match("step name must not be empty")
-
-
-def test_metrics_spans_passing_depth_limit_should_add_to_counter_and_not_emit():
-    # given
-    metrics = CLIMetrics()
-
-    # when
-    create_nested_spans_recursively(metrics, num_spans=CLIMetrics.SPAN_DEPTH_LIMIT + 3)
-
-    # then
-    assert len(metrics.completed_spans) == CLIMetrics.SPAN_DEPTH_LIMIT
-    assert metrics.num_spans_past_depth_limit == 3
-
-
-def test_metrics_spans_passing_total_limit_should_add_to_counter_and_not_emit():
-    # given
-    metrics = CLIMetrics()
-
-    # when
-    create_spans_sequentially(
-        metrics, num_spans=CLIMetrics.TOTAL_SPANS_REPORTED_LIMIT + 5
-    )
-
-    # then
-    assert len(metrics.completed_spans) == CLIMetrics.TOTAL_SPANS_REPORTED_LIMIT
-    assert metrics.num_spans_past_total_limit == 5
-
-
-def test_metrics_spans_passing_total_and_depth_limit_should_add_to_both_counters_and_not_emit():
-    # given
-    metrics = CLIMetrics()
-
-    # when
-    # the extra 10 spans are dropped from both the in progress and completed spans lists
-    create_nested_spans_recursively(metrics, num_spans=CLIMetrics.SPAN_DEPTH_LIMIT + 10)
-    create_spans_sequentially(metrics, num_spans=CLIMetrics.TOTAL_SPANS_REPORTED_LIMIT)
-
-    # then
-    assert len(metrics.completed_spans) == CLIMetrics.TOTAL_SPANS_REPORTED_LIMIT
-    assert metrics.num_spans_past_total_limit == CLIMetrics.SPAN_DEPTH_LIMIT
-    assert metrics.num_spans_past_depth_limit == 10
-
-
-def test_metrics_spans_passing_depth_limit_retains_correct_parent_chain():
-    # given
-    metrics = CLIMetrics()
-
-    # when
-    def create_span(n: int, prev_span: Optional[CLIMetricsSpan]):
-        if n <= 0:
-            return
-
-        with metrics.start_span(f"nested_span-{n}") as span:
-            # then
-            assert span.parent is prev_span
-            create_span(n - 1, span)
-
-    create_span(CLIMetrics.SPAN_DEPTH_LIMIT + 5, None)

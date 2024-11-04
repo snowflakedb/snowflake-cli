@@ -139,12 +139,6 @@ class CLIMetrics:
     Class to track various metrics across the execution of a command
     """
 
-    # limits for reporting purposes
-    SPAN_DEPTH_LIMIT: ClassVar[int] = 5  # do not report if span depth exceeds
-    TOTAL_SPANS_REPORTED_LIMIT: ClassVar[
-        int
-    ] = 100  # do not report if total spans exceeds
-
     _counters: Dict[str, int] = field(init=False, default_factory=dict)
     # stack of in progress spans as command is executing
     _in_progress_spans: List[CLIMetricsSpan] = field(init=False, default_factory=list)
@@ -204,9 +198,6 @@ class CLIMetrics:
             parent=self.current_span,
         )
 
-        if len(self._in_progress_spans) >= self.SPAN_DEPTH_LIMIT:
-            self.num_spans_past_depth_limit += 1
-
         self._in_progress_spans.append(new_span)
 
         try:
@@ -217,10 +208,7 @@ class CLIMetrics:
         else:
             new_span.finish()
         finally:
-            if len(self._completed_spans) >= self.TOTAL_SPANS_REPORTED_LIMIT:
-                self.num_spans_past_total_limit += 1
-            elif self._in_progress_spans.index(new_span) < self.SPAN_DEPTH_LIMIT:
-                self._completed_spans.append(new_span)
+            self._completed_spans.append(new_span)
             self._in_progress_spans.remove(new_span)
 
     @property
