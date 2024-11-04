@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import concurrent.futures
 import time
 import uuid
 from typing import Optional
@@ -215,64 +214,6 @@ def test_metrics_spans_parent_with_two_children_same_name():
     )
 
 
-def test_metrics_explicit_parents_intertwined_retains_correct_hierarchy():
-    # given
-    metrics = CLIMetrics()
-
-    # when
-    with metrics.start_span("one") as span_one:
-        with metrics.start_span("two") as span_two:
-            with metrics.start_span("three", parent=span_one):
-                pass
-            assert metrics.current_span is span_two
-
-
-def test_metrics_concurrent_spans_with_explicit_parent():
-    # given
-    metrics = CLIMetrics()
-
-    with metrics.start_span("parent") as parent_span:
-
-        def parallel_operation(seq_num: int):
-            time.sleep(0.1)
-            with metrics.start_span("child", parent=parent_span) as local_span:
-                # make sure other threads finish in reverse order for the assertions
-                time.sleep(0.3 - 0.1 * seq_num)
-                # the local thread's current span should be the one started in the thread
-                assert metrics.current_span is local_span
-
-            # we make no guarantees whether metrics.current_span is parent_span here
-
-        # when
-        executor = concurrent.futures.ThreadPoolExecutor()
-        futures = [executor.submit(parallel_operation, seq_num=i) for i in range(3)]
-
-        # the current thread should have the same span as before
-        assert metrics.current_span is parent_span
-
-        executor.shutdown(wait=True)
-        # reraise assertion errors encountered in threads
-        for future in futures:
-            if future.exception():
-                pytest.fail(str(future.exception()))
-
-    # then
-    parent_dict, *other_span_dicts = metrics.completed_spans
-
-    for span_dict in other_span_dicts:
-        assert (
-            span_dict[CLIMetricsSpan.PARENT_KEY] == parent_dict[CLIMetricsSpan.NAME_KEY]
-        )
-        assert (
-            span_dict[CLIMetricsSpan.EXECUTION_TIME_KEY]
-            <= parent_dict[CLIMetricsSpan.EXECUTION_TIME_KEY]
-        )
-        assert (
-            span_dict[CLIMetricsSpan.START_TIME_KEY]
-            >= parent_dict[CLIMetricsSpan.START_TIME_KEY]
-        )
-
-
 def test_metrics_spans_error_is_propagated():
     # given
     metrics = CLIMetrics()
@@ -306,12 +247,10 @@ def test_metrics_spans_passing_depth_limit_should_add_to_counter_and_not_emit():
     metrics = CLIMetrics()
 
     # when
-    create_nested_spans_recursively(
-        metrics, num_spans=CLIMetrics.IN_PROGRESS_SPANS_DEPTH_LIMIT + 3
-    )
+    create_nested_spans_recursively(metrics, num_spans=CLIMetrics.SPAN_DEPTH_LIMIT + 3)
 
     # then
-    assert len(metrics.completed_spans) == CLIMetrics.IN_PROGRESS_SPANS_DEPTH_LIMIT
+    assert len(metrics.completed_spans) == CLIMetrics.SPAN_DEPTH_LIMIT
     assert metrics.num_spans_past_depth_limit == 3
 
 
@@ -321,11 +260,11 @@ def test_metrics_spans_passing_total_limit_should_add_to_counter_and_not_emit():
 
     # when
     create_spans_sequentially(
-        metrics, num_spans=CLIMetrics.COMPLETED_SPANS_TOTAL_LIMIT + 5
+        metrics, num_spans=CLIMetrics.TOTAL_SPANS_REPORTED_LIMIT + 5
     )
 
     # then
-    assert len(metrics.completed_spans) == CLIMetrics.COMPLETED_SPANS_TOTAL_LIMIT
+    assert len(metrics.completed_spans) == CLIMetrics.TOTAL_SPANS_REPORTED_LIMIT
     assert metrics.num_spans_past_total_limit == 5
 
 
@@ -335,16 +274,12 @@ def test_metrics_spans_passing_total_and_depth_limit_should_add_to_both_counters
 
     # when
     # the extra 10 spans are dropped from both the in progress and completed spans lists
-    create_nested_spans_recursively(
-        metrics, num_spans=CLIMetrics.IN_PROGRESS_SPANS_DEPTH_LIMIT + 10
-    )
-    create_spans_sequentially(metrics, num_spans=CLIMetrics.COMPLETED_SPANS_TOTAL_LIMIT)
+    create_nested_spans_recursively(metrics, num_spans=CLIMetrics.SPAN_DEPTH_LIMIT + 10)
+    create_spans_sequentially(metrics, num_spans=CLIMetrics.TOTAL_SPANS_REPORTED_LIMIT)
 
     # then
-    assert len(metrics.completed_spans) == CLIMetrics.COMPLETED_SPANS_TOTAL_LIMIT
-    assert (
-        metrics.num_spans_past_total_limit == CLIMetrics.IN_PROGRESS_SPANS_DEPTH_LIMIT
-    )
+    assert len(metrics.completed_spans) == CLIMetrics.TOTAL_SPANS_REPORTED_LIMIT
+    assert metrics.num_spans_past_total_limit == CLIMetrics.SPAN_DEPTH_LIMIT
     assert metrics.num_spans_past_depth_limit == 10
 
 
@@ -362,4 +297,4 @@ def test_metrics_spans_passing_depth_limit_retains_correct_parent_chain():
             assert span.parent is prev_span
             create_span(n - 1, span)
 
-    create_span(CLIMetrics.IN_PROGRESS_SPANS_DEPTH_LIMIT + 5, None)
+    create_span(CLIMetrics.SPAN_DEPTH_LIMIT + 5, None)

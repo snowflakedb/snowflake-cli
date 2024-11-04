@@ -16,7 +16,6 @@ from __future__ import annotations
 import time
 import uuid
 from contextlib import contextmanager
-from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from typing import ClassVar, Dict, Iterator, List, Optional
 
@@ -140,10 +139,11 @@ class CLIMetrics:
     Class to track various metrics across the execution of a command
     """
 
-    # limit for number of nested spans throughout execution
-    IN_PROGRESS_SPANS_DEPTH_LIMIT: ClassVar[int] = 5
-    # limit for number of total spans being reported
-    COMPLETED_SPANS_TOTAL_LIMIT: ClassVar[int] = 100
+    # limits for reporting purposes
+    SPAN_DEPTH_LIMIT: ClassVar[int] = 5  # do not report if span depth exceeds
+    TOTAL_SPANS_REPORTED_LIMIT: ClassVar[
+        int
+    ] = 100  # do not report if total spans exceeds
 
     _counters: Dict[str, int] = field(init=False, default_factory=dict)
     # stack of in progress spans as command is executing
@@ -153,12 +153,6 @@ class CLIMetrics:
     # monotonic clock time of when this class was initialized to approximate when the command first started executing
     _monotonic_start: float = field(
         init=False, default_factory=time.monotonic, compare=False
-    )
-    # thread local values to support concurrent operations on metrics
-    _current_span_context: ContextVar[Optional[CLIMetricsSpan]] = field(
-        init=False,
-        default_factory=lambda: ContextVar("current_span", default=None),
-        compare=False,
     )
 
     # count of spans dropped due to reaching depth limit
@@ -190,18 +184,10 @@ class CLIMetrics:
 
     @property
     def current_span(self) -> Optional[CLIMetricsSpan]:
-        if self._current_span_context.get():
-            return self._current_span_context.get()
         return self._in_progress_spans[-1] if len(self._in_progress_spans) > 0 else None
 
-    @current_span.setter
-    def current_span(self, new_span: Optional[CLIMetricsSpan]) -> None:
-        self._current_span_context.set(new_span)
-
     @contextmanager
-    def start_span(
-        self, name: str, parent: Optional[CLIMetricsSpan] = None
-    ) -> Iterator[CLIMetricsSpan]:
+    def start_span(self, name: str) -> Iterator[CLIMetricsSpan]:
         """
         Starts a new span that tracks various metrics throughout its execution
 
@@ -212,20 +198,16 @@ class CLIMetrics:
 
         :raises CliMetricsInvalidUsageError: if the step name is empty
         """
-        prev_span = self.current_span
-
         new_span = CLIMetricsSpan(
             name=name,
             start_time=time.monotonic() - self._monotonic_start,
-            parent=parent or prev_span,
+            parent=self.current_span,
         )
 
-        if len(self._in_progress_spans) >= self.IN_PROGRESS_SPANS_DEPTH_LIMIT:
+        if len(self._in_progress_spans) >= self.SPAN_DEPTH_LIMIT:
             self.num_spans_past_depth_limit += 1
-        else:
-            self._in_progress_spans.append(new_span)
 
-        self.current_span = new_span
+        self._in_progress_spans.append(new_span)
 
         try:
             yield new_span
@@ -235,16 +217,11 @@ class CLIMetrics:
         else:
             new_span.finish()
         finally:
-            if len(self._completed_spans) >= self.COMPLETED_SPANS_TOTAL_LIMIT:
+            if len(self._completed_spans) >= self.TOTAL_SPANS_REPORTED_LIMIT:
                 self.num_spans_past_total_limit += 1
-
-            if new_span in self._in_progress_spans:
-                self._in_progress_spans.remove(new_span)
-
-                if len(self._completed_spans) < self.COMPLETED_SPANS_TOTAL_LIMIT:
-                    self._completed_spans.append(new_span)
-
-            self.current_span = prev_span
+            elif self._in_progress_spans.index(new_span) < self.SPAN_DEPTH_LIMIT:
+                self._completed_spans.append(new_span)
+            self._in_progress_spans.remove(new_span)
 
     @property
     def counters(self) -> Dict[str, int]:
