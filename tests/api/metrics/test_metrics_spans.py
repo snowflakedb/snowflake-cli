@@ -54,7 +54,16 @@ def test_metrics_spans_initialization_empty():
     assert metrics.completed_spans == []
 
 
-def test_metrics_spans_single_span_no_error_or_parent():
+@mock.patch(
+    "time.monotonic",
+    side_effect=[
+        648138.344273541,
+        648145.060737166,
+        648149.218578125,
+        650185.226891333,
+    ],
+)
+def test_metrics_spans_single_span_no_error_or_parent(mock_time_monotonic):
     # given
     metrics = CLIMetrics()
 
@@ -105,6 +114,9 @@ def test_metrics_spans_finish_early_is_idempotent():
         648145.060737166,
         648149.218578125,
         648156.342776708,
+        650185.226891333,
+        650462.360341083,
+        650614.14673775,
     ],
 )
 def test_metrics_spans_parent_with_one_child(mock_time_monotonic):
@@ -157,6 +169,10 @@ def test_metrics_spans_parent_with_one_child(mock_time_monotonic):
         648156.342776708,
         648313.587525833,
         648342.267406625,
+        650185.226891333,
+        650462.360341083,
+        650614.14673775,
+        650639.384397291,
     ],
 )
 def test_metrics_spans_parent_with_two_children_same_name(mock_time_monotonic):

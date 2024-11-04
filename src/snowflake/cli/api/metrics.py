@@ -95,7 +95,9 @@ class CLIMetricsSpan:
     error: Optional[BaseException] = field(init=False, default=None)
 
     # start time of the step from the monotonic clock in order to calculate execution time
-    _monotonic_start: float = field(init=False, default_factory=time.monotonic)
+    _monotonic_start: float = field(
+        init=False, default_factory=lambda: time.monotonic()
+    )
 
     def __post_init__(self):
         if not self.name:
@@ -146,7 +148,7 @@ class CLIMetrics:
     _completed_spans: List[CLIMetricsSpan] = field(init=False, default_factory=list)
     # monotonic clock time of when this class was initialized to approximate when the command first started executing
     _monotonic_start: float = field(
-        init=False, default_factory=time.monotonic, compare=False
+        init=False, default_factory=lambda: time.monotonic(), compare=False
     )
 
     def clone(self) -> CLIMetrics:
