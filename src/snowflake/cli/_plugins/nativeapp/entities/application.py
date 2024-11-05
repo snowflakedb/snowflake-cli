@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
-from typing import Callable, Generator, List, Literal, Optional, TypedDict
+from typing import Generator, List, Literal, Optional, TypedDict
 
 import typer
 from click import ClickException, UsageError
@@ -178,32 +178,14 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         else:
             policy = DenyAlwaysPolicy()
 
-        def deploy_package():
-            package_entity.action_deploy(
-                action_ctx=action_ctx,
-                prune=True,
-                recursive=True,
-                paths=[],
-                validate=validate,
-                stage_fqn=stage_fqn,
-                interactive=interactive,
-                force=force,
-            )
-
-        def drop_application_before_upgrade(cascade: bool = False):
-            self.drop_application_before_upgrade(
-                policy=policy,
-                interactive=interactive,
-                cascade=cascade,
-            )
-
         # same-account release directive
         if from_release_directive:
             self.create_or_upgrade_app(
                 package=package_entity,
                 stage_fqn=stage_fqn,
                 install_method=SameAccountInstallMethod.release_directive(),
-                drop_application_before_upgrade=drop_application_before_upgrade,
+                policy=policy,
+                interactive=interactive,
             )
             return
 
@@ -224,17 +206,28 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 package=package_entity,
                 stage_fqn=stage_fqn,
                 install_method=SameAccountInstallMethod.versioned_dev(version, patch),
-                drop_application_before_upgrade=drop_application_before_upgrade,
+                policy=policy,
+                interactive=interactive,
             )
             return
 
         # unversioned dev
-        deploy_package()
+        package_entity.action_deploy(
+            action_ctx=action_ctx,
+            prune=True,
+            recursive=True,
+            paths=[],
+            validate=validate,
+            stage_fqn=stage_fqn,
+            interactive=interactive,
+            force=force,
+        )
         self.create_or_upgrade_app(
             package=package_entity,
             stage_fqn=stage_fqn,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            drop_application_before_upgrade=drop_application_before_upgrade,
+            policy=policy,
+            interactive=interactive,
         )
 
     def action_drop(
@@ -432,7 +425,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         package: ApplicationPackageEntity,
         stage_fqn: str,
         install_method: SameAccountInstallMethod,
-        drop_application_before_upgrade: Optional[Callable] = None,
+        policy: PolicyBase,
+        interactive: bool,
     ):
         model = self._entity_model
         console = self._workspace_ctx.console
@@ -486,11 +480,9 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                             generic_sql_error_handler(err=err)
                         else:  # The existing application object was created from a different process.
                             console.warning(err.msg)
-                            # TODO Drop the entity here instead of taking a callback once action_drop() is implemented
-                            if drop_application_before_upgrade:
-                                drop_application_before_upgrade()
-                            else:
-                                raise NotImplementedError
+                            self.drop_application_before_upgrade(
+                                policy=policy, interactive=interactive
+                            )
 
                 # 4. With no (more) existing application objects, create an application object using the release directives
                 console.step(f"Creating new application object {self.name} in account.")
