@@ -304,7 +304,7 @@ class BundleMap:
             src=canonical_src, dest=canonical_dest, dest_is_dir=dest_is_dir
         )
 
-    def _add_mapping(self, src: str, dest: Optional[str] = None):
+    def _add_mapping(self, src: Path, dest: Optional[str] = None):
         """
         Adds the specified artifact rule to this instance. The source should be relative to the project directory. It
         is interpreted as a file, directory or glob pattern. If the destination path is not specified, each source match
@@ -312,11 +312,10 @@ class BundleMap:
         """
         match_found = False
 
-        src_path = Path(src)
-        if src_path.is_absolute():
+        if src.is_absolute():
             raise ArtifactError("Source path must be a relative path")
 
-        for resolved_src in self._project_root.glob(src):
+        for resolved_src in self._project_root.glob(str(src)):
             match_found = True
 
             if dest:

@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import Field, field_validator
@@ -31,7 +32,7 @@ class ProcessorMapping(UpdatableModel):
 
 
 class PathMapping(UpdatableModel):
-    src: str = Field(
+    src: Path = Field(
         title="Source path or glob pattern (relative to project root)", default=None
     )
 
