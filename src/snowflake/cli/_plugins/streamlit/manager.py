@@ -73,7 +73,7 @@ class StreamlitManager(SqlExecutionMixin):
             deploy_root=streamlit_project_paths.deploy_root(),
         )
         for artifact in artifacts:
-            bundle_map.add(PathMapping(src=str(artifact.src), dest=artifact.dest))
+            bundle_map.add(PathMapping(src=artifact.src, dest=artifact.dest))
 
         if streamlit_project_paths.deploy_root().exists():
             rmtree(streamlit_project_paths.deploy_root())

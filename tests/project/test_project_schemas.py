@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -83,7 +84,7 @@ def test_project_schema_is_updated_correctly_from_dict(
     pkg_model.update_from_dict(update_dict)
     assert pkg_model.manifest == "app/manifest.yml"
     assert pkg_model.distribution == "external"
-    assert pkg_model.artifacts[0].src == "app/*"
+    assert pkg_model.artifacts[0].src == Path("app/*")
     assert pkg_model.meta.role == "test_role_2"
 
 

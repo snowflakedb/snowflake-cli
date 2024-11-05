@@ -45,12 +45,12 @@ class SnowparkProjectPaths:
             return Artefact(
                 project_root=self.project_root,
                 dest=artifact_path.dest,
-                path=Path(artifact_path.src),
+                path=artifact_path.src,
             )
         else:
             return ArtefactOldBuild(
                 dest=artifact_path.dest,
-                path=self.path_relative_to_root(Path(artifact_path.src)),
+                path=self.path_relative_to_root(artifact_path.src),
             )
 
     def get_dependencies_artefact(self) -> Artefact:
