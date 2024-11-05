@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from shutil import rmtree
 from typing import Dict, Optional, Set, Tuple
 
 import typer
@@ -61,7 +60,7 @@ from snowflake.cli._plugins.snowpark.snowpark_shared import (
     IndexUrlOption,
     SkipVersionCheckOption,
 )
-from snowflake.cli._plugins.snowpark.zipper import zip_dir, zip_dir_bundle_map
+from snowflake.cli._plugins.snowpark.zipper import zip_dir, zip_dir_using_bundle_map
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import (
     get_cli_context,
@@ -330,8 +329,7 @@ def build(
     anaconda_packages_manager = AnacondaPackagesManager()
 
     # Clean up deploy root
-    if project_paths.deploy_root.exists():
-        rmtree(project_paths.deploy_root)
+    project_paths.remove_up_deploy_root()
 
     # Resolve dependencies
     if project_paths.requirements.exists():
@@ -381,16 +379,16 @@ def build(
                 cli_console.step(f"No external dependencies.")
 
     artifacts = set()
-    if FeatureFlag.ENABLE_SNOWPARK_NEW_BUILD.is_enabled():
-        for entity in get_snowpark_entities(pd).values():
-            for artifact in entity.artifacts:
-                artifacts.add(project_paths.get_artefact_dto(artifact))
+    with cli_console.phase("Preparing artifacts for source code"):
+        if FeatureFlag.ENABLE_SNOWPARK_NEW_BUILD.is_enabled():
+            for entity in get_snowpark_entities(pd).values():
+                for artifact in entity.artifacts:
+                    artifacts.add(project_paths.get_artefact_dto(artifact))
 
-        with cli_console.phase("Preparing artifacts for source code"):
             for artefact in artifacts:
                 bundle_map = BundleMap(
                     project_root=artefact.project_root,
-                    deploy_root=(project_paths.project_root / "output").absolute(),
+                    deploy_root=project_paths.deploy_root,
                 )
                 bundle_map.add(
                     PathMapping(src=str(artefact.path), dest=(artefact.dest or None))
@@ -406,16 +404,15 @@ def build(
                             deploy_root=bundle_map.deploy_root(),
                         )
                 else:
-                    zip_dir_bundle_map(
+                    zip_dir_using_bundle_map(
                         bundle_map=bundle_map,
                         dest_zip=artefact.post_build_path,
                     )
-    else:
-        for entity in get_snowpark_entities(pd).values():
-            for artifact in entity.artifacts:
-                artifacts.add(project_paths.get_artefact_dto(artifact))
+        else:
+            for entity in get_snowpark_entities(pd).values():
+                for artifact in entity.artifacts:
+                    artifacts.add(project_paths.get_artefact_dto(artifact))
 
-        with cli_console.phase("Preparing artifacts for source code"):
             for artefact in artifacts:
                 artefact.build()
 

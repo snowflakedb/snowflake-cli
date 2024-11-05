@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import PurePosixPath
-from shutil import rmtree
 from typing import List, Optional
 
 from click import ClickException
@@ -70,13 +69,13 @@ class StreamlitManager(SqlExecutionMixin):
         stage_manager = StageManager()
         bundle_map = BundleMap(
             project_root=streamlit_project_paths.project_root,
-            deploy_root=streamlit_project_paths.deploy_root(),
+            deploy_root=streamlit_project_paths.deploy_root,
         )
         for artifact in artifacts:
             bundle_map.add(PathMapping(src=artifact.src, dest=artifact.dest))
 
-        if streamlit_project_paths.deploy_root().exists():
-            rmtree(streamlit_project_paths.deploy_root())
+        # Clean up deploy root
+        streamlit_project_paths.remove_up_deploy_root()
 
         for (absolute_src, absolute_dest) in bundle_map.all_mappings(
             absolute=True, expand_directories=True
@@ -85,12 +84,12 @@ class StreamlitManager(SqlExecutionMixin):
                 symlink_or_copy(
                     absolute_src,
                     absolute_dest,
-                    deploy_root=streamlit_project_paths.deploy_root(),
+                    deploy_root=streamlit_project_paths.deploy_root,
                 )
                 # Temporary solution, will be replaced with diff
                 stage_path = (
                     PurePosixPath(absolute_dest)
-                    .relative_to(streamlit_project_paths.deploy_root())
+                    .relative_to(streamlit_project_paths.deploy_root)
                     .parent
                 )
                 stage_path = (

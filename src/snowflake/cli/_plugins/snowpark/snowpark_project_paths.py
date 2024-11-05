@@ -24,16 +24,15 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEPLOYMENT_STAGE
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.secure_path import SecurePath
 
 
 @dataclass
-class SnowparkProjectPaths:
+class SnowparkProjectPaths(ProjectPaths):
     """
-    This class represents allows you to manage files paths related to given project.
+    This class allows you to manage files paths related to given project.
     """
-
-    project_root: Path
 
     def path_relative_to_root(self, artifact_path: Path) -> Path:
         if artifact_path.is_absolute():
@@ -77,10 +76,6 @@ class SnowparkProjectPaths:
             return Path("dependencies.zip")
         else:
             return self.path_relative_to_root(Path("dependencies.zip"))
-
-    @property
-    def deploy_root(self) -> Path:
-        return self.project_root / "output"
 
 
 @dataclass(unsafe_hash=True)

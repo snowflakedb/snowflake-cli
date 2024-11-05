@@ -14,16 +14,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+
+from snowflake.cli.api.project.project_paths import ProjectPaths
 
 
 @dataclass
-class StreamlitProjectPaths:
+class StreamlitProjectPaths(ProjectPaths):
     """
-    This class represents allows you to manage files paths related to given project.
+    This class allows you to manage files paths related to given project.
     """
-
-    project_root: Path
-
-    def deploy_root(self) -> Path:
-        return self.project_root / "output"
