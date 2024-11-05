@@ -85,7 +85,7 @@ def zip_dir(
                 package_zip.write(file, arcname=file.relative_to(src))
 
 
-def zip_dir_bundle_map(
+def zip_dir_using_bundle_map(
     bundle_map: BundleMap,
     dest_zip: Path,
     mode: Literal["r", "w", "x", "a"] = "w",

@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal, Optional
 
 from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.commons import Artifacts
@@ -53,14 +53,12 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBase
 
     @field_validator("artifacts")
     @classmethod
-    def _convert_artifacts(cls, artifacts: Union[dict, str]):
+    def _convert_artifacts(cls, artifacts: Artifacts) -> Artifacts:
         _artifacts = []
         for artifact in artifacts:
             if isinstance(artifact, PathMapping):
                 path_mapping = artifact
-            elif isinstance(artifact, Path):
-                path_mapping = PathMapping(src=str(artifact))
             else:
-                path_mapping = PathMapping(src=artifact)
+                path_mapping = PathMapping(src=Path(artifact))
             _artifacts.append(path_mapping)
         return _artifacts
