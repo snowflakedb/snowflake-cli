@@ -23,6 +23,7 @@ from snowflake.cli.api.cli_global_context import (
     get_cli_context,
     get_cli_context_manager,
 )
+from snowflake.cli.api.metrics import CLIMetricsSpan
 from snowflake.cli.api.output.formats import OutputFormat
 
 
@@ -84,3 +85,22 @@ def test_forked_context():
         }
 
     assert get_cli_context().connection_context.connection_name is None
+
+
+def test_forked_metrics_spans():
+    outer_metrics = get_cli_context_manager().metrics
+
+    with outer_metrics.start_span("outer_span"):
+        with fork_cli_context() as inner:
+            inner_metrics = inner.metrics
+            with inner_metrics.start_span("inner_span"):
+                pass
+
+    assert outer_metrics != inner_metrics
+    assert outer_metrics.completed_spans != inner_metrics.completed_spans
+
+    assert len(outer_metrics.completed_spans) == len(inner_metrics.completed_spans) == 1
+
+    assert outer_metrics.completed_spans[0][CLIMetricsSpan.NAME_KEY] == "outer_span"
+
+    assert inner_metrics.completed_spans[0][CLIMetricsSpan.NAME_KEY] == "inner_span"
