@@ -1459,13 +1459,13 @@
   |                                               Snowflake.                     |
   | --password                      -p      TEXT  Snowflake password.            |
   |                                               [default: optional]            |
-  | --role                          -r      TEXT  Role to use on Snowflake.      |
+  | --role,--rolename               -r      TEXT  Role to use on Snowflake.      |
   |                                               [default: optional]            |
   | --warehouse                     -w      TEXT  Warehouse to use on Snowflake. |
   |                                               [default: optional]            |
-  | --database                      -d      TEXT  Database to use on Snowflake.  |
+  | --database,--dbname             -d      TEXT  Database to use on Snowflake.  |
   |                                               [default: optional]            |
-  | --schema                        -s      TEXT  Schema to use on Snowflake.    |
+  | --schema,--schemaname           -s      TEXT  Schema to use on Snowflake.    |
   |                                               [default: optional]            |
   | --host                          -h      TEXT  Host name the connection       |
   |                                               attempts to connect to         |
@@ -1480,7 +1480,7 @@
   | --authenticator                 -A      TEXT  Chosen authenticator, if other |
   |                                               than password-based            |
   |                                               [default: optional]            |
-  | --private-key,--private-key-p…  -k      TEXT  Path to file containing        |
+  | --private-key,--private-key-f…  -k      TEXT  Path to file containing        |
   |                                               private key                    |
   |                                               [default: optional]            |
   | --token-file-path               -t      TEXT  Path to file with an OAuth     |
