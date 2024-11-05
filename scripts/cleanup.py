@@ -28,13 +28,12 @@ def is_stale(item):
 
 
 def remove_resource(resource_type: str, item, role: str):
-    msg = f"Deleting {resource_type} {item.name}"
+    fqn = f"{item.database_name}.{item.schema_name}.{item.name}"
+    msg = f"Deleting {resource_type} {fqn}"
     try:
         if is_stale(item):
-            session.sql(
-                f"GRANT OWNERSHIP ON {resource_type} {item.name} TO ROLE {role}"
-            )
-            session.sql(f'drop {resource_type} "{item.name}"').collect()
+            session.sql(f"GRANT OWNERSHIP ON {resource_type} {fqn} TO ROLE {role}")
+            session.sql(f'drop {resource_type} "{fqn}"').collect()
             print("SUCCESS", msg, f"created at {item.created_on}")
     except Exception as err:
         print("ERROR", msg)
