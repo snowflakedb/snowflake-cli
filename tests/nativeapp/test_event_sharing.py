@@ -80,6 +80,11 @@ test_manifest_contents = dedent(
     configuration:
         log_level: INFO
         trace_level: ALWAYS
+        telemetry_event_definitions:
+          - type: ERRORS_AND_WARNINGS
+            sharing: OPTIONAL
+          - type: DEBUG_LOGS
+            sharing: OPTIONAL
 """
 )
 
@@ -157,13 +162,13 @@ def _setup_project(
     readme_contents="\n",
     manifest_contents=test_manifest_contents,
     authorize_event_sharing=None,
-    optional_shared_events=None,
+    shared_events=None,
 ):
     telemetry = {}
     if authorize_event_sharing is not None:
         telemetry["authorize_event_sharing"] = authorize_event_sharing
-    if optional_shared_events is not None:
-        telemetry["optional_shared_events"] = optional_shared_events
+    if shared_events is not None:
+        telemetry["shared_events"] = shared_events
     ProjectV2Factory(
         pdf__entities=dict(
             app_pkg=ApplicationPackageEntityModelFactory(
@@ -190,9 +195,10 @@ def _setup_mocks_for_app(
     mock_cursor,
     mock_get_existing_app_info,
     authorize_telemetry_flag=None,
-    optional_shared_events=None,
+    shared_events=None,
     is_prod=False,
     is_upgrade=False,
+    existing_app_flag=False,
 ):
     if is_upgrade:
         return _setup_mocks_for_upgrade_app(
@@ -200,8 +206,9 @@ def _setup_mocks_for_app(
             mock_cursor,
             mock_get_existing_app_info,
             authorize_telemetry_flag=authorize_telemetry_flag,
-            optional_shared_events=optional_shared_events,
+            shared_events=shared_events,
             is_prod=is_prod,
+            existing_app_flag=existing_app_flag,
         )
     else:
         return _setup_mocks_for_create_app(
@@ -209,7 +216,7 @@ def _setup_mocks_for_app(
             mock_cursor,
             mock_get_existing_app_info,
             authorize_telemetry_flag=authorize_telemetry_flag,
-            optional_shared_events=optional_shared_events,
+            shared_events=shared_events,
             is_prod=is_prod,
         )
 
@@ -219,7 +226,7 @@ def _setup_mocks_for_create_app(
     mock_cursor,
     mock_get_existing_app_info,
     authorize_telemetry_flag=None,
-    optional_shared_events=None,
+    shared_events=None,
     is_prod=False,
 ):
     mock_get_existing_app_info.return_value = None
@@ -278,12 +285,12 @@ def _setup_mocks_for_create_app(
         ),
     ]
 
-    if optional_shared_events is not None:
+    if shared_events is not None:
         calls.append(
             (
                 None,
                 mock.call(
-                    f"""alter application myapp set shared telemetry events ('{"', '".join(optional_shared_events)}')"""
+                    f"""alter application myapp set shared telemetry events ('SNOWFLAKE${"', 'SNOWFLAKE$".join(shared_events)}')"""
                 ),
             ),
         )
@@ -304,10 +311,14 @@ def _setup_mocks_for_upgrade_app(
     mock_cursor,
     mock_get_existing_app_info,
     authorize_telemetry_flag=None,
-    optional_shared_events=None,
+    shared_events=None,
     is_prod=False,
+    existing_app_flag=False,
 ):
-    mock_get_existing_app_info.return_value = {"comment": "GENERATED_BY_SNOWFLAKECLI"}
+    mock_get_existing_app_info.return_value = {
+        "comment": "GENERATED_BY_SNOWFLAKECLI",
+        "authorize_telemetry_event_sharing": str(existing_app_flag),
+    }
     install_clause = "using @app_pkg.app_src.stage"
     if is_prod:
         install_clause = ""
@@ -336,12 +347,12 @@ def _setup_mocks_for_upgrade_app(
             ),
         )
 
-    if optional_shared_events is not None:
+    if shared_events is not None:
         calls.append(
             (
                 None,
                 mock.call(
-                    f"""alter application myapp set shared telemetry events ('{"', '".join(optional_shared_events)}')"""
+                    f"""alter application myapp set shared telemetry events ('SNOWFLAKE${"', 'SNOWFLAKE$".join(shared_events)}')"""
                 ),
             ),
         )
@@ -473,7 +484,6 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
         mock_cursor,
         mock_get_existing_app_info,
         is_prod=not install_method.is_dev_mode,
-        authorize_telemetry_flag=None,  # treat it as unset
         is_upgrade=is_upgrade,
     )
 
@@ -493,12 +503,8 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
     )
 
     assert mock_execute_query.mock_calls == mock_execute_query_expected
-    mock_console.warning.assert_has_calls(
-        [
-            mock.call(
-                "WARNING: Same-account event sharing is not enabled in your account, therefore, application telemetry field will be ignored."
-            )
-        ]
+    mock_console.warning.assert_called_with(
+        "WARNING: Same-account event sharing is not enabled in your account, therefore, application telemetry section will be ignored."
     )
 
 
@@ -546,6 +552,7 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
         is_prod=not install_method.is_dev_mode,
         authorize_telemetry_flag=authorize_event_sharing,
         is_upgrade=is_upgrade,
+        existing_app_flag=not authorize_event_sharing,  # existing app with opposite flag to test that flag has changed
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_diff_result = DiffResult()
@@ -572,8 +579,71 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.EVENT_SHARING_V2: "true",
-        UIParameter.ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: "true",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
+    },
+)
+@pytest.mark.parametrize(
+    "manifest_contents",
+    [
+        test_manifest_contents,
+    ],
+)
+@pytest.mark.parametrize("authorize_event_sharing", [True, False])
+@pytest.mark.parametrize(
+    "install_method",
+    [
+        SameAccountInstallMethod.unversioned_dev(),
+        SameAccountInstallMethod.release_directive(),
+    ],
+)
+@pytest.mark.parametrize("is_upgrade", [True])
+def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_not_set_it_explicitly(
+    mock_param,
+    mock_conn,
+    mock_execute_query,
+    mock_get_existing_app_info,
+    manifest_contents,
+    authorize_event_sharing,
+    install_method,
+    is_upgrade,
+    temp_dir,
+    mock_cursor,
+):
+    mock_execute_query_expected = _setup_mocks_for_app(
+        mock_execute_query,
+        mock_cursor,
+        mock_get_existing_app_info,
+        is_prod=not install_method.is_dev_mode,
+        authorize_telemetry_flag=None,  # make sure flag is not set again during upgrade
+        is_upgrade=is_upgrade,
+        existing_app_flag=authorize_event_sharing,  # existing app with same flag as target app
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    _setup_project(
+        manifest_contents=manifest_contents,
+        authorize_event_sharing=authorize_event_sharing,  # requested flag from the project definition file
+    )
+    mock_console = MagicMock()
+
+    _create_or_upgrade_app(
+        policy=MagicMock(),
+        install_method=install_method,
+        console=mock_console,
+    )
+
+    assert mock_execute_query.mock_calls == mock_execute_query_expected
+    mock_console.warning.assert_not_called()
+
+
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "true",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
     },
 )
 @pytest.mark.parametrize(
@@ -608,6 +678,7 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
         is_prod=not install_method.is_dev_mode,
         authorize_telemetry_flag=authorize_event_sharing,
         is_upgrade=is_upgrade,
+        existing_app_flag=not authorize_event_sharing,  # existing app with opposite flag to test that flag has changed
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_diff_result = DiffResult()
@@ -680,6 +751,7 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
         is_prod=not install_method.is_dev_mode,
         authorize_telemetry_flag=authorize_event_sharing,
         is_upgrade=is_upgrade,
+        existing_app_flag=not authorize_event_sharing,  # existing app with opposite flag to test that flag has changed
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_diff_result = DiffResult()
@@ -969,7 +1041,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     "manifest_contents",
     [test_manifest_with_mandatory_events],
 )
-@pytest.mark.parametrize("authorize_event_sharing", [None, False])
+@pytest.mark.parametrize("authorize_event_sharing", [False])
 @pytest.mark.parametrize(
     "install_method",
     [
@@ -977,7 +1049,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [False])
-def test_optional_shared_events_with_no_authorization_then_error(
+def test_shared_events_with_no_authorization_then_error(
     mock_param,
     mock_conn,
     mock_execute_query,
@@ -1002,7 +1074,7 @@ def test_optional_shared_events_with_no_authorization_then_error(
     _setup_project(
         manifest_contents=manifest_contents,
         authorize_event_sharing=authorize_event_sharing,
-        optional_shared_events=["DEBUG_LOGS"],
+        shared_events=["DEBUG_LOGS"],
     )
     assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
@@ -1016,7 +1088,7 @@ def test_optional_shared_events_with_no_authorization_then_error(
 
     assert (
         e.value.message
-        == "telemetry.authorize_event_sharing is required to be true in order to use telemetry.optional_shared_events."
+        == "telemetry.authorize_event_sharing cannot be disabled when sharing events through telemetry.shared_events."
     )
     mock_console.warning.assert_not_called()
 
@@ -1033,18 +1105,17 @@ def test_optional_shared_events_with_no_authorization_then_error(
 )
 @pytest.mark.parametrize(
     "manifest_contents",
-    [test_manifest_with_mandatory_events, test_manifest_contents],
+    [test_manifest_with_mandatory_events],
 )
-@pytest.mark.parametrize("authorize_event_sharing", [True])
+@pytest.mark.parametrize("authorize_event_sharing", [None])
 @pytest.mark.parametrize(
     "install_method",
     [
         SameAccountInstallMethod.unversioned_dev(),
-        SameAccountInstallMethod.release_directive(),
     ],
 )
-@pytest.mark.parametrize("is_upgrade", [False, True])
-def test_optional_shared_events_with_authorization_then_success(
+@pytest.mark.parametrize("is_upgrade", [False])
+def test_shared_events_with_no_explicit_authorization_then_assume_true(
     mock_param,
     mock_conn,
     mock_execute_query,
@@ -1056,7 +1127,69 @@ def test_optional_shared_events_with_authorization_then_success(
     temp_dir,
     mock_cursor,
 ):
-    optional_shared_events = ["DEBUG_LOGS", "ERRORS_AND_WARNINGS"]
+    mock_execute_query_expected = _setup_mocks_for_app(
+        mock_execute_query,
+        mock_cursor,
+        mock_get_existing_app_info,
+        is_prod=not install_method.is_dev_mode,
+        authorize_telemetry_flag=True,
+        is_upgrade=is_upgrade,
+        shared_events=["DEBUG_LOGS", "ERRORS_AND_WARNINGS"],
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    _setup_project(
+        manifest_contents=manifest_contents,
+        authorize_event_sharing=authorize_event_sharing,
+        shared_events=["DEBUG_LOGS", "ERRORS_AND_WARNINGS"],
+    )
+    mock_console = MagicMock()
+
+    _create_or_upgrade_app(
+        policy=MagicMock(),
+        install_method=install_method,
+        console=mock_console,
+    )
+
+    assert mock_execute_query.mock_calls == mock_execute_query_expected
+    mock_console.warning.assert_not_called()
+
+
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "true",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
+    },
+)
+@pytest.mark.parametrize(
+    "manifest_contents",
+    [test_manifest_with_mandatory_events, test_manifest_contents],
+)
+@pytest.mark.parametrize("authorize_event_sharing", [True])
+@pytest.mark.parametrize(
+    "install_method",
+    [
+        SameAccountInstallMethod.unversioned_dev(),
+        SameAccountInstallMethod.release_directive(),
+    ],
+)
+@pytest.mark.parametrize("is_upgrade", [False, True])
+def test_shared_events_with_authorization_then_success(
+    mock_param,
+    mock_conn,
+    mock_execute_query,
+    mock_get_existing_app_info,
+    manifest_contents,
+    authorize_event_sharing,
+    install_method,
+    is_upgrade,
+    temp_dir,
+    mock_cursor,
+):
+    shared_events = ["DEBUG_LOGS", "ERRORS_AND_WARNINGS"]
     mock_execute_query_expected = _setup_mocks_for_app(
         mock_execute_query,
         mock_cursor,
@@ -1064,14 +1197,14 @@ def test_optional_shared_events_with_authorization_then_success(
         is_prod=not install_method.is_dev_mode,
         authorize_telemetry_flag=authorize_event_sharing,
         is_upgrade=is_upgrade,
-        optional_shared_events=optional_shared_events,
+        shared_events=shared_events,
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_diff_result = DiffResult()
     _setup_project(
         manifest_contents=manifest_contents,
         authorize_event_sharing=authorize_event_sharing,
-        optional_shared_events=optional_shared_events,
+        shared_events=shared_events,
     )
     assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
@@ -1083,4 +1216,69 @@ def test_optional_shared_events_with_authorization_then_success(
     )
 
     assert mock_execute_query.mock_calls == mock_execute_query_expected
+    mock_console.warning.assert_not_called()
+
+
+@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "true",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
+    },
+)
+@pytest.mark.parametrize(
+    "manifest_contents",
+    [test_manifest_with_mandatory_events],
+)
+@pytest.mark.parametrize("authorize_event_sharing", [None])
+@pytest.mark.parametrize(
+    "install_method",
+    [
+        SameAccountInstallMethod.release_directive(),
+        SameAccountInstallMethod.unversioned_dev(),
+    ],
+)
+@pytest.mark.parametrize("is_upgrade", [False, True])
+def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_given_for_all_mandatory_events_then_error(
+    mock_param,
+    mock_conn,
+    mock_execute_query,
+    mock_get_existing_app_info,
+    manifest_contents,
+    authorize_event_sharing,
+    install_method,
+    is_upgrade,
+    temp_dir,
+    mock_cursor,
+):
+    mock_execute_query_expected = _setup_mocks_for_app(
+        mock_execute_query,
+        mock_cursor,
+        mock_get_existing_app_info,
+        is_prod=not install_method.is_dev_mode,
+        authorize_telemetry_flag=True,
+        is_upgrade=is_upgrade,
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    _setup_project(
+        manifest_contents=manifest_contents,
+        authorize_event_sharing=authorize_event_sharing,
+        shared_events=["DEBUG_LOGS"],
+    )
+    mock_console = MagicMock()
+
+    with pytest.raises(ClickException) as e:
+        _create_or_upgrade_app(
+            policy=MagicMock(),
+            install_method=install_method,
+            console=mock_console,
+        )
+
+    assert (
+        e.value.message
+        == "Mandatory event 'ERRORS_AND_WARNINGS' is not found in the 'telemetry.shared_events' list in project definition file."
+    )
     mock_console.warning.assert_not_called()

@@ -29,7 +29,7 @@ from snowflake.cli._plugins.nativeapp.artifacts import (
     SourceNotFoundError,
     TooManyFilesError,
     build_bundle,
-    find_mandatory_events_in_manifest_file,
+    find_events_in_manifest_file,
     find_version_info_in_manifest_file,
     resolve_without_follow,
     symlink_or_copy,
@@ -1427,10 +1427,11 @@ def test_find_version_info_in_manifest_file(version_name, patch_name, label):
 
 
 @pytest.mark.parametrize(
-    "configuration_section, expected_output",
+    "configuration_section, mandatory_only, expected_output",
     [
         [
             {},
+            False,
             [],
         ],
         [
@@ -1439,6 +1440,16 @@ def test_find_version_info_in_manifest_file(version_name, patch_name, label):
                     {"type": "USAGE_LOGS", "sharing": "MANDATORY"}
                 ]
             },
+            True,
+            ["USAGE_LOGS"],
+        ],
+        [
+            {
+                "telemetry_event_definitions": [
+                    {"type": "USAGE_LOGS", "sharing": "MANDATORY"}
+                ]
+            },
+            False,
             ["USAGE_LOGS"],
         ],
         [
@@ -1448,7 +1459,18 @@ def test_find_version_info_in_manifest_file(version_name, patch_name, label):
                     {"type": "DEBUG_LOGS", "sharing": "OPTIONAL"},
                 ]
             },
+            True,
             ["ERRORS_AND_WARNINGS"],
+        ],
+        [
+            {
+                "telemetry_event_definitions": [
+                    {"type": "ERRORS_AND_WARNINGS", "sharing": "MANDATORY"},
+                    {"type": "DEBUG_LOGS", "sharing": "OPTIONAL"},
+                ]
+            },
+            False,
+            ["ERRORS_AND_WARNINGS", "DEBUG_LOGS"],
         ],
         [
             {
@@ -1457,17 +1479,22 @@ def test_find_version_info_in_manifest_file(version_name, patch_name, label):
                     {"type": "ALL", "sharing": "MANDATORY"},
                 ]
             },
+            True,
             ["ERRORS_AND_WARNINGS", "ALL"],
         ],
     ],
 )
-def test_find_mandatory_events_in_manifest_file(configuration_section, expected_output):
+def test_find_events_in_manifest_file(
+    configuration_section, mandatory_only, expected_output
+):
     manifest_contents = {"manifest_version": 1, "version": {"name": "v1", "patch": 1}}
     manifest_contents["configuration"] = configuration_section
 
     deploy_root_structure = {"manifest.yml": safe_dump(manifest_contents)}
     with temp_local_dir(deploy_root_structure) as deploy_root:
         assert (
-            find_mandatory_events_in_manifest_file(deploy_root=deploy_root)
+            find_events_in_manifest_file(
+                deploy_root=deploy_root, mandatory_only=mandatory_only
+            )
             == expected_output
         )

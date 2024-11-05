@@ -10,7 +10,7 @@ class EventSharingTelemetry(UpdatableModel):
         title="Whether to authorize Snowflake to share application usage data with application package provider. This automatically enables the sharing of required telemetry events.",
         default=None,
     )
-    optional_shared_events: Optional[List[str]] = Field(
+    shared_events: Optional[List[str]] = Field(
         title="List of optional telemetry events that application owner would like to share with application package provider.",
         default=None,
     )
@@ -18,15 +18,15 @@ class EventSharingTelemetry(UpdatableModel):
     @model_validator(mode="after")
     @classmethod
     def validate_authorize_event_sharing(cls, value):
-        if value.optional_shared_events and not value.authorize_event_sharing:
+        if value.shared_events and value.authorize_event_sharing is False:
             raise ClickException(
-                "telemetry.authorize_event_sharing is required to be true in order to use telemetry.optional_shared_events."
+                "telemetry.authorize_event_sharing cannot be disabled when sharing events through telemetry.shared_events."
             )
         return value
 
-    @field_validator("optional_shared_events")
+    @field_validator("shared_events")
     @classmethod
-    def transform_artifacts(
+    def validate_shared_events(
         cls, original_shared_events: Optional[List[str]]
     ) -> Optional[List[str]]:
         if original_shared_events is None:
@@ -36,13 +36,13 @@ class EventSharingTelemetry(UpdatableModel):
         for event in original_shared_events:
             if not event.isalpha() and not event.replace("_", "").isalpha():
                 raise ClickException(
-                    f"Event {event} from optional_shared_events field is not a valid event name."
+                    f"Event {event} from telemetry.shared_events field is not a valid event name."
                 )
 
         # make sure events are unique:
         if len(original_shared_events) != len(set(original_shared_events)):
             raise ClickException(
-                "Events in optional_shared_events field must be unique."
+                "Events in telemetry.shared_events field must be unique."
             )
 
         return original_shared_events
