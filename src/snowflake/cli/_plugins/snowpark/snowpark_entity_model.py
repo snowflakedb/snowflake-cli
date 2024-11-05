@@ -19,6 +19,7 @@ from typing import List, Literal, Optional, Union
 from pydantic import Field, field_validator
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.commons import Artifacts
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     ExternalAccessBaseModel,
@@ -46,7 +47,7 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseM
         title="Python version to use when executing ", default=None
     )
     stage: str = Field(title="Stage in which artifacts will be stored")
-    artifacts: List[Union[PathMapping, str]] = Field(title="List of required sources")
+    artifacts: Artifacts = Field(title="List of required sources")
 
     @field_validator("artifacts")
     @classmethod
