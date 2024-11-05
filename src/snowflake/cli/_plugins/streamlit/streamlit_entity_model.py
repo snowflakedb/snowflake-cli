@@ -14,9 +14,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Literal, Optional, Union
+from typing import Literal, Optional, Union
 
 from pydantic import Field, field_validator
+from snowflake.cli.api.project.schemas.commons import Artifacts
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     ExternalAccessBaseModel,
@@ -44,7 +45,7 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBase
     stage: Optional[str] = Field(
         title="Stage in which the app’s artifacts will be stored", default="streamlit"
     )
-    artifacts: Optional[List[Union[PathMapping, Path, str]]] = Field(
+    artifacts: Optional[Artifacts] = Field(
         title="List of files which should be deployed. Each file needs to exist locally. "
         "Main file needs to be included in the artifacts.",
         default=None,

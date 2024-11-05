@@ -36,7 +36,7 @@ def test_deploy_streamlit(mock_execute_query, _, mock_stage_manager, temp_dir):
         main_file=str(main_file),
         imports=["@stage/foo.py", "@stage/bar.py"],
         # Possibly can be PathMapping
-        artifacts=[main_file],
+        artifacts=[str(main_file)],
     )
 
     streamlit_project_paths = StreamlitProjectPaths(Path().absolute())
@@ -77,7 +77,7 @@ def test_deploy_streamlit_with_api_integrations(
         query_warehouse="My_WH",
         main_file=str(main_file),
         # Possibly can be PathMapping
-        artifacts=[main_file],
+        artifacts=[str(main_file)],
         external_access_integrations=["MY_INTERGATION", "OTHER"],
         secrets={"my_secret": "SecretOfTheSecrets", "other": "other_secret"},
     )
@@ -120,7 +120,7 @@ def test_deploy_streamlit_with_comment(
         title="MyStreamlit",
         query_warehouse="My_WH",
         main_file=str(main_file),
-        artifacts=[main_file],
+        artifacts=[str(main_file)],
         comment="This is a test comment",
     )
 
