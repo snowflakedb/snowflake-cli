@@ -76,6 +76,7 @@ if __name__ == "__main__":
         ],
         ("compute pool", "compute pools"): [],
         ("service", "services"): [],
+        ("image repository", "image repositories"): [],
         ("application", "applications"): [],
         ("warehouse", "warehouses"): ["XSMALL"],
     }
