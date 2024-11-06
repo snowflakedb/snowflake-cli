@@ -16,14 +16,21 @@ from __future__ import annotations
 
 import logging
 import os.path
+from pathlib import Path
+from typing import Optional
 
 import typer
-from click import ClickException, Context, Parameter, UsageError  # type: ignore
+from click import (  # type: ignore
+    ClickException,
+    Context,
+    Parameter,
+    ParamType,
+    UsageError,
+)
 from click.core import ParameterSource  # type: ignore
 from click.types import StringParamType
 from snowflake import connector
 from snowflake.cli._plugins.connection.util import (
-    strip_and_check_if_exists,
     strip_if_value_present,
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -34,6 +41,7 @@ from snowflake.cli.api.commands.flags import (
     AuthenticatorOption,
     DatabaseOption,
     HostOption,
+    NoInteractiveOption,
     PasswordOption,
     PortOption,
     PrivateKeyPathOption,
@@ -113,7 +121,7 @@ def list_connections(**options) -> CommandResult:
 
 
 def require_integer(field_name: str):
-    def callback(value: str):
+    def callback(ctx: Context, param: Parameter, value: str):
         if value is None:
             return None
         if value.strip().isdigit():
@@ -130,134 +138,125 @@ def _password_callback(ctx: Context, param: Parameter, value: str):
     return value
 
 
+class _OptionInfo:
+    def __init__(self, value: str | None, param: typer.Option):
+        self.value = strip_if_value_present(value)
+        self.param = param
+
+    def prompt(self, no_interactive: bool = False):
+        if no_interactive:
+            return
+        else:
+            default = None if self.param.required else EmptyInput()
+            self.value = typer.prompt(
+                f"Enter {self.param.human_readable_name.replace('_', ' ')}",
+                default=default,
+            )
+
+
+class _OptionInfoParser(ParamType):
+    name = "TEXT"
+
+    def convert(self, value, param, ctx):
+        return _OptionInfo(value, param)
+
+
+class NoInput:
+    def __init__(self):
+        pass
+
+
 @app.command()
 def add(
     connection_name: str = typer.Option(
         None,
         "--connection-name",
         "-n",
-        prompt="Name for this connection",
         help="Name of the new connection.",
         show_default=False,
-        callback=strip_if_value_present,
     ),
     account: str = typer.Option(
         None,
         "-a",
         *AccountOption.param_decls,
-        prompt="Snowflake account name",
         help="Account name to use when authenticating with Snowflake.",
         show_default=False,
-        callback=strip_if_value_present,
     ),
     user: str = typer.Option(
         None,
         "-u",
         *UserOption.param_decls,
-        prompt="Snowflake username",
         show_default=False,
         help="Username to connect to Snowflake.",
-        callback=strip_if_value_present,
     ),
-    password: str = typer.Option(
-        EmptyInput(),
+    password: Optional[str] = typer.Option(
+        None,
         "-p",
         *PasswordOption.param_decls,
-        click_type=OptionalPrompt(),
         callback=_password_callback,
-        prompt="Snowflake password",
         help="Snowflake password.",
         hide_input=True,
     ),
-    role: str = typer.Option(
-        EmptyInput(),
+    role: Optional[str] = typer.Option(
+        None,
         "-r",
         *RoleOption.param_decls,
-        click_type=OptionalPrompt(),
-        prompt="Role for the connection",
         help="Role to use on Snowflake.",
-        callback=strip_if_value_present,
     ),
-    warehouse: str = typer.Option(
-        EmptyInput(),
+    warehouse: Optional[str] = typer.Option(
+        None,
         "-w",
         *WarehouseOption.param_decls,
-        click_type=OptionalPrompt(),
-        prompt="Warehouse for the connection",
         help="Warehouse to use on Snowflake.",
-        callback=strip_if_value_present,
     ),
-    database: str = typer.Option(
-        EmptyInput(),
+    database: Optional[str] = typer.Option(
+        None,
         "-d",
         *DatabaseOption.param_decls,
-        click_type=OptionalPrompt(),
-        prompt="Database for the connection",
         help="Database to use on Snowflake.",
-        callback=strip_if_value_present,
     ),
-    schema: str = typer.Option(
-        EmptyInput(),
+    schema: Optional[str] = typer.Option(
+        None,
         "-s",
         *SchemaOption.param_decls,
-        click_type=OptionalPrompt(),
-        prompt="Schema for the connection",
         help="Schema to use on Snowflake.",
-        callback=strip_if_value_present,
     ),
-    host: str = typer.Option(
-        EmptyInput(),
+    host: Optional[str] = typer.Option(
+        None,
         "-h",
         *HostOption.param_decls,
-        click_type=OptionalPrompt(),
-        prompt="Connection host",
         help="Host name the connection attempts to connect to Snowflake.",
-        callback=strip_if_value_present,
     ),
-    port: int = typer.Option(
-        EmptyInput(),
+    port: Optional[int] = typer.Option(
+        None,
         "-P",
         *PortOption.param_decls,
-        click_type=OptionalPrompt(),
-        prompt="Connection port",
         help="Port to communicate with on the host.",
-        callback=require_integer(field_name="port"),
     ),
-    region: str = typer.Option(
-        EmptyInput(),
+    region: Optional[str] = typer.Option(
+        None,
         "--region",
         "-R",
-        click_type=OptionalPrompt(),
-        prompt="Snowflake region",
         help="Region name if not the default Snowflake deployment.",
-        callback=strip_if_value_present,
     ),
-    authenticator: str = typer.Option(
-        EmptyInput(),
+    authenticator: Optional[str] = typer.Option(
+        None,
         "-A",
         *AuthenticatorOption.param_decls,
-        click_type=OptionalPrompt(),
-        prompt="Authentication method",
         help="Chosen authenticator, if other than password-based",
     ),
-    private_key_file: str = typer.Option(
-        EmptyInput(),
+    private_key_file: Optional[str] = typer.Option(
+        None,
         "--private-key",
         "-k",
         *PrivateKeyPathOption.param_decls,
-        click_type=OptionalPrompt(),
-        prompt="Path to private key file",
         help="Path to file containing private key",
-        callback=strip_and_check_if_exists,
     ),
-    token_file_path: str = typer.Option(
-        EmptyInput(),
+    token_file_path: Optional[str] = typer.Option(
+        None,
         "-t",
         *TokenFilePathOption.param_decls,
-        click_type=OptionalPrompt(),
-        prompt="Path to token file",
         help="Path to file with an OAuth token that should be used when connecting to Snowflake",
-        callback=strip_and_check_if_exists,
     ),
     set_as_default: bool = typer.Option(
         False,
@@ -265,29 +264,60 @@ def add(
         is_flag=True,
         help="If provided the connection will be configured as default connection.",
     ),
+    no_interactive: bool = NoInteractiveOption,
     **options,
 ) -> CommandResult:
     """Adds a connection to configuration file."""
+    connection_options = {
+        "connection_name": connection_name,
+        "account": account,
+        "user": user,
+        "password": password,
+        "role": role,
+        "warehouse": warehouse,
+        "database": database,
+        "schema": schema,
+        "host": host,
+        "port": port,
+        "region": region,
+        "authenticator": authenticator,
+        "private_key_file": private_key_file,
+        "token_file_path": token_file_path,
+    }
+
+    if not no_interactive:
+        for option in connection_options:
+            if connection_options[option] is None:
+                connection_options[option] = typer.prompt(
+                    f"Enter {option.replace('_', ' ')}",
+                    default="",
+                    value_proc=lambda x: None if not x else x,
+                )
+            if isinstance(connection_options[option], str):
+                connection_options[option] = strip_if_value_present(
+                    connection_options[option]
+                )
+
+    if (value := connection_options["port"]) is not None:
+        connection_options["port"] = int(value)
+
+    if (path := connection_options["private_key_file"]) is not None:
+        if not Path(str(path)).exists():
+            raise UsageError(f"Path {path} does not exist.")
+
+    if (path := connection_options["token_file_path"]) is not None:
+        if not Path(str(path)).exists():
+            raise UsageError(f"Path {path} does not exist.")
+
+    connection_name = str(connection_options["connection_name"])
+    del connection_options["connection_name"]
+
     if connection_exists(connection_name):
-        raise ClickException(f"Connection {connection_name} already exists")
+        raise UsageError(f"Connection {connection_name} already exists")
 
     connections_file = add_connection_to_proper_file(
         connection_name,
-        ConnectionConfig(
-            account=account,
-            user=user,
-            password=password,
-            host=host,
-            region=region,
-            port=port,
-            database=database,
-            schema=schema,
-            warehouse=warehouse,
-            role=role,
-            authenticator=authenticator,
-            private_key_file=private_key_file,
-            token_file_path=token_file_path,
-        ),
+        ConnectionConfig(**connection_options),
     )
     if set_as_default:
         set_config_value(
