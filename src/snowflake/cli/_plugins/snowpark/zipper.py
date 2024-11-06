@@ -98,10 +98,10 @@ def zip_dir_using_bundle_map(
         for src, _ in bundle_map.all_mappings(expand_directories=True):
             if src.is_file():
                 log.debug("Adding %s to %s", src, dest_zip)
-                package_zip.write(src, arcname=_remove_first_directory(src))
+                package_zip.write(src, arcname=_path_without_top_level_directory(src))
 
 
-def _remove_first_directory(path: Path) -> str:
+def _path_without_top_level_directory(path: Path) -> str:
     path_parts = path.parts
     if len(path_parts) > 1:
         return str(Path(*path_parts[1:]))

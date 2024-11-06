@@ -462,9 +462,9 @@ def mock_procedure_description(mock_cursor):
 
 
 @pytest.fixture
-def enable_snowpark_new_build_feature_flag():
+def enable_snowpark_bundle_map_build_feature_flag():
     with mock.patch(
-        f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_NEW_BUILD.is_enabled",
+        f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_BUNDLE_MAP_BUILD.is_enabled",
         return_value=True,
     ):
         yield

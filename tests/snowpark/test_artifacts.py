@@ -69,7 +69,7 @@ def test_build_and_deploy_with_artifacts(
     artifacts,
     local_path,
     stage_path,
-    enable_snowpark_new_build_feature_flag,
+    enable_snowpark_bundle_map_build_feature_flag,
 ):
     mock_om_describe.side_effect = ProgrammingError(
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
@@ -164,7 +164,7 @@ def test_build_and_deploy_with_artifacts_run_from_other_directory(
     artifact,
     local_path,
     stage_path,
-    enable_snowpark_new_build_feature_flag,
+    enable_snowpark_bundle_map_build_feature_flag,
 ):
     mock_om_describe.side_effect = ProgrammingError(
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED

@@ -40,7 +40,7 @@ class SnowparkProjectPaths(ProjectPaths):
         return (self.project_root / artifact_path).resolve()
 
     def get_artefact_dto(self, artifact_path: PathMapping) -> Artefact:
-        if FeatureFlag.ENABLE_SNOWPARK_NEW_BUILD.is_enabled():
+        if FeatureFlag.ENABLE_SNOWPARK_BUNDLE_MAP_BUILD.is_enabled():
             return Artefact(
                 project_root=self.project_root,
                 dest=artifact_path.dest,
@@ -53,12 +53,14 @@ class SnowparkProjectPaths(ProjectPaths):
             )
 
     def get_dependencies_artefact(self) -> Artefact:
-        if FeatureFlag.ENABLE_SNOWPARK_NEW_BUILD.is_enabled():
+        if FeatureFlag.ENABLE_SNOWPARK_BUNDLE_MAP_BUILD.is_enabled():
             return Artefact(
-                project_root=self.project_root, dest=None, path=self.dependencies
+                project_root=self.project_root, dest=None, path=Path("dependencies.zip")
             )
         else:
-            return ArtefactOldBuild(dest=None, path=self.dependencies)
+            return ArtefactOldBuild(
+                dest=None, path=self.path_relative_to_root(Path("dependencies.zip"))
+            )
 
     @property
     def snowflake_requirements(self) -> SecurePath:
@@ -69,13 +71,6 @@ class SnowparkProjectPaths(ProjectPaths):
     @property
     def requirements(self) -> SecurePath:
         return SecurePath(self.path_relative_to_root(Path("requirements.txt")))
-
-    @property
-    def dependencies(self) -> Path:
-        if FeatureFlag.ENABLE_SNOWPARK_NEW_BUILD.is_enabled():
-            return Path("dependencies.zip")
-        else:
-            return self.path_relative_to_root(Path("dependencies.zip"))
 
 
 @dataclass(unsafe_hash=True)
@@ -157,7 +152,7 @@ class Artefact:
         parts = Path(before_wildcard).parts[:-1]
         return Path(*parts)
 
-    # Can be removed after removing ENABLE_SNOWPARK_NEW_BUILD feature flag.
+    # Can be removed after removing ENABLE_SNOWPARK_BUNDLE_MAP_BUILD feature flag.
     def build(self) -> None:
         raise NotImplementedError("Not implemented in Artefact class.")
 

@@ -369,8 +369,8 @@ def build(
                 )
 
             if any(temp_deps_dir.path.iterdir()):
-                cli_console.step(f"Creating {project_paths.dependencies.name}")
                 dep_artifact = project_paths.get_dependencies_artefact()
+                cli_console.step(f"Creating {dep_artifact.path.name}")
                 zip_dir(
                     source=temp_deps_dir.path,
                     dest_zip=dep_artifact.post_build_path,
@@ -380,7 +380,7 @@ def build(
 
     artifacts = set()
     with cli_console.phase("Preparing artifacts for source code"):
-        if FeatureFlag.ENABLE_SNOWPARK_NEW_BUILD.is_enabled():
+        if FeatureFlag.ENABLE_SNOWPARK_BUNDLE_MAP_BUILD.is_enabled():
             for entity in get_snowpark_entities(pd).values():
                 for artifact in entity.artifacts:
                     artifacts.add(project_paths.get_artefact_dto(artifact))
