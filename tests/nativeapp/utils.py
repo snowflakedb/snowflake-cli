@@ -35,12 +35,11 @@ CLI_GLOBAL_TEMPLATE_CONTEXT = (
 
 APP_ENTITY_MODULE = "snowflake.cli._plugins.nativeapp.entities.application"
 APP_ENTITY = f"{APP_ENTITY_MODULE}.ApplicationEntity"
-APP_ENTITY_GET_EXISTING_APP_INFO = f"{APP_ENTITY}.get_existing_app_info_static"
+APP_ENTITY_GET_EXISTING_APP_INFO = f"{APP_ENTITY}.get_existing_app_info"
 APP_ENTITY_DROP_GENERIC_OBJECT = f"{APP_ENTITY_MODULE}.drop_generic_object"
 APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION = (
     f"{APP_ENTITY}.get_objects_owned_by_application"
 )
-APP_ENTITY_GET_ACCOUNT_EVENT_TABLE = f"{APP_ENTITY}.get_account_event_table"
 
 APP_PACKAGE_ENTITY = "snowflake.cli._plugins.nativeapp.entities.application_package.ApplicationPackageEntity"
 APP_PACKAGE_ENTITY_DEPLOY = f"{APP_PACKAGE_ENTITY}._deploy"
@@ -64,6 +63,11 @@ SQL_EXECUTOR_EXECUTE = f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_quer
 SQL_EXECUTOR_EXECUTE_QUERIES = (
     f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_queries"
 )
+
+SQL_FACADE_MODULE = "snowflake.cli._plugins.nativeapp.sf_facade"
+SQL_FACADE = f"{SQL_FACADE_MODULE}.SnowflakeSQLFacade"
+SQL_FACADE_GET_ACCOUNT_EVENT_TABLE = f"{SQL_FACADE}.get_account_event_table"
+SQL_FACADE_EXECUTE_USER_SCRIPT = f"{SQL_FACADE}.execute_user_script"
 
 mock_snowflake_yml_file = dedent(
     """\

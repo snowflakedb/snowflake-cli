@@ -30,6 +30,18 @@ from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     PLAIN_PASSWORD_MSG,
+    AccountOption,
+    AuthenticatorOption,
+    DatabaseOption,
+    HostOption,
+    PasswordOption,
+    PortOption,
+    PrivateKeyPathOption,
+    RoleOption,
+    SchemaOption,
+    TokenFilePathOption,
+    UserOption,
+    WarehouseOption,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import (
@@ -131,9 +143,8 @@ def add(
     ),
     account: str = typer.Option(
         None,
-        "--account",
         "-a",
-        "--accountname",
+        *AccountOption.param_decls,
         prompt="Snowflake account name",
         help="Account name to use when authenticating with Snowflake.",
         show_default=False,
@@ -141,9 +152,8 @@ def add(
     ),
     user: str = typer.Option(
         None,
-        "--user",
         "-u",
-        "--username",
+        *UserOption.param_decls,
         prompt="Snowflake username",
         show_default=False,
         help="Username to connect to Snowflake.",
@@ -151,8 +161,8 @@ def add(
     ),
     password: str = typer.Option(
         EmptyInput(),
-        "--password",
         "-p",
+        *PasswordOption.param_decls,
         click_type=OptionalPrompt(),
         callback=_password_callback,
         prompt="Snowflake password",
@@ -161,8 +171,8 @@ def add(
     ),
     role: str = typer.Option(
         EmptyInput(),
-        "--role",
         "-r",
+        *RoleOption.param_decls,
         click_type=OptionalPrompt(),
         prompt="Role for the connection",
         help="Role to use on Snowflake.",
@@ -170,8 +180,8 @@ def add(
     ),
     warehouse: str = typer.Option(
         EmptyInput(),
-        "--warehouse",
         "-w",
+        *WarehouseOption.param_decls,
         click_type=OptionalPrompt(),
         prompt="Warehouse for the connection",
         help="Warehouse to use on Snowflake.",
@@ -179,8 +189,8 @@ def add(
     ),
     database: str = typer.Option(
         EmptyInput(),
-        "--database",
         "-d",
+        *DatabaseOption.param_decls,
         click_type=OptionalPrompt(),
         prompt="Database for the connection",
         help="Database to use on Snowflake.",
@@ -188,8 +198,8 @@ def add(
     ),
     schema: str = typer.Option(
         EmptyInput(),
-        "--schema",
         "-s",
+        *SchemaOption.param_decls,
         click_type=OptionalPrompt(),
         prompt="Schema for the connection",
         help="Schema to use on Snowflake.",
@@ -197,8 +207,8 @@ def add(
     ),
     host: str = typer.Option(
         EmptyInput(),
-        "--host",
         "-h",
+        *HostOption.param_decls,
         click_type=OptionalPrompt(),
         prompt="Connection host",
         help="Host name the connection attempts to connect to Snowflake.",
@@ -206,8 +216,8 @@ def add(
     ),
     port: int = typer.Option(
         EmptyInput(),
-        "--port",
         "-P",
+        *PortOption.param_decls,
         click_type=OptionalPrompt(),
         prompt="Connection port",
         help="Port to communicate with on the host.",
@@ -224,8 +234,8 @@ def add(
     ),
     authenticator: str = typer.Option(
         EmptyInput(),
-        "--authenticator",
         "-A",
+        *AuthenticatorOption.param_decls,
         click_type=OptionalPrompt(),
         prompt="Authentication method",
         help="Chosen authenticator, if other than password-based",
@@ -233,8 +243,8 @@ def add(
     private_key_file: str = typer.Option(
         EmptyInput(),
         "--private-key",
-        "--private-key-path",
         "-k",
+        *PrivateKeyPathOption.param_decls,
         click_type=OptionalPrompt(),
         prompt="Path to private key file",
         help="Path to file containing private key",
@@ -242,8 +252,8 @@ def add(
     ),
     token_file_path: str = typer.Option(
         EmptyInput(),
-        "--token-file-path",
         "-t",
+        *TokenFilePathOption.param_decls,
         click_type=OptionalPrompt(),
         prompt="Path to token file",
         help="Path to file with an OAuth token that should be used when connecting to Snowflake",

@@ -190,6 +190,15 @@ class IncompatibleParametersError(UsageError):
         )
 
 
+class UnmetParametersError(UsageError):
+    def __init__(self, options: list[str]):
+        options_with_quotes = [f"'{option}'" for option in options]
+        comma_separated_options = ", ".join(options_with_quotes[:-1])
+        super().__init__(
+            f"Parameters {comma_separated_options} and {options_with_quotes[-1]} must be used simultaneously."
+        )
+
+
 class NoWarehouseSelectedInSessionError(ClickException):
     def __init__(self, msg: str):
         super().__init__(

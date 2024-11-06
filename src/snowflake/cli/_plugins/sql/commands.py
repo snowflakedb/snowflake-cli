@@ -17,6 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
+import typer
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
@@ -63,6 +64,11 @@ def execute_sql(
         "String in format of key=value. If provided the SQL content will "
         "be treated as template and rendered using provided data.",
     ),
+    retain_comments: Optional[bool] = typer.Option(
+        False,
+        "--retain-comments",
+        help="Retains comments in queries passed to Snowflake",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -80,7 +86,9 @@ def execute_sql(
     if data_override:
         data = {v.key: v.value for v in parse_key_value_variables(data_override)}
 
-    single_statement, cursors = SqlManager().execute(query, files, std_in, data=data)
+    single_statement, cursors = SqlManager().execute(
+        query, files, std_in, data=data, retain_comments=retain_comments
+    )
     if single_statement:
         return QueryResult(next(cursors))
     return MultipleResults((QueryResult(c) for c in cursors))

@@ -429,3 +429,69 @@ def test_uses_variables_from_cli_are_added_outside_context(
     mock_execute_query.assert_called_once_with(
         "select foo_value other_value", cursor_class=VerboseCursor
     )
+
+
+@pytest.mark.parametrize(
+    "option,expected",
+    [
+        ("--retain-comments", "SELECT 42;\n-- Commented line\n    SELECT 1;\n"),
+        ("", "SELECT 42;\nSELECT 1;\n"),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_comments_are_handled_correctly_from_file(
+    mock_execute, runner, mock_cursor, named_temporary_file, option, expected
+):
+    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
+    query = """
+    SELECT 42;
+    -- Commented line
+    SELECT 1;
+    """
+
+    arguments = ["sql", "-f", query]
+    if option:
+        arguments.append(option)
+
+    with named_temporary_file() as tmp_file:
+        tmp_file.write_text(query)
+        arguments = ["sql", "-f", tmp_file]
+        if option:
+            arguments.append(option)
+
+        result = runner.invoke(arguments)
+
+    assert result.exit_code == 0
+    mock_execute.assert_called_once_with(expected, cursor_class=VerboseCursor)
+
+
+@pytest.mark.parametrize(
+    "option,expected",
+    [
+        (
+            "--retain-comments",
+            "SELECT 42;\n-- Commented line\n    SELECT 1;\n--another comment;",
+        ),
+        ("", "SELECT 42;\nSELECT 1;\n"),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_comments_are_handled_correctly_from_query(
+    mock_execute, runner, mock_cursor, named_temporary_file, option, expected
+):
+    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
+    query = """
+    SELECT 42;
+    -- Commented line
+    SELECT 1;
+    --another comment;
+    """
+
+    arguments = ["sql", "-q", query]
+    if option:
+        arguments.append(option)
+
+    result = runner.invoke(arguments)
+
+    assert result.exit_code == 0
+    mock_execute.assert_called_once_with(expected, cursor_class=VerboseCursor)

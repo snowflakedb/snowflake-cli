@@ -97,7 +97,7 @@ def _get_wm():
 def _create_or_upgrade_app(
     policy: PolicyBase,
     install_method: SameAccountInstallMethod,
-    is_interactive: bool = False,
+    interactive: bool = False,
     package_id: str = "app_pkg",
     app_id: str = "myapp",
     console: AbstractConsole | None = None,
@@ -113,20 +113,15 @@ def _create_or_upgrade_app(
         get_default_warehouse=lambda: "mock_warehouse",
     )
     app = ApplicationEntity(app_model, ctx)
+    pkg = ApplicationPackageEntity(pkg_model, ctx)
     stage_fqn = f"{pkg_model.fqn.name}.{pkg_model.stage}"
 
-    def drop_application_before_upgrade(cascade: bool = False):
-        app.drop_application_before_upgrade(
-            policy=policy,
-            interactive=is_interactive,
-            cascade=cascade,
-        )
-
     return app.create_or_upgrade_app(
-        package_model=pkg_model,
+        package=pkg,
         stage_fqn=stage_fqn,
         install_method=install_method,
-        drop_application_before_upgrade=drop_application_before_upgrade,
+        policy=policy,
+        interactive=interactive,
     )
 
 
@@ -1260,7 +1255,7 @@ def test_upgrade_app_warehouse_error(
     with pytest.raises(CouldNotUseObjectError):
         _create_or_upgrade_app(
             policy_param,
-            is_interactive=True,
+            interactive=True,
             install_method=SameAccountInstallMethod.release_directive(),
         )
     assert mock_execute.mock_calls == expected
@@ -1322,7 +1317,7 @@ def test_upgrade_app_incorrect_owner(
     with pytest.raises(ProgrammingError):
         _create_or_upgrade_app(
             policy=policy_param,
-            is_interactive=True,
+            interactive=True,
             install_method=SameAccountInstallMethod.release_directive(),
         )
     assert mock_execute.mock_calls == expected
@@ -1377,7 +1372,7 @@ def test_upgrade_app_succeeds(
 
     _create_or_upgrade_app(
         policy=policy_param,
-        is_interactive=True,
+        interactive=True,
         install_method=SameAccountInstallMethod.release_directive(),
     )
     assert mock_execute.mock_calls == expected
@@ -1438,7 +1433,7 @@ def test_upgrade_app_fails_generic_error(
     with pytest.raises(ProgrammingError):
         _create_or_upgrade_app(
             policy=policy_param,
-            is_interactive=True,
+            interactive=True,
             install_method=SameAccountInstallMethod.release_directive(),
         )
     assert mock_execute.mock_calls == expected
@@ -1454,7 +1449,7 @@ def test_upgrade_app_fails_generic_error(
 )
 @mock_connection()
 @pytest.mark.parametrize(
-    "policy_param, is_interactive_param, expected_code",
+    "policy_param, interactive, expected_code",
     [(deny_always_policy, False, 1), (ask_always_policy, True, 0)],
 )
 def test_upgrade_app_fails_upgrade_restriction_error(
@@ -1463,7 +1458,7 @@ def test_upgrade_app_fails_upgrade_restriction_error(
     mock_get_existing_app_info,
     mock_execute,
     policy_param,
-    is_interactive_param,
+    interactive,
     expected_code,
     temp_dir,
     mock_cursor,
@@ -1508,7 +1503,7 @@ def test_upgrade_app_fails_upgrade_restriction_error(
     with pytest.raises(typer.Exit):
         result = _create_or_upgrade_app(
             policy_param,
-            is_interactive=is_interactive_param,
+            interactive=interactive,
             install_method=SameAccountInstallMethod.release_directive(),
         )
         assert result.exit_code == expected_code
@@ -1605,7 +1600,7 @@ def test_versioned_app_upgrade_to_unversioned(
 
     _create_or_upgrade_app(
         policy=AllowAlwaysPolicy(),
-        is_interactive=False,
+        interactive=False,
         install_method=SameAccountInstallMethod.unversioned_dev(),
     )
     assert mock_execute.mock_calls == expected
@@ -1621,7 +1616,7 @@ def test_versioned_app_upgrade_to_unversioned(
 )
 @mock_connection()
 @pytest.mark.parametrize(
-    "policy_param, is_interactive_param",
+    "policy_param, interactive",
     [(allow_always_policy, False), (ask_always_policy, True)],
 )
 def test_upgrade_app_fails_drop_fails(
@@ -1630,7 +1625,7 @@ def test_upgrade_app_fails_drop_fails(
     mock_get_existing_app_info,
     mock_execute,
     policy_param,
-    is_interactive_param,
+    interactive,
     temp_dir,
     mock_cursor,
 ):
@@ -1680,7 +1675,7 @@ def test_upgrade_app_fails_drop_fails(
     with pytest.raises(ProgrammingError):
         _create_or_upgrade_app(
             policy_param,
-            is_interactive=is_interactive_param,
+            interactive=interactive,
             install_method=SameAccountInstallMethod.release_directive(),
         )
     assert mock_execute.mock_calls == expected
@@ -1775,7 +1770,7 @@ def test_upgrade_app_recreate_app(
 
     _create_or_upgrade_app(
         policy_param,
-        is_interactive=True,
+        interactive=True,
         install_method=SameAccountInstallMethod.release_directive(),
     )
     assert mock_execute.mock_calls == expected

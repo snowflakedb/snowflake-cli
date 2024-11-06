@@ -15,13 +15,14 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
+from unittest.mock import MagicMock
 
 import pytest
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import DictCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 from tests_common import IS_WINDOWS
 
@@ -234,7 +235,8 @@ def test_stage_copy_local_to_remote(mock_execute, runner, mock_cursor):
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f"put file://{Path(tmp_dir).resolve()}/* @stageName auto_compress=true parallel=42 overwrite=True"
+        f"put file://{Path(tmp_dir).resolve()}/* @stageName auto_compress=true parallel=42 overwrite=True",
+        cursor_class=SnowflakeCursor,
     )
 
 
@@ -257,7 +259,8 @@ def test_stage_copy_local_to_remote_quoted_stage(mock_execute, runner, mock_curs
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f"put file://{Path(tmp_dir).resolve()}/* '@\"stage name\"' auto_compress=false parallel=42 overwrite=True"
+        f"put file://{Path(tmp_dir).resolve()}/* '@\"stage name\"' auto_compress=false parallel=42 overwrite=True",
+        cursor_class=SnowflakeCursor,
     )
 
 
@@ -301,7 +304,8 @@ def test_stage_copy_local_to_remote_quoted_path(
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f"put {file_uri} @stageName auto_compress=false parallel=42 overwrite=True"
+        f"put {file_uri} @stageName auto_compress=false parallel=42 overwrite=True",
+        cursor_class=SnowflakeCursor,
     )
 
 
@@ -324,7 +328,8 @@ def test_stage_copy_local_to_remote_star(mock_execute, runner, mock_cursor):
         )
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        f"put file://{Path(tmp_dir).resolve()}/*.py @stageName auto_compress=false parallel=42 overwrite=True"
+        f"put file://{Path(tmp_dir).resolve()}/*.py @stageName auto_compress=false parallel=42 overwrite=True",
+        cursor_class=SnowflakeCursor,
     )
 
 
@@ -691,7 +696,8 @@ def test_stage_internal_put(mock_execute, mock_cursor):
             mock.call("select current_role()"),
             mock.call("use role new_role"),
             mock.call(
-                f"put file://{Path(tmp_dir).resolve()} @stageName auto_compress=false parallel=4 overwrite=False"
+                f"put file://{Path(tmp_dir).resolve()}/* @stageName auto_compress=false parallel=4 overwrite=False",
+                cursor_class=SnowflakeCursor,
             ),
             mock.call("use role old_role"),
         ]
@@ -708,7 +714,8 @@ def test_stage_internal_put_quoted_stage(mock_execute, mock_cursor):
             mock.call("select current_role()"),
             mock.call("use role new_role"),
             mock.call(
-                f"put file://{Path(tmp_dir).resolve()} '@\"stage name\"' auto_compress=false parallel=4 overwrite=False"
+                f"put file://{Path(tmp_dir).resolve()}/* '@\"stage name\"' auto_compress=false parallel=4 overwrite=False",
+                cursor_class=SnowflakeCursor,
             ),
             mock.call("use role old_role"),
         ]
@@ -745,7 +752,8 @@ def test_stage_internal_put_quoted_path(
             mock.call("select current_role()"),
             mock.call("use role new_role"),
             mock.call(
-                f"put {src_uri} @stageName auto_compress=false parallel=4 overwrite=False"
+                f"put {src_uri} @stageName auto_compress=false parallel=4 overwrite=False",
+                cursor_class=SnowflakeCursor,
             ),
             mock.call("use role old_role"),
         ]
@@ -1165,3 +1173,169 @@ def test_stage_manager_check_for_requirements_file(
     assert result == packages
 
     assert get_mock.download_file == selected
+
+
+class RecursiveUploadTester:
+    def __init__(self, tmp_dir: str):
+        self.calls: list[dict] = []
+        self.tmp_dir = Path(tmp_dir)
+
+    def prepare(self, structure: dict):
+        def create_structure(root: Path, dir_def: dict):
+            for name, content in dir_def.items():
+                if isinstance(content, dict):
+                    (root / name).mkdir()
+                    create_structure(root / name, content)
+                else:
+                    (root / name).write_text(content)
+
+        create_structure(self.tmp_dir, structure)
+
+    def execute(self, local_path):
+        calls = self.calls
+
+        class MockPut(MagicMock):
+            def __call__(self, *args, **kwargs):
+                if kwargs:
+                    calls.append(
+                        {
+                            "local_path": kwargs["local_path"],
+                            "stage_path": kwargs["stage_path"],
+                        }
+                    )
+                return super().__call__(*args, **kwargs)
+
+        class MockTemporaryDirectory(TemporaryDirectory):
+            current_name: str
+
+            def __enter__(self):
+                MockTemporaryDirectory.current_name = self.name
+                return super().__enter__()
+
+        with mock.patch(f"{STAGE_MANAGER}.put", new_callable=MockPut):
+            with mock.patch(
+                "snowflake.cli._plugins.stage.manager.TemporaryDirectory",
+                MockTemporaryDirectory,
+            ):
+                generator = StageManager().put_recursive(Path(local_path), "stageName")
+                list(generator)
+
+        return Path(MockTemporaryDirectory.current_name)
+
+
+NESTED_STRUCTURE = {
+    "dir1": {
+        "file1.py": "content1",
+        "file1.txt": "content2",
+        "dir12": {
+            "file121.py": "content3",
+            "file122.md": "content4",
+        },
+    },
+    "dir2": {
+        "file21": "content3",
+        "dir21": {
+            "dir211": {
+                "dir2111": {
+                    "file21111.py": "content4",
+                },
+            }
+        },
+    },
+    "dir3": {
+        "file31": "content5",
+        "dir31": {},
+        "dir32": {
+            "file321": "content6",
+        },
+    },
+    "file4.foo": "content7",
+}
+
+
+@pytest.mark.parametrize("pattern", ["", "**/*", "**"])
+def test_recursive_upload(temp_dir, pattern):
+    tester = RecursiveUploadTester(temp_dir)
+    tester.prepare(structure=NESTED_STRUCTURE)
+    tmp_created_by_copy = tester.execute(local_path=temp_dir + "/" + pattern)
+
+    assert tester.calls == [
+        # Leaves
+        dict(
+            local_path=tmp_created_by_copy / "dir2/dir21/dir211/dir2111",
+            stage_path=StagePath.from_stage_str("@stageName/dir2/dir21/dir211/dir2111"),
+        ),
+        dict(
+            local_path=tmp_created_by_copy / "dir1/dir12/",
+            stage_path=StagePath.from_stage_str("@stageName/dir1/dir12"),
+        ),
+        dict(
+            local_path=tmp_created_by_copy / "dir3/dir32/",
+            stage_path=StagePath.from_stage_str("@stageName/dir3/dir32"),
+        ),
+        # Next level
+        dict(
+            local_path=tmp_created_by_copy / "dir1/",
+            stage_path=StagePath.from_stage_str("@stageName/dir1"),
+        ),
+        dict(
+            local_path=tmp_created_by_copy / "dir3/",
+            stage_path=StagePath.from_stage_str("@stageName/dir3"),
+        ),
+        # Next level
+        dict(
+            local_path=tmp_created_by_copy / "dir2",
+            stage_path=StagePath.from_stage_str("@stageName/dir2"),
+        ),
+        # Next level
+        dict(
+            local_path=tmp_created_by_copy,
+            stage_path=StagePath.from_stage_str("@stageName"),
+        ),
+    ]
+
+
+def test_recursive_upload_with_empty_dir(temp_dir):
+    structure = {}
+
+    tester = RecursiveUploadTester(temp_dir)
+    tester.prepare(structure=structure)
+    _ = tester.execute(local_path=temp_dir)
+
+    assert tester.calls == []
+
+
+def test_recursive_upload_glob_file_pattern(temp_dir):
+    tester = RecursiveUploadTester(temp_dir)
+    tester.prepare(structure=NESTED_STRUCTURE)
+    tmp_created_by_copy = tester.execute(local_path=f"{temp_dir}/**/*.py")
+
+    assert tester.calls == [
+        # Leaves
+        dict(
+            local_path=tmp_created_by_copy / "dir2/dir21/dir211/dir2111/",
+            stage_path=StagePath.from_stage_str("@stageName/dir2/dir21/dir211/dir2111"),
+        ),
+        dict(
+            local_path=tmp_created_by_copy / "dir1/dir12/",
+            stage_path=StagePath.from_stage_str("@stageName/dir1/dir12"),
+        ),
+        # Next level
+        dict(
+            local_path=tmp_created_by_copy / "dir1/",
+            stage_path=StagePath.from_stage_str("@stageName/dir1"),
+        ),
+    ]
+
+
+def test_recursive_upload_no_recursive_glob_pattern(temp_dir):
+    tester = RecursiveUploadTester(temp_dir)
+    tester.prepare(structure=NESTED_STRUCTURE)
+    tmp_created_by_copy = tester.execute(local_path=f"{temp_dir}/*.foo")
+
+    assert tester.calls == [
+        dict(
+            local_path=tmp_created_by_copy,
+            stage_path=StagePath.from_stage_str("@stageName"),
+        ),
+    ]

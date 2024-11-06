@@ -76,6 +76,7 @@ class _CliGlobalContextManager:
             self,
             connection_context=self.connection_context.clone(),
             project_env_overrides_args=self.project_env_overrides_args.copy(),
+            metrics=self.metrics.clone(),
         )
 
     def __setattr__(self, prop, val):

@@ -30,6 +30,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
     AskAlwaysPolicy,
     DenyAlwaysPolicy,
 )
+from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 
@@ -57,18 +58,15 @@ def _drop_version(
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
-    return ApplicationPackageEntity.version_drop(
+    ctx = WorkspaceContext(
         console=cc,
         project_root=dm.project_root,
-        deploy_root=dm.project_root / pkg_model.deploy_root,
-        bundle_root=dm.project_root / pkg_model.bundle_root,
-        generated_root=(
-            dm.project_root / pkg_model.deploy_root / pkg_model.generated_root
-        ),
-        artifacts=pkg_model.artifacts,
-        package_name=pkg_model.fqn.name,
-        package_role=pkg_model.meta.role,
-        package_distribution=pkg_model.distribution,
+        get_default_role=lambda: "mock_role",
+        get_default_warehouse=lambda: "mock_warehouse",
+    )
+    pkg = ApplicationPackageEntity(pkg_model, ctx)
+    return pkg.action_version_drop(
+        action_ctx=mock.Mock(spec=ActionContext),
         version=version,
         force=force,
         interactive=interactive,
@@ -101,7 +99,7 @@ def test_process_has_no_existing_app_pkg(
 )
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(
-    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity._bundle",
     return_value=None,
 )
 @mock.patch(
@@ -143,7 +141,7 @@ def test_process_no_version_from_user_no_version_in_manifest(
 )
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(
-    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity._bundle",
     return_value=None,
 )
 @mock.patch(
@@ -193,7 +191,7 @@ def test_process_drop_cannot_complete(
 )
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(
-    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity._bundle",
     return_value=None,
 )
 @mock.patch(
@@ -253,7 +251,7 @@ def test_process_drop_from_manifest(
 )
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(
-    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.bundle",
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity._bundle",
     return_value=None,
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)

@@ -29,12 +29,12 @@ dependencies = [
   "pluggy==1.5.0",
   "PyYAML==6.0.2",
   "packaging",
-  "rich==13.9.2",
+  "rich==13.9.4",
   "requests==2.32.3",
   "requirements-parser==0.11.0",
   "setuptools==75.1.0",
   'snowflake.core==0.12.1; python_version < "3.12"',
-  "snowflake-connector-python[secure-local-storage]==3.12.2",
+  "snowflake-connector-python[secure-local-storage]==3.12.3",
   'snowflake-snowpark-python>=1.15.0;python_version < "3.12"',
   "tomlkit==0.13.2",
   "typer==0.12.5",
@@ -57,13 +57,13 @@ classifiers = [
 
 [project.optional-dependencies]
 development = [
-  "coverage==7.6.3",
+  "coverage==7.6.4",
   "pre-commit>=3.5.0",
   "pytest==8.3.3",
-  "pytest-randomly==3.15.0",
+  "pytest-randomly==3.16.0",
   "syrupy==4.7.2",
   "factory-boy==3.3.1",
-  "Faker==30.3.0",
+  "Faker==30.8.2",
 ]
 packaging = ["pyinstaller~=6.10"]
 

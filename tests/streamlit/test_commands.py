@@ -17,12 +17,13 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.connection.util import REGIONLESS_QUERY
+from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli.api.identifiers import FQN
 
 STREAMLIT_NAME = "test_streamlit"
 TEST_WAREHOUSE = "test_warehouse"
+GET_UI_PARAMETERS = "snowflake.cli._plugins.connection.util.get_ui_parameters"
 
 mock_streamlit_exists = mock.patch(
     "snowflake.cli._plugins.streamlit.manager.ObjectManager.object_exists",
@@ -63,8 +64,13 @@ def _put_query(source: str, dest: str):
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_only_streamlit_file(
+    mock_param,
     mock_connector,
     mock_typer,
     mock_get_account,
@@ -77,7 +83,6 @@ def test_deploy_only_streamlit_file(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "my_account"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -107,7 +112,6 @@ def test_deploy_only_streamlit_file(
             """
         ).strip(),
         "select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
     ]
     mock_typer.launch.assert_not_called()
 
@@ -115,8 +119,13 @@ def test_deploy_only_streamlit_file(
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_only_streamlit_file_no_stage(
+    mock_param,
     mock_connector,
     mock_typer,
     mock_get_account,
@@ -129,7 +138,6 @@ def test_deploy_only_streamlit_file_no_stage(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "my_account"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -158,7 +166,6 @@ def test_deploy_only_streamlit_file_no_stage(
             """
         ).strip(),
         "select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
     ]
     mock_typer.launch.assert_not_called()
 
@@ -166,8 +173,13 @@ def test_deploy_only_streamlit_file_no_stage(
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_with_empty_pages(
+    mock_param,
     mock_connector,
     mock_typer,
     mock_get_account,
@@ -180,7 +192,6 @@ def test_deploy_with_empty_pages(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "my_account"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -211,7 +222,6 @@ def test_deploy_with_empty_pages(
             """
         ).strip(),
         "select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
     ]
     assert "Skipping empty directory: pages" in result.output
 
@@ -219,8 +229,13 @@ def test_deploy_with_empty_pages(
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
 @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_only_streamlit_file_replace(
+    mock_param,
     mock_connector,
     mock_typer,
     mock_get_account,
@@ -233,7 +248,6 @@ def test_deploy_only_streamlit_file_replace(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "my_account"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -263,7 +277,6 @@ def test_deploy_only_streamlit_file_replace(
             """
         ).strip(),
         "select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
     ]
     mock_typer.launch.assert_not_called()
 
@@ -287,15 +300,24 @@ def test_artifacts_must_exists(
 
 @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_launch_browser(
-    mock_connector, mock_typer, mock_cursor, runner, mock_ctx, project_directory
+    mock_param,
+    mock_connector,
+    mock_typer,
+    mock_cursor,
+    runner,
+    mock_ctx,
+    project_directory,
 ):
     ctx = mock_ctx(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
         )
@@ -313,15 +335,18 @@ def test_deploy_launch_browser(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_streamlit_and_environment_files(
-    mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
     ctx = mock_ctx(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -350,21 +375,23 @@ def test_deploy_streamlit_and_environment_files(
             """
         ).strip(),
         f"select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
         f"select current_account_name()",
     ]
 
 
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_streamlit_and_pages_files(
-    mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
     ctx = mock_ctx(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -392,21 +419,23 @@ def test_deploy_streamlit_and_pages_files(
             """
         ).strip(),
         f"select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
         f"select current_account_name()",
     ]
 
 
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_all_streamlit_files(
-    mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
     ctx = mock_ctx(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -435,21 +464,23 @@ def test_deploy_all_streamlit_files(
             """
         ).strip(),
         f"select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
         "select current_account_name()",
     ]
 
 
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_put_files_on_stage(
-    mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
     ctx = mock_ctx(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -480,21 +511,23 @@ def test_deploy_put_files_on_stage(
             """
         ).strip(),
         f"select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
         f"select current_account_name()",
     ]
 
 
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_all_streamlit_files_not_defaults(
-    mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
     ctx = mock_ctx(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -521,7 +554,6 @@ def test_deploy_all_streamlit_files_not_defaults(
             """
         ).strip(),
         f"select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
         f"select current_account_name()",
     ]
 
@@ -529,8 +561,13 @@ def test_deploy_all_streamlit_files_not_defaults(
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
 @pytest.mark.parametrize("enable_streamlit_no_checkouts", [True, False])
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental(
+    mock_param,
     mock_connector,
     mock_cursor,
     runner,
@@ -543,7 +580,6 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -595,7 +631,6 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
             _put_query("environment.yml", f"{root_path}"),
             _put_query("pages/*", f"{root_path}/pages"),
             "select system$get_snowsight_host()",
-            REGIONLESS_QUERY,
             "select current_account_name()",
         ]
         if cmd is not None
@@ -603,8 +638,13 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
+    mock_param,
     mock_connector,
     mock_cursor,
     runner,
@@ -615,7 +655,6 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -633,7 +672,6 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
     ctx.cs = mock_cursor(
         rows=[
             {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-            {"REGIONLESS": "false"},
             {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
         ],
         columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -661,15 +699,19 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*", f"{root_path}/pages"),
         "select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
         "select current_account_name()",
     ]
 
 
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
+    mock_param,
     mock_connector,
     mock_cursor,
     runner,
@@ -681,7 +723,6 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -721,21 +762,23 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
         f"select current_account_name()",
     ]
 
 
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_replace(
-    mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
     ctx = mock_ctx(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -762,7 +805,6 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
         _put_query("environment.yml", f"{root_path}"),
         _put_query("pages/*", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
         f"select current_account_name()",
     ]
 
@@ -818,12 +860,15 @@ def test_drop_streamlit(mock_connector, runner, mock_ctx):
 
 
 @mock.patch("snowflake.connector.connect")
-def test_get_streamlit_url(mock_connector, mock_cursor, runner, mock_ctx):
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
+def test_get_streamlit_url(mock_param, mock_connector, mock_cursor, runner, mock_ctx):
     ctx = mock_ctx(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -836,7 +881,6 @@ def test_get_streamlit_url(mock_connector, mock_cursor, runner, mock_ctx):
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
         "select current_account_name()",
     ]
 
@@ -898,14 +942,17 @@ def test_multiple_streamlit_raise_error_if_multiple_entities(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+)
 def test_deploy_streamlit_with_comment_v2(
-    mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
 ):
     ctx = mock_ctx(
         mock_cursor(
             rows=[
                 {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                {"REGIONLESS": "false"},
                 {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
             ],
             columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
@@ -935,7 +982,6 @@ def test_deploy_streamlit_with_comment_v2(
             """
         ).strip(),
         "select system$get_snowsight_host()",
-        REGIONLESS_QUERY,
         "select current_account_name()",
     ]
 

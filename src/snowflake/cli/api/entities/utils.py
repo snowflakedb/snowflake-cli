@@ -12,6 +12,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     InvalidTemplateInFileError,
     MissingScriptError,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import verify_exists, verify_no_directories
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
@@ -195,36 +196,24 @@ def sync_deploy_root_with_stage(
     return diff
 
 
-def _execute_sql_script(
-    script_content: str,
-    database_name: Optional[str] = None,
-) -> None:
-    """
-    Executing the provided SQL script content.
-    This assumes that a relevant warehouse is already active.
-    If database_name is passed in, it will be used first.
-    """
-    try:
-        sql_executor = get_sql_executor()
-        if database_name is not None:
-            sql_executor.execute_query(f"use database {database_name}")
-        sql_executor.execute_queries(script_content)
-    except ProgrammingError as err:
-        generic_sql_error_handler(err)
-
-
 def execute_post_deploy_hooks(
     console: AbstractConsole,
     project_root: Path,
     post_deploy_hooks: Optional[List[PostDeployHook]],
     deployed_object_type: str,
+    role_name: str,
     database_name: str,
+    warehouse_name: str,
 ) -> None:
     """
     Executes post-deploy hooks for the given object type.
     While executing SQL post deploy hooks, it first switches to the database provided in the input.
     All post deploy scripts templates will first be expanded using the global template context.
     """
+    get_cli_context().metrics.set_counter_default(
+        CLICounterField.POST_DEPLOY_SCRIPTS, 0
+    )
+
     if not post_deploy_hooks:
         return
 
@@ -248,11 +237,16 @@ def execute_post_deploy_hooks(
             sql_scripts_paths,
         )
 
+        sql_facade = get_snowflake_facade()
+
         for index, sql_script_path in enumerate(display_paths):
             console.step(f"Executing SQL script: {sql_script_path}")
-            _execute_sql_script(
-                script_content=scripts_content_list[index],
-                database_name=database_name,
+            sql_facade.execute_user_script(
+                queries=scripts_content_list[index],
+                script_name=sql_script_path,
+                role=role_name,
+                warehouse=warehouse_name,
+                database=database_name,
             )
 
 
