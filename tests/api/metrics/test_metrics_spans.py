@@ -322,15 +322,14 @@ def test_metrics_spans_passing_total_limit_are_collected_breadth_first():
     )
 
 
-def test_metrics_spans_passing_depth_limit_when_total_limit_reached_should_not_add_to_total_count():
+def test_metrics_spans_passing_both_limits_should_add_to_both_counts():
     # given
     metrics = CLIMetrics()
 
     # when
     create_spans(metrics, width=CLIMetrics.SPAN_TOTAL_LIMIT, depth=1)
-    # the 10 spans past the depth limit would not be reported and so do not count towards the total limit
     create_spans(metrics, width=1, depth=CLIMetrics.SPAN_DEPTH_LIMIT + 10)
 
     # then
-    assert metrics.num_spans_past_total_limit == CLIMetrics.SPAN_DEPTH_LIMIT
+    assert metrics.num_spans_past_total_limit == CLIMetrics.SPAN_DEPTH_LIMIT + 10
     assert metrics.num_spans_past_depth_limit == 10

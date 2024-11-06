@@ -263,13 +263,7 @@ class CLIMetrics:
 
     @property
     def num_spans_past_total_limit(self) -> int:
-        return max(
-            0,
-            # we don't count the spans past the depth limit since they would not be reported
-            len(self._completed_spans)
-            - self.num_spans_past_depth_limit
-            - self.SPAN_TOTAL_LIMIT,
-        )
+        return max(0, len(self._completed_spans) - self.SPAN_TOTAL_LIMIT)
 
     @property
     def completed_spans(self) -> List[Dict]:
