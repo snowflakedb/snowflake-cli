@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import uuid
+from itertools import count
 from unittest import mock
 
 import pytest
@@ -22,25 +23,19 @@ from snowflake.cli.api.metrics import (
 )
 
 
-# helper for testing span depth limit edge case
-def create_nested_spans_recursively(metrics: CLIMetrics, num_spans: int = 1) -> None:
-    @metrics.start_span("nested_span")
-    def create_span():
-        nonlocal num_spans
-        num_spans -= 1
+# helper for testing span limits
+def create_spans(metrics: CLIMetrics, width: int, depth: int):
+    counter = count()
 
-        if num_spans > 0:
-            create_span()
+    def create_span(num_spans: int):
+        if num_spans <= 0:
+            return
 
-    create_span()
+        with metrics.start_span(f"span-{next(counter)}"):
+            create_span(num_spans - 1)
 
-
-# helper for testing span total limit edge case
-def create_spans_sequentially(metrics: CLIMetrics, num_spans: int = 1) -> None:
-    while num_spans > 0:
-        with metrics.start_span("sequential_span"):
-            pass
-        num_spans -= 1
+    for _ in range(width):
+        create_span(num_spans=depth)
 
 
 def test_metrics_spans_initialization_empty():
@@ -52,6 +47,8 @@ def test_metrics_spans_initialization_empty():
 
     # then
     assert metrics.completed_spans == []
+    assert metrics.num_spans_past_depth_limit == 0
+    assert metrics.num_spans_past_total_limit == 0
 
 
 @mock.patch(
@@ -86,6 +83,9 @@ def test_metrics_spans_single_span_no_error_or_parent(mock_time_monotonic):
     assert span1_dict[CLIMetricsSpan.ERROR_KEY] is None
     assert span1_dict[CLIMetricsSpan.PARENT_KEY] is None
     assert span1_dict[CLIMetricsSpan.PARENT_ID_KEY] is None
+    assert span1_dict[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 1
+    assert span1_dict[CLIMetricsSpan.SPAN_DEPTH_KEY] == 1
+    assert span1_dict[CLIMetricsSpan.TRIMMED_KEY] == False
 
 
 def test_metrics_spans_finish_early_is_idempotent():
@@ -157,6 +157,18 @@ def test_metrics_spans_parent_with_one_child(mock_time_monotonic):
     assert (
         parent_dict[CLIMetricsSpan.START_TIME_KEY]
         < child_dict[CLIMetricsSpan.START_TIME_KEY]
+    )
+
+    assert parent_dict[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 2
+    assert child_dict[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 1
+
+    assert parent_dict[CLIMetricsSpan.SPAN_DEPTH_KEY] == 1
+    assert child_dict[CLIMetricsSpan.SPAN_DEPTH_KEY] == 2
+
+    assert (
+        parent_dict[CLIMetricsSpan.TRIMMED_KEY]
+        == child_dict[CLIMetricsSpan.TRIMMED_KEY]
+        == False
     )
 
 
@@ -239,6 +251,27 @@ def test_metrics_spans_parent_with_two_children_same_name(mock_time_monotonic):
         < child2_dict[CLIMetricsSpan.START_TIME_KEY]
     )
 
+    assert parent_dict[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 3
+    assert (
+        child1_dict[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY]
+        == child1_dict[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY]
+        == 1
+    )
+
+    assert parent_dict[CLIMetricsSpan.SPAN_DEPTH_KEY] == 1
+    assert (
+        child1_dict[CLIMetricsSpan.SPAN_DEPTH_KEY]
+        == child1_dict[CLIMetricsSpan.SPAN_DEPTH_KEY]
+        == 2
+    )
+
+    assert (
+        parent_dict[CLIMetricsSpan.TRIMMED_KEY]
+        == child1_dict[CLIMetricsSpan.TRIMMED_KEY]
+        == child2_dict[CLIMetricsSpan.TRIMMED_KEY]
+        == False
+    )
+
 
 def test_metrics_spans_error_is_propagated():
     # given
@@ -265,4 +298,67 @@ def test_metrics_spans_empty_name_raises_error():
             pass
 
     # then
-    assert err.match("step name must not be empty")
+    assert err.match("span name must not be empty")
+
+
+def test_metrics_spans_passing_depth_limit_should_add_to_counter_and_not_emit():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    create_spans(metrics, width=1, depth=CLIMetrics.SPAN_DEPTH_LIMIT + 3)
+
+    # then
+
+    assert metrics.num_spans_past_total_limit == 0
+    assert metrics.num_spans_past_depth_limit == 3
+
+    completed_spans = metrics.completed_spans
+    assert len(completed_spans) == CLIMetrics.SPAN_DEPTH_LIMIT
+
+    assert completed_spans[-1][CLIMetricsSpan.TRIMMED_KEY] == True
+    assert completed_spans[-2][CLIMetricsSpan.TRIMMED_KEY] == False
+
+    assert (
+        completed_spans[-1][CLIMetricsSpan.SPAN_DEPTH_KEY]
+        == CLIMetrics.SPAN_DEPTH_LIMIT
+    )
+
+    assert completed_spans[0][CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 8
+    assert completed_spans[-1][CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 4
+
+
+def test_metrics_spans_passing_total_limit_are_collected_breadth_first():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    create_spans(metrics, width=CLIMetrics.SPAN_TOTAL_LIMIT + 1, depth=2)
+
+    # then
+    assert metrics.num_spans_past_total_limit == CLIMetrics.SPAN_TOTAL_LIMIT + 2
+    assert metrics.num_spans_past_depth_limit == 0
+
+    completed_spans = metrics.completed_spans
+
+    assert len(completed_spans) == CLIMetrics.SPAN_TOTAL_LIMIT
+
+    assert all(span[CLIMetricsSpan.PARENT_KEY] is None for span in completed_spans)
+    assert all(span[CLIMetricsSpan.TRIMMED_KEY] == True for span in completed_spans)
+    assert all(
+        span[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 2 for span in completed_spans
+    )
+
+
+def test_metrics_spans_passing_depth_limit_when_total_limit_reached_should_not_add_to_total_count():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    create_spans(metrics, width=CLIMetrics.SPAN_TOTAL_LIMIT, depth=1)
+    # the 10 spans past the depth limit would not be reported and so do not count towards the total limit
+    create_spans(metrics, width=1, depth=CLIMetrics.SPAN_DEPTH_LIMIT + 10)
+
+    # then
+    assert metrics.num_spans_past_total_limit == CLIMetrics.SPAN_DEPTH_LIMIT
+    assert metrics.num_spans_past_depth_limit == 10
