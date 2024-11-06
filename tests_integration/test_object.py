@@ -349,7 +349,7 @@ def test_create_error_undefined_database(runner):
     )
 
 
-@pytest.mark.int
+@pytest.mark.integration
 def test_object_create_if_not_exist_and_replace(runner, test_database):
 
     result = runner.invoke_with_connection(

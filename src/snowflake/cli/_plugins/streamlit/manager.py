@@ -92,9 +92,6 @@ class StreamlitManager(SqlExecutionMixin):
                     .relative_to(streamlit_project_paths.deploy_root)
                     .parent
                 )
-                stage_path = (
-                    stage_path if stage_path != PurePosixPath() else PurePosixPath()
-                )
                 full_stage_path = f"{stage_root}/{stage_path}".rstrip("/")
                 stage_manager.put(
                     local_path=absolute_dest, stage_path=full_stage_path, overwrite=True

@@ -141,7 +141,7 @@ def test_deploy_function_secrets_without_external_access(
     mock_ctx,
     project_directory,
     os_agnostic_snapshot,
-    enable_snowpark_new_build_feature_flag,
+    enable_snowpark_bundle_map_build_feature_flag,
 ):
     mock_object_manager.return_value.show.return_value = [
         {"name": "external_1", "type": "EXTERNAL_ACCESS"},
@@ -183,7 +183,7 @@ def test_deploy_function_no_changes(
     mock_ctx,
     mock_cursor,
     project_directory,
-    enable_snowpark_new_build_feature_flag,
+    enable_snowpark_bundle_map_build_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     rows = [
@@ -230,7 +230,7 @@ def test_deploy_function_needs_update_because_packages_changes(
     mock_ctx,
     mock_cursor,
     project_directory,
-    enable_snowpark_new_build_feature_flag,
+    enable_snowpark_bundle_map_build_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     rows = [
@@ -287,7 +287,7 @@ def test_deploy_function_needs_update_because_handler_changes(
     mock_ctx,
     mock_cursor,
     project_directory,
-    enable_snowpark_new_build_feature_flag,
+    enable_snowpark_bundle_map_build_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     rows = [
@@ -350,7 +350,7 @@ def test_deploy_function_fully_qualified_name_duplicated_database(
     project_directory,
     alter_snowflake_yml,
     os_agnostic_snapshot,
-    enable_snowpark_new_build_feature_flag,
+    enable_snowpark_bundle_map_build_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     number_of_functions_in_project = 6
@@ -391,7 +391,7 @@ def test_deploy_function_fully_qualified_name_duplicated_schema(
     project_directory,
     alter_snowflake_yml,
     os_agnostic_snapshot,
-    enable_snowpark_new_build_feature_flag,
+    enable_snowpark_bundle_map_build_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     number_of_functions_in_project = 6
@@ -437,7 +437,7 @@ def test_deploy_function_fully_qualified_name(
     project_directory,
     alter_snowflake_yml,
     os_agnostic_snapshot,
-    enable_snowpark_new_build_feature_flag,
+    enable_snowpark_bundle_map_build_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     number_of_functions_in_project = 6
@@ -493,7 +493,7 @@ def test_deploy_function_with_empty_default_value(
     alter_snowflake_yml,
     parameter_type,
     default_value,
-    enable_snowpark_new_build_feature_flag,
+    enable_snowpark_bundle_map_build_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     mock_object_manager.return_value.describe.side_effect = ProgrammingError(

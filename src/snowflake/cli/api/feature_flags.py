@@ -52,4 +52,6 @@ class FeatureFlag(FeatureFlagMixin):
     ENABLE_STREAMLIT_VERSIONED_STAGE = BooleanFlag(
         "ENABLE_STREAMLIT_VERSIONED_STAGE", False
     )
-    ENABLE_SNOWPARK_NEW_BUILD = BooleanFlag("ENABLE_SNOWPARK_NEW_BUILD", False)
+    ENABLE_SNOWPARK_BUNDLE_MAP_BUILD = BooleanFlag(
+        "ENABLE_SNOWPARK_BUNDLE_MAP_BUILD", False
+    )

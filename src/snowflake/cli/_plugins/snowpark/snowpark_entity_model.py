@@ -54,9 +54,12 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseM
     def _convert_artifacts(cls, artifacts: Union[dict, str]):
         _artifacts = []
         for artifact in artifacts:
-            if "*" in artifact and FeatureFlag.ENABLE_SNOWPARK_NEW_BUILD.is_disabled():
+            if (
+                "*" in artifact
+                and FeatureFlag.ENABLE_SNOWPARK_BUNDLE_MAP_BUILD.is_disabled()
+            ):
                 raise ValueError(
-                    "If you want to use glob patterns in artifacts, you need to enable the Snowpark new build feature flag (ENABLE_SNOWPARK_NEW_BUILD=true)"
+                    "If you want to use glob patterns in artifacts, you need to enable the Snowpark new build feature flag (ENABLE_SNOWPARK_BUNDLE_MAP_BUILD=true)"
                 )
             if isinstance(artifact, PathMapping):
                 _artifacts.append(artifact)
