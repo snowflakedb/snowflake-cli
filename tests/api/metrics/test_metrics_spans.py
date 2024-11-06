@@ -301,7 +301,39 @@ def test_metrics_spans_empty_name_raises_error():
     assert err.match("span name must not be empty")
 
 
-def test_metrics_spans_passing_depth_limit_should_add_to_counter_and_not_emit():
+@mock.patch(
+    "time.monotonic",
+    side_effect=[
+        110535.515,
+        110535.656,
+        110536.093,
+        110536.656,
+        110537.375,
+        110537.89,
+        110538.093,
+        110538.484,
+        110539.046,
+        110539.968,
+        110540.578,
+        110541.218,
+        110541.546,
+        110541.781,
+        110542.687,
+        110542.781,
+        110543.39,
+        110544.359,
+        110545.296,
+        110545.812,
+        110546.265,
+        110546.5,
+        110547.078,
+        110547.984,
+        110548.078,
+    ],
+)
+def test_metrics_spans_passing_depth_limit_should_add_to_counter_and_not_emit(
+    mock_time_monotonic,
+):
     # given
     metrics = CLIMetrics()
 
