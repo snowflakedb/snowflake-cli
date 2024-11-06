@@ -23,6 +23,14 @@ from snowflake.cli.api.metrics import (
 )
 
 
+# we need to mock time.monotonic because on windows it does not
+# capture enough precision for these tests to not be flaky
+@pytest.fixture
+def mock_time_monotonic():
+    with mock.patch("time.monotonic", side_effect=count()) as mocked_time_monotonic:
+        yield mocked_time_monotonic
+
+
 # helper for testing span limits
 def create_spans(metrics: CLIMetrics, width: int, depth: int):
     counter = count()
@@ -51,15 +59,6 @@ def test_metrics_spans_initialization_empty():
     assert metrics.num_spans_past_total_limit == 0
 
 
-@mock.patch(
-    "time.monotonic",
-    side_effect=[
-        648138.344273541,
-        648145.060737166,
-        648149.218578125,
-        650185.226891333,
-    ],
-)
 def test_metrics_spans_single_span_no_error_or_parent(mock_time_monotonic):
     # given
     metrics = CLIMetrics()
@@ -83,7 +82,7 @@ def test_metrics_spans_single_span_no_error_or_parent(mock_time_monotonic):
     assert span1_dict[CLIMetricsSpan.ERROR_KEY] is None
     assert span1_dict[CLIMetricsSpan.PARENT_KEY] is None
     assert span1_dict[CLIMetricsSpan.PARENT_ID_KEY] is None
-    assert span1_dict[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 1
+    assert span1_dict[CLIMetricsSpan.SPAN_COUNT_IN_SUBTREE_KEY] == 1
     assert span1_dict[CLIMetricsSpan.SPAN_DEPTH_KEY] == 1
     assert span1_dict[CLIMetricsSpan.TRIMMED_KEY] == False
 
@@ -105,20 +104,6 @@ def test_metrics_spans_finish_early_is_idempotent():
     assert span1_dict[CLIMetricsSpan.EXECUTION_TIME_KEY] == execution_time
 
 
-# we need to mock time.monotonic because on windows it does not
-# capture enough precision for these tests to not be flaky
-@mock.patch(
-    "time.monotonic",
-    side_effect=[
-        648138.344273541,
-        648145.060737166,
-        648149.218578125,
-        648156.342776708,
-        650185.226891333,
-        650462.360341083,
-        650614.14673775,
-    ],
-)
 def test_metrics_spans_parent_with_one_child(mock_time_monotonic):
     # given
     metrics = CLIMetrics()
@@ -159,8 +144,8 @@ def test_metrics_spans_parent_with_one_child(mock_time_monotonic):
         < child_dict[CLIMetricsSpan.START_TIME_KEY]
     )
 
-    assert parent_dict[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 2
-    assert child_dict[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 1
+    assert parent_dict[CLIMetricsSpan.SPAN_COUNT_IN_SUBTREE_KEY] == 2
+    assert child_dict[CLIMetricsSpan.SPAN_COUNT_IN_SUBTREE_KEY] == 1
 
     assert parent_dict[CLIMetricsSpan.SPAN_DEPTH_KEY] == 1
     assert child_dict[CLIMetricsSpan.SPAN_DEPTH_KEY] == 2
@@ -172,21 +157,6 @@ def test_metrics_spans_parent_with_one_child(mock_time_monotonic):
     )
 
 
-@mock.patch(
-    "time.monotonic",
-    side_effect=[
-        648138.344273541,
-        648145.060737166,
-        648149.218578125,
-        648156.342776708,
-        648313.587525833,
-        648342.267406625,
-        650185.226891333,
-        650462.360341083,
-        650614.14673775,
-        650639.384397291,
-    ],
-)
 def test_metrics_spans_parent_with_two_children_same_name(mock_time_monotonic):
     # given
     metrics = CLIMetrics()
@@ -251,10 +221,10 @@ def test_metrics_spans_parent_with_two_children_same_name(mock_time_monotonic):
         < child2_dict[CLIMetricsSpan.START_TIME_KEY]
     )
 
-    assert parent_dict[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 3
+    assert parent_dict[CLIMetricsSpan.SPAN_COUNT_IN_SUBTREE_KEY] == 3
     assert (
-        child1_dict[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY]
-        == child1_dict[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY]
+        child1_dict[CLIMetricsSpan.SPAN_COUNT_IN_SUBTREE_KEY]
+        == child1_dict[CLIMetricsSpan.SPAN_COUNT_IN_SUBTREE_KEY]
         == 1
     )
 
@@ -301,36 +271,6 @@ def test_metrics_spans_empty_name_raises_error():
     assert err.match("span name must not be empty")
 
 
-@mock.patch(
-    "time.monotonic",
-    side_effect=[
-        110535.515,
-        110535.656,
-        110536.093,
-        110536.656,
-        110537.375,
-        110537.89,
-        110538.093,
-        110538.484,
-        110539.046,
-        110539.968,
-        110540.578,
-        110541.218,
-        110541.546,
-        110541.781,
-        110542.687,
-        110542.781,
-        110543.39,
-        110544.359,
-        110545.296,
-        110545.812,
-        110546.265,
-        110546.5,
-        110547.078,
-        110547.984,
-        110548.078,
-    ],
-)
 def test_metrics_spans_passing_depth_limit_should_add_to_counter_and_not_emit(
     mock_time_monotonic,
 ):
@@ -356,8 +296,8 @@ def test_metrics_spans_passing_depth_limit_should_add_to_counter_and_not_emit(
         == CLIMetrics.SPAN_DEPTH_LIMIT
     )
 
-    assert completed_spans[0][CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 8
-    assert completed_spans[-1][CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 4
+    assert completed_spans[0][CLIMetricsSpan.SPAN_COUNT_IN_SUBTREE_KEY] == 8
+    assert completed_spans[-1][CLIMetricsSpan.SPAN_COUNT_IN_SUBTREE_KEY] == 4
 
 
 def test_metrics_spans_passing_total_limit_are_collected_breadth_first():
@@ -378,7 +318,7 @@ def test_metrics_spans_passing_total_limit_are_collected_breadth_first():
     assert all(span[CLIMetricsSpan.PARENT_KEY] is None for span in completed_spans)
     assert all(span[CLIMetricsSpan.TRIMMED_KEY] == True for span in completed_spans)
     assert all(
-        span[CLIMetricsSpan.COUNT_SPANS_IN_SUBTREE_KEY] == 2 for span in completed_spans
+        span[CLIMetricsSpan.SPAN_COUNT_IN_SUBTREE_KEY] == 2 for span in completed_spans
     )
 
 

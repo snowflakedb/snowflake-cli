@@ -85,9 +85,11 @@ class CLIMetricsSpan:
     START_TIME_KEY: ClassVar[str] = "start_time"
     EXECUTION_TIME_KEY: ClassVar[str] = "execution_time"
     ERROR_KEY: ClassVar[str] = "error"
-    COUNT_SPANS_IN_SUBTREE_KEY: ClassVar[str] = "count_spans_in_subtree"
+    # total number of spans started under this span, inclusive of itself and its children's children (recursively)
+    SPAN_COUNT_IN_SUBTREE_KEY: ClassVar[str] = "span_count_in_subtree"
+    # the number of spans in the path between the current span and the topmost parent span, inclusive of both
     SPAN_DEPTH_KEY: ClassVar[str] = "span_depth"
-    # denotes whether direct children were pruned from telemetry payload
+    # denotes whether direct children were trimmed from telemetry payload
     TRIMMED_KEY: ClassVar[str] = "trimmed"
 
     # constructor vars
@@ -100,9 +102,10 @@ class CLIMetricsSpan:
     execution_time: Optional[float] = field(init=False, default=None)
     error: Optional[BaseException] = field(init=False, default=None)
     span_depth: int = field(init=False, default=1)
-    count_spans_in_subtree: int = field(init=False, default=1)
+    span_count_in_subtree: int = field(init=False, default=1)
 
     # vars for postprocessing
+    # spans started directly under this one
     children: Set[CLIMetricsSpan] = field(init=False, default_factory=set)
 
     # private state
@@ -123,7 +126,7 @@ class CLIMetricsSpan:
             self.span_depth = self.parent.span_depth + 1
 
     def increment_subtree_node_count(self) -> None:
-        self.count_spans_in_subtree += 1
+        self.span_count_in_subtree += 1
 
         if self.parent:
             self.parent.increment_subtree_node_count()
@@ -161,7 +164,7 @@ class CLIMetricsSpan:
             else None,
             self.EXECUTION_TIME_KEY: self.execution_time,
             self.ERROR_KEY: type(self.error).__name__ if self.error else None,
-            self.COUNT_SPANS_IN_SUBTREE_KEY: self.count_spans_in_subtree,
+            self.SPAN_COUNT_IN_SUBTREE_KEY: self.span_count_in_subtree,
             self.SPAN_DEPTH_KEY: self.span_depth,
         }
 
