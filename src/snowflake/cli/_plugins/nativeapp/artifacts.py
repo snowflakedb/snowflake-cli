@@ -674,14 +674,25 @@ def build_bundle(
     if resolved_root.exists():
         delete(resolved_root)
 
-    bundle_map = BundleMap(project_root=project_root, deploy_root=deploy_root)
-    for artifact in artifacts:
-        bundle_map.add(artifact)
-
+    bundle_map = bundle_artifacts(project_root, deploy_root, artifacts)
     if bundle_map.is_empty():
         raise ArtifactError(
             "No artifacts mapping found in project definition, nothing to do."
         )
+
+    return bundle_map
+
+
+def bundle_artifacts(
+    project_root: Path, deploy_root: Path, artifacts: list[PathMapping]
+):
+    """
+    Internal implementation of build_bundle that assumes
+    that validation is being done by the caller.
+    """
+    bundle_map = BundleMap(project_root=project_root, deploy_root=deploy_root)
+    for artifact in artifacts:
+        bundle_map.add(artifact)
 
     for (absolute_src, absolute_dest) in bundle_map.all_mappings(
         absolute=True, expand_directories=False
