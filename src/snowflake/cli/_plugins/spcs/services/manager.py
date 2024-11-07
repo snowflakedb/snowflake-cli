@@ -81,7 +81,7 @@ class ServiceManager(SqlExecutionMixin):
             query.append(f"WITH TAG ({tag_list})")
 
         try:
-            return self._execute_query(strip_empty_lines(query))
+            return self.execute_query(strip_empty_lines(query))
         except ProgrammingError as e:
             handle_object_already_exists(e, ObjectType.SERVICE, service_name)
 
@@ -119,7 +119,7 @@ class ServiceManager(SqlExecutionMixin):
             query.append(f"COMMENT = {comment}")
 
         try:
-            return self._execute_query(strip_empty_lines(query))
+            return self.execute_query(strip_empty_lines(query))
         except ProgrammingError as e:
             handle_object_already_exists(e, ObjectType.SERVICE, job_service_name)
 
@@ -130,37 +130,37 @@ class ServiceManager(SqlExecutionMixin):
         return json.dumps(data)
 
     def status(self, service_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')")
+        return self.execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')")
 
     def logs(
         self, service_name: str, instance_id: str, container_name: str, num_lines: int
     ):
-        return self._execute_query(
+        return self.execute_query(
             f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines});"
         )
 
     def upgrade_spec(self, service_name: str, spec_path: Path):
         spec = self._read_yaml(spec_path)
         query = f"alter service {service_name} from specification $$ {spec} $$"
-        return self._execute_query(query)
+        return self.execute_query(query)
 
     def list_endpoints(self, service_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"show endpoints in service {service_name}")
+        return self.execute_query(f"show endpoints in service {service_name}")
 
     def list_instances(self, service_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"show service instances in service {service_name}")
+        return self.execute_query(f"show service instances in service {service_name}")
 
     def list_containers(self, service_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"show service containers in service {service_name}")
+        return self.execute_query(f"show service containers in service {service_name}")
 
     def list_roles(self, service_name: str) -> SnowflakeCursor:
-        return self._execute_query(f"show roles in service {service_name}")
+        return self.execute_query(f"show roles in service {service_name}")
 
     def suspend(self, service_name: str):
-        return self._execute_query(f"alter service {service_name} suspend")
+        return self.execute_query(f"alter service {service_name} suspend")
 
     def resume(self, service_name: str):
-        return self._execute_query(f"alter service {service_name} resume")
+        return self.execute_query(f"alter service {service_name} resume")
 
     def set_property(
         self,
@@ -211,7 +211,7 @@ class ServiceManager(SqlExecutionMixin):
         if comment is not None:
             query.append(f" comment = {comment}")
 
-        return self._execute_query(strip_empty_lines(query))
+        return self.execute_query(strip_empty_lines(query))
 
     def unset_property(
         self,
@@ -237,4 +237,4 @@ class ServiceManager(SqlExecutionMixin):
             )
         unset_list = [property_name for property_name, value in property_pairs if value]
         query = f"alter service {service_name} unset {','.join(unset_list)}"
-        return self._execute_query(query)
+        return self.execute_query(query)
