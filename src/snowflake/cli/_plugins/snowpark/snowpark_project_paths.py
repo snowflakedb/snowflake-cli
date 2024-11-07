@@ -108,7 +108,9 @@ class Artefact:
         Returns post-build artefact path. Directories are mapped to corresponding .zip files.
         """
         deploy_root = self.deploy_root()
-        path = self._path_until_asterix() if "*" in str(self.path) else self.path.parent
+        path = (
+            self._path_until_asterisk() if "*" in str(self.path) else self.path.parent
+        )
         if self._is_dest_a_file():
             return deploy_root / self.dest  # type: ignore
         return deploy_root / (self.dest or path) / self._artefact_name
@@ -128,7 +130,7 @@ class Artefact:
             )
         else:
             stage_path /= (
-                self._path_until_asterix()
+                self._path_until_asterisk()
                 if "*" in str(self.path)
                 else PurePosixPath(self.path).parent
             )
@@ -147,7 +149,7 @@ class Artefact:
             return False
         return re.search(r"\.[a-zA-Z0-9]{2,4}$", self.dest) is not None
 
-    def _path_until_asterix(self) -> Path:
+    def _path_until_asterisk(self) -> Path:
         before_wildcard = str(self.path).split("*")[0]
         parts = Path(before_wildcard).parts[:-1]
         return Path(*parts)
