@@ -577,7 +577,7 @@ def test_api_integration_and_secrets_get_unique_names(
         ),
     ],
 )
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._conn", new=mock.MagicMock(database="FOO", schema="BAR"))
 @mock.patch(f"snowflake.cli._plugins.stage.manager.time.time", lambda: 123)
 def test_execute(
@@ -647,7 +647,7 @@ def test_execute(
         ),
     ],
 )
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._conn", new=mock.MagicMock(database="FOO", schema="BAR"))
 @mock.patch(f"snowflake.cli._plugins.stage.manager.time.time", lambda: 123)
 def test_execute_new_git_repository_list_files(
@@ -723,7 +723,7 @@ def test_execute_new_git_repository_list_files(
         ),
     ],
 )
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._conn", new=mock.MagicMock(database="FOO", schema="BAR"))
 @mock.patch(f"snowflake.cli._plugins.stage.manager.time.time", lambda: 123)
 def test_execute_slash_in_repository_name(
@@ -764,7 +764,7 @@ def test_execute_slash_in_repository_name(
     assert result.output == os_agnostic_snapshot
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._conn", new=mock.MagicMock(database="FOO", schema="BAR"))
 @mock.patch(f"snowflake.cli._plugins.stage.manager.time.time", lambda: 123)
 def test_execute_with_variables(mock_execute, mock_cursor, runner):
@@ -806,7 +806,7 @@ def test_execute_with_variables(mock_execute, mock_cursor, runner):
     ]
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._conn", new=mock.MagicMock(database="FOO", schema="BAR"))
 @mock.patch(f"snowflake.cli._plugins.stage.manager.time.time", lambda: 123)
 def test_execute_file_with_space_in_name(mock_execute, mock_cursor, runner):

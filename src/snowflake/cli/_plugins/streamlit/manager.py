@@ -45,10 +45,10 @@ log = logging.getLogger(__name__)
 class StreamlitManager(SqlExecutionMixin):
     def execute(self, app_name: FQN):
         query = f"EXECUTE STREAMLIT {app_name.sql_identifier}()"
-        return self._execute_query(query=query)
+        return self.execute_query(query=query)
 
     def share(self, streamlit_name: FQN, to_role: str) -> SnowflakeCursor:
-        return self._execute_query(
+        return self.execute_query(
             f"grant usage on streamlit {streamlit_name.sql_identifier} to role {to_role}"
         )
 
@@ -118,7 +118,7 @@ class StreamlitManager(SqlExecutionMixin):
         if streamlit.secrets:
             query.append(streamlit.get_secrets_sql())
 
-        self._execute_query("\n".join(query))
+        self.execute_query("\n".join(query))
 
     def deploy(self, streamlit: StreamlitEntityModel, replace: bool = False):
         streamlit_id = streamlit.fqn.using_connection(self._conn)
@@ -152,11 +152,11 @@ class StreamlitManager(SqlExecutionMixin):
             )
             try:
                 if use_versioned_stage:
-                    self._execute_query(
+                    self.execute_query(
                         f"ALTER STREAMLIT {streamlit_id.identifier} ADD LIVE VERSION FROM LAST"
                     )
                 elif not FeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled():
-                    self._execute_query(
+                    self.execute_query(
                         f"ALTER streamlit {streamlit_id.identifier} CHECKOUT"
                     )
             except ProgrammingError as e:

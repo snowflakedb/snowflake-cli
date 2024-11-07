@@ -171,7 +171,7 @@ def test_list_images_cli(
 
 
 @patch(
-    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager._execute_query"
+    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager.execute_query"
 )
 def test_list_images(mock_execute_query):
     repo_name = "test_repo"
@@ -185,7 +185,7 @@ def test_list_images(mock_execute_query):
 
 @mock.patch("snowflake.cli._plugins.spcs.image_repository.commands.requests.get")
 @mock.patch(
-    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_query"
+    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager.execute_query"
 )
 @mock.patch(
     "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"

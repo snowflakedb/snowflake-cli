@@ -21,20 +21,19 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     UserScriptError,
     handle_unclassified_error,
 )
-from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
 from snowflake.cli.api.project.util import to_identifier
-from snowflake.cli.api.sql_execution import SqlExecutor
+from snowflake.cli.api.sql_execution import BaseSqlExecutor, SqlExecutor
 from snowflake.connector import DictCursor, ProgrammingError
 
 
 class SnowflakeSQLFacade:
     def __init__(self, sql_executor: SqlExecutor | None = None):
         self._sql_executor = (
-            sql_executor if sql_executor is not None else get_sql_executor()
+            sql_executor if sql_executor is not None else BaseSqlExecutor()
         )
         self._log = logging.getLogger(__name__)
 

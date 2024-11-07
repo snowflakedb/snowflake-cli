@@ -41,7 +41,7 @@ skip_python_3_12 = pytest.mark.skipif(
     "stage_name, expected_stage_name",
     [("stageName", "@stageName"), ("@stageName", "@stageName")],
 )
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_list(mock_execute, runner, mock_cursor, stage_name, expected_stage_name):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["stage", "list-files", "-c", "empty", stage_name])
@@ -51,7 +51,7 @@ def test_stage_list(mock_execute, runner, mock_cursor, stage_name, expected_stag
     )
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_list_pattern(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(
@@ -72,7 +72,7 @@ def test_stage_list_pattern_error(runner):
     assert 'All "\'" characters in PATTERN must be escaped: "\\\'"' in result.output
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_list_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["stage", "list-files", "-c", "empty", '"stage name"'])
@@ -82,7 +82,7 @@ def test_stage_list_quoted(mock_execute, runner, mock_cursor):
     )
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_copy_remote_to_local(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
@@ -95,7 +95,7 @@ def test_stage_copy_remote_to_local(mock_execute, runner, mock_cursor):
     )
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_copy_remote_to_local_quoted_stage(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
@@ -108,7 +108,7 @@ def test_stage_copy_remote_to_local_quoted_stage(mock_execute, runner, mock_curs
     )
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_copy_remote_to_local_quoted_stage_recursive(
     mock_execute, runner, mock_cursor
 ):
@@ -153,7 +153,7 @@ def test_stage_copy_remote_to_local_quoted_stage_recursive(
         ("{}/dest\tdir", r"'file://{}/dest\tdir/'"),
     ],
 )
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_copy_remote_to_local_quoted_uri(
     mock_execute, runner, mock_cursor, raw_path, expected_uri
 ):
@@ -185,7 +185,7 @@ def test_stage_copy_remote_to_local_quoted_uri(
         ("{}/dest\tdir", r"'file://{}/dest\tdir/'"),
     ],
 )
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_copy_remote_to_local_quoted_uri_recursive(
     mock_execute, runner, mock_cursor, raw_path, expected_uri
 ):
@@ -215,7 +215,7 @@ def test_stage_copy_remote_to_local_quoted_uri_recursive(
     ]
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_copy_local_to_remote(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
@@ -240,7 +240,7 @@ def test_stage_copy_local_to_remote(mock_execute, runner, mock_cursor):
     )
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_copy_local_to_remote_quoted_stage(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
@@ -279,7 +279,7 @@ def test_stage_copy_local_to_remote_quoted_stage(mock_execute, runner, mock_curs
         ("{}/read\tme.md", r"'file://{}/read\tme.md'"),
     ],
 )
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_copy_local_to_remote_quoted_path(
     mock_execute, runner, mock_cursor, raw_path, expected_uri
 ):
@@ -309,7 +309,7 @@ def test_stage_copy_local_to_remote_quoted_path(
     )
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_copy_local_to_remote_star(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     with TemporaryDirectory() as tmp_dir:
@@ -424,7 +424,7 @@ def test_copy_throws_error_for_same_platform_operation(
         ),
     ],
 )
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_copy_get_recursive(
     mock_execute,
     mock_cursor,
@@ -485,7 +485,7 @@ def test_copy_get_recursive(
         ),
     ],
 )
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_copy_get_recursive_from_user_stage(
     mock_execute,
     mock_cursor,
@@ -506,7 +506,7 @@ def test_copy_get_recursive_from_user_stage(
     assert copy_calls == [mock.call(c.format(temp_dir)) for c in expected_calls]
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_create(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["stage", "create", "-c", "empty", "stageName"])
@@ -516,7 +516,7 @@ def test_stage_create(mock_execute, runner, mock_cursor):
     )
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["stage", "create", "-c", "empty", '"stage name"'])
@@ -526,7 +526,7 @@ def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     )
 
 
-@mock.patch("snowflake.cli._plugins.object.commands.ObjectManager._execute_query")
+@mock.patch("snowflake.cli._plugins.object.commands.ObjectManager.execute_query")
 def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", "stageName", "-c", "empty"])
@@ -534,7 +534,7 @@ def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with("drop stage IDENTIFIER('stageName')")
 
 
-@mock.patch("snowflake.cli._plugins.object.commands.ObjectManager._execute_query")
+@mock.patch("snowflake.cli._plugins.object.commands.ObjectManager.execute_query")
 def test_stage_drop_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(["object", "drop", "stage", '"stage name"', "-c", "empty"])
@@ -542,7 +542,7 @@ def test_stage_drop_quoted(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with("""drop stage IDENTIFIER('"stage name"')""")
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_remove(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(
@@ -552,7 +552,7 @@ def test_stage_remove(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with("remove @stageName/my/file/foo.csv")
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_remove_quoted(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])
     result = runner.invoke(
@@ -562,7 +562,7 @@ def test_stage_remove_quoted(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with("remove '@\"stage name\"/my/file/foo.csv'")
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_print_result_for_put_directory(
     mock_execute, mock_cursor, runner, os_agnostic_snapshot
 ):
@@ -595,7 +595,7 @@ def test_stage_print_result_for_put_directory(
     assert result.output == os_agnostic_snapshot
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_print_result_for_get_all_files_from_stage(
     mock_execute, mock_cursor, runner, os_agnostic_snapshot
 ):
@@ -620,7 +620,7 @@ def test_stage_print_result_for_get_all_files_from_stage(
     assert result.output == os_agnostic_snapshot
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_print_result_for_get_all_files_from_stage_recursive(
     mock_execute, mock_cursor, runner, os_agnostic_snapshot
 ):
@@ -646,7 +646,7 @@ def test_stage_print_result_for_get_all_files_from_stage_recursive(
     assert result.output == os_agnostic_snapshot
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_internal_remove(mock_execute, mock_cursor):
     mock_execute.return_value = mock_cursor([("old_role",)], [])
     sm = StageManager()
@@ -660,7 +660,7 @@ def test_stage_internal_remove(mock_execute, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_internal_remove_quoted(mock_execute, mock_cursor):
     mock_execute.return_value = mock_cursor([("old_role",)], [])
     sm = StageManager()
@@ -674,7 +674,7 @@ def test_stage_internal_remove_quoted(mock_execute, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_internal_remove_no_role_change(mock_execute, mock_cursor):
     mock_execute.return_value = mock_cursor([("old_role",)], [])
     sm = StageManager()
@@ -686,7 +686,7 @@ def test_stage_internal_remove_no_role_change(mock_execute, mock_cursor):
     assert mock_execute.mock_calls == expected
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_internal_put(mock_execute, mock_cursor):
     mock_execute.return_value = mock_cursor([("old_role",)], [])
     with TemporaryDirectory() as tmp_dir:
@@ -704,7 +704,7 @@ def test_stage_internal_put(mock_execute, mock_cursor):
         assert mock_execute.mock_calls == expected
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_internal_put_quoted_stage(mock_execute, mock_cursor):
     mock_execute.return_value = mock_cursor([("old_role",)], [])
     with TemporaryDirectory() as tmp_dir:
@@ -737,7 +737,7 @@ def test_stage_internal_put_quoted_stage(mock_execute, mock_cursor):
         ("{}/read\tme.md", r"'file://{}/read\tme.md'"),
     ],
 )
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_internal_put_quoted_path(
     mock_execute, mock_cursor, raw_path, expected_uri
 ):
@@ -802,7 +802,7 @@ def test_stage_internal_put_quoted_path(
         ("@DB.schema.EXE/a/S3.sql", "@DB.schema.EXE", ["@DB.schema.EXE/a/S3.sql"]),
     ],
 )
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_execute(
     mock_execute,
     mock_cursor,
@@ -843,7 +843,7 @@ def test_execute(
         ("@~/a/b", ["@~/a/b/s4.sql"]),
     ],
 )
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_execute_from_user_stage(
     mock_execute,
     mock_cursor,
@@ -873,7 +873,7 @@ def test_execute_from_user_stage(
     assert result.output == snapshot
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
 @mock.patch(f"{STAGE_MANAGER}.snowpark_session")
 @skip_python_3_12
@@ -922,7 +922,7 @@ def test_execute_with_variables(
     )
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_execute_raise_invalid_variables_error(
     mock_execute, mock_cursor, runner, os_agnostic_snapshot
 ):
@@ -942,7 +942,7 @@ def test_execute_raise_invalid_variables_error(
     assert result.output == os_agnostic_snapshot
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_execute_raise_invalid_file_extension_error(
     mock_execute, mock_cursor, runner, os_agnostic_snapshot
 ):
@@ -960,7 +960,7 @@ def test_execute_raise_invalid_file_extension_error(
     assert result.output == os_agnostic_snapshot
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_execute_not_existing_stage(mock_execute, mock_cursor, runner):
     stage_name = "not_existing_stage"
     mock_execute.side_effect = [
@@ -991,7 +991,7 @@ def test_execute_not_existing_stage(mock_execute, mock_cursor, runner):
         ("exe/some_file.sql", "No files matched pattern '@exe/some_file.sql'"),
     ],
 )
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_execute_no_files_for_stage_path(
     mock_execute, mock_cursor, runner, stage_path, expected_message
 ):
@@ -1010,7 +1010,7 @@ def test_execute_no_files_for_stage_path(
     assert expected_message in result.output
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
 @mock.patch(f"{STAGE_MANAGER}.snowpark_session")
 @skip_python_3_12
@@ -1048,7 +1048,7 @@ def test_execute_stop_on_error(
     assert error_message in result.output
 
 
-@mock.patch(f"{STAGE_MANAGER}._execute_query")
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
 @mock.patch(f"{STAGE_MANAGER}.snowpark_session")
 @skip_python_3_12
