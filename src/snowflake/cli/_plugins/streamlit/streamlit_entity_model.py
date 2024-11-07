@@ -13,7 +13,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Literal, Optional
 
 from pydantic import Field, field_validator
@@ -59,6 +58,6 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBase
             if isinstance(artifact, PathMapping):
                 path_mapping = artifact
             else:
-                path_mapping = PathMapping(src=Path(artifact))
+                path_mapping = PathMapping(src=artifact)
             _artifacts.append(path_mapping)
         return _artifacts
