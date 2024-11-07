@@ -301,7 +301,7 @@ def test_metrics_spans_passing_depth_limit_should_add_to_counter_and_not_emit(
         == CLIMetrics.SPAN_DEPTH_LIMIT + 3
     )
     # the 3 spans created under this one that went beyond the limit + itself
-    assert completed_spans[-1][CLIMetricsSpan.SPAN_COUNT_IN_SUBTREE_KEY] == 4
+    assert completed_spans[-1][CLIMetricsSpan.SPAN_COUNT_IN_SUBTREE_KEY] == 3 + 1
 
 
 def test_metrics_spans_passing_total_limit_are_collected_breadth_first():
