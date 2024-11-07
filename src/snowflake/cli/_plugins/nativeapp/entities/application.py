@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import logging
 import time
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
-from typing import Generator, List, Literal, Optional, TypedDict
+from typing import Dict, Generator, List, Literal, Optional, TypedDict
 
 import typer
 from click import ClickException, UsageError
@@ -54,6 +55,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
@@ -65,12 +67,14 @@ from snowflake.cli.api.entities.utils import (
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
+    APPLICATION_REQUIRES_TELEMETRY_SHARING,
     CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
     CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
     NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
     ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
+from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
@@ -86,6 +90,8 @@ from snowflake.cli.api.project.util import (
     unquote_identifier,
 )
 from snowflake.connector import DictCursor, ProgrammingError
+
+log = logging.getLogger(__name__)
 
 # Reasons why an `alter application ... upgrade` might fail
 UPGRADE_RESTRICTION_CODES = {
@@ -105,23 +111,18 @@ class EventSharingHandler:
     This class is used to determine whether event sharing should be authorized or not, and which events should be shared.
     """
 
-    def _verify_shared_events(
-        self,
-        all_events_in_manifest: List[str],
-        mandatory_events_in_manifest: List[str],
-    ):
-        if self._shared_events:
-            for event in self._shared_events:
-                if event not in all_events_in_manifest:
-                    raise ClickException(
-                        f"Shared event '{event}' is not found in the manifest file."
-                    )
-
-            for event in mandatory_events_in_manifest:
-                if event not in self._shared_events:
-                    raise ClickException(
-                        f"Mandatory event '{event}' is not found in the 'telemetry.shared_events' list in project definition file."
-                    )
+    def _to_events_definitions(
+        self, all_events: List[str], mandatory_events: List[str]
+    ) -> List[Dict[str, str]]:
+        return [
+            {
+                "name": f"SNOWFLAKE${event}",
+                "type": event,
+                "sharing": "MANDATORY" if event in mandatory_events else "OPTIONAL",
+                "status": "DISABLED",
+            }
+            for event in all_events
+        ]
 
     def __init__(
         self,
@@ -130,14 +131,17 @@ class EventSharingHandler:
         install_method: SameAccountInstallMethod,
         console: AbstractConsole,
     ):
+        self._is_dev_mode = install_method.is_dev_mode
         connection = get_sql_executor()._conn  # noqa: SLF001
-        event_sharing_enabled = (
+        self._metrics = get_cli_context().metrics
+        self._console = console
+        self._event_sharing_enabled = (
             get_ui_parameter(
                 connection, UIParameter.NA_EVENT_SHARING_V2, "true"
             ).lower()
             == "true"
         )
-        event_sharing_enforced = (
+        self._event_sharing_enforced = (
             get_ui_parameter(
                 connection, UIParameter.NA_ENFORCE_MANDATORY_FILTERS, "true"
             ).lower()
@@ -145,58 +149,131 @@ class EventSharingHandler:
         )
 
         self._authorize_event_sharing = (
-            telemetry_definition and telemetry_definition.authorize_event_sharing
+            telemetry_definition and telemetry_definition.share_mandatory_events
         )
-        self._shared_events = (
-            telemetry_definition and telemetry_definition.shared_events
-        )
+        self._optional_shared_events = (
+            telemetry_definition and telemetry_definition.optional_shared_events
+        ) or []
 
-        if not event_sharing_enabled:
+        self._metrics.set_counter(
+            CLICounterField.EVENT_SHARING, int(self._authorize_event_sharing or False)
+        )
+        self._metrics.set_counter(CLICounterField.EVENT_SHARING_WARNING, 0)
+        self._metrics.set_counter(CLICounterField.EVENT_SHARING_ERROR, 0)
+
+        if not self._event_sharing_enabled:
             # We cannot set AUTHORIZE_TELEMETRY_EVENT_SHARING to True or False if event sharing is not enabled,
             # so we will ignore the field in both cases, but warn only if it is set to True
-            if self._authorize_event_sharing or self._shared_events:
+            if self._authorize_event_sharing or self._optional_shared_events:
                 console.warning(
                     "WARNING: Same-account event sharing is not enabled in your account, therefore, application telemetry section will be ignored."
                 )
             self._authorize_event_sharing = None
-            self._shared_events = None
+            self._optional_shared_events = []
+            return
+
+        self._manifest_events_definitions = []
+        if not install_method.is_dev_mode:
+            # We can't make any decision if we are in prod mode because we do not know the manifest.
             return
 
         all_events_in_manifest = find_events_in_manifest_file(deploy_root_path)
         mandatory_events_in_manifest = find_events_in_manifest_file(
             deploy_root_path, mandatory_only=True
         )
+        self._manifest_events_definitions = self._to_events_definitions(
+            all_events_in_manifest, mandatory_events_in_manifest
+        )
 
-        if self._shared_events:
-            # We will assume that if shared_events is present, then we should authorize event sharing
-            self._authorize_event_sharing = True
+        if self._optional_shared_events:
+            for event in self._optional_shared_events:
+                if event not in all_events_in_manifest:
+                    self._metrics.set_counter(CLICounterField.EVENT_SHARING_ERROR, 1)
+                    raise ClickException(
+                        f"Shared event '{event}' is not found in the manifest file."
+                    )
 
-            self._verify_shared_events(
-                all_events_in_manifest, mandatory_events_in_manifest
-            )
-
-        if mandatory_events_in_manifest and not self._authorize_event_sharing:
-            if not event_sharing_enforced:
+        if mandatory_events_in_manifest and self._event_sharing_enforced:
+            if self._authorize_event_sharing is None:
+                self._metrics.set_counter(CLICounterField.EVENT_SHARING_WARNING, 1)
                 console.warning(
-                    "WARNING: Mandatory events are present in the manifest file, but event sharing is not authorized in the application telemetry field. This will soon be required to set in order to deploy this application."
-                )
-            elif self._authorize_event_sharing is None and install_method.is_dev_mode:
-                console.warning(
-                    "WARNING: Mandatory events are present in the manifest file. Automatically authorizing event sharing in dev mode. To suppress this warning, please add 'authorize_event_sharing: true' in the application telemetry section."
+                    "WARNING: Mandatory events are present in the manifest file. Automatically authorizing event sharing in dev mode. To suppress this warning, please add 'share_mandatory_events: true' in the application telemetry section."
                 )
                 self._authorize_event_sharing = True
-            else:
+
+    def should_authorize_event_sharing(
+        self,
+        app_properties: Optional[Dict[str, str]] = None,
+        events_definitions: Optional[List[Dict[str, str]]] = None,
+    ) -> Optional[bool]:
+        if not self._event_sharing_enabled:
+            return None
+
+        if events_definitions is None and self._is_dev_mode:
+            events_definitions = self._manifest_events_definitions
+
+        current_authorization = (
+            app_properties
+            and app_properties.get(AUTHORIZE_TELEMETRY_COL, "false").lower() == "true"
+        )
+
+        mandatory_events_found = False
+        if events_definitions:
+            for event in events_definitions:
+                if event["sharing"] == "MANDATORY":
+                    mandatory_events_found = True
+                    break
+
+        if mandatory_events_found and not self._authorize_event_sharing:
+            if self._event_sharing_enforced:
+                self._metrics.set_counter(CLICounterField.EVENT_SHARING_ERROR, 1)
                 raise ClickException(
-                    "Mandatory events are present in the manifest file, but event sharing is not authorized in the application telemetry field. This is required to deploy this application."
+                    "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
                 )
 
-    @property
-    def authorize_event_sharing(self) -> Optional[bool]:
+            # if there are mandatory events already, we should not allow to disable event sharing:
+            if self._authorize_event_sharing is False and current_authorization is True:
+                raise ClickException(
+                    "This application contains mandatory telemetry events that cannot be disabled. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+                )
+
+        # Skip the update if the current value is the same as the one we want to set
+        if current_authorization == self._authorize_event_sharing:
+            return None
+
         return self._authorize_event_sharing
 
-    @property
-    def shared_events(self) -> Optional[List[str]]:
-        return self._shared_events
+    def events_to_share(
+        self, events_definitions: List[Dict[str, str]]
+    ) -> Optional[List[str]]:
+        # events definition has this format: [{'name': 'SNOWFLAKE$ERRORS_AND_WARNINGS', 'type': 'ERRORS_AND_WARNINGS', 'sharing': 'MANDATORY', 'status': 'ENABLED'}]
+        event_names = []
+        mandatory_events_found = False
+        events_map = {event["type"]: event for event in events_definitions}
+
+        for event_type in self._optional_shared_events:
+            if event_type not in events_map:
+                raise ClickException(
+                    f"Event '{event_type}' is not found in the application."
+                )
+            else:
+                event_names.append(events_map[event_type]["name"])
+
+        # add mandatory events to event_names list:
+        for event in events_definitions:
+            if event["sharing"] == "MANDATORY":
+                mandatory_events_found = True
+                event_names.append(event["name"])
+
+        if not self._authorize_event_sharing:
+            if mandatory_events_found and not self._event_sharing_enforced:
+                self._metrics.set_counter(CLICounterField.EVENT_SHARING_WARNING, 1)
+                self._console.warning(
+                    "WARNING: Mandatory events are present in the application, but event sharing is not authorized in the application telemetry field. This will soon be required to set in order to deploy this application."
+                )
+            return None
+
+        return sorted(list(set(event_names)))
 
 
 class ApplicationEntityModel(EntityModelBase):
@@ -565,7 +642,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
                 # 3. If existing application is found, perform a few validations and upgrade the application object.
                 if show_app_row:
-
                     install_method.ensure_app_usable(
                         app_name=self.name,
                         app_role=self.role,
@@ -582,21 +658,37 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                             f"alter application {self.name} upgrade {using_clause}",
                         )
                         print_messages(console, upgrade_cursor)
-                        current_authorize_event_sharing_value = (
-                            show_app_row.get(AUTHORIZE_TELEMETRY_COL, "false").lower()
-                            == "true"
-                        )
-                        if (
-                            event_sharing.authorize_event_sharing is not None
-                            and event_sharing.authorize_event_sharing
-                            != current_authorize_event_sharing_value
-                        ):
-                            sql_executor.execute_query(
-                                f"alter application {self.name} set AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(event_sharing.authorize_event_sharing).upper()}"
+
+                        events_definitions = (
+                            get_snowflake_facade().get_event_definitions(
+                                app_name=self.name
                             )
-                        if event_sharing.shared_events:
+                        )
+
+                        app_properties = get_snowflake_facade().desc_application(
+                            self.name
+                        )
+                        new_authorize_event_sharing_value = (
+                            event_sharing.should_authorize_event_sharing(
+                                app_properties,
+                                events_definitions,
+                            )
+                        )
+                        if new_authorize_event_sharing_value is not None:
+                            log.info(
+                                "Setting telemetry sharing authorization to %s",
+                                new_authorize_event_sharing_value,
+                            )
                             sql_executor.execute_query(
-                                f"""alter application {self.name} set shared telemetry events ('SNOWFLAKE${"', 'SNOWFLAKE$".join(event_sharing.shared_events)}')"""
+                                f"alter application {self.name} set AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(new_authorize_event_sharing_value).upper()}"
+                            )
+                        events_to_share = event_sharing.events_to_share(
+                            events_definitions
+                        )
+                        if events_to_share is not None:
+                            log.info("Sharing events %s", events_to_share)
+                            sql_executor.execute_query(
+                                f"""alter application {self.name} set shared telemetry events ({", ".join([f"'{x}'" for x in events_to_share])})"""
                             )
 
                         if install_method.is_dev_mode:
@@ -645,8 +737,15 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                         debug_mode_clause = f"debug_mode = {initial_debug_mode}"
 
                     authorize_telemetry_clause = ""
-                    if event_sharing.authorize_event_sharing is not None:
-                        authorize_telemetry_clause = f" AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(event_sharing.authorize_event_sharing).upper()}"
+                    new_authorize_event_sharing_value = (
+                        event_sharing.should_authorize_event_sharing()
+                    )
+                    if new_authorize_event_sharing_value is not None:
+                        log.info(
+                            "Setting AUTHORIZE_TELEMETRY_EVENT_SHARING to %s",
+                            new_authorize_event_sharing_value,
+                        )
+                        authorize_telemetry_clause = f" AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(new_authorize_event_sharing_value).upper()}"
 
                     using_clause = install_method.using_clause(stage_fqn)
                     create_cursor = sql_executor.execute_query(
@@ -659,16 +758,28 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                         ),
                     )
                     print_messages(console, create_cursor)
+                    events_definitions = get_snowflake_facade().get_event_definitions(
+                        app_name=self.name
+                    )
 
-                    if event_sharing.shared_events:
+                    events_to_share = event_sharing.events_to_share(events_definitions)
+                    if events_to_share is not None:
+                        log.info("Sharing events %s", events_to_share)
                         sql_executor.execute_query(
-                            f"""alter application {self.name} set shared telemetry events ('SNOWFLAKE${"', 'SNOWFLAKE$".join(event_sharing.shared_events)}')"""
+                            f"""alter application {self.name} set shared telemetry events ({", ".join([f"'{x}'" for x in events_to_share])})"""
                         )
 
                     # hooks always executed after a create or upgrade
                     self.execute_post_deploy_hooks()
 
                 except ProgrammingError as err:
+                    if err.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
+                        get_cli_context().metrics.set_counter(
+                            CLICounterField.EVENT_SHARING_ERROR, 1
+                        )
+                        raise ClickException(
+                            "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+                        )
                     generic_sql_error_handler(err)
 
     def execute_post_deploy_hooks(self):

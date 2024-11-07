@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from textwrap import dedent
+from typing import Dict
 
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
@@ -279,6 +280,30 @@ class SnowflakeSQLFacade:
             new_patch = show_row["patch"]
 
         return new_patch
+
+    def get_event_definitions(self, app_name: str) -> list[dict]:
+        """
+        Retrieves event definitions for the specified application.
+        @param app_name: Name of the application to get event definitions for.
+        @return: A list of dictionaries containing event definitions.
+        """
+        query = f"show telemetry event definitions in application {app_name}"
+        results = self._sql_executor.execute_query(
+            query, cursor_class=DictCursor
+        ).fetchall()
+        return [dict(row) for row in results]
+
+    def desc_application(self, app_name: str) -> Dict[str, str]:
+        """
+        Describes the application with the given name.
+        @param app_name: Name of the application to describe.
+        @return: A dictionary containing the description of the application.
+        """
+        query = f"desc application {app_name}"
+        results = self._sql_executor.execute_query(
+            query, cursor_class=DictCursor
+        ).fetchall()
+        return {row["property"]: row["value"] for row in results}
 
 
 # TODO move this to src/snowflake/cli/api/project/util.py in a separate

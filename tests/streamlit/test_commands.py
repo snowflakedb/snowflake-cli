@@ -21,8 +21,6 @@ from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli.api.identifiers import FQN
 
-from tests.nativeapp.utils import GET_UI_PARAMETERS
-
 STREAMLIT_NAME = "test_streamlit"
 TEST_WAREHOUSE = "test_warehouse"
 GET_UI_PARAMETERS = "snowflake.cli._plugins.connection.util.get_ui_parameters"
