@@ -21,7 +21,7 @@
 ## New additions
 * Added `--retain-comments` option to `snow sql` command to allow passing comments to Snowflake.
 * Added `--replace` and `--if-not-exists` options to `snow object create` command.
-* Added support for event sharing, which now can be specified under the `telemetry` section of an application entity. Two fields are supported: `authorize_event_sharing` and `shared_events`.
+* Added support for event sharing, which now can be specified under the `telemetry` section of an application entity. Two fields are supported: `share_mandatory_events` and `optional_shared_events`.
 * `snow stage copy` supports `--recursive` flag to copy local files and subdirectories recursively to stage. Including
   glob support.
 * `snow helpers v1-to-v2` now converts v1 template references to v2 in Native App artifacts that use the `templates` processor.
