@@ -69,6 +69,7 @@ from snowflake.cli.api.project.util import (
     extract_schema,
     identifier_to_show_like_pattern,
     to_identifier,
+    to_string_literal,
     unquote_identifier,
 )
 from snowflake.cli.api.utils.cursor import find_all_rows
@@ -329,11 +330,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
             return show_obj_cursor
 
+    # PJ-TODO: check what label=None does
     def action_version_create(
         self,
         action_ctx: ActionContext,
         version: Optional[str],
         patch: Optional[int],
+        label: Optional[str],
         skip_git_check: bool,
         interactive: bool,
         force: bool,
@@ -360,7 +363,20 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         # Make sure version is not None before proceeding any further.
         # This will raise an exception if version information is not found. Patch can be None.
         bundle_map = None
-        if not version:
+        version_resolved = None
+        patch_resolved = None
+        label_resolved = ""
+
+        # empty string ok for version?
+        if version is not None:
+            console.message(
+                "Version information in manifest.yml is ignored since you provided version in your command."
+            )
+            patch_resolved = patch
+            label_resolved = label if label is not None else ""
+            version_resolved = version
+
+        else:
             console.message(
                 dedent(
                     f"""\
@@ -370,24 +386,58 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
             )
             bundle_map = self._bundle()
-            version, patch = find_version_info_in_manifest_file(self.deploy_root)
-            if not version:
+            version_info = find_version_info_in_manifest_file(self.deploy_root)
+            version_resolved, patch_manifest, label_manifest = (
+                version_info.version_name,
+                version_info.patch_number,
+                version_info.label,
+            )
+            if version_resolved is None:
                 raise ClickException(
                     "Manifest.yml file does not contain a value for the version field."
                 )
 
-        # Check if --patch needs to throw a bad option error, either if application package does not exist or if version does not exist
-        if patch is not None:
+            # PJ-TODO: better equality for patches here!
+            if (
+                patch is not None
+                and patch_manifest is not None
+                and patch_manifest != patch
+            ):
+                console.warning(
+                    f"Cannot resolve version. Found patch: {patch_manifest} in manifest.yml which is different from provided --patch {patch}. "
+                )
+                user_prompt = f"Do you want to ignore patch in manifest.yml and proceed with provided --patch {patch}?"
+                if not policy.should_proceed(user_prompt):
+                    if interactive:
+                        console.message("Not creating a new patch.")
+                        # PJ-TODO: do we care about tracking this specific case? throw more specific error here?
+                        raise typer.Exit(0)
+                    else:
+                        console.message(
+                            "Could not create a new patch non-interactively without --force."
+                        )
+                        raise typer.Exit(1)
+                patch_resolved = patch
+            elif patch is not None:
+                patch_resolved = patch
+            else:
+                patch_resolved = patch_manifest
+
+            # PJ-TODO: we use label from the manifest even if patch is from the cli.
+            label_resolved = label if label is not None else label_manifest
+
+        # Check if patch needs to throw a bad option error, either if application package does not exist or if version does not exist
+        if patch_resolved is not None:
             try:
-                if not self.get_existing_version_info(version):
+                if not self.get_existing_version_info(version_resolved):
                     raise BadOptionUsage(
                         option_name="patch",
-                        message=f"Cannot create a custom patch when version {version} is not defined in the application package {self.name}. Try again without using --patch.",
+                        message=f"Cannot create patch {patch_resolved} when version {version_resolved} is not defined in the application package {self.name}. Try again without specifying patch.",
                     )
             except ApplicationPackageDoesNotExistError as app_err:
                 raise BadOptionUsage(
                     option_name="patch",
-                    message=f"Cannot create a custom patch when application package {self.name} does not exist. Try again without using --patch.",
+                    message=f"Cannot create patch {patch_resolved} when application package {self.name} does not exist. Try again without specifying patch.",
                 )
 
         if git_policy.should_proceed():
@@ -407,7 +457,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         # Warn if the version exists in a release directive(s)
         existing_release_directives = (
-            self.get_existing_release_directive_info_for_version(version)
+            self.get_existing_release_directive_info_for_version(version_resolved)
         )
 
         if existing_release_directives:
@@ -417,13 +467,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             console.warning(
                 dedent(
                     f"""\
-                    Version {version} already defined in application package {self.name} and in release directive(s): {release_directive_names}.
+                    Version {version_resolved} already defined in application package {self.name} and in release directive(s): {release_directive_names}.
                     """
                 )
             )
 
             user_prompt = (
-                f"Are you sure you want to create a new patch for version {version} in application "
+                f"Are you sure you want to create a new patch for version {version_resolved} in application "
                 f"package {self.name}? Once added, this operation cannot be undone."
             )
             if not policy.should_proceed(user_prompt):
@@ -437,12 +487,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     raise typer.Exit(1)
 
         # Define a new version in the application package
-        if not self.get_existing_version_info(version):
-            self.add_new_version(version)
+        if not self.get_existing_version_info(version_resolved):
+            self.add_new_version(version_resolved, label=label_resolved)
             return  # A new version created automatically has patch 0, we do not need to further increment the patch.
 
         # Add a new patch to an existing (old) version
-        self.add_new_patch_to_version(version=version, patch=patch)
+        self.add_new_patch_to_version(
+            version=version_resolved, patch=patch_resolved, label=label_resolved
+        )
 
     def action_version_drop(
         self,
@@ -490,7 +542,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
             )
             self._bundle()
-            version, _ = find_version_info_in_manifest_file(self.deploy_root)
+            version_info = find_version_info_in_manifest_file(self.deploy_root)
+            version = version_info.version_name
             if not version:
                 raise ClickException(
                     "Manifest.yml file does not contain a value for the version field."
@@ -671,7 +724,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
             return show_obj_rows
 
-    def add_new_version(self, version: str) -> None:
+    def add_new_version(self, version: str, label: str | None = None) -> None:
         """
         Defines a new version in an existing application package.
         """
@@ -680,6 +733,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         # Make the version a valid identifier, adding quotes if necessary
         version = to_identifier(version)
         sql_executor = get_sql_executor()
+
+        # Label must be a string literal
+        with_label_query = (
+            f"label={to_string_literal(label)}" if label is not None else ""
+        )
+        # Use raw string in prompt
+        with_label_prompt = f" labeled {label}" if label else ""
+
         with sql_executor.use_role(self.role):
             console.step(
                 f"Defining a new version {version} in application package {self.name}"
@@ -689,14 +750,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     alter application package {self.name}
                         add version {version}
                         using @{self.stage_fqn}
+                        {with_label_query}
                 """
             )
             sql_executor.execute_query(add_version_query, cursor_class=DictCursor)
             console.message(
-                f"Version {version} created for application package {self.name}."
+                f"Version {version}{with_label_prompt} created for application package {self.name}."
             )
 
-    def add_new_patch_to_version(self, version: str, patch: Optional[int] = None):
+    def add_new_patch_to_version(
+        self, version: str, patch: int | None = None, label: str | None = None
+    ):
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
         """
@@ -704,7 +768,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         # Make the version a valid identifier, adding quotes if necessary
         version = to_identifier(version)
+
         sql_executor = get_sql_executor()
+
+        # Label must be a string literal
+        with_label_query = (
+            f"label={to_string_literal(label)}" if label is not None else ""
+        )
+        # Use raw string in prompt
+        with_label_prompt = f" labeled {label}" if label else ""
+
         with sql_executor.use_role(self.role):
             console.step(
                 f"Adding new patch to version {version} defined in application package {self.name}"
@@ -714,6 +787,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     alter application package {self.name}
                         add patch {patch if patch else ""} for version {version}
                         using @{self.stage_fqn}
+                        {with_label_query}
                 """
             )
             result_cursor = sql_executor.execute_query(
@@ -723,7 +797,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             show_row = result_cursor.fetchall()[0]
             new_patch = show_row["patch"]
             console.message(
-                f"Patch {new_patch} created for version {version} defined in application package {self.name}."
+                f"Patch {new_patch}{with_label_prompt} created for version {version} defined in application package {self.name}."
             )
 
     def check_index_changes_in_git_repo(

@@ -1388,24 +1388,33 @@ def test_symlink_or_copy_with_symlinks_in_project_root(os_agnostic_snapshot):
             assert_dir_snapshot(Path("./output/deploy"), os_agnostic_snapshot)
 
 
+@pytest.mark.parametrize(
+    "label", [None, "", "label 'nested' quotes", "with$pecial?", "with space"]
+)
 @pytest.mark.parametrize("patch_name", [None, "1", 42])
 @pytest.mark.parametrize(
     "version_name", [None, "v1", "1", 2, "1.2", 1.3, "1.2.3", "0.x", "foo", "abc def"]
 )
-def test_find_version_info_in_manifest_file(version_name, patch_name):
+def test_find_version_info_in_manifest_file(version_name, patch_name, label):
     manifest_contents = {"manifest_version": 1, "version": {}}
 
-    if version_name is None and patch_name is None:
+    if all(value is None for value in (version_name, patch_name, label)):
         manifest_contents.pop("version")
     if version_name is not None:
         manifest_contents["version"]["name"] = version_name
     if patch_name is not None:
         manifest_contents["version"]["patch"] = patch_name
+    if label is not None:
+        manifest_contents["version"]["label"] = label
 
     deploy_root_structure = {"manifest.yml": safe_dump(manifest_contents)}
     with temp_local_dir(deploy_root_structure) as deploy_root:
-        v, p = find_version_info_in_manifest_file(deploy_root=deploy_root)
-
+        version_info = find_version_info_in_manifest_file(deploy_root=deploy_root)
+        v, p, l = (
+            version_info.version_name,
+            version_info.patch_number,
+            version_info.label,
+        )
         if version_name is None:
             assert v is None
         else:
@@ -1415,3 +1424,8 @@ def test_find_version_info_in_manifest_file(version_name, patch_name):
             assert p is None
         else:
             assert p == int(patch_name)
+
+        if label is None:
+            assert l is None
+        else:
+            assert l == label
