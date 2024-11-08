@@ -75,7 +75,7 @@ class DefaultLoggingConfig:
         default_factory=lambda: {
             "snowflake.cli": LoggerConfig(handlers=["console", "file"]),
             "snowflake": LoggerConfig(),
-            "snowflake.connector.telemetry": LoggerConfig(),
+            "snowflake.connector.telemetry": LoggerConfig(level=logging.CRITICAL),
         }
     )
 
