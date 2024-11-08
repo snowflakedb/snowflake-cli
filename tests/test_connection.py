@@ -1160,7 +1160,9 @@ def test_new_connection_is_added_to_connections_toml(
 @mock.patch(
     "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
 )
-def test_generate_jwt(mocked_get_token, runner, named_temporary_file):
+def test_generate_jwt_without_passphrase(
+    mocked_get_token, runner, named_temporary_file
+):
     mocked_get_token.return_value = "funny token"
 
     with named_temporary_file() as f:
@@ -1176,16 +1178,55 @@ def test_generate_jwt(mocked_get_token, runner, named_temporary_file):
                 "--private-key-path",
                 f,
             ],
-            input="123",
+        )
+
+    assert result.exit_code == 0, result.output
+    assert result.output == "funny token\n"
+    mocked_get_token.assert_called_once_with(
+        user="FooBar", account="account1", privatekey_path=str(f), key_password=None
+    )
+
+
+@pytest.mark.parametrize("passphrase", ["", "pass123"])
+@mock.patch(
+    "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
+)
+def test_generate_jwt_with_passphrase(
+    mocked_get_token, runner, named_temporary_file, passphrase
+):
+    mocked_get_token.side_effect = [TypeError("foo"), "funny token"]
+
+    with named_temporary_file() as f:
+        f.write_text("secret from file")
+        result = runner.invoke(
+            [
+                "connection",
+                "generate-jwt",
+                "--user",
+                "FooBar",
+                "--account",
+                "account1",
+                "--private-key-path",
+                f,
+            ],
+            input=passphrase,
         )
 
     assert result.exit_code == 0, result.output
     assert (
         result.output
-        == "Enter private key file password (Press enter if none) []: \nfunny token\n"
+        == "Enter private key file password (press enter for empty) []: \nfunny token\n"
     )
-    mocked_get_token.assert_called_once_with(
-        user="FooBar", account="account1", privatekey_path=str(f), key_password="123"
+    mocked_get_token.has_calls(
+        mock.call(
+            user="FooBar", account="account1", privatekey_path=str(f), key_password=None
+        ),
+        mock.call(
+            user="FooBar",
+            account="account1",
+            privatekey_path=str(f),
+            key_password=passphrase,
+        ),
     )
 
 
@@ -1193,7 +1234,9 @@ def test_generate_jwt(mocked_get_token, runner, named_temporary_file):
 @mock.patch(
     "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
 )
-def test_generate_jwt_with_pass_phrase(mocked_get_token, runner, named_temporary_file):
+def test_generate_jwt_with_pass_phrase_from_env(
+    mocked_get_token, runner, named_temporary_file
+):
     mocked_get_token.return_value = "funny token"
 
     with named_temporary_file() as f:
@@ -1228,19 +1271,15 @@ def test_generate_jwt_uses_config(mocked_get_token, runner, named_temporary_file
         f.write_text("secret from file")
         result = runner.invoke(
             ["connection", "generate-jwt", "--connection", "jwt"],
-            input="123",
         )
 
     assert result.exit_code == 0, result.output
-    assert (
-        result.output
-        == "Enter private key file password (Press enter if none) []: \nfunny token\n"
-    )
+    assert result.output == "funny token\n"
     mocked_get_token.assert_called_once_with(
         user="jdoe",
         account="testing_account",
         privatekey_path="/private/key",
-        key_password="123",
+        key_password=None,
     )
 
 

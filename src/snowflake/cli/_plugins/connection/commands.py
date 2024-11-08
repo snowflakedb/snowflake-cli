@@ -382,21 +382,28 @@ def generate_jwt(
         raise UsageError(msq_template.format("Private key file"))
 
     passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
-    if not passphrase:
-        passphrase = typer.prompt(
-            "Enter private key file password (Press enter if none)",
-            hide_input=True,
-            type=str,
-            default="",
-        )
 
-    try:
-        token = connector.auth.get_token_from_private_key(
+    def _decrypt(passphrase: str | None):
+        return connector.auth.get_token_from_private_key(
             user=connection_details.user,
             account=connection_details.account,
             privatekey_path=connection_details.private_key_file,
             key_password=passphrase,
         )
+
+    try:
+        if passphrase is None:
+            try:
+                token = _decrypt(passphrase=None)
+                return MessageResult(token)
+            except TypeError:
+                passphrase = typer.prompt(
+                    "Enter private key file password (press enter for empty)",
+                    hide_input=True,
+                    type=str,
+                    default="",
+                )
+        token = _decrypt(passphrase=passphrase)
         return MessageResult(token)
-    except ValueError as err:
+    except (ValueError, TypeError) as err:
         raise ClickException(str(err))
