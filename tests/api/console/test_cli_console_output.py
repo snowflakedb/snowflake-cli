@@ -20,7 +20,6 @@ from typing import Generator
 import pytest
 from snowflake.cli.api.console.console import (
     CliConsole,
-    CliConsoleNestingProhibitedError,
 )
 
 
@@ -74,11 +73,19 @@ def test_error_messages(cli_console, capsys):
     assert_output_matches("42\n  73\n  ops\nOPS\n", capsys)
 
 
-def test_phase_nesting_not_allowed(cli_console):
+def test_phase_nesting(cli_console, capsys):
     with cli_console.phase("Enter 1"):
-        with pytest.raises(CliConsoleNestingProhibitedError):
-            with cli_console.phase("Enter 2"):
-                pass
+        with cli_console.phase("Enter 2"):
+            pass
+
+    expected_output = dedent(
+        f"""\
+    Enter 1
+      Enter 2
+    """
+    )
+
+    assert_output_matches(expected_output, capsys)
 
 
 def test_phase_is_cleaned_up_on_exception(cli_console):
@@ -91,18 +98,35 @@ def test_phase_is_cleaned_up_on_exception(cli_console):
         pass
 
 
-def test_phase_cannot_be_indented(cli_console):
+def test_phase_with_indent(cli_console, capsys):
+    cli_console.step("Outside of Indent")
     with cli_console.indented():
-        with pytest.raises(CliConsoleNestingProhibitedError):
-            with cli_console.phase("Enter"):
-                pass
+        with cli_console.phase("Enter"):
+            pass
+
+    expected_output = dedent(
+        f"""\
+        Outside of Indent
+          Enter
+        """
+    )
+
+    assert_output_matches(expected_output, capsys)
 
 
-def test_step_cannot_be_indented(cli_console):
+def test_step_with_indent(cli_console, capsys):
+    cli_console.step("Outside of Indent")
     with cli_console.indented():
-        with pytest.raises(CliConsoleNestingProhibitedError):
-            with cli_console.step("Operation"):
-                pass
+        cli_console.step("Operation")
+
+    expected_output = dedent(
+        f"""\
+        Outside of Indent
+          Operation
+        """
+    )
+
+    assert_output_matches(expected_output, capsys)
 
 
 def test_indented(cli_console, capsys):
