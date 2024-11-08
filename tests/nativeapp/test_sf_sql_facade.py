@@ -494,6 +494,7 @@ def test_execute_catch_all_exception(
     [
         (UseObjectType.ROLE, "test_role"),
         (UseObjectType.DATABASE, "test_db"),
+        (UseObjectType.SCHEMA, "test_schema"),
         (UseObjectType.WAREHOUSE, "test_wh"),
     ],
 )
