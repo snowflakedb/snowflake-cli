@@ -7,12 +7,12 @@
   password = "123"
   host = "baz"
   region = "Kaszuby"
-  port = "12345"
+  port = 12345
   database = "foo"
   schema = "bar"
   warehouse = "some warehouse"
   role = "some role"
-  authenticator = " foo   "
+  authenticator = "foo"
   private_key_file = ""
   
   '''
@@ -28,12 +28,12 @@
               "password": "****",
               "host": "baz",
               "region": "Kaszuby",
-              "port": "12345",
+              "port": 12345,
               "database": "foo",
               "schema": "bar",
               "warehouse": "some warehouse",
               "role": "some role",
-              "authenticator": " foo   ",
+              "authenticator": "foo",
               "private_key_file": ""
           },
           "is_default": false
@@ -65,7 +65,7 @@
   account = "account1"
   user = "user1"
   password = "password1"
-  port = "8080"
+  port = 8080
   
   '''
 # ---

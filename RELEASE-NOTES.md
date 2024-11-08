@@ -31,6 +31,7 @@
 * Fixed saving of the config file updates when `connections.toml` exists.
   Removed incorrect copying of connections from `connections.toml` to `config.toml`.
 * Fixes `snow connection generate-jwt` to work with keys with no passphrase.
+* `snow connection add` supports `--no-interactive` flag to skip interactive prompts.
 
 # v3.1.0
 
