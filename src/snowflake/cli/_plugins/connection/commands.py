@@ -257,6 +257,7 @@ def add(
                     f"Enter {option.replace('_', ' ')}",
                     default="",
                     value_proc=lambda x: None if not x else x,
+                    hide_input=option == "password",
                 )
             if isinstance(connection_options[option], str):
                 connection_options[option] = strip_if_value_present(
