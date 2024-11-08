@@ -30,7 +30,7 @@
   Before the fix the file (even empty) was required to make the execution working.
 * Fixed saving of the config file updates when `connections.toml` exists.
   Removed incorrect copying of connections from `connections.toml` to `config.toml`.
-
+* Fixes `snow connection generate-jwt` to work with keys with no passphrase.
 
 # v3.1.0
 
