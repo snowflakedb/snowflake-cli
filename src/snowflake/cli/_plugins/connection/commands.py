@@ -24,11 +24,9 @@ from click import (  # type: ignore
     ClickException,
     Context,
     Parameter,
-    ParamType,
     UsageError,
 )
 from click.core import ParameterSource  # type: ignore
-from click.types import StringParamType
 from snowflake import connector
 from snowflake.cli._plugins.connection.util import (
     strip_if_value_present,
@@ -82,11 +80,6 @@ log = logging.getLogger(__name__)
 class EmptyInput:
     def __repr__(self):
         return "optional"
-
-
-class OptionalPrompt(StringParamType):
-    def convert(self, value, param, ctx):
-        return None if isinstance(value, EmptyInput) else value
 
 
 def _mask_password(connection_params: dict):
@@ -152,18 +145,6 @@ class _OptionInfo:
                 f"Enter {self.param.human_readable_name.replace('_', ' ')}",
                 default=default,
             )
-
-
-class _OptionInfoParser(ParamType):
-    name = "TEXT"
-
-    def convert(self, value, param, ctx):
-        return _OptionInfo(value, param)
-
-
-class NoInput:
-    def __init__(self):
-        pass
 
 
 @app.command()
