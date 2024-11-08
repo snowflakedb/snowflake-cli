@@ -108,6 +108,8 @@ class SnowparkServicesTestSteps:
         self, service_name: str, container_name: str, expected_log: str
     ) -> None:
         result = self._execute_logs(service_name, container_name)
+        print(result)
+        print(result.output)
         assert result.output
         # Assert this instead of full payload due to log coloring
         assert service_name in result.output
@@ -344,7 +346,7 @@ class SnowparkServicesTestSteps:
     def _execute_logs(
         self, service_name: str, container_name: str, num_lines: int = 500
     ):
-        return self._setup.runner.invoke_with_connection(
+        return self._setup.runner.invoke_with_connection_json(
             [
                 "spcs",
                 "service",
@@ -356,6 +358,7 @@ class SnowparkServicesTestSteps:
                 "0",
                 "--num-lines",
                 str(num_lines),
+                "--include-timestamps",
                 *self._database_schema_args(),
             ],
         )
