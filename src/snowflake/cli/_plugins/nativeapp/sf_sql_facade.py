@@ -170,7 +170,12 @@ class SnowflakeSQLFacade:
         """
         query = "show parameters like 'event_table' in account"
         with self._use_role_optional(role):
-            results = self._sql_executor.execute_query(query, cursor_class=DictCursor)
+            try:
+                results = self._sql_executor.execute_query(
+                    query, cursor_class=DictCursor
+                )
+            except Exception as err:
+                handle_unclassified_error(err, f"Failed to get event table.")
         table = next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), None)
         if table is None or table == "NONE":
             return None
