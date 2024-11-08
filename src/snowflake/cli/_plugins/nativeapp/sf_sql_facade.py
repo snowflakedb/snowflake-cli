@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
@@ -25,7 +26,11 @@ from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
-from snowflake.cli.api.project.util import same_identifier, to_identifier
+from snowflake.cli.api.project.util import (
+    is_valid_unquoted_identifier,
+    to_identifier,
+    to_quoted_identifier,
+)
 from snowflake.cli.api.sql_execution import BaseSqlExecutor, SqlExecutor
 from snowflake.connector import DictCursor, ProgrammingError
 
@@ -78,7 +83,7 @@ class SnowflakeSQLFacade:
         except IndexError:
             prev_obj = None
 
-        if prev_obj is not None and same_identifier(prev_obj, name):
+        if prev_obj is not None and _same_identifier(prev_obj, name):
             yield
             return
 
@@ -170,3 +175,24 @@ class SnowflakeSQLFacade:
         if table is None or table == "NONE":
             return None
         return table
+
+
+# TODO move this to src/snowflake/cli/api/project/util.py in a separate
+# PR since it's codeowned by the CLI team
+def _same_identifier(id1: str, id2: str) -> bool:
+    """
+    Returns whether two identifiers refer to the same object.
+
+    Two unquoted identifiers are considered the same if they are equal when both are converted to uppercase
+    Two quoted identifiers are considered the same if they are exactly equal
+    An unquoted identifier and a quoted identifier are considered the same
+      if the quoted identifier is equal to the unquoted identifier
+      when the unquoted identifier is converted to uppercase and quoted
+    """
+    # Canonicalize the identifiers by converting unquoted identifiers to uppercase and leaving quoted identifiers as is
+    canonical_id1 = id1.upper() if is_valid_unquoted_identifier(id1) else id1
+    canonical_id2 = id2.upper() if is_valid_unquoted_identifier(id2) else id2
+
+    # The canonical identifiers are equal if they are equal when both are quoted
+    # (if they are already quoted, this is a no-op)
+    return to_quoted_identifier(canonical_id1) == to_quoted_identifier(canonical_id2)
