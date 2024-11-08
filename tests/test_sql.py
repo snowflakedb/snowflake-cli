@@ -166,7 +166,7 @@ def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
     )
 
 
-@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin.execute_query")
 def test_show_specific_object(mock_execute, mock_cursor):
     mock_columns = ["id", "created_on"]
     mock_row_dict = {c: r for c, r in zip(mock_columns, ["EXAMPLE_ID", "dummy"])}
@@ -181,7 +181,7 @@ def test_show_specific_object(mock_execute, mock_cursor):
     assert result == mock_row_dict
 
 
-@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin.execute_query")
 def test_show_specific_object_in_clause(mock_execute, mock_cursor):
     mock_columns = ["name", "created_on"]
     mock_row_dict = {c: r for c, r in zip(mock_columns, ["AbcDef", "dummy"])}
@@ -196,7 +196,7 @@ def test_show_specific_object_in_clause(mock_execute, mock_cursor):
     assert result == mock_row_dict
 
 
-@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin.execute_query")
 def test_show_specific_object_no_match(mock_execute, mock_cursor):
     mock_columns = ["id", "created_on"]
     mock_row_dict = {c: r for c, r in zip(mock_columns, ["OTHER_ID", "dummy"])}
@@ -211,7 +211,7 @@ def test_show_specific_object_no_match(mock_execute, mock_cursor):
     assert result is None
 
 
-@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin.execute_query")
 def test_show_specific_object_sql_execution_error(mock_execute):
     cursor = mock.Mock(spec=DictCursor)
     cursor.rowcount = None
@@ -242,7 +242,7 @@ def test_qualified_name_to_in_clause(fqn, expected_in_clause):
     )
 
 
-@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin.execute_query")
 @mock.patch(
     "snowflake.cli.api.sql_execution.SqlExecutionMixin._qualified_name_to_in_clause"
 )
@@ -282,7 +282,7 @@ def test_show_specific_object_qualified_name_and_in_clause_error(
     )
 
 
-@mock.patch("snowflake.cli.api.sql_execution.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli.api.sql_execution.SqlExecutionMixin.execute_query")
 def test_show_specific_object_multiple_rows(mock_execute_query):
     cursor = mock.Mock(spec=DictCursor)
     cursor.rowcount = 2
@@ -303,7 +303,7 @@ def test_show_specific_object_multiple_rows(mock_execute_query):
         ObjectType.DATABASE,
     ],
 )
-@mock.patch("snowflake.cli.api.sql_execution.SqlExecutionMixin._execute_query")
+@mock.patch("snowflake.cli.api.sql_execution.SqlExecutionMixin.execute_query")
 def test_use_command(mock_execute_query, _object):
     SqlExecutionMixin().use(object_type=_object, name="foo_name")
     mock_execute_query.assert_called_once_with(f"use {_object.value.sf_name} foo_name")

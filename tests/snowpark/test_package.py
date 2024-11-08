@@ -114,7 +114,7 @@ class TestPackage:
         assert ctx.get_query() == ""
 
     @mock.patch(
-        "snowflake.cli._plugins.snowpark.package.manager.StageManager._execute_query"
+        "snowflake.cli._plugins.snowpark.package.manager.StageManager.execute_query"
     )
     def test_package_upload_to_path(
         self,

@@ -55,7 +55,7 @@ SPEC_DICT = {
 }
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_create_service(mock_execute_query, other_directory):
     service_name = "test_service"
     compute_pool = "test_pool"
@@ -219,7 +219,7 @@ def test_create_service_with_invalid_spec(mock_read_yaml):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._read_yaml")
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 @patch("snowflake.cli._plugins.spcs.services.manager.handle_object_already_exists")
 def test_create_service_already_exists(mock_handle, mock_execute, mock_read_yaml):
     service_name = "test_service"
@@ -248,7 +248,7 @@ def test_create_service_already_exists(mock_handle, mock_execute, mock_read_yaml
     )
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_create_service_if_not_exists(mock_execute_query, other_directory):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
@@ -282,7 +282,7 @@ def test_create_service_if_not_exists(mock_execute_query, other_directory):
     assert result == cursor
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_execute_job_service(mock_execute_query, other_directory):
     job_service_name = "test_job_service"
     compute_pool = "test_pool"
@@ -406,7 +406,7 @@ def test_execute_job_service_with_invalid_spec(mock_read_yaml):
         )
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_status(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -417,7 +417,7 @@ def test_status(mock_execute_query):
     assert result == cursor
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_status_qualified_name(mock_execute_query):
     service_name = "db.schema.test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -428,7 +428,7 @@ def test_status_qualified_name(mock_execute_query):
     assert result == cursor
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_logs(mock_execute_query):
     service_name = "test_service"
     container_name = "test_container"
@@ -450,7 +450,7 @@ def test_read_yaml(other_directory):
     assert result == json.dumps(SPEC_DICT)
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_upgrade_spec(mock_execute_query, other_directory):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -487,7 +487,7 @@ def test_upgrade_spec_cli(mock_upgrade_spec, mock_cursor, runner, other_director
     assert "Statement executed successfully" in result.output
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_list_endpoints(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -513,7 +513,7 @@ def test_list_endpoints_cli(mock_list_endpoints, mock_cursor, runner):
     assert "test-snowflakecomputing.app" in result.output
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_list_instances(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -545,7 +545,7 @@ def test_list_instances_cli(mock_list_instances, mock_cursor, runner):
     assert "TEST_SERVICE" in result.output, str(result.output)
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_list_containers(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -577,7 +577,7 @@ def test_list_containers_cli(mock_list_containers, mock_cursor, runner):
     assert "TEST_SERVICE" in result.output, str(result.output)
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_list_roles(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -603,7 +603,7 @@ def test_list_roles_cli(mock_list_roles, mock_cursor, runner):
     assert "ALL_ENDPOINTS_USAGE" in result.output, str(result.output)
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_suspend(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -626,7 +626,7 @@ def test_suspend_cli(mock_suspend, mock_cursor, runner):
     assert "Statement executed successfully" in result.output
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_resume(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -649,7 +649,7 @@ def test_resume_cli(mock_resume, mock_cursor, runner):
     assert "Statement executed successfully" in result.output
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_set_property(mock_execute_query):
     service_name = "test_service"
     min_instances = 2
@@ -766,7 +766,7 @@ def test_set_property_no_properties_cli(mock_set, runner):
     )
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_unset_property(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)

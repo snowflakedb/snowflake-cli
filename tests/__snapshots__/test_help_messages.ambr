@@ -1452,45 +1452,50 @@
    Adds a connection to configuration file.                                       
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --connection-name               -n      TEXT  Name of the new connection.    |
-  | --account,--accountname         -a      TEXT  Account name to use when       |
-  |                                               authenticating with Snowflake. |
-  | --user,--username               -u      TEXT  Username to connect to         |
-  |                                               Snowflake.                     |
-  | --password                      -p      TEXT  Snowflake password.            |
-  |                                               [default: optional]            |
-  | --role,--rolename               -r      TEXT  Role to use on Snowflake.      |
-  |                                               [default: optional]            |
-  | --warehouse                     -w      TEXT  Warehouse to use on Snowflake. |
-  |                                               [default: optional]            |
-  | --database,--dbname             -d      TEXT  Database to use on Snowflake.  |
-  |                                               [default: optional]            |
-  | --schema,--schemaname           -s      TEXT  Schema to use on Snowflake.    |
-  |                                               [default: optional]            |
-  | --host                          -h      TEXT  Host name the connection       |
-  |                                               attempts to connect to         |
-  |                                               Snowflake.                     |
-  |                                               [default: optional]            |
-  | --port                          -P      TEXT  Port to communicate with on    |
-  |                                               the host.                      |
-  |                                               [default: optional]            |
-  | --region                        -R      TEXT  Region name if not the default |
-  |                                               Snowflake deployment.          |
-  |                                               [default: optional]            |
-  | --authenticator                 -A      TEXT  Chosen authenticator, if other |
-  |                                               than password-based            |
-  |                                               [default: optional]            |
-  | --private-key,--private-key-f…  -k      TEXT  Path to file containing        |
-  |                                               private key                    |
-  |                                               [default: optional]            |
-  | --token-file-path               -t      TEXT  Path to file with an OAuth     |
-  |                                               token that should be used when |
-  |                                               connecting to Snowflake        |
-  |                                               [default: optional]            |
-  | --default                                     If provided the connection     |
-  |                                               will be configured as default  |
-  |                                               connection.                    |
-  | --help                                        Show this message and exit.    |
+  | --connection-name              -n      TEXT     Name of the new connection.  |
+  | --account,--accountname        -a      TEXT     Account name to use when     |
+  |                                                 authenticating with          |
+  |                                                 Snowflake.                   |
+  | --user,--username              -u      TEXT     Username to connect to       |
+  |                                                 Snowflake.                   |
+  | --password                     -p      TEXT     Snowflake password.          |
+  |                                                 [default: None]              |
+  | --role,--rolename              -r      TEXT     Role to use on Snowflake.    |
+  |                                                 [default: None]              |
+  | --warehouse                    -w      TEXT     Warehouse to use on          |
+  |                                                 Snowflake.                   |
+  |                                                 [default: None]              |
+  | --database,--dbname            -d      TEXT     Database to use on           |
+  |                                                 Snowflake.                   |
+  |                                                 [default: None]              |
+  | --schema,--schemaname          -s      TEXT     Schema to use on Snowflake.  |
+  |                                                 [default: None]              |
+  | --host                         -h      TEXT     Host name the connection     |
+  |                                                 attempts to connect to       |
+  |                                                 Snowflake.                   |
+  |                                                 [default: None]              |
+  | --port                         -P      INTEGER  Port to communicate with on  |
+  |                                                 the host.                    |
+  |                                                 [default: None]              |
+  | --region                       -R      TEXT     Region name if not the       |
+  |                                                 default Snowflake            |
+  |                                                 deployment.                  |
+  |                                                 [default: None]              |
+  | --authenticator                -A      TEXT     Chosen authenticator, if     |
+  |                                                 other than password-based    |
+  |                                                 [default: None]              |
+  | --private-key,--private-key-…  -k      TEXT     Path to file containing      |
+  |                                                 private key                  |
+  |                                                 [default: None]              |
+  | --token-file-path              -t      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  |                                                 [default: None]              |
+  | --default                                       If provided the connection   |
+  |                                                 will be configured as        |
+  |                                                 default connection.          |
+  | --no-interactive                                Disable prompting.           |
+  | --help                                          Show this message and exit.  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |

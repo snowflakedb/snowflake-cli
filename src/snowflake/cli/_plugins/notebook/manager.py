@@ -26,7 +26,7 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 class NotebookManager(SqlExecutionMixin):
     def execute(self, notebook_name: FQN):
         query = f"EXECUTE NOTEBOOK {notebook_name.sql_identifier}()"
-        return self._execute_query(query=query)
+        return self.execute_query(query=query)
 
     def get_url(self, notebook_name: FQN):
         fqn = notebook_name.using_connection(self._conn)
@@ -64,7 +64,7 @@ class NotebookManager(SqlExecutionMixin):
             ALTER NOTEBOOK {notebook_fqn.identifier} ADD LIVE VERSION FROM LAST;
             """
         )
-        self._execute_queries(queries=queries)
+        self.execute_queries(queries=queries)
 
         return make_snowsight_url(
             self._conn, f"/#/notebooks/{notebook_fqn.url_identifier}"

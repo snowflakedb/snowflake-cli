@@ -23,7 +23,7 @@ from tests.nativeapp.factories import ProjectV10Factory
 
 TYPER_CONFIRM = "typer.confirm"
 TYPER_PROMPT = "typer.prompt"
-ENTITIES_COMMON_MODULE = "snowflake.cli.api.entities.common"
+API_MODULE = "snowflake.cli.api"
 ENTITIES_UTILS_MODULE = "snowflake.cli.api.entities.utils"
 APPLICATION_PACKAGE_ENTITY_MODULE = (
     "snowflake.cli._plugins.nativeapp.entities.application_package"
@@ -59,8 +59,10 @@ APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME = (
     f"{APP_PACKAGE_ENTITY}.verify_project_distribution"
 )
 
-SQL_EXECUTOR_EXECUTE = f"{ENTITIES_COMMON_MODULE}.SqlExecutor._execute_query"
-SQL_EXECUTOR_EXECUTE_QUERIES = f"{ENTITIES_COMMON_MODULE}.SqlExecutor._execute_queries"
+SQL_EXECUTOR_EXECUTE = f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_query"
+SQL_EXECUTOR_EXECUTE_QUERIES = (
+    f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_queries"
+)
 
 SQL_FACADE_MODULE = "snowflake.cli._plugins.nativeapp.sf_facade"
 SQL_FACADE = f"{SQL_FACADE_MODULE}.SnowflakeSQLFacade"
