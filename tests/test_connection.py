@@ -22,6 +22,7 @@ from unittest import mock
 import pytest
 import tomlkit
 from snowflake.cli._app.secret import SecretType
+from snowflake.cli.api.config import ConnectionConfig
 from snowflake.cli.api.constants import ObjectType
 
 from tests.testing_utils.files_and_dirs import pushd
@@ -81,7 +82,8 @@ def test_new_connection_can_be_added_as_default(runner, os_agnostic_snapshot):
 
 
 @mock.patch("os.path.exists")
-def test_new_connection_with_jwt_auth(mock_os, runner, os_agnostic_snapshot):
+@mock.patch("snowflake.cli._plugins.connection.commands.Path")
+def test_new_connection_with_jwt_auth(mock_path, mock_os, runner, os_agnostic_snapshot):
     mock_os.return_value = True
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
@@ -157,8 +159,8 @@ def test_port_has_cannot_be_string(runner):
                 "portValue",
             ],
         )
-    assert result.exit_code == 1, result.output
-    assert "Value of port must be integer" in result.output
+    assert result.exit_code == 2, result.output
+    assert "'portValue' is not a valid integer" in result.output
 
 
 def test_port_has_cannot_be_float(runner):
@@ -178,8 +180,8 @@ def test_port_has_cannot_be_float(runner):
                 "123.45",
             ],
         )
-    assert result.exit_code == 1, result.output
-    assert "Value of port must be integer" in result.output
+    assert result.exit_code == 2, result.output
+    assert "'123.45' is not a valid integer. " in result.output
 
 
 @pytest.mark.parametrize(
@@ -191,7 +193,7 @@ def test_file_paths_have_to_exist_when_given_in_prompt(selected_option, runner):
         "~/path/to/file", selected_option, runner
     )
 
-    assert result.exit_code == 1, result.output
+    assert result.exit_code == 2, result.output
     assert "Path ~/path/to/file does not exist." in result.output
 
 
@@ -212,7 +214,7 @@ def test_file_paths_have_to_exist_when_given_in_arguments(selected_option, runne
     result = _run_connection_add_with_path_provided_as_argument(
         "~/path/to/file", selected_option, runner
     )
-    assert result.exit_code == 1, result.output
+    assert result.exit_code == 2, result.output
     assert "Path ~/path/to/file does not exist." in result.output
 
 
@@ -287,7 +289,7 @@ def test_fails_if_existing_connection(runner):
                 "account1",
             ],
         )
-    assert result.exit_code == 1, result.output
+    assert result.exit_code == 2, result.output
     assert "Connection conn2 already exists  " in result.output
 
 
@@ -1152,7 +1154,7 @@ def test_new_connection_is_added_to_connections_toml(
         account = "account1"
         user = "user1"
         password = "password1"
-        port = "8080"
+        port = 8080
     """
     )
 
@@ -1160,7 +1162,9 @@ def test_new_connection_is_added_to_connections_toml(
 @mock.patch(
     "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
 )
-def test_generate_jwt(mocked_get_token, runner, named_temporary_file):
+def test_generate_jwt_without_passphrase(
+    mocked_get_token, runner, named_temporary_file
+):
     mocked_get_token.return_value = "funny token"
 
     with named_temporary_file() as f:
@@ -1176,16 +1180,55 @@ def test_generate_jwt(mocked_get_token, runner, named_temporary_file):
                 "--private-key-path",
                 f,
             ],
-            input="123",
+        )
+
+    assert result.exit_code == 0, result.output
+    assert result.output == "funny token\n"
+    mocked_get_token.assert_called_once_with(
+        user="FooBar", account="account1", privatekey_path=str(f), key_password=None
+    )
+
+
+@pytest.mark.parametrize("passphrase", ["", "pass123"])
+@mock.patch(
+    "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
+)
+def test_generate_jwt_with_passphrase(
+    mocked_get_token, runner, named_temporary_file, passphrase
+):
+    mocked_get_token.side_effect = [TypeError("foo"), "funny token"]
+
+    with named_temporary_file() as f:
+        f.write_text("secret from file")
+        result = runner.invoke(
+            [
+                "connection",
+                "generate-jwt",
+                "--user",
+                "FooBar",
+                "--account",
+                "account1",
+                "--private-key-path",
+                f,
+            ],
+            input=passphrase,
         )
 
     assert result.exit_code == 0, result.output
     assert (
         result.output
-        == "Enter private key file password (Press enter if none) []: \nfunny token\n"
+        == "Enter private key file password (press enter for empty) []: \nfunny token\n"
     )
-    mocked_get_token.assert_called_once_with(
-        user="FooBar", account="account1", privatekey_path=str(f), key_password="123"
+    mocked_get_token.has_calls(
+        mock.call(
+            user="FooBar", account="account1", privatekey_path=str(f), key_password=None
+        ),
+        mock.call(
+            user="FooBar",
+            account="account1",
+            privatekey_path=str(f),
+            key_password=passphrase,
+        ),
     )
 
 
@@ -1193,7 +1236,9 @@ def test_generate_jwt(mocked_get_token, runner, named_temporary_file):
 @mock.patch(
     "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
 )
-def test_generate_jwt_with_pass_phrase(mocked_get_token, runner, named_temporary_file):
+def test_generate_jwt_with_pass_phrase_from_env(
+    mocked_get_token, runner, named_temporary_file
+):
     mocked_get_token.return_value = "funny token"
 
     with named_temporary_file() as f:
@@ -1228,19 +1273,15 @@ def test_generate_jwt_uses_config(mocked_get_token, runner, named_temporary_file
         f.write_text("secret from file")
         result = runner.invoke(
             ["connection", "generate-jwt", "--connection", "jwt"],
-            input="123",
         )
 
     assert result.exit_code == 0, result.output
-    assert (
-        result.output
-        == "Enter private key file password (Press enter if none) []: \nfunny token\n"
-    )
+    assert result.output == "funny token\n"
     mocked_get_token.assert_called_once_with(
         user="jdoe",
         account="testing_account",
         privatekey_path="/private/key",
-        key_password="123",
+        key_password=None,
     )
 
 
@@ -1271,3 +1312,44 @@ def test_generate_jwt_raises_error_if_required_parameter_is_missing(
             f'{attribute.capitalize().replace("_", " ")} is not set in the connection context'
             in result.output
         )
+
+
+@mock.patch("snowflake.cli._plugins.connection.commands.add_connection_to_proper_file")
+def test_connection_add_no_interactive(mock_add, runner):
+    mock_add.return_value = "file_name"
+    result = runner.invoke(
+        [
+            "connection",
+            "add",
+            "--connection-name",
+            "conn1",
+            "--username",
+            "user1",
+            "--account",
+            "account1",
+            "--no-interactive",
+        ]
+    )
+
+    assert result.exit_code == 0
+    # Assert no prompts in the output
+    assert "Wrote new connection conn1 to file_name\n" == result.output
+
+    mock_add.assert_called_once_with(
+        "conn1",
+        ConnectionConfig(
+            account="account1",
+            user="user1",
+            host=None,
+            region=None,
+            port=None,
+            database=None,
+            schema=None,
+            warehouse=None,
+            role=None,
+            authenticator=None,
+            private_key_file=None,
+            token_file_path=None,
+            _other_settings={},
+        ),
+    )

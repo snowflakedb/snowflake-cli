@@ -11,13 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import NoReturn
 
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.connector import DatabaseError, Error, ProgrammingError
 
 
-def handle_unclassified_error(err: Error | Exception, context: str):
+def handle_unclassified_error(err: Error | Exception, context: str) -> NoReturn:
     """
     Handles exceptions that are not caught by categorized exceptions in SQLFacade
     @param err: connector error or base exception
@@ -87,3 +88,23 @@ class CouldNotUseObjectError(UserInputError):
         super().__init__(
             f"Could not use {object_type} {name}. Object does not exist, or operation cannot be performed."
         )
+
+
+class InsufficientPrivilegesError(ClickException):
+    """Raised when user does not have sufficient privileges to perform an operation"""
+
+    def __init__(
+        self,
+        message,
+        *,
+        role: str | None = None,
+        database: str | None = None,
+        schema: str | None = None,
+    ):
+        if schema:
+            message += f" in schema: {schema}"
+        if database:
+            message += f" in database: {database}"
+        if role:
+            message += f" using role: {role}"
+        super().__init__(message)
