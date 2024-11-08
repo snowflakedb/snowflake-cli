@@ -281,28 +281,47 @@ class SnowflakeSQLFacade:
 
         return new_patch
 
-    def get_event_definitions(self, app_name: str) -> list[dict]:
+    def get_event_definitions(
+        self, app_name: str, role: str | None = None
+    ) -> list[dict]:
         """
         Retrieves event definitions for the specified application.
         @param app_name: Name of the application to get event definitions for.
         @return: A list of dictionaries containing event definitions.
         """
-        query = f"show telemetry event definitions in application {app_name}"
-        results = self._sql_executor.execute_query(
-            query, cursor_class=DictCursor
-        ).fetchall()
+        query = (
+            f"show telemetry event definitions in application {to_identifier(app_name)}"
+        )
+        with self._use_role_optional(role):
+            try:
+                results = self._sql_executor.execute_query(
+                    query, cursor_class=DictCursor
+                ).fetchall()
+            except Exception as err:
+                handle_unclassified_error(
+                    err, f"Failed to get event definitions for application {app_name}."
+                )
         return [dict(row) for row in results]
 
-    def desc_application(self, app_name: str) -> Dict[str, str]:
+    def desc_application(
+        self, app_name: str, role: str | None = None
+    ) -> Dict[str, str]:
         """
         Describes the application with the given name.
         @param app_name: Name of the application to describe.
         @return: A dictionary containing the description of the application.
         """
-        query = f"desc application {app_name}"
-        results = self._sql_executor.execute_query(
-            query, cursor_class=DictCursor
-        ).fetchall()
+
+        query = f"desc application {to_identifier(app_name)}"
+        with self._use_role_optional(role):
+            try:
+                results = self._sql_executor.execute_query(
+                    query, cursor_class=DictCursor
+                ).fetchall()
+            except Exception as err:
+                handle_unclassified_error(
+                    err, f"Failed to describe application {app_name}."
+                )
         return {row["property"]: row["value"] for row in results}
 
 

@@ -48,17 +48,11 @@ class EventSharingTelemetry(UpdatableModel):
         if original_shared_events is None:
             return None
 
-        # make sure that each event is made of letters and underscores:
+        # make sure each event is non-empty String:
         for event in original_shared_events:
-            if not event.isalpha() and not event.replace("_", "").isalpha():
+            if not event:
                 raise ClickException(
-                    f"Event {event} from 'telemetry.optional_shared_events' field is not a valid event name."
+                    "Event names in 'telemetry.optional_shared_events' field must not be empty"
                 )
-
-        # make sure events are unique:
-        if len(original_shared_events) != len(set(original_shared_events)):
-            raise ClickException(
-                "Events in 'telemetry.optional_shared_events' field must be unique."
-            )
 
         return original_shared_events

@@ -111,23 +111,11 @@ class EventSharingHandler:
     This class is used to determine whether event sharing should be authorized or not, and which events should be shared.
     """
 
-    def _to_events_definitions(
-        self, all_events: List[str], mandatory_events: List[str]
-    ) -> List[Dict[str, str]]:
-        return [
-            {
-                "name": f"SNOWFLAKE${event}",
-                "type": event,
-                "sharing": "MANDATORY" if event in mandatory_events else "OPTIONAL",
-                "status": "DISABLED",
-            }
-            for event in all_events
-        ]
-
     def __init__(
         self,
+        *,
         telemetry_definition: Optional[EventSharingTelemetry],
-        deploy_root_path: Path,
+        deploy_root: Path,
         install_method: SameAccountInstallMethod,
         console: AbstractConsole,
     ):
@@ -174,12 +162,12 @@ class EventSharingHandler:
 
         self._manifest_events_definitions = []
         if not install_method.is_dev_mode:
-            # We can't make any decision if we are in prod mode because we do not know the manifest.
+            # We can't make any verification for events if we are in prod mode because we do not know event definitions in the manifest file yet.
             return
 
-        all_events_in_manifest = find_events_in_manifest_file(deploy_root_path)
+        all_events_in_manifest = find_events_in_manifest_file(deploy_root)
         mandatory_events_in_manifest = find_events_in_manifest_file(
-            deploy_root_path, mandatory_only=True
+            deploy_root, mandatory_only=True
         )
         self._manifest_events_definitions = self._to_events_definitions(
             all_events_in_manifest, mandatory_events_in_manifest
@@ -200,6 +188,19 @@ class EventSharingHandler:
                     "WARNING: Mandatory events are present in the manifest file. Automatically authorizing event sharing in dev mode. To suppress this warning, please add 'share_mandatory_events: true' in the application telemetry section."
                 )
                 self._authorize_event_sharing = True
+
+    def _to_events_definitions(
+        self, all_events: List[str], mandatory_events: List[str]
+    ) -> List[Dict[str, str]]:
+        return [
+            {
+                "name": f"SNOWFLAKE${event}",
+                "type": event,
+                "sharing": "MANDATORY" if event in mandatory_events else "OPTIONAL",
+                "status": "DISABLED",
+            }
+            for event in all_events
+        ]
 
     def should_authorize_event_sharing(
         self,
@@ -631,7 +632,10 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         sql_executor = get_sql_executor()
         with sql_executor.use_role(self.role):
             event_sharing = EventSharingHandler(
-                model.telemetry, self.project_root, install_method, console
+                telemetry_definition=model.telemetry,
+                deploy_root=self.project_root / package.deploy_root,
+                install_method=install_method,
+                console=console,
             )
 
             # 1. Need to use a warehouse to create an application object
