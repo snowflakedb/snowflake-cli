@@ -15,7 +15,7 @@
 import json
 from pathlib import Path
 from textwrap import dedent
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 from click import ClickException
@@ -450,6 +450,84 @@ def test_logs_optional_parameter(mock_execute_query):
     expected_query = "call SYSTEM$GET_SERVICE_LOGS('test_service', '10', 'test_container', 42, False, '', False);"
     mock_execute_query.assert_called_once_with(expected_query)
     assert result == cursor
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.logs")
+@patch("time.sleep")
+def test_stream_logs(mock_sleep, mock_logs):
+    service_name = "test_service"
+    instance_id = "10"
+    container_name = "test_container"
+    num_lines = 0
+    since_timestamp = ""
+    interval_seconds = 1
+
+    cursor = Mock()
+    cursor.fetchall.side_effect = [
+        [["2024-10-22T01:12:28Z log 1\n2024-10-22T01:12:28Z log 2"]],
+        [["2024-10-22T01:12:28Z log 2\n2024-10-22T01:12:29Z log 3"]],
+        [
+            [
+                "2024-10-22T01:12:29Z log 3\n2024-10-22T01:12:30Z log 4\n2024-10-22T01:12:29Z log 3"
+            ]
+        ],
+        [],
+    ]
+    mock_logs.return_value = cursor
+
+    service_manager = ServiceManager()
+    generated_logs = []
+    generator = service_manager.stream_logs(
+        service_name=service_name,
+        instance_id=instance_id,
+        container_name=container_name,
+        num_lines=num_lines,
+        since_timestamp=since_timestamp,
+        interval_seconds=interval_seconds,
+    )
+
+    for _ in range(3):
+        logs = next(generator)
+        if logs is not None:
+            generated_logs.append(logs)
+
+    # The first 2024-10-22T01:12:29Z log 3 is removed as a prior duplicate.
+    # The second 2024-10-22T01:12:29Z log 3 remains and sorted.
+    assert generated_logs == [
+        ["2024-10-22T01:12:28Z log 1", "2024-10-22T01:12:28Z log 2"],
+        ["2024-10-22T01:12:29Z log 3"],
+        ["2024-10-22T01:12:29Z log 3", "2024-10-22T01:12:30Z log 4"],
+    ]
+
+    assert mock_logs.call_count == 3
+    assert mock_sleep.call_count == 2
+    mock_sleep.assert_has_calls([call(interval_seconds), call(interval_seconds)])
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+def test_logs_incompatible_flags(mock_execute_query, runner):
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "logs",
+            "test_service",
+            "--container-name",
+            "test_container",
+            "--instance-id",
+            "0",
+            "--follow",
+            "--num-lines",
+            "100",
+        ]
+    )
+    assert (
+        result.exit_code != 0
+    ), "Expected a non-zero exit code due to incompatible flags"
+    assert (
+        "Parameters '--follow' and '--num-lines' are incompatible and cannot be used"
+        in result.output
+    )
 
 
 def test_read_yaml(other_directory):
