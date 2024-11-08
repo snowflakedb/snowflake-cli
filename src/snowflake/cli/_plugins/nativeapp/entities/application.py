@@ -43,6 +43,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -420,6 +421,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             ).fetchall()
             return [{"name": row[1], "type": row[2]} for row in results]
 
+    @get_cli_context().metrics.start_span("create_or_upgrade_app")
     def create_or_upgrade_app(
         self,
         package: ApplicationPackageEntity,
@@ -513,10 +515,10 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     create_cursor = sql_executor.execute_query(
                         dedent(
                             f"""\
-                        create application {self.name}
-                            from application package {package.name} {using_clause} {debug_mode_clause}
-                            comment = {SPECIAL_COMMENT}
-                        """
+                            create application {self.name}
+                                from application package {package.name} {using_clause} {debug_mode_clause}
+                                comment = {SPECIAL_COMMENT}
+                            """
                         ),
                     )
                     print_messages(console, create_cursor)

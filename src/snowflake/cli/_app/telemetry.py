@@ -67,6 +67,7 @@ class CLITelemetryField(Enum):
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
     # Metrics
     COUNTERS = "counters"
+    SPANS = "spans"
     # Information
     EVENT = "event"
     ERROR_MSG = "error_msg"
@@ -129,9 +130,12 @@ def _get_command_metrics() -> TelemetryDict:
     cli_context = get_cli_context()
 
     return {
-        CLITelemetryField.COUNTERS: {
-            **cli_context.metrics.counters,
-        }
+        CLITelemetryField.COUNTERS: cli_context.metrics.counters,
+        CLITelemetryField.SPANS: {
+            "completed_spans": cli_context.metrics.completed_spans,
+            "num_spans_past_depth_limit": cli_context.metrics.num_spans_past_depth_limit,
+            "num_spans_past_total_limit": cli_context.metrics.num_spans_past_total_limit,
+        },
     }
 
 

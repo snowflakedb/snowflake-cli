@@ -76,6 +76,7 @@ def _get_stage_paths_to_sync(
     return stage_paths
 
 
+@get_cli_context().metrics.start_span("sync_deploy_root_with_stage")
 def sync_deploy_root_with_stage(
     console: AbstractConsole,
     deploy_root: Path,
@@ -219,7 +220,10 @@ def execute_post_deploy_hooks(
 
     get_cli_context().metrics.set_counter(CLICounterField.POST_DEPLOY_SCRIPTS, 1)
 
-    with console.phase(f"Executing {deployed_object_type} post-deploy actions"):
+    with console.phase(
+        f"Executing {deployed_object_type} post-deploy actions",
+        span_name=f"{deployed_object_type}.execute_post_deploy_hooks",
+    ):
         sql_scripts_paths = []
         display_paths = []
         for hook in post_deploy_hooks:
@@ -304,6 +308,7 @@ def validation_item_to_str(item: dict[str, str | int]):
     return s
 
 
+@get_cli_context().metrics.start_span("drop_generic_object")
 def drop_generic_object(
     console: AbstractConsole,
     object_type: str,

@@ -157,7 +157,7 @@ class _CliGlobalContextAccess:
         return self._manager.enable_tracebacks
 
     @property
-    def metrics(self):
+    def metrics(self) -> CLIMetrics:
         return self._manager.metrics
 
     @property

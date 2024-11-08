@@ -15,7 +15,7 @@ from shlex import split
 from typing import Dict
 from unittest import mock
 
-from snowflake.cli._app.telemetry import TelemetryEvent
+from snowflake.cli._app.telemetry import TelemetryEvent, CLITelemetryField
 from snowflake.cli.api.metrics import CLICounterField
 from tests.project.fixtures import *
 from tests_integration.test_utils import extract_first_telemetry_message_of_type
@@ -53,7 +53,10 @@ def test_sql_templating_emits_counter(
         mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
     )
 
-    assert message["counters"][CLICounterField.SQL_TEMPLATES] == expected_counter
+    assert (
+        message[CLITelemetryField.COUNTERS][CLICounterField.SQL_TEMPLATES]
+        == expected_counter
+    )
 
 
 @pytest.mark.integration
@@ -143,4 +146,4 @@ def test_nativeapp_feature_counter_has_expected_value(
             mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
         )
 
-        assert message["counters"] == expected_counters
+        assert message[CLITelemetryField.COUNTERS] == expected_counters

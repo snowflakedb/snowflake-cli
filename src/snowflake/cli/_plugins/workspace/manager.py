@@ -61,7 +61,10 @@ class WorkspaceManager:
             action_ctx = ActionContext(
                 get_entity=self.get_entity,
             )
-            return entity.perform(action, action_ctx, *args, **kwargs)
+            with get_cli_context().metrics.start_span(
+                f"{type(entity).__name__}.{action.value}"
+            ):
+                return entity.perform(action, action_ctx, *args, **kwargs)
         else:
             raise ValueError(f'This entity type does not support "{action.value}"')
 
