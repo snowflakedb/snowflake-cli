@@ -330,7 +330,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
             return show_obj_cursor
 
-    # PJ-TODO: check what label=None does
     def action_version_create(
         self,
         action_ctx: ActionContext,
@@ -736,7 +735,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         # Label must be a string literal
         with_label_query = (
-            f"label={to_string_literal(label)}" if label is not None else ""
+            f"\nlabel={to_string_literal(label)}" if label is not None else ""
         )
         # Use raw string in prompt
         with_label_prompt = f" labeled {label}" if label else ""
@@ -749,8 +748,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 f"""\
                     alter application package {self.name}
                         add version {version}
-                        using @{self.stage_fqn}
-                        {with_label_query}
+                        using @{self.stage_fqn}{with_label_query}
                 """
             )
             sql_executor.execute_query(add_version_query, cursor_class=DictCursor)
@@ -773,7 +771,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         # Label must be a string literal
         with_label_query = (
-            f"label={to_string_literal(label)}" if label is not None else ""
+            f"\nlabel={to_string_literal(label)}" if label is not None else ""
         )
         # Use raw string in prompt
         with_label_prompt = f" labeled {label}" if label else ""
@@ -786,8 +784,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 f"""\
                     alter application package {self.name}
                         add patch {patch if patch else ""} for version {version}
-                        using @{self.stage_fqn}
-                        {with_label_query}
+                        using @{self.stage_fqn}{with_label_query}
                 """
             )
             result_cursor = sql_executor.execute_query(

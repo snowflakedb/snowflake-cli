@@ -19,6 +19,7 @@ from unittest import mock
 import pytest
 import typer
 from click import BadOptionUsage, ClickException
+from snowflake.cli._plugins.nativeapp.artifacts import VersionInfo
 from snowflake.cli._plugins.nativeapp.constants import SPECIAL_COMMENT
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
@@ -56,6 +57,7 @@ def _version_create(
     force: bool,
     interactive: bool,
     skip_git_check: bool,
+    label: str | None = None,
 ):
     dm = DefinitionManager()
     pd = dm.project_definition
@@ -71,6 +73,7 @@ def _version_create(
         action_ctx=mock.Mock(spec=ActionContext),
         version=version,
         patch=patch,
+        label=label,
         force=force,
         interactive=interactive,
         skip_git_check=skip_git_check,
@@ -279,7 +282,7 @@ def test_add_new_patch_custom(
 )
 @mock.patch(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
-    return_value=(None, None),
+    return_value=VersionInfo(None, None, None),
 )
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize("interactive", [True, False])
@@ -377,7 +380,7 @@ def test_process_no_version_exists_throws_bad_option_exception_two(
 # Test version create when there are no release directives matching the version AND no version exists for app pkg
 @mock.patch(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
-    return_value=("manifest_version", None),
+    return_value=VersionInfo("manifest_version", None, None),
 )
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
