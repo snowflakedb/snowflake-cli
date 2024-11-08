@@ -29,10 +29,6 @@ IMPORTANT_STYLE: Style = Style(bold=True, italic=True)
 INDENTATION_LEVEL: int = 2
 
 
-class CliConsoleNestingProhibitedError(RuntimeError):
-    """CliConsole phase nesting not allowed."""
-
-
 class CliConsole(AbstractConsole):
     """An utility for displaying intermediate output.
 
