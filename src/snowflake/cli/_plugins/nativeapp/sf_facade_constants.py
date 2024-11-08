@@ -18,6 +18,7 @@ from enum import Enum
 class UseObjectType(Enum):
     DATABASE = "database"
     ROLE = "role"
+    SCHEMA = "schema"
     WAREHOUSE = "warehouse"
 
     def __str__(self):
