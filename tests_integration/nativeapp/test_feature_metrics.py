@@ -54,7 +54,7 @@ def test_sql_templating_emits_counter(
     )
 
     assert (
-        message[CLITelemetryField.COUNTERS][CLICounterField.SQL_TEMPLATES]
+        message[CLITelemetryField.COUNTERS.value][CLICounterField.SQL_TEMPLATES]
         == expected_counter
     )
 
@@ -146,4 +146,4 @@ def test_nativeapp_feature_counter_has_expected_value(
             mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
         )
 
-        assert message[CLITelemetryField.COUNTERS] == expected_counters
+        assert message[CLITelemetryField.COUNTERS.value] == expected_counters
