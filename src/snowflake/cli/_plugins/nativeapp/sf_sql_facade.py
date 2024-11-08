@@ -18,7 +18,6 @@ from contextlib import contextmanager
 from textwrap import dedent
 from typing import Any, Dict, List
 
-from snowflake.cli._plugins.nativeapp.constants import NAME_COL
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
@@ -32,7 +31,9 @@ from snowflake.cli.api.errno import (
     INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import (
+    identifier_to_show_like_pattern,
     is_valid_unquoted_identifier,
     to_identifier,
     to_quoted_identifier,
@@ -373,28 +374,23 @@ class SnowflakeSQLFacade:
                     ) from err
                 handle_unclassified_error(err, f"Failed to create schema {name}.")
 
-    def stage_exists(
-        self,
-        name: str,
-        role: str | None = None,
-        database: str | None = None,
-        schema: str | None = None,
-    ) -> bool:
+    def stage_exists(self, name: str, role: str | None = None) -> bool:
         """
         Checks if a stage exists.
         @param name: Name of the stage to check for. Can be a fully qualified name or just the stage name, in which case the current database and schema or the database and schema passed in will be used.
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
-        @param [Optional] database: Database to use while running this script.
-        @param [Optional] schema: Schema to use while running this script.
         """
-        with (
-            self._use_role_optional(role),
-            self._use_database_optional(database),
-            self._use_schema_optional(schema),
-        ):
+        fqn = FQN.from_string(name)
+        if fqn.database is None:
+            raise ValueError("Database must be specified in the stage FQN.")
+        if fqn.schema is None:
+            raise ValueError("Schema must be specified in the stage FQN.")
+        pattern = identifier_to_show_like_pattern(name)
+
+        with self._use_role_optional(role):
             try:
-                results = self._sql_executor.show_specific_object(
-                    "stages", name, name_col=NAME_COL
+                results = self._sql_executor.execute_query(
+                    f"show stages like {pattern} in schema {fqn.database}.{fqn.schema}",
                 )
             except ProgrammingError as err:
                 if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
