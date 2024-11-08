@@ -131,22 +131,6 @@ def _password_callback(ctx: Context, param: Parameter, value: str):
     return value
 
 
-class _OptionInfo:
-    def __init__(self, value: str | None, param: typer.Option):
-        self.value = strip_if_value_present(value)
-        self.param = param
-
-    def prompt(self, no_interactive: bool = False):
-        if no_interactive:
-            return
-        else:
-            default = None if self.param.required else EmptyInput()
-            self.value = typer.prompt(
-                f"Enter {self.param.human_readable_name.replace('_', ' ')}",
-                default=default,
-            )
-
-
 @app.command()
 def add(
     connection_name: str = typer.Option(
