@@ -359,12 +359,15 @@ class SnowflakeSQLFacade:
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
         @param [Optional] database: Database to use while running this script.
         """
+        identifier = to_identifier(name)
         with (
             self._use_role_optional(role),
             self._use_database_optional(database),
         ):
             try:
-                self._sql_executor.execute_query(f"create schema if not exists {name}")
+                self._sql_executor.execute_query(
+                    f"create schema if not exists {identifier}"
+                )
             except ProgrammingError as err:
                 if err.errno == INSUFFICIENT_PRIVILEGES:
                     raise InsufficientPrivilegesError(
@@ -418,7 +421,8 @@ class SnowflakeSQLFacade:
         @param [Optional] database: Database to use while running this script.
         @param [Optional] schema: Schema to use while running this script.
         """
-        query = f"create stage if not exists {name}"
+        identifier = to_identifier(name)
+        query = f"create stage if not exists {identifier}"
         if encryption_type:
             query += f" encryption = (type = '{encryption_type}')"
         if enable_directory:
@@ -448,10 +452,11 @@ class SnowflakeSQLFacade:
         @param package_name: Name of the package
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
         """
+        package_identifier = to_identifier(package_name)
         with self._use_role_optional(role):
             try:
                 cursor = self._sql_executor.execute_query(
-                    f"show release directives in application package {package_name}",
+                    f"show release directives in application package {package_identifier}",
                     cursor_class=DictCursor,
                 )
             except ProgrammingError as err:
