@@ -39,6 +39,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
     DenyAlwaysPolicy,
     PolicyBase,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
@@ -69,7 +70,6 @@ from snowflake.cli.api.project.util import (
     extract_schema,
     identifier_to_show_like_pattern,
     to_identifier,
-    to_string_literal,
     unquote_identifier,
 )
 from snowflake.cli.api.utils.cursor import find_all_rows
@@ -487,7 +487,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         # Define a new version in the application package
         if not self.get_existing_version_info(version_resolved):
-            self.add_new_version(version_resolved, label=label_resolved)
+            self.add_new_version(version=version_resolved, label=label_resolved)
             return  # A new version created automatically has patch 0, we do not need to further increment the patch.
 
         # Add a new patch to an existing (old) version
@@ -725,36 +725,24 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     def add_new_version(self, version: str, label: str | None = None) -> None:
         """
-        Defines a new version in an existing application package.
+        Add a new version with an optional label in application package.
         """
         console = self._workspace_ctx.console
-
-        # Make the version a valid identifier, adding quotes if necessary
-        version = to_identifier(version)
-        sql_executor = get_sql_executor()
-
-        # Label must be a string literal
-        with_label_query = (
-            f"\nlabel={to_string_literal(label)}" if label is not None else ""
-        )
-        # Use raw string in prompt
         with_label_prompt = f" labeled {label}" if label else ""
 
-        with sql_executor.use_role(self.role):
-            console.step(
-                f"Defining a new version {version} in application package {self.name}"
-            )
-            add_version_query = dedent(
-                f"""\
-                    alter application package {self.name}
-                        add version {version}
-                        using @{self.stage_fqn}{with_label_query}
-                """
-            )
-            sql_executor.execute_query(add_version_query, cursor_class=DictCursor)
-            console.message(
-                f"Version {version}{with_label_prompt} created for application package {self.name}."
-            )
+        console.step(
+            f"Defining a new version {version} in application package {self.name}"
+        )
+        get_snowflake_facade().create_version_in_package(
+            package_role=self.role,
+            package_name=self.name,
+            stage_fqn=self.stage_fqn,
+            version=version,
+            label=label,
+        )
+        console.message(
+            f"Version {version}{with_label_prompt} created for application package {self.name}."
+        )
 
     def add_new_patch_to_version(
         self, version: str, patch: int | None = None, label: str | None = None
@@ -764,38 +752,22 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         """
         console = self._workspace_ctx.console
 
-        # Make the version a valid identifier, adding quotes if necessary
-        version = to_identifier(version)
-
-        sql_executor = get_sql_executor()
-
-        # Label must be a string literal
-        with_label_query = (
-            f"\nlabel={to_string_literal(label)}" if label is not None else ""
-        )
-        # Use raw string in prompt
         with_label_prompt = f" labeled {label}" if label else ""
 
-        with sql_executor.use_role(self.role):
-            console.step(
-                f"Adding new patch to version {version} defined in application package {self.name}"
-            )
-            add_version_query = dedent(
-                f"""\
-                    alter application package {self.name}
-                        add patch {patch if patch else ""} for version {version}
-                        using @{self.stage_fqn}{with_label_query}
-                """
-            )
-            result_cursor = sql_executor.execute_query(
-                add_version_query, cursor_class=DictCursor
-            )
-
-            show_row = result_cursor.fetchall()[0]
-            new_patch = show_row["patch"]
-            console.message(
-                f"Patch {new_patch}{with_label_prompt} created for version {version} defined in application package {self.name}."
-            )
+        console.step(
+            f"Adding new patch to version {version} defined in application package {self.name}"
+        )
+        new_patch = get_snowflake_facade().add_patch_to_package_version(
+            package_role=self.role,
+            package_name=self.name,
+            stage_fqn=self.stage_fqn,
+            version=version,
+            patch=patch,
+            label=label,
+        )
+        console.message(
+            f"Patch {new_patch}{with_label_prompt} created for version {version} defined in application package {self.name}."
+        )
 
     def check_index_changes_in_git_repo(
         self, policy: PolicyBase, interactive: bool

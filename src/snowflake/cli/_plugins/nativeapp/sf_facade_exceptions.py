@@ -70,6 +70,13 @@ class UnknownConnectorError(_BaseFacadeError):
         super().__init__(f"Unknown error occurred. {msg}")
 
 
+class ExpectedObjectNotProvidedError(_BaseFacadeError):
+    """Raised when a required object of UseObjectType is None"""
+
+    def __init__(self, object_type: UseObjectType):
+        super().__init__(f"Expected required {object_type} object but received None")
+
+
 class UserScriptError(ClickException):
     """Exception raised when user-provided scripts fail."""
 
