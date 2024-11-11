@@ -359,10 +359,11 @@ class SnowflakeSQLFacade:
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
         @param [Optional] database: Database to use while running this script.
         """
-        identifier = to_identifier(name)
+        fqn = FQN.from_string(name)
+        identifier = to_identifier(fqn.name)
         with (
             self._use_role_optional(role),
-            self._use_database_optional(database),
+            self._use_database_optional(fqn.database or database),
         ):
             try:
                 self._sql_executor.execute_query(
@@ -414,14 +415,15 @@ class SnowflakeSQLFacade:
     ):
         """
         Creates a stage.
-        @param name: Name of the stage to check for. Can be a fully qualified name or just the stage name, in which case the current database and schema or the database and schema passed in will be used.
+        @param name: Name of the stage to create. Can be a fully qualified name or just the stage name, in which case the current database and schema or the database and schema passed in will be used.
         @param [Optional] encryption_type: Encryption type for the stage. Default is Snowflake SSE. Pass an empty string to disable encryption.
         @param [Optional] enable_directory: Directory settings for the stage. Default is enabled.
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
         @param [Optional] database: Database to use while running this script.
         @param [Optional] schema: Schema to use while running this script.
         """
-        identifier = to_identifier(name)
+        fqn = FQN.from_string(name)
+        identifier = to_identifier(fqn.name)
         query = f"create stage if not exists {identifier}"
         if encryption_type:
             query += f" encryption = (type = '{encryption_type}')"
@@ -429,8 +431,8 @@ class SnowflakeSQLFacade:
             query += f" directory = (enable = {str(enable_directory)})"
         with (
             self._use_role_optional(role),
-            self._use_database_optional(database),
-            self._use_schema_optional(schema),
+            self._use_database_optional(fqn.database or database),
+            self._use_schema_optional(fqn.schema or schema),
         ):
             try:
                 self._sql_executor.execute_query(query)
