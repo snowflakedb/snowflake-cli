@@ -6,11 +6,14 @@ from textwrap import dedent
 from typing import List, Literal, Optional, Union
 
 import typer
+import yaml
 from click import BadOptionUsage, ClickException
 from pydantic import Field, field_validator
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
     build_bundle,
+    find_manifest_file,
+    find_setup_script_file,
     find_version_info_in_manifest_file,
 )
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
@@ -40,6 +43,10 @@ from snowflake.cli._plugins.nativeapp.policy import (
     PolicyBase,
 )
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
+from snowflake.cli._plugins.spcs.entities.service import (
+    ServiceEntity,
+    ServiceEntityModel,
+)
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.context import ActionContext
@@ -107,6 +114,12 @@ class ApplicationPackageEntityModel(EntityModelBase):
     )
     manifest: str = Field(
         title="Path to manifest.yml",
+    )
+
+    ### SPCS PoC
+    services: list[str] = Field(
+        title="List of Snowpark Container Service entity IDs to integrate into this application package",
+        default=[],
     )
 
     @field_validator("identifier")
@@ -191,7 +204,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         return model.meta and model.meta.post_deploy
 
     def action_bundle(self, action_ctx: ActionContext, *args, **kwargs):
-        return self._bundle()
+        spcs_services = [action_ctx.get_entity(s) for s in self._entity_model.services]
+        return self._bundle(spcs_services=spcs_services)
 
     def action_deploy(
         self,
@@ -206,6 +220,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         *args,
         **kwargs,
     ):
+        spcs_services = [action_ctx.get_entity(s) for s in self._entity_model.services]
         return self._deploy(
             bundle_map=None,
             prune=prune,
@@ -216,6 +231,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             stage_fqn=stage_fqn or self.stage_fqn,
             interactive=interactive,
             force=force,
+            spcs_services=spcs_services,
         )
 
     def action_drop(self, action_ctx: ActionContext, force_drop: bool, *args, **kwargs):
@@ -357,6 +373,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         else:
             git_policy = AllowAlwaysPolicy()
 
+        spcs_services = [action_ctx.get_entity(s) for s in self._entity_model.services]
+
         # Make sure version is not None before proceeding any further.
         # This will raise an exception if version information is not found. Patch can be None.
         bundle_map = None
@@ -369,7 +387,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     """
                 )
             )
-            bundle_map = self._bundle()
+            bundle_map = self._bundle(spcs_services=spcs_services)
             version, patch = find_version_info_in_manifest_file(self.deploy_root)
             if not version:
                 raise ClickException(
@@ -403,6 +421,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             stage_fqn=self.stage_fqn,
             interactive=interactive,
             force=force,
+            spcs_services=spcs_services,
         )
 
         # Warn if the version exists in a release directive(s)
@@ -489,7 +508,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     """
                 )
             )
-            self._bundle()
+            self._bundle(spcs_services=[])
             version, _ = find_version_info_in_manifest_file(self.deploy_root)
             if not version:
                 raise ClickException(
@@ -533,7 +552,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             f"Version {version} in application package {self.name} dropped successfully."
         )
 
-    def _bundle(self):
+    def _bundle(self, spcs_services: list[ServiceEntity]):
         model = self._entity_model
         bundle_map = build_bundle(self.project_root, self.deploy_root, model.artifacts)
         bundle_context = BundleContext(
@@ -546,7 +565,156 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
         compiler = NativeAppCompiler(bundle_context)
         compiler.compile_artifacts()
+
+        # TODO should this merged into NativeAppCompiler?
+        self._inject_spcs(spcs_services)
+
+        # TODO should we create a post-deploy script that automatically
+        # grants CREATE COMPUTE POOL and BIND SERVICE ENDPOINT to the app?
+
         return bundle_map
+
+    def _inject_spcs(self, spcs_services: list[ServiceEntity]):
+        procedures_schema = "_procedures"
+        service_schema = "_services"
+        role = "_spcs_generation_role"
+
+        manifest_path = find_manifest_file(self.deploy_root)
+        manifest = yaml.safe_load(manifest_path.read_text())
+        if "configuration" not in manifest:
+            manifest["configuration"] = {}
+        existing_grant_callback = manifest["configuration"].get("grant_callback")
+        manifest["configuration"][
+            "grant_callback"
+        ] = f"{procedures_schema}.grant_callback"
+        # TODO set default_web_endpoint in manifest?
+        if manifest_path.is_symlink():
+            manifest_path.unlink()
+        manifest_path.write_text(yaml.safe_dump(manifest, sort_keys=False))
+
+        service_model = spcs_services[0]._entity_model  # noqa SLF001
+        self._mod_setup_script(
+            {
+                "preamble.sql": self._spcs_preamble(
+                    procedures_schema, service_schema, role
+                ),
+                "procedures.sql": self._spcs_procedures(
+                    service_model, procedures_schema, service_schema, role
+                ),
+                "grant_callback.sql": self._spcs_grant_callback(
+                    existing_grant_callback, procedures_schema, role
+                ),
+            }
+        )
+
+    def _mod_setup_script(self, mods: dict[str, str]):
+        spcs_dir = self.generated_root / "__spcs"
+        spcs_dir.mkdir(parents=True, exist_ok=True)
+        spcs_stage_dir = spcs_dir.relative_to(self.deploy_root)
+
+        setup_script_mods = ["\n"]
+        for filename, contents in mods.items():
+            (spcs_dir / filename).write_text(contents)
+            setup_script_mods.append(
+                f"execute immediate from '{str(spcs_stage_dir)}/{filename}';"
+            )
+
+        setup_script_path = find_setup_script_file(self.deploy_root)
+        setup_script = setup_script_path.read_text()
+        if setup_script_path.is_symlink():
+            setup_script_path.unlink()
+        setup_script_path.write_text(setup_script + "\n".join(setup_script_mods))
+
+    @staticmethod
+    def _spcs_preamble(procedures_schema: str, service_schema: str, role: str):
+        return dedent(
+            f"""\
+            -- Begin generated SPCS preamble, this section is managed by the Snowflake CLI
+            create or alter versioned schema {procedures_schema};
+            create schema if not exists {service_schema};
+            create application role if not exists {role};
+            -- End generated SPCS preamble
+            """
+        )
+
+    @staticmethod
+    def _spcs_procedures(
+        service: ServiceEntityModel,
+        procedures_schema: str,
+        service_schema: str,
+        role: str,
+    ):
+        return dedent(
+            f"""\
+            -- Begin generated SPCS procedures, this section is managed by the Snowflake CLI
+            create or replace procedure {procedures_schema}.create_compute_pool()
+            returns varchar
+            language sql
+            execute as owner
+            as $$
+                begin
+                    create compute pool if not exists {service.compute_pool}
+                        min_nodes = {service.min_nodes}
+                        max_nodes = {service.max_nodes}
+                        instance_family = {service.instance_family};
+                    return 'Compute pool created';
+                end;
+            $$;
+
+            create or replace procedure {procedures_schema}.create_service()
+            returns varchar
+            language sql
+            execute as owner
+            as $$
+                begin
+                    create service if not exists {service_schema}.{service.fqn.name}
+                        in compute pool {service.compute_pool}
+                        from specification_file = '{service.specification_file}';
+                    return 'Service created';
+                end;
+            $$;
+
+            create or replace procedure {procedures_schema}.start_app()
+            returns varchar
+            language sql
+            execute as owner
+            as $$
+                begin
+                    call {procedures_schema}.create_compute_pool();
+                    call {procedures_schema}.create_service();
+                    return 'App started';
+                end;
+            $$;
+            grant usage on procedure {procedures_schema}.start_app() to application role {role};
+            -- End generated SPCS procedures
+            """
+        )
+
+    @staticmethod
+    def _spcs_grant_callback(
+        existing_grant_callback: str, procedures_schema: str, role: str
+    ):
+        return dedent(
+            f"""\
+            -- Begin generated SPCS services, this section is managed by the Snowflake CLI
+            create or replace procedure {procedures_schema}.grant_callback(privileges array)
+            returns string
+            as $$
+            begin
+                {f'call {existing_grant_callback}(privileges);' if existing_grant_callback else ''}
+                if (array_contains('CREATE COMPUTE POOL'::variant, privileges)) then
+                    call {procedures_schema}.create_compute_pool();
+                end if;
+                if (array_contains('BIND SERVICE ENDPOINT'::variant, privileges)) then
+                    call {procedures_schema}.create_service();
+                end if;
+                return 'done';
+            end;
+            $$;
+            grant usage on procedure {procedures_schema}.grant_callback(array) to application role {role};
+            -- End generated SPCS services
+            """
+        )
 
     def _deploy(
         self,
@@ -559,6 +727,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         stage_fqn: str,
         interactive: bool,
         force: bool,
+        spcs_services: list[ServiceEntity],
         run_post_deploy_hooks: bool = True,
     ) -> DiffResult:
         model = self._entity_model
@@ -574,7 +743,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         stage_fqn = stage_fqn or self.stage_fqn
 
         # 1. Create a bundle if one wasn't passed in
-        bundle_map = bundle_map or self._bundle()
+        bundle_map = bundle_map or self._bundle(spcs_services=spcs_services)
 
         # 2. Create an empty application package, if none exists
         try:
@@ -932,6 +1101,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 stage_fqn=self.scratch_stage_fqn,
                 interactive=interactive,
                 force=force,
+                spcs_services=[],  # TODO this affects the setup script, but it's under our control
                 run_post_deploy_hooks=False,
             )
         prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)

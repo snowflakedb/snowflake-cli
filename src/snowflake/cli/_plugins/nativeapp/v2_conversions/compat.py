@@ -211,13 +211,21 @@ def force_project_definition_v2(
                 app_definition, app_package_definition = _find_app_and_package_entities(
                     original_pdf, package_entity_id, app_entity_id, app_required
                 )
-                entities_to_keep = {app_package_definition.entity_id}
+                native_app_entities_to_keep = {app_package_definition.entity_id}
                 kwargs["package_entity_id"] = app_package_definition.entity_id
                 if app_definition:
-                    entities_to_keep.add(app_definition.entity_id)
+                    native_app_entities_to_keep.add(app_definition.entity_id)
                     kwargs["app_entity_id"] = app_definition.entity_id
-                for entity_id in list(original_pdf.entities):
-                    if entity_id not in entities_to_keep:
+
+                native_app_entity_classes = (
+                    ApplicationEntityModel,
+                    ApplicationPackageEntityModel,
+                )
+                for entity_id, entity_model in list(original_pdf.entities.items()):
+                    if (
+                        isinstance(entity_model, native_app_entity_classes)
+                        and entity_id not in native_app_entities_to_keep
+                    ):
                         # This happens after templates are rendered,
                         # so we can safely remove the entity
                         del original_pdf.entities[entity_id]
