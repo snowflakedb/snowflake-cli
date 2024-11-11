@@ -343,7 +343,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         **kwargs,
     ):
         """
-        Perform bundle, application package creation, stage upload, version and/or patch to an application package.
+        Create a version and/or patch for a new or existing application package.
+        Always performs a deploy action before creating version or patch.
+        If version is not provided in CLI, bundle is performed to read version from manifest.yml. Raises a ClickException if version is not found.
         """
         console = self._workspace_ctx.console
 
@@ -359,14 +361,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         else:
             git_policy = AllowAlwaysPolicy()
 
-        # Make sure version is not None before proceeding any further.
-        # This will raise an exception if version information is not found. Patch can be None.
         bundle_map = None
         version_resolved = None
         patch_resolved = None
         label_resolved = ""
 
-        # empty string ok for version?
+        # If version is specified in CLI, no version information from manifest.yml is used (except for comment, we can't control comment as of now).
         if version is not None:
             console.message(
                 "Version information in manifest.yml is ignored since you provided version in your command."
@@ -375,6 +375,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             label_resolved = label if label is not None else ""
             version_resolved = version
 
+        # When version is not set by CLI, version name is read from manifest.yml. patch and label from CLI will be used, if provided.
         else:
             console.message(
                 dedent(
@@ -396,20 +397,19 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     "Manifest.yml file does not contain a value for the version field."
                 )
 
-            # PJ-TODO: better equality for patches here!
+            # If patch is set in CLI and is also present in manifest.yml with different value, confirmation from user is required to ignore patch from manifest.yml and proceed with CLI value.
             if (
                 patch is not None
                 and patch_manifest is not None
                 and patch_manifest != patch
             ):
                 console.warning(
-                    f"Cannot resolve version. Found patch: {patch_manifest} in manifest.yml which is different from provided --patch {patch}. "
+                    f"Cannot resolve version. Found patch: {patch_manifest} in manifest.yml which is different from provided patch {patch}. Re-run command with --force to ignore patch in manifest.yml"
                 )
                 user_prompt = f"Do you want to ignore patch in manifest.yml and proceed with provided --patch {patch}?"
                 if not policy.should_proceed(user_prompt):
                     if interactive:
                         console.message("Not creating a new patch.")
-                        # PJ-TODO: do we care about tracking this specific case? throw more specific error here?
                         raise typer.Exit(0)
                     else:
                         console.message(
@@ -422,7 +422,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             else:
                 patch_resolved = patch_manifest
 
-            # PJ-TODO: we use label from the manifest even if patch is from the cli.
+            # If label is not specified in CLI, label from manifest.yml is used. Even if patch is from CLI.
             label_resolved = label if label is not None else label_manifest
 
         # Check if patch needs to throw a bad option error, either if application package does not exist or if version does not exist
