@@ -23,6 +23,7 @@
 * Added `--replace` and `--if-not-exists` options to `snow object create` command.
 * `snow stage copy` supports `--recursive` flag to copy local files and subdirectories recursively to stage. Including
   glob support.
+* Added `--label` option to `snow app version create` command to allow adding labels to versions and patches.
 
 ## Fixes and improvements
 * `snow --info` callback returns information about `SNOWFLAKE_HOME` variable.
