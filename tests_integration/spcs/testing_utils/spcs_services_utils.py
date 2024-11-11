@@ -16,6 +16,8 @@ import json
 import math
 import os
 import time
+import re
+from datetime import datetime
 from textwrap import dedent
 
 import pytest
@@ -108,12 +110,26 @@ class SnowparkServicesTestSteps:
         self, service_name: str, container_name: str, expected_log: str
     ) -> None:
         result = self._execute_logs(service_name, container_name)
-        print(result)
-        print(result.output)
         assert result.output
         # Assert this instead of full payload due to log coloring
-        assert service_name in result.output
         assert expected_log in result.output
+        payload = json.loads(result.output)
+        is_valid = self.verify_included_timestamps(payload)
+        assert is_valid == True
+
+    def verify_included_timestamps(self, log_output) -> bool:
+        iso8601_pattern = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z"
+        log_message = log_output.get("message", "")
+        lines = log_message.split("\n")
+        for line in lines:
+            if not line.strip():
+                continue
+
+            match = re.match(iso8601_pattern, line)
+            if not match:
+                return False
+
+        return True
 
     def list_should_return_service(self, service_name: str) -> None:
         result = self._execute_list()
