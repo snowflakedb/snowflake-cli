@@ -440,7 +440,7 @@ def test_logs(mock_execute_query):
     assert result == cursor
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_logs_optional_parameter(mock_execute_query):
     service_name = "test_service"
     container_name = "test_container"
@@ -504,7 +504,7 @@ def test_stream_logs(mock_sleep, mock_logs):
     mock_sleep.assert_has_calls([call(interval_seconds), call(interval_seconds)])
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._execute_query")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_logs_incompatible_flags(mock_execute_query, runner):
     result = runner.invoke(
         [
