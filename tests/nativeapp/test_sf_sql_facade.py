@@ -11,14 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from contextlib import contextmanager
 from textwrap import dedent
 from unittest import mock
+from unittest.mock import _Call as Call
 
 import pytest
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
+    InsufficientPrivilegesError,
     InvalidSQLError,
     UnknownConnectorError,
     UnknownSQLError,
@@ -29,6 +31,7 @@ from snowflake.cli._plugins.nativeapp.sf_sql_facade import (
 )
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
 from snowflake.connector import DatabaseError, DictCursor, Error
@@ -51,6 +54,90 @@ sql_facade = None
 def reset_sql_facade():
     global sql_facade
     sql_facade = SnowflakeSQLFacade()
+
+
+@pytest.fixture
+def mock_execute_query():
+    with mock.patch(SQL_EXECUTOR_EXECUTE) as mock_execute_query:
+        yield mock_execute_query
+
+
+@pytest.fixture
+def mock_use_warehouse():
+    with mock.patch.object(sql_facade, "_use_warehouse_optional") as mock_use_warehouse:
+        yield mock_use_warehouse
+
+
+@pytest.fixture
+def mock_use_role():
+    with mock.patch.object(sql_facade, "_use_role_optional") as mock_use_role:
+        yield mock_use_role
+
+
+@pytest.fixture
+def mock_use_database():
+    with mock.patch.object(sql_facade, "_use_database_optional") as mock_use_database:
+        yield mock_use_database
+
+
+@pytest.fixture
+def mock_use_schema():
+    with mock.patch.object(sql_facade, "_use_schema_optional") as mock_use_schema:
+        yield mock_use_schema
+
+
+@contextmanager
+def assert_in_context(
+    mock_cms: list[tuple[mock.Mock, Call]],
+    inner_mocks: list[tuple[mock.Mock, Call]],
+):
+    """Assert that certain calls are made within a series of context managers.
+
+    Use it like so:
+
+    expected_inner_calls = [mock.call("select 1"), mock.call("select 2")]
+    mock_cms = [(mock_use_role, mock.call("test_role")), (mock_use_warehouse, mock.call("test_wh"))]
+    with assert_within_use_calls(expected_inner_calls, mock_execute_query, mock_cms):
+        sql_facade.foo()
+
+    This will assert that use_role and use_warehouse are called with the correct arguments and that
+    sql_facade.foo() makes the expected_inner_calls to mock_execute_query within the context managers
+    returned by use_role and use_warehouse (i.e. in between the __enter__ and __exit__ calls).
+    """
+    parent_mock = mock.Mock()
+
+    def reparent_mock(mock_instance, expected_call):
+        # Attach the mock to a shared parent mock so that we can assert that the calls
+        # were made in the correct order
+        # Also re-parent the expected call object since the name of a call object
+        # is checked when calling assert_has_calls on a mock and the name has to match the
+        # name of the child mock when it's attached to the parent
+        # Calling getattr on a call object returns a new call object with the name set to the
+        # attribute name, so we can use this to set the name to the parent_name
+        name = mock_instance._extract_mock_name()  # noqa: SLF001
+        parent_mock.attach_mock(mock_instance, name)
+        return getattr(mock.call, name)(*expected_call.args, **expected_call.kwargs)
+
+    pre: list[Call] = []
+    inner: list[Call] = []
+    post: list[Call] = []
+    for mock_instance, expected_call in mock_cms:
+        # Add the modified expected_call as well as the __enter__ method of its return value to the list of expected pre-calls
+        # and add the return value's __exit__ method to the list of expected post-calls (in reverse order)
+        expected_call = reparent_mock(mock_instance, expected_call)
+        pre += [expected_call, expected_call.__enter__()]
+        post.insert(0, expected_call.__exit__(None, None, None))
+
+    for mock_instance, expected_call in inner_mocks:
+        # Just add the modified expected_call to the list of assertions to be made within the context managers
+        expected_call = reparent_mock(mock_instance, expected_call)
+        inner.append(expected_call)
+
+    # Run the code under test
+    yield
+
+    # Assert that the parent mock has all the expected calls in the correct order
+    parent_mock.assert_has_calls(pre + inner + post)
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -1173,3 +1260,303 @@ def test_share_telemetry_events_bubbles_errors():
         f"Failed to share telemetry events for application {app_name}. {error_message}"
         in str(err)
     )
+
+
+def test_create_schema(mock_execute_query, mock_use_role, mock_use_database):
+    schema = "test_schema"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(None)),
+        (mock_use_database, mock.call(None)),
+    ]
+    expected_execute_query = [
+        (mock_execute_query, mock.call(f"create schema if not exists {schema}"))
+    ]
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.create_schema("test_schema")
+
+
+def test_create_schema_uses_role_and_db(
+    mock_execute_query, mock_use_role, mock_use_database
+):
+    schema = "test_schema"
+    database = "test_db"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_database, mock.call(database)),
+    ]
+    expected_execute_query = [
+        (mock_execute_query, mock.call(f"create schema if not exists {schema}"))
+    ]
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.create_schema("test_schema", role=role, database=database)
+
+
+def test_create_schema_uses_database_from_fqn(
+    mock_execute_query, mock_use_role, mock_use_database
+):
+    schema = "test_schema"
+    database = "test_db"
+    schema_fqn = f"{database}.{schema}"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_database, mock.call(database)),
+    ]
+    expected_execute_query = [
+        (mock_execute_query, mock.call(f"create schema if not exists {schema}"))
+    ]
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.create_schema(schema_fqn, role=role, database="not_database")
+
+
+def test_create_schema_raises_insufficient_privileges_error(
+    mock_execute_query, mock_use_role, mock_use_database
+):
+    schema = "test_schema"
+    database = "test_db"
+    role = "test_role"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
+                mock.call.execute_query(f"create schema if not exists {schema}"),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with pytest.raises(InsufficientPrivilegesError):
+        sql_facade.create_schema(schema, role=role, database=database)
+
+    mock_execute_query.assert_has_calls(expected)
+
+
+def test_stage_exists(
+    mock_execute_query, mock_cursor, mock_use_role, mock_use_database, mock_use_schema
+):
+    stage = "test_stage"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([(stage,)], ["name"]),
+                mock.call("show stages like 'TEST\\\\_STAGE' in schema"),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(None)),
+        (mock_use_database, mock.call(None)),
+        (mock_use_schema, mock.call(None)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        assert sql_facade.stage_exists(stage)
+
+
+def test_stage_exists_returns_false_for_empty_result(
+    mock_execute_query, mock_cursor, mock_use_role, mock_use_database, mock_use_schema
+):
+    stage = "test_stage"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([], []),
+                mock.call("show stages like 'TEST\\\\_STAGE' in schema"),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    assert not sql_facade.stage_exists(stage)
+
+
+def test_stage_exists_returns_false_for_does_not_exist_error(
+    mock_execute_query, mock_cursor, mock_use_role, mock_use_database, mock_use_schema
+):
+    stage = "test_stage"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED),
+                mock.call("show stages like 'TEST\\\\_STAGE' in schema"),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    assert not sql_facade.stage_exists(stage)
+
+
+def test_stage_exists_raises_insufficient_privileges_error(
+    mock_execute_query, mock_cursor, mock_use_role, mock_use_database, mock_use_schema
+):
+    stage = "test_stage"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
+                mock.call("show stages like 'TEST\\\\_STAGE' in schema"),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with pytest.raises(InsufficientPrivilegesError):
+        assert sql_facade.stage_exists(stage)
+
+
+def test_create_stage(
+    mock_execute_query, mock_use_role, mock_use_database, mock_use_schema
+):
+    stage = "test_stage"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(None)),
+        (mock_use_database, mock.call(None)),
+        (mock_use_schema, mock.call(None)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f"create stage if not exists {stage} encryption = (type = 'SNOWFLAKE_SSE') directory = (enable = True)"
+            ),
+        )
+    ]
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.create_stage("test_stage")
+
+
+def test_create_stage_with_options(
+    mock_execute_query, mock_use_role, mock_use_database, mock_use_schema
+):
+    stage = "test_stage"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(None)),
+        (mock_use_database, mock.call(None)),
+        (mock_use_schema, mock.call(None)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f"create stage if not exists {stage} encryption = (type = 'SNOWFLAKE_FULL')"
+            ),
+        )
+    ]
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.create_stage(
+            "test_stage", encryption_type="SNOWFLAKE_FULL", enable_directory=False
+        )
+
+
+def test_create_stage_uses_role_db_and_schema(
+    mock_execute_query, mock_use_role, mock_use_database, mock_use_schema
+):
+    stage = "test_stage"
+    database = "test_db"
+    schema = "test_schema"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_database, mock.call(database)),
+        (mock_use_schema, mock.call(schema)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f"create stage if not exists {stage} encryption = (type = 'SNOWFLAKE_SSE') directory = (enable = True)"
+            ),
+        )
+    ]
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.create_stage(
+            "test_stage", role=role, database=database, schema=schema
+        )
+
+
+def test_create_stage_uses_schema_from_fqn(
+    mock_execute_query, mock_use_role, mock_use_database, mock_use_schema
+):
+    stage = "test_stage"
+    database = "test_db"
+    schema = "test_schema"
+    stage_fqn = f"{schema}.{stage}"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_database, mock.call(database)),
+        (mock_use_schema, mock.call(schema)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f"create stage if not exists {stage} encryption = (type = 'SNOWFLAKE_SSE') directory = (enable = True)"
+            ),
+        )
+    ]
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.create_stage(
+            stage_fqn, role=role, database=database, schema="not_schema"
+        )
+
+
+def test_create_stage_uses_database_from_fqn(
+    mock_execute_query, mock_use_role, mock_use_database, mock_use_schema
+):
+    stage = "test_stage"
+    database = "test_db"
+    schema = "test_schema"
+    stage_fqn = f"{database}.{schema}.{stage}"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_database, mock.call(database)),
+        (mock_use_schema, mock.call(schema)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f"create stage if not exists {stage} encryption = (type = 'SNOWFLAKE_SSE') directory = (enable = True)"
+            ),
+        )
+    ]
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.create_stage(stage_fqn, role=role, database="not_database")
+
+
+def test_create_stage_raises_insufficient_privileges_error(
+    mock_execute_query, mock_use_role, mock_use_database, mock_use_schema
+):
+    stage = "test_stage"
+    database = "test_db"
+    role = "test_role"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
+                mock.call.execute_query(
+                    f"create stage if not exists {stage} encryption = (type = 'SNOWFLAKE_SSE') directory = (enable = True)"
+                ),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with pytest.raises(InsufficientPrivilegesError):
+        sql_facade.create_stage(stage, role=role, database=database)
+
+    mock_execute_query.assert_has_calls(expected)

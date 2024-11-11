@@ -355,15 +355,16 @@ class SnowflakeSQLFacade:
     ):
         """
         Creates a schema.
-        @param name: Name of the schema to create. Can be a fully qualified name or just the schema name, in which case the current database or the database passed in will be used.
+        @param name: Name of the schema to create. Can be a database-qualified name or just the schema name, in which case the current database or the database passed in will be used.
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
-        @param [Optional] database: Database to use while running this script.
+        @param [Optional] database: Database to use while running this query, unless the schema name is database-qualified.
         """
         fqn = FQN.from_string(name)
         identifier = to_identifier(fqn.name)
+        database = fqn.prefix or database
         with (
             self._use_role_optional(role),
-            self._use_database_optional(fqn.database or database),
+            self._use_database_optional(database),
         ):
             try:
                 self._sql_executor.execute_query(
@@ -378,31 +379,49 @@ class SnowflakeSQLFacade:
                     ) from err
                 handle_unclassified_error(err, f"Failed to create schema {name}.")
 
-    def stage_exists(self, name: str, role: str | None = None) -> bool:
+    def stage_exists(
+        self,
+        name: str,
+        role: str | None = None,
+        database: str | None = None,
+        schema: str | None = None,
+    ) -> bool:
         """
         Checks if a stage exists.
         @param name: Name of the stage to check for. Can be a fully qualified name or just the stage name, in which case the current database and schema or the database and schema passed in will be used.
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        @param [Optional] database: Database to use while running this script, unless the stage name is database-qualified.
+        @param [Optional] schema: Schema to use while running this script, unless the stage name is schema-qualified.
         """
         fqn = FQN.from_string(name)
-        if fqn.database is None:
-            raise ValueError("Database must be specified in the stage FQN.")
-        if fqn.schema is None:
-            raise ValueError("Schema must be specified in the stage FQN.")
-        pattern = identifier_to_show_like_pattern(name)
+        identifier = to_identifier(fqn.name)
+        database = fqn.database or database
+        schema = fqn.schema or schema
+        pattern = identifier_to_show_like_pattern(identifier)
 
-        with self._use_role_optional(role):
+        with (
+            self._use_role_optional(role),
+            self._use_database_optional(database),
+            self._use_schema_optional(schema),
+        ):
             try:
                 results = self._sql_executor.execute_query(
-                    f"show stages like {pattern} in schema {fqn.database}.{fqn.schema}",
+                    f"show stages like {pattern} in schema",
                 )
             except ProgrammingError as err:
                 if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
                     return False
+                if err.errno == INSUFFICIENT_PRIVILEGES:
+                    raise InsufficientPrivilegesError(
+                        f"Insufficient privileges to check if stage {name} exists",
+                        role=role,
+                        database=database,
+                        schema=schema,
+                    ) from err
                 handle_unclassified_error(
                     err, f"Failed to check if stage {name} exists."
                 )
-        return bool(results)
+        return results.rowcount > 0
 
     def create_stage(
         self,
@@ -419,11 +438,14 @@ class SnowflakeSQLFacade:
         @param [Optional] encryption_type: Encryption type for the stage. Default is Snowflake SSE. Pass an empty string to disable encryption.
         @param [Optional] enable_directory: Directory settings for the stage. Default is enabled.
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
-        @param [Optional] database: Database to use while running this script.
-        @param [Optional] schema: Schema to use while running this script.
+        @param [Optional] database: Database to use while running this script, unless the stage name is database-qualified.
+        @param [Optional] schema: Schema to use while running this script, unless the stage name is schema-qualified.
         """
         fqn = FQN.from_string(name)
         identifier = to_identifier(fqn.name)
+        database = fqn.database or database
+        schema = fqn.schema or schema
+
         query = f"create stage if not exists {identifier}"
         if encryption_type:
             query += f" encryption = (type = '{encryption_type}')"
@@ -431,8 +453,8 @@ class SnowflakeSQLFacade:
             query += f" directory = (enable = {str(enable_directory)})"
         with (
             self._use_role_optional(role),
-            self._use_database_optional(fqn.database or database),
-            self._use_schema_optional(fqn.schema or schema),
+            self._use_database_optional(database),
+            self._use_schema_optional(schema),
         ):
             try:
                 self._sql_executor.execute_query(query)
