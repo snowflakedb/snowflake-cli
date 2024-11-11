@@ -79,7 +79,10 @@ from tests.nativeapp.utils import (
     APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
     ENTITIES_UTILS_MODULE,
     SQL_EXECUTOR_EXECUTE,
+    SQL_FACADE_CREATE_SCHEMA,
+    SQL_FACADE_CREATE_STAGE,
     SQL_FACADE_GET_ACCOUNT_EVENT_TABLE,
+    SQL_FACADE_STAGE_EXISTS,
     mock_execute_helper,
     mock_snowflake_yml_file_v2,
     quoted_override_yml_file_v2,
@@ -101,17 +104,23 @@ def _get_wm(working_dir: Optional[str] = None):
     )
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_STAGE_EXISTS)
+@mock.patch(SQL_FACADE_CREATE_SCHEMA)
+@mock.patch(SQL_FACADE_CREATE_STAGE)
 @mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
 @mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
+@pytest.mark.parametrize("stage_exists", [True, False])
 def test_sync_deploy_root_with_stage(
     mock_local_diff_with_stage,
     mock_compute_stage_diff,
-    mock_execute,
+    mock_create_stage,
+    mock_create_schema,
+    mock_stage_exists,
     temp_dir,
     mock_cursor,
+    stage_exists,
 ):
-    mock_execute.return_value = mock_cursor([("old_role",)], [])
+    mock_stage_exists.return_value = stage_exists
     mock_diff_result = DiffResult(different=[StagePathType("setup.sql")])
     mock_compute_stage_diff.return_value = mock_diff_result
     mock_local_diff_with_stage.return_value = None
@@ -128,11 +137,12 @@ def test_sync_deploy_root_with_stage(
     mock_bundle_map = mock.Mock(spec=BundleMap)
     package_name = pkg_model.fqn.name
     stage_fqn = f"{package_name}.{pkg_model.stage}"
+    stage_schema = extract_schema(stage_fqn)
     sync_deploy_root_with_stage(
         console=cc,
         deploy_root=dm.project_root / pkg_model.deploy_root,
         package_name=package_name,
-        stage_schema=extract_schema(stage_fqn),
+        stage_schema=stage_schema,
         bundle_map=mock_bundle_map,
         role="new_role",
         prune=True,
@@ -140,19 +150,10 @@ def test_sync_deploy_root_with_stage(
         stage_fqn=stage_fqn,
     )
 
-    expected = [
-        mock.call("select current_role()"),
-        mock.call("use role new_role"),
-        mock.call(f"create schema if not exists app_pkg.app_src"),
-        mock.call(
-            f"""
-                    create stage if not exists app_pkg.app_src.stage
-                    encryption = (TYPE = 'SNOWFLAKE_SSE')
-                    DIRECTORY = (ENABLE = TRUE)"""
-        ),
-        mock.call("use role old_role"),
-    ]
-    assert mock_execute.mock_calls == expected
+    mock_stage_exists.assert_called_once_with(stage_fqn)
+    if not stage_exists:
+        mock_create_schema.assert_called_once_with(stage_schema, database=package_name)
+        mock_create_stage.assert_called_once_with(stage_fqn)
     mock_compute_stage_diff.assert_called_once_with(
         dm.project_root / pkg_model.deploy_root, "app_pkg.app_src.stage"
     )
