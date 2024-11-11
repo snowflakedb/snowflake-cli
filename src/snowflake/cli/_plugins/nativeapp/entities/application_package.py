@@ -43,7 +43,7 @@ from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import start_cli_metrics_span
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -916,7 +916,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             if validation_result["status"] == "FAIL":
                 raise SetupScriptFailedValidation()
 
-    @get_cli_context().metrics.start_span("get_validation_result")
+    @start_cli_metrics_span("get_validation_result")
     def get_validation_result(
         self, use_scratch_stage: bool, interactive: bool, force: bool
     ):

@@ -17,6 +17,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
+from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterator
 
@@ -211,6 +212,26 @@ def get_cli_context_manager() -> _CliGlobalContextManager:
 
 def get_cli_context() -> _CliGlobalContextAccess:
     return _CliGlobalContextAccess(get_cli_context_manager())
+
+
+def start_cli_metrics_span(span_name: str):
+    """
+    Decorator to start a command metrics span that encompasses a whole function
+
+    Must be used instead of directly calling @get_cli_context().metrics.start_span(span_name)
+    as a decorator to ensure that the cli context is grabbed at run time instead of at
+    module load time, which would not reflect forking
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            with get_cli_context().metrics.start_span(span_name):
+                return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 @contextmanager

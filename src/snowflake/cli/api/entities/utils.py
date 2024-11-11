@@ -23,7 +23,7 @@ from snowflake.cli._plugins.stage.diff import (
     to_stage_path,
 )
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context, start_cli_metrics_span
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.errno import (
@@ -76,7 +76,7 @@ def _get_stage_paths_to_sync(
     return stage_paths
 
 
-@get_cli_context().metrics.start_span("sync_deploy_root_with_stage")
+@start_cli_metrics_span("sync_deploy_root_with_stage")
 def sync_deploy_root_with_stage(
     console: AbstractConsole,
     deploy_root: Path,
@@ -222,7 +222,7 @@ def execute_post_deploy_hooks(
 
     with console.phase(
         f"Executing {deployed_object_type} post-deploy actions",
-        span_name=f"{deployed_object_type}.execute_post_deploy_hooks",
+        span_name="execute_post_deploy_hooks",
     ):
         sql_scripts_paths = []
         display_paths = []
@@ -308,7 +308,7 @@ def validation_item_to_str(item: dict[str, str | int]):
     return s
 
 
-@get_cli_context().metrics.start_span("drop_generic_object")
+@start_cli_metrics_span("drop_generic_object")
 def drop_generic_object(
     console: AbstractConsole,
     object_type: str,

@@ -43,7 +43,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import start_cli_metrics_span
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -421,7 +421,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             ).fetchall()
             return [{"name": row[1], "type": row[2]} for row in results]
 
-    @get_cli_context().metrics.start_span("create_or_upgrade_app")
+    @start_cli_metrics_span("create_or_upgrade_app")
     def create_or_upgrade_app(
         self,
         package: ApplicationPackageEntity,
