@@ -30,6 +30,12 @@ The following table describes the project definition properties.
 {% if property["description"] %}
       {{ property["description"] }}
 {% else %}{% endif -%}
+{% if property["examples"] %}
+      **Examples**:
+      {% for example in property["examples"] %}
+        - {{ example }}
+      {%+ endfor %}
+{% else %}{% endif -%}
 {%+ endfor %}
 {% else %}
 
