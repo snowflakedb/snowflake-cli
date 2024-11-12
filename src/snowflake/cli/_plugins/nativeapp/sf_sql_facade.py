@@ -194,10 +194,10 @@ class SnowflakeSQLFacade:
     ):
         """
         Creates a new version in an existing application package.
-        @param role: Switch to this role while executing create version.
         @param package_name: Name of the application package to alter.
         @param stage_fqn: Stage fully qualified name.
         @param version: Version name to create.
+        @param [Optional] role: Switch to this role while executing create version.
         @param [Optional] label: Label for this version, visible to consumers.
         """
 
@@ -235,12 +235,12 @@ class SnowflakeSQLFacade:
     ) -> int:
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
-        @param role: Switch to this role while executing create version.
         @param package_name: Name of the application package to alter.
         @param stage_fqn: Stage fully qualified name.
         @param version: Version name to create.
         @param [Optional] patch: Patch number to create.
         @param [Optional] label: Label for this patch, visible to consumers.
+        @param [Optional] role: Switch to this role while executing create version.
 
         @return patch number created for the version.
         """
