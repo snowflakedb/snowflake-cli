@@ -120,20 +120,27 @@ class EventSharingHandler:
         install_method: SameAccountInstallMethod,
         console: AbstractConsole,
     ):
+        """
+        Initializes the event sharing handler.
+
+        :param telemetry_definition: The telemetry configuration for the application if present.
+        :param deploy_root: The root directory of the application package.
+        :param install_method: The install method of the application.
+        :param console: The console to use for logging.
+        """
+
         self._is_dev_mode = install_method.is_dev_mode
-        connection = get_sql_executor()._conn  # noqa: SLF001
         self._metrics = get_cli_context().metrics
         self._console = console
+        sf_facade = get_snowflake_facade()
         self._event_sharing_enabled = (
-            get_snowflake_facade()
-            .get_ui_parameter(UIParameter.NA_EVENT_SHARING_V2, "true")
-            .lower()
+            sf_facade.get_ui_parameter(UIParameter.NA_EVENT_SHARING_V2, "true").lower()
             == "true"
         )
         self._event_sharing_enforced = (
-            get_snowflake_facade()
-            .get_ui_parameter(UIParameter.NA_ENFORCE_MANDATORY_FILTERS, "true")
-            .lower()
+            sf_facade.get_ui_parameter(
+                UIParameter.NA_ENFORCE_MANDATORY_FILTERS, "true"
+            ).lower()
             == "true"
         )
 
@@ -168,9 +175,8 @@ class EventSharingHandler:
 
             if mandatory_events_in_manifest and self._event_sharing_enforced:
                 if self._share_mandatory_events is None:
-                    self._metrics.set_counter(CLICounterField.EVENT_SHARING_WARNING, 1)
-                    console.warning(
-                        "WARNING: Mandatory events are present in the manifest file. Automatically authorizing event sharing in dev mode. To suppress this warning, please add 'share_mandatory_events: true' in the application telemetry section."
+                    self.event_sharing_warning(
+                        "Mandatory events are present in the manifest file. Automatically authorizing event sharing in dev mode. To suppress this warning, please add 'share_mandatory_events: true' in the application telemetry section."
                     )
                     self._share_mandatory_events = True
 
@@ -180,6 +186,15 @@ class EventSharingHandler:
     def should_authorize_event_sharing_during_create(
         self,
     ) -> Optional[bool]:
+        """
+        Determines whether event sharing should be authorized during the creation of the application object.
+
+        Outputs:
+        - None: Event sharing should not be updated or explicitly set.
+        - True: Event sharing should be authorized.
+        - False: Event sharing should be disabled.
+        """
+
         if not self._event_sharing_enabled:
             return None
 
@@ -189,6 +204,17 @@ class EventSharingHandler:
         self,
         upgraded_app_properties: Dict[str, str],
     ) -> Optional[bool]:
+        """
+        Determines whether event sharing should be authorized after upgrading the application object.
+
+        :param upgraded_app_properties: The properties of the application after upgrading.
+
+        Outputs:
+        - None: Event sharing should not be updated or explicitly set.
+        - True: Event sharing should be authorized.
+        - False: Event sharing should be disabled.
+        """
+
         if not self._event_sharing_enabled:
             return None
 
@@ -203,11 +229,37 @@ class EventSharingHandler:
 
         return self._share_mandatory_events
 
+    def event_sharing_warning(self, message: str):
+        """
+        Logs a warning message about event sharing, and emits an event sharing warning metric.
+        """
+
+        self._metrics.set_counter(CLICounterField.EVENT_SHARING_WARNING, 1)
+        self._console.warning(f"WARNING: {message}")
+
+    def event_sharing_error(self, message: str, err: Exception):
+        """
+        Raises an error about event sharing, and emits an event sharing error metric.
+        """
+
+        self._metrics.set_counter(CLICounterField.EVENT_SHARING_ERROR, 1)
+        raise ClickException(message) from err
+
     def events_to_share(
         self, events_definitions: List[Dict[str, str]]
     ) -> Optional[List[str]]:
-        # events definition has this format: [{'name': 'SNOWFLAKE$ERRORS_AND_WARNINGS', 'type': 'ERRORS_AND_WARNINGS', 'sharing': 'MANDATORY'...}]
+        """
+        Determines which events should be shared based on the application events definitions.
+        It also combines the mandatory events with the optional shared events.
 
+        :param events_definitions: The events definitions of the application.
+
+        Outputs:
+        - None: No events should be updated.
+        - List[str]: The names of the events that should be shared.
+        """
+
+        # events definition has this format: [{'name': 'SNOWFLAKE$ERRORS_AND_WARNINGS', 'type': 'ERRORS_AND_WARNINGS', 'sharing': 'MANDATORY'...}]
         events_map = {event["type"]: event for event in events_definitions}
         events_names = []
         for event_type in self._optional_shared_events:
@@ -228,9 +280,8 @@ class EventSharingHandler:
                 self._contains_mandatory_events(events_definitions)
                 and not self._event_sharing_enforced
             ):
-                self._metrics.set_counter(CLICounterField.EVENT_SHARING_WARNING, 1)
-                self._console.warning(
-                    "WARNING: Mandatory events are present in the application, but event sharing is not authorized in the application telemetry field. This will soon be required to set in order to deploy this application."
+                self.event_sharing_warning(
+                    "Mandatory events are present in the application, but event sharing is not authorized in the application telemetry field. This will soon be required to set in order to deploy this application."
                 )
             return None
 
@@ -667,12 +718,10 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
                     except ProgrammingError as err:
                         if err.errno == CANNOT_DISABLE_MANDATORY_TELEMETRY:
-                            get_cli_context().metrics.set_counter(
-                                CLICounterField.EVENT_SHARING_ERROR, 1
+                            event_sharing.event_sharing_error(
+                                "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file.",
+                                err,
                             )
-                            raise ClickException(
-                                "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
-                            ) from err
                         elif err.errno in UPGRADE_RESTRICTION_CODES:
                             console.warning(err.msg)
                             self.drop_application_before_upgrade(
@@ -744,12 +793,10 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
                 except ProgrammingError as err:
                     if err.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
-                        get_cli_context().metrics.set_counter(
-                            CLICounterField.EVENT_SHARING_ERROR, 1
+                        event_sharing.event_sharing_error(
+                            "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file.",
+                            err,
                         )
-                        raise ClickException(
-                            "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
-                        ) from err
                     generic_sql_error_handler(err)
 
     def execute_post_deploy_hooks(self):
