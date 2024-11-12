@@ -167,7 +167,7 @@ class ServiceManager(SqlExecutionMixin):
             prev_log_records: List[str] = []
 
             while True:
-                new_log_records = [
+                raw_log_blocks = [
                     log
                     for log in self.logs(
                         service_name=service_name,
@@ -179,13 +179,16 @@ class ServiceManager(SqlExecutionMixin):
                     )
                 ]
 
+                new_log_records = []
+                for block in raw_log_blocks:
+                    new_log_records.extend(block.split("\n"))
+
+                new_log_records = [line for line in new_log_records if line.strip()]
+
                 if new_log_records:
                     dedup_log_records = new_logs_only(prev_log_records, new_log_records)
-                    formatted_logs = "\n".join(
-                        filter_log_timestamp(log, include_timestamps)
-                        for log in dedup_log_records
-                    )
-                    yield formatted_logs
+                    for log in dedup_log_records:
+                        yield filter_log_timestamp(log, include_timestamps)
 
                     prev_timestamp = dedup_log_records[-1].split(" ", 1)[0]
                     prev_log_records = dedup_log_records
