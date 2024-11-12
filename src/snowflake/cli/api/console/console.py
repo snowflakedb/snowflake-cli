@@ -14,12 +14,11 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from typing import Optional
 
 from rich.style import Style
 from rich.text import Text
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.console.enum import Output
 
@@ -73,7 +72,6 @@ class CliConsole(AbstractConsole):
         self,
         enter_message: str,
         exit_message: Optional[str] = None,
-        span_name: Optional[str] = None,
     ):
         """A context manager for organising steps into logical group."""
         if self.in_phase:
@@ -87,10 +85,7 @@ class CliConsole(AbstractConsole):
         self._in_phase = True
 
         try:
-            with get_cli_context().metrics.start_span(
-                span_name
-            ) if span_name else nullcontext():
-                yield self.step
+            yield self.step
         finally:
             self._in_phase = False
             if exit_message:

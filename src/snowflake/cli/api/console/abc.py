@@ -68,7 +68,6 @@ class AbstractConsole(ABC):
         self,
         enter_message: str,
         exit_message: Optional[str] = None,
-        span_name: Optional[str] = None,
     ) -> Iterator[Callable[[str], None]]:
         """A context manager for organising steps into logical group."""
 

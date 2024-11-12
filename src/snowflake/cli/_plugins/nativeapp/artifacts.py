@@ -21,6 +21,7 @@ from textwrap import dedent
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 from click.exceptions import ClickException
+from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import to_identifier
@@ -648,6 +649,7 @@ def resolve_without_follow(path: Path) -> Path:
     return Path(os.path.abspath(path))
 
 
+@span("build_initial_bundle")
 def build_bundle(
     project_root: Path,
     deploy_root: Path,

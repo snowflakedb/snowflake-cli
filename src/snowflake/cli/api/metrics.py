@@ -216,7 +216,7 @@ class CLIMetrics:
         return self._in_progress_spans[-1] if len(self._in_progress_spans) > 0 else None
 
     @contextmanager
-    def start_span(self, name: str) -> Iterator[CLIMetricsSpan]:
+    def span(self, name: str) -> Iterator[CLIMetricsSpan]:
         """
         Starts a new span that tracks various metrics throughout its execution
 

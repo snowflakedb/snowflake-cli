@@ -43,7 +43,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.cli_global_context import start_cli_metrics_span
+from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
@@ -147,6 +147,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         model = self._entity_model
         return model.meta and model.meta.post_deploy
 
+    @span("deploy_app")
     def action_deploy(
         self,
         action_ctx: ActionContext,
@@ -231,6 +232,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             interactive=interactive,
         )
 
+    @span("drop_app")
     def action_drop(
         self,
         action_ctx: ActionContext,
@@ -421,7 +423,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             ).fetchall()
             return [{"name": row[1], "type": row[2]} for row in results]
 
-    @start_cli_metrics_span("create_or_upgrade_app")
     def create_or_upgrade_app(
         self,
         package: ApplicationPackageEntity,

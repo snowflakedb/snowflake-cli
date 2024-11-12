@@ -23,7 +23,7 @@ from snowflake.cli._plugins.nativeapp.codegen.artifact_processor import (
     ArtifactProcessor,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import InvalidTemplateInFileError
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
@@ -91,6 +91,7 @@ class TemplatesProcessor(ArtifactProcessor):
                 if expanded_template != file.contents:
                     file.edited_contents = expanded_template
 
+    @span("templates_processor")
     def process(
         self,
         artifact_to_process: PathMapping,

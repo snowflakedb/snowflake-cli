@@ -214,7 +214,7 @@ def get_cli_context() -> _CliGlobalContextAccess:
     return _CliGlobalContextAccess(get_cli_context_manager())
 
 
-def start_cli_metrics_span(span_name: str):
+def span(span_name: str):
     """
     Decorator to start a command metrics span that encompasses a whole function
 
@@ -226,7 +226,7 @@ def start_cli_metrics_span(span_name: str):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            with get_cli_context().metrics.start_span(span_name):
+            with get_cli_context().metrics.span(span_name):
                 return func(*args, **kwargs)
 
         return wrapper
