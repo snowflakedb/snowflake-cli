@@ -14,7 +14,9 @@
 
 from snowflake.cli._plugins.nativeapp.sf_sql_facade import SnowflakeSQLFacade
 
+_SNOWFLAKE_FACADE = SnowflakeSQLFacade()
+
 
 def get_snowflake_facade() -> SnowflakeSQLFacade:
     """Returns a Snowflake Facade"""
-    return SnowflakeSQLFacade()
+    return _SNOWFLAKE_FACADE

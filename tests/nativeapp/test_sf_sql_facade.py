@@ -16,7 +16,6 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
@@ -25,7 +24,10 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     UnknownSQLError,
     UserScriptError,
 )
-from snowflake.cli._plugins.nativeapp.sf_sql_facade import UIParameter
+from snowflake.cli._plugins.nativeapp.sf_sql_facade import (
+    SnowflakeSQLFacade,
+    UIParameter,
+)
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
@@ -43,7 +45,13 @@ from tests.nativeapp.utils import (
     mock_execute_helper,
 )
 
-sql_facade = get_snowflake_facade()
+sql_facade = None
+
+
+@pytest.fixture(autouse=True)
+def reset_sql_facade():
+    global sql_facade
+    sql_facade = SnowflakeSQLFacade()
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -1166,7 +1174,7 @@ def test_get_ui_parameters(
     )
     mock_execute_query.side_effect = side_effects
 
-    result = get_snowflake_facade().get_ui_parameters()
+    result = sql_facade.get_ui_parameters()
 
     assert mock_execute_query.mock_calls == expected
     assert result == expected_result
@@ -1216,7 +1224,7 @@ def test_get_ui_parameter(
     )
     mock_execute_query.side_effect = side_effects
 
-    result = get_snowflake_facade().get_ui_parameter(
+    result = sql_facade.get_ui_parameter(
         UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, default
     )
 
