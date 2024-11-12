@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import itertools
 import json
 from datetime import datetime
 from pathlib import Path
@@ -479,22 +479,25 @@ def test_stream_logs_with_include_timestamps_false(mock_sleep, mock_logs):
     include_timestamps = False
     interval_seconds = 1
 
-    mock_logs.side_effect = [
-        iter(["2024-10-22T01:12:28Z log 1", "2024-10-22T01:12:28Z log 2"]),
-        iter(["2024-10-22T01:12:28Z log 2", "2024-10-22T01:12:29Z log 3"]),
-        iter(
-            [
-                "2024-10-22T01:12:29Z log 3",
-                "2024-10-22T01:12:30Z log 4",
-                "2024-10-22T01:12:29Z log 3",
-            ]
-        ),
-        iter([]),
-    ]
+    mock_logs.side_effect = itertools.chain(
+        [
+            iter(["2024-10-22T01:12:28Z log 1", "2024-10-22T01:12:28Z log 2"]),
+            iter(["2024-10-22T01:12:28Z log 2", "2024-10-22T01:12:29Z log 3"]),
+            iter(
+                [
+                    "2024-10-22T01:12:29Z log 3",
+                    "2024-10-22T01:12:30Z log 4",
+                    "2024-10-22T01:12:29Z log 3",
+                ]
+            ),
+        ],
+        itertools.cycle([iter([])]),
+    )
 
     service_manager = ServiceManager()
     generated_logs = []
-    generator = service_manager.stream_logs(
+
+    for log in service_manager.stream_logs(
         service_name=service_name,
         instance_id=instance_id,
         container_name=container_name,
@@ -502,19 +505,19 @@ def test_stream_logs_with_include_timestamps_false(mock_sleep, mock_logs):
         since_timestamp=since_timestamp,
         include_timestamps=include_timestamps,
         interval_seconds=interval_seconds,
-    )
-
-    for _ in range(3):
-        logs = next(generator)
-        if logs is not None:
-            generated_logs.append(logs)
+    ):
+        if log is not None:
+            generated_logs.append(log)
+        if len(generated_logs) >= 5:
+            break
 
     assert generated_logs == [
-        "log 1\nlog 2",
+        "log 1",
+        "log 2",
         "log 3",
-        "log 3\nlog 4",
+        "log 3",
+        "log 4",
     ]
-
     assert mock_logs.call_count == 3
     assert mock_sleep.call_count == 2
     mock_sleep.assert_has_calls([call(interval_seconds), call(interval_seconds)])
@@ -531,22 +534,24 @@ def test_stream_logs_with_include_timestamps_true(mock_sleep, mock_logs):
     include_timestamps = True
     interval_seconds = 1
 
-    mock_logs.side_effect = [
-        iter(["2024-10-22T01:12:28Z log 1", "2024-10-22T01:12:28Z log 2"]),
-        iter(["2024-10-22T01:12:28Z log 2", "2024-10-22T01:12:29Z log 3"]),
-        iter(
-            [
-                "2024-10-22T01:12:29Z log 3",
-                "2024-10-22T01:12:30Z log 4",
-                "2024-10-22T01:12:29Z log 3",
-            ]
-        ),
-        iter([]),
-    ]
+    mock_logs.side_effect = itertools.chain(
+        [
+            iter(["2024-10-22T01:12:28Z log 1", "2024-10-22T01:12:28Z log 2"]),
+            iter(["2024-10-22T01:12:28Z log 2", "2024-10-22T01:12:29Z log 3"]),
+            iter(
+                [
+                    "2024-10-22T01:12:29Z log 3",
+                    "2024-10-22T01:12:30Z log 4",
+                    "2024-10-22T01:12:29Z log 3",
+                ]
+            ),
+        ],
+        itertools.cycle([iter([])]),
+    )
 
     service_manager = ServiceManager()
     generated_logs = []
-    generator = service_manager.stream_logs(
+    for log in service_manager.stream_logs(
         service_name=service_name,
         instance_id=instance_id,
         container_name=container_name,
@@ -554,20 +559,20 @@ def test_stream_logs_with_include_timestamps_true(mock_sleep, mock_logs):
         since_timestamp=since_timestamp,
         include_timestamps=include_timestamps,
         interval_seconds=interval_seconds,
-    )
-
-    for _ in range(3):
-        logs = next(generator)
-        if logs is not None:
-            generated_logs.append(logs)
+    ):
+        if log is not None:
+            generated_logs.append(log)
+        if len(generated_logs) >= 5:
+            break
 
     # Expect the output to include timestamps
     assert generated_logs == [
-        "2024-10-22T01:12:28Z log 1\n2024-10-22T01:12:28Z log 2",
+        "2024-10-22T01:12:28Z log 1",
+        "2024-10-22T01:12:28Z log 2",
         "2024-10-22T01:12:29Z log 3",
-        "2024-10-22T01:12:29Z log 3\n2024-10-22T01:12:30Z log 4",
+        "2024-10-22T01:12:29Z log 3",
+        "2024-10-22T01:12:30Z log 4",
     ]
-
     assert mock_logs.call_count == 3
     assert mock_sleep.call_count == 2
     mock_sleep.assert_has_calls([call(interval_seconds), call(interval_seconds)])
