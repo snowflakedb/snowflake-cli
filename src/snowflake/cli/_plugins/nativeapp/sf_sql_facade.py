@@ -131,9 +131,6 @@ class SnowflakeSQLFacade:
         """
         return self._use_object_optional(UseObjectType.SCHEMA, schema_name)
 
-    def _use_role(self, role: str):
-        return self._use_role_optional(role)
-
     def execute_user_script(
         self,
         queries: str,
@@ -189,15 +186,15 @@ class SnowflakeSQLFacade:
 
     def create_version_in_package(
         self,
-        package_role: str,
         package_name: str,
         stage_fqn: str,
         version: str,
         label: str | None = None,
+        role: str | None = None,
     ):
         """
         Creates a new version in an existing application package.
-        @param package_role: Switch to this role while executing create version.
+        @param role: Switch to this role while executing create version.
         @param package_name: Name of the application package to alter.
         @param stage_fqn: Stage fully qualified name.
         @param version: Version name to create.
@@ -218,7 +215,7 @@ class SnowflakeSQLFacade:
                     using @{stage_fqn}{with_label_cause}
             """
         )
-        with self._use_role(package_role):
+        with self._use_role_optional(role):
             try:
                 self._sql_executor.execute_query(add_version_query)
             except Exception as err:
@@ -229,16 +226,16 @@ class SnowflakeSQLFacade:
 
     def add_patch_to_package_version(
         self,
-        package_role: str,
         package_name: str,
         stage_fqn: str,
         version: str,
         patch: int | None = None,
         label: str | None = None,
+        role: str | None = None,
     ) -> int:
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
-        @param package_role: Switch to this role while executing create version.
+        @param role: Switch to this role while executing create version.
         @param package_name: Name of the application package to alter.
         @param stage_fqn: Stage fully qualified name.
         @param version: Version name to create.
@@ -263,7 +260,7 @@ class SnowflakeSQLFacade:
                      using @{stage_fqn}{with_label_clause}
              """
         )
-        with self._use_role(package_role):
+        with self._use_role_optional(role):
             try:
                 result_cursor = self._sql_executor.execute_query(
                     add_patch_query, cursor_class=DictCursor

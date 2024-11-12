@@ -667,7 +667,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             f"Defining a new version {version}{with_label_prompt} in application package {self.name}"
         )
         get_snowflake_facade().create_version_in_package(
-            package_role=self.role,
+            role=self.role,
             package_name=self.name,
             stage_fqn=self.stage_fqn,
             version=version,
@@ -691,7 +691,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             f"Adding new patch to version {version}{with_label_prompt} defined in application package {self.name}"
         )
         new_patch = get_snowflake_facade().add_patch_to_package_version(
-            package_role=self.role,
+            role=self.role,
             package_name=self.name,
             stage_fqn=self.stage_fqn,
             version=version,

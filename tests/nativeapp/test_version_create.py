@@ -697,7 +697,7 @@ def test_manifest_version_info_not_used(
     )
 
     mock_create_version.assert_called_with(
-        package_role=role,
+        role=role,
         package_name="app_pkg",
         stage_fqn=f"app_pkg.{stage}",
         version=version_cli,
@@ -763,7 +763,7 @@ def test_manifest_patch_is_not_used(
     )
 
     mock_create_patch.assert_called_with(
-        package_role=role,
+        role=role,
         package_name="app_pkg",
         stage_fqn=f"app_pkg.{stage}",
         version=version_cli,
@@ -838,7 +838,7 @@ def test_version_from_manifest(
     )
 
     mock_create_patch.assert_called_with(
-        package_role=role,
+        role=role,
         package_name="app_pkg",
         stage_fqn=f"app_pkg.{stage}",
         version="manifest_version",
@@ -912,7 +912,7 @@ def test_patch_from_manifest(
     )
 
     mock_create_patch.assert_called_with(
-        package_role=role,
+        role=role,
         package_name="app_pkg",
         stage_fqn=f"app_pkg.{stage}",
         version="manifest_version",
