@@ -362,18 +362,18 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             git_policy = AllowAlwaysPolicy()
 
         bundle_map = None
-        version_resolved = None
-        patch_resolved = None
-        label_resolved = ""
+        resolved_version = None
+        resolved_patch = None
+        resolved_label = ""
 
         # If version is specified in CLI, no version information from manifest.yml is used (except for comment, we can't control comment as of now).
         if version is not None:
             console.message(
-                "Version information in manifest.yml is ignored since you provided version in your command."
+                "Ignoring version information from the application manifest since a version was explicitly specified with the command."
             )
-            patch_resolved = patch
-            label_resolved = label if label is not None else ""
-            version_resolved = version
+            resolved_patch = patch
+            resolved_label = label if label is not None else ""
+            resolved_version = version
 
         # When version is not set by CLI, version name is read from manifest.yml. patch and label from CLI will be used, if provided.
         else:
@@ -387,12 +387,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
             bundle_map = self._bundle()
             version_info = find_version_info_in_manifest_file(self.deploy_root)
-            version_resolved, patch_manifest, label_manifest = (
+            resolved_version, patch_manifest, label_manifest = (
                 version_info.version_name,
                 version_info.patch_number,
                 version_info.label,
             )
-            if version_resolved is None:
+            if resolved_version is None:
                 raise ClickException(
                     "Manifest.yml file does not contain a value for the version field."
                 )
@@ -404,7 +404,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 and patch_manifest != patch
             ):
                 console.warning(
-                    f"Cannot resolve version. Found patch: {patch_manifest} in manifest.yml which is different from provided patch {patch}. Re-run command with --force to ignore patch in manifest.yml"
+                    f"Cannot resolve version. Found patch: {patch_manifest} in manifest.yml which is different from provided patch {patch}."
                 )
                 user_prompt = f"Do you want to ignore patch in manifest.yml and proceed with provided --patch {patch}?"
                 if not policy.should_proceed(user_prompt):
@@ -416,27 +416,27 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                             "Could not create a new patch non-interactively without --force."
                         )
                         raise typer.Exit(1)
-                patch_resolved = patch
+                resolved_patch = patch
             elif patch is not None:
-                patch_resolved = patch
+                resolved_patch = patch
             else:
-                patch_resolved = patch_manifest
+                resolved_patch = patch_manifest
 
             # If label is not specified in CLI, label from manifest.yml is used. Even if patch is from CLI.
-            label_resolved = label if label is not None else label_manifest
+            resolved_label = label if label is not None else label_manifest
 
         # Check if patch needs to throw a bad option error, either if application package does not exist or if version does not exist
-        if patch_resolved is not None:
+        if resolved_patch is not None:
             try:
-                if not self.get_existing_version_info(version_resolved):
+                if not self.get_existing_version_info(resolved_version):
                     raise BadOptionUsage(
                         option_name="patch",
-                        message=f"Cannot create patch {patch_resolved} when version {version_resolved} is not defined in the application package {self.name}. Try again without specifying patch.",
+                        message=f"Cannot create patch {resolved_patch} when version {resolved_version} is not defined in the application package {self.name}. Try again without specifying a patch.",
                     )
             except ApplicationPackageDoesNotExistError as app_err:
                 raise BadOptionUsage(
                     option_name="patch",
-                    message=f"Cannot create patch {patch_resolved} when application package {self.name} does not exist. Try again without specifying patch.",
+                    message=f"Cannot create patch {resolved_patch} when application package {self.name} does not exist. Try again without specifying a patch.",
                 )
 
         if git_policy.should_proceed():
@@ -456,7 +456,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         # Warn if the version exists in a release directive(s)
         existing_release_directives = (
-            self.get_existing_release_directive_info_for_version(version_resolved)
+            self.get_existing_release_directive_info_for_version(resolved_version)
         )
 
         if existing_release_directives:
@@ -466,13 +466,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             console.warning(
                 dedent(
                     f"""\
-                    Version {version_resolved} already defined in application package {self.name} and in release directive(s): {release_directive_names}.
+                    Version {resolved_version} already defined in application package {self.name} and in release directive(s): {release_directive_names}.
                     """
                 )
             )
 
             user_prompt = (
-                f"Are you sure you want to create a new patch for version {version_resolved} in application "
+                f"Are you sure you want to create a new patch for version {resolved_version} in application "
                 f"package {self.name}? Once added, this operation cannot be undone."
             )
             if not policy.should_proceed(user_prompt):
@@ -486,13 +486,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     raise typer.Exit(1)
 
         # Define a new version in the application package
-        if not self.get_existing_version_info(version_resolved):
-            self.add_new_version(version=version_resolved, label=label_resolved)
+        if not self.get_existing_version_info(resolved_version):
+            self.add_new_version(version=resolved_version, label=resolved_label)
             return  # A new version created automatically has patch 0, we do not need to further increment the patch.
 
         # Add a new patch to an existing (old) version
         self.add_new_patch_to_version(
-            version=version_resolved, patch=patch_resolved, label=label_resolved
+            version=resolved_version, patch=resolved_patch, label=resolved_label
         )
 
     def action_version_drop(
