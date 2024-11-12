@@ -159,7 +159,6 @@ def test_add_version(
                             using @app_pkg.app_src.stage
                     """
                     ),
-                    cursor_class=DictCursor,
                 ),
             ),
             (None, mock.call("use role old_role")),
