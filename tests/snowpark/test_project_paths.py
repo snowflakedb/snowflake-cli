@@ -18,7 +18,8 @@ from snowflake.cli._plugins.snowpark.snowpark_project_paths import Artefact
         ("src/*", "source/", False, "@db.public.stage/source/src.zip"),
         ("src/**/*.py", None, False, "@db.public.stage/src.zip"),
         ("src/**/*.py", "source/", False, "@db.public.stage/source/src.zip"),
-        ("src/app*", None, False, "@db.public.stage/src/app.zip"),
+        ("src/app*", None, False, "@db.public.stage/src.zip"),
+        ("src/app[1-5].py", None, False, "@db.public.stage/src.zip"),
     ],
 )
 @mock.patch("snowflake.cli.api.cli_global_context.get_cli_context")
@@ -48,7 +49,8 @@ def test_artifact_import_path(mock_ctx_context, path, dest, is_file, expected_pa
         ("src/*", "source/", False, "@db.public.stage/source/"),
         ("src/**/*.py", None, False, "@db.public.stage/"),
         ("src/**/*.py", "source/", False, "@db.public.stage/source/"),
-        ("src/app*", None, False, "@db.public.stage/src/"),
+        ("src/app*", None, False, "@db.public.stage/"),
+        ("src/app[1-5].py", None, False, "@db.public.stage/"),
     ],
 )
 @mock.patch("snowflake.cli.api.cli_global_context.get_cli_context")
@@ -93,7 +95,8 @@ def test_artifact_upload_path(mock_ctx_context, path, dest, is_file, expected_pa
         ("src/*", "source/", False, Path("output") / "source" / "src.zip"),
         ("src/**/*.py", None, False, Path("output") / "src.zip"),
         ("src/**/*.py", "source/", False, Path("output") / "source" / "src.zip"),
-        ("src/app*", None, False, Path("output") / "src" / "app.zip"),
+        ("src/app*", None, False, Path("output") / "src.zip"),
+        ("src/app[1-5].py", None, False, Path("output") / "src.zip"),
     ],
 )
 def test_artifact_post_build_path(path, dest, is_file, expected_path):
@@ -116,7 +119,8 @@ def test_artifact_post_build_path(path, dest, is_file, expected_path):
         ("src/*", "source/", False, "@db.public.stage/source/src.zip"),
         ("src/**/*.py", None, False, "@db.public.stage/src.zip"),
         ("src/**/*.py", "source/", False, "@db.public.stage/source/src.zip"),
-        ("src/app*", None, False, "@db.public.stage/src/app.zip"),
+        ("src/app*", None, False, "@db.public.stage/src.zip"),
+        ("src/app[1-5].py", None, False, "@db.public.stage/src.zip"),
     ],
 )
 @mock.patch("snowflake.cli.api.cli_global_context.get_cli_context")
@@ -148,7 +152,8 @@ def test_artifact_import_path_from_other_directory(
         ("src/*", "source/", False, "@db.public.stage/source/"),
         ("src/**/*.py", None, False, "@db.public.stage/"),
         ("src/**/*.py", "source/", False, "@db.public.stage/source/"),
-        ("src/app*", None, False, "@db.public.stage/src/"),
+        ("src/app*", None, False, "@db.public.stage/"),
+        ("src/app[1-5].py", None, False, "@db.public.stage/"),
     ],
 )
 @mock.patch("snowflake.cli.api.cli_global_context.get_cli_context")
@@ -209,7 +214,8 @@ def test_artifact_upload_path_from_other_directory(
             False,
             Path.cwd().absolute() / "output" / "source" / "src.zip",
         ),
-        ("src/app*", None, False, Path.cwd().absolute() / "output" / "src" / "app.zip"),
+        ("src/app*", None, False, Path.cwd().absolute() / "output" / "src.zip"),
+        ("src/app[1-5].py", None, False, Path.cwd().absolute() / "output" / "src.zip"),
     ],
 )
 def test_artifact_post_build_path_from_other_directory(

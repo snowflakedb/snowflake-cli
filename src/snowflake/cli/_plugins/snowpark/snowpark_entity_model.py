@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import glob
 from typing import List, Literal, Optional, Union
 
 from pydantic import Field, field_validator
@@ -55,9 +56,9 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseM
         _artifacts = []
         for artifact in artifacts:
             if (
-                "*" in artifact
-                and FeatureFlag.ENABLE_SNOWPARK_BUNDLE_MAP_BUILD.is_disabled()
-            ):
+                (isinstance(artifact, str) and glob.has_magic(artifact))
+                or (isinstance(artifact, PathMapping) and glob.has_magic(artifact.src))
+            ) and FeatureFlag.ENABLE_SNOWPARK_BUNDLE_MAP_BUILD.is_disabled():
                 raise ValueError(
                     "If you want to use glob patterns in artifacts, you need to enable the Snowpark new build feature flag (ENABLE_SNOWPARK_BUNDLE_MAP_BUILD=true)"
                 )

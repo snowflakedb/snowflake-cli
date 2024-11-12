@@ -13,6 +13,8 @@
 # limitations under the License.
 from __future__ import annotations
 
+import glob
+import os.path
 import re
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -92,9 +94,20 @@ class Artefact:
 
     @property
     def _artefact_name(self) -> str:
-        if "*" in str(self.path):
-            before_wildcard = str(self.path).split("*")[0]
-            last_part = Path(before_wildcard).absolute().parts[-1]
+        if glob.has_magic(str(self.path)):
+            last_part = None
+            for part in self.path.parts:
+                if glob.has_magic(part):
+                    break
+                else:
+                    last_part = part
+            if not last_part:
+                last_part = os.path.commonpath(
+                    [str(self.path), str(self.path.absolute())]
+                )
+                raise ValueError("Doopa")
+            # before_wildcard = str(self.path).split("*")[0]
+            # last_part = Path(before_wildcard).absolute().parts[-1]
             return last_part + ".zip"
         if (self.project_root / self.path).is_dir():
             return self.path.stem + ".zip"
@@ -109,7 +122,9 @@ class Artefact:
         """
         deploy_root = self.deploy_root()
         path = (
-            self._path_until_asterisk() if "*" in str(self.path) else self.path.parent
+            self._path_until_asterisk()
+            if glob.has_magic(str(self.path))
+            else self.path.parent
         )
         if self._is_dest_a_file():
             return deploy_root / self.dest  # type: ignore
@@ -131,7 +146,7 @@ class Artefact:
         else:
             stage_path /= (
                 self._path_until_asterisk()
-                if "*" in str(self.path)
+                if glob.has_magic(str(self.path))
                 else PurePosixPath(self.path).parent
             )
 
@@ -150,9 +165,19 @@ class Artefact:
         return re.search(r"\.[a-zA-Z0-9]{2,4}$", self.dest) is not None
 
     def _path_until_asterisk(self) -> Path:
-        before_wildcard = str(self.path).split("*")[0]
-        parts = Path(before_wildcard).parts[:-1]
-        return Path(*parts)
+        # before_wildcard = str(self.path).split("*")[0]
+        # parts = Path(before_wildcard).parts[:-1]
+        # return Path(*parts)
+
+        path = []
+        for part in self.path.parts:
+            if glob.has_magic(part):
+                break
+            else:
+                path.append(part)
+        # before_wildcard = str(self.path).split("*")[0]
+        # parts = Path(before_wildcard).parts[:-1]
+        return Path(*path[:-1])
 
     # Can be removed after removing ENABLE_SNOWPARK_BUNDLE_MAP_BUILD feature flag.
     def build(self) -> None:
