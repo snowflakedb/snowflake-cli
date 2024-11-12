@@ -52,6 +52,7 @@ class SnowparkServicesTestSteps:
     )
     schema = "public"
     container_name = "hello-world"
+    ISO8601_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z")
 
     def __init__(self, setup: SnowparkServicesTestSetup):
         self._setup = setup
@@ -114,22 +115,15 @@ class SnowparkServicesTestSteps:
         # Assert this instead of full payload due to log coloring
         assert expected_log in result.output
         payload = json.loads(result.output)
-        is_valid = self.verify_included_timestamps(payload)
-        assert is_valid == True
+        self.verify_included_timestamps(payload)
 
-    def verify_included_timestamps(self, log_output) -> bool:
-        iso8601_pattern = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z"
+    def verify_included_timestamps(self, log_output):
         log_message = log_output.get("message", "")
         lines = log_message.split("\n")
         for line in lines:
             if not line.strip():
                 continue
-
-            match = re.match(iso8601_pattern, line)
-            if not match:
-                return False
-
-        return True
+            assert self.ISO8601_PATTERN.match(line)
 
     def list_should_return_service(self, service_name: str) -> None:
         result = self._execute_list()
