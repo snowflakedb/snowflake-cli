@@ -39,7 +39,6 @@ from snowflake.cli._plugins.nativeapp.policy import (
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
-from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.abc import AbstractConsole
@@ -464,12 +463,10 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
         is_upgrade=is_upgrade,
     )
     mock_conn.return_value = MockConnectionCtx()
-    mock_diff_result = DiffResult()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
     )
-    assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
 
     _create_or_upgrade_app(
@@ -529,12 +526,10 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
     )
 
     mock_conn.return_value = MockConnectionCtx()
-    mock_diff_result = DiffResult()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
     )
-    assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
 
     _create_or_upgrade_app(
@@ -597,12 +592,10 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
         expected_shared_events=[] if share_mandatory_events else None,
     )
     mock_conn.return_value = MockConnectionCtx()
-    mock_diff_result = DiffResult()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
     )
-    assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
 
     _create_or_upgrade_app(
@@ -733,12 +726,10 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
         ],
     )
     mock_conn.return_value = MockConnectionCtx()
-    mock_diff_result = DiffResult()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
     )
-    assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
 
     _create_or_upgrade_app(
@@ -872,12 +863,10 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
         expected_shared_events=[] if share_mandatory_events else None,
     )
     mock_conn.return_value = MockConnectionCtx()
-    mock_diff_result = DiffResult()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
     )
-    assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
 
     _create_or_upgrade_app(
@@ -935,12 +924,10 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
         expected_shared_events=[] if share_mandatory_events else None,
     )
     mock_conn.return_value = MockConnectionCtx()
-    mock_diff_result = DiffResult()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
     )
-    assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
 
     _create_or_upgrade_app(
@@ -972,10 +959,11 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
     "install_method",
     [
         SameAccountInstallMethod.unversioned_dev(),
+        SameAccountInstallMethod.release_directive(),
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [False])
-def test_enforced_events_sharing_with_mandatory_events_manifest_dev_mode_create_and_authorization_refused_then_error(
+def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused_on_create_then_error(
     mock_param,
     mock_conn,
     mock_execute_query,
@@ -1006,12 +994,10 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_dev_mode_create_
         programming_errno=APPLICATION_REQUIRES_TELEMETRY_SHARING,
     )
     mock_conn.return_value = MockConnectionCtx()
-    mock_diff_result = DiffResult()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
     )
-    assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
 
     with pytest.raises(ClickException) as e:
@@ -1047,85 +1033,11 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_dev_mode_create_
     "install_method",
     [
         SameAccountInstallMethod.unversioned_dev(),
-    ],
-)
-@pytest.mark.parametrize("is_upgrade", [True])
-def test_enforced_events_sharing_with_mandatory_events_manifest_dev_mode_upgrade_and_authorization_refused_then_error(
-    mock_param,
-    mock_conn,
-    mock_execute_query,
-    mock_get_existing_app_info,
-    manifest_contents,
-    share_mandatory_events,
-    install_method,
-    is_upgrade,
-    temp_dir,
-    mock_cursor,
-):
-    mock_execute_query_expected = _setup_mocks_for_app(
-        mock_execute_query,
-        mock_cursor,
-        mock_get_existing_app_info,
-        is_prod=not install_method.is_dev_mode,
-        expected_authorize_telemetry_flag=share_mandatory_events,
-        existing_app_flag=not share_mandatory_events,  # existing app with opposite flag to test that flag has changed
-        is_upgrade=is_upgrade,
-        events_definitions_in_app=[
-            {
-                "name": "SNOWFLAKE$ERRORS_AND_WARNINGS",
-                "type": "ERRORS_AND_WARNINGS",
-                "sharing": "MANDATORY",
-                "status": "ENABLED",
-            }
-        ],
-        programming_errno=CANNOT_DISABLE_MANDATORY_TELEMETRY,
-    )
-    mock_conn.return_value = MockConnectionCtx()
-    mock_diff_result = DiffResult()
-    _setup_project(
-        manifest_contents=manifest_contents,
-        share_mandatory_events=share_mandatory_events,
-    )
-    assert not mock_diff_result.has_changes()
-    mock_console = MagicMock()
-
-    with pytest.raises(ClickException) as e:
-        _create_or_upgrade_app(
-            policy=MagicMock(),
-            install_method=install_method,
-            console=mock_console,
-        )
-
-    assert (
-        e.value.message
-        == "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
-    )
-    mock_console.warning.assert_not_called()
-
-
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock_connection()
-@mock.patch(
-    GET_UI_PARAMETERS,
-    return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
-    },
-)
-@pytest.mark.parametrize(
-    "manifest_contents",
-    [test_manifest_with_mandatory_events],
-)
-@pytest.mark.parametrize("share_mandatory_events", [False])
-@pytest.mark.parametrize(
-    "install_method",
-    [
         SameAccountInstallMethod.release_directive(),
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [True])
-def test_enforced_events_sharing_with_mandatory_events_prod_mode_and_authorization_refused_upgrade_then_error(
+def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorization_refused_on_update_then_error(
     mock_param,
     mock_conn,
     mock_execute_query,
@@ -1172,79 +1084,6 @@ def test_enforced_events_sharing_with_mandatory_events_prod_mode_and_authorizati
     assert (
         e.value.message
         == "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
-    )
-    mock_console.warning.assert_not_called()
-
-
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock_connection()
-@mock.patch(
-    GET_UI_PARAMETERS,
-    return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
-    },
-)
-@pytest.mark.parametrize(
-    "manifest_contents",
-    [test_manifest_with_mandatory_events],
-)
-@pytest.mark.parametrize("share_mandatory_events", [False])
-@pytest.mark.parametrize(
-    "install_method",
-    [
-        SameAccountInstallMethod.release_directive(),
-    ],
-)
-@pytest.mark.parametrize("is_upgrade", [False])
-def test_enforced_events_sharing_with_mandatory_events_prod_mode_and_authorization_refused_on_create_then_error(
-    mock_param,
-    mock_conn,
-    mock_execute_query,
-    mock_get_existing_app_info,
-    manifest_contents,
-    share_mandatory_events,
-    install_method,
-    is_upgrade,
-    temp_dir,
-    mock_cursor,
-):
-    mock_execute_query_expected = _setup_mocks_for_app(
-        mock_execute_query,
-        mock_cursor,
-        mock_get_existing_app_info,
-        is_prod=not install_method.is_dev_mode,
-        expected_authorize_telemetry_flag=share_mandatory_events,
-        existing_app_flag=not share_mandatory_events,  # existing app with opposite flag to test that flag has changed
-        is_upgrade=is_upgrade,
-        events_definitions_in_app=[
-            {
-                "name": "SNOWFLAKE$ERRORS_AND_WARNINGS",
-                "type": "ERRORS_AND_WARNINGS",
-                "sharing": "MANDATORY",
-                "status": "ENABLED",
-            }
-        ],
-        programming_errno=APPLICATION_REQUIRES_TELEMETRY_SHARING,
-    )
-    mock_conn.return_value = MockConnectionCtx()
-    _setup_project(
-        manifest_contents=manifest_contents,
-        share_mandatory_events=share_mandatory_events,
-    )
-    mock_console = MagicMock()
-
-    with pytest.raises(ClickException) as e:
-        _create_or_upgrade_app(
-            policy=MagicMock(),
-            install_method=install_method,
-            console=mock_console,
-        )
-
-    assert (
-        e.value.message
-        == "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
     )
     mock_console.warning.assert_not_called()
 
@@ -1293,12 +1132,10 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
         expected_shared_events=[],
     )
     mock_conn.return_value = MockConnectionCtx()
-    mock_diff_result = DiffResult()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
     )
-    assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
 
     _create_or_upgrade_app(
@@ -1364,12 +1201,10 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
         programming_errno=APPLICATION_REQUIRES_TELEMETRY_SHARING,
     )
     mock_conn.return_value = MockConnectionCtx()
-    mock_diff_result = DiffResult()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
     )
-    assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
 
     with pytest.raises(ClickException) as e:
@@ -1437,12 +1272,10 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
         ],
     )
     mock_conn.return_value = MockConnectionCtx()
-    mock_diff_result = DiffResult()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
     )
-    assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
 
     _create_or_upgrade_app(
@@ -1497,13 +1330,11 @@ def test_shared_events_with_no_enabled_mandatory_events_then_error(
         is_upgrade=is_upgrade,
     )
     mock_conn.return_value = MockConnectionCtx()
-    mock_diff_result = DiffResult()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
         optional_shared_events=["DEBUG_LOGS"],
     )
-    assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
 
     with pytest.raises(ClickException) as e:
@@ -1580,13 +1411,11 @@ def test_shared_events_with_authorization_then_success(
         ],
     )
     mock_conn.return_value = MockConnectionCtx()
-    mock_diff_result = DiffResult()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
         optional_shared_events=shared_events,
     )
-    assert not mock_diff_result.has_changes()
     mock_console = MagicMock()
 
     _create_or_upgrade_app(
