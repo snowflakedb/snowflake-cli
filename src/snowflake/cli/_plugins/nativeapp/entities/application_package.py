@@ -688,7 +688,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         with_label_prompt = f" labeled {label}" if label else ""
 
         console.step(
-            f"Adding new patch to version {version} defined in application package {self.name}"
+            f"Adding new patch to version {version}{with_label_prompt} defined in application package {self.name}"
         )
         new_patch = get_snowflake_facade().add_patch_to_package_version(
             package_role=self.role,
