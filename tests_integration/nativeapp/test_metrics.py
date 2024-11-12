@@ -277,7 +277,7 @@ def test_feature_counter_v2_post_deploy_set_and_package_scripts_not_available(
         }
 
 
-def assert_spans_within_limits(spans: Dict):
+def assert_spans_within_limits(spans: Dict) -> None:
     assert spans[CLITelemetryField.NUM_SPANS_PAST_DEPTH_LIMIT.value] == 0
     assert spans[CLITelemetryField.NUM_SPANS_PAST_TOTAL_LIMIT.value] == 0
     assert all(
@@ -286,7 +286,7 @@ def assert_spans_within_limits(spans: Dict):
     )
 
 
-def extract_span_keys_to_check(spans: Dict):
+def extract_span_keys_to_check(spans: Dict) -> List[Dict]:
     SPAN_KEYS_TO_CHECK = [CLIMetricsSpan.NAME_KEY, CLIMetricsSpan.PARENT_KEY]
 
     return [
@@ -297,7 +297,7 @@ def extract_span_keys_to_check(spans: Dict):
 
 @pytest.mark.integration
 @mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
-def test_spans_barebones_bundle_contains_no_spans(
+def test_spans_bundle(
     mock_telemetry,
     runner,
     nativeapp_teardown,
@@ -336,7 +336,9 @@ def test_spans_barebones_bundle_contains_no_spans(
 
         assert_spans_within_limits(spans)
 
-        assert extract_span_keys_to_check(spans) == []
+        assert extract_span_keys_to_check(spans) == [
+            {"name": "build_initial_bundle", "parent": None}
+        ]
 
 
 @pytest.mark.integration
@@ -479,6 +481,10 @@ def test_spans_validate(
             {
                 "name": "deploy_app_package",
                 "parent": "validate_setup_script",
+            },
+            {
+                "name": "build_initial_bundle",
+                "parent": "deploy_app_package",
             },
             {
                 "name": "sync_remote_and_local_files",
