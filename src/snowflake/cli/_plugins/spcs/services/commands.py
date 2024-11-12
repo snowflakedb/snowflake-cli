@@ -26,8 +26,6 @@ from snowflake.cli._plugins.object.command_aliases import (
 )
 from snowflake.cli._plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli._plugins.spcs.common import (
-    extract_log,
-    filter_log_timestamp,
     validate_and_set_instances,
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
@@ -252,31 +250,30 @@ def logs(
 
     if follow:
         stream: Iterable[CommandResult] = (
-            MessageResult(
-                "\n".join(
-                    filter_log_timestamp(log, include_timestamps) for log in log_batch
-                )
-            )
+            MessageResult(log_batch)
             for log_batch in manager.stream_logs(
                 service_name=name.identifier,
                 container_name=container_name,
                 instance_id=instance_id,
                 num_lines=num_lines,
                 since_timestamp=since_timestamp,
+                include_timestamps=include_timestamps,
                 interval_seconds=follow_interval,
             )
         )
         stream = itertools.chain(stream, [MessageResult("")])
     else:
-        logs = manager.logs(
-            service_name=name.identifier,
-            container_name=container_name,
-            instance_id=instance_id,
-            num_lines=num_lines,
-            since_timestamp=since_timestamp,
-            include_timestamps=include_timestamps,
+        stream = (
+            MessageResult(log)
+            for log in manager.logs(
+                service_name=name.identifier,
+                container_name=container_name,
+                instance_id=instance_id,
+                num_lines=num_lines,
+                since_timestamp=since_timestamp,
+                include_timestamps=include_timestamps,
+            )
         )
-        stream = (MessageResult(extract_log(log)) for log in logs)
 
     return StreamResult(cast(Generator[CommandResult, None, None], stream))
 

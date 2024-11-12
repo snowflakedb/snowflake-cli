@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
 from unittest.mock import Mock, call, patch
@@ -432,48 +433,64 @@ def test_status_qualified_name(mock_execute_query):
 def test_logs(mock_execute_query):
     service_name = "test_service"
     container_name = "test_container"
-    cursor = Mock(spec=SnowflakeCursor)
-    mock_execute_query.return_value = cursor
-    result = ServiceManager().logs(service_name, "10", container_name, 42)
-    expected_query = "call SYSTEM$GET_SERVICE_LOGS('test_service', '10', 'test_container', 42, False, '', False);"
-    mock_execute_query.assert_called_once_with(expected_query)
-    assert result == cursor
+    instance_id = "10"
+    num_lines = 42
 
-
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-def test_logs_optional_parameter(mock_execute_query):
-    service_name = "test_service"
-    container_name = "test_container"
+    # Test case 1: Without since_timestamp
     cursor = Mock(spec=SnowflakeCursor)
+    cursor.fetchall.return_value = [("log_line_1",), ("log_line_2",)]
     mock_execute_query.return_value = cursor
-    result = ServiceManager().logs(service_name, "10", container_name, 42, "", False)
-    expected_query = "call SYSTEM$GET_SERVICE_LOGS('test_service', '10', 'test_container', 42, False, '', False);"
+
+    service_manager = ServiceManager()
+    result_generator = service_manager.logs(
+        service_name, instance_id, container_name, num_lines
+    )
+    result = list(result_generator)
+
+    expected_query = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, False, '', False);"
+    expected_output = ["log_line_1", "log_line_2"]
+
     mock_execute_query.assert_called_once_with(expected_query)
-    assert result == cursor
+    assert result == expected_output
+    mock_execute_query.reset_mock()
+
+    # Test case 2: With real-time since_timestamp
+    since_timestamp = datetime.utcnow().isoformat() + "Z"
+    result_generator = service_manager.logs(
+        service_name, instance_id, container_name, num_lines, since_timestamp
+    )
+    result = list(result_generator)
+
+    expected_query = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, False, '{since_timestamp}', False);"
+    expected_output = ["log_line_1", "log_line_2"]
+
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == expected_output
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.logs")
 @patch("time.sleep")
-def test_stream_logs(mock_sleep, mock_logs):
+def test_stream_logs_with_include_timestamps_false(mock_sleep, mock_logs):
     service_name = "test_service"
     instance_id = "10"
     container_name = "test_container"
     num_lines = 0
     since_timestamp = ""
+    include_timestamps = False
     interval_seconds = 1
 
-    cursor = Mock()
-    cursor.fetchall.side_effect = [
-        [["2024-10-22T01:12:28Z log 1\n2024-10-22T01:12:28Z log 2"]],
-        [["2024-10-22T01:12:28Z log 2\n2024-10-22T01:12:29Z log 3"]],
-        [
+    mock_logs.side_effect = [
+        iter(["2024-10-22T01:12:28Z log 1", "2024-10-22T01:12:28Z log 2"]),
+        iter(["2024-10-22T01:12:28Z log 2", "2024-10-22T01:12:29Z log 3"]),
+        iter(
             [
-                "2024-10-22T01:12:29Z log 3\n2024-10-22T01:12:30Z log 4\n2024-10-22T01:12:29Z log 3"
+                "2024-10-22T01:12:29Z log 3",
+                "2024-10-22T01:12:30Z log 4",
+                "2024-10-22T01:12:29Z log 3",
             ]
-        ],
-        [],
+        ),
+        iter([]),
     ]
-    mock_logs.return_value = cursor
 
     service_manager = ServiceManager()
     generated_logs = []
@@ -483,6 +500,7 @@ def test_stream_logs(mock_sleep, mock_logs):
         container_name=container_name,
         num_lines=num_lines,
         since_timestamp=since_timestamp,
+        include_timestamps=include_timestamps,
         interval_seconds=interval_seconds,
     )
 
@@ -491,12 +509,63 @@ def test_stream_logs(mock_sleep, mock_logs):
         if logs is not None:
             generated_logs.append(logs)
 
-    # The first 2024-10-22T01:12:29Z log 3 is removed as a prior duplicate.
-    # The second 2024-10-22T01:12:29Z log 3 remains and sorted.
     assert generated_logs == [
-        ["2024-10-22T01:12:28Z log 1", "2024-10-22T01:12:28Z log 2"],
-        ["2024-10-22T01:12:29Z log 3"],
-        ["2024-10-22T01:12:29Z log 3", "2024-10-22T01:12:30Z log 4"],
+        "log 1\nlog 2",
+        "log 3",
+        "log 3\nlog 4",
+    ]
+
+    assert mock_logs.call_count == 3
+    assert mock_sleep.call_count == 2
+    mock_sleep.assert_has_calls([call(interval_seconds), call(interval_seconds)])
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.logs")
+@patch("time.sleep")
+def test_stream_logs_with_include_timestamps_true(mock_sleep, mock_logs):
+    service_name = "test_service"
+    instance_id = "10"
+    container_name = "test_container"
+    num_lines = 0
+    since_timestamp = ""
+    include_timestamps = True
+    interval_seconds = 1
+
+    mock_logs.side_effect = [
+        iter(["2024-10-22T01:12:28Z log 1", "2024-10-22T01:12:28Z log 2"]),
+        iter(["2024-10-22T01:12:28Z log 2", "2024-10-22T01:12:29Z log 3"]),
+        iter(
+            [
+                "2024-10-22T01:12:29Z log 3",
+                "2024-10-22T01:12:30Z log 4",
+                "2024-10-22T01:12:29Z log 3",
+            ]
+        ),
+        iter([]),
+    ]
+
+    service_manager = ServiceManager()
+    generated_logs = []
+    generator = service_manager.stream_logs(
+        service_name=service_name,
+        instance_id=instance_id,
+        container_name=container_name,
+        num_lines=num_lines,
+        since_timestamp=since_timestamp,
+        include_timestamps=include_timestamps,
+        interval_seconds=interval_seconds,
+    )
+
+    for _ in range(3):
+        logs = next(generator)
+        if logs is not None:
+            generated_logs.append(logs)
+
+    # Expect the output to include timestamps
+    assert generated_logs == [
+        "2024-10-22T01:12:28Z log 1\n2024-10-22T01:12:28Z log 2",
+        "2024-10-22T01:12:29Z log 3",
+        "2024-10-22T01:12:29Z log 3\n2024-10-22T01:12:30Z log 4",
     ]
 
     assert mock_logs.call_count == 3

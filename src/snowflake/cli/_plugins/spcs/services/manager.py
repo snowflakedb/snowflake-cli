@@ -23,8 +23,9 @@ import yaml
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import (
     NoPropertiesProvidedError,
-    _new_logs_only,
+    filter_log_timestamp,
     handle_object_already_exists,
+    new_logs_only,
     strip_empty_lines,
 )
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
@@ -143,10 +144,13 @@ class ServiceManager(SqlExecutionMixin):
         since_timestamp: str = "",
         include_timestamps: bool = False,
     ):
-        return self.execute_query(
+        cursor = self.execute_query(
             f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', "
             f"{num_lines}, False, '{since_timestamp}', {include_timestamps});"
         )
+
+        for log in cursor.fetchall():
+            yield log[0] if isinstance(log, tuple) else log
 
     def stream_logs(
         self,
@@ -155,6 +159,7 @@ class ServiceManager(SqlExecutionMixin):
         container_name: str,
         num_lines: int,
         since_timestamp: str,
+        include_timestamps: bool,
         interval_seconds: int,
     ):
         try:
@@ -162,28 +167,28 @@ class ServiceManager(SqlExecutionMixin):
             prev_log_records: List[str] = []
 
             while True:
-                cursor = self.logs(
-                    service_name=service_name,
-                    instance_id=instance_id,
-                    container_name=container_name,
-                    num_lines=num_lines,
-                    since_timestamp=prev_timestamp,
-                    include_timestamps=True,
-                )
-                new_logs = cursor.fetchall()
+                new_log_records = [
+                    log
+                    for log in self.logs(
+                        service_name=service_name,
+                        instance_id=instance_id,
+                        container_name=container_name,
+                        num_lines=num_lines,
+                        since_timestamp=prev_timestamp,
+                        include_timestamps=True,
+                    )
+                ]
 
-                if new_logs:
-                    log_block = new_logs[0][0]
-                    new_log_records = log_block.split("\n")
-                    new_log_records = [line for line in new_log_records if line.strip()]
-                    if new_log_records:
-                        dedup_log_records = _new_logs_only(
-                            prev_log_records, new_log_records
-                        )
-                        yield dedup_log_records
+                if new_log_records:
+                    dedup_log_records = new_logs_only(prev_log_records, new_log_records)
+                    formatted_logs = "\n".join(
+                        filter_log_timestamp(log, include_timestamps)
+                        for log in dedup_log_records
+                    )
+                    yield formatted_logs
 
-                        prev_timestamp = dedup_log_records[-1].split(" ", 1)[0]
-                        prev_log_records = dedup_log_records
+                    prev_timestamp = dedup_log_records[-1].split(" ", 1)[0]
+                    prev_log_records = dedup_log_records
 
                 time.sleep(interval_seconds)
 
