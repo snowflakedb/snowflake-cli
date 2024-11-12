@@ -286,6 +286,10 @@ def _setup_mocks_for_create_app(
             ),
         ),
         (
+            mock_cursor([("app_role",)], []),
+            mock.call("select current_role()"),
+        ),
+        (
             mock_cursor(
                 events_definitions_in_app or [], ["name", "type", "sharing", "status"]
             ),
@@ -348,6 +352,10 @@ def _setup_mocks_for_upgrade_app(
         (None, mock.call("use warehouse app_warehouse")),
         (None, mock.call(f"alter application myapp upgrade {install_clause}")),
         (
+            mock_cursor([("app_role",)], []),
+            mock.call("select current_role()"),
+        ),
+        (
             mock_cursor(
                 events_definitions_in_app or [], ["name", "type", "sharing", "status"]
             ),
@@ -355,6 +363,10 @@ def _setup_mocks_for_upgrade_app(
                 "show telemetry event definitions in application myapp",
                 cursor_class=DictCursor,
             ),
+        ),
+        (
+            mock_cursor([("app_role",)], []),
+            mock.call("select current_role()"),
         ),
         (
             mock_cursor(

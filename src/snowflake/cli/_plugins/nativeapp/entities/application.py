@@ -87,7 +87,6 @@ from snowflake.cli.api.project.util import (
     extract_schema,
     identifier_for_url,
     to_identifier,
-    to_string_literal,
     unquote_identifier,
 )
 from snowflake.connector import DictCursor, ProgrammingError
@@ -161,8 +160,8 @@ class EventSharingHandler:
             # We cannot set AUTHORIZE_TELEMETRY_EVENT_SHARING to True or False if event sharing is not enabled,
             # so we will ignore the field in both cases, but warn only if it is set to True
             if self._share_mandatory_events or self._optional_shared_events:
-                console.warning(
-                    "WARNING: Same-account event sharing is not enabled in your account, therefore, application telemetry section will be ignored."
+                self.event_sharing_warning(
+                    "Same-account event sharing is not enabled in your account, therefore, application telemetry section will be ignored."
                 )
             self._share_mandatory_events = None
             self._optional_shared_events = []
@@ -265,7 +264,7 @@ class EventSharingHandler:
         for event_type in self._optional_shared_events:
             if event_type not in events_map:
                 raise ClickException(
-                    f"Event '{event_type}' from application telemetry section in 'snowflake.yml' could not be found in the application."
+                    f"Event '{event_type}' from application 'telemetry' section in the project definition file could not be found in the application."
                 )
             else:
                 events_names.append(events_map[event_type]["name"])
@@ -332,7 +331,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
     @property
     def name(self) -> str:
-        return self._entity_model.fqn.name
+        return to_identifier(self._entity_model.fqn.name)
 
     @property
     def role(self) -> str:
@@ -644,7 +643,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         with sql_executor.use_role(self.role):
             event_sharing = EventSharingHandler(
                 telemetry_definition=model.telemetry,
-                deploy_root=self.project_root / package.deploy_root,
+                deploy_root=package.deploy_root,
                 install_method=install_method,
                 console=console,
             )
@@ -676,12 +675,12 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
                         events_definitions = (
                             get_snowflake_facade().get_event_definitions(
-                                app_name=self.name
+                                self.name, self.role
                             )
                         )
 
                         app_properties = get_snowflake_facade().get_app_properties(
-                            self.name
+                            self.name, self.role
                         )
                         new_authorize_event_sharing_value = (
                             event_sharing.should_authorize_event_sharing_after_upgrade(
@@ -700,9 +699,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                             events_definitions
                         )
                         if events_to_share is not None:
-                            log.info("Sharing events %s", events_to_share)
-                            sql_executor.execute_query(
-                                f"""alter application {self.name} set shared telemetry events ({", ".join([to_string_literal(x) for x in events_to_share])})"""
+                            get_snowflake_facade().share_telemetry_events(
+                                self.name, events_to_share
                             )
 
                         if install_method.is_dev_mode:
@@ -778,14 +776,13 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     )
                     print_messages(console, create_cursor)
                     events_definitions = get_snowflake_facade().get_event_definitions(
-                        app_name=self.name
+                        self.name, self.role
                     )
 
                     events_to_share = event_sharing.events_to_share(events_definitions)
                     if events_to_share is not None:
-                        log.info("Sharing events %s", events_to_share)
-                        sql_executor.execute_query(
-                            f"""alter application {self.name} set shared telemetry events ({", ".join([to_string_literal(x) for x in events_to_share])})"""
+                        get_snowflake_facade().share_telemetry_events(
+                            self.name, events_to_share
                         )
 
                     # hooks always executed after a create or upgrade

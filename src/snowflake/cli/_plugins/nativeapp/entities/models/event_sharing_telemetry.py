@@ -52,7 +52,7 @@ class EventSharingTelemetry(UpdatableModel):
         for event in original_shared_events:
             if not event:
                 raise ClickException(
-                    "Events in 'telemetry.optional_shared_events' field must not be empty"
+                    "Events listed in 'telemetry.optional_shared_events' must not be blank"
                 )
 
         return original_shared_events

@@ -1230,3 +1230,50 @@ def test_get_ui_parameter(
 
     assert mock_execute_query.mock_calls == expected
     assert result == expected_result
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@pytest.mark.parametrize(
+    "events, expected_result",
+    [
+        ([], "alter application test_app set shared telemetry events ()"),
+        (
+            ["SNOWFLAKE$EVENT1", "SNOWFLAKE$EVENT2"],
+            "alter application test_app set shared telemetry events ('SNOWFLAKE$EVENT1', 'SNOWFLAKE$EVENT2')",
+        ),
+    ],
+)
+def test_share_telemetry_events(mock_execute_query, events, expected_result):
+    app_name = "test_app"
+    mock_execute_query.return_value = None
+
+    sql_facade.share_telemetry_events(app_name, events)
+
+    mock_execute_query.assert_called_once_with(expected_result)
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_share_telemtry_events_with_non_safe_identifier(mock_execute_query):
+    app_name = "test.app"
+    events = ["SNOWFLAKE$EVENT1", "SNOWFLAKE$EVENT2"]
+    mock_execute_query.return_value = None
+
+    sql_facade.share_telemetry_events(app_name, events)
+
+    mock_execute_query.assert_called_once_with(
+        """alter application "test.app" set shared telemetry events ('SNOWFLAKE$EVENT1', 'SNOWFLAKE$EVENT2')"""
+    )
+
+
+def test_share_telemetry_events_bubbles_errors():
+    app_name = "test_app"
+    events = ["SNOWFLAKE$EVENT1", "SNOWFLAKE$EVENT2"]
+    error_message = "Some programming error"
+    with mock.patch(SQL_EXECUTOR_EXECUTE, side_effect=ProgrammingError(error_message)):
+        with pytest.raises(InvalidSQLError) as err:
+            sql_facade.share_telemetry_events(app_name, events)
+
+    assert (
+        f"Failed to share telemetry events for application {app_name}. {error_message}"
+        in str(err)
+    )

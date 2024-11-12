@@ -300,6 +300,10 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
                 ),
             ),
             (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
                 mock_cursor([], []),
                 mock.call(
                     "show telemetry event definitions in application myapp",
@@ -377,6 +381,10 @@ def test_create_or_upgrade_dev_app_with_warning(
                 ),
             ),
             (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
                 mock_cursor([], []),
                 mock.call(
                     "show telemetry event definitions in application myapp",
@@ -393,11 +401,19 @@ def test_create_or_upgrade_dev_app_with_warning(
                 ),
             ),
             (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
                 mock_cursor([], []),
                 mock.call(
                     "show telemetry event definitions in application myapp",
                     cursor_class=DictCursor,
                 ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
             ),
             (
                 mock_cursor([], []),
@@ -508,6 +524,10 @@ def test_create_dev_app_create_new_with_additional_privileges(
                     """
                     )
                 ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
             ),
             (
                 mock_cursor([], []),
@@ -778,11 +798,19 @@ def test_create_dev_app_no_diff_changes(
                 ),
             ),
             (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
                 mock_cursor([], []),
                 mock.call(
                     "show telemetry event definitions in application myapp",
                     cursor_class=DictCursor,
                 ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
             ),
             (
                 mock_cursor([], []),
@@ -853,11 +881,19 @@ def test_create_dev_app_w_diff_changes(
                 ),
             ),
             (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
                 mock_cursor([], []),
                 mock.call(
                     "show telemetry event definitions in application myapp",
                     cursor_class=DictCursor,
                 ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
             ),
             (
                 mock_cursor([], []),
@@ -995,6 +1031,10 @@ def test_create_dev_app_create_new_quoted(
                 ),
             ),
             (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
                 mock_cursor([], []),
                 mock.call(
                     'show telemetry event definitions in application "My Application"',
@@ -1089,6 +1129,10 @@ def test_create_dev_app_create_new_quoted_override(
                     """
                     )
                 ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
             ),
             (
                 mock_cursor([], []),
@@ -1201,6 +1245,10 @@ def test_create_dev_app_recreate_app_when_orphaned(
                     """
                     )
                 ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
             ),
             (
                 mock_cursor([], []),
@@ -1324,6 +1372,10 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
                 ),
             ),
             (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
                 mock_cursor([], []),
                 mock.call(
                     "show telemetry event definitions in application myapp",
@@ -1438,6 +1490,10 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
                     """
                     )
                 ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
             ),
             (
                 mock_cursor([], []),
@@ -1622,11 +1678,19 @@ def test_upgrade_app_succeeds(
             (None, mock.call("use warehouse app_warehouse")),
             (None, mock.call("alter application myapp upgrade ")),
             (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
                 mock_cursor([], []),
                 mock.call(
                     "show telemetry event definitions in application myapp",
                     cursor_class=DictCursor,
                 ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
             ),
             (
                 mock_cursor([], []),
@@ -1873,6 +1937,10 @@ def test_versioned_app_upgrade_to_unversioned(
                 ),
             ),
             (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
                 mock_cursor([], []),
                 mock.call(
                     "show telemetry event definitions in application myapp",
@@ -2056,6 +2124,10 @@ def test_upgrade_app_recreate_app(
                 ),
             ),
             (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
                 mock_cursor([], []),
                 mock.call(
                     "show telemetry event definitions in application myapp",
@@ -2212,6 +2284,10 @@ def test_upgrade_app_recreate_app_from_version(
             """
                     )
                 ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
             ),
             (
                 mock_cursor([], []),
