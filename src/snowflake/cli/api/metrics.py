@@ -109,10 +109,8 @@ class CLIMetricsSpan:
     children: Set[CLIMetricsSpan] = field(init=False, default_factory=set)
 
     # private state
-    # start time of the step from the monotonic clock in order to calculate execution time
-    _monotonic_start: float = field(
-        init=False, default_factory=lambda: time.monotonic()
-    )
+    # start time of the step from a performance counter in order to calculate execution time
+    _start_time: float = field(init=False, default_factory=time.perf_counter)
 
     def __hash__(self) -> int:
         return hash(self.span_id)
@@ -147,7 +145,7 @@ class CLIMetricsSpan:
         if error:
             self.error = error
 
-        self.execution_time = time.monotonic() - self._monotonic_start
+        self.execution_time = time.perf_counter() - self._start_time
 
     def to_dict(self) -> Dict:
         """
@@ -184,9 +182,10 @@ class CLIMetrics:
     _in_progress_spans: List[CLIMetricsSpan] = field(init=False, default_factory=list)
     # list of finished steps for telemetry to process
     _completed_spans: List[CLIMetricsSpan] = field(init=False, default_factory=list)
-    # monotonic clock time of when this class was initialized to approximate when the command first started executing
-    _monotonic_start: float = field(
-        init=False, default_factory=lambda: time.monotonic(), compare=False
+    # clock time of a performance counter when this class was initialized
+    # to approximate when the command first started executing
+    _start_time: float = field(
+        init=False, default_factory=time.perf_counter, compare=False
     )
 
     def clone(self) -> CLIMetrics:
@@ -229,7 +228,7 @@ class CLIMetrics:
         """
         new_span = CLIMetricsSpan(
             name=name,
-            start_time=time.monotonic() - self._monotonic_start,
+            start_time=time.perf_counter() - self._start_time,
             parent=self.current_span,
         )
 

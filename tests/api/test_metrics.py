@@ -14,7 +14,6 @@
 
 import uuid
 from itertools import count
-from unittest import mock
 
 import pytest
 from snowflake.cli.api.metrics import (
@@ -110,14 +109,6 @@ def test_metrics_set_default_existing_counter():
     assert metrics.counters == {"c2": 2}
 
 
-# we need to mock time.monotonic because on windows it does not
-# capture enough precision for these tests to not be flaky
-@pytest.fixture
-def mock_time_monotonic():
-    with mock.patch("time.monotonic", side_effect=count()) as mocked_time_monotonic:
-        yield mocked_time_monotonic
-
-
 # helper for testing span limits
 def create_spans(metrics: CLIMetrics, width: int, depth: int):
     counter = count()
@@ -146,7 +137,7 @@ def test_metrics_spans_initialization_empty():
     assert metrics.num_spans_past_total_limit == 0
 
 
-def test_metrics_spans_single_span_no_error_or_parent(mock_time_monotonic):
+def test_metrics_spans_single_span_no_error_or_parent():
     # given
     metrics = CLIMetrics()
 
@@ -191,7 +182,7 @@ def test_metrics_spans_finish_early_is_idempotent():
     assert span1_dict[CLIMetricsSpan.EXECUTION_TIME_KEY] == execution_time
 
 
-def test_metrics_spans_parent_with_one_child(mock_time_monotonic):
+def test_metrics_spans_parent_with_one_child():
     # given
     metrics = CLIMetrics()
 
@@ -244,7 +235,7 @@ def test_metrics_spans_parent_with_one_child(mock_time_monotonic):
     )
 
 
-def test_metrics_spans_parent_with_two_children_same_name(mock_time_monotonic):
+def test_metrics_spans_parent_with_two_children_same_name():
     # given
     metrics = CLIMetrics()
 
@@ -358,9 +349,7 @@ def test_metrics_spans_empty_name_raises_error():
     assert err.match("span name must not be empty")
 
 
-def test_metrics_spans_passing_depth_limit_should_add_to_counter_and_not_emit(
-    mock_time_monotonic,
-):
+def test_metrics_spans_passing_depth_limit_should_add_to_counter_and_not_emit():
     # given
     metrics = CLIMetrics()
 
