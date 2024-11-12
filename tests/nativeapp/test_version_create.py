@@ -324,10 +324,12 @@ def test_process_no_version_from_user_no_version_in_manifest(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.get_existing_version_info",
     return_value=None,
 )
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize("interactive", [True, False])
 @pytest.mark.parametrize("skip_git_check", [True, False])
 def test_process_no_version_exists_throws_bad_option_exception_one(
+    mock_bundle,
     mock_existing_version_info,
     force,
     interactive,
@@ -356,10 +358,12 @@ def test_process_no_version_exists_throws_bad_option_exception_one(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.get_existing_version_info",
     side_effect=ApplicationPackageDoesNotExistError("app_pkg"),
 )
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize("interactive", [True, False])
 @pytest.mark.parametrize("skip_git_check", [True, False])
 def test_process_no_version_exists_throws_bad_option_exception_two(
+    mock_bundle,
     mock_existing_version_info,
     force,
     interactive,
@@ -392,6 +396,7 @@ def test_process_no_version_exists_throws_bad_option_exception_two(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
 @mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -407,6 +412,7 @@ def test_process_no_existing_release_directives_or_versions(
     mock_add_new_version,
     mock_existing_version_info,
     mock_rd,
+    mock_bundle,
     mock_deploy,
     mock_check_git,
     mock_find_version,
@@ -447,6 +453,7 @@ def test_process_no_existing_release_directives_or_versions(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
 @mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -464,6 +471,7 @@ def test_process_no_existing_release_directives_w_existing_version(
     mock_add_new_version,
     mock_existing_version_info,
     mock_rd,
+    mock_bundle,
     mock_deploy,
     mock_check_git,
     mock_find_version,
@@ -510,6 +518,7 @@ def test_process_no_existing_release_directives_w_existing_version(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
 @mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -528,6 +537,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
     mock_existing_version_info,
     mock_typer_confirm,
     mock_rd,
+    mock_bundle,
     mock_deploy,
     mock_check_git,
     interactive,
@@ -569,6 +579,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
 @mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -593,6 +604,7 @@ def test_process_existing_release_directives_w_existing_version_two(
     mock_add_patch,
     mock_existing_version_info,
     mock_rd,
+    mock_bundle,
     mock_deploy,
     mock_check_git,
     force,
@@ -640,6 +652,7 @@ def test_process_existing_release_directives_w_existing_version_two(
     ),
 )
 @mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -656,6 +669,7 @@ def test_manifest_version_info_not_used(
     mock_create_version,
     mock_existing_version,
     mock_rd,
+    mock_bundle,
     mock_deploy,
     mock_find_info_manifest,
     temp_dir,
@@ -700,6 +714,7 @@ def test_manifest_version_info_not_used(
     ),
 )
 @mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -718,6 +733,7 @@ def test_manifest_patch_is_not_used(
     mock_create_patch,
     mock_existing_version,
     mock_rd,
+    mock_bundle,
     mock_deploy,
     mock_find_info_manifest,
     patch,
@@ -906,5 +922,5 @@ def test_patch_from_manifest(
         label=cli_label if cli_label is not None else manifest_label,
     )
     mock_console.warning.assert_called_with(
-        f"Cannot resolve version. Found patch: {manifest_patch} in manifest.yml which is different from provided patch {cli_patch}. Re-run command with --force to ignore patch in manifest.yml"
+        f"Cannot resolve version. Found patch: {manifest_patch} in manifest.yml which is different from provided patch {cli_patch}."
     )

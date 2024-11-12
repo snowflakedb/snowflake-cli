@@ -10,6 +10,7 @@ from click import BadOptionUsage, ClickException
 from pydantic import Field, field_validator
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
+    VersionInfo,
     build_bundle,
     find_version_info_in_manifest_file,
 )
@@ -361,83 +362,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         else:
             git_policy = AllowAlwaysPolicy()
 
-        bundle_map = None
-        resolved_version = None
-        resolved_patch = None
-        resolved_label = ""
-
-        # If version is specified in CLI, no version information from manifest.yml is used (except for comment, we can't control comment as of now).
-        if version is not None:
-            console.message(
-                "Ignoring version information from the application manifest since a version was explicitly specified with the command."
-            )
-            resolved_patch = patch
-            resolved_label = label if label is not None else ""
-            resolved_version = version
-
-        # When version is not set by CLI, version name is read from manifest.yml. patch and label from CLI will be used, if provided.
-        else:
-            console.message(
-                dedent(
-                    f"""\
-                        Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
-                        This step will bundle your app artifacts to determine the location of the manifest.yml file.
-                    """
-                )
-            )
-            bundle_map = self._bundle()
-            version_info = find_version_info_in_manifest_file(self.deploy_root)
-            resolved_version, patch_manifest, label_manifest = (
-                version_info.version_name,
-                version_info.patch_number,
-                version_info.label,
-            )
-            if resolved_version is None:
-                raise ClickException(
-                    "Manifest.yml file does not contain a value for the version field."
-                )
-
-            # If patch is set in CLI and is also present in manifest.yml with different value, confirmation from user is required to ignore patch from manifest.yml and proceed with CLI value.
-            if (
-                patch is not None
-                and patch_manifest is not None
-                and patch_manifest != patch
-            ):
-                console.warning(
-                    f"Cannot resolve version. Found patch: {patch_manifest} in manifest.yml which is different from provided patch {patch}."
-                )
-                user_prompt = f"Do you want to ignore patch in manifest.yml and proceed with provided --patch {patch}?"
-                if not policy.should_proceed(user_prompt):
-                    if interactive:
-                        console.message("Not creating a new patch.")
-                        raise typer.Exit(0)
-                    else:
-                        console.message(
-                            "Could not create a new patch non-interactively without --force."
-                        )
-                        raise typer.Exit(1)
-                resolved_patch = patch
-            elif patch is not None:
-                resolved_patch = patch
-            else:
-                resolved_patch = patch_manifest
-
-            # If label is not specified in CLI, label from manifest.yml is used. Even if patch is from CLI.
-            resolved_label = label if label is not None else label_manifest
-
-        # Check if patch needs to throw a bad option error, either if application package does not exist or if version does not exist
-        if resolved_patch is not None:
-            try:
-                if not self.get_existing_version_info(resolved_version):
-                    raise BadOptionUsage(
-                        option_name="patch",
-                        message=f"Cannot create patch {resolved_patch} when version {resolved_version} is not defined in the application package {self.name}. Try again without specifying a patch.",
-                    )
-            except ApplicationPackageDoesNotExistError as app_err:
-                raise BadOptionUsage(
-                    option_name="patch",
-                    message=f"Cannot create patch {resolved_patch} when application package {self.name} does not exist. Try again without specifying a patch.",
-                )
+        bundle_map = self._bundle()
+        version_info = self.resolve_version_info(
+            version=version,
+            patch=patch,
+            label=label,
+            bundle_map=bundle_map,
+            policy=policy,
+            interactive=interactive,
+        )
+        resolved_version, resolved_patch, resolved_label = version_info
 
         if git_policy.should_proceed():
             self.check_index_changes_in_git_repo(policy=policy, interactive=interactive)
@@ -1000,3 +934,107 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     sql_executor.execute_query(
                         f"drop stage if exists {self.scratch_stage_fqn}"
                     )
+
+    def resolve_version_info(
+        self,
+        version: str | None,
+        patch: int | None,
+        label: str | None,
+        bundle_map: BundleMap | None,
+        policy: PolicyBase,
+        interactive: bool,
+    ):
+        """Determine version name, patch number, and label from CLI provided values and manifest.yml version entry.
+        @param [Optional] version: version name as specified in the command
+        @param [Optional] patch: patch number as specified in the command
+        @param [Optional] label: version/patch label as specified in the command
+        @param [Optional] bundle_map: bundle_map if a deploy_root is prepared. _bundle() is performed otherwise.
+        @param policy: CLI policy
+        @param interactive: True if command is run in interactive mode, otherwise False
+        """
+        console = self._workspace_ctx.console
+
+        resolved_version = None
+        resolved_patch = None
+        resolved_label = ""
+
+        # If version is specified in CLI, no version information from manifest.yml is used (except for comment, we can't control comment as of now).
+        if version is not None:
+            console.message(
+                "Ignoring version information from the application manifest since a version was explicitly specified with the command."
+            )
+            resolved_patch = patch
+            resolved_label = label if label is not None else ""
+            resolved_version = version
+
+        # When version is not set by CLI, version name is read from manifest.yml. patch and label from CLI will be used, if provided.
+        else:
+            console.message(
+                dedent(
+                    f"""\
+                        Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
+                        This step will bundle your app artifacts to determine the location of the manifest.yml file.
+                    """
+                )
+            )
+            if bundle_map is None:
+                self._bundle()
+            version_info = find_version_info_in_manifest_file(self.deploy_root)
+            resolved_version, patch_manifest, label_manifest = (
+                version_info.version_name,
+                version_info.patch_number,
+                version_info.label,
+            )
+            if resolved_version is None:
+                raise ClickException(
+                    "Manifest.yml file does not contain a value for the version field."
+                )
+
+            # If patch is set in CLI and is also present in manifest.yml with different value, confirmation from
+            # user is required to ignore patch from manifest.yml and proceed with CLI value.
+            if (
+                patch is not None
+                and patch_manifest is not None
+                and patch_manifest != patch
+            ):
+                console.warning(
+                    f"Cannot resolve version. Found patch: {patch_manifest} in manifest.yml which is different from provided patch {patch}."
+                )
+                user_prompt = f"Do you want to ignore patch in manifest.yml and proceed with provided --patch {patch}?"
+                if not policy.should_proceed(user_prompt):
+                    if interactive:
+                        console.message("Not creating a new patch.")
+                        raise typer.Exit(0)
+                    else:
+                        console.message(
+                            "Could not create a new patch non-interactively without --force."
+                        )
+                        raise typer.Exit(1)
+                resolved_patch = patch
+            elif patch is not None:
+                resolved_patch = patch
+            else:
+                resolved_patch = patch_manifest
+
+            # If label is not specified in CLI, label from manifest.yml is used. Even if patch is from CLI.
+            resolved_label = label if label is not None else label_manifest
+
+        # Check if patch needs to throw a bad option error, either if application package does not exist or if version does not exist
+        if resolved_patch is not None:
+            try:
+                if not self.get_existing_version_info(resolved_version):
+                    raise BadOptionUsage(
+                        option_name="patch",
+                        message=f"Cannot create patch {resolved_patch} when version {resolved_version} is not defined in the application package {self.name}. Try again without specifying a patch.",
+                    )
+            except ApplicationPackageDoesNotExistError as app_err:
+                raise BadOptionUsage(
+                    option_name="patch",
+                    message=f"Cannot create patch {resolved_patch} when application package {self.name} does not exist. Try again without specifying a patch.",
+                )
+
+        return VersionInfo(
+            version_name=resolved_version,
+            patch_number=resolved_patch,
+            label=resolved_label,
+        )
