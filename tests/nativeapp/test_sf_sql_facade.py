@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from textwrap import dedent
 from unittest import mock
 
 import pytest
@@ -24,6 +25,7 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     UnknownSQLError,
     UserScriptError,
 )
+from snowflake.cli._plugins.nativeapp.sf_sql_facade import UIParameter
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
@@ -1010,7 +1012,7 @@ def test_get_event_definitions_bubbles_errors(mock_execute_query):
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_desc_application_base_case(mock_execute_query, mock_cursor):
+def test_get_app_properties_base_case(mock_execute_query, mock_cursor):
     app_name = "test_app"
     query = f"desc application {app_name}"
     expected_result = [
@@ -1027,14 +1029,14 @@ def test_desc_application_base_case(mock_execute_query, mock_cursor):
     )
     mock_execute_query.side_effect = side_effects
 
-    result = sql_facade.desc_application(app_name)
+    result = sql_facade.get_app_properties(app_name)
 
     assert mock_execute_query.mock_calls == expected
     assert result == {"some_param": "param_value", "comment": "this is a test app"}
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_desc_application_with_non_safe_identifier(mock_execute_query, mock_cursor):
+def test_get_app_properties_with_non_safe_identifier(mock_execute_query, mock_cursor):
     app_name = "test.app"
     query = f'desc application "test.app"'
     expected_result = [
@@ -1051,14 +1053,14 @@ def test_desc_application_with_non_safe_identifier(mock_execute_query, mock_curs
     )
     mock_execute_query.side_effect = side_effects
 
-    result = sql_facade.desc_application(app_name)
+    result = sql_facade.get_app_properties(app_name)
 
     assert mock_execute_query.mock_calls == expected
     assert result == {"some_param": "param_value", "comment": "this is a test app"}
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_desc_application_with_role(mock_execute_query, mock_cursor):
+def test_get_app_properties_with_role(mock_execute_query, mock_cursor):
     app_name = "test_app"
     role_name = "my_role"
     query = f"desc application {app_name}"
@@ -1082,14 +1084,14 @@ def test_desc_application_with_role(mock_execute_query, mock_cursor):
     )
     mock_execute_query.side_effect = side_effects
 
-    result = sql_facade.desc_application(app_name, role_name)
+    result = sql_facade.get_app_properties(app_name, role_name)
 
     assert mock_execute_query.mock_calls == expected
     assert result == {"some_param": "param_value", "comment": "this is a test app"}
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_desc_application_bubbles_errors(mock_execute_query):
+def test_get_app_properties_bubbles_errors(mock_execute_query):
     app_name = "test_app"
     query = f"desc application {app_name}"
     error_message = "Some programming error"
@@ -1104,6 +1106,119 @@ def test_desc_application_bubbles_errors(mock_execute_query):
     mock_execute_query.side_effect = side_effects
 
     with pytest.raises(InvalidSQLError) as err:
-        sql_facade.desc_application(app_name)
+        sql_facade.get_app_properties(app_name)
 
     assert f"Failed to describe application {app_name}. {error_message}" in str(err)
+
+
+expected_ui_params_query = dedent(
+    f"""
+    select value['value']::string as PARAM_VALUE, value['name']::string as PARAM_NAME from table(flatten(
+        input => parse_json(SYSTEM$BOOTSTRAP_DATA_REQUEST()),
+        path => 'clientParamsInfo'
+    )) where value['name'] in ('ENABLE_EVENT_SHARING_V2_IN_THE_SAME_ACCOUNT', 'ENFORCE_MANDATORY_FILTERS_FOR_SAME_ACCOUNT_INSTALLATION', 'UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT');
+    """
+)
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@pytest.mark.parametrize(
+    "query_return, expected_result",
+    [
+        ([], {}),
+        (
+            [
+                {
+                    "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
+                    "PARAM_VALUE": "true",
+                }
+            ],
+            {UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "true"},
+        ),
+        (
+            [
+                {
+                    "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
+                    "PARAM_VALUE": "true",
+                },
+                {
+                    "PARAM_NAME": UIParameter.NA_EVENT_SHARING_V2.value,
+                    "PARAM_VALUE": "false",
+                },
+            ],
+            {
+                UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "true",
+                UIParameter.NA_EVENT_SHARING_V2: "false",
+            },
+        ),
+    ],
+)
+def test_get_ui_parameters(
+    mock_execute_query, mock_cursor, query_return, expected_result
+):
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(query_return, []),
+                mock.call(expected_ui_params_query, cursor_class=DictCursor),
+            ),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    result = get_snowflake_facade().get_ui_parameters()
+
+    assert mock_execute_query.mock_calls == expected
+    assert result == expected_result
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@pytest.mark.parametrize(
+    "query_return, default, expected_result",
+    [
+        (
+            [
+                {
+                    "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
+                    "PARAM_VALUE": "true",
+                }
+            ],
+            "false",
+            "true",
+        ),
+        (
+            [
+                {
+                    "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
+                    "PARAM_VALUE": "",
+                }
+            ],
+            "false",
+            "",
+        ),
+        (
+            [],
+            "false_default",
+            "false_default",
+        ),
+    ],
+)
+def test_get_ui_parameter(
+    mock_execute_query, mock_cursor, query_return, default, expected_result
+):
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(query_return, []),
+                mock.call(expected_ui_params_query, cursor_class=DictCursor),
+            ),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    result = get_snowflake_facade().get_ui_parameter(
+        UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, default
+    )
+
+    assert mock_execute_query.mock_calls == expected
+    assert result == expected_result

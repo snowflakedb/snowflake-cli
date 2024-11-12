@@ -786,44 +786,12 @@ def find_version_info_in_manifest_file(
     return VersionInfo(version_name, patch_number, label)
 
 
-# def find_events_in_manifest_file(
-#     deploy_root: Path,
-#     mandatory_only: bool = False,
-# ) -> List[str]:
-#     """
-#     Find events, if available, in the manifest.yml file.
-#     Events can be found under this section in the manifest.yml file:
-
-#     configuration:
-#         telemetry_event_definitions:
-#             - type: ERRORS_AND_WARNINGS
-#               sharing: MANDATORY
-#             - type: DEBUG_LOGS
-#               sharing: OPTIONAL
-#     """
-#     manifest_content = find_and_read_manifest_file(deploy_root=deploy_root)
-
-#     configuration_section = manifest_content.get("configuration", None)
-#     if configuration_section and isinstance(configuration_section, dict):
-#         telemetry_section = configuration_section.get(
-#             "telemetry_event_definitions", None
-#         )
-#         if telemetry_section and isinstance(telemetry_section, list):
-#             return [
-#                 event["type"]
-#                 for event in telemetry_section
-#                 if not mandatory_only or event.get("sharing", None) == "MANDATORY"
-#             ]
-
-#     return []
-
-
 def find_events_definitions_in_manifest_file(
     deploy_root: Path,
 ) -> List[Dict[str, str]]:
     """
     Find events definitions, if available, in the manifest.yml file.
-    Events can be found under this section in the manifest.yml file:
+    Events definitions can be found under this section in the manifest.yml file:
 
     configuration:
         telemetry_event_definitions:

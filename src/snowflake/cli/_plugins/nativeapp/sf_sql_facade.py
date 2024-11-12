@@ -17,6 +17,10 @@ import logging
 from contextlib import contextmanager
 from textwrap import dedent
 from typing import Dict
+from enum import Enum
+from functools import lru_cache
+from textwrap import dedent
+from typing import Any, Dict
 
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
@@ -37,6 +41,14 @@ from snowflake.cli.api.project.util import (
 )
 from snowflake.cli.api.sql_execution import BaseSqlExecutor, SqlExecutor
 from snowflake.connector import DictCursor, ProgrammingError
+
+
+class UIParameter(Enum):
+    NA_ENABLE_REGIONLESS_REDIRECT = "UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT"
+    NA_EVENT_SHARING_V2 = "ENABLE_EVENT_SHARING_V2_IN_THE_SAME_ACCOUNT"
+    NA_ENFORCE_MANDATORY_FILTERS = (
+        "ENFORCE_MANDATORY_FILTERS_FOR_SAME_ACCOUNT_INSTALLATION"
+    )
 
 
 class SnowflakeSQLFacade:
@@ -303,13 +315,13 @@ class SnowflakeSQLFacade:
                 )
         return [dict(row) for row in results]
 
-    def desc_application(
+    def get_app_properties(
         self, app_name: str, role: str | None = None
     ) -> Dict[str, str]:
         """
-        Describes the application with the given name.
-        @param app_name: Name of the application to describe.
-        @return: A dictionary containing the description of the application.
+        Retrieve the properties of the specified application.
+        @param app_name: Name of the application.
+        @return: A dictionary containing the properties of the application.
         """
 
         query = f"desc application {to_identifier(app_name)}"
@@ -323,6 +335,41 @@ class SnowflakeSQLFacade:
                     err, f"Failed to describe application {app_name}."
                 )
         return {row["property"]: row["value"] for row in results}
+
+    def get_ui_parameter(self, parameter: UIParameter, default: Any) -> str:
+        """
+        Returns the value of a single UI parameter.
+        If the parameter is not found, the default value is returned.
+        """
+
+        ui_parameters = self.get_ui_parameters()
+        return ui_parameters.get(parameter, default)
+
+    @lru_cache()
+    def get_ui_parameters(self) -> Dict[UIParameter, Any]:
+        """
+        Returns the UI parameters from the SYSTEM$BOOTSTRAP_DATA_REQUEST function
+        """
+
+        parameters_to_fetch = sorted([param.value for param in UIParameter])
+
+        query = dedent(
+            f"""
+            select value['value']::string as PARAM_VALUE, value['name']::string as PARAM_NAME from table(flatten(
+                input => parse_json(SYSTEM$BOOTSTRAP_DATA_REQUEST()),
+                path => 'clientParamsInfo'
+            )) where value['name'] in ('{"', '".join(parameters_to_fetch)}');
+            """
+        )
+
+        try:
+            result = self._sql_executor.execute_query(
+                query, cursor_class=DictCursor
+            ).fetchall()
+        except Exception as err:
+            handle_unclassified_error(err, "Failed to get UI parameters.")
+
+        return {UIParameter(row["PARAM_NAME"]): row["PARAM_VALUE"] for row in result}
 
 
 # TODO move this to src/snowflake/cli/api/project/util.py in a separate

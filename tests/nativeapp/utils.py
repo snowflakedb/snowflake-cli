@@ -64,10 +64,10 @@ SQL_EXECUTOR_EXECUTE = f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_quer
 SQL_EXECUTOR_EXECUTE_QUERIES = (
     f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_queries"
 )
-GET_UI_PARAMETERS = f"{PLUGIN_UTIL_MODULE}.get_ui_parameters"
 
 SQL_FACADE_MODULE = "snowflake.cli._plugins.nativeapp.sf_facade"
 SQL_FACADE = f"{SQL_FACADE_MODULE}.SnowflakeSQLFacade"
+GET_UI_PARAMETERS = f"{SQL_FACADE}.get_ui_parameters"
 SQL_FACADE_GET_ACCOUNT_EVENT_TABLE = f"{SQL_FACADE}.get_account_event_table"
 SQL_FACADE_EXECUTE_USER_SCRIPT = f"{SQL_FACADE}.execute_user_script"
 
