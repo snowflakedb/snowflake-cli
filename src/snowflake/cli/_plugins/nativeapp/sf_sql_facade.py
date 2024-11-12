@@ -20,7 +20,7 @@ from textwrap import dedent
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
-    ExpectedObjectNotProvidedError,
+    UnexpectedResultError,
     UserScriptError,
     handle_unclassified_error,
 )
@@ -132,8 +132,6 @@ class SnowflakeSQLFacade:
         return self._use_object_optional(UseObjectType.SCHEMA, schema_name)
 
     def _use_role(self, role: str):
-        if role is None:
-            raise ExpectedObjectNotProvidedError(UseObjectType.ROLE)
         return self._use_role_optional(role)
 
     def execute_user_script(
@@ -210,21 +208,19 @@ class SnowflakeSQLFacade:
         version = to_identifier(version)
 
         # Label must be a string literal
-        with_label_query = (
+        with_label_cause = (
             f"\nlabel={to_string_literal(label)}" if label is not None else ""
         )
         add_version_query = dedent(
             f"""\
                 alter application package {package_name}
                     add version {version}
-                    using @{stage_fqn}{with_label_query}
+                    using @{stage_fqn}{with_label_cause}
             """
         )
         with self._use_role(package_role):
             try:
-                self._sql_executor.execute_query(
-                    add_version_query, cursor_class=DictCursor
-                )
+                self._sql_executor.execute_query(add_version_query)
             except Exception as err:
                 handle_unclassified_error(
                     err,
@@ -256,7 +252,7 @@ class SnowflakeSQLFacade:
         version = to_identifier(version)
 
         # Label must be a string literal
-        with_label_query = (
+        with_label_clause = (
             f"\nlabel={to_string_literal(label)}" if label is not None else ""
         )
         patch_query = f"{patch}" if patch else ""
@@ -264,7 +260,7 @@ class SnowflakeSQLFacade:
             f"""\
                  alter application package {package_name}
                      add patch {patch_query} for version {version}
-                     using @{stage_fqn}{with_label_query}
+                     using @{stage_fqn}{with_label_clause}
              """
         )
         with self._use_role(package_role):
@@ -280,7 +276,9 @@ class SnowflakeSQLFacade:
             try:
                 show_row = result_cursor[0]
             except IndexError as err:
-                raise err
+                raise UnexpectedResultError(
+                    f"Expected to receive the new patch but the result is empty"
+                ) from err
             new_patch = show_row["patch"]
 
         return new_patch

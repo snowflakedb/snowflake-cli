@@ -1409,12 +1409,7 @@ def test_find_version_info_in_manifest_file(version_name, patch_name, label):
 
     deploy_root_structure = {"manifest.yml": safe_dump(manifest_contents)}
     with temp_local_dir(deploy_root_structure) as deploy_root:
-        version_info = find_version_info_in_manifest_file(deploy_root=deploy_root)
-        v, p, l = (
-            version_info.version_name,
-            version_info.patch_number,
-            version_info.label,
-        )
+        v, p, l = find_version_info_in_manifest_file(deploy_root=deploy_root)
         if version_name is None:
             assert v is None
         else:

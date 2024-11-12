@@ -363,7 +363,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             git_policy = AllowAlwaysPolicy()
 
         bundle_map = self._bundle()
-        version_info = self.resolve_version_info(
+        resolved_version, resolved_patch, resolved_label = self.resolve_version_info(
             version=version,
             patch=patch,
             label=label,
@@ -371,7 +371,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             policy=policy,
             interactive=interactive,
         )
-        resolved_version, resolved_patch, resolved_label = version_info
 
         if git_policy.should_proceed():
             self.check_index_changes_in_git_repo(policy=policy, interactive=interactive)
@@ -665,7 +664,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         with_label_prompt = f" labeled {label}" if label else ""
 
         console.step(
-            f"Defining a new version {version} in application package {self.name}"
+            f"Defining a new version {version}{with_label_prompt} in application package {self.name}"
         )
         get_snowflake_facade().create_version_in_package(
             package_role=self.role,
@@ -973,18 +972,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 dedent(
                     f"""\
                         Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
-                        This step will bundle your app artifacts to determine the location of the manifest.yml file.
                     """
                 )
             )
             if bundle_map is None:
                 self._bundle()
-            version_info = find_version_info_in_manifest_file(self.deploy_root)
-            resolved_version, patch_manifest, label_manifest = (
-                version_info.version_name,
-                version_info.patch_number,
-                version_info.label,
-            )
+            (
+                resolved_version,
+                patch_manifest,
+                label_manifest,
+            ) = find_version_info_in_manifest_file(self.deploy_root)
             if resolved_version is None:
                 raise ClickException(
                     "Manifest.yml file does not contain a value for the version field."
