@@ -429,6 +429,10 @@ def test_spans_run_with_all_features(
                 "name": "post_deploy_hooks",
                 "parent": "deploy_app",
             },
+            {
+                "name": "get_snowsight_url_for_app",
+                "parent": None,
+            },
         ]
 
 

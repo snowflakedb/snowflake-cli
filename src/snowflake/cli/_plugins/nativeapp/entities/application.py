@@ -772,6 +772,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         except KeyboardInterrupt:
             return
 
+    @span("get_snowsight_url_for_app")
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
         name = identifier_for_url(self.name)
