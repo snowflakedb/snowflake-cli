@@ -24,6 +24,7 @@
 * `snow stage copy` supports `--recursive` flag to copy local files and subdirectories recursively to stage. Including
   glob support.
 * `snow helpers v1-to-v2` now converts v1 template references to v2 in Native App artifacts that use the `templates` processor.
+* Added `--label` option to `snow app version create` command to allow adding labels to versions and patches.
 
 ## Fixes and improvements
 * `snow --info` callback returns information about `SNOWFLAKE_HOME` variable.

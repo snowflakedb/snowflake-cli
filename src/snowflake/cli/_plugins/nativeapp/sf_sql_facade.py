@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
+from textwrap import dedent
 
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
+    UnexpectedResultError,
     UserScriptError,
     handle_unclassified_error,
 )
@@ -30,6 +32,7 @@ from snowflake.cli.api.project.util import (
     is_valid_unquoted_identifier,
     to_identifier,
     to_quoted_identifier,
+    to_string_literal,
 )
 from snowflake.cli.api.sql_execution import BaseSqlExecutor, SqlExecutor
 from snowflake.connector import DictCursor, ProgrammingError
@@ -180,6 +183,102 @@ class SnowflakeSQLFacade:
         if table is None or table == "NONE":
             return None
         return table
+
+    def create_version_in_package(
+        self,
+        package_name: str,
+        stage_fqn: str,
+        version: str,
+        label: str | None = None,
+        role: str | None = None,
+    ):
+        """
+        Creates a new version in an existing application package.
+        @param package_name: Name of the application package to alter.
+        @param stage_fqn: Stage fully qualified name.
+        @param version: Version name to create.
+        @param [Optional] role: Switch to this role while executing create version.
+        @param [Optional] label: Label for this version, visible to consumers.
+        """
+
+        # Make the version a valid identifier, adding quotes if necessary
+        version = to_identifier(version)
+
+        # Label must be a string literal
+        with_label_cause = (
+            f"\nlabel={to_string_literal(label)}" if label is not None else ""
+        )
+        add_version_query = dedent(
+            f"""\
+                alter application package {package_name}
+                    add version {version}
+                    using @{stage_fqn}{with_label_cause}
+            """
+        )
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(add_version_query)
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to add version {version} to application package {package_name}.",
+                )
+
+    def add_patch_to_package_version(
+        self,
+        package_name: str,
+        stage_fqn: str,
+        version: str,
+        patch: int | None = None,
+        label: str | None = None,
+        role: str | None = None,
+    ) -> int:
+        """
+        Add a new patch, optionally a custom one, to an existing version in an application package.
+        @param package_name: Name of the application package to alter.
+        @param stage_fqn: Stage fully qualified name.
+        @param version: Version name to create.
+        @param [Optional] patch: Patch number to create.
+        @param [Optional] label: Label for this patch, visible to consumers.
+        @param [Optional] role: Switch to this role while executing create version.
+
+        @return patch number created for the version.
+        """
+
+        # Make the version a valid identifier, adding quotes if necessary
+        version = to_identifier(version)
+
+        # Label must be a string literal
+        with_label_clause = (
+            f"\nlabel={to_string_literal(label)}" if label is not None else ""
+        )
+        patch_query = f"{patch}" if patch else ""
+        add_patch_query = dedent(
+            f"""\
+                 alter application package {package_name}
+                     add patch {patch_query} for version {version}
+                     using @{stage_fqn}{with_label_clause}
+             """
+        )
+        with self._use_role_optional(role):
+            try:
+                result_cursor = self._sql_executor.execute_query(
+                    add_patch_query, cursor_class=DictCursor
+                ).fetchall()
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to create patch {patch_query} for version {version} in application package {package_name}.",
+                )
+            try:
+                show_row = result_cursor[0]
+            except IndexError as err:
+                raise UnexpectedResultError(
+                    f"Expected to receive the new patch but the result is empty"
+                ) from err
+            new_patch = show_row["patch"]
+
+        return new_patch
 
 
 # TODO move this to src/snowflake/cli/api/project/util.py in a separate
