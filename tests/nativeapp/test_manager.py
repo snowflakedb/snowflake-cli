@@ -165,6 +165,7 @@ def test_sync_deploy_root_with_stage(
     )
 
 
+@mock.patch(SQL_FACADE_STAGE_EXISTS)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
 @mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
@@ -187,11 +188,13 @@ def test_sync_deploy_root_with_stage_prune(
     mock_compute_stage_diff,
     mock_local_diff_with_stage,
     mock_execute,
+    mock_stage_exists,
     prune,
     only_on_stage_files,
     expected_warn,
     temp_dir,
 ):
+    mock_stage_exists.return_value = True
     mock_compute_stage_diff.return_value = DiffResult(only_on_stage=only_on_stage_files)
     create_named_file(
         file_name="snowflake.yml",
