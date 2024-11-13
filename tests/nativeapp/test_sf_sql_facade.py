@@ -97,7 +97,7 @@ def assert_in_context(
 
     expected_inner_calls = [mock.call("select 1"), mock.call("select 2")]
     mock_cms = [(mock_use_role, mock.call("test_role")), (mock_use_warehouse, mock.call("test_wh"))]
-    with assert_within_use_calls(expected_inner_calls, mock_execute_query, mock_cms):
+    with assert_in_context(expected_inner_calls, mock_execute_query, mock_cms):
         sql_facade.foo()
 
     This will assert that use_role and use_warehouse are called with the correct arguments and that
