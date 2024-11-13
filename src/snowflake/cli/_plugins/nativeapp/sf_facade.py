@@ -12,11 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from contextvars import ContextVar
+
 from snowflake.cli._plugins.nativeapp.sf_sql_facade import SnowflakeSQLFacade
 
-_SNOWFLAKE_FACADE = SnowflakeSQLFacade()
+_SNOWFLAKE_FACADE: ContextVar[SnowflakeSQLFacade | None] = ContextVar(
+    "snowflake_sql_facade", default=None
+)
 
 
 def get_snowflake_facade() -> SnowflakeSQLFacade:
     """Returns a Snowflake Facade"""
-    return _SNOWFLAKE_FACADE
+    facade = _SNOWFLAKE_FACADE.get()
+    if not facade:
+        facade = SnowflakeSQLFacade()
+        _SNOWFLAKE_FACADE.set(facade)
+    return facade

@@ -26,7 +26,6 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
 )
 from snowflake.cli._plugins.nativeapp.sf_sql_facade import (
     SnowflakeSQLFacade,
-    UIParameter,
 )
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
@@ -1127,109 +1126,6 @@ expected_ui_params_query = dedent(
     )) where value['name'] in ('ENABLE_EVENT_SHARING_V2_IN_THE_SAME_ACCOUNT', 'ENFORCE_MANDATORY_FILTERS_FOR_SAME_ACCOUNT_INSTALLATION', 'UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT');
     """
 )
-
-
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@pytest.mark.parametrize(
-    "query_return, expected_result",
-    [
-        ([], {}),
-        (
-            [
-                {
-                    "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
-                    "PARAM_VALUE": "true",
-                }
-            ],
-            {UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "true"},
-        ),
-        (
-            [
-                {
-                    "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
-                    "PARAM_VALUE": "true",
-                },
-                {
-                    "PARAM_NAME": UIParameter.NA_EVENT_SHARING_V2.value,
-                    "PARAM_VALUE": "false",
-                },
-            ],
-            {
-                UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "true",
-                UIParameter.NA_EVENT_SHARING_V2: "false",
-            },
-        ),
-    ],
-)
-def test_get_ui_parameters(
-    mock_execute_query, mock_cursor, query_return, expected_result
-):
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor(query_return, []),
-                mock.call(expected_ui_params_query, cursor_class=DictCursor),
-            ),
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
-
-    result = sql_facade.get_ui_parameters()
-
-    assert mock_execute_query.mock_calls == expected
-    assert result == expected_result
-
-
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@pytest.mark.parametrize(
-    "query_return, default, expected_result",
-    [
-        (
-            [
-                {
-                    "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
-                    "PARAM_VALUE": "true",
-                }
-            ],
-            "false",
-            "true",
-        ),
-        (
-            [
-                {
-                    "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
-                    "PARAM_VALUE": "",
-                }
-            ],
-            "false",
-            "",
-        ),
-        (
-            [],
-            "false_default",
-            "false_default",
-        ),
-    ],
-)
-def test_get_ui_parameter(
-    mock_execute_query, mock_cursor, query_return, default, expected_result
-):
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor(query_return, []),
-                mock.call(expected_ui_params_query, cursor_class=DictCursor),
-            ),
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
-
-    result = sql_facade.get_ui_parameter(
-        UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, default
-    )
-
-    assert mock_execute_query.mock_calls == expected
-    assert result == expected_result
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)

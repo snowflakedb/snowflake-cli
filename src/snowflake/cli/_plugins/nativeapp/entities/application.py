@@ -12,6 +12,8 @@ import typer
 from click import ClickException, UsageError
 from pydantic import Field, field_validator
 from snowflake.cli._plugins.connection.util import (
+    UIParameter,
+    get_ui_parameter,
     make_snowsight_url,
 )
 from snowflake.cli._plugins.nativeapp.artifacts import (
@@ -51,7 +53,6 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
-from snowflake.cli._plugins.nativeapp.sf_sql_facade import UIParameter
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -121,6 +122,8 @@ class EventSharingHandler:
     ):
         """
         Initializes the event sharing handler.
+        If telemetry_definition is not present or share_mandatory_events is not set,
+        we will default to sharing events if mandatory events are present in the manifest file and we are in dev mode.
 
         :param telemetry_definition: The telemetry configuration for the application if present.
         :param deploy_root: The root directory of the application package.
@@ -131,14 +134,16 @@ class EventSharingHandler:
         self._is_dev_mode = install_method.is_dev_mode
         self._metrics = get_cli_context().metrics
         self._console = console
-        sf_facade = get_snowflake_facade()
+        connection = get_sql_executor()._conn  # noqa: SLF001
         self._event_sharing_enabled = (
-            sf_facade.get_ui_parameter(UIParameter.NA_EVENT_SHARING_V2, "true").lower()
+            get_ui_parameter(
+                connection, UIParameter.NA_EVENT_SHARING_V2, "true"
+            ).lower()
             == "true"
         )
         self._event_sharing_enforced = (
-            sf_facade.get_ui_parameter(
-                UIParameter.NA_ENFORCE_MANDATORY_FILTERS, "true"
+            get_ui_parameter(
+                connection, UIParameter.NA_ENFORCE_MANDATORY_FILTERS, "true"
             ).lower()
             == "true"
         )
