@@ -18,6 +18,7 @@ from unittest import mock
 import pytest
 import typer
 from click import ClickException
+from snowflake.cli._plugins.nativeapp.artifacts import VersionInfo
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
     ApplicationPackageEntityModel,
@@ -104,7 +105,7 @@ def test_process_has_no_existing_app_pkg(
 )
 @mock.patch(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
-    return_value=(None, None),
+    return_value=VersionInfo(None, None, None),
 )
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize("interactive", [True, False])
@@ -146,7 +147,7 @@ def test_process_no_version_from_user_no_version_in_manifest(
 )
 @mock.patch(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
-    return_value=("manifest_version", None),
+    return_value=VersionInfo("manifest_version", None, None),
 )
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
@@ -196,7 +197,7 @@ def test_process_drop_cannot_complete(
 )
 @mock.patch(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
-    return_value=("manifest_version", None),
+    return_value=VersionInfo("manifest_version", None, None),
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(

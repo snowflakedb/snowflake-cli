@@ -18,7 +18,6 @@ import logging
 from typing import Optional
 
 import typer
-from click import MissingParameter
 from snowflake.cli._plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     force_project_definition_v2,
@@ -54,6 +53,11 @@ def create(
         help=f"""The patch number you want to create for an existing version.
         Defaults to undefined if it is not set, which means the Snowflake CLI either uses the patch specified in the `manifest.yml` file or automatically generates a new patch number.""",
     ),
+    label: Optional[str] = typer.Option(
+        None,
+        "--label",
+        help="A label for the version that is displayed to consumers. If unset, the version label specified in `manifest.yml` file is used.",
+    ),
     skip_git_check: Optional[bool] = typer.Option(
         False,
         "--skip-git-check",
@@ -67,8 +71,6 @@ def create(
     """
     Adds a new patch to the provided version defined in your application package. If the version does not exist, creates a version with patch 0.
     """
-    if version is None and patch is not None:
-        raise MissingParameter("Cannot provide a patch without version!")
 
     cli_context = get_cli_context()
     ws = WorkspaceManager(
@@ -81,6 +83,7 @@ def create(
         EntityActions.VERSION_CREATE,
         version=version,
         patch=patch,
+        label=label,
         force=force,
         interactive=interactive,
         skip_git_check=skip_git_check,

@@ -70,6 +70,13 @@ class UnknownConnectorError(_BaseFacadeError):
         super().__init__(f"Unknown error occurred. {msg}")
 
 
+class UnexpectedResultError(_BaseFacadeError):
+    """Raised when an unexpected result was returned from execution of a SQL command"""
+
+    def __init__(self, msg):
+        super().__init__(f"Received unexpected result from query. {msg}")
+
+
 class UserScriptError(ClickException):
     """Exception raised when user-provided scripts fail."""
 

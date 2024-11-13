@@ -483,31 +483,6 @@
   
   '''
 # ---
-# name: test_help_messages[app.init]
-  '''
-                                                                                  
-   Usage: default app init [OPTIONS]                                              
-                                                                                  
-   *** Deprecated. Use snow init instead ***                                      
-   Initializes a Snowflake Native App project.                                    
-                                                                                  
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels info    |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels debug   |
-  |                                  and higher; debug logs contains additional  |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
 # name: test_help_messages[app.open]
   '''
                                                                                   
@@ -1034,6 +1009,15 @@
   |                                                       automatically          |
   |                                                       generates a new patch  |
   |                                                       number.                |
+  |                                                       [default: None]        |
+  | --label                                      TEXT     A label for the        |
+  |                                                       version that is        |
+  |                                                       displayed to           |
+  |                                                       consumers. If unset,   |
+  |                                                       the version label      |
+  |                                                       specified in           |
+  |                                                       manifest.yml file is   |
+  |                                                       used.                  |
   |                                                       [default: None]        |
   | --skip-git-check                                      When enabled, the      |
   |                                                       Snowflake CLI skips    |
