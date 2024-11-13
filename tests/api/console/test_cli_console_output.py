@@ -103,13 +103,16 @@ def test_phase_is_cleaned_up_on_exception(cli_console):
 def test_phase_inside_indented(cli_console, capsys):
     cli_console.step("Outside of Indent")
     with cli_console.indented():
-        with cli_console.phase("Enter"):
-            pass
+        cli_console.step("Step In Indent")
+        with cli_console.phase("Phase In Indent"):
+            cli_console.step("Step In Indent + Phase")
 
     expected_output = dedent(
         f"""\
         Outside of Indent
-          Enter
+          Step In Indent
+          Phase In Indent
+            Step In Indent + Phase
         """
     )
 
