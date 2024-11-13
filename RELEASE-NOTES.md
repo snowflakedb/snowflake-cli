@@ -40,7 +40,7 @@
 * Fixed saving of the config file updates when `connections.toml` exists.
   Removed incorrect copying of connections from `connections.toml` to `config.toml`.
 * Fixes `snow connection generate-jwt` to work with keys with no passphrase.
-
+* The privilege to create a schema or stage is no longer required to run `snow app version create` if the schema and stage already exist.
 
 # v3.1.0
 
