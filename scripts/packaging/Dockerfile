@@ -29,15 +29,11 @@ RUN gem install dotenv -v 2.8.1
 RUN gem install fpm
 
 RUN curl https://pyenv.run | bash
-RUN echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
-RUN echo 'export PATH=$PYENV_ROOT/bin:$PATH' >> ~/.bashrc
-RUN echo 'eval "$(pyenv init -)"' >> ~/.bashrc
-
-ENV PYENV_ROOT=$HOME/.pyenv
-ENV PATH=$PYENV_ROOT/bin:$PATH
-RUN eval "$(pyenv init -)"
-RUN pyenv install 3.10
-RUN pyenv global 3.10
+ENV PYENV_ROOT="${HOME}/.pyenv"
+ENV PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:$PATH"
+ENV PYTHON_VERSION=3.10
+RUN pyenv install ${PYTHON_VERSION}
+RUN pyenv global ${PYTHON_VERSION}
 RUN pyenv versions
 RUN pyenv exec pip install -U pip uv hatch
 
