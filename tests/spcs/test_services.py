@@ -11,11 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import itertools
 import json
+from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 from click import ClickException
@@ -432,14 +433,175 @@ def test_status_qualified_name(mock_execute_query):
 def test_logs(mock_execute_query):
     service_name = "test_service"
     container_name = "test_container"
+    instance_id = "10"
+    num_lines = 42
+
+    # Test case 1: Without since_timestamp
     cursor = Mock(spec=SnowflakeCursor)
+    cursor.fetchall.return_value = [("log_line_1",), ("log_line_2",)]
     mock_execute_query.return_value = cursor
-    result = ServiceManager().logs(service_name, "10", container_name, 42)
-    expected_query = (
-        "call SYSTEM$GET_SERVICE_LOGS('test_service', '10', 'test_container', 42);"
+
+    service_manager = ServiceManager()
+    result_generator = service_manager.logs(
+        service_name, instance_id, container_name, num_lines
     )
+    result = list(result_generator)
+
+    expected_query = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, False, '', False);"
+    expected_output = ["log_line_1", "log_line_2"]
+
     mock_execute_query.assert_called_once_with(expected_query)
-    assert result == cursor
+    assert result == expected_output
+    mock_execute_query.reset_mock()
+
+    # Test case 2: With real-time since_timestamp
+    since_timestamp = datetime.utcnow().isoformat() + "Z"
+    result_generator = service_manager.logs(
+        service_name, instance_id, container_name, num_lines, since_timestamp
+    )
+    result = list(result_generator)
+
+    expected_query = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, False, '{since_timestamp}', False);"
+    expected_output = ["log_line_1", "log_line_2"]
+
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == expected_output
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.logs")
+@patch("time.sleep")
+def test_stream_logs_with_include_timestamps_false(mock_sleep, mock_logs):
+    service_name = "test_service"
+    instance_id = "10"
+    container_name = "test_container"
+    num_lines = 0
+    since_timestamp = ""
+    include_timestamps = False
+    interval_seconds = 1
+
+    mock_logs.side_effect = itertools.chain(
+        [
+            iter(["2024-10-22T01:12:28Z log 1", "2024-10-22T01:12:28Z log 2"]),
+            iter(["2024-10-22T01:12:28Z log 2", "2024-10-22T01:12:29Z log 3"]),
+            iter(
+                [
+                    "2024-10-22T01:12:29Z log 3",
+                    "2024-10-22T01:12:30Z log 4",
+                    "2024-10-22T01:12:29Z log 3",
+                ]
+            ),
+        ],
+        itertools.cycle([iter([])]),
+    )
+
+    service_manager = ServiceManager()
+    generated_logs = []
+
+    for log in service_manager.stream_logs(
+        service_name=service_name,
+        instance_id=instance_id,
+        container_name=container_name,
+        num_lines=num_lines,
+        since_timestamp=since_timestamp,
+        include_timestamps=include_timestamps,
+        interval_seconds=interval_seconds,
+    ):
+        if log is not None:
+            generated_logs.append(log)
+        if len(generated_logs) >= 5:
+            break
+
+    assert generated_logs == [
+        "log 1",
+        "log 2",
+        "log 3",
+        "log 3",
+        "log 4",
+    ]
+    assert mock_logs.call_count == 3
+    assert mock_sleep.call_count == 2
+    mock_sleep.assert_has_calls([call(interval_seconds), call(interval_seconds)])
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.logs")
+@patch("time.sleep")
+def test_stream_logs_with_include_timestamps_true(mock_sleep, mock_logs):
+    service_name = "test_service"
+    instance_id = "10"
+    container_name = "test_container"
+    num_lines = 0
+    since_timestamp = ""
+    include_timestamps = True
+    interval_seconds = 1
+
+    mock_logs.side_effect = itertools.chain(
+        [
+            iter(["2024-10-22T01:12:28Z log 1", "2024-10-22T01:12:28Z log 2"]),
+            iter(["2024-10-22T01:12:28Z log 2", "2024-10-22T01:12:29Z log 3"]),
+            iter(
+                [
+                    "2024-10-22T01:12:29Z log 3",
+                    "2024-10-22T01:12:30Z log 4",
+                    "2024-10-22T01:12:29Z log 3",
+                ]
+            ),
+        ],
+        itertools.cycle([iter([])]),
+    )
+
+    service_manager = ServiceManager()
+    generated_logs = []
+    for log in service_manager.stream_logs(
+        service_name=service_name,
+        instance_id=instance_id,
+        container_name=container_name,
+        num_lines=num_lines,
+        since_timestamp=since_timestamp,
+        include_timestamps=include_timestamps,
+        interval_seconds=interval_seconds,
+    ):
+        if log is not None:
+            generated_logs.append(log)
+        if len(generated_logs) >= 5:
+            break
+
+    # Expect the output to include timestamps
+    assert generated_logs == [
+        "2024-10-22T01:12:28Z log 1",
+        "2024-10-22T01:12:28Z log 2",
+        "2024-10-22T01:12:29Z log 3",
+        "2024-10-22T01:12:29Z log 3",
+        "2024-10-22T01:12:30Z log 4",
+    ]
+    assert mock_logs.call_count == 3
+    assert mock_sleep.call_count == 2
+    mock_sleep.assert_has_calls([call(interval_seconds), call(interval_seconds)])
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+def test_logs_incompatible_flags(mock_execute_query, runner):
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "logs",
+            "test_service",
+            "--container-name",
+            "test_container",
+            "--instance-id",
+            "0",
+            "--follow",
+            "--num-lines",
+            "100",
+        ]
+    )
+    assert (
+        result.exit_code != 0
+    ), "Expected a non-zero exit code due to incompatible flags"
+    assert (
+        "Parameters '--follow' and '--num-lines' are incompatible and cannot be used"
+        in result.output
+    )
 
 
 def test_read_yaml(other_directory):
