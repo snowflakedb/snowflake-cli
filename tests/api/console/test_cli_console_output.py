@@ -76,12 +76,14 @@ def test_error_messages(cli_console, capsys):
 def test_phase_nesting(cli_console, capsys):
     with cli_console.phase("Enter 1"):
         with cli_console.phase("Enter 2"):
-            pass
+            with cli_console.phase("Enter 3"):
+                pass
 
     expected_output = dedent(
         f"""\
     Enter 1
       Enter 2
+        Enter 3
     """
     )
 
@@ -98,7 +100,7 @@ def test_phase_is_cleaned_up_on_exception(cli_console):
         pass
 
 
-def test_phase_with_indent(cli_console, capsys):
+def test_phase_inside_indented(cli_console, capsys):
     cli_console.step("Outside of Indent")
     with cli_console.indented():
         with cli_console.phase("Enter"):
@@ -114,7 +116,7 @@ def test_phase_with_indent(cli_console, capsys):
     assert_output_matches(expected_output, capsys)
 
 
-def test_step_with_indent(cli_console, capsys):
+def test_step_inside_indented(cli_console, capsys):
     cli_console.step("Outside of Indent")
     with cli_console.indented():
         cli_console.step("Operation")
