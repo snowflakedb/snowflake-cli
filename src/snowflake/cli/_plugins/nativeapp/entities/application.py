@@ -125,7 +125,7 @@ class EventSharingHandler:
         If telemetry_definition is not present or share_mandatory_events is not set,
         we will default to sharing events if mandatory events are present in the manifest file and we are in dev mode.
 
-        :param telemetry_definition: The telemetry configuration for the application if present.
+        :param telemetry_definition: The telemetry configuration for this application from the PDF if present.
         :param deploy_root: The root directory of the application package.
         :param install_method: The install method of the application.
         :param console: The console to use for logging.
