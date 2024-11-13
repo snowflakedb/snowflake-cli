@@ -399,29 +399,32 @@ class SnowflakeSQLFacade:
         schema = fqn.schema or schema
         pattern = identifier_to_show_like_pattern(identifier)
 
-        with (
-            self._use_role_optional(role),
-            self._use_database_optional(database),
-            self._use_schema_optional(schema),
-        ):
-            try:
-                results = self._sql_executor.execute_query(
-                    f"show stages like {pattern} in schema",
-                )
-            except ProgrammingError as err:
-                if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
-                    return False
-                if err.errno == INSUFFICIENT_PRIVILEGES:
-                    raise InsufficientPrivilegesError(
-                        f"Insufficient privileges to check if stage {name} exists",
-                        role=role,
-                        database=database,
-                        schema=schema,
-                    ) from err
-                handle_unclassified_error(
-                    err, f"Failed to check if stage {name} exists."
-                )
-        return results.rowcount > 0
+        try:
+            with (
+                self._use_role_optional(role),
+                self._use_database_optional(database),
+                self._use_schema_optional(schema),
+            ):
+                try:
+                    results = self._sql_executor.execute_query(
+                        f"show stages like {pattern} in schema",
+                    )
+                except ProgrammingError as err:
+                    if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
+                        return False
+                    if err.errno == INSUFFICIENT_PRIVILEGES:
+                        raise InsufficientPrivilegesError(
+                            f"Insufficient privileges to check if stage {name} exists",
+                            role=role,
+                            database=database,
+                            schema=schema,
+                        ) from err
+                    handle_unclassified_error(
+                        err, f"Failed to check if stage {name} exists."
+                    )
+            return results.rowcount > 0
+        except CouldNotUseObjectError:
+            return False
 
     def create_stage(
         self,
