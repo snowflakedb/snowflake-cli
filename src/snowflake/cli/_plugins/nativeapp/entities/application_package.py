@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Literal, Optional, Union
@@ -65,6 +66,7 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 from snowflake.cli.api.project.schemas.v1.native_app.package import DistributionOptions
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
+    SCHEMA_AND_NAME,
     append_test_resource_suffix,
     extract_schema,
     identifier_to_show_like_pattern,
@@ -138,6 +140,15 @@ class ApplicationPackageEntityModel(EntityModelBase):
                 transformed_artifacts.append(PathMapping(src=artifact))
 
         return transformed_artifacts
+
+    @field_validator("stage")
+    @classmethod
+    def validate_source_stage(cls, input_value: str):
+        if not re.match(SCHEMA_AND_NAME, input_value):
+            raise ValueError(
+                "Incorrect value for stage of native_app. Expected format for this field is {schema_name}.{stage_name} "
+            )
+        return input_value
 
 
 class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
