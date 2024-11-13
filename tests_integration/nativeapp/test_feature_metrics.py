@@ -92,6 +92,9 @@ def test_sql_templating_emits_counter(
                 CLICounterField.PDF_TEMPLATES: 0,
                 CLICounterField.POST_DEPLOY_SCRIPTS: 0,
                 CLICounterField.PACKAGE_SCRIPTS: 0,
+                CLICounterField.EVENT_SHARING: 0,
+                CLICounterField.EVENT_SHARING_ERROR: 0,
+                CLICounterField.EVENT_SHARING_WARNING: 0,
             },
         ),
         # package scripts are auto-converted to post deploy scripts in v1

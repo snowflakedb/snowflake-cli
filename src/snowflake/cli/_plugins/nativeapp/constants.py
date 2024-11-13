@@ -22,6 +22,7 @@ COMMENT_COL = "comment"
 OWNER_COL = "owner"
 VERSION_COL = "version"
 PATCH_COL = "patch"
+AUTHORIZE_TELEMETRY_COL = "authorize_telemetry_event_sharing"
 
 INTERNAL_DISTRIBUTION = "internal"
 EXTERNAL_DISTRIBUTION = "external"

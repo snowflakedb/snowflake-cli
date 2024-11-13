@@ -29,6 +29,7 @@ from snowflake.cli._plugins.nativeapp.artifacts import (
     SourceNotFoundError,
     TooManyFilesError,
     build_bundle,
+    find_events_definitions_in_manifest_file,
     find_version_info_in_manifest_file,
     resolve_without_follow,
     symlink_or_copy,
@@ -100,10 +101,9 @@ def verify_mappings(
     expected_mappings: Dict[
         Union[str, Path], Optional[Union[str, Path, List[str], List[Path]]]
     ],
-    expected_deploy_paths: Dict[
-        Union[str, Path], Optional[Union[str, Path, List[str], List[Path]]]
-    ]
-    | None = None,
+    expected_deploy_paths: (
+        Dict[Union[str, Path], Optional[Union[str, Path, List[str], List[Path]]]] | None
+    ) = None,
     **kwargs,
 ):
     def normalize_expected_dest(
@@ -1424,3 +1424,68 @@ def test_find_version_info_in_manifest_file(version_name, patch_name, label):
             assert l is None
         else:
             assert l == label
+
+
+@pytest.mark.parametrize(
+    "configuration_section, expected_output",
+    [
+        [
+            None,
+            [],
+        ],
+        [
+            "test",
+            [],
+        ],
+        [
+            ["test"],
+            [],
+        ],
+        [
+            {},
+            [],
+        ],
+        [
+            {"telemetry_event_definitions": "test"},
+            [],
+        ],
+        [
+            {"telemetry_event_definitions": {"key": "value"}},
+            [],
+        ],
+        [
+            {"telemetry_event_definitions": []},
+            [],
+        ],
+        [
+            {
+                "telemetry_event_definitions": [
+                    {"type": "ERRORS_AND_WARNINGS", "sharing": "MANDATORY"},
+                    {"type": "DEBUG_LOGS", "sharing": "OPTIONAL"},
+                ]
+            },
+            [
+                {
+                    "name": "SNOWFLAKE$ERRORS_AND_WARNINGS",
+                    "type": "ERRORS_AND_WARNINGS",
+                    "sharing": "MANDATORY",
+                },
+                {
+                    "name": "SNOWFLAKE$DEBUG_LOGS",
+                    "type": "DEBUG_LOGS",
+                    "sharing": "OPTIONAL",
+                },
+            ],
+        ],
+    ],
+)
+def test_find_events_in_manifest_file(configuration_section, expected_output):
+    manifest_contents = {"manifest_version": 1, "version": {"name": "v1", "patch": 1}}
+    manifest_contents["configuration"] = configuration_section
+
+    deploy_root_structure = {"manifest.yml": safe_dump(manifest_contents)}
+    with temp_local_dir(deploy_root_structure) as deploy_root:
+        assert (
+            find_events_definitions_in_manifest_file(deploy_root=deploy_root)
+            == expected_output
+        )

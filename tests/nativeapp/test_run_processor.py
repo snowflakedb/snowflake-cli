@@ -20,6 +20,7 @@ from unittest.mock import MagicMock
 import pytest
 import typer
 from click import UsageError
+from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
@@ -46,7 +47,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.stage.diff import DiffResult
-from snowflake.cli._plugins.workspace.context import WorkspaceContext
+from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.abc import AbstractConsole
@@ -72,10 +73,10 @@ from tests.nativeapp.patch_utils import (
 from tests.nativeapp.utils import (
     APP_ENTITY_GET_EXISTING_APP_INFO,
     APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
+    GET_UI_PARAMETERS,
     SQL_EXECUTOR_EXECUTE,
     TYPER_CONFIRM,
     mock_execute_helper,
-    mock_snowflake_yml_file_v2,
     quoted_override_yml_file_v2,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
@@ -84,6 +85,24 @@ from tests.testing_utils.fixtures import MockConnectionCtx
 allow_always_policy = AllowAlwaysPolicy()
 ask_always_policy = AskAlwaysPolicy()
 deny_always_policy = DenyAlwaysPolicy()
+test_manifest_contents = dedent(
+    """\
+    manifest_version: 1
+
+    version:
+        name: dev
+        label: "Dev Version"
+        comment: "Default version used for development. Override for actual deployment."
+
+    artifacts:
+        setup_script: setup.sql
+        readme: README.md
+
+    configuration:
+        log_level: INFO
+        trace_level: ALWAYS
+"""
+)
 
 
 def _get_wm():
@@ -116,6 +135,8 @@ def _create_or_upgrade_app(
     pkg = ApplicationPackageEntity(pkg_model, ctx)
     stage_fqn = f"{pkg_model.fqn.name}.{pkg_model.stage}"
 
+    pkg.action_bundle(action_ctx=ActionContext(get_entity=lambda *args: None))
+
     return app.create_or_upgrade_app(
         package=pkg,
         stage_fqn=stage_fqn,
@@ -125,11 +146,70 @@ def _create_or_upgrade_app(
     )
 
 
+test_pdf = dedent(
+    """\
+        definition_version: 2
+        entities:
+            app_pkg:
+                type: application package
+                stage: app_src.stage
+                manifest: app/manifest.yml
+                artifacts:
+                    - setup.sql
+                    - src: app/manifest.yml
+                      dest: manifest.yml
+                meta:
+                    role: package_role
+                    warehouse: pkg_warehouse
+            myapp:
+                type: application
+                debug: true
+                from:
+                    target: app_pkg
+                meta:
+                    role: app_role
+                    warehouse: app_warehouse
+    """
+)
+
+
+def setup_project_file(current_working_directory: str, pdf=None):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[pdf or test_pdf],
+    )
+
+    create_named_file(
+        file_name="manifest.yml",
+        dir_name=f"{current_working_directory}/app",
+        contents=[test_manifest_contents],
+    )
+    create_named_file(
+        file_name="README.md",
+        dir_name=f"{current_working_directory}/app",
+        contents=["# This is readme"],
+    )
+
+    create_named_file(
+        file_name="setup.sql",
+        dir_name=current_working_directory,
+        contents=["-- hi"],
+    )
+
+
 # Test create_dev_app with exception thrown trying to use the warehouse
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 def test_create_dev_app_w_warehouse_access_exception(
-    mock_conn, mock_execute, temp_dir, mock_cursor
+    mock_param, mock_conn, mock_execute, temp_dir, mock_cursor
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -159,12 +239,7 @@ def test_create_dev_app_w_warehouse_access_exception(
     mock_execute.side_effect = side_effects
 
     mock_diff_result = DiffResult()
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     assert not mock_diff_result.has_changes()
 
@@ -185,8 +260,20 @@ def test_create_dev_app_w_warehouse_access_exception(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 def test_create_dev_app_create_new_w_no_additional_privileges(
-    mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
+    mock_param,
+    mock_conn,
+    mock_execute,
+    mock_get_existing_app_info,
+    temp_dir,
+    mock_cursor,
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -212,6 +299,17 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
                     )
                 ),
             ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -220,16 +318,13 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
     mock_execute.side_effect = side_effects
 
     mock_diff_result = DiffResult()
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2.replace("package_role", "app_role")],
-    )
+
+    setup_project_file(os.getcwd(), test_pdf.replace("package_role", "app_role"))
 
     assert not mock_diff_result.has_changes()
     _create_or_upgrade_app(
-        policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
+        policy=MagicMock(),
+        install_method=SameAccountInstallMethod.unversioned_dev(),
     )
     assert mock_execute.mock_calls == expected
 
@@ -238,6 +333,13 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 @pytest.mark.parametrize(
     "existing_app_info",
     [
@@ -251,6 +353,7 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
     ],
 )
 def test_create_or_upgrade_dev_app_with_warning(
+    mock_param,
     mock_conn,
     mock_execute,
     mock_get_existing_app_info,
@@ -277,6 +380,17 @@ def test_create_or_upgrade_dev_app_with_warning(
                     )
                 ),
             ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
         ]
         if existing_app_info is None
         else [
@@ -284,6 +398,28 @@ def test_create_or_upgrade_dev_app_with_warning(
                 status_cursor,
                 mock.call(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
+                ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "desc application myapp",
+                    cursor_class=DictCursor,
                 ),
             ),
             (None, mock.call("alter application myapp set debug_mode = True")),
@@ -312,12 +448,7 @@ def test_create_or_upgrade_dev_app_with_warning(
     mock_execute.side_effect = side_effects
 
     mock_diff_result = DiffResult()
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2.replace("package_role", "app_role")],
-    )
+    setup_project_file(os.getcwd(), test_pdf.replace("package_role", "app_role"))
 
     assert not mock_diff_result.has_changes()
     mock_console = mock.MagicMock()
@@ -335,7 +466,15 @@ def test_create_or_upgrade_dev_app_with_warning(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 def test_create_dev_app_create_new_with_additional_privileges(
+    mock_param,
     mock_conn,
     mock_execute_query,
     mock_get_existing_app_info,
@@ -386,6 +525,17 @@ def test_create_dev_app_create_new_with_additional_privileges(
                     )
                 ),
             ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -394,12 +544,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
     mock_execute_query.side_effect = side_effects
 
     mock_diff_result = DiffResult()
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     assert not mock_diff_result.has_changes()
     _create_or_upgrade_app(
@@ -412,8 +557,20 @@ def test_create_dev_app_create_new_with_additional_privileges(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 def test_create_dev_app_create_new_w_missing_warehouse_exception(
-    mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
+    mock_param,
+    mock_conn,
+    mock_execute,
+    mock_get_existing_app_info,
+    temp_dir,
+    mock_cursor,
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -450,12 +607,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
     mock_execute.side_effect = side_effects
 
     mock_diff_result = DiffResult()
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2.replace("package_role", "app_role")],
-    )
+    setup_project_file(os.getcwd(), test_pdf.replace("package_role", "app_role"))
 
     assert not mock_diff_result.has_changes()
 
@@ -474,6 +626,13 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 @pytest.mark.parametrize(
     "comment, version",
     [
@@ -482,6 +641,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
     ],
 )
 def test_create_dev_app_incorrect_properties(
+    mock_param,
     mock_conn,
     mock_execute,
     mock_get_existing_app_info,
@@ -516,12 +676,7 @@ def test_create_dev_app_incorrect_properties(
     mock_execute.side_effect = side_effects
 
     mock_diff_result = DiffResult()
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     with pytest.raises(ApplicationCreatedExternallyError):
         assert not mock_diff_result.has_changes()
@@ -537,8 +692,20 @@ def test_create_dev_app_incorrect_properties(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 def test_create_dev_app_incorrect_owner(
-    mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
+    mock_param,
+    mock_conn,
+    mock_execute,
+    mock_get_existing_app_info,
+    temp_dir,
+    mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
         "name": "MYAPP",
@@ -575,12 +742,7 @@ def test_create_dev_app_incorrect_owner(
     mock_execute.side_effect = side_effects
 
     mock_diff_result = DiffResult()
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     with pytest.raises(ProgrammingError):
         assert not mock_diff_result.has_changes()
@@ -595,9 +757,21 @@ def test_create_dev_app_incorrect_owner(
 # Test create_dev_app with existing application AND diff has no changes
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 @mock_connection()
 def test_create_dev_app_no_diff_changes(
-    mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
+    mock_param,
+    mock_conn,
+    mock_execute,
+    mock_get_existing_app_info,
+    temp_dir,
+    mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
         "name": "MYAPP",
@@ -623,6 +797,28 @@ def test_create_dev_app_no_diff_changes(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
                 ),
             ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "desc application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("alter application myapp set debug_mode = True")),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
@@ -632,12 +828,7 @@ def test_create_dev_app_no_diff_changes(
     mock_execute.side_effect = side_effects
 
     mock_diff_result = DiffResult()
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     assert not mock_diff_result.has_changes()
     _create_or_upgrade_app(
@@ -650,8 +841,20 @@ def test_create_dev_app_no_diff_changes(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 def test_create_dev_app_w_diff_changes(
-    mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
+    mock_param,
+    mock_conn,
+    mock_execute,
+    mock_get_existing_app_info,
+    temp_dir,
+    mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
         "name": "MYAPP",
@@ -677,6 +880,28 @@ def test_create_dev_app_w_diff_changes(
                     "alter application myapp upgrade using @app_pkg.app_src.stage"
                 ),
             ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "desc application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("alter application myapp set debug_mode = True")),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
@@ -686,12 +911,7 @@ def test_create_dev_app_w_diff_changes(
     mock_execute.side_effect = side_effects
 
     mock_diff_result = DiffResult(different=["setup.sql"])
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     assert mock_diff_result.has_changes()
     _create_or_upgrade_app(
@@ -704,8 +924,20 @@ def test_create_dev_app_w_diff_changes(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 def test_create_dev_app_recreate_w_missing_warehouse_exception(
-    mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
+    mock_param,
+    mock_conn,
+    mock_execute,
+    mock_get_existing_app_info,
+    temp_dir,
+    mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
         "name": "MYAPP",
@@ -741,12 +973,7 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
     mock_execute.side_effect = side_effects
 
     mock_diff_result = DiffResult(different=["setup.sql"])
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     assert mock_diff_result.has_changes()
 
@@ -764,8 +991,20 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 def test_create_dev_app_create_new_quoted(
-    mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
+    mock_param,
+    mock_conn,
+    mock_execute,
+    mock_get_existing_app_info,
+    temp_dir,
+    mock_cursor,
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -791,6 +1030,17 @@ def test_create_dev_app_create_new_quoted(
                     )
                 ),
             ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    'show telemetry event definitions in application "My Application"',
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -799,42 +1049,36 @@ def test_create_dev_app_create_new_quoted(
     mock_execute.side_effect = side_effects
 
     mock_diff_result = DiffResult()
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[
-            dedent(
-                """\
-            definition_version: 2
-            entities:
-                app_pkg:
-                    type: application package
-                    identifier: '"My Package"'
-                    artifacts:
-                    - setup.sql
-                    - app/README.md
-                    - src: app/streamlit/*.py
-                      dest: ui/
-                    manifest: app/manifest.yml
-                    stage: app_src.stage
-                    meta:
-                        role: app_role
-                        post_deploy:
-                        - sql_script: shared_content.sql
-                myapp:
-                    type: application
-                    identifier: '"My Application"'
-                    debug: true
-                    from:
-                        target: app_pkg
-                    meta:
-                        role: app_role
-                        warehouse: app_warehouse
-        """
-            )
-        ],
+    pdf_content = dedent(
+        """\
+        definition_version: 2
+        entities:
+            app_pkg:
+                type: application package
+                identifier: '"My Package"'
+                artifacts:
+                - setup.sql
+                - app/README.md
+                - src: app/manifest.yml
+                  dest: manifest.yml
+                manifest: app/manifest.yml
+                stage: app_src.stage
+                meta:
+                    role: app_role
+                    post_deploy:
+                    - sql_script: shared_content.sql
+            myapp:
+                type: application
+                identifier: '"My Application"'
+                debug: true
+                from:
+                    target: app_pkg
+                meta:
+                    role: app_role
+                    warehouse: app_warehouse
+    """
     )
+    setup_project_file(os.getcwd(), pdf_content)
 
     assert not mock_diff_result.has_changes()
     _create_or_upgrade_app(
@@ -847,8 +1091,20 @@ def test_create_dev_app_create_new_quoted(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 def test_create_dev_app_create_new_quoted_override(
-    mock_conn, mock_execute, mock_get_existing_app_info, temp_dir, mock_cursor
+    mock_param,
+    mock_conn,
+    mock_execute,
+    mock_get_existing_app_info,
+    temp_dir,
+    mock_cursor,
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -874,6 +1130,17 @@ def test_create_dev_app_create_new_quoted_override(
                     )
                 ),
             ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    'show telemetry event definitions in application "My Application"',
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -883,10 +1150,8 @@ def test_create_dev_app_create_new_quoted_override(
 
     mock_diff_result = DiffResult()
     current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2.replace("package_role", "app_role")],
+    setup_project_file(
+        current_working_directory, test_pdf.replace("package_role", "app_role")
     )
     create_named_file(
         file_name="snowflake.local.yml",
@@ -909,7 +1174,15 @@ def test_create_dev_app_create_new_quoted_override(
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 def test_create_dev_app_recreate_app_when_orphaned(
+    mock_param,
     mock_conn,
     mock_get_existing_app_info,
     mock_execute,
@@ -973,6 +1246,17 @@ def test_create_dev_app_recreate_app_when_orphaned(
                     )
                 ),
             ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -980,12 +1264,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
@@ -1002,7 +1281,15 @@ def test_create_dev_app_recreate_app_when_orphaned(
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
+    mock_param,
     mock_conn,
     mock_get_existing_app_info,
     mock_execute,
@@ -1015,6 +1302,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
         "owner": "app_role",
         "version": LOOSE_FILES_MAGIC_VERSION,
     }
+    # side_effects, expected = mock_execute_helper(
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1083,6 +1371,17 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
                     )
                 ),
             ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -1090,12 +1389,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
@@ -1113,7 +1407,15 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_objects(
+    mock_param,
     mock_conn,
     mock_get_existing_app_info,
     mock_execute,
@@ -1189,6 +1491,17 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
                     )
                 ),
             ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -1196,12 +1509,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
@@ -1212,11 +1520,18 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
 # Test upgrade app method for release directives AND throws warehouse error
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
 def test_upgrade_app_warehouse_error(
-    mock_conn, mock_execute, policy_param, temp_dir, mock_cursor
+    mock_param, mock_conn, mock_execute, policy_param, temp_dir, mock_cursor
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -1245,12 +1560,7 @@ def test_upgrade_app_warehouse_error(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     with pytest.raises(CouldNotUseObjectError):
         _create_or_upgrade_app(
@@ -1265,10 +1575,18 @@ def test_upgrade_app_warehouse_error(
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
 def test_upgrade_app_incorrect_owner(
+    mock_param,
     mock_conn,
     mock_get_existing_app_info,
     mock_execute,
@@ -1307,12 +1625,7 @@ def test_upgrade_app_incorrect_owner(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     with pytest.raises(ProgrammingError):
         _create_or_upgrade_app(
@@ -1327,10 +1640,18 @@ def test_upgrade_app_incorrect_owner(
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
 def test_upgrade_app_succeeds(
+    mock_param,
     mock_conn,
     mock_get_existing_app_info,
     mock_execute,
@@ -1356,6 +1677,28 @@ def test_upgrade_app_succeeds(
             ),
             (None, mock.call("use warehouse app_warehouse")),
             (None, mock.call("alter application myapp upgrade ")),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "desc application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -1363,12 +1706,7 @@ def test_upgrade_app_succeeds(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     _create_or_upgrade_app(
         policy=policy_param,
@@ -1382,10 +1720,18 @@ def test_upgrade_app_succeeds(
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
 def test_upgrade_app_fails_generic_error(
+    mock_param,
     mock_conn,
     mock_get_existing_app_info,
     mock_execute,
@@ -1423,12 +1769,7 @@ def test_upgrade_app_fails_generic_error(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     with pytest.raises(ProgrammingError):
         _create_or_upgrade_app(
@@ -1448,11 +1789,19 @@ def test_upgrade_app_fails_generic_error(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
 )
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 @pytest.mark.parametrize(
     "policy_param, interactive, expected_code",
     [(deny_always_policy, False, 1), (ask_always_policy, True, 0)],
 )
 def test_upgrade_app_fails_upgrade_restriction_error(
+    mock_param,
     mock_conn,
     mock_typer_confirm,
     mock_get_existing_app_info,
@@ -1493,12 +1842,7 @@ def test_upgrade_app_fails_upgrade_restriction_error(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     with pytest.raises(typer.Exit):
         result = _create_or_upgrade_app(
@@ -1513,7 +1857,15 @@ def test_upgrade_app_fails_upgrade_restriction_error(
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 def test_versioned_app_upgrade_to_unversioned(
+    mock_param,
     mock_conn,
     mock_get_existing_app_info,
     mock_execute,
@@ -1584,6 +1936,17 @@ def test_versioned_app_upgrade_to_unversioned(
                     )
                 ),
             ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -1591,12 +1954,7 @@ def test_versioned_app_upgrade_to_unversioned(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     _create_or_upgrade_app(
         policy=AllowAlwaysPolicy(),
@@ -1615,11 +1973,19 @@ def test_versioned_app_upgrade_to_unversioned(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 @pytest.mark.parametrize(
     "policy_param, interactive",
     [(allow_always_policy, False), (ask_always_policy, True)],
 )
 def test_upgrade_app_fails_drop_fails(
+    mock_param,
     mock_conn,
     mock_typer_confirm,
     mock_get_existing_app_info,
@@ -1665,12 +2031,7 @@ def test_upgrade_app_fails_drop_fails(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     with pytest.raises(ProgrammingError):
         _create_or_upgrade_app(
@@ -1688,8 +2049,16 @@ def test_upgrade_app_fails_drop_fails(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 @pytest.mark.parametrize("policy_param", [allow_always_policy, ask_always_policy])
 def test_upgrade_app_recreate_app(
+    mock_param,
     mock_conn,
     mock_typer_confirm,
     mock_get_existing_app_info,
@@ -1754,6 +2123,17 @@ def test_upgrade_app_recreate_app(
                     )
                 ),
             ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -1761,12 +2141,7 @@ def test_upgrade_app_recreate_app(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     _create_or_upgrade_app(
         policy_param,
@@ -1782,12 +2157,7 @@ def test_upgrade_app_recreate_app(
     return_value=None,
 )
 def test_upgrade_app_from_version_throws_usage_error_one(mock_existing, temp_dir):
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     wm = _get_wm()
     with pytest.raises(UsageError):
@@ -1812,12 +2182,7 @@ def test_upgrade_app_from_version_throws_usage_error_two(
     mock_existing,
     temp_dir,
 ):
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     wm = _get_wm()
     with pytest.raises(UsageError):
@@ -1844,8 +2209,16 @@ def test_upgrade_app_from_version_throws_usage_error_two(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
 @mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+    },
+)
 @pytest.mark.parametrize("policy_param", [allow_always_policy, ask_always_policy])
 def test_upgrade_app_recreate_app_from_version(
+    mock_param,
     mock_conn,
     mock_typer_confirm,
     mock_get_existing_app_info,
@@ -1912,6 +2285,17 @@ def test_upgrade_app_recreate_app_from_version(
                     )
                 ),
             ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -1919,14 +2303,13 @@ def test_upgrade_app_recreate_app_from_version(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     wm = _get_wm()
+    wm.perform_action(
+        "app_pkg",
+        EntityActions.BUNDLE,
+    )
     wm.perform_action(
         "myapp",
         EntityActions.DEPLOY,
@@ -1976,12 +2359,7 @@ def test_get_existing_version_info(
     )
     mock_execute.side_effect = side_effects
 
-    current_working_directory = os.getcwd()
-    create_named_file(
-        file_name="snowflake.yml",
-        dir_name=current_working_directory,
-        contents=[mock_snowflake_yml_file_v2],
-    )
+    setup_project_file(os.getcwd())
 
     dm = DefinitionManager()
     pd = dm.project_definition
