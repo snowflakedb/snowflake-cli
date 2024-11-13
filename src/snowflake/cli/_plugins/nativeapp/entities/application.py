@@ -631,6 +631,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             ).fetchall()
             return [{"name": row[1], "type": row[2]} for row in results]
 
+    @span("update_app_object")
     def create_or_upgrade_app(
         self,
         package: ApplicationPackageEntity,
