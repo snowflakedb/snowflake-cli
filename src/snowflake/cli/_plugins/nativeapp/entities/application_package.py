@@ -10,6 +10,7 @@ from click import BadOptionUsage, ClickException
 from pydantic import Field, field_validator
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
+    VersionInfo,
     build_bundle,
     find_version_info_in_manifest_file,
 )
@@ -39,6 +40,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
     DenyAlwaysPolicy,
     PolicyBase,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
@@ -336,6 +338,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         action_ctx: ActionContext,
         version: Optional[str],
         patch: Optional[int],
+        label: Optional[str],
         skip_git_check: bool,
         interactive: bool,
         force: bool,
@@ -343,7 +346,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         **kwargs,
     ):
         """
-        Perform bundle, application package creation, stage upload, version and/or patch to an application package.
+        Create a version and/or patch for a new or existing application package.
+        Always performs a deploy action before creating version or patch.
+        If version is not provided in CLI, bundle is performed to read version from manifest.yml. Raises a ClickException if version is not found.
         """
         console = self._workspace_ctx.console
 
@@ -359,38 +364,15 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         else:
             git_policy = AllowAlwaysPolicy()
 
-        # Make sure version is not None before proceeding any further.
-        # This will raise an exception if version information is not found. Patch can be None.
-        bundle_map = None
-        if not version:
-            console.message(
-                dedent(
-                    f"""\
-                        Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
-                        This step will bundle your app artifacts to determine the location of the manifest.yml file.
-                    """
-                )
-            )
-            bundle_map = self._bundle()
-            version, patch = find_version_info_in_manifest_file(self.deploy_root)
-            if not version:
-                raise ClickException(
-                    "Manifest.yml file does not contain a value for the version field."
-                )
-
-        # Check if --patch needs to throw a bad option error, either if application package does not exist or if version does not exist
-        if patch is not None:
-            try:
-                if not self.get_existing_version_info(version):
-                    raise BadOptionUsage(
-                        option_name="patch",
-                        message=f"Cannot create a custom patch when version {version} is not defined in the application package {self.name}. Try again without using --patch.",
-                    )
-            except ApplicationPackageDoesNotExistError as app_err:
-                raise BadOptionUsage(
-                    option_name="patch",
-                    message=f"Cannot create a custom patch when application package {self.name} does not exist. Try again without using --patch.",
-                )
+        bundle_map = self._bundle()
+        resolved_version, resolved_patch, resolved_label = self.resolve_version_info(
+            version=version,
+            patch=patch,
+            label=label,
+            bundle_map=bundle_map,
+            policy=policy,
+            interactive=interactive,
+        )
 
         if git_policy.should_proceed():
             self.check_index_changes_in_git_repo(policy=policy, interactive=interactive)
@@ -409,7 +391,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         # Warn if the version exists in a release directive(s)
         existing_release_directives = (
-            self.get_existing_release_directive_info_for_version(version)
+            self.get_existing_release_directive_info_for_version(resolved_version)
         )
 
         if existing_release_directives:
@@ -419,13 +401,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             console.warning(
                 dedent(
                     f"""\
-                    Version {version} already defined in application package {self.name} and in release directive(s): {release_directive_names}.
+                    Version {resolved_version} already defined in application package {self.name} and in release directive(s): {release_directive_names}.
                     """
                 )
             )
 
             user_prompt = (
-                f"Are you sure you want to create a new patch for version {version} in application "
+                f"Are you sure you want to create a new patch for version {resolved_version} in application "
                 f"package {self.name}? Once added, this operation cannot be undone."
             )
             if not policy.should_proceed(user_prompt):
@@ -439,12 +421,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     raise typer.Exit(1)
 
         # Define a new version in the application package
-        if not self.get_existing_version_info(version):
-            self.add_new_version(version)
+        if not self.get_existing_version_info(resolved_version):
+            self.add_new_version(version=resolved_version, label=resolved_label)
             return  # A new version created automatically has patch 0, we do not need to further increment the patch.
 
         # Add a new patch to an existing (old) version
-        self.add_new_patch_to_version(version=version, patch=patch)
+        self.add_new_patch_to_version(
+            version=resolved_version, patch=resolved_patch, label=resolved_label
+        )
 
     def action_version_drop(
         self,
@@ -492,7 +476,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
             )
             self._bundle()
-            version, _ = find_version_info_in_manifest_file(self.deploy_root)
+            version_info = find_version_info_in_manifest_file(self.deploy_root)
+            version = version_info.version_name
             if not version:
                 raise ClickException(
                     "Manifest.yml file does not contain a value for the version field."
@@ -674,60 +659,51 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
             return show_obj_rows
 
-    def add_new_version(self, version: str) -> None:
+    def add_new_version(self, version: str, label: str | None = None) -> None:
         """
-        Defines a new version in an existing application package.
+        Add a new version with an optional label in application package.
         """
         console = self._workspace_ctx.console
+        with_label_prompt = f" labeled {label}" if label else ""
 
-        # Make the version a valid identifier, adding quotes if necessary
-        version = to_identifier(version)
-        sql_executor = get_sql_executor()
-        with sql_executor.use_role(self.role):
-            console.step(
-                f"Defining a new version {version} in application package {self.name}"
-            )
-            add_version_query = dedent(
-                f"""\
-                    alter application package {self.name}
-                        add version {version}
-                        using @{self.stage_fqn}
-                """
-            )
-            sql_executor.execute_query(add_version_query, cursor_class=DictCursor)
-            console.message(
-                f"Version {version} created for application package {self.name}."
-            )
+        console.step(
+            f"Defining a new version {version}{with_label_prompt} in application package {self.name}"
+        )
+        get_snowflake_facade().create_version_in_package(
+            role=self.role,
+            package_name=self.name,
+            stage_fqn=self.stage_fqn,
+            version=version,
+            label=label,
+        )
+        console.message(
+            f"Version {version}{with_label_prompt} created for application package {self.name}."
+        )
 
-    def add_new_patch_to_version(self, version: str, patch: Optional[int] = None):
+    def add_new_patch_to_version(
+        self, version: str, patch: int | None = None, label: str | None = None
+    ):
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
         """
         console = self._workspace_ctx.console
 
-        # Make the version a valid identifier, adding quotes if necessary
-        version = to_identifier(version)
-        sql_executor = get_sql_executor()
-        with sql_executor.use_role(self.role):
-            console.step(
-                f"Adding new patch to version {version} defined in application package {self.name}"
-            )
-            add_version_query = dedent(
-                f"""\
-                    alter application package {self.name}
-                        add patch {patch if patch else ""} for version {version}
-                        using @{self.stage_fqn}
-                """
-            )
-            result_cursor = sql_executor.execute_query(
-                add_version_query, cursor_class=DictCursor
-            )
+        with_label_prompt = f" labeled {label}" if label else ""
 
-            show_row = result_cursor.fetchall()[0]
-            new_patch = show_row["patch"]
-            console.message(
-                f"Patch {new_patch} created for version {version} defined in application package {self.name}."
-            )
+        console.step(
+            f"Adding new patch to version {version}{with_label_prompt} defined in application package {self.name}"
+        )
+        new_patch = get_snowflake_facade().add_patch_to_package_version(
+            role=self.role,
+            package_name=self.name,
+            stage_fqn=self.stage_fqn,
+            version=version,
+            patch=patch,
+            label=label,
+        )
+        console.message(
+            f"Patch {new_patch}{with_label_prompt} created for version {version} defined in application package {self.name}."
+        )
 
     def check_index_changes_in_git_repo(
         self, policy: PolicyBase, interactive: bool
@@ -961,3 +937,105 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     sql_executor.execute_query(
                         f"drop stage if exists {self.scratch_stage_fqn}"
                     )
+
+    def resolve_version_info(
+        self,
+        version: str | None,
+        patch: int | None,
+        label: str | None,
+        bundle_map: BundleMap | None,
+        policy: PolicyBase,
+        interactive: bool,
+    ):
+        """Determine version name, patch number, and label from CLI provided values and manifest.yml version entry.
+        @param [Optional] version: version name as specified in the command
+        @param [Optional] patch: patch number as specified in the command
+        @param [Optional] label: version/patch label as specified in the command
+        @param [Optional] bundle_map: bundle_map if a deploy_root is prepared. _bundle() is performed otherwise.
+        @param policy: CLI policy
+        @param interactive: True if command is run in interactive mode, otherwise False
+        """
+        console = self._workspace_ctx.console
+
+        resolved_version = None
+        resolved_patch = None
+        resolved_label = ""
+
+        # If version is specified in CLI, no version information from manifest.yml is used (except for comment, we can't control comment as of now).
+        if version is not None:
+            console.message(
+                "Ignoring version information from the application manifest since a version was explicitly specified with the command."
+            )
+            resolved_patch = patch
+            resolved_label = label if label is not None else ""
+            resolved_version = version
+
+        # When version is not set by CLI, version name is read from manifest.yml. patch and label from CLI will be used, if provided.
+        else:
+            console.message(
+                dedent(
+                    f"""\
+                        Version was not provided through the Snowflake CLI. Checking version in the manifest.yml instead.
+                    """
+                )
+            )
+            if bundle_map is None:
+                self._bundle()
+            (
+                resolved_version,
+                patch_manifest,
+                label_manifest,
+            ) = find_version_info_in_manifest_file(self.deploy_root)
+            if resolved_version is None:
+                raise ClickException(
+                    "Manifest.yml file does not contain a value for the version field."
+                )
+
+            # If patch is set in CLI and is also present in manifest.yml with different value, confirmation from
+            # user is required to ignore patch from manifest.yml and proceed with CLI value.
+            if (
+                patch is not None
+                and patch_manifest is not None
+                and patch_manifest != patch
+            ):
+                console.warning(
+                    f"Cannot resolve version. Found patch: {patch_manifest} in manifest.yml which is different from provided patch {patch}."
+                )
+                user_prompt = f"Do you want to ignore patch in manifest.yml and proceed with provided --patch {patch}?"
+                if not policy.should_proceed(user_prompt):
+                    if interactive:
+                        console.message("Not creating a new patch.")
+                        raise typer.Exit(0)
+                    else:
+                        console.message(
+                            "Could not create a new patch non-interactively without --force."
+                        )
+                        raise typer.Exit(1)
+                resolved_patch = patch
+            elif patch is not None:
+                resolved_patch = patch
+            else:
+                resolved_patch = patch_manifest
+
+            # If label is not specified in CLI, label from manifest.yml is used. Even if patch is from CLI.
+            resolved_label = label if label is not None else label_manifest
+
+        # Check if patch needs to throw a bad option error, either if application package does not exist or if version does not exist
+        if resolved_patch is not None:
+            try:
+                if not self.get_existing_version_info(resolved_version):
+                    raise BadOptionUsage(
+                        option_name="patch",
+                        message=f"Cannot create patch {resolved_patch} when version {resolved_version} is not defined in the application package {self.name}. Try again without specifying a patch.",
+                    )
+            except ApplicationPackageDoesNotExistError as app_err:
+                raise BadOptionUsage(
+                    option_name="patch",
+                    message=f"Cannot create patch {resolved_patch} when application package {self.name} does not exist. Try again without specifying a patch.",
+                )
+
+        return VersionInfo(
+            version_name=resolved_version,
+            patch_number=resolved_patch,
+            label=resolved_label,
+        )

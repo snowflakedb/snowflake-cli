@@ -15,10 +15,12 @@
 import os
 from textwrap import dedent
 from unittest import mock
+from unittest.mock import MagicMock
 
 import pytest
 import typer
 from click import BadOptionUsage, ClickException
+from snowflake.cli._plugins.nativeapp.artifacts import VersionInfo
 from snowflake.cli._plugins.nativeapp.constants import SPECIAL_COMMENT
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
@@ -34,12 +36,15 @@ from snowflake.cli._plugins.nativeapp.policy import (
 )
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
 
+from tests.nativeapp.factories import ApplicationPackageEntityModelFactory, PdfV2Factory
 from tests.nativeapp.utils import (
     APPLICATION_PACKAGE_ENTITY_MODULE,
     SQL_EXECUTOR_EXECUTE,
+    SQL_FACADE,
     mock_execute_helper,
     mock_snowflake_yml_file_v2,
 )
@@ -56,12 +61,14 @@ def _version_create(
     force: bool,
     interactive: bool,
     skip_git_check: bool,
+    label: str | None = None,
+    console: AbstractConsole | None = None,
 ):
     dm = DefinitionManager()
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
     ctx = WorkspaceContext(
-        console=cc,
+        console=console or cc,
         project_root=dm.project_root,
         get_default_role=lambda: "mock_role",
         get_default_warehouse=lambda: "mock_warehouse",
@@ -71,6 +78,7 @@ def _version_create(
         action_ctx=mock.Mock(spec=ActionContext),
         version=version,
         patch=patch,
+        label=label,
         force=force,
         interactive=interactive,
         skip_git_check=skip_git_check,
@@ -151,7 +159,6 @@ def test_add_version(
                             using @app_pkg.app_src.stage
                     """
                     ),
-                    cursor_class=DictCursor,
                 ),
             ),
             (None, mock.call("use role old_role")),
@@ -279,7 +286,7 @@ def test_add_new_patch_custom(
 )
 @mock.patch(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
-    return_value=(None, None),
+    return_value=VersionInfo(None, None, None),
 )
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize("interactive", [True, False])
@@ -306,6 +313,7 @@ def test_process_no_version_from_user_no_version_in_manifest(
             force=force,
             interactive=interactive,
             skip_git_check=skip_git_check,
+            label="version_label",
         )  # last three parameters do not matter here, so it should succeed for all policies.
     mock_version_info_in_manifest.assert_called_once()
 
@@ -315,10 +323,12 @@ def test_process_no_version_from_user_no_version_in_manifest(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.get_existing_version_info",
     return_value=None,
 )
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize("interactive", [True, False])
 @pytest.mark.parametrize("skip_git_check", [True, False])
 def test_process_no_version_exists_throws_bad_option_exception_one(
+    mock_bundle,
     mock_existing_version_info,
     force,
     interactive,
@@ -347,10 +357,12 @@ def test_process_no_version_exists_throws_bad_option_exception_one(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity.get_existing_version_info",
     side_effect=ApplicationPackageDoesNotExistError("app_pkg"),
 )
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize("interactive", [True, False])
 @pytest.mark.parametrize("skip_git_check", [True, False])
 def test_process_no_version_exists_throws_bad_option_exception_two(
+    mock_bundle,
     mock_existing_version_info,
     force,
     interactive,
@@ -377,12 +389,13 @@ def test_process_no_version_exists_throws_bad_option_exception_two(
 # Test version create when there are no release directives matching the version AND no version exists for app pkg
 @mock.patch(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
-    return_value=("manifest_version", None),
+    return_value=VersionInfo("manifest_version", None, None),
 )
 @mock.patch.object(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
 @mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -398,6 +411,7 @@ def test_process_no_existing_release_directives_or_versions(
     mock_add_new_version,
     mock_existing_version_info,
     mock_rd,
+    mock_bundle,
     mock_deploy,
     mock_check_git,
     mock_find_version,
@@ -438,6 +452,7 @@ def test_process_no_existing_release_directives_or_versions(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
 @mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -455,6 +470,7 @@ def test_process_no_existing_release_directives_w_existing_version(
     mock_add_new_version,
     mock_existing_version_info,
     mock_rd,
+    mock_bundle,
     mock_deploy,
     mock_check_git,
     mock_find_version,
@@ -501,6 +517,7 @@ def test_process_no_existing_release_directives_w_existing_version(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
 @mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -519,6 +536,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
     mock_existing_version_info,
     mock_typer_confirm,
     mock_rd,
+    mock_bundle,
     mock_deploy,
     mock_check_git,
     interactive,
@@ -560,6 +578,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
     ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
 )
 @mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
 @mock.patch.object(
     ApplicationPackageEntity,
     "get_existing_release_directive_info_for_version",
@@ -584,6 +603,7 @@ def test_process_existing_release_directives_w_existing_version_two(
     mock_add_patch,
     mock_existing_version_info,
     mock_rd,
+    mock_bundle,
     mock_deploy,
     mock_check_git,
     force,
@@ -622,3 +642,284 @@ def test_process_existing_release_directives_w_existing_version_two(
     mock_deploy.assert_called_once()
     assert mock_existing_version_info.call_count == 2
     mock_add_patch.assert_called_once()
+
+
+@mock.patch(
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
+    return_value=VersionInfo(
+        version_name="manifest_version", patch_number="2", label="manifest_label"
+    ),
+)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
+@mock.patch.object(
+    ApplicationPackageEntity,
+    "get_existing_release_directive_info_for_version",
+    return_value=None,
+)
+@mock.patch.object(
+    ApplicationPackageEntity, "get_existing_version_info", return_value=None
+)
+@mock.patch(
+    f"{SQL_FACADE}.create_version_in_package",
+    return_value=None,
+)
+def test_manifest_version_info_not_used(
+    mock_create_version,
+    mock_existing_version,
+    mock_rd,
+    mock_bundle,
+    mock_deploy,
+    mock_find_info_manifest,
+    temp_dir,
+    mock_cursor,
+):
+
+    role = "package_role"
+    stage = "app_src.stage"
+
+    version_cli = "version name from cli"
+    PdfV2Factory(
+        entities=dict(
+            app_pkg=ApplicationPackageEntityModelFactory(
+                stage=stage, meta__role=role, meta__warehouse="pkg_wh"
+            ),
+        )
+    )
+
+    _version_create(
+        version=version_cli,
+        patch=None,
+        label=None,
+        skip_git_check=True,
+        interactive=True,
+        force=False,
+    )
+
+    mock_create_version.assert_called_with(
+        role=role,
+        package_name="app_pkg",
+        stage_fqn=f"app_pkg.{stage}",
+        version=version_cli,
+        label="",
+    )
+    mock_find_info_manifest.assert_not_called()
+
+
+@mock.patch(
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
+    return_value=VersionInfo(
+        version_name="manifest_version", patch_number="4", label="manifest_label"
+    ),
+)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
+@mock.patch.object(
+    ApplicationPackageEntity,
+    "get_existing_release_directive_info_for_version",
+    return_value=None,
+)
+@mock.patch.object(
+    ApplicationPackageEntity, "get_existing_version_info", return_value=True
+)
+@mock.patch(
+    f"{SQL_FACADE}.add_patch_to_package_version",
+    return_value=None,
+)
+@pytest.mark.parametrize("label", [None, "some label"])
+@pytest.mark.parametrize("patch", [None, 2, 7])
+def test_manifest_patch_is_not_used(
+    mock_create_patch,
+    mock_existing_version,
+    mock_rd,
+    mock_bundle,
+    mock_deploy,
+    mock_find_info_manifest,
+    patch,
+    label,
+    temp_dir,
+    mock_cursor,
+):
+
+    role = "package_role"
+    stage = "app_src.stage"
+
+    version_cli = "version name from cli"
+    PdfV2Factory(
+        entities=dict(
+            app_pkg=ApplicationPackageEntityModelFactory(
+                stage=stage, meta__role=role, meta__warehouse="pkg_wh"
+            ),
+        )
+    )
+
+    _version_create(
+        version=version_cli,
+        patch=patch,
+        label=label,
+        skip_git_check=True,
+        interactive=True,
+        force=False,
+    )
+
+    mock_create_patch.assert_called_with(
+        role=role,
+        package_name="app_pkg",
+        stage_fqn=f"app_pkg.{stage}",
+        version=version_cli,
+        patch=patch,
+        # ensure empty label is used to replace label from manifest.yml
+        label=label or "",
+    )
+    mock_find_info_manifest.assert_not_called()
+
+
+@mock.patch(
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
+)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
+@mock.patch.object(
+    ApplicationPackageEntity,
+    "get_existing_release_directive_info_for_version",
+    return_value=None,
+)
+@mock.patch.object(
+    ApplicationPackageEntity,
+    "get_existing_version_info",
+    return_value=True,  # so we can use patch
+)
+@mock.patch(
+    f"{SQL_FACADE}.add_patch_to_package_version",
+    return_value=None,
+)
+@pytest.mark.parametrize("manifest_label", [None, "some label", ""])
+@pytest.mark.parametrize("manifest_patch", [None, 4])
+@pytest.mark.parametrize("cli_label", [None, "", "cli label"])
+def test_version_from_manifest(
+    mock_create_patch,
+    mock_existing_version,
+    mock_rd,
+    mock_bundle,
+    mock_deploy,
+    mock_find_info_manifest,
+    cli_label,
+    manifest_patch,
+    manifest_label,
+    temp_dir,
+    mock_cursor,
+):
+
+    mock_find_info_manifest.return_value = VersionInfo(
+        version_name="manifest_version",
+        patch_number=manifest_patch,
+        label=manifest_label,
+    )
+
+    role = "package_role"
+    stage = "app_src.stage"
+
+    PdfV2Factory(
+        entities=dict(
+            app_pkg=ApplicationPackageEntityModelFactory(
+                stage=stage, meta__role=role, meta__warehouse="pkg_wh"
+            ),
+        )
+    )
+
+    # no version or patch through cli
+    _version_create(
+        version=None,
+        patch=None,
+        label=cli_label,
+        skip_git_check=True,
+        interactive=True,
+        force=False,
+    )
+
+    mock_create_patch.assert_called_with(
+        role=role,
+        package_name="app_pkg",
+        stage_fqn=f"app_pkg.{stage}",
+        version="manifest_version",
+        patch=manifest_patch,
+        label=cli_label if cli_label is not None else manifest_label,
+    )
+
+
+@mock.patch(
+    f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
+)
+@mock.patch.object(ApplicationPackageEntity, "_deploy", return_value=None)
+@mock.patch.object(ApplicationPackageEntity, "_bundle", return_value=None)
+@mock.patch.object(
+    ApplicationPackageEntity,
+    "get_existing_release_directive_info_for_version",
+    return_value=None,
+)
+@mock.patch.object(
+    ApplicationPackageEntity,
+    "get_existing_version_info",
+    return_value=True,  # so we can use patch
+)
+@mock.patch(
+    f"{SQL_FACADE}.add_patch_to_package_version",
+    return_value=None,
+)
+@pytest.mark.parametrize("manifest_label", [None, "some label", ""])
+@pytest.mark.parametrize("cli_label", [None, "", "cli label"])
+def test_patch_from_manifest(
+    mock_create_patch,
+    mock_existing_version,
+    mock_rd,
+    mock_bundle,
+    mock_deploy,
+    mock_find_info_manifest,
+    cli_label,
+    manifest_label,
+    temp_dir,
+    mock_cursor,
+):
+    manifest_patch = 4
+    cli_patch = 2
+    mock_find_info_manifest.return_value = VersionInfo(
+        version_name="manifest_version",
+        patch_number=manifest_patch,
+        label=manifest_label,
+    )
+
+    role = "package_role"
+    stage = "app_src.stage"
+    mock_console = MagicMock()
+    PdfV2Factory(
+        entities=dict(
+            app_pkg=ApplicationPackageEntityModelFactory(
+                stage=stage, meta__role=role, meta__warehouse="pkg_wh"
+            ),
+        )
+    )
+
+    # patch through cli, but no version
+    _version_create(
+        version=None,
+        patch=cli_patch,
+        label=cli_label,
+        skip_git_check=True,
+        interactive=True,
+        # Force to skip confirmation on patch override
+        force=True,
+        console=mock_console,
+    )
+
+    mock_create_patch.assert_called_with(
+        role=role,
+        package_name="app_pkg",
+        stage_fqn=f"app_pkg.{stage}",
+        version="manifest_version",
+        # cli patch overrides the manifest
+        patch=cli_patch,
+        label=cli_label if cli_label is not None else manifest_label,
+    )
+    mock_console.warning.assert_called_with(
+        f"Cannot resolve version. Found patch: {manifest_patch} in manifest.yml which is different from provided patch {cli_patch}."
+    )
