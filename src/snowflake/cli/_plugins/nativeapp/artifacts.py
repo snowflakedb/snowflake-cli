@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import itertools
 import os
+from collections import namedtuple
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
@@ -754,19 +755,24 @@ def find_setup_script_file(deploy_root: Path) -> Path:
         )
 
 
+VersionInfo = namedtuple("VersionInfo", ["version_name", "patch_number", "label"])
+
+
 def find_version_info_in_manifest_file(
     deploy_root: Path,
-) -> Tuple[Optional[str], Optional[int]]:
+) -> VersionInfo:
     """
     Find version and patch, if available, in the manifest.yml file.
     """
     name_field = "name"
     patch_field = "patch"
+    label_field = "label"
 
     manifest_content = find_and_read_manifest_file(deploy_root=deploy_root)
 
     version_name: Optional[str] = None
     patch_number: Optional[int] = None
+    label: Optional[str] = None
 
     version_info = manifest_content.get("version", None)
     if version_info:
@@ -774,5 +780,7 @@ def find_version_info_in_manifest_file(
             version_name = to_identifier(str(version_info[name_field]))
         if patch_field in version_info:
             patch_number = int(version_info[patch_field])
+        if label_field in version_info:
+            label = str(version_info[label_field])
 
-    return version_name, patch_number
+    return VersionInfo(version_name, patch_number, label)
