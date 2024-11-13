@@ -397,17 +397,22 @@ class SnowflakeSQLFacade:
         identifier = to_identifier(fqn.name)
         database = fqn.database or database
         schema = fqn.schema or schema
+
         pattern = identifier_to_show_like_pattern(identifier)
+        if schema and database:
+            in_schema_clause = f" in schema {database}.{schema}"
+        elif schema:
+            in_schema_clause = f" in schema {schema}"
+        elif database:
+            in_schema_clause = f" in database {database}"
+        else:
+            in_schema_clause = ""
 
         try:
-            with (
-                self._use_role_optional(role),
-                self._use_database_optional(database),
-                self._use_schema_optional(schema),
-            ):
+            with self._use_role_optional(role):
                 try:
                     results = self._sql_executor.execute_query(
-                        f"show stages like {pattern} in schema",
+                        f"show stages like {pattern}{in_schema_clause}",
                     )
                 except ProgrammingError as err:
                     if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:

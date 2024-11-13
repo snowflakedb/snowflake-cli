@@ -1343,20 +1343,60 @@ def test_stage_exists(
         [
             (
                 mock_cursor([(stage,)], ["name"]),
-                mock.call("show stages like 'TEST\\\\_STAGE' in schema"),
+                mock.call(f"show stages like 'TEST\\\\_STAGE'"),
             )
         ]
     )
     mock_execute_query.side_effect = side_effects
 
-    expected_use_objects = [
-        (mock_use_role, mock.call(None)),
-        (mock_use_database, mock.call(None)),
-        (mock_use_schema, mock.call(None)),
-    ]
+    expected_use_objects = [(mock_use_role, mock.call(None))]
     expected_execute_query = [(mock_execute_query, call) for call in expected]
     with assert_in_context(expected_use_objects, expected_execute_query):
         assert sql_facade.stage_exists(stage)
+
+
+def test_stage_exists_fqn(
+    mock_execute_query, mock_cursor, mock_use_role, mock_use_database, mock_use_schema
+):
+    stage = "test_db.test_schema.test_stage"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([(stage,)], ["name"]),
+                mock.call(
+                    f"show stages like 'TEST\\\\_STAGE' in schema test_db.test_schema"
+                ),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    expected_use_objects = [(mock_use_role, mock.call(None))]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        assert sql_facade.stage_exists(stage)
+
+
+def test_stage_exists_database_and_schema_options(
+    mock_execute_query, mock_cursor, mock_use_role, mock_use_database, mock_use_schema
+):
+    stage = "test_stage"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([(stage,)], ["name"]),
+                mock.call(
+                    f"show stages like 'TEST\\\\_STAGE' in schema test_db.test_schema"
+                ),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    expected_use_objects = [(mock_use_role, mock.call(None))]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        assert sql_facade.stage_exists(stage, database="test_db", schema="test_schema")
 
 
 def test_stage_exists_returns_false_for_empty_result(
