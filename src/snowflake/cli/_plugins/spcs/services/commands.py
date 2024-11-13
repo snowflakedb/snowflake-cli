@@ -14,9 +14,9 @@
 
 from __future__ import annotations
 
-import sys
+import itertools
 from pathlib import Path
-from typing import List, Optional
+from typing import Generator, Iterable, List, Optional, cast
 
 import typer
 from click import ClickException
@@ -26,7 +26,6 @@ from snowflake.cli._plugins.object.command_aliases import (
 )
 from snowflake.cli._plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli._plugins.spcs.common import (
-    print_log_lines,
     validate_and_set_instances,
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
@@ -38,12 +37,15 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
+    MessageResult,
     QueryJsonValueResult,
     QueryResult,
     SingleQueryResult,
+    StreamResult,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
 
@@ -221,20 +223,59 @@ def logs(
     num_lines: int = typer.Option(
         500, "--num-lines", help="Number of lines to retrieve."
     ),
+    since_timestamp: Optional[str] = typer.Option(
+        "", "--since", help="Timestamp to retrieve logs from"
+    ),
+    include_timestamps: bool = typer.Option(
+        False, "--include-timestamps", help="Include timestamps in logs", is_flag=True
+    ),
+    follow: bool = typer.Option(
+        False, "--follow", "-f", help="Continue polling for logs.", is_flag=True
+    ),
+    follow_interval: int = typer.Option(
+        2,
+        "--follow-interval",
+        help="Polling interval in seconds when using the --follow flag",
+    ),
     **options,
 ):
     """
     Retrieves local logs from a service container.
     """
-    results = ServiceManager().logs(
-        service_name=name.identifier,
-        instance_id=instance_id,
-        container_name=container_name,
-        num_lines=num_lines,
-    )
-    cursor = results.fetchone()
-    logs = next(iter(cursor)).split("\n")
-    print_log_lines(sys.stdout, name, "0", logs)
+    if follow:
+        if num_lines != 500:
+            raise IncompatibleParametersError(["--follow", "--num-lines"])
+
+    manager = ServiceManager()
+
+    if follow:
+        stream: Iterable[CommandResult] = (
+            MessageResult(log_batch)
+            for log_batch in manager.stream_logs(
+                service_name=name.identifier,
+                container_name=container_name,
+                instance_id=instance_id,
+                num_lines=num_lines,
+                since_timestamp=since_timestamp,
+                include_timestamps=include_timestamps,
+                interval_seconds=follow_interval,
+            )
+        )
+        stream = itertools.chain(stream, [MessageResult("")])
+    else:
+        stream = (
+            MessageResult(log)
+            for log in manager.logs(
+                service_name=name.identifier,
+                container_name=container_name,
+                instance_id=instance_id,
+                num_lines=num_lines,
+                since_timestamp=since_timestamp,
+                include_timestamps=include_timestamps,
+            )
+        )
+
+    return StreamResult(cast(Generator[CommandResult, None, None], stream))
 
 
 @app.command(requires_connection=True)

@@ -95,5 +95,34 @@ def handle_object_already_exists(
         raise error
 
 
+def filter_log_timestamp(log: str, include_timestamps: bool) -> str:
+    if include_timestamps:
+        return log
+    else:
+        return log.split(" ", 1)[1] if " " in log else log
+
+
+def new_logs_only(prev_log_records: list[str], new_log_records: list[str]) -> list[str]:
+    # Sort the log records, we get time-ordered logs
+    # due to ISO 8601 timestamp format in the log content
+    # eg: 2024-10-22T01:12:29.873896187Z Count: 1
+    new_log_records_sorted = sorted(new_log_records)
+
+    # Get the first new log record to establish the overlap point
+    first_new_log_record = new_log_records_sorted[0]
+
+    # Traverse previous logs in reverse and remove duplicates from new logs
+    for prev_log in reversed(prev_log_records):
+        # Stop if the previous log is earlier than the first new log
+        if prev_log < first_new_log_record:
+            break
+
+        # Remove matching previous logs from the new logs list
+        if prev_log in new_log_records_sorted:
+            new_log_records_sorted.remove(prev_log)
+
+    return new_log_records_sorted
+
+
 class NoPropertiesProvidedError(ClickException):
     pass
