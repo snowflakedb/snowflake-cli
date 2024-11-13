@@ -69,6 +69,13 @@ class CLICounterField:
         f"{_TypePrefix.FEATURES}.{_DomainPrefix.APP}.post_deploy_scripts"
     )
     PACKAGE_SCRIPTS = f"{_TypePrefix.FEATURES}.{_DomainPrefix.APP}.package_scripts"
+    EVENT_SHARING = f"{_TypePrefix.FEATURES}.{_DomainPrefix.APP}.event_sharing"
+    EVENT_SHARING_WARNING = (
+        f"{_TypePrefix.FEATURES}.{_DomainPrefix.APP}.event_sharing_warning"
+    )
+    EVENT_SHARING_ERROR = (
+        f"{_TypePrefix.FEATURES}.{_DomainPrefix.APP}.event_sharing_error"
+    )
 
 
 @dataclass
@@ -157,9 +164,9 @@ class CLIMetricsSpan:
             self.NAME_KEY: self.name,
             self.START_TIME_KEY: self.start_time,
             self.PARENT_KEY: self.parent.name if self.parent is not None else None,
-            self.PARENT_ID_KEY: self.parent.span_id
-            if self.parent is not None
-            else None,
+            self.PARENT_ID_KEY: (
+                self.parent.span_id if self.parent is not None else None
+            ),
             self.EXECUTION_TIME_KEY: self.execution_time,
             self.ERROR_KEY: type(self.error).__name__ if self.error else None,
             self.SPAN_COUNT_IN_SUBTREE_KEY: self.span_count_in_subtree,

@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from textwrap import dedent
+from typing import Dict, List
 
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
@@ -279,6 +280,71 @@ class SnowflakeSQLFacade:
             new_patch = show_row["patch"]
 
         return new_patch
+
+    def get_event_definitions(
+        self, app_name: str, role: str | None = None
+    ) -> list[dict]:
+        """
+        Retrieves event definitions for the specified application.
+        @param app_name: Name of the application to get event definitions for.
+        @return: A list of dictionaries containing event definitions.
+        """
+        query = (
+            f"show telemetry event definitions in application {to_identifier(app_name)}"
+        )
+        with self._use_role_optional(role):
+            try:
+                results = self._sql_executor.execute_query(
+                    query, cursor_class=DictCursor
+                ).fetchall()
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to get event definitions for application {to_identifier(app_name)}.",
+                )
+        return [dict(row) for row in results]
+
+    def get_app_properties(
+        self, app_name: str, role: str | None = None
+    ) -> Dict[str, str]:
+        """
+        Retrieve the properties of the specified application.
+        @param app_name: Name of the application.
+        @return: A dictionary containing the properties of the application.
+        """
+
+        query = f"desc application {to_identifier(app_name)}"
+        with self._use_role_optional(role):
+            try:
+                results = self._sql_executor.execute_query(
+                    query, cursor_class=DictCursor
+                ).fetchall()
+            except Exception as err:
+                handle_unclassified_error(
+                    err, f"Failed to describe application {to_identifier(app_name)}."
+                )
+        return {row["property"]: row["value"] for row in results}
+
+    def share_telemetry_events(
+        self, app_name: str, event_names: List[str], role: str | None = None
+    ):
+        """
+        Shares the specified events from the specified application to the application package provider.
+        @param app_name: Name of the application to share events from.
+        @param events: List of event names to share.
+        """
+
+        self._log.info("sharing events %s", event_names)
+        query = f"alter application {to_identifier(app_name)} set shared telemetry events ({', '.join([to_string_literal(x) for x in event_names])})"
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(query)
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to share telemetry events for application {to_identifier(app_name)}.",
+                )
 
 
 # TODO move this to src/snowflake/cli/api/project/util.py in a separate

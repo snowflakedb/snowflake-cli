@@ -25,6 +25,7 @@ TYPER_CONFIRM = "typer.confirm"
 TYPER_PROMPT = "typer.prompt"
 API_MODULE = "snowflake.cli.api"
 ENTITIES_UTILS_MODULE = "snowflake.cli.api.entities.utils"
+PLUGIN_UTIL_MODULE = "snowflake.cli._plugins.connection.util"
 APPLICATION_PACKAGE_ENTITY_MODULE = (
     "snowflake.cli._plugins.nativeapp.entities.application_package"
 )
@@ -63,6 +64,7 @@ SQL_EXECUTOR_EXECUTE = f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_quer
 SQL_EXECUTOR_EXECUTE_QUERIES = (
     f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_queries"
 )
+GET_UI_PARAMETERS = f"{PLUGIN_UTIL_MODULE}.get_ui_parameters"
 
 SQL_FACADE_MODULE = "snowflake.cli._plugins.nativeapp.sf_facade"
 SQL_FACADE = f"{SQL_FACADE_MODULE}.SnowflakeSQLFacade"

@@ -166,7 +166,7 @@ class _ArtifactPathMap:
         if src_is_dir:
             # mark all subdirectories of this source as directories so that we can
             # detect accidental clobbering
-            for (root, _, files) in os.walk(absolute_src, followlinks=True):
+            for root, _, files in os.walk(absolute_src, followlinks=True):
                 canonical_subdir = Path(root).relative_to(absolute_src)
                 canonical_dest_subdir = dest / canonical_subdir
                 self._update_dest_is_dir(canonical_dest_subdir, is_dir=True)
@@ -385,7 +385,7 @@ class BundleMap:
         if absolute_src.is_dir() and expand_directories:
             # both src and dest are directories, and expanding directories was requested. Traverse src, and map each
             # file to the dest directory
-            for (root, subdirs, files) in os.walk(absolute_src, followlinks=True):
+            for root, subdirs, files in os.walk(absolute_src, followlinks=True):
                 relative_root = Path(root).relative_to(absolute_src)
                 for name in itertools.chain(subdirs, files):
                     src_file_for_output = src_for_output / relative_root / name
@@ -697,7 +697,7 @@ def bundle_artifacts(
     for artifact in artifacts:
         bundle_map.add(artifact)
 
-    for (absolute_src, absolute_dest) in bundle_map.all_mappings(
+    for absolute_src, absolute_dest in bundle_map.all_mappings(
         absolute=True, expand_directories=False
     ):
         symlink_or_copy(absolute_src, absolute_dest, deploy_root=deploy_root)
@@ -786,3 +786,38 @@ def find_version_info_in_manifest_file(
             label = str(version_info[label_field])
 
     return VersionInfo(version_name, patch_number, label)
+
+
+def find_events_definitions_in_manifest_file(
+    deploy_root: Path,
+) -> List[Dict[str, str]]:
+    """
+    Find events definitions, if available, in the manifest.yml file.
+    Events definitions can be found under this section in the manifest.yml file:
+
+    configuration:
+        telemetry_event_definitions:
+            - type: ERRORS_AND_WARNINGS
+              sharing: MANDATORY
+            - type: DEBUG_LOGS
+              sharing: OPTIONAL
+    """
+    manifest_content = find_and_read_manifest_file(deploy_root=deploy_root)
+
+    configuration_section = manifest_content.get("configuration", None)
+    events_definitions = []
+    if configuration_section and isinstance(configuration_section, dict):
+        telemetry_section = configuration_section.get("telemetry_event_definitions", [])
+        if isinstance(telemetry_section, list):
+            for event in telemetry_section:
+                if isinstance(event, dict):
+                    event_type = event.get("type", "")
+                    events_definitions.append(
+                        {
+                            "name": f"SNOWFLAKE${event_type}",
+                            "type": event_type,
+                            "sharing": event.get("sharing", ""),
+                        }
+                    )
+
+    return events_definitions

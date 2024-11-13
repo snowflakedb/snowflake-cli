@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
@@ -23,6 +23,9 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     UnknownConnectorError,
     UnknownSQLError,
     UserScriptError,
+)
+from snowflake.cli._plugins.nativeapp.sf_sql_facade import (
+    SnowflakeSQLFacade,
 )
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
@@ -41,7 +44,13 @@ from tests.nativeapp.utils import (
     mock_execute_helper,
 )
 
-sql_facade = get_snowflake_facade()
+sql_facade = None
+
+
+@pytest.fixture(autouse=True)
+def reset_sql_facade():
+    global sql_facade
+    sql_facade = SnowflakeSQLFacade()
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -890,3 +899,277 @@ def test_account_event_table(
     mock_execute_query.side_effect = side_effects
 
     assert sql_facade.get_account_event_table() == event_table
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_get_event_definitions_base_case(mock_execute_query, mock_cursor):
+    app_name = "test_app"
+    query = "show telemetry event definitions in application test_app"
+    events_definitions = [
+        {
+            "name": "SNOWFLAKE$ERRORS_AND_WARNINGS",
+            "type": "ERRORS_AND_WARNINGS",
+            "sharing": "MANDATORY",
+            "status": "ENABLED",
+        }
+    ]
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(events_definitions, []),
+                mock.call(query, cursor_class=DictCursor),
+            ),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    result = sql_facade.get_event_definitions(app_name)
+
+    assert mock_execute_query.mock_calls == expected
+    assert result == events_definitions
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_get_event_definitions_with_non_safe_identifier(
+    mock_execute_query, mock_cursor
+):
+    app_name = "test.app"
+    query = 'show telemetry event definitions in application "test.app"'
+    events_definitions = [
+        {
+            "name": "SNOWFLAKE$ERRORS_AND_WARNINGS",
+            "type": "ERRORS_AND_WARNINGS",
+            "sharing": "MANDATORY",
+            "status": "ENABLED",
+        }
+    ]
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(events_definitions, []),
+                mock.call(query, cursor_class=DictCursor),
+            ),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    result = sql_facade.get_event_definitions(app_name)
+
+    assert mock_execute_query.mock_calls == expected
+    assert result == events_definitions
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_get_event_definitions_with_role(mock_execute_query, mock_cursor):
+    app_name = "test_app"
+    role_name = "my_role"
+    query = "show telemetry event definitions in application test_app"
+    events_definitions = [
+        {
+            "name": "SNOWFLAKE$ERRORS_AND_WARNINGS",
+            "type": "ERRORS_AND_WARNINGS",
+            "sharing": "MANDATORY",
+            "status": "ENABLED",
+        }
+    ]
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (None, mock.call(f"use role {role_name}")),
+            (
+                mock_cursor(events_definitions, []),
+                mock.call(query, cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    result = sql_facade.get_event_definitions(app_name, role_name)
+
+    assert mock_execute_query.mock_calls == expected
+    assert result == events_definitions
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_get_event_definitions_bubbles_errors(mock_execute_query):
+    app_name = "test_app"
+    query = "show telemetry event definitions in application test_app"
+    error_message = "Some programming error"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(error_message),
+                mock.call(query, cursor_class=DictCursor),
+            ),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with pytest.raises(InvalidSQLError) as err:
+        sql_facade.get_event_definitions(app_name)
+
+    assert (
+        f"Failed to get event definitions for application {app_name}. {error_message}"
+        in str(err)
+    )
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_get_app_properties_base_case(mock_execute_query, mock_cursor):
+    app_name = "test_app"
+    query = f"desc application {app_name}"
+    expected_result = [
+        {"property": "some_param", "value": "param_value"},
+        {"property": "comment", "value": "this is a test app"},
+    ]
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(expected_result, []),
+                mock.call(query, cursor_class=DictCursor),
+            ),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    result = sql_facade.get_app_properties(app_name)
+
+    assert mock_execute_query.mock_calls == expected
+    assert result == {"some_param": "param_value", "comment": "this is a test app"}
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_get_app_properties_with_non_safe_identifier(mock_execute_query, mock_cursor):
+    app_name = "test.app"
+    query = f'desc application "test.app"'
+    expected_result = [
+        {"property": "some_param", "value": "param_value"},
+        {"property": "comment", "value": "this is a test app"},
+    ]
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(expected_result, []),
+                mock.call(query, cursor_class=DictCursor),
+            ),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    result = sql_facade.get_app_properties(app_name)
+
+    assert mock_execute_query.mock_calls == expected
+    assert result == {"some_param": "param_value", "comment": "this is a test app"}
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_get_app_properties_with_role(mock_execute_query, mock_cursor):
+    app_name = "test_app"
+    role_name = "my_role"
+    query = f"desc application {app_name}"
+    expected_result = [
+        {"property": "some_param", "value": "param_value"},
+        {"property": "comment", "value": "this is a test app"},
+    ]
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (None, mock.call(f"use role {role_name}")),
+            (
+                mock_cursor(expected_result, []),
+                mock.call(query, cursor_class=DictCursor),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    result = sql_facade.get_app_properties(app_name, role_name)
+
+    assert mock_execute_query.mock_calls == expected
+    assert result == {"some_param": "param_value", "comment": "this is a test app"}
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_get_app_properties_bubbles_errors(mock_execute_query):
+    app_name = "test_app"
+    query = f"desc application {app_name}"
+    error_message = "Some programming error"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(error_message),
+                mock.call(query, cursor_class=DictCursor),
+            ),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with pytest.raises(InvalidSQLError) as err:
+        sql_facade.get_app_properties(app_name)
+
+    assert f"Failed to describe application {app_name}. {error_message}" in str(err)
+
+
+expected_ui_params_query = dedent(
+    f"""
+    select value['value']::string as PARAM_VALUE, value['name']::string as PARAM_NAME from table(flatten(
+        input => parse_json(SYSTEM$BOOTSTRAP_DATA_REQUEST()),
+        path => 'clientParamsInfo'
+    )) where value['name'] in ('ENABLE_EVENT_SHARING_V2_IN_THE_SAME_ACCOUNT', 'ENFORCE_MANDATORY_FILTERS_FOR_SAME_ACCOUNT_INSTALLATION', 'UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT');
+    """
+)
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@pytest.mark.parametrize(
+    "events, expected_result",
+    [
+        ([], "alter application test_app set shared telemetry events ()"),
+        (
+            ["SNOWFLAKE$EVENT1", "SNOWFLAKE$EVENT2"],
+            "alter application test_app set shared telemetry events ('SNOWFLAKE$EVENT1', 'SNOWFLAKE$EVENT2')",
+        ),
+    ],
+)
+def test_share_telemetry_events(mock_execute_query, events, expected_result):
+    app_name = "test_app"
+    mock_execute_query.return_value = None
+
+    sql_facade.share_telemetry_events(app_name, events)
+
+    mock_execute_query.assert_called_once_with(expected_result)
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_share_telemtry_events_with_non_safe_identifier(mock_execute_query):
+    app_name = "test.app"
+    events = ["SNOWFLAKE$EVENT1", "SNOWFLAKE$EVENT2"]
+    mock_execute_query.return_value = None
+
+    sql_facade.share_telemetry_events(app_name, events)
+
+    mock_execute_query.assert_called_once_with(
+        """alter application "test.app" set shared telemetry events ('SNOWFLAKE$EVENT1', 'SNOWFLAKE$EVENT2')"""
+    )
+
+
+def test_share_telemetry_events_bubbles_errors():
+    app_name = "test_app"
+    events = ["SNOWFLAKE$EVENT1", "SNOWFLAKE$EVENT2"]
+    error_message = "Some programming error"
+    with mock.patch(SQL_EXECUTOR_EXECUTE, side_effect=ProgrammingError(error_message)):
+        with pytest.raises(InvalidSQLError) as err:
+            sql_facade.share_telemetry_events(app_name, events)
+
+    assert (
+        f"Failed to share telemetry events for application {app_name}. {error_message}"
+        in str(err)
+    )
