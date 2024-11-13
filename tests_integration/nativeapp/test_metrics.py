@@ -195,6 +195,9 @@ def test_feature_counter_v2_templates_processor_set(
             CLICounterField.TEMPLATES_PROCESSOR: 1,
             CLICounterField.PDF_TEMPLATES: 0,
             CLICounterField.POST_DEPLOY_SCRIPTS: 0,
+            CLICounterField.EVENT_SHARING: 0,
+            CLICounterField.EVENT_SHARING_ERROR: 0,
+            CLICounterField.EVENT_SHARING_WARNING: 0,
         }
 
 
