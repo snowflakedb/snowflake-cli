@@ -31,6 +31,7 @@ def create_temp_file(suffix: str, dir_name: str, contents: List[str]) -> str:
 
 def create_named_file(file_name: str, dir_name: str, contents: List[str]):
     file_path = os.path.join(dir_name, file_name)
+    os.makedirs(dir_name, exist_ok=True)
     _write_to_file(file_path, contents)
     return file_path
 
