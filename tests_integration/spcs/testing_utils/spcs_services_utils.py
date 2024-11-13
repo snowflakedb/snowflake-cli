@@ -16,6 +16,8 @@ import json
 import math
 import os
 import time
+import re
+from datetime import datetime
 from textwrap import dedent
 
 import pytest
@@ -50,6 +52,7 @@ class SnowparkServicesTestSteps:
     )
     schema = "public"
     container_name = "hello-world"
+    ISO8601_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z")
 
     def __init__(self, setup: SnowparkServicesTestSetup):
         self._setup = setup
@@ -110,8 +113,17 @@ class SnowparkServicesTestSteps:
         result = self._execute_logs(service_name, container_name)
         assert result.output
         # Assert this instead of full payload due to log coloring
-        assert service_name in result.output
         assert expected_log in result.output
+        payload = json.loads(result.output)
+        self.verify_included_timestamps(payload)
+
+    def verify_included_timestamps(self, log_output):
+        log_message = log_output.get("message", "")
+        lines = log_message.split("\n")
+        for line in lines:
+            if not line.strip():
+                continue
+            assert self.ISO8601_PATTERN.match(line)
 
     def list_should_return_service(self, service_name: str) -> None:
         result = self._execute_list()
@@ -344,7 +356,7 @@ class SnowparkServicesTestSteps:
     def _execute_logs(
         self, service_name: str, container_name: str, num_lines: int = 500
     ):
-        return self._setup.runner.invoke_with_connection(
+        return self._setup.runner.invoke_with_connection_json(
             [
                 "spcs",
                 "service",
@@ -356,6 +368,7 @@ class SnowparkServicesTestSteps:
                 "0",
                 "--num-lines",
                 str(num_lines),
+                "--include-timestamps",
                 *self._database_schema_args(),
             ],
         )

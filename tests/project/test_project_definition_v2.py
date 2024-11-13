@@ -84,13 +84,32 @@ from tests.nativeapp.factories import ProjectV11Factory
                         "bundle_root": "",
                         "deploy_root": "",
                         "generated_root": "",
-                        "stage": "stage",
+                        "stage": "schema.stage",
                         "scratch_stage": "scratch_stage",
                         "distribution": "internal",
                     }
                 }
             },
             None,
+        ],
+        [
+            {
+                "entities": {
+                    "pkg": {
+                        "type": "application package",
+                        "identifier": "",
+                        "artifacts": [],
+                        "manifest": "",
+                        "bundle_root": "",
+                        "deploy_root": "",
+                        "generated_root": "",
+                        "stage": "just_stage",
+                        "scratch_stage": "scratch_stage",
+                        "distribution": "internal",
+                    }
+                }
+            },
+            "Incorrect value for stage of native_app. Expected format for this field is {schema_name}.{stage_name}",
         ],
         [
             {

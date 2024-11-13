@@ -37,7 +37,7 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps.list_should_return_service(service_name)
     test_steps.wait_until_service_is_running(service_name)
     test_steps.logs_should_return_service_logs(
-        service_name, "hello-world", '"GET /healthcheck HTTP/1.1" 200 -'
+        service_name, "hello-world", "Serving Flask app 'echo_service'"
     )
     test_steps.suspend_service(service_name)
     test_steps.wait_until_service_is_suspended(service_name)
