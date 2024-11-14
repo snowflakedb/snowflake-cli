@@ -447,24 +447,50 @@ def test_logs(mock_execute_query):
     )
     result = list(result_generator)
 
-    expected_query = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, False, '', False);"
+    expected_query_1 = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, False, '', False);"
     expected_output = ["log_line_1", "log_line_2"]
 
-    mock_execute_query.assert_called_once_with(expected_query)
+    mock_execute_query.assert_has_calls([call(expected_query_1)])
     assert result == expected_output
     mock_execute_query.reset_mock()
 
     # Test case 2: With real-time since_timestamp
     since_timestamp = datetime.utcnow().isoformat() + "Z"
     result_generator = service_manager.logs(
-        service_name, instance_id, container_name, num_lines, since_timestamp
+        service_name,
+        instance_id,
+        container_name,
+        num_lines,
+        since_timestamp=since_timestamp,
     )
     result = list(result_generator)
 
-    expected_query = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, False, '{since_timestamp}', False);"
+    expected_query_2 = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, False, '{since_timestamp}', False);"
     expected_output = ["log_line_1", "log_line_2"]
 
-    mock_execute_query.assert_called_once_with(expected_query)
+    # Assertions for Test Case 2
+    mock_execute_query.assert_has_calls([call(expected_query_2)])
+    assert result == expected_output
+    mock_execute_query.reset_mock()
+
+    # Test case 3: With previous_logs=True
+    previous_logs = True
+    cursor.fetchall.return_value = [("previous_log_line_1",), ("previous_log_line_2",)]
+    mock_execute_query.return_value = cursor
+
+    result_generator = service_manager.logs(
+        service_name,
+        instance_id,
+        container_name,
+        num_lines,
+        previous_logs=previous_logs,
+    )
+    result = list(result_generator)
+
+    expected_query_3 = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, True, '', False);"
+    expected_output = ["previous_log_line_1", "previous_log_line_2"]
+
+    mock_execute_query.assert_has_calls([call(expected_query_3)])
     assert result == expected_output
 
 
@@ -598,9 +624,32 @@ def test_logs_incompatible_flags(mock_execute_query, runner):
     assert (
         result.exit_code != 0
     ), "Expected a non-zero exit code due to incompatible flags"
+    assert "Parameters '--follow' and '--num-lines' are incompatible" in result.output
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+def test_logs_incompatible_flags_follow_previous_logs(mock_execute_query, runner):
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "logs",
+            "test_service",
+            "--container-name",
+            "test_container",
+            "--instance-id",
+            "0",
+            "--follow",
+            "--previous-logs",
+        ]
+    )
+
     assert (
-        "Parameters '--follow' and '--num-lines' are incompatible and cannot be used"
-        in result.output
+        result.exit_code != 0
+    ), "Expected a non-zero exit code due to incompatible flags"
+
+    assert (
+        "Parameters '--follow' and '--previous-logs' are incompatible" in result.output
     )
 
 
