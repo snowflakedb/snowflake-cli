@@ -57,7 +57,11 @@ from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console.abc import AbstractConsole
-from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
+from snowflake.cli.api.entities.common import (
+    EntityBase,
+    attach_spans_to_entity_actions,
+    get_sql_executor,
+)
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
     execute_post_deploy_hooks,
@@ -321,6 +325,7 @@ class ApplicationEntityModel(EntityModelBase):
         return with_suffix
 
 
+@attach_spans_to_entity_actions(entity_name="app")
 class ApplicationEntity(EntityBase[ApplicationEntityModel]):
     """
     A Native App application object, created from an application package.
@@ -355,7 +360,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         model = self._entity_model
         return model.meta and model.meta.post_deploy
 
-    @span("deploy_app")
     def action_deploy(
         self,
         action_ctx: ActionContext,
@@ -440,7 +444,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             interactive=interactive,
         )
 
-    @span("drop_app")
     def action_drop(
         self,
         action_ctx: ActionContext,

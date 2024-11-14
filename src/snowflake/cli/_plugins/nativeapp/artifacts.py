@@ -650,7 +650,7 @@ def resolve_without_follow(path: Path) -> Path:
     return Path(os.path.abspath(path))
 
 
-@span("build_initial_bundle")
+@span("bundle")
 def build_bundle(
     project_root: Path,
     deploy_root: Path,

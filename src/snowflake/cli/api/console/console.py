@@ -64,11 +64,7 @@ class CliConsole(AbstractConsole):
         return text
 
     @contextmanager
-    def phase(
-        self,
-        enter_message: str,
-        exit_message: Optional[str] = None,
-    ):
+    def phase(self, enter_message: str, exit_message: Optional[str] = None):
         """A context manager for organising steps into logical group."""
         self._print(self._format_message(enter_message, Output.PHASE))
         self._extra_indent += 1

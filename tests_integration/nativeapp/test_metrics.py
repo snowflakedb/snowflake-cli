@@ -339,9 +339,7 @@ def test_spans_bundle(
 
         assert_spans_within_limits(spans)
 
-        assert extract_span_keys_to_check(spans) == [
-            {"name": "build_initial_bundle", "parent": None}
-        ]
+        assert extract_span_keys_to_check(spans) == [{"name": "bundle", "parent": None}]
 
 
 @pytest.mark.integration
@@ -397,40 +395,40 @@ def test_spans_run_with_all_features(
 
         assert extract_span_keys_to_check(spans) == [
             {
-                "name": "deploy_app",
+                "name": "action.app.deploy",
                 "parent": None,
             },
             {
-                "name": "deploy_app_package",
-                "parent": "deploy_app",
+                "name": "action.app_pkg.deploy",
+                "parent": "action.app.deploy",
             },
             {
-                "name": "build_initial_bundle",
-                "parent": "deploy_app_package",
+                "name": "bundle",
+                "parent": "action.app_pkg.deploy",
             },
             {
                 "name": "artifact_processors",
-                "parent": "deploy_app_package",
+                "parent": "action.app_pkg.deploy",
             },
             {
                 "name": "templates_processor",
                 "parent": "artifact_processors",
             },
             {
-                "name": "sync_remote_and_local_files",
-                "parent": "deploy_app_package",
+                "name": "sync_deploy_root_with_stage",
+                "parent": "action.app_pkg.deploy",
             },
             {
                 "name": "post_deploy_hooks",
-                "parent": "deploy_app_package",
+                "parent": "action.app_pkg.deploy",
             },
             {
                 "name": "validate_setup_script",
-                "parent": "deploy_app_package",
+                "parent": "action.app_pkg.deploy",
             },
             {
                 "name": "update_app_object",
-                "parent": "deploy_app",
+                "parent": "action.app.deploy",
             },
             {
                 "name": "post_deploy_hooks",
@@ -486,20 +484,20 @@ def test_spans_validate(
 
         assert extract_span_keys_to_check(spans) == [
             {
-                "name": "validate_setup_script",
+                "name": "action.app_pkg.validate",
                 "parent": None,
             },
             {
-                "name": "deploy_app_package",
+                "name": "validate_setup_script",
+                "parent": "action.app_pkg.validate",
+            },
+            {
+                "name": "bundle",
                 "parent": "validate_setup_script",
             },
             {
-                "name": "build_initial_bundle",
-                "parent": "deploy_app_package",
-            },
-            {
-                "name": "sync_remote_and_local_files",
-                "parent": "deploy_app_package",
+                "name": "sync_deploy_root_with_stage",
+                "parent": "validate_setup_script",
             },
         ]
 
@@ -546,6 +544,6 @@ def test_spans_teardown(
         assert_spans_within_limits(spans)
 
         assert extract_span_keys_to_check(spans) == [
-            {"name": "drop_app", "parent": None},
-            {"name": "drop_app_package", "parent": None},
+            {"name": "action.app.drop", "parent": None},
+            {"name": "action.app_pkg.drop", "parent": None},
         ]

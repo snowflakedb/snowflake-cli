@@ -76,7 +76,7 @@ def _get_stage_paths_to_sync(
     return stage_paths
 
 
-@span("sync_remote_and_local_files")
+@span("sync_deploy_root_with_stage")
 def sync_deploy_root_with_stage(
     console: AbstractConsole,
     deploy_root: Path,
@@ -213,9 +213,10 @@ def execute_post_deploy_hooks(
 
     get_cli_context().metrics.set_counter(CLICounterField.POST_DEPLOY_SCRIPTS, 1)
 
-    with console.phase(
-        f"Executing {deployed_object_type} post-deploy actions",
-    ), get_cli_context().metrics.span("post_deploy_hooks"):
+    with (
+        console.phase(f"Executing {deployed_object_type} post-deploy actions"),
+        get_cli_context().metrics.span("post_deploy_hooks"),
+    ):
         sql_scripts_paths = []
         display_paths = []
         for hook in post_deploy_hooks:
