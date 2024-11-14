@@ -26,6 +26,14 @@
   glob support.
 * `snow helpers v1-to-v2` now converts v1 template references to v2 in Native App artifacts that use the `templates` processor.
 * Added `--label` option to `snow app version create` command to allow adding labels to versions and patches.
+* Enhanced `snow spcs service logs` command with new parameters for improved log retrieval and monitoring.
+  * `--previous-logs (-p)`: Retrieve logs from the last terminated container.
+  * `--since`: Start log retrieval from a specified UTC timestamp.
+  * `--include-timestamps`: Include timestamps in log entries for log streaming.
+  * `--follow (-f)`: Stream logs in real-time.
+  * `--follow-interval`: Set custom polling intervals during log streaming.
+* `snow connection add` supports `--no-interactive` flag to skip interactive prompts.
+
 
 ## Fixes and improvements
 * `snow --info` callback returns information about `SNOWFLAKE_HOME` variable.
@@ -34,15 +42,13 @@
 * Fixed saving of the config file updates when `connections.toml` exists.
   Removed incorrect copying of connections from `connections.toml` to `config.toml`.
 * Fixes `snow connection generate-jwt` to work with keys with no passphrase.
-* `snow connection add` supports `--no-interactive` flag to skip interactive prompts.
-
+* The privilege to create a schema or stage is no longer required to run `snow app version create` if the schema and stage already exist.
 
 # v3.1.1
 ## New additions
 * Enhanced `snow spcs service logs` command with new parameters for improved log retrieval and monitoring.
   * `--since`: Start log retrieval from a specified UTC timestamp.
-  * `--include-timestamps`: Include timestamps in log entries.
-  * `--previous-logs (-p)`: Retrieve logs from the last terminated container.
+  * `--include-timestamps`: Include timestamps in log entries for log streaming.
   * `--follow (-f)`: Stream logs in real-time.
   * `--follow-interval`: Set custom polling intervals during log streaming.
 
