@@ -339,7 +339,10 @@ def test_spans_bundle(
 
         assert_spans_within_limits(spans)
 
-        assert extract_span_keys_to_check(spans) == [{"name": "bundle", "parent": None}]
+        assert extract_span_keys_to_check(spans) == [
+            {"name": "action.app_pkg.bundle", "parent": None},
+            {"name": "bundle", "parent": "action.app_pkg.bundle"},
+        ]
 
 
 @pytest.mark.integration
