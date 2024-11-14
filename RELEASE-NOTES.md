@@ -41,7 +41,8 @@
 ## New additions
 * Enhanced `snow spcs service logs` command with new parameters for improved log retrieval and monitoring.
   * `--since`: Start log retrieval from a specified UTC timestamp.
-  * `--include-timestamps`: Include timestamps in log entries for log streaming.
+  * `--include-timestamps`: Include timestamps in log entries.
+  * `--previous-logs (-p)`: Retrieve logs from the last terminated container.
   * `--follow (-f)`: Stream logs in real-time.
   * `--follow-interval`: Set custom polling intervals during log streaming.
 

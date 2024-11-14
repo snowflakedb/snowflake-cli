@@ -7300,6 +7300,7 @@
   |                                           [required]                         |
   |    --num-lines                   INTEGER  Number of lines to retrieve.       |
   |                                           [default: 500]                     |
+  |    --previous-logs       -p               Retrieve previous logs             |
   |    --since                       TEXT     Timestamp to retrieve logs from    |
   |    --include-timestamps                   Include timestamps in logs         |
   |    --follow              -f               Continue polling for logs.         |
