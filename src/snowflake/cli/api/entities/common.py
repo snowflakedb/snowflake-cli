@@ -22,7 +22,15 @@ T = TypeVar("T")
 
 
 def attach_spans_to_entity_actions(entity_name: str):
-    def decorator(cls):
+    """
+    Class decorator for EntityBase subclasses to automatically wrap
+    every implemented entity action method with a metrics span
+
+    Args:
+        entity_name (str): Custom name for entity type to be displayed in metrics
+    """
+
+    def decorator(cls: type[EntityBase]) -> type[EntityBase]:
         for attr_name, attr_value in vars(cls).items():
             is_entity_action = attr_name in [
                 enum_member for enum_member in EntityActions
