@@ -70,7 +70,7 @@ def test_deploy_procedure(
     runner,
     mock_ctx,
     project_directory,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     mock_om_describe.side_effect = ProgrammingError(
@@ -148,7 +148,7 @@ def test_deploy_procedure_with_external_access(
     runner,
     mock_ctx,
     project_directory,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     mock_om_describe.side_effect = ProgrammingError(
@@ -225,7 +225,7 @@ def test_deploy_procedure_secrets_without_external_access(
     mock_ctx,
     project_directory,
     os_agnostic_snapshot,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     ctx = mock_ctx()
@@ -274,7 +274,7 @@ def test_deploy_procedure_fails_if_integration_does_not_exists(
     mock_ctx,
     project_directory,
     os_agnostic_snapshot,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     ctx = mock_ctx()
@@ -327,7 +327,7 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
     mock_ctx,
     project_directory,
     os_agnostic_snapshot,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     mock_om_describe.return_value = mock_cursor(
@@ -374,7 +374,7 @@ def test_deploy_procedure_replace_nothing_to_update(
     mock_ctx,
     project_directory,
     caplog,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     mock_om_describe.side_effect = [
@@ -444,7 +444,7 @@ def test_deploy_procedure_replace_updates_single_object(
     mock_cursor,
     mock_ctx,
     project_directory,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     mock_om_describe.side_effect = [
@@ -513,7 +513,7 @@ def test_deploy_procedure_replace_creates_missing_object(
     mock_cursor,
     mock_ctx,
     project_directory,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     mock_om_describe.side_effect = [
@@ -575,7 +575,7 @@ def test_deploy_procedure_fully_qualified_name(
     project_directory,
     alter_snowflake_yml,
     os_agnostic_snapshot,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     number_of_procedures_in_projects = 6
@@ -616,7 +616,7 @@ def test_deploy_procedure_fully_qualified_name_duplicated_schema(
     project_directory,
     alter_snowflake_yml,
     os_agnostic_snapshot,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     number_of_procedures_in_projects = 6
@@ -673,7 +673,7 @@ def test_deploy_procedure_with_empty_default_value(
     alter_snowflake_yml,
     parameter_type,
     default_value,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     mock_om_describe.side_effect = ProgrammingError(

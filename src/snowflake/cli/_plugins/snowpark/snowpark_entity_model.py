@@ -58,9 +58,9 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseM
             if (
                 (isinstance(artifact, str) and glob.has_magic(artifact))
                 or (isinstance(artifact, PathMapping) and glob.has_magic(artifact.src))
-            ) and FeatureFlag.ENABLE_SNOWPARK_BUNDLE_MAP_BUILD.is_disabled():
+            ) and FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_disabled():
                 raise ValueError(
-                    "If you want to use glob patterns in artifacts, you need to enable the Snowpark new build feature flag (ENABLE_SNOWPARK_BUNDLE_MAP_BUILD=true)"
+                    "If you want to use glob patterns in artifacts, you need to enable the Snowpark new build feature flag (ENABLE_SNOWPARK_GLOB_SUPPORT=true)"
                 )
             if isinstance(artifact, PathMapping):
                 _artifacts.append(artifact)

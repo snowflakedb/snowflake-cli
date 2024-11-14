@@ -41,7 +41,7 @@ def test_snowpark_flow(
     project_directory,
     alter_snowflake_yml,
     test_database,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     database = test_database.upper()
     with project_directory("snowpark") as tmp_dir:
@@ -1241,7 +1241,7 @@ def test_snowpark_flow_v2(
     project_directory,
     alter_snowflake_yml,
     test_database,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     database = test_database.upper()
     with project_directory("snowpark_v2") as tmp_dir:
@@ -1388,7 +1388,7 @@ def test_snowpark_with_glob_patterns(
     project_directory,
     alter_snowflake_yml,
     test_database,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
 ):
     database = test_database.upper()
     with project_directory("snowpark_glob_patterns"):

@@ -42,7 +42,7 @@ class SnowparkProjectPaths(ProjectPaths):
         return (self.project_root / artifact_path).resolve()
 
     def get_artefact_dto(self, artifact_path: PathMapping) -> Artefact:
-        if FeatureFlag.ENABLE_SNOWPARK_BUNDLE_MAP_BUILD.is_enabled():
+        if FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled():
             return Artefact(
                 project_root=self.project_root,
                 dest=artifact_path.dest,
@@ -55,7 +55,7 @@ class SnowparkProjectPaths(ProjectPaths):
             )
 
     def get_dependencies_artefact(self) -> Artefact:
-        if FeatureFlag.ENABLE_SNOWPARK_BUNDLE_MAP_BUILD.is_enabled():
+        if FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled():
             return Artefact(
                 project_root=self.project_root, dest=None, path=Path("dependencies.zip")
             )
@@ -179,7 +179,7 @@ class Artefact:
         # parts = Path(before_wildcard).parts[:-1]
         return Path(*path[:-1])
 
-    # Can be removed after removing ENABLE_SNOWPARK_BUNDLE_MAP_BUILD feature flag.
+    # Can be removed after removing ENABLE_SNOWPARK_GLOB_SUPPORT feature flag.
     def build(self) -> None:
         raise NotImplementedError("Not implemented in Artefact class.")
 

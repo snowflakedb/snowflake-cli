@@ -380,7 +380,7 @@ def build(
 
     artifacts = set()
     with cli_console.phase("Preparing artifacts for source code"):
-        if FeatureFlag.ENABLE_SNOWPARK_BUNDLE_MAP_BUILD.is_enabled():
+        if FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled():
             for entity in get_snowpark_entities(pd).values():
                 for artifact in entity.artifacts:
                     artifacts.add(project_paths.get_artefact_dto(artifact))

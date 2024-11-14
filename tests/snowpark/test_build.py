@@ -44,7 +44,7 @@ def test_snowpark_build_no_deprecated_warnings_by_default(
 )
 def test_build_with_glob_patterns_in_artifacts(
     runner,
-    enable_snowpark_bundle_map_build_feature_flag,
+    enable_snowpark_glob_support_feature_flag,
     project_directory,
     alter_snowflake_yml,
     artifacts,
