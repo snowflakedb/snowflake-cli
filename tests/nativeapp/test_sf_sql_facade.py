@@ -95,13 +95,19 @@ def assert_in_context(
 
     Use it like so:
 
-    expected_inner_calls = [mock.call("select 1"), mock.call("select 2")]
-    mock_cms = [(mock_use_role, mock.call("test_role")), (mock_use_warehouse, mock.call("test_wh"))]
-    with assert_in_context(expected_inner_calls, mock_execute_query, mock_cms):
+    expected_use_objects = [
+        (mock_use_role, mock.call("test_role")),
+        (mock_use_warehouse, mock.call("test_wh")),
+    ]
+    expected_execute_query = [
+        (mock_execute_query, mock.call("select 1")),
+        (mock_execute_query, mock.call("select 2")),
+    ]
+    with assert_in_context(expected_use_objects, expected_execute_query):
         sql_facade.foo()
 
-    This will assert that use_role and use_warehouse are called with the correct arguments and that
-    sql_facade.foo() makes the expected_inner_calls to mock_execute_query within the context managers
+    This will assert that sql_facade.foo() calls use_role and use_warehouse with the correct arguments
+    in the correct order, and that execute_query was called within the context managers
     returned by use_role and use_warehouse (i.e. in between the __enter__ and __exit__ calls).
     """
     parent_mock = mock.Mock()
@@ -109,13 +115,18 @@ def assert_in_context(
     def reparent_mock(mock_instance, expected_call):
         # Attach the mock to a shared parent mock so that we can assert that the calls
         # were made in the correct order
+        name = (
+            # Either the mock was created with a name, or fallback to the default name behaviour
+            mock_instance._mock_name  # noqa: SLF001
+            or mock_instance._extract_mock_name()  # noqa: SLF001
+        )
+        parent_mock.attach_mock(mock_instance, name)
+
         # Also re-parent the expected call object since the name of a call object
         # is checked when calling assert_has_calls on a mock and the name has to match the
         # name of the child mock when it's attached to the parent
         # Calling getattr on a call object returns a new call object with the name set to the
         # attribute name, so we can use this to set the name to the parent_name
-        name = mock_instance._extract_mock_name()  # noqa: SLF001
-        parent_mock.attach_mock(mock_instance, name)
         return getattr(mock.call, name)(*expected_call.args, **expected_call.kwargs)
 
     pre: list[Call] = []
@@ -138,6 +149,32 @@ def assert_in_context(
 
     # Assert that the parent mock has all the expected calls in the correct order
     parent_mock.assert_has_calls(pre + inner + post)
+
+
+def test_assert_in_context():
+    cm1 = mock.MagicMock(name="cm1")
+    cm2 = mock.MagicMock(name="cm2")
+
+    fn1 = mock.Mock(name="fn1")
+    fn2 = mock.Mock(name="fn2")
+
+    def sut():
+        with cm1("cm1"), cm2("cm2"):
+            fn1(1)
+            fn1(2)
+            fn2(3)
+            fn2(4)
+
+    with assert_in_context(
+        [(cm1, mock.call("cm1")), (cm2, mock.call("cm2"))],
+        [
+            (fn1, mock.call(1)),
+            (fn1, mock.call(2)),
+            (fn2, mock.call(3)),
+            (fn2, mock.call(4)),
+        ],
+    ):
+        sut()
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
