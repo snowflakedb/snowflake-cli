@@ -16,20 +16,24 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from textwrap import dedent
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
+    InsufficientPrivilegesError,
     UnexpectedResultError,
     UserScriptError,
     handle_unclassified_error,
 )
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import (
+    identifier_to_show_like_pattern,
     is_valid_unquoted_identifier,
     to_identifier,
     to_quoted_identifier,
@@ -345,6 +349,159 @@ class SnowflakeSQLFacade:
                     err,
                     f"Failed to share telemetry events for application {to_identifier(app_name)}.",
                 )
+
+    def create_schema(
+        self, name: str, role: str | None = None, database: str | None = None
+    ):
+        """
+        Creates a schema.
+        @param name: Name of the schema to create. Can be a database-qualified name or just the schema name, in which case the current database or the database passed in will be used.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        @param [Optional] database: Database to use while running this query, unless the schema name is database-qualified.
+        """
+        fqn = FQN.from_string(name)
+        identifier = to_identifier(fqn.name)
+        database = fqn.prefix or database
+        with (
+            self._use_role_optional(role),
+            self._use_database_optional(database),
+        ):
+            try:
+                self._sql_executor.execute_query(
+                    f"create schema if not exists {identifier}"
+                )
+            except ProgrammingError as err:
+                if err.errno == INSUFFICIENT_PRIVILEGES:
+                    raise InsufficientPrivilegesError(
+                        f"Insufficient privileges to create schema {name}",
+                        role=role,
+                        database=database,
+                    ) from err
+                handle_unclassified_error(err, f"Failed to create schema {name}.")
+
+    def stage_exists(
+        self,
+        name: str,
+        role: str | None = None,
+        database: str | None = None,
+        schema: str | None = None,
+    ) -> bool:
+        """
+        Checks if a stage exists.
+        @param name: Name of the stage to check for. Can be a fully qualified name or just the stage name, in which case the current database and schema or the database and schema passed in will be used.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        @param [Optional] database: Database to use while running this script, unless the stage name is database-qualified.
+        @param [Optional] schema: Schema to use while running this script, unless the stage name is schema-qualified.
+        """
+        fqn = FQN.from_string(name)
+        identifier = to_identifier(fqn.name)
+        database = fqn.database or database
+        schema = fqn.schema or schema
+
+        pattern = identifier_to_show_like_pattern(identifier)
+        if schema and database:
+            in_schema_clause = f" in schema {database}.{schema}"
+        elif schema:
+            in_schema_clause = f" in schema {schema}"
+        elif database:
+            in_schema_clause = f" in database {database}"
+        else:
+            in_schema_clause = ""
+
+        try:
+            with self._use_role_optional(role):
+                try:
+                    results = self._sql_executor.execute_query(
+                        f"show stages like {pattern}{in_schema_clause}",
+                    )
+                except ProgrammingError as err:
+                    if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
+                        return False
+                    if err.errno == INSUFFICIENT_PRIVILEGES:
+                        raise InsufficientPrivilegesError(
+                            f"Insufficient privileges to check if stage {name} exists",
+                            role=role,
+                            database=database,
+                            schema=schema,
+                        ) from err
+                    handle_unclassified_error(
+                        err, f"Failed to check if stage {name} exists."
+                    )
+            return results.rowcount > 0
+        except CouldNotUseObjectError:
+            return False
+
+    def create_stage(
+        self,
+        name: str,
+        encryption_type: str = "SNOWFLAKE_SSE",
+        enable_directory: bool = True,
+        role: str | None = None,
+        database: str | None = None,
+        schema: str | None = None,
+    ):
+        """
+        Creates a stage.
+        @param name: Name of the stage to create. Can be a fully qualified name or just the stage name, in which case the current database and schema or the database and schema passed in will be used.
+        @param [Optional] encryption_type: Encryption type for the stage. Default is Snowflake SSE. Pass an empty string to disable encryption.
+        @param [Optional] enable_directory: Directory settings for the stage. Default is enabled.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        @param [Optional] database: Database to use while running this script, unless the stage name is database-qualified.
+        @param [Optional] schema: Schema to use while running this script, unless the stage name is schema-qualified.
+        """
+        fqn = FQN.from_string(name)
+        identifier = to_identifier(fqn.name)
+        database = fqn.database or database
+        schema = fqn.schema or schema
+
+        query = f"create stage if not exists {identifier}"
+        if encryption_type:
+            query += f" encryption = (type = '{encryption_type}')"
+        if enable_directory:
+            query += f" directory = (enable = {str(enable_directory)})"
+        with (
+            self._use_role_optional(role),
+            self._use_database_optional(database),
+            self._use_schema_optional(schema),
+        ):
+            try:
+                self._sql_executor.execute_query(query)
+            except ProgrammingError as err:
+                if err.errno == INSUFFICIENT_PRIVILEGES:
+                    raise InsufficientPrivilegesError(
+                        f"Insufficient privileges to create stage {name}",
+                        role=role,
+                        database=database,
+                        schema=schema,
+                    ) from err
+                handle_unclassified_error(err, f"Failed to create stage {name}.")
+
+    def show_release_directives(
+        self, package_name: str, role: str | None = None
+    ) -> list[dict[str, Any]]:
+        """
+        Show release directives for a package
+        @param package_name: Name of the package
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+        package_identifier = to_identifier(package_name)
+        with self._use_role_optional(role):
+            try:
+                cursor = self._sql_executor.execute_query(
+                    f"show release directives in application package {package_identifier}",
+                    cursor_class=DictCursor,
+                )
+            except ProgrammingError as err:
+                if err.errno == INSUFFICIENT_PRIVILEGES:
+                    raise InsufficientPrivilegesError(
+                        f"Insufficient privileges to show release directives for package {package_name}",
+                        role=role,
+                    ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to show release directives for package {package_name}.",
+                )
+            return cursor.fetchall()
 
 
 # TODO move this to src/snowflake/cli/api/project/util.py in a separate

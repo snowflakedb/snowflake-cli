@@ -14,12 +14,18 @@
 from shlex import split
 from typing import Any, Union
 
+import yaml
 from yaml import safe_dump, safe_load
 
 from snowflake.cli.api.project.util import (
     is_valid_unquoted_identifier,
     to_identifier,
     unquote_identifier,
+)
+from tests.nativeapp.factories import (
+    ProjectV2Factory,
+    ApplicationPackageEntityModelFactory,
+    ApplicationEntityModelFactory,
 )
 from tests.project.fixtures import *
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
@@ -46,6 +52,17 @@ def normalize_identifier(identifier: Union[str, int]) -> str:
         return id_str.upper()
     else:
         return unquote_identifier(to_identifier(id_str))
+
+
+@pytest.fixture
+def temporary_role(request, snowflake_session, resource_suffix):
+    base_name = request.param
+    role_name = f"{base_name}{resource_suffix}"
+    snowflake_session.execute_string(
+        f"create role {role_name}; grant role {role_name} to user {snowflake_session.user}"
+    )
+    yield role_name
+    snowflake_session.execute_string(f"drop role {role_name}")
 
 
 # Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
@@ -433,3 +450,57 @@ def test_nativeapp_version_create_and_drop_from_manifest(
         assert result_drop.exit_code == 0
         actual = runner.invoke_with_connection_json(["app", "version", "list"])
         assert len(actual.json) == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("temporary_role", ["version_manager"], indirect=True)
+def test_version_create_with_manage_versions_only(
+    temp_dir, snowflake_session, runner, temporary_role, resource_suffix
+):
+    package_name = "myapp_pkg"
+    stage_schema = "app_src"
+    stage_name = "stage"
+    ProjectV2Factory(
+        pdf__entities=dict(
+            pkg=ApplicationPackageEntityModelFactory(
+                identifier=package_name,
+                stage=f"{stage_schema}.{stage_name}",
+            ),
+            app=ApplicationEntityModelFactory(fromm__target="pkg"),
+        ),
+        files={
+            "manifest.yml": yaml.safe_dump(dict(version=dict(name="v1"))),
+            "setup.sql": "select 1;",
+            "README.md": "",
+        },
+    )
+
+    # As a more privileged user, create a version, which will create the package and schema
+    result = runner.invoke_with_connection_json(
+        ["app", "version", "create", "--force", "--skip-git-check"]
+    )
+    assert result.exit_code == 0, result.output
+
+    # As a less privileged role, create a version (this is the minimal set of privileges required)
+    suffixed_package_name = f"{package_name}{resource_suffix}"
+    snowflake_session.execute_string(
+        f"grant monitor, manage versions on application package {suffixed_package_name} to role {temporary_role}"
+    )
+    snowflake_session.execute_string(
+        f"grant usage on schema {suffixed_package_name}.{stage_schema} to role {temporary_role}"
+    )
+    snowflake_session.execute_string(
+        f"grant read on stage {suffixed_package_name}.{stage_schema}.{stage_name} to role {temporary_role}"
+    )
+    result = runner.invoke_with_connection_json(
+        [
+            "app",
+            "version",
+            "create",
+            "--force",
+            "--skip-git-check",
+            "--role",
+            temporary_role,
+        ]
+    )
+    assert result.exit_code == 0, result.output
