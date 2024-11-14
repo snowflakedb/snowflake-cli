@@ -171,7 +171,7 @@ class SnowparkTestSteps:
             additional_files = []
 
         if not no_dependencies:
-            if FeatureFlag.ENABLE_SNOWPARK_BUNDLE_MAP_BUILD.is_enabled():
+            if FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled():
                 additional_files.append(Path("output") / "dependencies.zip")
             else:
                 additional_files.append(Path("dependencies.zip"))
