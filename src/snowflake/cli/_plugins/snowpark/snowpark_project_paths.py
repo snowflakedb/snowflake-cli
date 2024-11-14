@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 import glob
-import os.path
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -105,9 +105,6 @@ class Artefact:
                 last_part = os.path.commonpath(
                     [str(self.path), str(self.path.absolute())]
                 )
-                raise ValueError("Doopa")
-            # before_wildcard = str(self.path).split("*")[0]
-            # last_part = Path(before_wildcard).absolute().parts[-1]
             return last_part + ".zip"
         if (self.project_root / self.path).is_dir():
             return self.path.stem + ".zip"
@@ -165,18 +162,12 @@ class Artefact:
         return re.search(r"\.[a-zA-Z0-9]{2,4}$", self.dest) is not None
 
     def _path_until_asterisk(self) -> Path:
-        # before_wildcard = str(self.path).split("*")[0]
-        # parts = Path(before_wildcard).parts[:-1]
-        # return Path(*parts)
-
         path = []
         for part in self.path.parts:
             if glob.has_magic(part):
                 break
             else:
                 path.append(part)
-        # before_wildcard = str(self.path).split("*")[0]
-        # parts = Path(before_wildcard).parts[:-1]
         return Path(*path[:-1])
 
     # Can be removed after removing ENABLE_SNOWPARK_GLOB_SUPPORT feature flag.
