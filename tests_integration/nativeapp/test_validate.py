@@ -144,3 +144,37 @@ def test_nativeapp_validate_with_post_deploy_hooks(
     with nativeapp_teardown(project_dir=Path(temp_dir)):
         result = runner.invoke_with_connection(["app", "validate"])
         assert result.exit_code == 0, result.output
+
+
+@pytest.mark.integration
+def test_nativeapp_validate_with_artifacts_processor(
+    nativeapp_teardown, runner, temp_dir
+):
+    ProjectV2Factory(
+        pdf__entities=dict(
+            pkg=ApplicationPackageEntityModelFactory(
+                identifier="myapp_pkg",
+                artifacts=[
+                    "setup.sql",
+                    "README.md",
+                    "manifest.yml",
+                    # just needs to have the templates processor to nest phases
+                    {"src": "app/*", "dest": "./", "processors": ["templates"]},
+                ],
+            ),
+            app=ApplicationEntityModelFactory(
+                identifier="myapp",
+                fromm__target="pkg",
+            ),
+        ),
+        files={
+            "setup.sql": "CREATE OR ALTER VERSIONED SCHEMA core;",
+            "README.md": "\n",
+            "manifest.yml": "\n",
+            "app/dummy_file.md": "\n",
+        },
+    )
+
+    with nativeapp_teardown(project_dir=Path(temp_dir)):
+        result = runner.invoke_with_connection(["app", "validate"])
+        assert result.exit_code == 0, result.output
