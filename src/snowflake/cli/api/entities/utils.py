@@ -108,22 +108,15 @@ def sync_deploy_root_with_stage(
         A `DiffResult` instance describing the changes that were performed.
     """
 
-    sql_executor = get_sql_executor()
+    sql_facade = get_snowflake_facade()
     # Does a stage already exist within the application package, or we need to create one?
     # Using "if not exists" should take care of either case.
     console.step(
         f"Checking if stage {stage_fqn} exists, or creating a new one if none exists."
     )
-    with sql_executor.use_role(role):
-        sql_executor.execute_query(
-            f"create schema if not exists {package_name}.{stage_schema}"
-        )
-        sql_executor.execute_query(
-            f"""
-                    create stage if not exists {stage_fqn}
-                    encryption = (TYPE = 'SNOWFLAKE_SSE')
-                    DIRECTORY = (ENABLE = TRUE)"""
-        )
+    if not sql_facade.stage_exists(stage_fqn):
+        sql_facade.create_schema(stage_schema, database=package_name)
+        sql_facade.create_stage(stage_fqn)
 
     # Perform a diff operation and display results to the user for informational purposes
     if print_diff:

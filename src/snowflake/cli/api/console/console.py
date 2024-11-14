@@ -29,10 +29,6 @@ IMPORTANT_STYLE: Style = Style(bold=True, italic=True)
 INDENTATION_LEVEL: int = 2
 
 
-class CliConsoleNestingProhibitedError(RuntimeError):
-    """CliConsole phase nesting not allowed."""
-
-
 class CliConsole(AbstractConsole):
     """An utility for displaying intermediate output.
 
@@ -74,28 +70,21 @@ class CliConsole(AbstractConsole):
         exit_message: Optional[str] = None,
     ):
         """A context manager for organising steps into logical group."""
-        if self.in_phase:
-            raise CliConsoleNestingProhibitedError("Only one phase allowed at a time.")
-        if self._extra_indent > 0:
-            raise CliConsoleNestingProhibitedError(
-                "Phase cannot be used in an indented block."
-            )
-
         self._print(self._format_message(enter_message, Output.PHASE))
-        self._in_phase = True
+        self._extra_indent += 1
 
         try:
             yield self.step
         finally:
-            self._in_phase = False
+            self._extra_indent -= 1
             if exit_message:
                 self._print(self._format_message(exit_message, Output.PHASE))
 
     @contextmanager
     def indented(self):
         """
-        A context manager for temporarily indenting messages and warnings. Phases and steps cannot be used in indented blocks,
-        but multiple indented blocks can be nested (use sparingly).
+        A context manager for temporarily indenting messages and warnings.
+        Multiple indented blocks can be nested (use sparingly).
         """
         self._extra_indent += 1
         try:
@@ -108,10 +97,6 @@ class CliConsole(AbstractConsole):
 
         If called within a phase, the output will be indented.
         """
-        if self._extra_indent > 0:
-            raise CliConsoleNestingProhibitedError(
-                "Step cannot be used in an indented block."
-            )
         text = self._format_message(message, Output.STEP)
         self._print(text)
 
