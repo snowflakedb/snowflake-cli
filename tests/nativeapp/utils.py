@@ -70,6 +70,9 @@ SQL_FACADE_MODULE = "snowflake.cli._plugins.nativeapp.sf_facade"
 SQL_FACADE = f"{SQL_FACADE_MODULE}.SnowflakeSQLFacade"
 SQL_FACADE_GET_ACCOUNT_EVENT_TABLE = f"{SQL_FACADE}.get_account_event_table"
 SQL_FACADE_EXECUTE_USER_SCRIPT = f"{SQL_FACADE}.execute_user_script"
+SQL_FACADE_STAGE_EXISTS = f"{SQL_FACADE}.stage_exists"
+SQL_FACADE_CREATE_SCHEMA = f"{SQL_FACADE}.create_schema"
+SQL_FACADE_CREATE_STAGE = f"{SQL_FACADE}.create_stage"
 
 mock_snowflake_yml_file = dedent(
     """\

@@ -44,14 +44,6 @@
 * Fixes `snow connection generate-jwt` to work with keys with no passphrase.
 * The privilege to create a schema or stage is no longer required to run `snow app version create` if the schema and stage already exist.
 
-# v3.1.1
-## New additions
-* Enhanced `snow spcs service logs` command with new parameters for improved log retrieval and monitoring.
-  * `--since`: Start log retrieval from a specified UTC timestamp.
-  * `--include-timestamps`: Include timestamps in log entries for log streaming.
-  * `--follow (-f)`: Stream logs in real-time.
-  * `--follow-interval`: Set custom polling intervals during log streaming.
-
 # v3.1.0
 
 ## Deprecations
