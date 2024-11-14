@@ -390,9 +390,7 @@ def build(
                     project_root=artefact.project_root,
                     deploy_root=project_paths.deploy_root,
                 )
-                bundle_map.add(
-                    PathMapping(src=str(artefact.path), dest=(artefact.dest or None))
-                )
+                bundle_map.add(PathMapping(src=str(artefact.path), dest=artefact.dest))
 
                 if artefact.path.is_file():
                     for (absolute_src, absolute_dest) in bundle_map.all_mappings(
