@@ -728,7 +728,7 @@ def find_and_read_manifest_file(deploy_root: Path) -> Dict[str, Any]:
         "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
     ) as file:
         manifest_content = safe_load(file.read())
-    return manifest_content
+    return manifest_content or {}
 
 
 def find_setup_script_file(deploy_root: Path) -> Path:
