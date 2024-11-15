@@ -17,6 +17,10 @@ from unittest import mock
 from unittest.mock import _Call as Call
 
 import pytest
+from snowflake.cli._plugins.nativeapp.constants import SPECIAL_COMMENT
+from snowflake.cli._plugins.nativeapp.same_account_install_method import (
+    SameAccountInstallMethod,
+)
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
@@ -24,12 +28,15 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     InvalidSQLError,
     UnknownConnectorError,
     UnknownSQLError,
+    UserInputError,
     UserScriptError,
 )
 from snowflake.cli._plugins.nativeapp.sf_sql_facade import (
     SnowflakeSQLFacade,
 )
 from snowflake.cli.api.errno import (
+    APPLICATION_INSTANCE_FAILED_TO_RUN_SETUP_SCRIPT,
+    APPLICATION_REQUIRES_TELEMETRY_SHARING,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
@@ -47,7 +54,7 @@ from tests.nativeapp.utils import (
     mock_execute_helper,
 )
 
-sql_facade = None
+sql_facade = SnowflakeSQLFacade()
 
 
 @pytest.fixture(autouse=True)
@@ -1635,5 +1642,284 @@ def test_create_stage_raises_insufficient_privileges_error(
 
     with pytest.raises(InsufficientPrivilegesError):
         sql_facade.create_stage(stage, role=role, database=database)
+
+    mock_execute_query.assert_has_calls(expected)
+
+
+def test_upgrade_application_unversioned(mock_execute_query, mock_cursor):
+    app_name = "test_app"
+    stage_fqn = "app_pkg.app_src.stage"
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([], []),
+                mock.call(f"alter application {app_name} upgrade using @{stage_fqn}"),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    sql_facade.upgrade_application(
+        name=app_name,
+        install_method=SameAccountInstallMethod.unversioned_dev(),
+        stage_fqn=stage_fqn,
+    )
+
+    mock_execute_query.assert_has_calls(expected)
+
+
+def test_upgrade_application_version_and_patch(mock_execute_query, mock_cursor):
+    app_name = "test_app"
+    stage_fqn = "app_pkg.app_src.stage"
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([], []),
+                mock.call(
+                    f"alter application {app_name} upgrade using version 3 patch 2"
+                ),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    sql_facade.upgrade_application(
+        name=app_name,
+        install_method=SameAccountInstallMethod.versioned_dev("3", 2),
+        stage_fqn=stage_fqn,
+    )
+
+    mock_execute_query.assert_has_calls(expected)
+
+
+def test_upgrade_application_from_release_directive(mock_execute_query, mock_cursor):
+    app_name = "test_app"
+    stage_fqn = "app_pkg.app_src.stage"
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([], []),
+                mock.call(f"alter application {app_name} upgrade "),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    sql_facade.upgrade_application(
+        name=app_name,
+        install_method=SameAccountInstallMethod.release_directive(),
+        stage_fqn=stage_fqn,
+    )
+
+    mock_execute_query.assert_has_calls(expected)
+
+
+def test_upgrade_application_raises_event_sharing_error(mock_execute_query):
+    app_name = "test_app"
+    stage_fqn = "app_pkg.app_src.stage"
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(errno=APPLICATION_REQUIRES_TELEMETRY_SHARING),
+                mock.call(f"alter application {app_name} upgrade using @{stage_fqn}"),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with pytest.raises(ProgrammingError):
+        sql_facade.upgrade_application(
+            name=app_name,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=stage_fqn,
+        )
+
+    mock_execute_query.assert_has_calls(expected)
+
+
+def test_upgrade_application_converts_other_programmingerrors(mock_execute_query):
+    app_name = "test_app"
+    stage_fqn = "app_pkg.app_src.stage"
+    programming_error_message = "programming error message"
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(
+                    errno=APPLICATION_INSTANCE_FAILED_TO_RUN_SETUP_SCRIPT,
+                    msg="programming error message",
+                ),
+                mock.call(f"alter application {app_name} upgrade using @{stage_fqn}"),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with pytest.raises(UserInputError) as err:
+        sql_facade.upgrade_application(
+            name=app_name,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=stage_fqn,
+        )
+
+    assert err.match(
+        f"Failed to upgrade application {app_name} with the following error message:\n"
+    )
+    assert err.match(programming_error_message)
+
+    mock_execute_query.assert_has_calls(expected)
+
+
+def test_create_application_with_minimal_clauses(mock_execute_query, mock_cursor):
+    app_name = "test_app"
+    pkg_name = "test_pkg"
+    stage_fqn = "app_pkg.app_src.stage"
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        create application {app_name}
+                            from application package {pkg_name}  
+                            comment = {SPECIAL_COMMENT}
+                        """
+                    )
+                ),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    sql_facade.create_application(
+        name=app_name,
+        package_name=pkg_name,
+        install_method=SameAccountInstallMethod.release_directive(),
+        stage_fqn=stage_fqn,
+        debug_mode=None,
+        new_authorize_event_sharing_value=None,
+    )
+
+    mock_execute_query.assert_has_calls(expected)
+
+
+def test_create_application_with_all_clauses(mock_execute_query, mock_cursor):
+    app_name = "test_app"
+    pkg_name = "test_pkg"
+    stage_fqn = "app_pkg.app_src.stage"
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        create application {app_name}
+                            from application package {pkg_name} using @{stage_fqn} debug_mode = True AUTHORIZE_TELEMETRY_EVENT_SHARING = TRUE
+                            comment = {SPECIAL_COMMENT}
+                        """
+                    )
+                ),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    sql_facade.create_application(
+        name=app_name,
+        package_name=pkg_name,
+        install_method=SameAccountInstallMethod.unversioned_dev(),
+        stage_fqn=stage_fqn,
+        debug_mode=True,
+        new_authorize_event_sharing_value=True,
+    )
+
+    mock_execute_query.assert_has_calls(expected)
+
+
+def test_create_application_raises_event_sharing_error(mock_execute_query):
+    app_name = "test_app"
+    pkg_name = "test_pkg"
+    stage_fqn = "app_pkg.app_src.stage"
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(errno=APPLICATION_REQUIRES_TELEMETRY_SHARING),
+                mock.call(
+                    dedent(
+                        f"""\
+                        create application {app_name}
+                            from application package {pkg_name}  
+                            comment = {SPECIAL_COMMENT}
+                        """
+                    )
+                ),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with pytest.raises(ProgrammingError):
+        sql_facade.create_application(
+            name=app_name,
+            package_name=pkg_name,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=stage_fqn,
+            debug_mode=None,
+            new_authorize_event_sharing_value=None,
+        )
+
+    mock_execute_query.assert_has_calls(expected)
+
+
+def test_create_application_converts_other_programmingerrors(mock_execute_query):
+    app_name = "test_app"
+    pkg_name = "test_pkg"
+    stage_fqn = "app_pkg.app_src.stage"
+    programming_error_message = "programming error message"
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(
+                    errno=APPLICATION_INSTANCE_FAILED_TO_RUN_SETUP_SCRIPT,
+                    msg="programming error message",
+                ),
+                mock.call(
+                    dedent(
+                        f"""\
+                        create application {app_name}
+                            from application package {pkg_name}  
+                            comment = {SPECIAL_COMMENT}
+                        """
+                    )
+                ),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with pytest.raises(UserInputError) as err:
+        sql_facade.create_application(
+            name=app_name,
+            package_name=pkg_name,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=stage_fqn,
+            debug_mode=None,
+            new_authorize_event_sharing_value=None,
+        )
+
+    assert err.match(
+        f"Failed to create application {app_name} with the following error message:\n"
+    )
+    assert err.match(programming_error_message)
 
     mock_execute_query.assert_has_calls(expected)

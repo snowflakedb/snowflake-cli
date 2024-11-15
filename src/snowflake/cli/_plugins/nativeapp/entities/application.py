@@ -30,7 +30,6 @@ from snowflake.cli._plugins.nativeapp.constants import (
     COMMENT_COL,
     NAME_COL,
     OWNER_COL,
-    SPECIAL_COMMENT,
 )
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
@@ -678,11 +677,12 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                         console.step(
                             f"Upgrading existing application object {self.name}."
                         )
-                        using_clause = install_method.using_clause(stage_fqn)
-                        upgrade_cursor = sql_executor.execute_query(
-                            f"alter application {self.name} upgrade {using_clause}",
+                        upgrade_result = get_snowflake_facade().upgrade_application(
+                            name=self.name,
+                            install_method=install_method,
+                            stage_fqn=stage_fqn,
                         )
-                        print_messages(console, upgrade_cursor)
+                        print_messages(console, upgrade_result)
 
                         events_definitions = (
                             get_snowflake_facade().get_event_definitions(
@@ -755,37 +755,15 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                         )
 
                 try:
-                    # by default, applications are created in debug mode when possible;
-                    # this can be overridden in the project definition
-                    debug_mode_clause = ""
-                    if install_method.is_dev_mode:
-                        initial_debug_mode = (
-                            debug_mode if debug_mode is not None else True
-                        )
-                        debug_mode_clause = f"debug_mode = {initial_debug_mode}"
-
-                    authorize_telemetry_clause = ""
-                    new_authorize_event_sharing_value = (
-                        event_sharing.should_authorize_event_sharing_during_create()
+                    create_result = get_snowflake_facade().create_application(
+                        name=self.name,
+                        package_name=package.name,
+                        install_method=install_method,
+                        stage_fqn=stage_fqn,
+                        debug_mode=debug_mode,
+                        new_authorize_event_sharing_value=event_sharing.should_authorize_event_sharing_during_create(),
                     )
-                    if new_authorize_event_sharing_value is not None:
-                        log.info(
-                            "Setting AUTHORIZE_TELEMETRY_EVENT_SHARING to %s",
-                            new_authorize_event_sharing_value,
-                        )
-                        authorize_telemetry_clause = f" AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(new_authorize_event_sharing_value).upper()}"
-
-                    using_clause = install_method.using_clause(stage_fqn)
-                    create_cursor = sql_executor.execute_query(
-                        dedent(
-                            f"""\
-                        create application {self.name}
-                            from application package {package.name} {using_clause} {debug_mode_clause}{authorize_telemetry_clause}
-                            comment = {SPECIAL_COMMENT}
-                        """
-                        ),
-                    )
-                    print_messages(console, create_cursor)
+                    print_messages(console, create_result)
                     events_definitions = get_snowflake_facade().get_event_definitions(
                         self.name, self.role
                     )
