@@ -79,6 +79,7 @@ SpecPathOption = typer.Option(
     exists=True,
     show_default=False,
 )
+DEFAULT_NUM_LINES = 500
 
 _MIN_INSTANCES_HELP = "Minimum number of service instances to run."
 MinInstancesOption = OverrideableOption(
@@ -221,7 +222,7 @@ def logs(
         show_default=False,
     ),
     num_lines: int = typer.Option(
-        500, "--num-lines", help="Number of lines to retrieve."
+        DEFAULT_NUM_LINES, "--num-lines", help="Number of lines to retrieve."
     ),
     previous_logs: bool = typer.Option(
         False,
@@ -250,7 +251,7 @@ def logs(
     Retrieves local logs from a service container.
     """
     if follow:
-        if num_lines != 500:
+        if num_lines != DEFAULT_NUM_LINES:
             raise IncompatibleParametersError(["--follow", "--num-lines"])
         if previous_logs:
             raise IncompatibleParametersError(["--follow", "--previous-logs"])
