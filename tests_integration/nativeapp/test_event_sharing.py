@@ -1,25 +1,26 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import pytest
-import yaml
 
 from tests.nativeapp.factories import (
     ApplicationEntityModelFactory,
     ApplicationPackageEntityModelFactory,
+    ManifestFactory,
     ProjectV2Factory,
 )
 from tests_integration.test_utils import row_from_snowflake_session
-
-
-def build_manifest(configuration: dict):
-    manifest_json = {
-        "manifest_version": "1",
-        "artifacts": {
-            "setup_script": "setup.sql",
-            "readme": "README.md",
-        },
-        "configuration": configuration,
-    }
-
-    return yaml.dump(manifest_json)
 
 
 @pytest.fixture
@@ -56,13 +57,11 @@ def assert_events_in_app(snowflake_session, resource_suffix, events):
 def test_given_event_sharing_with_mandatory_events_and_sharing_allowed_then_success(
     temp_dir, runner, events_assertion, nativeapp_teardown
 ):
-    manifest_yml = build_manifest(
-        {
-            "telemetry_event_definitions": [
-                {"type": "ERRORS_AND_WARNINGS", "sharing": "MANDATORY"},
-                {"type": "DEBUG_LOGS", "sharing": "OPTIONAL"},
-            ]
-        }
+    manifest_yml = ManifestFactory(
+        configuration__telemetry_event_definitions=[
+            {"type": "ERRORS_AND_WARNINGS", "sharing": "MANDATORY"},
+            {"type": "DEBUG_LOGS", "sharing": "OPTIONAL"},
+        ]
     )
     ProjectV2Factory(
         pdf__entities=dict(
@@ -112,13 +111,11 @@ def test_given_event_sharing_with_mandatory_events_and_sharing_allowed_then_succ
 def test_given_event_sharing_with_mandatory_events_and_sharing_not_allowed_then_error(
     temp_dir, runner, nativeapp_teardown
 ):
-    manifest_yml = build_manifest(
-        {
-            "telemetry_event_definitions": [
-                {"type": "ERRORS_AND_WARNINGS", "sharing": "MANDATORY"},
-                {"type": "DEBUG_LOGS", "sharing": "OPTIONAL"},
-            ]
-        }
+    manifest_yml = ManifestFactory(
+        configuration__telemetry_event_definitions=[
+            {"type": "ERRORS_AND_WARNINGS", "sharing": "MANDATORY"},
+            {"type": "DEBUG_LOGS", "sharing": "OPTIONAL"},
+        ]
     )
     ProjectV2Factory(
         pdf__entities=dict(
@@ -152,14 +149,13 @@ def test_given_event_sharing_with_mandatory_events_and_sharing_not_allowed_then_
 def test_given_event_sharing_with_no_mandatory_events_and_sharing_not_allowed_then_success(
     temp_dir, runner, events_assertion, nativeapp_teardown
 ):
-    manifest_yml = build_manifest(
-        {
-            "telemetry_event_definitions": [
-                {"type": "ERRORS_AND_WARNINGS", "sharing": "OPTIONAL"},
-                {"type": "DEBUG_LOGS", "sharing": "OPTIONAL"},
-            ]
-        }
+    manifest_yml = ManifestFactory(
+        configuration__telemetry_event_definitions=[
+            {"type": "ERRORS_AND_WARNINGS", "sharing": "OPTIONAL"},
+            {"type": "DEBUG_LOGS", "sharing": "OPTIONAL"},
+        ]
     )
+
     ProjectV2Factory(
         pdf__entities=dict(
             pkg=ApplicationPackageEntityModelFactory(
@@ -205,14 +201,13 @@ def test_given_event_sharing_with_no_mandatory_events_and_sharing_not_allowed_th
 def test_given_event_sharing_with_no_mandatory_events_and_sharing_is_allowed_then_success(
     temp_dir, runner, events_assertion, nativeapp_teardown
 ):
-    manifest_yml = build_manifest(
-        {
-            "telemetry_event_definitions": [
-                {"type": "ERRORS_AND_WARNINGS", "sharing": "OPTIONAL"},
-                {"type": "DEBUG_LOGS", "sharing": "OPTIONAL"},
-            ]
-        }
+    manifest_yml = ManifestFactory(
+        configuration__telemetry_event_definitions=[
+            {"type": "ERRORS_AND_WARNINGS", "sharing": "OPTIONAL"},
+            {"type": "DEBUG_LOGS", "sharing": "OPTIONAL"},
+        ]
     )
+
     ProjectV2Factory(
         pdf__entities=dict(
             pkg=ApplicationPackageEntityModelFactory(
