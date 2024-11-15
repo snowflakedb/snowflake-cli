@@ -113,7 +113,8 @@ class ApplicationPackageEntityModel(EntityModelBase):
         default="internal",
     )
     manifest: Optional[str] = Field(
-        title="Unused field. Path to manifest.yml", default=""
+        title="Path to manifest.yml. Unused and deprecated starting with Snowflake CLI 3.2",
+        default="",
     )
 
     @field_validator("identifier")
