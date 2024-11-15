@@ -54,7 +54,7 @@ def assert_events_in_app(snowflake_session, resource_suffix, events):
 
 @pytest.mark.integration
 def test_given_event_sharing_with_mandatory_events_and_sharing_allowed_then_success(
-    temp_dir, runner, events_assertion
+    temp_dir, runner, events_assertion, nativeapp_teardown
 ):
     manifest_yml = build_manifest(
         {
@@ -86,30 +86,31 @@ def test_given_event_sharing_with_mandatory_events_and_sharing_allowed_then_succ
         },
     )
 
-    result = runner.invoke_with_connection(["app", "run"])
-    assert result.exit_code == 0
+    with nativeapp_teardown():
+        result = runner.invoke_with_connection(["app", "run"])
+        assert result.exit_code == 0
 
-    events_assertion(
-        [
-            {
-                "name": "SNOWFLAKE$ERRORS_AND_WARNINGS",
-                "sharing": "MANDATORY",
-                "status": "ENABLED",
-                "type": "ERRORS_AND_WARNINGS",
-            },
-            {
-                "name": "SNOWFLAKE$DEBUG_LOGS",
-                "sharing": "OPTIONAL",
-                "status": "ENABLED",
-                "type": "DEBUG_LOGS",
-            },
-        ]
-    )
+        events_assertion(
+            [
+                {
+                    "name": "SNOWFLAKE$ERRORS_AND_WARNINGS",
+                    "sharing": "MANDATORY",
+                    "status": "ENABLED",
+                    "type": "ERRORS_AND_WARNINGS",
+                },
+                {
+                    "name": "SNOWFLAKE$DEBUG_LOGS",
+                    "sharing": "OPTIONAL",
+                    "status": "ENABLED",
+                    "type": "DEBUG_LOGS",
+                },
+            ]
+        )
 
 
 @pytest.mark.integration
 def test_given_event_sharing_with_mandatory_events_and_sharing_not_allowed_then_error(
-    temp_dir, runner
+    temp_dir, runner, nativeapp_teardown
 ):
     manifest_yml = build_manifest(
         {
@@ -138,17 +139,18 @@ def test_given_event_sharing_with_mandatory_events_and_sharing_not_allowed_then_
         },
     )
 
-    result = runner.invoke_with_connection(["app", "run"])
-    assert result.exit_code == 1
-    assert (
-        "The application package requires event sharing to be authorized"
-        in result.output
-    )
+    with nativeapp_teardown():
+        result = runner.invoke_with_connection(["app", "run"])
+        assert result.exit_code == 1
+        assert (
+            "The application package requires event sharing to be authorized"
+            in result.output
+        )
 
 
 @pytest.mark.integration
 def test_given_event_sharing_with_no_mandatory_events_and_sharing_not_allowed_then_success(
-    temp_dir, runner, events_assertion
+    temp_dir, runner, events_assertion, nativeapp_teardown
 ):
     manifest_yml = build_manifest(
         {
@@ -177,30 +179,31 @@ def test_given_event_sharing_with_no_mandatory_events_and_sharing_not_allowed_th
         },
     )
 
-    result = runner.invoke_with_connection(["app", "run"])
-    assert result.exit_code == 0
+    with nativeapp_teardown():
+        result = runner.invoke_with_connection(["app", "run"])
+        assert result.exit_code == 0
 
-    events_assertion(
-        [
-            {
-                "name": "SNOWFLAKE$ERRORS_AND_WARNINGS",
-                "sharing": "OPTIONAL",
-                "status": "DISABLED",
-                "type": "ERRORS_AND_WARNINGS",
-            },
-            {
-                "name": "SNOWFLAKE$DEBUG_LOGS",
-                "sharing": "OPTIONAL",
-                "status": "DISABLED",
-                "type": "DEBUG_LOGS",
-            },
-        ]
-    )
+        events_assertion(
+            [
+                {
+                    "name": "SNOWFLAKE$ERRORS_AND_WARNINGS",
+                    "sharing": "OPTIONAL",
+                    "status": "DISABLED",
+                    "type": "ERRORS_AND_WARNINGS",
+                },
+                {
+                    "name": "SNOWFLAKE$DEBUG_LOGS",
+                    "sharing": "OPTIONAL",
+                    "status": "DISABLED",
+                    "type": "DEBUG_LOGS",
+                },
+            ]
+        )
 
 
 @pytest.mark.integration
 def test_given_event_sharing_with_no_mandatory_events_and_sharing_is_allowed_then_success(
-    temp_dir, runner, events_assertion
+    temp_dir, runner, events_assertion, nativeapp_teardown
 ):
     manifest_yml = build_manifest(
         {
@@ -232,22 +235,23 @@ def test_given_event_sharing_with_no_mandatory_events_and_sharing_is_allowed_the
         },
     )
 
-    result = runner.invoke_with_connection(["app", "run"])
-    assert result.exit_code == 0
+    with nativeapp_teardown():
+        result = runner.invoke_with_connection(["app", "run"])
+        assert result.exit_code == 0
 
-    events_assertion(
-        [
-            {
-                "name": "SNOWFLAKE$ERRORS_AND_WARNINGS",
-                "sharing": "OPTIONAL",
-                "status": "ENABLED",
-                "type": "ERRORS_AND_WARNINGS",
-            },
-            {
-                "name": "SNOWFLAKE$DEBUG_LOGS",
-                "sharing": "OPTIONAL",
-                "status": "ENABLED",
-                "type": "DEBUG_LOGS",
-            },
-        ]
-    )
+        events_assertion(
+            [
+                {
+                    "name": "SNOWFLAKE$ERRORS_AND_WARNINGS",
+                    "sharing": "OPTIONAL",
+                    "status": "ENABLED",
+                    "type": "ERRORS_AND_WARNINGS",
+                },
+                {
+                    "name": "SNOWFLAKE$DEBUG_LOGS",
+                    "sharing": "OPTIONAL",
+                    "status": "ENABLED",
+                    "type": "DEBUG_LOGS",
+                },
+            ]
+        )
