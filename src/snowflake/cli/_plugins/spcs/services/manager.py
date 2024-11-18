@@ -141,12 +141,13 @@ class ServiceManager(SqlExecutionMixin):
         instance_id: str,
         container_name: str,
         num_lines: int,
+        previous_logs: bool = False,
         since_timestamp: str = "",
         include_timestamps: bool = False,
     ):
         cursor = self.execute_query(
             f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', "
-            f"{num_lines}, False, '{since_timestamp}', {include_timestamps});"
+            f"{num_lines}, {previous_logs}, '{since_timestamp}', {include_timestamps});"
         )
 
         for log in cursor.fetchall():
