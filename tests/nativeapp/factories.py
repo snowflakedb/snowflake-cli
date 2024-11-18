@@ -334,3 +334,33 @@ class ProjectV11Factory(ProjectV10Factory):
 
 class ProjectV2Factory(_ProjectFactory):
     pdf = factory.SubFactory(PdfV2Factory)
+
+
+class ManifestFactory(factory.DictFactory):
+    version = factory.Dict(
+        {
+            "name": factory.Faker("word"),
+            "label": factory.Faker("word"),
+            "comment": factory.Faker("sentence"),
+        }
+    )
+    artifacts = factory.Dict(
+        {
+            "setup_script": "setup.sql",
+            "extension_code": True,
+            "readme": "README.md",
+        }
+    )
+    configuration = factory.Dict(
+        {
+            "log_level": "fatal",
+            "trace_level": "always",
+            "telemetry_event_definitions": None,
+        }
+    )
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs) -> str:
+        res = cls._build(model_class, *args, **kwargs)
+
+        return yaml.dump(res)
