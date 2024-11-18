@@ -63,3 +63,4 @@ class FeatureFlag(FeatureFlagMixin):
     ENABLE_STREAMLIT_VERSIONED_STAGE = BooleanFlag(
         "ENABLE_STREAMLIT_VERSIONED_STAGE", False
     )
+    ENABLE_SNOWPARK_GLOB_SUPPORT = BooleanFlag("ENABLE_SNOWPARK_GLOB_SUPPORT", False)
