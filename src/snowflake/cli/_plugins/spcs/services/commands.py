@@ -79,6 +79,7 @@ SpecPathOption = typer.Option(
     exists=True,
     show_default=False,
 )
+DEFAULT_NUM_LINES = 500
 
 _MIN_INSTANCES_HELP = "Minimum number of service instances to run."
 MinInstancesOption = OverrideableOption(
@@ -221,21 +222,28 @@ def logs(
         show_default=False,
     ),
     num_lines: int = typer.Option(
-        500, "--num-lines", help="Number of lines to retrieve."
+        DEFAULT_NUM_LINES, "--num-lines", help="Number of lines to retrieve."
+    ),
+    previous_logs: bool = typer.Option(
+        False,
+        "--previous-logs",
+        "-p",
+        help="Retrieve logs from the last terminated container",
+        is_flag=True,
     ),
     since_timestamp: Optional[str] = typer.Option(
-        "", "--since", help="Timestamp to retrieve logs from"
+        "", "--since", help="Start log retrieval from a specified UTC timestamp"
     ),
     include_timestamps: bool = typer.Option(
         False, "--include-timestamps", help="Include timestamps in logs", is_flag=True
     ),
     follow: bool = typer.Option(
-        False, "--follow", "-f", help="Continue polling for logs.", is_flag=True
+        False, "--follow", "-f", help="Stream logs in real-time", is_flag=True
     ),
     follow_interval: int = typer.Option(
         2,
         "--follow-interval",
-        help="Polling interval in seconds when using the --follow flag",
+        help="Set custom polling intervals during log streaming.",
     ),
     **options,
 ):
@@ -243,8 +251,10 @@ def logs(
     Retrieves local logs from a service container.
     """
     if follow:
-        if num_lines != 500:
+        if num_lines != DEFAULT_NUM_LINES:
             raise IncompatibleParametersError(["--follow", "--num-lines"])
+        if previous_logs:
+            raise IncompatibleParametersError(["--follow", "--previous-logs"])
 
     manager = ServiceManager()
 
@@ -270,6 +280,7 @@ def logs(
                 container_name=container_name,
                 instance_id=instance_id,
                 num_lines=num_lines,
+                previous_logs=previous_logs,
                 since_timestamp=since_timestamp,
                 include_timestamps=include_timestamps,
             )
