@@ -1,0 +1,23 @@
+definition_version: 2
+entities:
+  hello_procedure:
+    artifacts:
+      - # set in test
+    handler: hello
+    identifier:
+      name: hello_procedure
+    returns: string
+    signature:
+      - name: "name"
+        type: "string"
+    stage: dev_deployment
+    type: procedure
+  my_streamlit:
+    type: "streamlit"
+    identifier: test_streamlit_deploy_snowcli
+    title: "My Fancy Streamlit"
+    stage: streamlit
+    query_warehouse: xsmall
+    main_file: streamlit_app.py
+    artifacts:
+      - # set in test
