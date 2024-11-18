@@ -14,11 +14,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+import glob
 from typing import List, Literal, Optional, Union
 
 from pydantic import Field, field_validator
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.commons import Artifacts
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     ExternalAccessBaseModel,
@@ -26,22 +28,9 @@ from snowflake.cli.api.project.schemas.entities.common import (
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
-    UpdatableModel,
 )
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.v1.snowpark.argument import Argument
-
-
-class PathMapping(UpdatableModel):
-    class Config:
-        frozen = True
-
-    src: Path = Field(title="Source path (relative to project root)", default=None)
-
-    dest: Optional[str] = Field(
-        title="Destination path on stage",
-        description="Paths are relative to stage root; paths ending with a slash indicate that the destination is a directory which source files should be copied into.",
-        default=None,
-    )
 
 
 class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseModel):
@@ -59,17 +48,24 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseM
         title="Python version to use when executing ", default=None
     )
     stage: str = Field(title="Stage in which artifacts will be stored")
-    artifacts: List[Union[PathMapping, str]] = Field(title="List of required sources")
+    artifacts: Artifacts = Field(title="List of required sources")
 
     @field_validator("artifacts")
     @classmethod
     def _convert_artifacts(cls, artifacts: Union[dict, str]):
         _artifacts = []
-        for artefact in artifacts:
-            if isinstance(artefact, PathMapping):
-                _artifacts.append(artefact)
+        for artifact in artifacts:
+            if (
+                (isinstance(artifact, str) and glob.has_magic(artifact))
+                or (isinstance(artifact, PathMapping) and glob.has_magic(artifact.src))
+            ) and FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_disabled():
+                raise ValueError(
+                    "If you want to use glob patterns in artifacts, you need to enable the Snowpark new build feature flag (ENABLE_SNOWPARK_GLOB_SUPPORT=true)"
+                )
+            if isinstance(artifact, PathMapping):
+                _artifacts.append(artifact)
             else:
-                _artifacts.append(PathMapping(src=artefact))
+                _artifacts.append(PathMapping(src=artifact))
         return _artifacts
 
     @field_validator("runtime")
@@ -78,14 +74,6 @@ class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseM
         if isinstance(runtime_input, float):
             return str(runtime_input)
         return runtime_input
-
-    @field_validator("artifacts")
-    @classmethod
-    def validate_artifacts(cls, artifacts: List[Path]) -> List[Path]:
-        for artefact in artifacts:
-            if "*" in str(artefact):
-                raise ValueError("Glob patterns not supported for Snowpark artifacts.")
-        return artifacts
 
     @property
     def udf_sproc_identifier(self) -> UdfSprocIdentifier:
