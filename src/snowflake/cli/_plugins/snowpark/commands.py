@@ -20,6 +20,7 @@ from typing import Dict, Optional, Set, Tuple
 
 import typer
 from click import ClickException, UsageError
+from snowflake.cli._plugins.nativeapp.artifacts import BundleMap, symlink_or_copy
 from snowflake.cli._plugins.object.commands import (
     describe as object_describe,
 )
@@ -59,7 +60,7 @@ from snowflake.cli._plugins.snowpark.snowpark_shared import (
     IndexUrlOption,
     SkipVersionCheckOption,
 )
-from snowflake.cli._plugins.snowpark.zipper import zip_dir
+from snowflake.cli._plugins.snowpark.zipper import zip_dir, zip_dir_using_bundle_map
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import (
     get_cli_context,
@@ -81,6 +82,7 @@ from snowflake.cli.api.constants import (
 from snowflake.cli.api.exceptions import (
     SecretsWithoutExternalAccessIntegrationError,
 )
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -95,6 +97,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
 )
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -225,8 +228,8 @@ def build_artifacts_mappings(
             entities_to_imports_map[entity_id].add(artefact_dto.import_path(stage))
         stages_to_artifact_map[stage].update(required_artifacts)
 
-        if project_paths.dependencies.exists():
-            deps_artefact = project_paths.get_dependencies_artefact()
+        deps_artefact = project_paths.get_dependencies_artefact()
+        if deps_artefact.post_build_path.exists():
             stages_to_artifact_map[stage].add(deps_artefact)
             entities_to_imports_map[entity_id].add(deps_artefact.import_path(stage))
     return entities_to_imports_map, stages_to_artifact_map
@@ -239,11 +242,12 @@ def create_stages_and_upload_artifacts(stages_to_artifact_map: StageToArtefactMa
         stage = FQN.from_stage(stage).using_context()
         stage_manager.create(fqn=stage, comment="deployments managed by Snowflake CLI")
         for artefact in artifacts:
+            post_build_path = artefact.post_build_path
             cli_console.step(
-                f"Uploading {artefact.post_build_path.name} to {artefact.upload_path(stage)}"
+                f"Uploading {post_build_path.name} to {artefact.upload_path(stage)}"
             )
             stage_manager.put(
-                local_path=artefact.post_build_path,
+                local_path=post_build_path,
                 stage_path=artefact.upload_path(stage),
                 overwrite=True,
             )
@@ -324,6 +328,9 @@ def build(
 
     anaconda_packages_manager = AnacondaPackagesManager()
 
+    # Clean up deploy root
+    project_paths.remove_up_deploy_root()
+
     # Resolve dependencies
     if project_paths.requirements.exists():
         with (
@@ -362,22 +369,50 @@ def build(
                 )
 
             if any(temp_deps_dir.path.iterdir()):
-                cli_console.step(f"Creating {project_paths.dependencies.name}")
+                dep_artifact = project_paths.get_dependencies_artefact()
+                cli_console.step(f"Creating {dep_artifact.path.name}")
                 zip_dir(
                     source=temp_deps_dir.path,
-                    dest_zip=project_paths.dependencies,
+                    dest_zip=dep_artifact.post_build_path,
                 )
             else:
                 cli_console.step(f"No external dependencies.")
 
     artifacts = set()
-    for entity in get_snowpark_entities(pd).values():
-        artifacts.update(entity.artifacts)
-
     with cli_console.phase("Preparing artifacts for source code"):
-        for artefact in artifacts:
-            artefact_dto = project_paths.get_artefact_dto(artefact)
-            artefact_dto.build()
+        if FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled():
+            for entity in get_snowpark_entities(pd).values():
+                for artifact in entity.artifacts:
+                    artifacts.add(project_paths.get_artefact_dto(artifact))
+
+            for artefact in artifacts:
+                bundle_map = BundleMap(
+                    project_root=artefact.project_root,
+                    deploy_root=project_paths.deploy_root,
+                )
+                bundle_map.add(PathMapping(src=str(artefact.path), dest=artefact.dest))
+
+                if artefact.path.is_file():
+                    for (absolute_src, absolute_dest) in bundle_map.all_mappings(
+                        absolute=True, expand_directories=False
+                    ):
+                        symlink_or_copy(
+                            absolute_src,
+                            absolute_dest,
+                            deploy_root=bundle_map.deploy_root(),
+                        )
+                else:
+                    zip_dir_using_bundle_map(
+                        bundle_map=bundle_map,
+                        dest_zip=artefact.post_build_path,
+                    )
+        else:
+            for entity in get_snowpark_entities(pd).values():
+                for artifact in entity.artifacts:
+                    artifacts.add(project_paths.get_artefact_dto(artifact))
+
+            for artefact in artifacts:
+                artefact.build()
 
     return MessageResult(f"Build done.")
 

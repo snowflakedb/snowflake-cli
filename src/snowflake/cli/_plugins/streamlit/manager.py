@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
+from pathlib import PurePosixPath
 from typing import List, Optional
 
 from click import ClickException
@@ -24,10 +24,14 @@ from snowflake.cli._plugins.connection.util import (
     MissingConnectionRegionError,
     make_snowsight_url,
 )
+from snowflake.cli._plugins.nativeapp.artifacts import BundleMap, symlink_or_copy
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
+)
+from snowflake.cli._plugins.streamlit.streamlit_project_paths import (
+    StreamlitProjectPaths,
 )
 from snowflake.cli.api.commands.experimental_behaviour import (
     experimental_behaviour_enabled,
@@ -35,6 +39,7 @@ from snowflake.cli.api.commands.experimental_behaviour import (
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
@@ -54,26 +59,43 @@ class StreamlitManager(SqlExecutionMixin):
 
     def _put_streamlit_files(
         self,
-        root_location: str,
-        artifacts: Optional[List[Path]] = None,
+        streamlit_project_paths: StreamlitProjectPaths,
+        stage_root: str,
+        artifacts: Optional[List[PathMapping]] = None,
     ):
-        cli_console.step(f"Deploying files to {root_location}")
+        cli_console.step(f"Deploying files to {stage_root}")
         if not artifacts:
             return
         stage_manager = StageManager()
-        for file in artifacts:
-            if file.is_dir():
-                if not any(file.iterdir()):
-                    cli_console.warning(f"Skipping empty directory: {file}")
-                    continue
+        bundle_map = BundleMap(
+            project_root=streamlit_project_paths.project_root,
+            deploy_root=streamlit_project_paths.deploy_root,
+        )
+        for artifact in artifacts:
+            bundle_map.add(PathMapping(src=str(artifact.src), dest=artifact.dest))
 
-                stage_manager.put(
-                    f"{file.joinpath('*')}", f"{root_location}/{file}", 4, True
+        # Clean up deploy root
+        streamlit_project_paths.remove_up_deploy_root()
+
+        for (absolute_src, absolute_dest) in bundle_map.all_mappings(
+            absolute=True, expand_directories=True
+        ):
+            if absolute_src.is_file():
+                symlink_or_copy(
+                    absolute_src,
+                    absolute_dest,
+                    deploy_root=streamlit_project_paths.deploy_root,
                 )
-            elif len(file.parts) > 1:
-                stage_manager.put(file, f"{root_location}/{file.parent}", 4, True)
-            else:
-                stage_manager.put(file, root_location, 4, True)
+                # Temporary solution, will be replaced with diff
+                stage_path = (
+                    PurePosixPath(absolute_dest)
+                    .relative_to(streamlit_project_paths.deploy_root)
+                    .parent
+                )
+                full_stage_path = f"{stage_root}/{stage_path}".rstrip("/")
+                stage_manager.put(
+                    local_path=absolute_dest, stage_path=full_stage_path, overwrite=True
+                )
 
     def _create_streamlit(
         self,
@@ -127,7 +149,12 @@ class StreamlitManager(SqlExecutionMixin):
 
         self.execute_query("\n".join(query))
 
-    def deploy(self, streamlit: StreamlitEntityModel, replace: bool = False):
+    def deploy(
+        self,
+        streamlit: StreamlitEntityModel,
+        streamlit_project_paths: StreamlitProjectPaths,
+        replace: bool = False,
+    ):
         streamlit_id = streamlit.fqn.using_connection(self._conn)
         if (
             ObjectManager().object_exists(object_type="streamlit", fqn=streamlit_id)
@@ -179,12 +206,13 @@ class StreamlitManager(SqlExecutionMixin):
             embedded_stage_name = f"snow://streamlit/{stage_path}"
             if use_versioned_stage:
                 # "LIVE" is the only supported version for now, but this may change later.
-                root_location = f"{embedded_stage_name}/versions/live"
+                stage_root = f"{embedded_stage_name}/versions/live"
             else:
-                root_location = f"{embedded_stage_name}/default_checkout"
+                stage_root = f"{embedded_stage_name}/default_checkout"
 
             self._put_streamlit_files(
-                root_location,
+                streamlit_project_paths,
+                stage_root,
                 streamlit.artifacts,
             )
         else:
@@ -201,16 +229,18 @@ class StreamlitManager(SqlExecutionMixin):
             cli_console.step(f"Creating {stage_name} stage")
             stage_manager.create(fqn=stage_name)
 
-            root_location = stage_manager.get_standard_stage_prefix(
+            stage_root = stage_manager.get_standard_stage_prefix(
                 f"{stage_name}/{streamlit_name_for_root_location}"
             )
 
-            self._put_streamlit_files(root_location, streamlit.artifacts)
+            self._put_streamlit_files(
+                streamlit_project_paths, stage_root, streamlit.artifacts
+            )
 
             self._create_streamlit(
                 streamlit=streamlit,
                 replace=replace,
-                from_stage_name=root_location,
+                from_stage_name=stage_root,
                 experimental=False,
             )
 

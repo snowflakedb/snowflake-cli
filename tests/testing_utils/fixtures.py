@@ -466,3 +466,12 @@ def mock_procedure_description(mock_cursor):
             "installed_packages",
         ],
     )
+
+
+@pytest.fixture
+def enable_snowpark_glob_support_feature_flag():
+    with mock.patch(
+        f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled",
+        return_value=True,
+    ):
+        yield

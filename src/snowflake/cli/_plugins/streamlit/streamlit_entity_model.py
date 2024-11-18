@@ -13,10 +13,10 @@
 # limitations under the License.
 from __future__ import annotations
 
-from pathlib import Path
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator
+from snowflake.cli.api.project.schemas.commons import Artifacts
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     ExternalAccessBaseModel,
@@ -25,6 +25,7 @@ from snowflake.cli.api.project.schemas.entities.common import (
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
 )
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 
 
 class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseModel):
@@ -43,24 +44,20 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBase
     stage: Optional[str] = Field(
         title="Stage in which the app’s artifacts will be stored", default="streamlit"
     )
-    # Possibly can be PathMapping
-    artifacts: Optional[List[Path]] = Field(
+    artifacts: Optional[Artifacts] = Field(
         title="List of files which should be deployed. Each file needs to exist locally. "
         "Main file needs to be included in the artifacts.",
         default=None,
     )
 
-    @model_validator(mode="after")
-    def artifacts_must_exists(self):
-        if not self.artifacts:
-            return self
-
-        for artifact in self.artifacts:
-            if "*" in artifact.name:
-                continue
-            if not artifact.exists():
-                raise ValueError(
-                    f"Specified artifact {artifact} does not exist locally."
-                )
-
-        return self
+    @field_validator("artifacts")
+    @classmethod
+    def _convert_artifacts(cls, artifacts: Artifacts) -> Artifacts:
+        _artifacts = []
+        for artifact in artifacts:
+            if isinstance(artifact, PathMapping):
+                path_mapping = artifact
+            else:
+                path_mapping = PathMapping(src=artifact)
+            _artifacts.append(path_mapping)
+        return _artifacts

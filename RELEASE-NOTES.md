@@ -88,6 +88,8 @@
   * `--follow`: Stream logs in real-time.
   * `--follow-interval`: Set custom polling intervals during log streaming.
 * `snow connection add` supports `--no-interactive` flag to skip interactive prompts.
+* Added support for glob pattern in artifact paths in snowflake.yml for Streamlit.
+* Added support for glob pattern in artifact paths in snowflake.yml for Snowpark, requires ENABLE_SNOWPARK_GLOB_SUPPORT feature flag.
 
 ## Fixes and improvements
 * `snow --info` callback returns information about `SNOWFLAKE_HOME` variable.

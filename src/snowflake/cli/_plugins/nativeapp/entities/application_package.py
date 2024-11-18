@@ -88,6 +88,7 @@ from snowflake.cli.api.entities.utils import (
 )
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.project.schemas.commons import Artifacts
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
@@ -154,7 +155,7 @@ class ApplicationPackageChildField(UpdatableModel):
 
 class ApplicationPackageEntityModel(EntityModelBase):
     type: Literal["application package"] = DiscriminatorField()  # noqa: A003
-    artifacts: List[Union[PathMapping, str]] = Field(
+    artifacts: Artifacts = Field(
         title="List of paths or file source/destination pairs to add to the deploy root",
     )
     bundle_root: Optional[str] = Field(
@@ -223,10 +224,8 @@ class ApplicationPackageEntityModel(EntityModelBase):
 
     @field_validator("artifacts")
     @classmethod
-    def transform_artifacts(
-        cls, orig_artifacts: List[Union[PathMapping, str]]
-    ) -> List[PathMapping]:
-        transformed_artifacts = []
+    def transform_artifacts(cls, orig_artifacts: Artifacts) -> List[PathMapping]:
+        transformed_artifacts: List[PathMapping] = []
         if orig_artifacts is None:
             return transformed_artifacts
 

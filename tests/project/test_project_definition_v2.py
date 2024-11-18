@@ -375,7 +375,7 @@ def test_v1_to_v2_conversion(
         )
 
         artifact = PathMapping(
-            src=Path(definition_v1.snowpark.src),
+            src=definition_v1.snowpark.src,
             dest=definition_v1.snowpark.project_name,
         )
         for v1_procedure in definition_v1.snowpark.procedures:
