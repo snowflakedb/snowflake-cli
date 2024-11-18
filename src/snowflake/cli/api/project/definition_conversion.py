@@ -222,10 +222,11 @@ def convert_streamlit_to_v2_data(streamlit: Streamlit) -> Dict[str, Any]:
         environment_file,
         pages_dir,
     ]
-    artifacts = [a for a in artifacts if a is not None]
+    artifacts = [str(a) for a in artifacts if a is not None]
 
     if streamlit.additional_source_files:
-        artifacts.extend(streamlit.additional_source_files)
+        for additional_file in streamlit.additional_source_files:
+            artifacts.append(str(additional_file))
 
     identifier = {"name": streamlit.name}
     if streamlit.schema_name:
