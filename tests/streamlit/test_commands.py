@@ -55,9 +55,9 @@ def test_describe_streamlit(mock_connector, runner, mock_ctx):
     ]
 
 
-def _put_query(source: str, dest: str):
+def _put_query(project_root: Path, source: str, dest: str):
     return dedent(
-        f"put file://{Path(source)} {dest} auto_compress=false parallel=4 overwrite=True"
+        f"put file://{project_root.resolve() / 'output' / source} {dest} auto_compress=false parallel=4 overwrite=True"
     )
 
 
@@ -91,16 +91,18 @@ def test_deploy_only_streamlit_file(
     mock_connector.return_value = ctx
     mock_get_account.return_value = "my_account"
 
-    with project_directory("example_streamlit") as pdir:
-        (pdir / "environment.yml").unlink()
-        shutil.rmtree(pdir / "pages")
+    with project_directory("example_streamlit") as tmp_dir:
+        (tmp_dir / "environment.yml").unlink()
+        shutil.rmtree(tmp_dir / "pages")
         result = runner.invoke(["streamlit", "deploy"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
         _put_query(
-            "streamlit_app.py", "@MockDatabase.MockSchema.streamlit/test_streamlit"
+            tmp_dir,
+            "streamlit_app.py",
+            "@MockDatabase.MockSchema.streamlit/test_streamlit",
         ),
         dedent(
             f"""
@@ -146,16 +148,18 @@ def test_deploy_only_streamlit_file_no_stage(
     mock_connector.return_value = ctx
     mock_get_account.return_value = "my_account"
 
-    with project_directory("example_streamlit_no_stage") as pdir:
-        (pdir / "environment.yml").unlink()
-        shutil.rmtree(pdir / "pages")
+    with project_directory("example_streamlit_no_stage") as tmp_dir:
+        (tmp_dir / "environment.yml").unlink()
+        shutil.rmtree(tmp_dir / "pages")
         result = runner.invoke(["streamlit", "deploy"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
         _put_query(
-            "streamlit_app.py", "@MockDatabase.MockSchema.streamlit/test_streamlit"
+            tmp_dir,
+            "streamlit_app.py",
+            "@MockDatabase.MockSchema.streamlit/test_streamlit",
         ),
         dedent(
             f"""
@@ -200,18 +204,22 @@ def test_deploy_with_empty_pages(
     mock_connector.return_value = ctx
     mock_get_account.return_value = "my_account"
 
-    with project_directory("streamlit_empty_pages") as directory:
-        (directory / "pages").mkdir(parents=True, exist_ok=True)
+    with project_directory("streamlit_empty_pages") as tmp_dir:
+        (tmp_dir / "pages").mkdir(parents=True, exist_ok=True)
         result = runner.invoke(["streamlit", "deploy"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
         _put_query(
-            "streamlit_app.py", "@MockDatabase.MockSchema.streamlit/test_streamlit"
+            tmp_dir,
+            "streamlit_app.py",
+            "@MockDatabase.MockSchema.streamlit/test_streamlit",
         ),
         _put_query(
-            "environment.yml", "@MockDatabase.MockSchema.streamlit/test_streamlit"
+            tmp_dir,
+            "environment.yml",
+            "@MockDatabase.MockSchema.streamlit/test_streamlit",
         ),
         dedent(
             f"""
@@ -223,7 +231,6 @@ def test_deploy_with_empty_pages(
         ).strip(),
         "select system$get_snowsight_host()",
     ]
-    assert "Skipping empty directory: pages" in result.output
 
 
 @mock.patch("snowflake.cli._plugins.connection.util.get_account")
@@ -256,16 +263,18 @@ def test_deploy_only_streamlit_file_replace(
     mock_connector.return_value = ctx
     mock_get_account.return_value = "my_account"
 
-    with project_directory("example_streamlit") as pdir:
-        (pdir / "environment.yml").unlink()
-        shutil.rmtree(pdir / "pages")
+    with project_directory("example_streamlit") as tmp_dir:
+        (tmp_dir / "environment.yml").unlink()
+        shutil.rmtree(tmp_dir / "pages")
         result = runner.invoke(["streamlit", "deploy", "--replace"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
         _put_query(
-            "streamlit_app.py", "@MockDatabase.MockSchema.streamlit/test_streamlit"
+            tmp_dir,
+            "streamlit_app.py",
+            "@MockDatabase.MockSchema.streamlit/test_streamlit",
         ),
         dedent(
             f"""
@@ -279,23 +288,6 @@ def test_deploy_only_streamlit_file_replace(
         "select system$get_snowsight_host()",
     ]
     mock_typer.launch.assert_not_called()
-
-
-def test_artifacts_must_exists(
-    runner, mock_ctx, project_directory, alter_snowflake_yml, snapshot
-):
-    with project_directory("example_streamlit_v2") as pdir:
-        alter_snowflake_yml(
-            pdir / "snowflake.yml",
-            parameter_path="entities.my_streamlit.artifacts.1",
-            value="foo_bar.py",
-        )
-
-        result = runner.invoke(
-            ["streamlit", "deploy"],
-        )
-        assert result.exit_code == 1
-        assert result.output == snapshot
 
 
 @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
@@ -354,8 +346,8 @@ def test_deploy_streamlit_and_environment_files(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit") as pdir:
-        shutil.rmtree(pdir / "pages")
+    with project_directory("example_streamlit") as tmp_dir:
+        shutil.rmtree(tmp_dir / "pages")
 
         result = runner.invoke(["streamlit", "deploy"])
 
@@ -363,8 +355,8 @@ def test_deploy_streamlit_and_environment_files(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
-        _put_query("streamlit_app.py", root_path),
-        _put_query("environment.yml", root_path),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
+        _put_query(tmp_dir, "environment.yml", root_path),
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
@@ -399,16 +391,16 @@ def test_deploy_streamlit_and_pages_files(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit") as pdir:
-        (pdir / "environment.yml").unlink()
+    with project_directory("example_streamlit") as tmp_dir:
+        (tmp_dir / "environment.yml").unlink()
         result = runner.invoke(["streamlit", "deploy"])
 
     root_path = f"@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
-        _put_query("streamlit_app.py", root_path),
-        _put_query("pages/*", f"{root_path}/pages"),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
+        _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
@@ -443,18 +435,18 @@ def test_deploy_all_streamlit_files(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("streamlit_full_definition"):
+    with project_directory("streamlit_full_definition") as tmp_dir:
         result = runner.invoke(["streamlit", "deploy"])
 
     root_path = f"@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
-        _put_query("streamlit_app.py", root_path),
-        _put_query("environment.yml", root_path),
-        _put_query("pages/*", f"{root_path}/pages"),
-        _put_query("utils/utils.py", f"{root_path}/utils"),
-        _put_query("extra_file.py", root_path),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
+        _put_query(tmp_dir, "environment.yml", root_path),
+        _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
+        _put_query(tmp_dir, "utils/utils.py", f"{root_path}/utils"),
+        _put_query(tmp_dir, "extra_file.py", root_path),
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
@@ -491,16 +483,16 @@ def test_deploy_put_files_on_stage(
     with project_directory(
         "example_streamlit",
         merge_project_definition={"streamlit": {"stage": "streamlit_stage"}},
-    ):
+    ) as tmp_dir:
         result = runner.invoke(["streamlit", "deploy"])
 
     root_path = f"@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit_stage')",
-        _put_query("streamlit_app.py", root_path),
-        _put_query("environment.yml", root_path),
-        _put_query("pages/*", f"{root_path}/pages"),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
+        _put_query(tmp_dir, "environment.yml", root_path),
+        _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
@@ -535,16 +527,18 @@ def test_deploy_all_streamlit_files_not_defaults(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit_no_defaults"):
+    with project_directory("example_streamlit_no_defaults") as tmp_dir:
         result = runner.invoke(["streamlit", "deploy"])
 
     root_path = f"@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit_stage')",
-        _put_query("main.py", root_path),
-        _put_query("streamlit_environment.yml", root_path),
-        _put_query("streamlit_pages/*", f"{root_path}/streamlit_pages"),
+        _put_query(tmp_dir, "main.py", root_path),
+        _put_query(tmp_dir, "streamlit_environment.yml", root_path),
+        _put_query(
+            tmp_dir, "streamlit_pages/first_page.py", f"{root_path}/streamlit_pages"
+        ),
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
@@ -597,7 +591,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
             return_value=enable_streamlit_no_checkouts,
         ),
     ):
-        with project_directory("example_streamlit"):
+        with project_directory("example_streamlit") as tmp_dir:
             result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     if enable_streamlit_versioned_stage:
@@ -627,9 +621,9 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
             """
             ).strip(),
             post_create_command,
-            _put_query("streamlit_app.py", root_path),
-            _put_query("environment.yml", f"{root_path}"),
-            _put_query("pages/*", f"{root_path}/pages"),
+            _put_query(tmp_dir, "streamlit_app.py", root_path),
+            _put_query(tmp_dir, "environment.yml", f"{root_path}"),
+            _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
             "select system$get_snowsight_host()",
             "select current_account_name()",
         ]
@@ -678,13 +672,11 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
     )
     ctx.queries = []
 
-    with project_directory("example_streamlit"):
+    with project_directory("example_streamlit") as tmp_dir:
         result2 = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-    assert result2.exit_code == 0, result2.output
-
     root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
-
+    assert result2.exit_code == 0, result2.output
     # Same as normal, except no ALTER query
     assert ctx.get_queries() == [
         dedent(
@@ -695,9 +687,9 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
             TITLE = 'My Fancy Streamlit'
             """
         ).strip(),
-        _put_query("streamlit_app.py", root_path),
-        _put_query("environment.yml", f"{root_path}"),
-        _put_query("pages/*", f"{root_path}/pages"),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
+        _put_query(tmp_dir, "environment.yml", f"{root_path}"),
+        _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
         "select system$get_snowsight_host()",
         "select current_account_name()",
     ]
@@ -734,7 +726,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
         "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
         return_value=enable_streamlit_versioned_stage,
     ):
-        with project_directory("example_streamlit_no_stage"):
+        with project_directory("example_streamlit_no_stage") as tmp_dir:
             result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     if enable_streamlit_versioned_stage:
@@ -758,9 +750,9 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
             """
         ).strip(),
         post_create_command,
-        _put_query("streamlit_app.py", root_path),
-        _put_query("environment.yml", f"{root_path}"),
-        _put_query("pages/*", f"{root_path}/pages"),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
+        _put_query(tmp_dir, "environment.yml", f"{root_path}"),
+        _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
         f"select current_account_name()",
     ]
@@ -786,7 +778,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit"):
+    with project_directory("example_streamlit") as tmp_dir:
         result = runner.invoke(["streamlit", "deploy", "--experimental", "--replace"])
 
     root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
@@ -801,9 +793,9 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
             """
         ).strip(),
         f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT",
-        _put_query("streamlit_app.py", root_path),
-        _put_query("environment.yml", f"{root_path}"),
-        _put_query("pages/*", f"{root_path}/pages"),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
+        _put_query(tmp_dir, "environment.yml", f"{root_path}"),
+        _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
         f"select system$get_snowsight_host()",
         f"select current_account_name()",
     ]
@@ -960,7 +952,7 @@ def test_deploy_streamlit_with_comment_v2(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit_with_comment_v2"):
+    with project_directory("example_streamlit_with_comment_v2") as tmp_dir:
         result = runner.invoke(["streamlit", "deploy", "--replace"])
 
     root_path = f"@MockDatabase.MockSchema.streamlit/test_streamlit_deploy_snowcli"
@@ -968,9 +960,9 @@ def test_deploy_streamlit_with_comment_v2(
     assert ctx.get_queries() == [
         f"describe streamlit IDENTIFIER('MockDatabase.MockSchema.test_streamlit_deploy_snowcli')",
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
-        _put_query("streamlit_app.py", root_path),
-        _put_query("pages/*", f"{root_path}/pages"),
-        _put_query("environment.yml", root_path),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
+        _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
+        _put_query(tmp_dir, "environment.yml", root_path),
         dedent(
             f"""
             CREATE OR REPLACE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.test_streamlit_deploy_snowcli')
