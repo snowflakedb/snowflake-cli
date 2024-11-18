@@ -18,6 +18,7 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from heapq import nsmallest
+from itertools import count
 from typing import ClassVar, Dict, Iterator, List, Optional, Set
 
 
@@ -99,6 +100,9 @@ class CLIMetricsSpan:
     # denotes whether direct children were trimmed from telemetry payload
     TRIMMED_KEY: ClassVar[str] = "trimmed"
 
+    # counter for sorting by creation order
+    _CREATION_COUNTER: ClassVar[count] = count()
+
     # constructor vars
     name: str
     start_time: float  # relative to when the command first started executing
@@ -129,6 +133,8 @@ class CLIMetricsSpan:
         if self.parent:
             self.parent.add_child(self)
             self.span_depth = self.parent.span_depth + 1
+
+        self.creation_key = next(self._CREATION_COUNTER)
 
     def increment_subtree_node_count(self) -> None:
         self.span_count_in_subtree += 1
@@ -293,9 +299,11 @@ class CLIMetrics:
             )
         )
 
-        # sort by start time to make reading the payload easier
         sorted_spans_to_report = sorted(
-            spans_to_report, key=lambda span: span.start_time
+            spans_to_report,
+            # start_time can be the same, so we want to sort by something more
+            # deterministic, so we use a counter to see which spans are started first
+            key=lambda span: span.creation_key,
         )
 
         return [
