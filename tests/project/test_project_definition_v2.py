@@ -57,7 +57,6 @@ from tests.nativeapp.factories import ProjectV11Factory
             {"entities": {"pkg": {"type": "application package"}}},
             [
                 "missing the following field: 'entities.pkg.application package.artifacts'",
-                "missing the following field: 'entities.pkg.application package.manifest'",
             ],
         ],
         [

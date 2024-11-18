@@ -17,7 +17,7 @@
 ## Backward incompatibility
 
 ## Deprecations
-
+* `manifest` field of `application package` entity is now optional. This field does not have any functionality.
 ## New additions
 * Added `--retain-comments` option to `snow sql` command to allow passing comments to Snowflake.
 * Added `--replace` and `--if-not-exists` options to `snow object create` command.

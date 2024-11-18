@@ -1,5 +1,4 @@
 import logging
-import shutil
 from pathlib import Path
 from textwrap import dedent
 
@@ -38,36 +37,10 @@ def test_migrations_with_all_app_entities(
     assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
 
 
-def test_migration_native_app_nested_manifest(runner, project_directory):
-    with project_directory("migration_multiple_entities") as project_dir:
-        with open("snowflake.yml", "r+") as snowflake_yml:
-            pdf = yaml.safe_load(snowflake_yml)
-            pdf["native_app"]["artifacts"] = [
-                dict(src="nested/nested/app", dest="nested/app/")
-            ]
-            snowflake_yml.seek(0)
-            yaml.safe_dump(pdf, snowflake_yml)
-            snowflake_yml.truncate()
-
-        shutil.move("app", "nested/nested/app")
-        result = runner.invoke(["helpers", "v1-to-v2"])
-        assert result.exit_code == 0
-        with open("snowflake.yml") as f:
-            pdf = yaml.safe_load(f)
-            assert (
-                pdf["entities"]["pkg"]["manifest"] == "nested/nested/app/manifest.yml"
-            )
-
-
-def test_migration_native_app_missing_manifest(runner, project_directory):
-    with project_directory("migration_multiple_entities") as project_dir:
-        (project_dir / "app" / "manifest.yml").unlink()
-        result = runner.invoke(["helpers", "v1-to-v2"])
-    assert result.exit_code == 1
-    assert "manifest.yml file not found" in result.output
-
-
-def test_migration_native_app_no_artifacts(runner, project_directory):
+# Migration of app without artifacts shouldn't fail
+def test_migration_native_app_no_artifacts(
+    runner, project_directory, os_agnostic_snapshot
+):
     with project_directory("migration_multiple_entities") as project_dir:
         with (project_dir / "snowflake.yml").open("r+") as snowflake_yml:
             pdf = yaml.safe_load(snowflake_yml)
@@ -76,8 +49,9 @@ def test_migration_native_app_no_artifacts(runner, project_directory):
             yaml.safe_dump(pdf, snowflake_yml)
             snowflake_yml.truncate()
         result = runner.invoke(["helpers", "v1-to-v2"])
-    assert result.exit_code == 1
-    assert "manifest.yml file not found" in result.output
+    assert result.exit_code == 0
+    assert Path("snowflake.yml").read_text() == os_agnostic_snapshot
+    assert Path("snowflake_V1.yml").read_text() == os_agnostic_snapshot
 
 
 def test_migration_native_app_package_scripts(runner, project_directory):

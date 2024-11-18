@@ -10,7 +10,6 @@ from typing import Any, Dict, Literal, Optional
 
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.artifacts import (
-    BundleMap,
     bundle_artifacts,
 )
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
@@ -118,9 +117,7 @@ def convert_project_definition_to_v2(
         else {}
     )
     native_app_data, native_app_template_context = (
-        convert_native_app_to_v2_data(
-            project_root, definition_v1.native_app, template_context
-        )
+        convert_native_app_to_v2_data(definition_v1.native_app, template_context)
         if definition_v1.native_app
         else ({}, {})
     )
@@ -262,7 +259,6 @@ def convert_streamlit_to_v2_data(streamlit: Streamlit) -> Dict[str, Any]:
 
 
 def convert_native_app_to_v2_data(
-    project_root: Path,
     native_app: NativeApp,
     template_context: Optional[Dict[str, Any]] = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -275,39 +271,6 @@ def convert_native_app_to_v2_data(
         if obj.post_deploy:
             meta["post_deploy"] = obj.post_deploy
         return meta
-
-    def _find_manifest():
-        # We don't know which file in the project directory is the actual manifest,
-        # and we can't iterate through the artifacts property since the src can contain
-        # glob patterns. The simplest solution is to bundle the app and find the
-        # manifest file from the resultant BundleMap, since the bundle process ensures
-        # that only a single source path can map to the corresponding destination path
-        bundle_map = BundleMap(
-            project_root=project_root, deploy_root=project_root / native_app.deploy_root
-        )
-        for artifact in native_app.artifacts:
-            bundle_map.add(artifact)
-
-        manifest_path = next(
-            (
-                src
-                for src, dest in bundle_map.all_mappings(
-                    absolute=True, expand_directories=True
-                )
-                if dest.name == "manifest.yml"
-            ),
-            None,
-        )
-        if not manifest_path:
-            # The manifest field is required, so we can't gracefully handle it being missing
-            raise ClickException(
-                "manifest.yml file not found in any Native App artifact sources, "
-                "unable to perform migration"
-            )
-
-        # Use a POSIX path to be consistent with other migrated fields
-        # which use POSIX paths as default values
-        return manifest_path.relative_to(project_root).as_posix()
 
     package_entity_name = "pkg"
     if (
@@ -324,7 +287,6 @@ def convert_native_app_to_v2_data(
     package = {
         "type": "application package",
         "identifier": package_identifier,
-        "manifest": _find_manifest(),
         "artifacts": native_app.artifacts,
     }
 

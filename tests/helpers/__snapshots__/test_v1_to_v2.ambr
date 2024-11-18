@@ -168,6 +168,127 @@
   
   '''
 # ---
+# name: test_migration_native_app_no_artifacts
+  '''
+  definition_version: '2'
+  entities:
+    procedureName:
+      imports: []
+      external_access_integrations: []
+      secrets: {}
+      meta:
+        use_mixins:
+        - snowpark_shared
+      identifier:
+        name: procedureName
+      handler: hello
+      returns: string
+      signature:
+      - name: name
+        type: string
+      stage: dev_deployment
+      artifacts:
+      - src: app
+        dest: my_snowpark_project
+      type: procedure
+      execute_as_caller: false
+    func1:
+      imports: []
+      external_access_integrations: []
+      secrets: {}
+      meta:
+        use_mixins:
+        - snowpark_shared
+      identifier:
+        name: func1
+      handler: app.func1_handler
+      returns: string
+      signature:
+      - name: a
+        type: string
+        default: default value
+      - name: b
+        type: variant
+      runtime: '3.1'
+      stage: dev_deployment
+      artifacts:
+      - src: app
+        dest: my_snowpark_project
+      type: function
+    test_streamlit:
+      identifier:
+        name: test_streamlit
+      type: streamlit
+      title: My Fancy Streamlit
+      query_warehouse: test_warehouse
+      main_file: streamlit_app.py
+      pages_dir: None
+      stage: streamlit
+      artifacts:
+      - streamlit_app.py
+      - environment.yml
+      - pages
+    pkg:
+      meta:
+        role: pkg_role
+      identifier: <% fn.concat_ids('myapp', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>
+      type: application package
+      artifacts: []
+    app:
+      identifier: myapp_app
+      type: application
+      from:
+        target: pkg
+  mixins:
+    snowpark_shared:
+      stage: dev_deployment
+      artifacts:
+      - src: app/
+        dest: my_snowpark_project
+  
+  '''
+# ---
+# name: test_migration_native_app_no_artifacts.1
+  '''
+  definition_version: 1
+  native_app:
+    application:
+      name: myapp_app
+    artifacts: []
+    name: myapp
+    package:
+      role: pkg_role
+  snowpark:
+    functions:
+    - handler: app.func1_handler
+      name: func1
+      returns: string
+      runtime: 3.1
+      signature:
+      - default: default value
+        name: a
+        type: string
+      - name: b
+        type: variant
+    procedures:
+    - handler: hello
+      name: procedureName
+      returns: string
+      signature:
+      - name: name
+        type: string
+    project_name: my_snowpark_project
+    src: app/
+    stage_name: dev_deployment
+  streamlit:
+    main_file: streamlit_app.py
+    name: test_streamlit
+    query_warehouse: test_warehouse
+    stage: streamlit
+    title: My Fancy Streamlit
+  
+  '''
+# ---
 # name: test_migrations_with_all_app_entities
   '''
   definition_version: '2'
@@ -196,7 +317,6 @@
       stage: app_src.my_stage
       scratch_stage: app_src.my_scratch
       distribution: external
-      manifest: app/manifest.yml
     app:
       meta:
         warehouse: app_wh
@@ -316,7 +436,6 @@
       artifacts:
       - src: app/*
         dest: ./
-      manifest: app/manifest.yml
     app:
       identifier: myapp_app
       type: application
