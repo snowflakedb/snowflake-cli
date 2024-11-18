@@ -15,9 +15,10 @@
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from pydantic import Field, field_validator
+from snowflake.cli.api.project.schemas.commons import Artifacts
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.project.schemas.v1.native_app.application import (
     Application,
@@ -34,7 +35,7 @@ class NativeApp(UpdatableModel):
     name: str = Field(
         title="Project identifier",
     )
-    artifacts: List[Union[PathMapping, str]] = Field(
+    artifacts: Artifacts = Field(
         title="List of file source and destination pairs to add to the deploy root",
     )
     bundle_root: Optional[str] = Field(
@@ -69,10 +70,8 @@ class NativeApp(UpdatableModel):
 
     @field_validator("artifacts")
     @classmethod
-    def transform_artifacts(
-        cls, orig_artifacts: List[Union[PathMapping, str]]
-    ) -> List[PathMapping]:
-        transformed_artifacts = []
+    def transform_artifacts(cls, orig_artifacts: Artifacts) -> List[PathMapping]:
+        transformed_artifacts: List[PathMapping] = []
         if orig_artifacts is None:
             return transformed_artifacts
 
