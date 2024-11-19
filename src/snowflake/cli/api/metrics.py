@@ -18,7 +18,6 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from heapq import nsmallest
-from itertools import count
 from typing import ClassVar, Dict, Iterator, List, Optional, Set
 
 
@@ -100,9 +99,6 @@ class CLIMetricsSpan:
     # denotes whether direct children were trimmed from telemetry payload
     TRIMMED_KEY: ClassVar[str] = "trimmed"
 
-    # counter for sorting by creation order
-    _CREATION_COUNTER: ClassVar[count] = count()
-
     # constructor vars
     name: str
     start_time: float  # relative to when the command first started executing
@@ -133,8 +129,6 @@ class CLIMetricsSpan:
         if self.parent:
             self.parent.add_child(self)
             self.span_depth = self.parent.span_depth + 1
-
-        self.creation_key = next(self._CREATION_COUNTER)
 
     def increment_subtree_node_count(self) -> None:
         self.span_count_in_subtree += 1
@@ -280,36 +274,29 @@ class CLIMetrics:
     @property
     def completed_spans(self) -> List[Dict]:
         """
-        Returns the completed spans tracked throughout a command, sorted by start time, for reporting telemetry
+        Returns the completed spans tracked throughout a command for reporting telemetry
 
         Ensures that the spans we send are within the configured limits and marks
         certain spans as trimmed if their children would bypass the limits we set
         """
         # take spans breadth-first within the depth and total limits
         # since we care more about the big picture than granularity
-        spans_to_report = set(
-            nsmallest(
-                n=self.SPAN_TOTAL_LIMIT,
-                iterable=(
-                    span
-                    for span in self._completed_spans
-                    if span.span_depth <= self.SPAN_DEPTH_LIMIT
-                ),
-                key=lambda span: (span.span_depth, span.start_time),
-            )
+        spans_to_report = nsmallest(
+            n=self.SPAN_TOTAL_LIMIT,
+            iterable=(
+                span
+                for span in self._completed_spans
+                if span.span_depth <= self.SPAN_DEPTH_LIMIT
+            ),
+            key=lambda span: (span.span_depth, span.start_time, span.execution_time),
         )
 
-        sorted_spans_to_report = sorted(
-            spans_to_report,
-            # start_time can be the same, so we want to sort by something more
-            # deterministic, so we use a counter to see which spans are started first
-            key=lambda span: span.creation_key,
-        )
+        spans_to_report_set = set(spans_to_report)
 
         return [
             {
                 **span.to_dict(),
-                CLIMetricsSpan.TRIMMED_KEY: not span.children <= spans_to_report,
+                CLIMetricsSpan.TRIMMED_KEY: not span.children <= spans_to_report_set,
             }
-            for span in sorted_spans_to_report
+            for span in spans_to_report
         ]

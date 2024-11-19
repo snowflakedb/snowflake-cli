@@ -28,6 +28,24 @@ from tests_common import temp_dir
 from tests_integration.test_utils import extract_first_telemetry_message_of_type
 
 
+def assert_spans_within_limits(spans: Dict) -> None:
+    assert spans[CLITelemetryField.NUM_SPANS_PAST_DEPTH_LIMIT.value] == 0
+    assert spans[CLITelemetryField.NUM_SPANS_PAST_TOTAL_LIMIT.value] == 0
+    assert all(
+        span[CLIMetricsSpan.TRIMMED_KEY] == False
+        for span in spans[CLITelemetryField.COMPLETED_SPANS.value]
+    )
+
+
+def extract_span_keys_to_check(spans: Dict) -> List[Dict]:
+    SPAN_KEYS_TO_CHECK = [CLIMetricsSpan.NAME_KEY, CLIMetricsSpan.PARENT_KEY]
+
+    return [
+        {key: span[key] for key in SPAN_KEYS_TO_CHECK}
+        for span in spans[CLITelemetryField.COMPLETED_SPANS.value]
+    ]
+
+
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "command,expected_counter",
@@ -280,24 +298,6 @@ def test_feature_counter_v2_post_deploy_set_and_package_scripts_not_available(
         }
 
 
-def assert_spans_within_limits(spans: Dict) -> None:
-    assert spans[CLITelemetryField.NUM_SPANS_PAST_DEPTH_LIMIT.value] == 0
-    assert spans[CLITelemetryField.NUM_SPANS_PAST_TOTAL_LIMIT.value] == 0
-    assert all(
-        span[CLIMetricsSpan.TRIMMED_KEY] == False
-        for span in spans[CLITelemetryField.COMPLETED_SPANS.value]
-    )
-
-
-def extract_span_keys_to_check(spans: Dict) -> List[Dict]:
-    SPAN_KEYS_TO_CHECK = [CLIMetricsSpan.NAME_KEY, CLIMetricsSpan.PARENT_KEY]
-
-    return [
-        {key: span[key] for key in SPAN_KEYS_TO_CHECK}
-        for span in spans[CLITelemetryField.COMPLETED_SPANS.value]
-    ]
-
-
 @pytest.mark.integration
 @mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
 def test_spans_bundle(
@@ -402,7 +402,15 @@ def test_spans_run_with_all_features(
                 "parent": None,
             },
             {
+                "name": "get_snowsight_url_for_app",
+                "parent": None,
+            },
+            {
                 "name": "action.app_pkg.deploy",
+                "parent": "action.app.deploy",
+            },
+            {
+                "name": "update_app_object",
                 "parent": "action.app.deploy",
             },
             {
@@ -412,10 +420,6 @@ def test_spans_run_with_all_features(
             {
                 "name": "artifact_processors",
                 "parent": "action.app_pkg.deploy",
-            },
-            {
-                "name": "templates_processor",
-                "parent": "artifact_processors",
             },
             {
                 "name": "sync_deploy_root_with_stage",
@@ -430,16 +434,12 @@ def test_spans_run_with_all_features(
                 "parent": "action.app_pkg.deploy",
             },
             {
-                "name": "update_app_object",
-                "parent": "action.app.deploy",
-            },
-            {
                 "name": "post_deploy_hooks",
                 "parent": "update_app_object",
             },
             {
-                "name": "get_snowsight_url_for_app",
-                "parent": None,
+                "name": "templates_processor",
+                "parent": "artifact_processors",
             },
         ]
 
