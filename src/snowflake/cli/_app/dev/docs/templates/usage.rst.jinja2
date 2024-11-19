@@ -48,7 +48,7 @@ Options
         {%- if param.type.name != "choice" %}{{ ' {' }}{% else %} {% endif %}{{ param.make_metavar() }}{% if param.type.name != "choice" %}{{ '}' }}
         {%- endif %}
     {%- endif %}`
-{% if param.help %}{{ "  " + param.help | replace("\n", " ") }}{% if param.help[-1] != '.' %}.{% endif %}{% if param.default is not none %} Default: {{ param.default }}.{% endif %}{% else %}  TBD{% endif %}
+{% if param.help %}{{ "  " + param.help | replace("\n", " ") }}{% if param.help[-1] != '.' %}.{% endif %}{% if param.default is not none and param.default != "" %} Default: {{ param.default }}.{% endif %}{% else %}  TBD{% endif %}
 {% endfor -%}
 {% else %}
 
