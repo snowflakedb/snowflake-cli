@@ -21,6 +21,8 @@
 ## New additions
 
 ## Fixes and improvements
+* Fix Windows permissions error on files created by CLI when owner is a part of custom group with granted
+  default permissions.
 
 
 # v3.2.0

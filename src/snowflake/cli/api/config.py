@@ -181,7 +181,7 @@ def _read_config_file():
                 )
                 warnings.warn(
                     f"Unauthorized users ({users}) have access to configuration file {CONFIG_MANAGER.file_path}.\n"
-                    f'Run `icacls "{CONFIG_MANAGER.file_path}" /deny <USER_ID>:F` on those users to restrict permissions.'
+                    f'Run `icacls "{CONFIG_MANAGER.file_path}" /remove:g <USER_ID>` on those users to restrict permissions.'
                 )
 
         try:
