@@ -52,6 +52,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
+from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import UserInputError
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context, span
@@ -725,19 +726,28 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                         self.execute_post_deploy_hooks()
                         return
 
-                    except ProgrammingError as err:
-                        if err.errno == CANNOT_DISABLE_MANDATORY_TELEMETRY:
+                    except (UserInputError, ProgrammingError) as err:
+                        is_programming_error = isinstance(err, ProgrammingError)
+                        errno = (
+                            err.errno if is_programming_error else err.__cause__.errno
+                        )
+
+                        if errno == CANNOT_DISABLE_MANDATORY_TELEMETRY:
                             event_sharing.event_sharing_error(
                                 "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file.",
                                 err,
                             )
-                        elif err.errno in UPGRADE_RESTRICTION_CODES:
-                            console.warning(err.msg)
+                        elif errno in UPGRADE_RESTRICTION_CODES:
+                            console.warning(
+                                err.msg if is_programming_error else err.message
+                            )
                             self.drop_application_before_upgrade(
                                 policy=policy, interactive=interactive
                             )
-                        else:
+                        elif is_programming_error:
                             generic_sql_error_handler(err=err)
+                        else:
+                            raise err
 
                 # 4. With no (more) existing application objects, create an application object using the release directives
                 console.step(f"Creating new application object {self.name} in account.")
@@ -777,13 +787,19 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     # hooks always executed after a create or upgrade
                     self.execute_post_deploy_hooks()
 
-                except ProgrammingError as err:
-                    if err.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
+                except (UserInputError, ProgrammingError) as err:
+                    is_programming_error = isinstance(err, ProgrammingError)
+                    errno = err.errno if is_programming_error else err.__cause__.errno
+
+                    if errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
                         event_sharing.event_sharing_error(
                             "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file.",
                             err,
                         )
-                    generic_sql_error_handler(err)
+                    elif is_programming_error:
+                        generic_sql_error_handler(err)
+                    else:
+                        raise err
 
     def execute_post_deploy_hooks(self):
         execute_post_deploy_hooks(

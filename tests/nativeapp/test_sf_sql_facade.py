@@ -1717,31 +1717,7 @@ def test_upgrade_application_from_release_directive(mock_execute_query, mock_cur
     mock_execute_query.assert_has_calls(expected)
 
 
-def test_upgrade_application_raises_event_sharing_error(mock_execute_query):
-    app_name = "test_app"
-    stage_fqn = "app_pkg.app_src.stage"
-
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                ProgrammingError(errno=APPLICATION_REQUIRES_TELEMETRY_SHARING),
-                mock.call(f"alter application {app_name} upgrade using @{stage_fqn}"),
-            )
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
-
-    with pytest.raises(ProgrammingError):
-        sql_facade.upgrade_application(
-            name=app_name,
-            install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=stage_fqn,
-        )
-
-    mock_execute_query.assert_has_calls(expected)
-
-
-def test_upgrade_application_converts_other_programmingerrors(mock_execute_query):
+def test_upgrade_application_converts_programmingerrors(mock_execute_query):
     app_name = "test_app"
     stage_fqn = "app_pkg.app_src.stage"
     programming_error_message = "programming error message"
@@ -1750,8 +1726,8 @@ def test_upgrade_application_converts_other_programmingerrors(mock_execute_query
         [
             (
                 ProgrammingError(
-                    errno=APPLICATION_INSTANCE_FAILED_TO_RUN_SETUP_SCRIPT,
-                    msg="programming error message",
+                    errno=APPLICATION_REQUIRES_TELEMETRY_SHARING,
+                    msg=programming_error_message,
                 ),
                 mock.call(f"alter application {app_name} upgrade using @{stage_fqn}"),
             )
@@ -1844,43 +1820,7 @@ def test_create_application_with_all_clauses(mock_execute_query, mock_cursor):
     mock_execute_query.assert_has_calls(expected)
 
 
-def test_create_application_raises_event_sharing_error(mock_execute_query):
-    app_name = "test_app"
-    pkg_name = "test_pkg"
-    stage_fqn = "app_pkg.app_src.stage"
-
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                ProgrammingError(errno=APPLICATION_REQUIRES_TELEMETRY_SHARING),
-                mock.call(
-                    dedent(
-                        f"""\
-                        create application {app_name}
-                            from application package {pkg_name}  
-                            comment = {SPECIAL_COMMENT}
-                        """
-                    )
-                ),
-            )
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
-
-    with pytest.raises(ProgrammingError):
-        sql_facade.create_application(
-            name=app_name,
-            package_name=pkg_name,
-            install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
-            debug_mode=None,
-            new_authorize_event_sharing_value=None,
-        )
-
-    mock_execute_query.assert_has_calls(expected)
-
-
-def test_create_application_converts_other_programmingerrors(mock_execute_query):
+def test_create_application_converts_programmingerrors(mock_execute_query):
     app_name = "test_app"
     pkg_name = "test_pkg"
     stage_fqn = "app_pkg.app_src.stage"
@@ -1891,7 +1831,7 @@ def test_create_application_converts_other_programmingerrors(mock_execute_query)
             (
                 ProgrammingError(
                     errno=APPLICATION_INSTANCE_FAILED_TO_RUN_SETUP_SCRIPT,
-                    msg="programming error message",
+                    msg=programming_error_message,
                 ),
                 mock.call(
                     dedent(

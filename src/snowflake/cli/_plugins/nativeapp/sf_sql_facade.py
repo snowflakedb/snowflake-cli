@@ -32,7 +32,6 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     handle_unclassified_error,
 )
 from snowflake.cli.api.errno import (
-    APPLICATION_REQUIRES_TELEMETRY_SHARING,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
@@ -511,7 +510,7 @@ class SnowflakeSQLFacade:
 
     def upgrade_application(
         self, name: str, install_method: SameAccountInstallMethod, stage_fqn: str
-    ):
+    ) -> list[tuple[str]]:
         """
         Upgrades an application object using the provided clause
         """
@@ -520,17 +519,14 @@ class SnowflakeSQLFacade:
             upgrade_cursor = self._sql_executor.execute_query(
                 f"alter application {name} upgrade {using_clause}",
             )
-            return upgrade_cursor.fetchall()
         except ProgrammingError as err:
-            if err.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
-                # this needs to be bubbled up so that it can be handled by the EventSharingHandler
-                raise
             raise UserInputError(
                 f"Failed to upgrade application {name} with the following error message:\n"
                 f"{err.msg}"
             ) from err
         except Exception as err:
             handle_unclassified_error(err, f"Failed to upgrade application {name}.")
+        return upgrade_cursor.fetchall()
 
     def create_application(
         self,
@@ -540,7 +536,7 @@ class SnowflakeSQLFacade:
         stage_fqn: str,
         debug_mode: bool | None,
         new_authorize_event_sharing_value: bool | None,
-    ):
+    ) -> list[tuple[str]]:
         """
         Creates a new application object using an application package,
         running the setup script of the application package
@@ -572,17 +568,14 @@ class SnowflakeSQLFacade:
                 """
                 ),
             )
-            return create_cursor.fetchall()
         except ProgrammingError as err:
-            if err.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
-                # this needs to be bubbled up so that it can be handled by the EventSharingHandler
-                raise
             raise UserInputError(
                 f"Failed to create application {name} with the following error message:\n"
                 f"{err.msg}"
             ) from err
         except Exception as err:
             handle_unclassified_error(err, f"Failed to create application {name}.")
+        return create_cursor.fetchall()
 
 
 # TODO move this to src/snowflake/cli/api/project/util.py in a separate

@@ -324,7 +324,7 @@ def drop_generic_object(
         console.message(f"Dropped {object_type} {object_name} successfully.")
 
 
-def print_messages(console: AbstractConsole, cursor_results: list):
+def print_messages(console: AbstractConsole, cursor_results: list[tuple[str]]):
     """
     Shows messages in the console returned by the CREATE or UPGRADE
     APPLICATION command.
