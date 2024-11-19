@@ -108,7 +108,7 @@ def _windows_restrict_file_permissions(path: Path) -> None:
 
     for user in windows_get_not_whitelisted_users_with_access(path):
         log.info("Removing permissions of user %s from file %s", user, path)
-        subprocess.run(["icacls", str(path), "/DENY", f"{user}:F"])
+        subprocess.run(["icacls", str(path), "/remove:g", f"{user}"])
 
 
 def restrict_file_permissions(file_path: Path) -> None:
