@@ -19,9 +19,6 @@ from unittest.mock import MagicMock
 import pytest
 from click import ClickException
 from snowflake.cli._plugins.connection.util import UIParameter
-from snowflake.cli._plugins.nativeapp.constants import (
-    SPECIAL_COMMENT,
-)
 from snowflake.cli._plugins.nativeapp.entities.application import (
     ApplicationEntity,
     ApplicationEntityModel,
@@ -39,6 +36,7 @@ from snowflake.cli._plugins.nativeapp.policy import (
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import UserInputError
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.abc import AbstractConsole
@@ -62,9 +60,19 @@ from tests.nativeapp.utils import (
     APP_ENTITY_GET_EXISTING_APP_INFO,
     GET_UI_PARAMETERS,
     SQL_EXECUTOR_EXECUTE,
+    SQL_FACADE_CREATE_APPLICATION,
+    SQL_FACADE_UPGRADE_APPLICATION,
     mock_execute_helper,
+    mock_side_effect_error_with_cause,
 )
 from tests.testing_utils.fixtures import MockConnectionCtx
+
+DEFAULT_APP_ID = "myapp"
+DEFAULT_PKG_ID = "app_pkg"
+DEFAULT_STAGE_FQN = "app_pkg.app_src.stage"
+DEFAULT_UPGRADE_SUCCESS_MESSAGE = "Application successfully upgraded."
+DEFAULT_CREATE_SUCCESS_MESSAGE = f"Application '{DEFAULT_APP_ID}' created successfully."
+DEFAULT_USER_INPUT_ERROR_MESSAGE = "User input error message."
 
 allow_always_policy = AllowAlwaysPolicy()
 ask_always_policy = AskAlwaysPolicy()
@@ -187,6 +195,8 @@ def _setup_project(
 
 
 def _setup_mocks_for_app(
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_execute_query,
     mock_cursor,
     mock_get_existing_app_info,
@@ -200,6 +210,7 @@ def _setup_mocks_for_app(
 ):
     if is_upgrade:
         return _setup_mocks_for_upgrade_app(
+            mock_sql_facade_upgrade_application,
             mock_execute_query,
             mock_cursor,
             mock_get_existing_app_info,
@@ -212,6 +223,7 @@ def _setup_mocks_for_app(
         )
     else:
         return _setup_mocks_for_create_app(
+            mock_sql_facade_create_application,
             mock_execute_query,
             mock_cursor,
             mock_get_existing_app_info,
@@ -224,6 +236,7 @@ def _setup_mocks_for_app(
 
 
 def _setup_mocks_for_create_app(
+    mock_sql_facade_create_application,
     mock_execute_query,
     mock_cursor,
     mock_get_existing_app_info,
@@ -234,13 +247,6 @@ def _setup_mocks_for_create_app(
     programming_errno=None,
 ):
     mock_get_existing_app_info.return_value = None
-
-    authorize_telemetry_clause = ""
-    if expected_authorize_telemetry_flag is not None:
-        authorize_telemetry_clause = f" AUTHORIZE_TELEMETRY_EVENT_SHARING = {expected_authorize_telemetry_flag}".upper()
-    install_clause = "using @app_pkg.app_src.stage debug_mode = True"
-    if is_prod:
-        install_clause = " "
 
     calls = [
         (
@@ -274,18 +280,6 @@ def _setup_mocks_for_create_app(
         ),
         (None, mock.call("use role app_role")),
         (
-            (ProgrammingError(errno=programming_errno) if programming_errno else None),
-            mock.call(
-                dedent(
-                    f"""\
-                    create application myapp
-                        from application package app_pkg {install_clause}{authorize_telemetry_clause}
-                        comment = {SPECIAL_COMMENT}
-                    """
-                )
-            ),
-        ),
-        (
             mock_cursor([("app_role",)], []),
             mock.call("select current_role()"),
         ),
@@ -318,10 +312,33 @@ def _setup_mocks_for_create_app(
     )
     side_effects, mock_execute_query_expected = mock_execute_helper(calls)
     mock_execute_query.side_effect = side_effects
-    return mock_execute_query_expected
+
+    mock_sql_facade_create_application.side_effect = (
+        mock_side_effect_error_with_cause(
+            err=UserInputError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+            cause=ProgrammingError(errno=programming_errno),
+        )
+        if programming_errno
+        else mock_cursor([[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], [])
+    )
+    mock_sql_facade_create_application_expected = [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            package_name=DEFAULT_PKG_ID,
+            install_method=SameAccountInstallMethod.release_directive()
+            if is_prod
+            else SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=None,
+            new_authorize_event_sharing_value=expected_authorize_telemetry_flag,
+        )
+    ]
+
+    return [*mock_execute_query_expected, *mock_sql_facade_create_application_expected]
 
 
 def _setup_mocks_for_upgrade_app(
+    mock_sql_facade_upgrade_application,
     mock_execute_query,
     mock_cursor,
     mock_get_existing_app_info,
@@ -335,9 +352,6 @@ def _setup_mocks_for_upgrade_app(
     mock_get_existing_app_info.return_value = {
         "comment": "GENERATED_BY_SNOWFLAKECLI",
     }
-    install_clause = "using @app_pkg.app_src.stage"
-    if is_prod:
-        install_clause = ""
 
     calls = [
         (
@@ -350,7 +364,6 @@ def _setup_mocks_for_upgrade_app(
             mock.call("select current_warehouse()"),
         ),
         (None, mock.call("use warehouse app_warehouse")),
-        (None, mock.call(f"alter application myapp upgrade {install_clause}")),
         (
             mock_cursor([("app_role",)], []),
             mock.call("select current_role()"),
@@ -417,10 +430,25 @@ def _setup_mocks_for_upgrade_app(
     )
     side_effects, mock_execute_query_expected = mock_execute_helper(calls)
     mock_execute_query.side_effect = side_effects
-    return mock_execute_query_expected
+
+    mock_sql_facade_upgrade_application.side_effect = mock_cursor(
+        [[(DEFAULT_UPGRADE_SUCCESS_MESSAGE,)]], []
+    )
+    mock_sql_facade_upgrade_application_expected = [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.release_directive()
+            if is_prod
+            else SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+        )
+    ]
+    return [*mock_execute_query_expected, *mock_sql_facade_upgrade_application_expected]
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -459,6 +487,8 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -467,7 +497,9 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
     temp_dir,
     mock_cursor,
 ):
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -487,11 +519,22 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
         console=mock_console,
     )
 
-    assert mock_execute_query.mock_calls == mock_execute_query_expected
-    mock_console.warning.assert_not_called()
+    assert [
+        *mock_execute_query.mock_calls,
+        *mock_sql_facade_upgrade_application.mock_calls,
+        *mock_sql_facade_create_application.mock_calls,
+    ] == expected
+
+    mock_console.warning.assert_called_once_with(
+        DEFAULT_UPGRADE_SUCCESS_MESSAGE
+        if is_upgrade
+        else DEFAULT_CREATE_SUCCESS_MESSAGE
+    )
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -521,6 +564,8 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -529,7 +574,9 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
     temp_dir,
     mock_cursor,
 ):
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -550,13 +597,27 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
         console=mock_console,
     )
 
-    assert mock_execute_query.mock_calls == mock_execute_query_expected
-    mock_console.warning.assert_called_with(
-        "WARNING: Same-account event sharing is not enabled in your account, therefore, application telemetry section will be ignored."
-    )
+    assert [
+        *mock_execute_query.mock_calls,
+        *mock_sql_facade_upgrade_application.mock_calls,
+        *mock_sql_facade_create_application.mock_calls,
+    ] == expected
+
+    assert mock_console.warning.mock_calls == [
+        mock.call(
+            "WARNING: Same-account event sharing is not enabled in your account, therefore, application telemetry section will be ignored."
+        ),
+        mock.call(
+            DEFAULT_UPGRADE_SUCCESS_MESSAGE
+            if is_upgrade
+            else DEFAULT_CREATE_SUCCESS_MESSAGE
+        ),
+    ]
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -585,6 +646,8 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -593,7 +656,9 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
     temp_dir,
     mock_cursor,
 ):
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -616,11 +681,22 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
         console=mock_console,
     )
 
-    assert mock_execute_query.mock_calls == mock_execute_query_expected
-    mock_console.warning.assert_not_called()
+    assert [
+        *mock_execute_query.mock_calls,
+        *mock_sql_facade_upgrade_application.mock_calls,
+        *mock_sql_facade_create_application.mock_calls,
+    ] == expected
+
+    mock_console.warning.assert_called_once_with(
+        DEFAULT_UPGRADE_SUCCESS_MESSAGE
+        if is_upgrade
+        else DEFAULT_CREATE_SUCCESS_MESSAGE
+    )
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -649,6 +725,8 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -657,7 +735,9 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
     temp_dir,
     mock_cursor,
 ):
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -680,11 +760,18 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
         console=mock_console,
     )
 
-    assert mock_execute_query.mock_calls == mock_execute_query_expected
-    mock_console.warning.assert_not_called()
+    assert [
+        *mock_execute_query.mock_calls,
+        *mock_sql_facade_upgrade_application.mock_calls,
+        *mock_sql_facade_create_application.mock_calls,
+    ] == expected
+
+    mock_console.warning.assert_called_once_with(DEFAULT_UPGRADE_SUCCESS_MESSAGE)
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -711,6 +798,8 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -719,7 +808,9 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
     temp_dir,
     mock_cursor,
 ):
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -750,11 +841,22 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
         console=mock_console,
     )
 
-    assert mock_execute_query.mock_calls == mock_execute_query_expected
-    mock_console.warning.assert_not_called()
+    assert [
+        *mock_execute_query.mock_calls,
+        *mock_sql_facade_upgrade_application.mock_calls,
+        *mock_sql_facade_create_application.mock_calls,
+    ] == expected
+
+    mock_console.warning.assert_called_once_with(
+        DEFAULT_UPGRADE_SUCCESS_MESSAGE
+        if is_upgrade
+        else DEFAULT_CREATE_SUCCESS_MESSAGE
+    )
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -781,6 +883,8 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -789,7 +893,9 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
     temp_dir,
     mock_cursor,
 ):
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -822,14 +928,27 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
         console=mock_console,
     )
 
-    assert mock_execute_query.mock_calls == mock_execute_query_expected
+    assert [
+        *mock_execute_query.mock_calls,
+        *mock_sql_facade_upgrade_application.mock_calls,
+        *mock_sql_facade_create_application.mock_calls,
+    ] == expected
 
-    mock_console.warning.assert_called_with(
-        "WARNING: Mandatory events are present in the application, but event sharing is not authorized in the application telemetry field. This will soon be required to set in order to deploy this application."
-    )
+    assert mock_console.warning.mock_calls == [
+        mock.call(
+            DEFAULT_UPGRADE_SUCCESS_MESSAGE
+            if is_upgrade
+            else DEFAULT_CREATE_SUCCESS_MESSAGE
+        ),
+        mock.call(
+            "WARNING: Mandatory events are present in the application, but event sharing is not authorized in the application telemetry field. This will soon be required to set in order to deploy this application."
+        ),
+    ]
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -856,6 +975,8 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -864,7 +985,9 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
     temp_dir,
     mock_cursor,
 ):
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -887,11 +1010,22 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
         console=mock_console,
     )
 
-    assert mock_execute_query.mock_calls == mock_execute_query_expected
-    mock_console.warning.assert_not_called()
+    assert [
+        *mock_execute_query.mock_calls,
+        *mock_sql_facade_upgrade_application.mock_calls,
+        *mock_sql_facade_create_application.mock_calls,
+    ] == expected
+
+    mock_console.warning.assert_called_once_with(
+        DEFAULT_UPGRADE_SUCCESS_MESSAGE
+        if is_upgrade
+        else DEFAULT_CREATE_SUCCESS_MESSAGE
+    )
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -918,6 +1052,8 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -926,7 +1062,9 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
     temp_dir,
     mock_cursor,
 ):
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -948,11 +1086,22 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
         console=mock_console,
     )
 
-    assert mock_execute_query.mock_calls == mock_execute_query_expected
-    mock_console.warning.assert_not_called()
+    assert [
+        *mock_execute_query.mock_calls,
+        *mock_sql_facade_create_application.mock_calls,
+        *mock_sql_facade_upgrade_application.mock_calls,
+    ] == expected
+
+    mock_console.warning.assert_called_once_with(
+        DEFAULT_UPGRADE_SUCCESS_MESSAGE
+        if is_upgrade
+        else DEFAULT_CREATE_SUCCESS_MESSAGE
+    )
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -979,6 +1128,8 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -988,6 +1139,8 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused
     mock_cursor,
 ):
     mock_execute_query_expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -1027,6 +1180,8 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -1053,6 +1208,8 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -1061,7 +1218,9 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
     temp_dir,
     mock_cursor,
 ):
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -1097,10 +1256,12 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
         e.value.message
         == "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
     )
-    mock_console.warning.assert_not_called()
+    mock_console.warning.assert_called_once_with(DEFAULT_UPGRADE_SUCCESS_MESSAGE)
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -1126,6 +1287,8 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -1134,7 +1297,9 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
     temp_dir,
     mock_cursor,
 ):
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -1156,12 +1321,25 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
         console=mock_console,
     )
 
-    assert mock_execute_query.mock_calls == mock_execute_query_expected
+    assert [
+        *mock_execute_query.mock_calls,
+        *mock_sql_facade_upgrade_application.mock_calls,
+        *mock_sql_facade_create_application.mock_calls,
+    ] == expected
     expected_warning = "WARNING: Mandatory events are present in the manifest file. Automatically authorizing event sharing in dev mode. To suppress this warning, please add 'share_mandatory_events: true' in the application telemetry section."
-    mock_console.warning.assert_called_with(expected_warning)
+    assert mock_console.warning.mock_calls == [
+        mock.call(expected_warning),
+        mock.call(
+            DEFAULT_UPGRADE_SUCCESS_MESSAGE
+            if is_upgrade
+            else DEFAULT_CREATE_SUCCESS_MESSAGE
+        ),
+    ]
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -1187,6 +1365,8 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -1195,7 +1375,9 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     temp_dir,
     mock_cursor,
 ):
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -1234,6 +1416,8 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -1259,6 +1443,8 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -1267,7 +1453,9 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     temp_dir,
     mock_cursor,
 ):
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -1296,10 +1484,22 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
         console=mock_console,
     )
 
-    mock_console.warning.assert_not_called()
+    assert [
+        *mock_execute_query.mock_calls,
+        *mock_sql_facade_upgrade_application.mock_calls,
+        *mock_sql_facade_create_application.mock_calls,
+    ] == expected
+
+    mock_console.warning.assert_called_once_with(
+        DEFAULT_UPGRADE_SUCCESS_MESSAGE
+        if is_upgrade
+        else DEFAULT_CREATE_SUCCESS_MESSAGE
+    )
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -1325,6 +1525,8 @@ def test_shared_events_with_no_enabled_mandatory_events_then_error(
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -1333,7 +1535,9 @@ def test_shared_events_with_no_enabled_mandatory_events_then_error(
     temp_dir,
     mock_cursor,
 ):
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -1364,6 +1568,8 @@ def test_shared_events_with_no_enabled_mandatory_events_then_error(
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -1390,6 +1596,8 @@ def test_shared_events_with_authorization_then_success(
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     manifest_contents,
     share_mandatory_events,
@@ -1399,7 +1607,9 @@ def test_shared_events_with_authorization_then_success(
     mock_cursor,
 ):
     shared_events = ["DEBUG_LOGS", "ERRORS_AND_WARNINGS"]
-    mock_execute_query_expected = _setup_mocks_for_app(
+    expected = _setup_mocks_for_app(
+        mock_sql_facade_upgrade_application,
+        mock_sql_facade_create_application,
         mock_execute_query,
         mock_cursor,
         mock_get_existing_app_info,
@@ -1436,5 +1646,14 @@ def test_shared_events_with_authorization_then_success(
         console=mock_console,
     )
 
-    assert mock_execute_query.mock_calls == mock_execute_query_expected
-    mock_console.warning.assert_not_called()
+    assert [
+        *mock_execute_query.mock_calls,
+        *mock_sql_facade_upgrade_application.mock_calls,
+        *mock_sql_facade_create_application.mock_calls,
+    ] == expected
+
+    mock_console.warning.assert_called_once_with(
+        DEFAULT_UPGRADE_SUCCESS_MESSAGE
+        if is_upgrade
+        else DEFAULT_CREATE_SUCCESS_MESSAGE
+    )
