@@ -351,7 +351,10 @@ def _dump_config(config_and_connections: Dict):
         _update_connections_toml(config_and_connections.get("connections") or {})
         # to config.toml save only connections from config.toml
         connections_to_save_in_config_toml = _read_config_file_toml().get("connections")
-        config_toml_dict["connections"] = connections_to_save_in_config_toml
+        if connections_to_save_in_config_toml:
+            config_toml_dict["connections"] = connections_to_save_in_config_toml
+        else:
+            config_toml_dict.pop("connections", None)
 
     with SecurePath(CONFIG_MANAGER.file_path).open("w+") as fh:
         dump(config_toml_dict, fh)

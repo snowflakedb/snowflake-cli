@@ -224,11 +224,16 @@ def test_not_found_default_connection_from_evn_variable(test_root_path):
     )
 
 
+@pytest.mark.parametrize(
+    "config_file,expected_number_of_entries_in_config",
+    [("test_snowcli_config", 1), ("empty_snowcli_config", 0)],
+)
 def test_correct_updates_of_connections_on_setting_default_connection(
-    test_snowcli_config, snowflake_home
+    config_file, expected_number_of_entries_in_config, snowflake_home, request
 ):
     from snowflake.cli.api.config import CONFIG_MANAGER
 
+    config = request.getfixturevalue(config_file)
     connections_toml = snowflake_home / "connections.toml"
     connections_toml.write_text(
         """[asdf_a]
@@ -242,7 +247,7 @@ def test_correct_updates_of_connections_on_setting_default_connection(
     account = "asdf_b"
     """
     )
-    config_init(test_snowcli_config)
+    config_init(config)
     set_config_value(section=None, key="default_connection_name", value="asdf_b")
 
     def assert_correct_connections_loaded():
@@ -274,7 +279,7 @@ def test_correct_updates_of_connections_on_setting_default_connection(
         assert (
             connection_toml_content.count("jwt") == 0
         )  # connection from config.toml isn't copied to connections.toml
-    with open(test_snowcli_config) as f:
+    with open(config) as f:
         config_toml_content = f.read()
         assert (
             config_toml_content.count("asdf_a") == 0
@@ -283,17 +288,20 @@ def test_correct_updates_of_connections_on_setting_default_connection(
             config_toml_content.count("asdf_b") == 1
         )  # only default_config_name setting, connection from connections.toml isn't copied to config.toml
         assert (
-            config_toml_content.count("connections.full") == 1
-        )  # connection still exists in config.toml
+            config_toml_content.count("connections.full")
+            == expected_number_of_entries_in_config
+        )  # connection wasn't erased from config.toml
         assert (
-            config_toml_content.count("connections.jwt") == 1
-        )  # connection still exists in config.toml
+            config_toml_content.count("connections.jwt")
+            == expected_number_of_entries_in_config
+        )  # connection wasn't erased from config.toml
         assert (
-            config_toml_content.count("dummy_flag = true") == 1
+            config_toml_content.count("dummy_flag = true")
+            == expected_number_of_entries_in_config
         )  # other settings are not erased
 
     # reinit config file and recheck loaded connections
-    config_init(test_snowcli_config)
+    config_init(config)
     assert_correct_connections_loaded()
 
 
