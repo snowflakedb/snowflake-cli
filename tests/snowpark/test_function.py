@@ -33,6 +33,7 @@ mock_session_has_warehouse = mock.patch(
 )
 
 
+@pytest.mark.parametrize("project_name", ["snowpark_functions", "snowpark_functions_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
 @mock_session_has_warehouse
@@ -42,13 +43,14 @@ def test_deploy_function(
     mock_ctx,
     runner,
     project_directory,
+project_name,
 ):
     mock_object_manager.return_value.describe.side_effect = ProgrammingError(
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
     )
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    with project_directory("snowpark_functions") as project_dir:
+    with project_directory(project_name) as project_dir:
         result = runner.invoke(
             [
                 "snowpark",
@@ -77,6 +79,7 @@ def test_deploy_function(
     ]
 
 
+@pytest.mark.parametrize("project_name", ["snowpark_function_external_access", "snowpark_function_external_access_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
 @mock_session_has_warehouse
@@ -86,6 +89,7 @@ def test_deploy_function_with_external_access(
     mock_ctx,
     runner,
     project_directory,
+    project_name
 ):
     mock_object_manager.return_value.show.return_value = [
         {"name": "external_1", "type": "EXTERNAL_ACCESS"},
@@ -97,7 +101,7 @@ def test_deploy_function_with_external_access(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    with project_directory("snowpark_function_external_access") as project_dir:
+    with project_directory(project_name) as project_dir:
         result = runner.invoke(
             [
                 "snowpark",
@@ -127,7 +131,7 @@ def test_deploy_function_with_external_access(
         ).strip(),
     ]
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_function_secrets_without_external_access", "snowpark_function_secrets_without_external_access_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
 @mock_session_has_warehouse
@@ -138,6 +142,7 @@ def test_deploy_function_secrets_without_external_access(
     mock_ctx,
     project_directory,
     os_agnostic_snapshot,
+        project_name
 ):
     mock_object_manager.return_value.show.return_value = [
         {"name": "external_1", "type": "EXTERNAL_ACCESS"},
@@ -146,7 +151,7 @@ def test_deploy_function_secrets_without_external_access(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_function_secrets_without_external_access"):
+    with project_directory(project_name):
         result = runner.invoke(
             [
                 "snowpark",
@@ -157,7 +162,7 @@ def test_deploy_function_secrets_without_external_access(
     assert result.exit_code == 1, result.output
     assert result.output == os_agnostic_snapshot
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_functions", "snowpark_functions_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock_session_has_warehouse
 def test_deploy_function_no_changes(
@@ -166,6 +171,7 @@ def test_deploy_function_no_changes(
     mock_ctx,
     mock_cursor,
     project_directory,
+    project_name,
 ):
     rows = [
         ("packages", '["foo==1.2.3", "bar>=3.0.0"]'),
@@ -182,6 +188,7 @@ def test_deploy_function_no_changes(
         mock_ctx,
         mock_cursor,
         project_directory,
+        project_name,
         "--replace",
     )
 
@@ -198,7 +205,7 @@ def test_deploy_function_no_changes(
         f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
     ]
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_functions", "snowpark_functions_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock_session_has_warehouse
 def test_deploy_function_needs_update_because_packages_changes(
@@ -207,6 +214,7 @@ def test_deploy_function_needs_update_because_packages_changes(
     mock_ctx,
     mock_cursor,
     project_directory,
+    project_name
 ):
     rows = [
         ("packages", '["foo==1.2.3"]'),
@@ -221,6 +229,7 @@ def test_deploy_function_needs_update_because_packages_changes(
         mock_ctx,
         mock_cursor,
         project_directory,
+        project_name,
         "--replace",
     )
 
@@ -249,7 +258,7 @@ def test_deploy_function_needs_update_because_packages_changes(
         ).strip(),
     ]
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_functions", "snowpark_functions_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock_session_has_warehouse
 def test_deploy_function_needs_update_because_handler_changes(
@@ -258,6 +267,7 @@ def test_deploy_function_needs_update_because_handler_changes(
     mock_ctx,
     mock_cursor,
     project_directory,
+    project_name
 ):
     rows = [
         ("packages", '["foo==1.2.3", "bar>=3.0.0"]'),
@@ -272,6 +282,7 @@ def test_deploy_function_needs_update_because_handler_changes(
         mock_ctx,
         mock_cursor,
         project_directory,
+        project_name,
         "--replace",
     )
 
@@ -301,7 +312,7 @@ def test_deploy_function_needs_update_because_handler_changes(
         ).strip(),
     ]
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_function_fully_qualified_name", "snowpark_function_fully_qualified_name_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
@@ -315,6 +326,7 @@ def test_deploy_function_fully_qualified_name_duplicated_database(
     project_directory,
     alter_snowflake_yml,
     os_agnostic_snapshot,
+    project_name
 ):
     number_of_functions_in_project = 6
     mock_om_describe.side_effect = [
@@ -323,11 +335,11 @@ def test_deploy_function_fully_qualified_name_duplicated_database(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_function_fully_qualified_name") as tmp_dir:
+    with project_directory(project_name) as tmp_dir:
         result = runner.invoke(["snowpark", "deploy"])
         assert result.output == os_agnostic_snapshot(name="database error")
 
-
+@pytest.mark.parametrize("project_name,path_in_project_file", [("snowpark_function_fully_qualified_name","snowpark.functions.5.name"), ("snowpark_function_fully_qualified_name_v2","entities.custom_database_custom_schema_fqn_function_error.identifier.name")])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
@@ -341,6 +353,8 @@ def test_deploy_function_fully_qualified_name_duplicated_schema(
     project_directory,
     alter_snowflake_yml,
     os_agnostic_snapshot,
+        project_name,
+        path_in_project_file
 ):
     number_of_functions_in_project = 6
     mock_om_describe.side_effect = [
@@ -349,16 +363,16 @@ def test_deploy_function_fully_qualified_name_duplicated_schema(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_function_fully_qualified_name") as tmp_dir:
+    with project_directory(project_name) as tmp_dir:
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
-            parameter_path="snowpark.functions.5.name",
+            parameter_path=path_in_project_file,
             value="custom_schema.fqn_function_error",
         )
         result = runner.invoke(["snowpark", "deploy"])
         assert result.output == os_agnostic_snapshot(name="schema error")
 
-
+@pytest.mark.parametrize("project_name,parameter_path", [("snowpark_function_fully_qualified_name","snowpark.functions.5.name"), ("snowpark_function_fully_qualified_name_v2","entities.custom_database_custom_schema_fqn_function_error.identifier.name")])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
@@ -372,6 +386,8 @@ def test_deploy_function_fully_qualified_name(
     project_directory,
     alter_snowflake_yml,
     os_agnostic_snapshot,
+        project_name,
+        parameter_path
 ):
     number_of_functions_in_project = 6
     mock_om_describe.side_effect = [
@@ -380,10 +396,10 @@ def test_deploy_function_fully_qualified_name(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_function_fully_qualified_name") as tmp_dir:
+    with project_directory(project_name) as tmp_dir:
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
-            parameter_path="snowpark.functions.5.name",
+            parameter_path=parameter_path,
             value="fqn_function3",
         )
         result = runner.invoke(["snowpark", "deploy"])
@@ -391,6 +407,7 @@ def test_deploy_function_fully_qualified_name(
         assert result.output == os_agnostic_snapshot(name="ok")
 
 
+@pytest.mark.parametrize("project_name", ["snowpark_functions", "snowpark_functions_v2"])
 @pytest.mark.parametrize(
     "parameter_type,default_value",
     [
@@ -413,13 +430,14 @@ def test_deploy_function_with_empty_default_value(
     alter_snowflake_yml,
     parameter_type,
     default_value,
+    project_name
 ):
     mock_object_manager.return_value.describe.side_effect = ProgrammingError(
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
     )
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    with project_directory("snowpark_functions") as project_dir:
+    with project_directory(project_name) as project_dir:
         snowflake_yml = project_dir / "snowflake.yml"
         for param, value in [("type", parameter_type), ("default", default_value)]:
             alter_snowflake_yml(
@@ -475,6 +493,7 @@ def _deploy_function(
     mock_ctx,
     mock_cursor,
     project_directory,
+    project_name,
     *args,
 ):
     ctx = mock_ctx(mock_cursor(rows=rows, columns=[]))
@@ -489,7 +508,7 @@ def _deploy_function(
     ):
         om_describe.return_value = rows
 
-        with project_directory("snowpark_functions") as temp_dir:
+        with project_directory(project_name) as temp_dir:
             (Path(temp_dir) / "requirements.snowflake.txt").write_text(
                 "foo==1.2.3\nbar>=3.0.0"
             )
