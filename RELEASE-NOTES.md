@@ -51,6 +51,8 @@
   Removed incorrect copying of connections from `connections.toml` to `config.toml`.
 * Fixes `snow connection generate-jwt` to work with keys with no passphrase.
 * The privilege to create a schema or stage is no longer required to run `snow app version create` if the schema and stage already exist.
+* Fix Windows permissions error on files created by CLI when owner is a part of custom group with granted
+  default permissions.
 
 # v3.1.0
 
