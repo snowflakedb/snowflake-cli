@@ -188,7 +188,7 @@
         type: string
       stage: dev_deployment
       artifacts:
-      - src: app
+      - src: app/
         dest: my_snowpark_project
       type: procedure
       execute_as_caller: false
@@ -212,7 +212,7 @@
       runtime: '3.1'
       stage: dev_deployment
       artifacts:
-      - src: app
+      - src: app/
         dest: my_snowpark_project
       type: function
     test_streamlit:
@@ -225,9 +225,9 @@
       pages_dir: None
       stage: streamlit
       artifacts:
-      - streamlit_app.py
-      - environment.yml
-      - pages
+      - src: streamlit_app.py
+      - src: environment.yml
+      - src: pages
     pkg:
       meta:
         role: pkg_role
