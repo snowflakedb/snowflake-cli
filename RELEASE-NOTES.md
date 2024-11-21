@@ -36,10 +36,10 @@
 * `snow helpers v1-to-v2` now converts v1 template references to v2 in Native App artifacts that use the `templates` processor.
 * Added `--label` option to `snow app version create` command to allow adding labels to versions and patches.
 * Enhanced `snow spcs service logs` command with new parameters for improved log retrieval and monitoring.
-  * `--previous-logs (-p)`: Retrieve logs from the last terminated container.
+  * `--previous-logs`: Retrieve logs from the last terminated container.
   * `--since`: Start log retrieval from a specified UTC timestamp.
   * `--include-timestamps`: Include timestamps in log entries for log streaming.
-  * `--follow (-f)`: Stream logs in real-time.
+  * `--follow`: Stream logs in real-time.
   * `--follow-interval`: Set custom polling intervals during log streaming.
 * `snow connection add` supports `--no-interactive` flag to skip interactive prompts.
 
