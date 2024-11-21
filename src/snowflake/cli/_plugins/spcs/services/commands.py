@@ -242,7 +242,7 @@ def logs(
     follow_interval: int = typer.Option(
         2,
         "--follow-interval",
-        help="Set custom polling intervals in for log streaming (--follow flag) in seconds.",
+        help="Set custom polling intervals for log streaming (--follow flag) in seconds.",
     ),
     **options,
 ):
