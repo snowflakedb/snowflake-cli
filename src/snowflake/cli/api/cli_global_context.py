@@ -218,7 +218,7 @@ def span(span_name: str):
     """
     Decorator to start a command metrics span that encompasses a whole function
 
-    Must be used instead of directly calling @get_cli_context().metrics.start_span(span_name)
+    Must be used instead of directly calling @get_cli_context().metrics.span(span_name)
     as a decorator to ensure that the cli context is grabbed at run time instead of at
     module load time, which would not reflect forking
     """
