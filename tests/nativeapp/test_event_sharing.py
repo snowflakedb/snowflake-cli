@@ -70,8 +70,7 @@ from tests.testing_utils.fixtures import MockConnectionCtx
 DEFAULT_APP_ID = "myapp"
 DEFAULT_PKG_ID = "app_pkg"
 DEFAULT_STAGE_FQN = "app_pkg.app_src.stage"
-DEFAULT_UPGRADE_SUCCESS_MESSAGE = "Application successfully upgraded."
-DEFAULT_CREATE_SUCCESS_MESSAGE = f"Application '{DEFAULT_APP_ID}' created successfully."
+DEFAULT_SUCCESS_MESSAGE = "Application successfully upgraded."
 DEFAULT_USER_INPUT_ERROR_MESSAGE = "User input error message."
 
 allow_always_policy = AllowAlwaysPolicy()
@@ -319,7 +318,7 @@ def _setup_mocks_for_create_app(
             cause=ProgrammingError(errno=programming_errno),
         )
         if programming_errno
-        else mock_cursor([[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], [])
+        else mock_cursor([[(DEFAULT_SUCCESS_MESSAGE,)]], [])
     )
     mock_sql_facade_create_application_expected = [
         mock.call(
@@ -432,7 +431,7 @@ def _setup_mocks_for_upgrade_app(
     mock_execute_query.side_effect = side_effects
 
     mock_sql_facade_upgrade_application.side_effect = mock_cursor(
-        [[(DEFAULT_UPGRADE_SUCCESS_MESSAGE,)]], []
+        [[(DEFAULT_SUCCESS_MESSAGE,)]], []
     )
     mock_sql_facade_upgrade_application_expected = [
         mock.call(
@@ -525,11 +524,7 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
         *mock_sql_facade_create_application.mock_calls,
     ] == expected
 
-    mock_console.warning.assert_called_once_with(
-        DEFAULT_UPGRADE_SUCCESS_MESSAGE
-        if is_upgrade
-        else DEFAULT_CREATE_SUCCESS_MESSAGE
-    )
+    mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
@@ -607,11 +602,7 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
         mock.call(
             "WARNING: Same-account event sharing is not enabled in your account, therefore, application telemetry section will be ignored."
         ),
-        mock.call(
-            DEFAULT_UPGRADE_SUCCESS_MESSAGE
-            if is_upgrade
-            else DEFAULT_CREATE_SUCCESS_MESSAGE
-        ),
+        mock.call(DEFAULT_SUCCESS_MESSAGE),
     ]
 
 
@@ -687,11 +678,7 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
         *mock_sql_facade_create_application.mock_calls,
     ] == expected
 
-    mock_console.warning.assert_called_once_with(
-        DEFAULT_UPGRADE_SUCCESS_MESSAGE
-        if is_upgrade
-        else DEFAULT_CREATE_SUCCESS_MESSAGE
-    )
+    mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
@@ -766,7 +753,7 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
         *mock_sql_facade_create_application.mock_calls,
     ] == expected
 
-    mock_console.warning.assert_called_once_with(DEFAULT_UPGRADE_SUCCESS_MESSAGE)
+    mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
@@ -847,11 +834,7 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
         *mock_sql_facade_create_application.mock_calls,
     ] == expected
 
-    mock_console.warning.assert_called_once_with(
-        DEFAULT_UPGRADE_SUCCESS_MESSAGE
-        if is_upgrade
-        else DEFAULT_CREATE_SUCCESS_MESSAGE
-    )
+    mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
@@ -935,11 +918,7 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
     ] == expected
 
     assert mock_console.warning.mock_calls == [
-        mock.call(
-            DEFAULT_UPGRADE_SUCCESS_MESSAGE
-            if is_upgrade
-            else DEFAULT_CREATE_SUCCESS_MESSAGE
-        ),
+        mock.call(DEFAULT_SUCCESS_MESSAGE),
         mock.call(
             "WARNING: Mandatory events are present in the application, but event sharing is not authorized in the application telemetry field. This will soon be required to set in order to deploy this application."
         ),
@@ -1016,11 +995,7 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
         *mock_sql_facade_create_application.mock_calls,
     ] == expected
 
-    mock_console.warning.assert_called_once_with(
-        DEFAULT_UPGRADE_SUCCESS_MESSAGE
-        if is_upgrade
-        else DEFAULT_CREATE_SUCCESS_MESSAGE
-    )
+    mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
@@ -1092,11 +1067,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
         *mock_sql_facade_upgrade_application.mock_calls,
     ] == expected
 
-    mock_console.warning.assert_called_once_with(
-        DEFAULT_UPGRADE_SUCCESS_MESSAGE
-        if is_upgrade
-        else DEFAULT_CREATE_SUCCESS_MESSAGE
-    )
+    mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
@@ -1256,7 +1227,7 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
         e.value.message
         == "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
     )
-    mock_console.warning.assert_called_once_with(DEFAULT_UPGRADE_SUCCESS_MESSAGE)
+    mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
@@ -1329,11 +1300,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
     expected_warning = "WARNING: Mandatory events are present in the manifest file. Automatically authorizing event sharing in dev mode. To suppress this warning, please add 'share_mandatory_events: true' in the application telemetry section."
     assert mock_console.warning.mock_calls == [
         mock.call(expected_warning),
-        mock.call(
-            DEFAULT_UPGRADE_SUCCESS_MESSAGE
-            if is_upgrade
-            else DEFAULT_CREATE_SUCCESS_MESSAGE
-        ),
+        mock.call(DEFAULT_SUCCESS_MESSAGE),
     ]
 
 
@@ -1490,11 +1457,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
         *mock_sql_facade_create_application.mock_calls,
     ] == expected
 
-    mock_console.warning.assert_called_once_with(
-        DEFAULT_UPGRADE_SUCCESS_MESSAGE
-        if is_upgrade
-        else DEFAULT_CREATE_SUCCESS_MESSAGE
-    )
+    mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
@@ -1652,8 +1615,4 @@ def test_shared_events_with_authorization_then_success(
         *mock_sql_facade_create_application.mock_calls,
     ] == expected
 
-    mock_console.warning.assert_called_once_with(
-        DEFAULT_UPGRADE_SUCCESS_MESSAGE
-        if is_upgrade
-        else DEFAULT_CREATE_SUCCESS_MESSAGE
-    )
+    mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
