@@ -7300,14 +7300,15 @@
   |                                           [required]                         |
   |    --num-lines                   INTEGER  Number of lines to retrieve.       |
   |                                           [default: 500]                     |
-  |    --previous-logs       -p               Retrieve logs from the last        |
-  |                                           terminated container               |
+  |    --previous-logs                        Retrieve logs from the last        |
+  |                                           terminated container.              |
   |    --since                       TEXT     Start log retrieval from a         |
-  |                                           specified UTC timestamp            |
-  |    --include-timestamps                   Include timestamps in logs         |
-  |    --follow              -f               Stream logs in real-time           |
-  |    --follow-interval             INTEGER  Set custom polling intervals       |
-  |                                           during log streaming.              |
+  |                                           specified UTC timestamp.           |
+  |    --include-timestamps                   Include timestamps in logs.        |
+  |    --follow                               Stream logs in real-time.          |
+  |    --follow-interval             INTEGER  Set custom polling intervals in    |
+  |                                           for log streaming (--follow flag)  |
+  |                                           in seconds.                        |
   |                                           [default: 2]                       |
   |    --help                -h               Show this message and exit.        |
   +------------------------------------------------------------------------------+

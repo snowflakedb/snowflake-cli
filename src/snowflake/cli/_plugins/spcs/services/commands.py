@@ -227,23 +227,22 @@ def logs(
     previous_logs: bool = typer.Option(
         False,
         "--previous-logs",
-        "-p",
-        help="Retrieve logs from the last terminated container",
+        help="Retrieve logs from the last terminated container.",
         is_flag=True,
     ),
     since_timestamp: Optional[str] = typer.Option(
-        "", "--since", help="Start log retrieval from a specified UTC timestamp"
+        "", "--since", help="Start log retrieval from a specified UTC timestamp."
     ),
     include_timestamps: bool = typer.Option(
-        False, "--include-timestamps", help="Include timestamps in logs", is_flag=True
+        False, "--include-timestamps", help="Include timestamps in logs.", is_flag=True
     ),
     follow: bool = typer.Option(
-        False, "--follow", "-f", help="Stream logs in real-time", is_flag=True
+        False, "--follow", help="Stream logs in real-time.", is_flag=True
     ),
     follow_interval: int = typer.Option(
         2,
         "--follow-interval",
-        help="Set custom polling intervals during log streaming.",
+        help="Set custom polling intervals in for log streaming (--follow flag) in seconds.",
     ),
     **options,
 ):
