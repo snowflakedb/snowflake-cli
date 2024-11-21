@@ -115,3 +115,12 @@ class InsufficientPrivilegesError(ClickException):
         if role:
             message += f" using role: {role}"
         super().__init__(message)
+
+
+class UpgradeApplicationRestrictionError(UserInputError):
+    """
+    Raised when an alter application ... upgrade fails due to user error.
+    Must be caught and handled by the caller of an upgrade_application
+    """
+
+    pass

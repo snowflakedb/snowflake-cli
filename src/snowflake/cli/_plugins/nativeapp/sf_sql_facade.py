@@ -27,16 +27,26 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
     InsufficientPrivilegesError,
     UnexpectedResultError,
+    UpgradeApplicationRestrictionError,
     UserInputError,
     UserScriptError,
     handle_unclassified_error,
 )
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.errno import (
+    APPLICATION_NO_LONGER_AVAILABLE,
+    APPLICATION_REQUIRES_TELEMETRY_SHARING,
+    CANNOT_DISABLE_MANDATORY_TELEMETRY,
+    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
+    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
     is_valid_unquoted_identifier,
@@ -46,6 +56,15 @@ from snowflake.cli.api.project.util import (
 )
 from snowflake.cli.api.sql_execution import BaseSqlExecutor, SqlExecutor
 from snowflake.connector import DictCursor, ProgrammingError
+
+# Reasons why an `alter application ... upgrade` might fail
+UPGRADE_RESTRICTION_CODES = {
+    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
+    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+    APPLICATION_NO_LONGER_AVAILABLE,
+}
 
 
 class SnowflakeSQLFacade:
@@ -520,6 +539,16 @@ class SnowflakeSQLFacade:
                 f"alter application {name} upgrade {using_clause}",
             )
         except ProgrammingError as err:
+            if err.errno in UPGRADE_RESTRICTION_CODES:
+                raise UpgradeApplicationRestrictionError(err.msg) from err
+            elif err.errno == CANNOT_DISABLE_MANDATORY_TELEMETRY:
+                get_cli_context().metrics.set_counter(
+                    CLICounterField.EVENT_SHARING_ERROR, 1
+                )
+                raise UserInputError(
+                    "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+                ) from err
+
             raise UserInputError(
                 f"Failed to upgrade application {name} with the following error message:\n"
                 f"{err.msg}"
@@ -569,6 +598,14 @@ class SnowflakeSQLFacade:
                 ),
             )
         except ProgrammingError as err:
+            if err.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
+                get_cli_context().metrics.set_counter(
+                    CLICounterField.EVENT_SHARING_ERROR, 1
+                )
+                raise UserInputError(
+                    "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+                ) from err
+
             raise UserInputError(
                 f"Failed to create application {name} with the following error message:\n"
                 f"{err.msg}"

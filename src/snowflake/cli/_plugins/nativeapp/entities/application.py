@@ -52,7 +52,9 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
-from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import UserInputError
+from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
+    UpgradeApplicationRestrictionError,
+)
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context, span
@@ -71,13 +73,7 @@ from snowflake.cli.api.entities.utils import (
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
-    APPLICATION_REQUIRES_TELEMETRY_SHARING,
-    CANNOT_DISABLE_MANDATORY_TELEMETRY,
-    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
-    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
-    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
-    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
@@ -97,15 +93,6 @@ from snowflake.cli.api.project.util import (
 from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)
-
-# Reasons why an `alter application ... upgrade` might fail
-UPGRADE_RESTRICTION_CODES = {
-    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
-    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
-    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
-    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
-    APPLICATION_NO_LONGER_AVAILABLE,
-}
 
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
@@ -725,29 +712,13 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                         # hooks always executed after a create or upgrade
                         self.execute_post_deploy_hooks()
                         return
-
-                    except (UserInputError, ProgrammingError) as err:
-                        is_programming_error = isinstance(err, ProgrammingError)
-                        errno = (
-                            err.errno if is_programming_error else err.__cause__.errno
+                    except UpgradeApplicationRestrictionError as err:
+                        console.warning(err.message)
+                        self.drop_application_before_upgrade(
+                            policy=policy, interactive=interactive
                         )
-
-                        if errno == CANNOT_DISABLE_MANDATORY_TELEMETRY:
-                            event_sharing.event_sharing_error(
-                                "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file.",
-                                err,
-                            )
-                        elif errno in UPGRADE_RESTRICTION_CODES:
-                            console.warning(
-                                err.msg if is_programming_error else err.message
-                            )
-                            self.drop_application_before_upgrade(
-                                policy=policy, interactive=interactive
-                            )
-                        elif is_programming_error:
-                            generic_sql_error_handler(err=err)
-                        else:
-                            raise err
+                    except ProgrammingError as err:
+                        generic_sql_error_handler(err=err)
 
                 # 4. With no (more) existing application objects, create an application object using the release directives
                 console.step(f"Creating new application object {self.name} in account.")
@@ -787,19 +758,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     # hooks always executed after a create or upgrade
                     self.execute_post_deploy_hooks()
 
-                except (UserInputError, ProgrammingError) as err:
-                    is_programming_error = isinstance(err, ProgrammingError)
-                    errno = err.errno if is_programming_error else err.__cause__.errno
-
-                    if errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
-                        event_sharing.event_sharing_error(
-                            "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file.",
-                            err,
-                        )
-                    elif is_programming_error:
-                        generic_sql_error_handler(err)
-                    else:
-                        raise err
+                except ProgrammingError as err:
+                    generic_sql_error_handler(err)
 
     def execute_post_deploy_hooks(self):
         execute_post_deploy_hooks(
