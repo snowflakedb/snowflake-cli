@@ -375,6 +375,8 @@ def test_nativeapp_version_create_package_no_magic_comment(
         for row in actual.json:
             # Remove date field
             row.pop("created_on", None)
+            # Remove metric_level field
+            row.pop("metric_level", None)
         assert actual.json == snapshot
 
 
