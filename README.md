@@ -13,6 +13,8 @@
  See the License for the specific language governing permissions and
  limitations under the License.
  -->
+Test 
+
 
 [![Code quality checks](https://github.com/snowflakedb/snowflake-cli/actions/workflows/lint.yaml/badge.svg)](https://github.com/snowflakedb/snowflake-cli/actions/workflows/lint.yaml)
 [![Integration testing](https://github.com/snowflakedb/snowflake-cli/actions/workflows/integration_test.yaml/badge.svg)](https://github.com/snowflakedb/snowflake-cli/actions/workflows/integration_test.yaml)
