@@ -148,11 +148,11 @@ def test_cortex_translate_from_chosen_language(runner):
         [
             "cortex",
             "translate",
-            "herb",
+            "dom",
             "--from",
             "pl",
             "--to",
             "en",
         ]
     )
-    assert_successful_result_message(result, expected_msg="coat of arms")
+    assert_successful_result_message(result, expected_msg="home")
