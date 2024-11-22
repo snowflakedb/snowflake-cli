@@ -18,7 +18,10 @@ from contextlib import contextmanager
 from textwrap import dedent
 from typing import Any, Dict, List
 
-from snowflake.cli._plugins.nativeapp.constants import SPECIAL_COMMENT
+from snowflake.cli._plugins.nativeapp.constants import (
+    AUTHORIZE_TELEMETRY_COL,
+    SPECIAL_COMMENT,
+)
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
@@ -528,34 +531,77 @@ class SnowflakeSQLFacade:
             return cursor.fetchall()
 
     def upgrade_application(
-        self, name: str, install_method: SameAccountInstallMethod, stage_fqn: str
+        self,
+        name: str,
+        current_app_row: dict,
+        install_method: SameAccountInstallMethod,
+        stage_fqn: str,
+        debug_mode: bool | None,
+        should_authorize_event_sharing: bool | None,
+        role: str | None = None,
+        warehouse: str | None = None,
     ) -> list[tuple[str]]:
         """
-        Upgrades an application object using the provided clause
+        Upgrades an application object using the provided clauses
         """
-        try:
-            using_clause = install_method.using_clause(stage_fqn)
-            upgrade_cursor = self._sql_executor.execute_query(
-                f"alter application {name} upgrade {using_clause}",
-            )
-        except ProgrammingError as err:
-            if err.errno in UPGRADE_RESTRICTION_CODES:
-                raise UpgradeApplicationRestrictionError(err.msg) from err
-            elif err.errno == CANNOT_DISABLE_MANDATORY_TELEMETRY:
-                get_cli_context().metrics.set_counter(
-                    CLICounterField.EVENT_SHARING_ERROR, 1
-                )
-                raise UserInputError(
-                    "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
-                ) from err
+        install_method.ensure_app_usable(
+            app_name=name,
+            app_role=role,
+            show_app_row=current_app_row,
+        )
+        # If all the above checks are in order, proceed to upgrade
 
-            raise UserInputError(
-                f"Failed to upgrade application {name} with the following error message:\n"
-                f"{err.msg}"
-            ) from err
-        except Exception as err:
-            handle_unclassified_error(err, f"Failed to upgrade application {name}.")
-        return upgrade_cursor.fetchall()
+        with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
+            try:
+                using_clause = install_method.using_clause(stage_fqn)
+                upgrade_cursor = self._sql_executor.execute_query(
+                    f"alter application {name} upgrade {using_clause}",
+                )
+
+                # if debug_mode is present (controlled), ensure it is up-to-date
+                if install_method.is_dev_mode:
+                    if debug_mode is not None:
+                        self._sql_executor.execute_query(
+                            f"alter application {name} set debug_mode = {debug_mode}"
+                        )
+
+                # Only update event sharing if the current value is different as the one we want to set
+                if should_authorize_event_sharing is not None:
+                    current_authorize_event_sharing = (
+                        self.get_app_properties(name, role)
+                        .get(AUTHORIZE_TELEMETRY_COL, "false")
+                        .lower()
+                        == "true"
+                    )
+                    if (
+                        current_authorize_event_sharing
+                        != should_authorize_event_sharing
+                    ):
+                        self._log.info(
+                            "Setting telemetry sharing authorization to %s",
+                            should_authorize_event_sharing,
+                        )
+                        self._sql_executor.execute_query(
+                            f"alter application {name} set AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(should_authorize_event_sharing).upper()}"
+                        )
+            except ProgrammingError as err:
+                if err.errno in UPGRADE_RESTRICTION_CODES:
+                    raise UpgradeApplicationRestrictionError(err.msg) from err
+                elif err.errno == CANNOT_DISABLE_MANDATORY_TELEMETRY:
+                    get_cli_context().metrics.set_counter(
+                        CLICounterField.EVENT_SHARING_ERROR, 1
+                    )
+                    raise UserInputError(
+                        "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+                    ) from err
+
+                raise UserInputError(
+                    f"Failed to upgrade application {name} with the following error message:\n"
+                    f"{err.msg}"
+                ) from err
+            except Exception as err:
+                handle_unclassified_error(err, f"Failed to upgrade application {name}.")
+            return upgrade_cursor.fetchall()
 
     def create_application(
         self,
@@ -564,7 +610,9 @@ class SnowflakeSQLFacade:
         install_method: SameAccountInstallMethod,
         stage_fqn: str,
         debug_mode: bool | None,
-        new_authorize_event_sharing_value: bool | None,
+        should_authorize_event_sharing: bool | None,
+        role: str | None = None,
+        warehouse: str | None = None,
     ) -> list[tuple[str]]:
         """
         Creates a new application object using an application package,
@@ -578,41 +626,41 @@ class SnowflakeSQLFacade:
             debug_mode_clause = f"debug_mode = {initial_debug_mode}"
 
         authorize_telemetry_clause = ""
-        if new_authorize_event_sharing_value is not None:
+        if should_authorize_event_sharing is not None:
             self._log.info(
                 "Setting AUTHORIZE_TELEMETRY_EVENT_SHARING to %s",
-                new_authorize_event_sharing_value,
+                should_authorize_event_sharing,
             )
-            authorize_telemetry_clause = f" AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(new_authorize_event_sharing_value).upper()}"
+            authorize_telemetry_clause = f" AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(should_authorize_event_sharing).upper()}"
 
         using_clause = install_method.using_clause(stage_fqn)
-
-        try:
-            create_cursor = self._sql_executor.execute_query(
-                dedent(
-                    f"""\
-                create application {name}
-                    from application package {package_name} {using_clause} {debug_mode_clause}{authorize_telemetry_clause}
-                    comment = {SPECIAL_COMMENT}
-                """
-                ),
-            )
-        except ProgrammingError as err:
-            if err.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
-                get_cli_context().metrics.set_counter(
-                    CLICounterField.EVENT_SHARING_ERROR, 1
+        with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
+            try:
+                create_cursor = self._sql_executor.execute_query(
+                    dedent(
+                        f"""\
+                    create application {name}
+                        from application package {package_name} {using_clause} {debug_mode_clause}{authorize_telemetry_clause}
+                        comment = {SPECIAL_COMMENT}
+                    """
+                    ),
                 )
-                raise UserInputError(
-                    "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
-                ) from err
+            except ProgrammingError as err:
+                if err.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
+                    get_cli_context().metrics.set_counter(
+                        CLICounterField.EVENT_SHARING_ERROR, 1
+                    )
+                    raise UserInputError(
+                        "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+                    ) from err
 
-            raise UserInputError(
-                f"Failed to create application {name} with the following error message:\n"
-                f"{err.msg}"
-            ) from err
-        except Exception as err:
-            handle_unclassified_error(err, f"Failed to create application {name}.")
-        return create_cursor.fetchall()
+                raise UserInputError(
+                    f"Failed to create application {name} with the following error message:\n"
+                    f"{err.msg}"
+                ) from err
+            except Exception as err:
+                handle_unclassified_error(err, f"Failed to create application {name}.")
+            return create_cursor.fetchall()
 
 
 # TODO move this to src/snowflake/cli/api/project/util.py in a separate

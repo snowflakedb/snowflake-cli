@@ -46,7 +46,10 @@ from snowflake.cli._plugins.nativeapp.policy import (
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
-from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import UserInputError
+from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
+    UpgradeApplicationRestrictionError,
+    UserInputError,
+)
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
@@ -58,6 +61,7 @@ from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
     CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
     INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
@@ -123,6 +127,13 @@ DEFAULT_STAGE_FQN = "app_pkg.app_src.stage"
 DEFAULT_UPGRADE_SUCCESS_MESSAGE = "Application successfully upgraded."
 DEFAULT_CREATE_SUCCESS_MESSAGE = f"Application '{DEFAULT_APP_ID}' created successfully."
 DEFAULT_USER_INPUT_ERROR_MESSAGE = "User input error message."
+DEFAULT_GET_EXISTING_APP_INFO_RESULT = {
+    "name": "myapp",
+    "comment": SPECIAL_COMMENT,
+    "owner": "app_role",
+}
+DEFAULT_ROLE = "app_role"
+DEFAULT_WAREHOUSE = "app_warehouse"
 
 
 def _create_or_upgrade_app(
@@ -339,13 +350,17 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
             debug_mode=True,
-            new_authorize_event_sharing_value=None,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
 
 # Test create_dev_app with no existing application AND create returns a warning
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -371,75 +386,15 @@ def test_create_or_upgrade_dev_app_with_warning(
     mock_param,
     mock_conn,
     mock_execute,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     temp_dir,
     mock_cursor,
     existing_app_info,
 ):
     status_messages = ["App created/upgraded", "Warning: some warning"]
-    status_cursor = mock_cursor(
-        [(msg,) for msg in status_messages],
-        ["status"],
-    )
-    create_or_upgrade_calls = (
-        [
-            (
-                status_cursor,
-                mock.call(
-                    dedent(
-                        f"""\
-                create application myapp
-                    from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
-                    comment = {SPECIAL_COMMENT}
-                """
-                    )
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-        ]
-        if existing_app_info is None
-        else [
-            (
-                status_cursor,
-                mock.call(
-                    "alter application myapp upgrade using @app_pkg.app_src.stage"
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "desc application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("alter application myapp set debug_mode = True")),
-        ]
-    )
+    status_cursor_results = [(msg,) for msg in status_messages]
 
     mock_get_existing_app_info.return_value = existing_app_info
     side_effects, expected = mock_execute_helper(
@@ -454,13 +409,25 @@ def test_create_or_upgrade_dev_app_with_warning(
                 mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
-            *create_or_upgrade_calls,
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    "show telemetry event definitions in application myapp",
+                    cursor_class=DictCursor,
+                ),
+            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
+    mock_sql_facade_create_application.return_value = status_cursor_results
+    mock_sql_facade_upgrade_application.return_value = status_cursor_results
 
     mock_diff_result = DiffResult()
     setup_project_file(os.getcwd(), test_pdf.replace("package_role", "app_role"))
@@ -473,6 +440,34 @@ def test_create_or_upgrade_dev_app_with_warning(
         console=mock_console,
     )
     assert mock_execute.mock_calls == expected
+    if existing_app_info is None:
+        assert mock_sql_facade_create_application.mock_calls == [
+            mock.call(
+                name=DEFAULT_APP_ID,
+                package_name=DEFAULT_PKG_ID,
+                install_method=SameAccountInstallMethod.unversioned_dev(),
+                stage_fqn=DEFAULT_STAGE_FQN,
+                debug_mode=True,
+                should_authorize_event_sharing=None,
+                role=DEFAULT_ROLE,
+                warehouse=DEFAULT_WAREHOUSE,
+            )
+        ]
+        mock_sql_facade_upgrade_application.assert_not_called()
+    else:
+        mock_sql_facade_create_application.assert_not_called()
+        assert mock_sql_facade_upgrade_application.mock_calls == [
+            mock.call(
+                name=DEFAULT_APP_ID,
+                install_method=SameAccountInstallMethod.unversioned_dev(),
+                stage_fqn=DEFAULT_STAGE_FQN,
+                current_app_row=existing_app_info,
+                debug_mode=True,
+                should_authorize_event_sharing=None,
+                role=DEFAULT_ROLE,
+                warehouse=DEFAULT_WAREHOUSE,
+            )
+        ]
 
     mock_console.warning.assert_has_calls([mock.call(msg) for msg in status_messages])
 
@@ -566,7 +561,9 @@ def test_create_dev_app_create_new_with_additional_privileges(
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
             debug_mode=True,
-            new_authorize_event_sharing_value=None,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -636,7 +633,9 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
             debug_mode=True,
-            new_authorize_event_sharing_value=None,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -729,12 +728,14 @@ def test_create_dev_app_incorrect_owner(
     temp_dir,
     mock_cursor,
 ):
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "name": "MYAPP",
         "comment": SPECIAL_COMMENT,
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "wrong_owner",
     }
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -777,6 +778,11 @@ def test_create_dev_app_incorrect_owner(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
+            current_app_row=mock_get_existing_app_info_result,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -802,12 +808,14 @@ def test_create_dev_app_no_diff_changes(
     temp_dir,
     mock_cursor,
 ):
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "name": "MYAPP",
         "comment": SPECIAL_COMMENT,
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "APP_ROLE",
     }
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -831,18 +839,6 @@ def test_create_dev_app_no_diff_changes(
                     cursor_class=DictCursor,
                 ),
             ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "desc application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("alter application myapp set debug_mode = True")),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -866,6 +862,11 @@ def test_create_dev_app_no_diff_changes(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
+            current_app_row=mock_get_existing_app_info_result,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -891,12 +892,14 @@ def test_create_dev_app_w_diff_changes(
     temp_dir,
     mock_cursor,
 ):
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "name": "MYAPP",
         "comment": SPECIAL_COMMENT,
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "APP_ROLE",
     }
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -920,18 +923,6 @@ def test_create_dev_app_w_diff_changes(
                     cursor_class=DictCursor,
                 ),
             ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "desc application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("alter application myapp set debug_mode = True")),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
@@ -955,6 +946,11 @@ def test_create_dev_app_w_diff_changes(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
+            current_app_row=mock_get_existing_app_info_result,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -1122,7 +1118,9 @@ def test_create_dev_app_create_new_quoted(
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn='"My Package".app_src.stage',
             debug_mode=True,
-            new_authorize_event_sharing_value=None,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -1204,7 +1202,9 @@ def test_create_dev_app_create_new_quoted_override(
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn='"My Package".app_src.stage',
             debug_mode=True,
-            new_authorize_event_sharing_value=None,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -1236,12 +1236,14 @@ def test_create_dev_app_recreate_app_when_orphaned(
     temp_dir,
     mock_cursor,
 ):
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "name": "myapp",
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
         "version": LOOSE_FILES_MAGIC_VERSION,
     }
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1294,7 +1296,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
     mock_execute.side_effect = side_effects
 
     mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
-        err=UserInputError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
         cause=ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
     )
 
@@ -1313,6 +1315,11 @@ def test_create_dev_app_recreate_app_when_orphaned(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
+            current_app_row=mock_get_existing_app_info_result,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
     assert mock_sql_facade_create_application.mock_calls == [
@@ -1322,7 +1329,9 @@ def test_create_dev_app_recreate_app_when_orphaned(
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
             debug_mode=True,
-            new_authorize_event_sharing_value=None,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -1355,13 +1364,14 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
     temp_dir,
     mock_cursor,
 ):
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "name": "myapp",
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
         "version": LOOSE_FILES_MAGIC_VERSION,
     }
-    # side_effects, expected = mock_execute_helper(
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1430,7 +1440,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
     mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
-        err=UserInputError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
         cause=ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
     )
     mock_sql_facade_create_application.side_effect = mock_cursor(
@@ -1448,6 +1458,11 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
+            current_app_row=mock_get_existing_app_info_result,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
     assert mock_sql_facade_create_application.mock_calls == [
@@ -1457,7 +1472,9 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
             debug_mode=True,
-            new_authorize_event_sharing_value=None,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -1491,12 +1508,14 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
     temp_dir,
     mock_cursor,
 ):
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "name": "myapp",
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
         "version": LOOSE_FILES_MAGIC_VERSION,
     }
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1559,8 +1578,9 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
-    mock_sql_facade_upgrade_application.side_effect = ProgrammingError(
-        errno=APPLICATION_NO_LONGER_AVAILABLE
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
     )
     mock_sql_facade_create_application.side_effect = mock_cursor(
         [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
@@ -1577,6 +1597,11 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
+            current_app_row=mock_get_existing_app_info_result,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
     assert mock_sql_facade_create_application.mock_calls == [
@@ -1586,7 +1611,9 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
             debug_mode=True,
-            new_authorize_event_sharing_value=None,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -1670,11 +1697,13 @@ def test_upgrade_app_incorrect_owner(
     temp_dir,
     mock_cursor,
 ):
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "name": "APP",
         "comment": SPECIAL_COMMENT,
         "owner": "wrong_owner",
     }
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1715,6 +1744,11 @@ def test_upgrade_app_incorrect_owner(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.release_directive(),
             stage_fqn=DEFAULT_STAGE_FQN,
+            current_app_row=mock_get_existing_app_info_result,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -1744,11 +1778,13 @@ def test_upgrade_app_succeeds(
     temp_dir,
     mock_cursor,
 ):
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "name": "myapp",
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
     }
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1769,17 +1805,6 @@ def test_upgrade_app_succeeds(
                 mock_cursor([], []),
                 mock.call(
                     "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "desc application myapp",
                     cursor_class=DictCursor,
                 ),
             ),
@@ -1806,6 +1831,11 @@ def test_upgrade_app_succeeds(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.release_directive(),
             stage_fqn=DEFAULT_STAGE_FQN,
+            current_app_row=mock_get_existing_app_info_result,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -1835,11 +1865,13 @@ def test_upgrade_app_fails_generic_error(
     temp_dir,
     mock_cursor,
 ):
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "name": "myapp",
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
     }
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1879,6 +1911,11 @@ def test_upgrade_app_fails_generic_error(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.release_directive(),
             stage_fqn=DEFAULT_STAGE_FQN,
+            current_app_row=mock_get_existing_app_info_result,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -1887,6 +1924,7 @@ def test_upgrade_app_fails_generic_error(
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is False AND --interactive is True AND  user does not want to proceed
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is True AND user does not want to proceed
 @mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
@@ -1908,6 +1946,7 @@ def test_upgrade_app_fails_upgrade_restriction_error(
     mock_conn,
     mock_typer_confirm,
     mock_get_existing_app_info,
+    mock_sql_facade_upgrade_application,
     mock_execute,
     policy_param,
     interactive,
@@ -1915,11 +1954,13 @@ def test_upgrade_app_fails_upgrade_restriction_error(
     temp_dir,
     mock_cursor,
 ):
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "name": "myapp",
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
     }
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1932,18 +1973,16 @@ def test_upgrade_app_fails_upgrade_restriction_error(
                 mock.call("select current_warehouse()"),
             ),
             (None, mock.call("use warehouse app_warehouse")),
-            (
-                ProgrammingError(
-                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
-                ),
-                mock.call("alter application myapp upgrade "),
-            ),
             (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION),
+    )
 
     setup_project_file(os.getcwd())
 
@@ -1954,7 +1993,20 @@ def test_upgrade_app_fails_upgrade_restriction_error(
             install_method=SameAccountInstallMethod.release_directive(),
         )
         assert result.exit_code == expected_code
+
     assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            current_app_row=mock_get_existing_app_info_result,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
 
 
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
@@ -1983,12 +2035,14 @@ def test_versioned_app_upgrade_to_unversioned(
     Ensure that attempting to upgrade from a versioned dev mode
     application to an unversioned one can succeed given a permissive policy.
     """
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "name": "myapp",
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
         "version": "v1",
     }
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -2040,11 +2094,8 @@ def test_versioned_app_upgrade_to_unversioned(
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
     mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
-        err=UserInputError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
-        cause=ProgrammingError(
-            msg="Some Error Message.",
-            errno=93045,
-        ),
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(errno=CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES),
     )
     mock_sql_facade_create_application.side_effect = mock_cursor(
         [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
@@ -2063,6 +2114,11 @@ def test_versioned_app_upgrade_to_unversioned(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
+            current_app_row=mock_get_existing_app_info_result,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
     assert mock_sql_facade_create_application.mock_calls == [
@@ -2072,7 +2128,9 @@ def test_versioned_app_upgrade_to_unversioned(
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
             debug_mode=True,
-            new_authorize_event_sharing_value=None,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -2110,11 +2168,13 @@ def test_upgrade_app_fails_drop_fails(
     temp_dir,
     mock_cursor,
 ):
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "name": "myapp",
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
     }
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -2139,10 +2199,10 @@ def test_upgrade_app_fails_drop_fails(
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
-    mock_sql_facade_upgrade_application.side_effect = ProgrammingError(
-        errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION),
     )
-
     setup_project_file(os.getcwd())
 
     with pytest.raises(ProgrammingError):
@@ -2157,6 +2217,11 @@ def test_upgrade_app_fails_drop_fails(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.release_directive(),
             stage_fqn=DEFAULT_STAGE_FQN,
+            current_app_row=mock_get_existing_app_info_result,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -2190,11 +2255,13 @@ def test_upgrade_app_recreate_app(
     temp_dir,
     mock_cursor,
 ):
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "name": "myapp",
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
     }
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -2245,8 +2312,9 @@ def test_upgrade_app_recreate_app(
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
-    mock_sql_facade_upgrade_application.side_effect = ProgrammingError(
-        errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION),
     )
     mock_sql_facade_create_application.side_effect = mock_cursor(
         [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
@@ -2265,6 +2333,11 @@ def test_upgrade_app_recreate_app(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.release_directive(),
             stage_fqn=DEFAULT_STAGE_FQN,
+            current_app_row=mock_get_existing_app_info_result,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
     assert mock_sql_facade_create_application.mock_calls == [
@@ -2274,7 +2347,9 @@ def test_upgrade_app_recreate_app(
             install_method=SameAccountInstallMethod.release_directive(),
             stage_fqn=DEFAULT_STAGE_FQN,
             debug_mode=True,
-            new_authorize_event_sharing_value=None,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 
@@ -2416,11 +2491,8 @@ def test_upgrade_app_recreate_app_from_version(
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
-    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
-        err=UserInputError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
-        cause=ProgrammingError(
-            errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
-        ),
+    mock_sql_facade_upgrade_application.side_effect = (
+        UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
     )
     mock_sql_facade_create_application.side_effect = mock_cursor(
         [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
@@ -2447,8 +2519,13 @@ def test_upgrade_app_recreate_app_from_version(
     assert mock_sql_facade_upgrade_application.mock_calls == [
         mock.call(
             name=DEFAULT_APP_ID,
+            current_app_row=DEFAULT_GET_EXISTING_APP_INFO_RESULT,
             install_method=SameAccountInstallMethod.versioned_dev("v1"),
             stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
     assert mock_sql_facade_create_application.mock_calls == [
@@ -2458,7 +2535,9 @@ def test_upgrade_app_recreate_app_from_version(
             install_method=SameAccountInstallMethod.versioned_dev("v1"),
             stage_fqn=DEFAULT_STAGE_FQN,
             debug_mode=True,
-            new_authorize_event_sharing_value=None,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
         )
     ]
 

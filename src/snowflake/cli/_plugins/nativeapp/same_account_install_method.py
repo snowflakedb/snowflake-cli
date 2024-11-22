@@ -9,6 +9,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationCreatedExternallyError,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.project.util import to_identifier
 
 
 @dataclass
@@ -43,8 +44,9 @@ class SameAccountInstallMethod:
             return ""
 
         if self.version:
+            version_clause = f"version {to_identifier(self.version)}"
             patch_clause = f"patch {self.patch}" if self.patch else ""
-            return f"using version {self.version} {patch_clause}"
+            return f"using {version_clause} {patch_clause}"
 
         stage_name = StageManager.quote_stage_name(stage_fqn)
         return f"using {stage_name}"

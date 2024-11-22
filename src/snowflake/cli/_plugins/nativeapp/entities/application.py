@@ -26,7 +26,6 @@ from snowflake.cli._plugins.nativeapp.common_flags import (
 )
 from snowflake.cli._plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
-    AUTHORIZE_TELEMETRY_COL,
     COMMENT_COL,
     NAME_COL,
     OWNER_COL,
@@ -178,11 +177,11 @@ class EventSharingHandler:
     def _contains_mandatory_events(self, events_definitions: List[Dict[str, str]]):
         return any(event["sharing"] == "MANDATORY" for event in events_definitions)
 
-    def should_authorize_event_sharing_during_create(
+    def should_authorize_event_sharing(
         self,
     ) -> Optional[bool]:
         """
-        Determines whether event sharing should be authorized during the creation of the application object.
+        Determines whether event sharing should be authorized.
 
         Outputs:
         - None: Event sharing should not be updated or explicitly set.
@@ -191,35 +190,6 @@ class EventSharingHandler:
         """
 
         if not self._event_sharing_enabled:
-            return None
-
-        return self._share_mandatory_events
-
-    def should_authorize_event_sharing_after_upgrade(
-        self,
-        upgraded_app_properties: Dict[str, str],
-    ) -> Optional[bool]:
-        """
-        Determines whether event sharing should be authorized after upgrading the application object.
-
-        :param upgraded_app_properties: The properties of the application after upgrading.
-
-        Outputs:
-        - None: Event sharing should not be updated or explicitly set.
-        - True: Event sharing should be authorized.
-        - False: Event sharing should be disabled.
-        """
-
-        if not self._event_sharing_enabled:
-            return None
-
-        current_app_authorization = (
-            upgraded_app_properties.get(AUTHORIZE_TELEMETRY_COL, "false").lower()
-            == "true"
-        )
-
-        # Skip the update if the current value is the same as the one we want to set
-        if current_app_authorization == self._share_mandatory_events:
             return None
 
         return self._share_mandatory_events
@@ -621,6 +591,75 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             ).fetchall()
             return [{"name": row[1], "type": row[2]} for row in results]
 
+    def _upgrade_app(
+        self,
+        stage_fqn: str,
+        install_method: SameAccountInstallMethod,
+        event_sharing: EventSharingHandler,
+        current_app_row: dict,
+        policy: PolicyBase,
+        interactive: bool,
+    ) -> list[tuple[str]] | None:
+        console = self._workspace_ctx.console
+        self._workspace_ctx.console.step(
+            f"Upgrading existing application object {self.name}."
+        )
+
+        try:
+            return get_snowflake_facade().upgrade_application(
+                name=self.name,
+                current_app_row=current_app_row,
+                install_method=install_method,
+                stage_fqn=stage_fqn,
+                debug_mode=self._entity_model.debug,
+                should_authorize_event_sharing=event_sharing.should_authorize_event_sharing(),
+                role=self.role,
+                warehouse=self.warehouse,
+            )
+        except UpgradeApplicationRestrictionError as err:
+            console.warning(err.message)
+            self.drop_application_before_upgrade(policy=policy, interactive=interactive)
+            return None
+
+    def _create_app(
+        self,
+        stage_fqn: str,
+        install_method: SameAccountInstallMethod,
+        event_sharing: EventSharingHandler,
+        package: ApplicationPackageEntity,
+    ) -> list[tuple[str]]:
+        self._workspace_ctx.console.step(
+            f"Creating new application object {self.name} in account."
+        )
+
+        try:
+            sql_executor = get_sql_executor()
+            if self.role != package.role:
+                with sql_executor.use_role(package.role):
+                    sql_executor.execute_query(
+                        f"grant install, develop on application package {package.name} to role {self.role}"
+                    )
+                    stage_schema = extract_schema(stage_fqn)
+                    sql_executor.execute_query(
+                        f"grant usage on schema {package.name}.{stage_schema} to role {self.role}"
+                    )
+                    sql_executor.execute_query(
+                        f"grant read on stage {stage_fqn} to role {self.role}"
+                    )
+        except ProgrammingError as err:
+            generic_sql_error_handler(err)
+
+        return get_snowflake_facade().create_application(
+            name=self.name,
+            package_name=package.name,
+            install_method=install_method,
+            stage_fqn=stage_fqn,
+            debug_mode=self._entity_model.debug,
+            should_authorize_event_sharing=event_sharing.should_authorize_event_sharing(),
+            role=self.role,
+            warehouse=self.warehouse,
+        )
+
     @span("update_app_object")
     def create_or_upgrade_app(
         self,
@@ -630,20 +669,14 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         policy: PolicyBase,
         interactive: bool,
     ):
-        model = self._entity_model
-        console = self._workspace_ctx.console
-        debug_mode = model.debug
-
-        stage_fqn = stage_fqn or package.stage_fqn
-        stage_schema = extract_schema(stage_fqn)
-
         sql_executor = get_sql_executor()
+
         with sql_executor.use_role(self.role):
             event_sharing = EventSharingHandler(
-                telemetry_definition=model.telemetry,
+                telemetry_definition=self._entity_model.telemetry,
                 deploy_root=package.deploy_root,
                 install_method=install_method,
-                console=console,
+                console=self._workspace_ctx.console,
             )
 
             # 1. Need to use a warehouse to create an application object
@@ -652,114 +685,43 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 # 2. Check for an existing application by the same name
                 show_app_row = self.get_existing_app_info()
 
+                stage_fqn = stage_fqn or package.stage_fqn
+
                 # 3. If existing application is found, perform a few validations and upgrade the application object.
+                create_or_upgrade_result = None
                 if show_app_row:
-                    install_method.ensure_app_usable(
-                        app_name=self.name,
-                        app_role=self.role,
-                        show_app_row=show_app_row,
-                    )
-
-                    # If all the above checks are in order, proceed to upgrade
-                    try:
-                        console.step(
-                            f"Upgrading existing application object {self.name}."
-                        )
-                        upgrade_result = get_snowflake_facade().upgrade_application(
-                            name=self.name,
-                            install_method=install_method,
-                            stage_fqn=stage_fqn,
-                        )
-                        print_messages(console, upgrade_result)
-
-                        events_definitions = (
-                            get_snowflake_facade().get_event_definitions(
-                                self.name, self.role
-                            )
-                        )
-
-                        app_properties = get_snowflake_facade().get_app_properties(
-                            self.name, self.role
-                        )
-                        new_authorize_event_sharing_value = (
-                            event_sharing.should_authorize_event_sharing_after_upgrade(
-                                app_properties,
-                            )
-                        )
-                        if new_authorize_event_sharing_value is not None:
-                            log.info(
-                                "Setting telemetry sharing authorization to %s",
-                                new_authorize_event_sharing_value,
-                            )
-                            sql_executor.execute_query(
-                                f"alter application {self.name} set AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(new_authorize_event_sharing_value).upper()}"
-                            )
-                        events_to_share = event_sharing.events_to_share(
-                            events_definitions
-                        )
-                        if events_to_share is not None:
-                            get_snowflake_facade().share_telemetry_events(
-                                self.name, events_to_share
-                            )
-
-                        if install_method.is_dev_mode:
-                            # if debug_mode is present (controlled), ensure it is up-to-date
-                            if debug_mode is not None:
-                                sql_executor.execute_query(
-                                    f"alter application {self.name} set debug_mode = {debug_mode}"
-                                )
-
-                        # hooks always executed after a create or upgrade
-                        self.execute_post_deploy_hooks()
-                        return
-                    except UpgradeApplicationRestrictionError as err:
-                        console.warning(err.message)
-                        self.drop_application_before_upgrade(
-                            policy=policy, interactive=interactive
-                        )
-                    except ProgrammingError as err:
-                        generic_sql_error_handler(err=err)
-
-                # 4. With no (more) existing application objects, create an application object using the release directives
-                console.step(f"Creating new application object {self.name} in account.")
-
-                if self.role != package.role:
-                    with sql_executor.use_role(package.role):
-                        sql_executor.execute_query(
-                            f"grant install, develop on application package {package.name} to role {self.role}"
-                        )
-                        sql_executor.execute_query(
-                            f"grant usage on schema {package.name}.{stage_schema} to role {self.role}"
-                        )
-                        sql_executor.execute_query(
-                            f"grant read on stage {stage_fqn} to role {self.role}"
-                        )
-
-                try:
-                    create_result = get_snowflake_facade().create_application(
-                        name=self.name,
-                        package_name=package.name,
-                        install_method=install_method,
+                    create_or_upgrade_result = self._upgrade_app(
                         stage_fqn=stage_fqn,
-                        debug_mode=debug_mode,
-                        new_authorize_event_sharing_value=event_sharing.should_authorize_event_sharing_during_create(),
+                        install_method=install_method,
+                        event_sharing=event_sharing,
+                        current_app_row=show_app_row,
+                        policy=policy,
+                        interactive=interactive,
                     )
-                    print_messages(console, create_result)
-                    events_definitions = get_snowflake_facade().get_event_definitions(
-                        self.name, self.role
+
+                # 4. Either no existing application found or we performed a drop before the upgrade, so we proceed to create
+                if create_or_upgrade_result is None:
+                    create_or_upgrade_result = self._create_app(
+                        stage_fqn=stage_fqn,
+                        install_method=install_method,
+                        event_sharing=event_sharing,
+                        package=package,
                     )
 
-                    events_to_share = event_sharing.events_to_share(events_definitions)
-                    if events_to_share is not None:
-                        get_snowflake_facade().share_telemetry_events(
-                            self.name, events_to_share
-                        )
+                print_messages(self._workspace_ctx.console, create_or_upgrade_result)
 
-                    # hooks always executed after a create or upgrade
-                    self.execute_post_deploy_hooks()
+                events_definitions = get_snowflake_facade().get_event_definitions(
+                    self.name, self.role
+                )
 
-                except ProgrammingError as err:
-                    generic_sql_error_handler(err)
+                events_to_share = event_sharing.events_to_share(events_definitions)
+                if events_to_share is not None:
+                    get_snowflake_facade().share_telemetry_events(
+                        self.name, events_to_share
+                    )
+
+                # hooks always executed after a create or upgrade
+                self.execute_post_deploy_hooks()
 
     def execute_post_deploy_hooks(self):
         execute_post_deploy_hooks(
