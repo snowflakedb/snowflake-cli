@@ -51,7 +51,7 @@ def test_deploy_function_no_procedure(runner, project_directory):
         in result.output
     )
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_procedures", "snowpark_procedures_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
@@ -63,6 +63,7 @@ def test_deploy_procedure(
     runner,
     mock_ctx,
     project_directory,
+        project_name
 ):
 
     mock_om_describe.side_effect = ProgrammingError(
@@ -71,7 +72,7 @@ def test_deploy_procedure(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_procedures") as tmp:
+    with project_directory(project_name) as tmp:
         result = runner.invoke(
             [
                 "snowpark",
@@ -115,7 +116,7 @@ def test_deploy_procedure(
         ).strip(),
     ]
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_procedure_external_access", "snowpark_procedure_external_access_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
@@ -127,6 +128,7 @@ def test_deploy_procedure_with_external_access(
     runner,
     mock_ctx,
     project_directory,
+    project_name
 ):
     mock_om_describe.side_effect = ProgrammingError(
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
@@ -139,7 +141,7 @@ def test_deploy_procedure_with_external_access(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_procedure_external_access") as project_dir:
+    with project_directory(project_name) as project_dir:
         result = runner.invoke(
             [
                 "snowpark",
@@ -176,7 +178,7 @@ def test_deploy_procedure_with_external_access(
         ).strip(),
     ]
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_procedure_secrets_without_external_access", "snowpark_procedure_secrets_without_external_access_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
@@ -189,6 +191,7 @@ def test_deploy_procedure_secrets_without_external_access(
     mock_ctx,
     project_directory,
     os_agnostic_snapshot,
+        project_name
 ):
     ctx = mock_ctx()
     mock_conn.return_value = ctx
@@ -198,7 +201,7 @@ def test_deploy_procedure_secrets_without_external_access(
         {"name": "external_2", "type": "EXTERNAL_ACCESS"},
     ]
 
-    with project_directory("snowpark_procedure_secrets_without_external_access"):
+    with project_directory(project_name):
         result = runner.invoke(
             [
                 "snowpark",
@@ -210,7 +213,7 @@ def test_deploy_procedure_secrets_without_external_access(
     assert result.exit_code == 1, result.output
     assert result.output == os_agnostic_snapshot
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_procedure_external_access", "snowpark_procedure_external_access_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
@@ -223,6 +226,7 @@ def test_deploy_procedure_fails_if_integration_does_not_exists(
     mock_ctx,
     project_directory,
     os_agnostic_snapshot,
+        project_name
 ):
     ctx = mock_ctx()
     mock_conn.return_value = ctx
@@ -231,7 +235,7 @@ def test_deploy_procedure_fails_if_integration_does_not_exists(
         {"name": "external_1", "type": "EXTERNAL_ACCESS"},
     ]
 
-    with project_directory("snowpark_procedure_external_access"):
+    with project_directory(project_name):
         result = runner.invoke(
             [
                 "snowpark",
@@ -243,7 +247,7 @@ def test_deploy_procedure_fails_if_integration_does_not_exists(
     assert result.exit_code == 1, result.output
     assert result.output == os_agnostic_snapshot
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_procedures", "snowpark_procedures_v2"])
 @mock.patch(
     "snowflake.cli._plugins.snowpark.commands._check_if_all_defined_integrations_exists"
 )
@@ -261,6 +265,7 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
     mock_ctx,
     project_directory,
     os_agnostic_snapshot,
+        project_name
 ):
     mock_om_describe.return_value = mock_cursor(
         [
@@ -273,13 +278,13 @@ def test_deploy_procedure_fails_if_object_exists_and_no_replace(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_procedures"):
+    with project_directory(project_name):
         result = runner.invoke(["snowpark", "deploy"])
 
     assert result.exit_code == 1
     assert result.output == os_agnostic_snapshot
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_procedures", "snowpark_procedures_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
@@ -293,6 +298,7 @@ def test_deploy_procedure_replace_nothing_to_update(
     mock_ctx,
     project_directory,
     caplog,
+        project_name
 ):
     mock_om_describe.side_effect = [
         mock_cursor(
@@ -318,7 +324,7 @@ def test_deploy_procedure_replace_nothing_to_update(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_procedures"):
+    with project_directory(project_name):
         result = runner.invoke(["snowpark", "deploy", "--replace", "--format", "json"])
 
     assert result.exit_code == 0, result.output
@@ -335,7 +341,7 @@ def test_deploy_procedure_replace_nothing_to_update(
         },
     ]
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_procedures", "snowpark_procedures_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
@@ -348,6 +354,7 @@ def test_deploy_procedure_replace_updates_single_object(
     mock_cursor,
     mock_ctx,
     project_directory,
+        project_name
 ):
     mock_om_describe.side_effect = [
         mock_cursor(
@@ -372,7 +379,7 @@ def test_deploy_procedure_replace_updates_single_object(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_procedures"):
+    with project_directory( project_name):
         result = runner.invoke(["snowpark", "deploy", "--replace", "--format", "json"])
 
     assert result.exit_code == 0
@@ -389,7 +396,7 @@ def test_deploy_procedure_replace_updates_single_object(
         },
     ]
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_procedures", "snowpark_procedures_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
@@ -402,6 +409,7 @@ def test_deploy_procedure_replace_creates_missing_object(
     mock_cursor,
     mock_ctx,
     project_directory,
+        project_name
 ):
     mock_om_describe.side_effect = [
         mock_cursor(
@@ -418,7 +426,7 @@ def test_deploy_procedure_replace_creates_missing_object(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_procedures"):
+    with project_directory(project_name):
         result = runner.invoke(["snowpark", "deploy", "--replace", "--format", "json"])
 
     assert result.exit_code == 0
@@ -435,7 +443,7 @@ def test_deploy_procedure_replace_creates_missing_object(
         },
     ]
 
-
+@pytest.mark.parametrize("project_name", ["snowpark_procedure_fully_qualified_name", "snowpark_procedure_fully_qualified_name_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
@@ -449,6 +457,7 @@ def test_deploy_procedure_fully_qualified_name(
     project_directory,
     alter_snowflake_yml,
     os_agnostic_snapshot,
+    project_name
 ):
     number_of_procedures_in_projects = 6
     mock_om_describe.side_effect = [
@@ -457,11 +466,11 @@ def test_deploy_procedure_fully_qualified_name(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_procedure_fully_qualified_name") as tmp_dir:
+    with project_directory(project_name) as tmp_dir:
         result = runner.invoke(["snowpark", "deploy"])
         assert result.output == os_agnostic_snapshot(name="database error")
 
-
+@pytest.mark.parametrize("project_name,parameter_path", [("snowpark_procedure_fully_qualified_name","snowpark.procedures.5.name"), ("snowpark_procedure_fully_qualified_name_v2", "entities.custom_database_custom_schema_fqn_procedure_error.identifier.name")])
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
@@ -475,6 +484,8 @@ def test_deploy_procedure_fully_qualified_name_duplicated_schema(
     project_directory,
     alter_snowflake_yml,
     os_agnostic_snapshot,
+    project_name,
+        parameter_path
 ):
     number_of_procedures_in_projects = 6
     mock_om_describe.side_effect = [
@@ -483,10 +494,10 @@ def test_deploy_procedure_fully_qualified_name_duplicated_schema(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory("snowpark_procedure_fully_qualified_name") as tmp_dir:
+    with project_directory(project_name) as tmp_dir:
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
-            parameter_path="snowpark.procedures.5.name",
+            parameter_path=parameter_path,
             value="custom_schema.fqn_procedure_error",
         )
         result = runner.invoke(["snowpark", "deploy"])
