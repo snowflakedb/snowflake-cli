@@ -49,7 +49,12 @@ from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
+from snowflake.cli.api.cli_global_context import span
+from snowflake.cli.api.entities.common import (
+    EntityBase,
+    attach_spans_to_entity_actions,
+    get_sql_executor,
+)
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
     execute_post_deploy_hooks,
@@ -157,6 +162,7 @@ class ApplicationPackageEntityModel(EntityModelBase):
         return input_value
 
 
+@attach_spans_to_entity_actions(entity_name="app_pkg")
 class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     """
     A Native App application package.
@@ -900,6 +906,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             if validation_result["status"] == "FAIL":
                 raise SetupScriptFailedValidation()
 
+    @span("validate_setup_script")
     def get_validation_result(
         self, use_scratch_stage: bool, interactive: bool, force: bool
     ):

@@ -48,7 +48,7 @@ from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
     NativeAppExtensionFunction,
 )
 from snowflake.cli._plugins.stage.diff import to_stage_path
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
@@ -167,6 +167,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    @span("snowpark_processor")
     def process(
         self,
         artifact_to_process: PathMapping,

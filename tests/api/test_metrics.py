@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import uuid
 from itertools import count
-from unittest import mock
 
 import pytest
 from snowflake.cli.api.metrics import (
@@ -23,12 +23,90 @@ from snowflake.cli.api.metrics import (
 )
 
 
-# we need to mock time.monotonic because on windows it does not
-# capture enough precision for these tests to not be flaky
-@pytest.fixture
-def mock_time_monotonic():
-    with mock.patch("time.monotonic", side_effect=count()) as mocked_time_monotonic:
-        yield mocked_time_monotonic
+def test_metrics_no_counters():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+
+    # then
+    assert metrics.counters == {}
+    assert metrics.get_counter("counter1") is None
+
+
+def test_metrics_set_one_counter():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    metrics.set_counter("counter1", 1)
+
+    # then
+    assert metrics.counters == {"counter1": 1}
+    assert metrics.get_counter("counter1") == 1
+
+
+def test_metrics_increment_new_counter():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    metrics.increment_counter("counter1")
+
+    # then
+    assert metrics.counters == {"counter1": 1}
+    assert metrics.get_counter("counter1") == 1
+
+
+def test_metrics_increment_existing_counter():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    metrics.set_counter("counter1", 2)
+    metrics.increment_counter(name="counter1", value=2)
+
+    # then
+    assert metrics.counters == {"counter1": 4}
+    assert metrics.get_counter("counter1") == 4
+
+
+def test_metrics_set_multiple_counters():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    metrics.set_counter("counter1", 1)
+    metrics.set_counter("counter2", 0)
+    metrics.set_counter(name="counter2", value=2)
+
+    # then
+    assert metrics.counters == {"counter1": 1, "counter2": 2}
+    assert metrics.get_counter("counter1") == 1
+    assert metrics.get_counter("counter2") == 2
+
+
+def test_metrics_set_default_new_counter():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    metrics.set_counter_default("c1", 3)
+
+    # then
+    assert metrics.counters == {"c1": 3}
+
+
+def test_metrics_set_default_existing_counter():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    metrics.set_counter("c2", 2)
+    metrics.set_counter_default("c2", 1)
+
+    # then
+    assert metrics.counters == {"c2": 2}
 
 
 # helper for testing span limits
@@ -39,7 +117,7 @@ def create_spans(metrics: CLIMetrics, width: int, depth: int):
         if num_spans <= 0:
             return
 
-        with metrics.start_span(f"span-{next(counter)}"):
+        with metrics.span(f"span-{next(counter)}"):
             create_span(num_spans - 1)
 
     for _ in range(width):
@@ -59,12 +137,12 @@ def test_metrics_spans_initialization_empty():
     assert metrics.num_spans_past_total_limit == 0
 
 
-def test_metrics_spans_single_span_no_error_or_parent(mock_time_monotonic):
+def test_metrics_spans_single_span_no_error_or_parent():
     # given
     metrics = CLIMetrics()
 
     # when
-    with metrics.start_span("span1") as span1:
+    with metrics.span("span1") as span1:
         assert metrics.current_span is span1
 
     assert metrics.current_span is None
@@ -92,7 +170,7 @@ def test_metrics_spans_finish_early_is_idempotent():
     metrics = CLIMetrics()
 
     # when
-    with metrics.start_span("span1") as span1:
+    with metrics.span("span1") as span1:
         start_time = span1.start_time
         span1.finish()
         execution_time = span1.execution_time
@@ -104,15 +182,15 @@ def test_metrics_spans_finish_early_is_idempotent():
     assert span1_dict[CLIMetricsSpan.EXECUTION_TIME_KEY] == execution_time
 
 
-def test_metrics_spans_parent_with_one_child(mock_time_monotonic):
+def test_metrics_spans_parent_with_one_child():
     # given
     metrics = CLIMetrics()
 
     # when
-    with metrics.start_span("parent") as parent:
+    with metrics.span("parent") as parent:
         assert metrics.current_span is parent
 
-        with metrics.start_span("child") as child:
+        with metrics.span("child") as child:
             assert metrics.current_span is child
 
         assert metrics.current_span is parent
@@ -157,20 +235,20 @@ def test_metrics_spans_parent_with_one_child(mock_time_monotonic):
     )
 
 
-def test_metrics_spans_parent_with_two_children_same_name(mock_time_monotonic):
+def test_metrics_spans_parent_with_two_children_same_name():
     # given
     metrics = CLIMetrics()
 
     # when
-    with metrics.start_span("parent") as parent:
+    with metrics.span("parent") as parent:
         assert metrics.current_span is parent
 
-        with metrics.start_span("child") as child1:
+        with metrics.span("child") as child1:
             assert metrics.current_span is child1
 
         assert metrics.current_span is parent
 
-        with metrics.start_span("child") as child2:
+        with metrics.span("child") as child2:
             assert metrics.current_span is child2
 
         assert metrics.current_span is parent
@@ -249,7 +327,7 @@ def test_metrics_spans_error_is_propagated():
 
     # when
     with pytest.raises(RuntimeError):
-        with metrics.start_span("step1"):
+        with metrics.span("step1"):
             raise RuntimeError()
 
     # then
@@ -264,16 +342,14 @@ def test_metrics_spans_empty_name_raises_error():
 
     # when
     with pytest.raises(CLIMetricsInvalidUsageError) as err:
-        with metrics.start_span(""):
+        with metrics.span(""):
             pass
 
     # then
     assert err.match("span name must not be empty")
 
 
-def test_metrics_spans_passing_depth_limit_should_add_to_counter_and_not_emit(
-    mock_time_monotonic,
-):
+def test_metrics_spans_passing_depth_limit_should_add_to_counter_and_not_emit():
     # given
     metrics = CLIMetrics()
 

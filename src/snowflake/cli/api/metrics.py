@@ -116,10 +116,8 @@ class CLIMetricsSpan:
     children: Set[CLIMetricsSpan] = field(init=False, default_factory=set)
 
     # private state
-    # start time of the step from the monotonic clock in order to calculate execution time
-    _monotonic_start: float = field(
-        init=False, default_factory=lambda: time.monotonic()
-    )
+    # start time of the step from a performance counter in order to calculate execution time
+    _start_time: float = field(init=False, default_factory=time.perf_counter)
 
     def __hash__(self) -> int:
         return hash(self.span_id)
@@ -154,7 +152,7 @@ class CLIMetricsSpan:
         if error:
             self.error = error
 
-        self.execution_time = time.monotonic() - self._monotonic_start
+        self.execution_time = time.perf_counter() - self._start_time
 
     def to_dict(self) -> Dict:
         """
@@ -191,9 +189,10 @@ class CLIMetrics:
     _in_progress_spans: List[CLIMetricsSpan] = field(init=False, default_factory=list)
     # list of finished steps for telemetry to process
     _completed_spans: List[CLIMetricsSpan] = field(init=False, default_factory=list)
-    # monotonic clock time of when this class was initialized to approximate when the command first started executing
-    _monotonic_start: float = field(
-        init=False, default_factory=lambda: time.monotonic(), compare=False
+    # clock time of a performance counter when this class was initialized
+    # to approximate when the command first started executing
+    _start_time: float = field(
+        init=False, default_factory=time.perf_counter, compare=False
     )
 
     def clone(self) -> CLIMetrics:
@@ -223,7 +222,7 @@ class CLIMetrics:
         return self._in_progress_spans[-1] if len(self._in_progress_spans) > 0 else None
 
     @contextmanager
-    def start_span(self, name: str) -> Iterator[CLIMetricsSpan]:
+    def span(self, name: str) -> Iterator[CLIMetricsSpan]:
         """
         Starts a new span that tracks various metrics throughout its execution
 
@@ -236,7 +235,7 @@ class CLIMetrics:
         """
         new_span = CLIMetricsSpan(
             name=name,
-            start_time=time.monotonic() - self._monotonic_start,
+            start_time=time.perf_counter() - self._start_time,
             parent=self.current_span,
         )
 
@@ -275,34 +274,29 @@ class CLIMetrics:
     @property
     def completed_spans(self) -> List[Dict]:
         """
-        Returns the completed spans tracked throughout a command, sorted by start time, for reporting telemetry
+        Returns the completed spans tracked throughout a command for reporting telemetry
 
         Ensures that the spans we send are within the configured limits and marks
         certain spans as trimmed if their children would bypass the limits we set
         """
         # take spans breadth-first within the depth and total limits
         # since we care more about the big picture than granularity
-        spans_to_report = set(
-            nsmallest(
-                n=self.SPAN_TOTAL_LIMIT,
-                iterable=(
-                    span
-                    for span in self._completed_spans
-                    if span.span_depth <= self.SPAN_DEPTH_LIMIT
-                ),
-                key=lambda span: (span.span_depth, span.start_time),
-            )
+        spans_to_report = nsmallest(
+            n=self.SPAN_TOTAL_LIMIT,
+            iterable=(
+                span
+                for span in self._completed_spans
+                if span.span_depth <= self.SPAN_DEPTH_LIMIT
+            ),
+            key=lambda span: (span.span_depth, span.start_time, span.execution_time),
         )
 
-        # sort by start time to make reading the payload easier
-        sorted_spans_to_report = sorted(
-            spans_to_report, key=lambda span: span.start_time
-        )
+        spans_to_report_set = set(spans_to_report)
 
         return [
             {
                 **span.to_dict(),
-                CLIMetricsSpan.TRIMMED_KEY: not span.children <= spans_to_report,
+                CLIMetricsSpan.TRIMMED_KEY: not span.children <= spans_to_report_set,
             }
-            for span in sorted_spans_to_report
+            for span in spans_to_report
         ]

@@ -88,7 +88,10 @@ class NativeAppCompiler:
         if not self._should_invoke_processors():
             return
 
-        with cc.phase("Invoking artifact processors"):
+        with (
+            cc.phase("Invoking artifact processors"),
+            get_cli_context().metrics.span("artifact_processors"),
+        ):
             if self._bundle_ctx.generated_root.exists():
                 raise ClickException(
                     f"Path {self._bundle_ctx.generated_root} already exists. Please choose a different name for your generated directory in the project definition file."

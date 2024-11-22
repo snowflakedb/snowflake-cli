@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Generic, Type, TypeVar, get_args
 
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
+from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.sql_execution import SqlExecutor
 
 
@@ -18,6 +19,31 @@ class EntityActions(str, Enum):
 
 
 T = TypeVar("T")
+
+
+def attach_spans_to_entity_actions(entity_name: str):
+    """
+    Class decorator for EntityBase subclasses to automatically wrap
+    every implemented entity action method with a metrics span
+
+    Args:
+        entity_name (str): Custom name for entity type to be displayed in metrics
+    """
+
+    def decorator(cls: type[EntityBase]) -> type[EntityBase]:
+        for attr_name, attr_value in vars(cls).items():
+            is_entity_action = attr_name in [
+                enum_member for enum_member in EntityActions
+            ]
+
+            if is_entity_action and callable(attr_value):
+                attr_name_without_action_prefix = attr_name.partition("_")[2]
+                span_name = f"action.{entity_name}.{attr_name_without_action_prefix}"
+                action_with_span = span(span_name)(attr_value)
+                setattr(cls, attr_name, action_with_span)
+        return cls
+
+    return decorator
 
 
 class EntityBase(Generic[T]):

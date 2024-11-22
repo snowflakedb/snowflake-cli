@@ -90,10 +90,10 @@ def test_forked_context():
 def test_forked_metrics_spans():
     outer_metrics = get_cli_context_manager().metrics
 
-    with outer_metrics.start_span("outer_span"):
+    with outer_metrics.span("outer_span"):
         with fork_cli_context() as inner:
             inner_metrics = inner.metrics
-            with inner_metrics.start_span("inner_span"):
+            with inner_metrics.span("inner_span"):
                 pass
 
     assert outer_metrics != inner_metrics

@@ -23,7 +23,7 @@ from snowflake.cli._plugins.stage.diff import (
     to_stage_path,
 )
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.errno import (
@@ -76,6 +76,7 @@ def _get_stage_paths_to_sync(
     return stage_paths
 
 
+@span("sync_deploy_root_with_stage")
 def sync_deploy_root_with_stage(
     console: AbstractConsole,
     deploy_root: Path,
@@ -212,7 +213,10 @@ def execute_post_deploy_hooks(
 
     get_cli_context().metrics.set_counter(CLICounterField.POST_DEPLOY_SCRIPTS, 1)
 
-    with console.phase(f"Executing {deployed_object_type} post-deploy actions"):
+    with (
+        console.phase(f"Executing {deployed_object_type} post-deploy actions"),
+        get_cli_context().metrics.span("post_deploy_hooks"),
+    ):
         sql_scripts_paths = []
         display_paths = []
         for hook in post_deploy_hooks:

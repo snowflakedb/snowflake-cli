@@ -55,9 +55,13 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console.abc import AbstractConsole
-from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
+from snowflake.cli.api.entities.common import (
+    EntityBase,
+    attach_spans_to_entity_actions,
+    get_sql_executor,
+)
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
     execute_post_deploy_hooks,
@@ -321,6 +325,7 @@ class ApplicationEntityModel(EntityModelBase):
         return with_suffix
 
 
+@attach_spans_to_entity_actions(entity_name="app")
 class ApplicationEntity(EntityBase[ApplicationEntityModel]):
     """
     A Native App application object, created from an application package.
@@ -629,6 +634,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             ).fetchall()
             return [{"name": row[1], "type": row[2]} for row in results]
 
+    @span("update_app_object")
     def create_or_upgrade_app(
         self,
         package: ApplicationPackageEntity,
@@ -1043,6 +1049,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         except KeyboardInterrupt:
             return
 
+    @span("get_snowsight_url_for_app")
     def get_snowsight_url(self) -> str:
         """Returns the URL that can be used to visit this app via Snowsight."""
         name = identifier_for_url(self.name)
