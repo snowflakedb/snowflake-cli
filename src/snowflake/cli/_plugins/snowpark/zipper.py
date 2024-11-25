@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Dict, List, Literal
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.console import cli_console
 
 log = logging.getLogger(__name__)

@@ -4,10 +4,14 @@
 **/__snapshots__/ @snowflakedb/snowcli @snowflakedb/nade
 **/test_data @snowflakedb/snowcli @snowflakedb/nade
 **/testing_utils/ @snowflakedb/snowcli @snowflakedb/nade
+src/snowflake/cli/api/artifacts/ @snowflakedb/snowcli @snowflakedb/nade
 src/snowflake/cli/api/metrics.py @snowflakedb/snowcli @snowflakedb/nade
 src/snowflake/cli/api/project/definition_conversion.py @snowflakedb/snowcli @snowflakedb/nade
 src/snowflake/cli/api/utils/ @snowflakedb/snowcli @snowflakedb/nade
+tests/api/artifacts/ @snowflakedb/snowcli @snowflakedb/nade
+tests/api/metrics/ @snowflakedb/snowcli @snowflakedb/nade
 tests/api/test_metrics.py @snowflakedb/snowcli @snowflakedb/nade
+tests/api/utils/ @snowflakedb/snowcli @snowflakedb/nade
 tests_common/__init__.py @snowflakedb/snowcli @snowflakedb/nade
 tests_common/conftest.py @snowflakedb/snowcli @snowflakedb/nade
 tests_common/deflake.py @snowflakedb/snowcli @snowflakedb/nade

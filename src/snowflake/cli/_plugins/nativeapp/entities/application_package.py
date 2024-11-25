@@ -11,7 +11,6 @@ from click import BadOptionUsage, ClickException
 from pydantic import Field, field_validator
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.artifacts import (
-    BundleMap,
     VersionInfo,
     build_bundle,
     find_version_info_in_manifest_file,
@@ -50,6 +49,7 @@ from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.context import ActionContext
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.entities.common import (
     EntityBase,
