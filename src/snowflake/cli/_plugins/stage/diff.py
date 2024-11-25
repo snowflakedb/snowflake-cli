@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Collection, Dict, List, Optional, Tuple
 
-from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
