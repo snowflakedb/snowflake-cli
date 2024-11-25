@@ -258,6 +258,7 @@ def add(
                     default="",
                     value_proc=lambda x: None if not x else x,
                     hide_input=option == "password",
+                    show_default=False,
                 )
             if isinstance(connection_options[option], str):
                 connection_options[option] = strip_if_value_present(
