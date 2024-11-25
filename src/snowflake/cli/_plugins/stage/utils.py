@@ -1,11 +1,11 @@
 from typing import Optional
 
-from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     _to_diff_line,
     _to_src_dest_pair,
 )
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.console import cli_console as cc
 
 
