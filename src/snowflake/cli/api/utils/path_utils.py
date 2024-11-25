@@ -14,7 +14,11 @@
 
 from __future__ import annotations
 
+import os
 import sys
+from pathlib import Path
+
+from snowflake.cli.api.secure_path import SecurePath
 
 BUFFER_SIZE = 4096
 
@@ -34,3 +38,23 @@ def path_resolver(path_to_file: str) -> str:
 
 def is_stage_path(path: str) -> bool:
     return path.startswith("@") or path.startswith("snow://")
+
+
+def delete(path: Path) -> None:
+    """
+    Obliterates whatever is at the given path, or is a no-op if the
+    given path does not represent a file or directory that exists.
+    """
+    spath = SecurePath(path)
+    if spath.path.is_file():
+        spath.unlink()  # remove the file
+    elif spath.path.is_dir():
+        spath.rmdir(recursive=True)  # remove dir and all contains
+
+
+def resolve_without_follow(path: Path) -> Path:
+    """
+    Resolves a Path to an absolute version of itself, without following
+    symlinks like Path.resolve() does.
+    """
+    return Path(os.path.abspath(path))
