@@ -14,7 +14,6 @@ from click import BadOptionUsage, ClickException, UsageError
 from pydantic import Field, field_validator
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.artifacts import (
-    BundleMap,
     VersionInfo,
     build_bundle,
     find_setup_script_file,
@@ -73,6 +72,7 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.entities.common import (
     EntityBase,
