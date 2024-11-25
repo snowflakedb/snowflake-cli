@@ -24,7 +24,6 @@ from snowflake.cli._plugins.connection.util import (
     MissingConnectionRegionError,
     make_snowsight_url,
 )
-from snowflake.cli._plugins.nativeapp.artifacts import BundleMap, symlink_or_copy
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
@@ -33,6 +32,8 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
 from snowflake.cli._plugins.streamlit.streamlit_project_paths import (
     StreamlitProjectPaths,
 )
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
+from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.commands.experimental_behaviour import (
     experimental_behaviour_enabled,
 )
