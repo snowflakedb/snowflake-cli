@@ -205,7 +205,7 @@ def _setup_mocks_for_app(
     is_upgrade=False,
     existing_app_flag=False,
     events_definitions_in_app=None,
-    programming_errno=None,
+    error_raised=None,
 ):
     if is_upgrade:
         return _setup_mocks_for_upgrade_app(
@@ -218,7 +218,7 @@ def _setup_mocks_for_app(
             is_prod=is_prod,
             existing_app_flag=existing_app_flag,
             events_definitions_in_app=events_definitions_in_app,
-            programming_errno=programming_errno,
+            error_raised=error_raised,
         )
     else:
         return _setup_mocks_for_create_app(
@@ -230,7 +230,7 @@ def _setup_mocks_for_app(
             expected_shared_events=expected_shared_events,
             is_prod=is_prod,
             events_definitions_in_app=events_definitions_in_app,
-            programming_errno=programming_errno,
+            error_raised=error_raised,
         )
 
 
@@ -243,7 +243,7 @@ def _setup_mocks_for_create_app(
     expected_shared_events=None,
     events_definitions_in_app=None,
     is_prod=False,
-    programming_errno=None,
+    error_raised=None,
 ):
     mock_get_existing_app_info.return_value = None
 
@@ -312,14 +312,10 @@ def _setup_mocks_for_create_app(
     side_effects, mock_execute_query_expected = mock_execute_helper(calls)
     mock_execute_query.side_effect = side_effects
 
-    mock_sql_facade_create_application.side_effect = (
-        mock_side_effect_error_with_cause(
-            err=UserInputError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
-            cause=ProgrammingError(errno=programming_errno),
-        )
-        if programming_errno
-        else mock_cursor([[(DEFAULT_SUCCESS_MESSAGE,)]], [])
+    mock_sql_facade_create_application.side_effect = error_raised or mock_cursor(
+        [[(DEFAULT_SUCCESS_MESSAGE,)]], []
     )
+
     mock_sql_facade_create_application_expected = [
         mock.call(
             name=DEFAULT_APP_ID,
@@ -329,7 +325,9 @@ def _setup_mocks_for_create_app(
             else SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
             debug_mode=None,
-            new_authorize_event_sharing_value=expected_authorize_telemetry_flag,
+            should_authorize_event_sharing=expected_authorize_telemetry_flag,
+            role="app_role",
+            warehouse="app_warehouse",
         )
     ]
 
@@ -346,11 +344,12 @@ def _setup_mocks_for_upgrade_app(
     events_definitions_in_app=None,
     is_prod=False,
     existing_app_flag=False,
-    programming_errno=None,
+    error_raised=None,
 ):
-    mock_get_existing_app_info.return_value = {
+    mock_get_existing_app_info_result = {
         "comment": "GENERATED_BY_SNOWFLAKECLI",
     }
+    mock_get_existing_app_info.return_value = mock_get_existing_app_info_result
 
     calls = [
         (
@@ -376,40 +375,7 @@ def _setup_mocks_for_upgrade_app(
                 cursor_class=DictCursor,
             ),
         ),
-        (
-            mock_cursor([("app_role",)], []),
-            mock.call("select current_role()"),
-        ),
-        (
-            mock_cursor(
-                [
-                    {
-                        "property": "authorize_telemetry_event_sharing",
-                        "value": str(existing_app_flag).lower(),
-                    }
-                ],
-                ["property", "value"],
-            ),
-            mock.call(
-                "desc application myapp",
-                cursor_class=DictCursor,
-            ),
-        ),
     ]
-
-    if expected_authorize_telemetry_flag is not None:
-        calls.append(
-            (
-                (
-                    ProgrammingError(errno=programming_errno)
-                    if programming_errno
-                    else None
-                ),
-                mock.call(
-                    f"alter application myapp set AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(expected_authorize_telemetry_flag).upper()}"
-                ),
-            ),
-        )
 
     if expected_shared_events is not None:
         calls.append(
@@ -430,16 +396,21 @@ def _setup_mocks_for_upgrade_app(
     side_effects, mock_execute_query_expected = mock_execute_helper(calls)
     mock_execute_query.side_effect = side_effects
 
-    mock_sql_facade_upgrade_application.side_effect = mock_cursor(
+    mock_sql_facade_upgrade_application.side_effect = error_raised or mock_cursor(
         [[(DEFAULT_SUCCESS_MESSAGE,)]], []
     )
     mock_sql_facade_upgrade_application_expected = [
         mock.call(
             name=DEFAULT_APP_ID,
+            current_app_row=mock_get_existing_app_info_result,
             install_method=SameAccountInstallMethod.release_directive()
             if is_prod
             else SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=None,
+            should_authorize_event_sharing=expected_authorize_telemetry_flag,
+            role="app_role",
+            warehouse="app_warehouse",
         )
     ]
     return [*mock_execute_query_expected, *mock_sql_facade_upgrade_application_expected]
@@ -729,7 +700,7 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
         mock_cursor,
         mock_get_existing_app_info,
         is_prod=not install_method.is_dev_mode,
-        expected_authorize_telemetry_flag=None,  # make sure flag is not set again during upgrade
+        expected_authorize_telemetry_flag=share_mandatory_events,
         is_upgrade=is_upgrade,
         existing_app_flag=share_mandatory_events,  # existing app with same flag as target app
         expected_shared_events=[] if share_mandatory_events else None,
@@ -828,11 +799,11 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
         console=mock_console,
     )
 
-    assert [
+    assert expected == [
         *mock_execute_query.mock_calls,
         *mock_sql_facade_upgrade_application.mock_calls,
         *mock_sql_facade_create_application.mock_calls,
-    ] == expected
+    ]
 
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
@@ -883,9 +854,7 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
         mock_cursor,
         mock_get_existing_app_info,
         is_prod=not install_method.is_dev_mode,
-        expected_authorize_telemetry_flag=(
-            None if is_upgrade else share_mandatory_events
-        ),
+        expected_authorize_telemetry_flag=share_mandatory_events,
         is_upgrade=is_upgrade,
         existing_app_flag=False,  # we can't switch from True to False, so we assume False
         expected_shared_events=[] if share_mandatory_events else None,
@@ -1127,7 +1096,12 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused
                 "status": "ENABLED",
             }
         ],
-        programming_errno=APPLICATION_REQUIRES_TELEMETRY_SHARING,
+        error_raised=mock_side_effect_error_with_cause(
+            UserInputError(
+                "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+            ),
+            ProgrammingError(errno=APPLICATION_REQUIRES_TELEMETRY_SHARING),
+        ),
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
@@ -1207,7 +1181,12 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
                 "status": "ENABLED",
             }
         ],
-        programming_errno=CANNOT_DISABLE_MANDATORY_TELEMETRY,
+        error_raised=mock_side_effect_error_with_cause(
+            UserInputError(
+                "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+            ),
+            ProgrammingError(errno=CANNOT_DISABLE_MANDATORY_TELEMETRY),
+        ),
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
@@ -1216,7 +1195,7 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
     )
     mock_console = MagicMock()
 
-    with pytest.raises(ClickException) as e:
+    with pytest.raises(UserInputError) as e:
         _create_or_upgrade_app(
             policy=MagicMock(),
             install_method=install_method,
@@ -1227,7 +1206,7 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
         e.value.message
         == "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
     )
-    mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
+    mock_console.warning.assert_not_called()
 
 
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
@@ -1359,7 +1338,12 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
                 "status": "ENABLED",
             }
         ],
-        programming_errno=APPLICATION_REQUIRES_TELEMETRY_SHARING,
+        error_raised=mock_side_effect_error_with_cause(
+            UserInputError(
+                "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+            ),
+            ProgrammingError(errno=APPLICATION_REQUIRES_TELEMETRY_SHARING),
+        ),
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
