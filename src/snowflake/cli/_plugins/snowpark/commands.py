@@ -20,7 +20,6 @@ from typing import Dict, Optional, Set, Tuple
 
 import typer
 from click import ClickException, UsageError
-from snowflake.cli._plugins.nativeapp.artifacts import BundleMap, symlink_or_copy
 from snowflake.cli._plugins.object.commands import (
     describe as object_describe,
 )
@@ -62,6 +61,8 @@ from snowflake.cli._plugins.snowpark.snowpark_shared import (
 )
 from snowflake.cli._plugins.snowpark.zipper import zip_dir, zip_dir_using_bundle_map
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
+from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import (
     get_cli_context,
 )
