@@ -22,7 +22,6 @@
 
 ## Fixes and improvements
 
-
 # v3.2.0
 
 ## Deprecations
