@@ -203,7 +203,6 @@ def _setup_mocks_for_app(
     expected_shared_events=None,
     is_prod=False,
     is_upgrade=False,
-    existing_app_flag=False,
     events_definitions_in_app=None,
     error_raised=None,
 ):
@@ -216,7 +215,6 @@ def _setup_mocks_for_app(
             expected_authorize_telemetry_flag=expected_authorize_telemetry_flag,
             expected_shared_events=expected_shared_events,
             is_prod=is_prod,
-            existing_app_flag=existing_app_flag,
             events_definitions_in_app=events_definitions_in_app,
             error_raised=error_raised,
         )
@@ -343,7 +341,6 @@ def _setup_mocks_for_upgrade_app(
     expected_shared_events=None,
     events_definitions_in_app=None,
     is_prod=False,
-    existing_app_flag=False,
     error_raised=None,
 ):
     mock_get_existing_app_info_result = {
@@ -627,7 +624,6 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
         is_prod=not install_method.is_dev_mode,
         expected_authorize_telemetry_flag=share_mandatory_events,
         is_upgrade=is_upgrade,
-        existing_app_flag=not share_mandatory_events,  # existing app with opposite flag to test that flag has changed
         expected_shared_events=[] if share_mandatory_events else None,
     )
     mock_conn.return_value = MockConnectionCtx()
@@ -702,7 +698,6 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
         is_prod=not install_method.is_dev_mode,
         expected_authorize_telemetry_flag=share_mandatory_events,
         is_upgrade=is_upgrade,
-        existing_app_flag=share_mandatory_events,  # existing app with same flag as target app
         expected_shared_events=[] if share_mandatory_events else None,
     )
     mock_conn.return_value = MockConnectionCtx()
@@ -775,7 +770,6 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
         is_prod=not install_method.is_dev_mode,
         expected_authorize_telemetry_flag=share_mandatory_events,
         is_upgrade=is_upgrade,
-        existing_app_flag=not share_mandatory_events,  # existing app with opposite flag to test that flag has changed
         expected_shared_events=["ERRORS_AND_WARNINGS"],
         events_definitions_in_app=[
             {
@@ -856,7 +850,6 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
         is_prod=not install_method.is_dev_mode,
         expected_authorize_telemetry_flag=share_mandatory_events,
         is_upgrade=is_upgrade,
-        existing_app_flag=False,  # we can't switch from True to False, so we assume False
         expected_shared_events=[] if share_mandatory_events else None,
         events_definitions_in_app=[
             {
@@ -942,7 +935,6 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
         is_prod=not install_method.is_dev_mode,
         expected_authorize_telemetry_flag=share_mandatory_events,
         is_upgrade=is_upgrade,
-        existing_app_flag=not share_mandatory_events,  # existing app with opposite flag to test that flag has changed
         expected_shared_events=[] if share_mandatory_events else None,
     )
     mock_conn.return_value = MockConnectionCtx()
@@ -1086,7 +1078,6 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused
         mock_get_existing_app_info,
         is_prod=not install_method.is_dev_mode,
         expected_authorize_telemetry_flag=share_mandatory_events,
-        existing_app_flag=not share_mandatory_events,  # existing app with opposite flag to test that flag has changed
         is_upgrade=is_upgrade,
         events_definitions_in_app=[
             {
@@ -1171,7 +1162,6 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
         mock_get_existing_app_info,
         is_prod=not install_method.is_dev_mode,
         expected_authorize_telemetry_flag=share_mandatory_events,
-        existing_app_flag=not share_mandatory_events,  # existing app with opposite flag to test that flag has changed
         is_upgrade=is_upgrade,
         events_definitions_in_app=[
             {
