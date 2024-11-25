@@ -37,9 +37,7 @@ from snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor import (
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
-    ProcessorMapping,
-)
+from snowflake.cli.api.project.schemas.entities.common import ProcessorMapping
 
 from tests.nativeapp.utils import assert_dir_snapshot
 from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
