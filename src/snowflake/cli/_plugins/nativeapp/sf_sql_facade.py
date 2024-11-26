@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from textwrap import dedent
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from snowflake.cli._plugins.nativeapp.constants import (
     AUTHORIZE_TELEMETRY_COL,
@@ -157,25 +157,24 @@ class SnowflakeSQLFacade:
         privileges: list[str],
         object_type: ObjectType,
         object_identifier: str,
-        to_role: str,
-        role: Optional[str],
+        role_to_grant: str,
+        role_to_use: str | None = None,
     ) -> None:
         """
         Grants one or more access privileges on a securable object to a role
 
-        Args:
-            privileges (list[str]): List of privileges to grant to a role
-            object_type (ObjectType): Type of snowflake object to grant to a role
-            object_identifier (str): Valid identifier of the snowflake object to grant to a role
-            to_role (str): Name of the role to grant privileges to
-            role (Optional[str]): Name of the role to use to grant privileges
+        @param privileges: List of privileges to grant to a role
+        @param object_type: Type of snowflake object to grant to a role
+        @param object_identifier: Valid identifier of the snowflake object to grant to a role
+        @param role_to_grant: Name of the role to grant privileges to
+        @param [Optional] role_to_use: Name of the role to use to grant privileges
         """
-        comma_separated_privileges_str = ", ".join(privileges)
+        comma_separated_privileges = ", ".join(privileges)
         object_type_and_name = f"{object_type.value.sf_name} {object_identifier}"
 
-        with self._use_role_optional(role):
+        with self._use_role_optional(role_to_use):
             self._sql_executor.execute_query(
-                f"grant {comma_separated_privileges_str} on {object_type_and_name} to role {to_role}"
+                f"grant {comma_separated_privileges} on {object_type_and_name} to role {role_to_grant}"
             )
 
     def execute_user_script(
@@ -579,7 +578,17 @@ class SnowflakeSQLFacade:
                         self._sql_executor.execute_query(
                             f"alter application {name} set debug_mode = {debug_mode}"
                         )
+            except ProgrammingError as err:
+                if err.errno in UPGRADE_RESTRICTION_CODES:
+                    raise UpgradeApplicationRestrictionError(err.msg) from err
+                raise UserInputError(
+                    f"Failed to upgrade application {name} with the following error message:\n"
+                    f"{err.msg}"
+                ) from err
+            except Exception as err:
+                handle_unclassified_error(err, f"Failed to upgrade application {name}.")
 
+            try:
                 # Only update event sharing if the current value is different as the one we want to set
                 if should_authorize_event_sharing is not None:
                     current_authorize_event_sharing = (
@@ -600,9 +609,7 @@ class SnowflakeSQLFacade:
                             f"alter application {name} set AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(should_authorize_event_sharing).upper()}"
                         )
             except ProgrammingError as err:
-                if err.errno in UPGRADE_RESTRICTION_CODES:
-                    raise UpgradeApplicationRestrictionError(err.msg) from err
-                elif err.errno == CANNOT_DISABLE_MANDATORY_TELEMETRY:
+                if err.errno == CANNOT_DISABLE_MANDATORY_TELEMETRY:
                     get_cli_context().metrics.set_counter(
                         CLICounterField.EVENT_SHARING_ERROR, 1
                     )
@@ -611,11 +618,15 @@ class SnowflakeSQLFacade:
                     ) from err
 
                 raise UserInputError(
-                    f"Failed to upgrade application {name} with the following error message:\n"
+                    f"Failed to set AUTHORIZE_TELEMETRY_EVENT_SHARING when upgrading application {name} with the following error message:\n"
                     f"{err.msg}"
                 ) from err
             except Exception as err:
-                handle_unclassified_error(err, f"Failed to upgrade application {name}.")
+                handle_unclassified_error(
+                    err,
+                    f"Failed to set AUTHORIZE_TELEMETRY_EVENT_SHARING when upgrading application {name}.",
+                )
+
             return upgrade_cursor.fetchall()
 
     def grant_privileges_for_create_application(
@@ -630,8 +641,8 @@ class SnowflakeSQLFacade:
                 privileges=["install", "develop"],
                 object_type=ObjectType.APPLICATION_PACKAGE,
                 object_identifier=package_name,
-                to_role=app_role,
-                role=package_role,
+                role_to_grant=app_role,
+                role_to_use=package_role,
             )
 
             stage_schema = extract_schema(stage_fqn)
@@ -639,16 +650,16 @@ class SnowflakeSQLFacade:
                 privileges=["usage"],
                 object_type=ObjectType.SCHEMA,
                 object_identifier=f"{package_name}.{stage_schema}",
-                to_role=app_role,
-                role=package_role,
+                role_to_grant=app_role,
+                role_to_use=package_role,
             )
 
             self._grant_privileges_to_role(
                 privileges=["read"],
                 object_type=ObjectType.STAGE,
                 object_identifier=stage_fqn,
-                to_role=app_role,
-                role=package_role,
+                role_to_grant=app_role,
+                role_to_use=package_role,
             )
         except ProgrammingError as err:
             raise UserInputError(
