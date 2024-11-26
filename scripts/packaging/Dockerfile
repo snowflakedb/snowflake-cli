@@ -28,13 +28,16 @@ RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y tk-dev
 RUN gem install dotenv -v 2.8.1
 RUN gem install fpm
 
-RUN curl https://pyenv.run | bash
 ENV PYENV_ROOT="${HOME}/.pyenv"
 ENV PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:$PATH"
 ENV PYTHON_VERSION=3.10
+
+RUN curl https://pyenv.run | bash
 RUN pyenv install ${PYTHON_VERSION}
+RUN pyenv rehash
 RUN pyenv global ${PYTHON_VERSION}
 RUN pyenv versions
+RUN pyenv rehash
 RUN pyenv exec pip install -U pip uv hatch
 
 WORKDIR /snowflake-cli
