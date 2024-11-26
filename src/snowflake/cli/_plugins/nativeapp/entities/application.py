@@ -636,10 +636,17 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
     ) -> list[tuple[str]]:
         self.console.step(f"Creating new application object {self.name} in account.")
 
+        if package.role != self.role:
+            get_snowflake_facade().grant_privileges_for_create_application(
+                package_role=package.role,
+                package_name=package.name,
+                stage_fqn=stage_fqn,
+                app_role=self.role,
+            )
+
         return get_snowflake_facade().create_application(
             name=self.name,
             package_name=package.name,
-            package_role=package.role,
             install_method=install_method,
             stage_fqn=stage_fqn,
             debug_mode=self.debug,
