@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from textwrap import dedent
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from snowflake.cli._plugins.nativeapp.constants import (
     AUTHORIZE_TELEMETRY_COL,
@@ -37,6 +37,7 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     handle_unclassified_error,
 )
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import (
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
@@ -47,6 +48,7 @@ from snowflake.cli.api.errno import (
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.util import (
+    extract_schema,
     identifier_to_show_like_pattern,
     is_valid_unquoted_identifier,
     to_identifier,
@@ -149,6 +151,74 @@ class SnowflakeSQLFacade:
         @param schema_name: Name of the schema to use. If not a valid Snowflake identifier, will be converted before use.
         """
         return self._use_object_optional(UseObjectType.SCHEMA, schema_name)
+
+    def _grant_privileges_to_role(
+        self,
+        privileges: list[str],
+        object_type: ObjectType,
+        object_identifier: str,
+        to_role: str,
+        role: Optional[str],
+    ) -> None:
+        """
+        Grants one or more access privileges on a securable object to a role
+
+        Args:
+            privileges (list[str]): List of privileges to grant to a role
+            object_type (ObjectType): Type of snowflake object to grant to a role
+            object_identifier (str): Valid identifier of the snowflake object to grant to a role
+            to_role (str): Name of the role to grant privileges to
+            role (Optional[str]): Name of the role to use to grant privileges
+        """
+        comma_separated_privileges_str = ", ".join(privileges)
+        object_type_and_name = f"{object_type.value.sf_name} {object_identifier}"
+
+        with self._use_role_optional(role):
+            self._sql_executor.execute_query(
+                f"grant {comma_separated_privileges_str} on {object_type_and_name} to role {to_role}"
+            )
+
+    def _grant_privileges_for_create_application(
+        self, package_role: str, package_name: str, stage_fqn: str, app_role: str
+    ):
+        """
+        Grants the required privileges to create an application to an
+        app role when the package role and the app role are not the same
+        """
+        try:
+            self._grant_privileges_to_role(
+                privileges=["install", "develop"],
+                object_type=ObjectType.APPLICATION_PACKAGE,
+                object_identifier=package_name,
+                to_role=app_role,
+                role=package_role,
+            )
+
+            stage_schema = extract_schema(stage_fqn)
+            self._grant_privileges_to_role(
+                privileges=["usage"],
+                object_type=ObjectType.SCHEMA,
+                object_identifier=f"{package_name}.{stage_schema}",
+                to_role=app_role,
+                role=package_role,
+            )
+
+            self._grant_privileges_to_role(
+                privileges=["read"],
+                object_type=ObjectType.STAGE,
+                object_identifier=stage_fqn,
+                to_role=app_role,
+                role=package_role,
+            )
+        except ProgrammingError as err:
+            raise UserInputError(
+                f"Failed to grant the required privileges to create an application with the following error message:\n"
+                f"{err.msg}"
+            ) from err
+        except Exception as err:
+            handle_unclassified_error(
+                err, "Failed to grant the required privileges to create an application"
+            )
 
     def execute_user_script(
         self,
@@ -523,10 +593,10 @@ class SnowflakeSQLFacade:
         current_app_row: dict,
         install_method: SameAccountInstallMethod,
         stage_fqn: str,
+        role: str,
+        warehouse: str,
         debug_mode: bool | None,
         should_authorize_event_sharing: bool | None,
-        role: str | None = None,
-        warehouse: str | None = None,
     ) -> list[tuple[str]]:
         """
         Upgrades an application object using the provided clauses
@@ -594,17 +664,27 @@ class SnowflakeSQLFacade:
         self,
         name: str,
         package_name: str,
+        package_role: str,
         install_method: SameAccountInstallMethod,
         stage_fqn: str,
+        role: str,
+        warehouse: str,
         debug_mode: bool | None,
         should_authorize_event_sharing: bool | None,
-        role: str | None = None,
-        warehouse: str | None = None,
     ) -> list[tuple[str]]:
         """
         Creates a new application object using an application package,
         running the setup script of the application package
         """
+
+        if package_role != role:
+            self._grant_privileges_for_create_application(
+                package_role=package_role,
+                package_name=package_name,
+                stage_fqn=stage_fqn,
+                app_role=role,
+            )
+
         # by default, applications are created in debug mode when possible;
         # this can be overridden in the project definition
         debug_mode_clause = ""

@@ -84,7 +84,6 @@ from snowflake.cli.api.project.schemas.entities.common import (
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 from snowflake.cli.api.project.util import (
     append_test_resource_suffix,
-    extract_schema,
     identifier_for_url,
     to_identifier,
     unquote_identifier,
@@ -637,26 +636,10 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
     ) -> list[tuple[str]]:
         self.console.step(f"Creating new application object {self.name} in account.")
 
-        try:
-            sql_executor = get_sql_executor()
-            if self.role != package.role:
-                with sql_executor.use_role(package.role):
-                    sql_executor.execute_query(
-                        f"grant install, develop on application package {package.name} to role {self.role}"
-                    )
-                    stage_schema = extract_schema(stage_fqn)
-                    sql_executor.execute_query(
-                        f"grant usage on schema {package.name}.{stage_schema} to role {self.role}"
-                    )
-                    sql_executor.execute_query(
-                        f"grant read on stage {stage_fqn} to role {self.role}"
-                    )
-        except ProgrammingError as err:
-            generic_sql_error_handler(err)
-
         return get_snowflake_facade().create_application(
             name=self.name,
             package_name=package.name,
+            package_role=package.role,
             install_method=install_method,
             stage_fqn=stage_fqn,
             debug_mode=self.debug,
@@ -676,13 +659,14 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
     ):
         sql_executor = get_sql_executor()
 
+        event_sharing = EventSharingHandler(
+            telemetry_definition=self.telemetry,
+            deploy_root=package.deploy_root,
+            install_method=install_method,
+            console=self.console,
+        )
+
         with sql_executor.use_role(self.role):
-            event_sharing = EventSharingHandler(
-                telemetry_definition=self.telemetry,
-                deploy_root=package.deploy_root,
-                install_method=install_method,
-                console=self.console,
-            )
 
             # 1. Need to use a warehouse to create an application object
             with sql_executor.use_warehouse(self.warehouse):
