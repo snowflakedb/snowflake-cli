@@ -11,11 +11,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
 from typing import NoReturn
 
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
+from snowflake.cli.api.errno import (
+    APPLICATION_NO_LONGER_AVAILABLE,
+    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
+    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+)
 from snowflake.connector import DatabaseError, Error, ProgrammingError
+
+# Reasons why an `alter application ... upgrade` might fail
+UPGRADE_RESTRICTION_CODES = {
+    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
+    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
+    APPLICATION_NO_LONGER_AVAILABLE,
+}
 
 
 def handle_unclassified_error(err: Error | Exception, context: str) -> NoReturn:

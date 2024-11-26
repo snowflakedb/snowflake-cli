@@ -27,6 +27,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 )
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
+    UPGRADE_RESTRICTION_CODES,
     CouldNotUseObjectError,
     InsufficientPrivilegesError,
     UnexpectedResultError,
@@ -37,16 +38,11 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
 )
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.errno import (
-    APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
-    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
-    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
-    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
-    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLICounterField
@@ -59,15 +55,6 @@ from snowflake.cli.api.project.util import (
 )
 from snowflake.cli.api.sql_execution import BaseSqlExecutor, SqlExecutor
 from snowflake.connector import DictCursor, ProgrammingError
-
-# Reasons why an `alter application ... upgrade` might fail
-UPGRADE_RESTRICTION_CODES = {
-    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
-    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
-    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
-    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
-    APPLICATION_NO_LONGER_AVAILABLE,
-}
 
 
 class SnowflakeSQLFacade:

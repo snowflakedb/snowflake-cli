@@ -317,6 +317,18 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         model = self._entity_model
         return model.meta and model.meta.post_deploy
 
+    @property
+    def console(self) -> AbstractConsole:
+        return self._workspace_ctx.console
+
+    @property
+    def debug(self) -> bool | None:
+        return self._entity_model.debug
+
+    @property
+    def telemetry(self) -> EventSharingTelemetry | None:
+        return self._entity_model.telemetry
+
     def action_deploy(
         self,
         action_ctx: ActionContext,
@@ -413,14 +425,12 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         """
         Attempts to drop the application object if all validations and user prompts allow so.
         """
-        console = self._workspace_ctx.console
-
         needs_confirm = True
 
         # 1. If existing application is not found, exit gracefully
         show_obj_row = self.get_existing_app_info()
         if show_obj_row is None:
-            console.warning(
+            self.console.warning(
                 f"Role {self.role} does not own any application object with the name {self.name}, or the application object does not exist."
             )
             return
@@ -447,7 +457,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 )
             )
             if not should_drop_object:
-                console.message(f"Did not drop application object {self.name}.")
+                self.console.message(f"Did not drop application object {self.name}.")
                 # The user desires to keep the app, therefore we can't proceed since it would
                 # leave behind an orphan app when we get to dropping the package
                 raise typer.Abort()
@@ -486,22 +496,22 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         if has_objects_to_drop:
             if cascade is True:
                 # If the user explicitly passed the --cascade flag
-                console.message(cascade_true_message)
-                with console.indented():
+                self.console.message(cascade_true_message)
+                with self.console.indented():
                     for obj in application_objects:
-                        console.message(_application_object_to_str(obj))
+                        self.console.message(_application_object_to_str(obj))
             elif cascade is False:
                 # If the user explicitly passed the --no-cascade flag
-                console.message(cascade_false_message)
-                with console.indented():
+                self.console.message(cascade_false_message)
+                with self.console.indented():
                     for obj in application_objects:
-                        console.message(_application_object_to_str(obj))
+                        self.console.message(_application_object_to_str(obj))
             elif interactive:
                 # If the user didn't pass any cascade flag and the session is interactive
-                console.message(message_prefix)
-                with console.indented():
+                self.console.message(message_prefix)
+                with self.console.indented():
                     for obj in application_objects:
-                        console.message(_application_object_to_str(obj))
+                        self.console.message(_application_object_to_str(obj))
                 user_response = typer.prompt(
                     interactive_prompt,
                     show_default=False,
@@ -515,11 +525,11 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     raise typer.Abort()
             else:
                 # Else abort since we don't know what to do and can't ask the user
-                console.message(message_prefix)
-                with console.indented():
+                self.console.message(message_prefix)
+                with self.console.indented():
                     for obj in application_objects:
-                        console.message(_application_object_to_str(obj))
-                console.message(non_interactive_abort)
+                        self.console.message(_application_object_to_str(obj))
+                self.console.message(non_interactive_abort)
                 raise typer.Abort()
         elif cascade is None:
             # If there's nothing to drop, set cascade to an explicit False value
@@ -527,7 +537,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         # 4. All validations have passed, drop object
         drop_generic_object(
-            console=console,
+            console=self.console,
             object_type="application",
             object_name=self.name,
             role=self.role,
@@ -600,10 +610,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         policy: PolicyBase,
         interactive: bool,
     ) -> list[tuple[str]] | None:
-        console = self._workspace_ctx.console
-        self._workspace_ctx.console.step(
-            f"Upgrading existing application object {self.name}."
-        )
+        self.console.step(f"Upgrading existing application object {self.name}.")
 
         try:
             return get_snowflake_facade().upgrade_application(
@@ -611,13 +618,13 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 current_app_row=current_app_row,
                 install_method=install_method,
                 stage_fqn=stage_fqn,
-                debug_mode=self._entity_model.debug,
+                debug_mode=self.debug,
                 should_authorize_event_sharing=event_sharing.should_authorize_event_sharing(),
                 role=self.role,
                 warehouse=self.warehouse,
             )
         except UpgradeApplicationRestrictionError as err:
-            console.warning(err.message)
+            self.console.warning(err.message)
             self.drop_application_before_upgrade(policy=policy, interactive=interactive)
             return None
 
@@ -628,9 +635,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         event_sharing: EventSharingHandler,
         package: ApplicationPackageEntity,
     ) -> list[tuple[str]]:
-        self._workspace_ctx.console.step(
-            f"Creating new application object {self.name} in account."
-        )
+        self.console.step(f"Creating new application object {self.name} in account.")
 
         try:
             sql_executor = get_sql_executor()
@@ -654,7 +659,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             package_name=package.name,
             install_method=install_method,
             stage_fqn=stage_fqn,
-            debug_mode=self._entity_model.debug,
+            debug_mode=self.debug,
             should_authorize_event_sharing=event_sharing.should_authorize_event_sharing(),
             role=self.role,
             warehouse=self.warehouse,
@@ -673,10 +678,10 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         with sql_executor.use_role(self.role):
             event_sharing = EventSharingHandler(
-                telemetry_definition=self._entity_model.telemetry,
+                telemetry_definition=self.telemetry,
                 deploy_root=package.deploy_root,
                 install_method=install_method,
-                console=self._workspace_ctx.console,
+                console=self.console,
             )
 
             # 1. Need to use a warehouse to create an application object
@@ -708,7 +713,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                         package=package,
                     )
 
-                print_messages(self._workspace_ctx.console, create_or_upgrade_result)
+                print_messages(self.console, create_or_upgrade_result)
 
                 events_definitions = get_snowflake_facade().get_event_definitions(
                     self.name, self.role
@@ -725,7 +730,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
     def execute_post_deploy_hooks(self):
         execute_post_deploy_hooks(
-            console=self._workspace_ctx.console,
+            console=self.console,
             project_root=self.project_root,
             post_deploy_hooks=self.post_deploy_hooks,
             deployed_object_type="application",
@@ -766,21 +771,19 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         interactive: bool,
         cascade: bool = False,
     ):
-        console = self._workspace_ctx.console
-
         if cascade:
             try:
                 if application_objects := self.get_objects_owned_by_application():
                     application_objects_str = _application_objects_to_str(
                         application_objects
                     )
-                    console.message(
+                    self.console.message(
                         f"The following objects are owned by application {self.name} and need to be dropped:\n{application_objects_str}"
                     )
             except ProgrammingError as err:
                 if err.errno != APPLICATION_NO_LONGER_AVAILABLE:
                     generic_sql_error_handler(err)
-                console.warning(
+                self.console.warning(
                     "The application owns other objects but they could not be determined."
                 )
             user_prompt = "Do you want the Snowflake CLI to drop these objects, then drop the existing application object and recreate it?"
@@ -789,16 +792,16 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         if not policy.should_proceed(user_prompt):
             if interactive:
-                console.message("Not upgrading the application object.")
+                self.console.message("Not upgrading the application object.")
                 raise typer.Exit(0)
             else:
-                console.message(
+                self.console.message(
                     "Cannot upgrade the application object non-interactively without --force."
                 )
                 raise typer.Exit(1)
         try:
             cascade_msg = " (cascade)" if cascade else ""
-            console.step(f"Dropping application object {self.name}{cascade_msg}.")
+            self.console.step(f"Dropping application object {self.name}{cascade_msg}.")
             cascade_sql = " cascade" if cascade else ""
             sql_executor = get_sql_executor()
             sql_executor.execute_query(f"drop application {self.name}{cascade_sql}")
