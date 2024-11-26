@@ -20,6 +20,7 @@ from typing import Any, Dict, List
 
 from snowflake.cli._plugins.nativeapp.constants import (
     AUTHORIZE_TELEMETRY_COL,
+    NAME_COL,
     SPECIAL_COMMENT,
 )
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
@@ -54,13 +55,15 @@ from snowflake.cli.api.project.util import (
     to_identifier,
     to_quoted_identifier,
     to_string_literal,
+    unquote_identifier,
 )
-from snowflake.cli.api.sql_execution import BaseSqlExecutor, SqlExecutor
+from snowflake.cli.api.sql_execution import BaseSqlExecutor
+from snowflake.cli.api.utils.cursor import find_first_row
 from snowflake.connector import DictCursor, ProgrammingError
 
 
 class SnowflakeSQLFacade:
-    def __init__(self, sql_executor: SqlExecutor | None = None):
+    def __init__(self, sql_executor: BaseSqlExecutor | None = None):
         self._sql_executor = (
             sql_executor if sql_executor is not None else BaseSqlExecutor()
         )
@@ -544,10 +547,38 @@ class SnowflakeSQLFacade:
                 )
             return cursor.fetchall()
 
+    def get_existing_app_info(self, name: str, role: str) -> dict | None:
+        """
+        Check for an existing application object by the same name as in project definition, in account.
+        It executes a 'show applications like' query and returns the result as single row, if one exists.
+        """
+        with self._use_role_optional(role):
+            try:
+                object_type_plural = ObjectType.APPLICATION.value.sf_plural_name
+                show_obj_query = f"show {object_type_plural} like {identifier_to_show_like_pattern(name)}".strip()
+
+                show_obj_cursor = self._sql_executor.execute_query(
+                    show_obj_query, cursor_class=DictCursor
+                )
+
+                show_obj_row = find_first_row(
+                    show_obj_cursor,
+                    lambda row: row[NAME_COL] == unquote_identifier(name),
+                )
+            except ProgrammingError as err:
+                raise UserInputError(
+                    f"Unable to fetch information on application {name} with the following error message:"
+                    f"{err.msg}"
+                )
+            except Exception as err:
+                handle_unclassified_error(
+                    err, f"Unable to fetch information on application {name}."
+                )
+            return show_obj_row
+
     def upgrade_application(
         self,
         name: str,
-        current_app_row: dict,
         install_method: SameAccountInstallMethod,
         stage_fqn: str,
         role: str,
@@ -561,7 +592,7 @@ class SnowflakeSQLFacade:
         install_method.ensure_app_usable(
             app_name=name,
             app_role=role,
-            show_app_row=current_app_row,
+            show_app_row=self.get_existing_app_info(name, role),
         )
         # If all the above checks are in order, proceed to upgrade
 
@@ -631,7 +662,7 @@ class SnowflakeSQLFacade:
 
     def grant_privileges_for_create_application(
         self, package_role: str, package_name: str, stage_fqn: str, app_role: str
-    ):
+    ) -> None:
         """
         Grants the required privileges to create an application to an
         app role when the package role and the app role are not the same

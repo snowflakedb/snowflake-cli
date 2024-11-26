@@ -62,6 +62,7 @@ class ObjectType(Enum):
         "image-repository", "image repository", "image repositories"
     )
     GIT_REPOSITORY = ObjectNames("git-repository", "git repository", "git repositories")
+    APPLICATION = ObjectNames("application", "application", "applications")
     APPLICATION_PACKAGE = ObjectNames(
         "application-package", "application package", "application packages"
     )

@@ -27,7 +27,6 @@ from snowflake.cli._plugins.nativeapp.common_flags import (
 from snowflake.cli._plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
-    NAME_COL,
     OWNER_COL,
 )
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
@@ -605,7 +604,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         stage_fqn: str,
         install_method: SameAccountInstallMethod,
         event_sharing: EventSharingHandler,
-        current_app_row: dict,
         policy: PolicyBase,
         interactive: bool,
     ) -> list[tuple[str]] | None:
@@ -614,7 +612,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         try:
             return get_snowflake_facade().upgrade_application(
                 name=self.name,
-                current_app_row=current_app_row,
                 install_method=install_method,
                 stage_fqn=stage_fqn,
                 debug_mode=self.debug,
@@ -664,8 +661,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         policy: PolicyBase,
         interactive: bool,
     ):
-        sql_executor = get_sql_executor()
-
         event_sharing = EventSharingHandler(
             telemetry_definition=self.telemetry,
             deploy_root=package.deploy_root,
@@ -673,51 +668,43 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             console=self.console,
         )
 
-        with sql_executor.use_role(self.role):
+        # 1. Check for an existing application by the same name
+        show_app_row = self.get_existing_app_info()
 
-            # 1. Need to use a warehouse to create an application object
-            with sql_executor.use_warehouse(self.warehouse):
+        stage_fqn = stage_fqn or package.stage_fqn
 
-                # 2. Check for an existing application by the same name
-                show_app_row = self.get_existing_app_info()
+        # 2. If existing application is found, try to upgrade the application object.
+        create_or_upgrade_result = None
+        if show_app_row:
+            create_or_upgrade_result = self._upgrade_app(
+                stage_fqn=stage_fqn,
+                install_method=install_method,
+                event_sharing=event_sharing,
+                policy=policy,
+                interactive=interactive,
+            )
 
-                stage_fqn = stage_fqn or package.stage_fqn
+        # 3. If no existing application found or we performed a drop before the upgrade, we proceed to create
+        if create_or_upgrade_result is None:
+            create_or_upgrade_result = self._create_app(
+                stage_fqn=stage_fqn,
+                install_method=install_method,
+                event_sharing=event_sharing,
+                package=package,
+            )
 
-                # 3. If existing application is found, perform a few validations and upgrade the application object.
-                create_or_upgrade_result = None
-                if show_app_row:
-                    create_or_upgrade_result = self._upgrade_app(
-                        stage_fqn=stage_fqn,
-                        install_method=install_method,
-                        event_sharing=event_sharing,
-                        current_app_row=show_app_row,
-                        policy=policy,
-                        interactive=interactive,
-                    )
+        print_messages(self.console, create_or_upgrade_result)
 
-                # 4. Either no existing application found or we performed a drop before the upgrade, so we proceed to create
-                if create_or_upgrade_result is None:
-                    create_or_upgrade_result = self._create_app(
-                        stage_fqn=stage_fqn,
-                        install_method=install_method,
-                        event_sharing=event_sharing,
-                        package=package,
-                    )
+        events_definitions = get_snowflake_facade().get_event_definitions(
+            self.name, self.role
+        )
 
-                print_messages(self.console, create_or_upgrade_result)
+        events_to_share = event_sharing.events_to_share(events_definitions)
+        if events_to_share is not None:
+            get_snowflake_facade().share_telemetry_events(self.name, events_to_share)
 
-                events_definitions = get_snowflake_facade().get_event_definitions(
-                    self.name, self.role
-                )
-
-                events_to_share = event_sharing.events_to_share(events_definitions)
-                if events_to_share is not None:
-                    get_snowflake_facade().share_telemetry_events(
-                        self.name, events_to_share
-                    )
-
-                # hooks always executed after a create or upgrade
-                self.execute_post_deploy_hooks()
+        # hooks always executed after a create or upgrade
+        self.execute_post_deploy_hooks()
 
     def execute_post_deploy_hooks(self):
         execute_post_deploy_hooks(
@@ -750,11 +737,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         Check for an existing application object by the same name as in project definition, in account.
         It executes a 'show applications like' query and returns the result as single row, if one exists.
         """
-        sql_executor = get_sql_executor()
-        with sql_executor.use_role(self.role):
-            return sql_executor.show_specific_object(
-                "applications", self.name, name_col=NAME_COL
-            )
+        return get_snowflake_facade().get_existing_app_info(self.name, self.role)
 
     def drop_application_before_upgrade(
         self,
