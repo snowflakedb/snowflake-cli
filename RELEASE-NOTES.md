@@ -23,6 +23,16 @@
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.
 
+# v3.2.1
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Fixed crashes with older x86_64 Intel CPUs.
+
 # v3.2.0
 
 ## Deprecations
