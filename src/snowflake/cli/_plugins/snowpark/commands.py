@@ -94,11 +94,11 @@ from snowflake.cli.api.output.types import (
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
 )
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
 )
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
