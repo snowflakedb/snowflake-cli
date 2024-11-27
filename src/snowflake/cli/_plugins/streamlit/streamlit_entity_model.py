@@ -16,16 +16,16 @@ from __future__ import annotations
 from typing import Literal, Optional
 
 from pydantic import Field, field_validator
-from snowflake.cli.api.project.schemas.commons import Artifacts
 from snowflake.cli.api.project.schemas.entities.common import (
+    Artifacts,
     EntityModelBase,
     ExternalAccessBaseModel,
     ImportsBaseModel,
+    PathMapping,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
 )
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 
 
 class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseModel):

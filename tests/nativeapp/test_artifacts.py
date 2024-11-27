@@ -32,7 +32,7 @@ from snowflake.cli.api.artifacts.common import (
     VersionInfo,
 )
 from snowflake.cli.api.project.definition import load_project
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.project.util import to_identifier
 from yaml import safe_dump
 

@@ -11,7 +11,7 @@ from snowflake.cli.api.artifacts.common import (
     SourceNotFoundError,
     TooManyFilesError,
 )
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
 
 ArtifactPredicate = Callable[[Path, Path], bool]

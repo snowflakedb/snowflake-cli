@@ -18,14 +18,13 @@ import re
 from typing import List, Optional
 
 from pydantic import Field, field_validator
-from snowflake.cli.api.project.schemas.commons import Artifacts
+from snowflake.cli.api.project.schemas.entities.common import Artifacts, PathMapping
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.project.schemas.v1.native_app.application import (
     Application,
     ApplicationV11,
 )
 from snowflake.cli.api.project.schemas.v1.native_app.package import Package, PackageV11
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     SCHEMA_AND_NAME,
 )

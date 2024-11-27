@@ -20,16 +20,16 @@ from typing import List, Literal, Optional, Union
 from pydantic import Field, field_validator
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.schemas.commons import Artifacts
 from snowflake.cli.api.project.schemas.entities.common import (
+    Artifacts,
     EntityModelBase,
     ExternalAccessBaseModel,
     ImportsBaseModel,
+    PathMapping,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
 )
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.schemas.v1.snowpark.argument import Argument
 
 

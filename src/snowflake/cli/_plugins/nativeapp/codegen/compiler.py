@@ -36,9 +36,7 @@ from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor impo
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.metrics import CLICounterField
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
-    ProcessorMapping,
-)
+from snowflake.cli.api.project.schemas.entities.common import ProcessorMapping
 
 ProcessorClassType = type[ArtifactProcessor]
 

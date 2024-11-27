@@ -88,9 +88,8 @@ from snowflake.cli.api.entities.utils import (
 )
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
-from snowflake.cli.api.project.schemas.commons import Artifacts
 from snowflake.cli.api.project.schemas.entities.common import (
-    EntityModelBase,
+    ArtifactsBaseModel,
     Identifier,
     PostDeployHook,
 )
@@ -100,7 +99,6 @@ from snowflake.cli.api.project.schemas.updatable_model import (
     UpdatableModel,
 )
 from snowflake.cli.api.project.schemas.v1.native_app.package import DistributionOptions
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     SCHEMA_AND_NAME,
     VALID_IDENTIFIER_REGEX,
@@ -153,18 +151,11 @@ class ApplicationPackageChildField(UpdatableModel):
     )
 
 
-class ApplicationPackageEntityModel(EntityModelBase):
+class ApplicationPackageEntityModel(ArtifactsBaseModel):
     type: Literal["application package"] = DiscriminatorField()  # noqa: A003
-    artifacts: Artifacts = Field(
-        title="List of paths or file source/destination pairs to add to the deploy root",
-    )
     bundle_root: Optional[str] = Field(
         title="Folder at the root of your project where artifacts necessary to perform the bundle step are stored",
         default="output/bundle/",
-    )
-    deploy_root: Optional[str] = Field(
-        title="Folder at the root of your project where the build step copies the artifacts",
-        default="output/deploy/",
     )
     children_artifacts_dir: Optional[str] = Field(
         title="Folder under deploy_root where the child artifacts will be stored",
@@ -221,21 +212,6 @@ class ApplicationPackageEntityModel(EntityModelBase):
         if isinstance(input_value, Identifier):
             return input_value.model_copy(update=dict(name=with_suffix))
         return with_suffix
-
-    @field_validator("artifacts")
-    @classmethod
-    def transform_artifacts(cls, orig_artifacts: Artifacts) -> List[PathMapping]:
-        transformed_artifacts: List[PathMapping] = []
-        if orig_artifacts is None:
-            return transformed_artifacts
-
-        for artifact in orig_artifacts:
-            if isinstance(artifact, PathMapping):
-                transformed_artifacts.append(artifact)
-            else:
-                transformed_artifacts.append(PathMapping(src=artifact))
-
-        return transformed_artifacts
 
     @field_validator("stage")
     @classmethod
