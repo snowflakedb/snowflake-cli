@@ -38,7 +38,7 @@ from snowflake.cli._plugins.nativeapp.codegen.sandbox import (
 from snowflake.cli._plugins.stage.diff import to_stage_path
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
+from snowflake.cli.api.project.schemas.entities.common import (
     PathMapping,
     ProcessorMapping,
 )
