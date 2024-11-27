@@ -25,7 +25,7 @@ from snowflake.cli.api.artifacts.common import ArtifactError, DeployRootError
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.project.util import to_identifier
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.path_utils import delete
