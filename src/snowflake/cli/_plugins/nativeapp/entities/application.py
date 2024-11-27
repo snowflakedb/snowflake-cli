@@ -57,6 +57,7 @@ from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console.abc import AbstractConsole
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.entities.common import (
     EntityBase,
     attach_spans_to_entity_actions,
@@ -83,6 +84,7 @@ from snowflake.cli.api.project.schemas.entities.common import (
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 from snowflake.cli.api.project.util import (
     append_test_resource_suffix,
+    extract_schema,
     identifier_for_url,
     to_identifier,
     unquote_identifier,
@@ -634,11 +636,29 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         self.console.step(f"Creating new application object {self.name} in account.")
 
         if package.role != self.role:
-            get_snowflake_facade().grant_privileges_for_create_application(
-                package_role=package.role,
-                package_name=package.name,
-                stage_fqn=stage_fqn,
-                app_role=self.role,
+            get_snowflake_facade().grant_privileges_to_role(
+                privileges=["install", "develop"],
+                object_type=ObjectType.APPLICATION_PACKAGE,
+                object_identifier=package.name,
+                role_to_grant=self.role,
+                role_to_use=package.role,
+            )
+
+            stage_schema = extract_schema(stage_fqn)
+            get_snowflake_facade().grant_privileges_to_role(
+                privileges=["usage"],
+                object_type=ObjectType.SCHEMA,
+                object_identifier=f"{package.name}.{stage_schema}",
+                role_to_grant=self.role,
+                role_to_use=package.role,
+            )
+
+            get_snowflake_facade().grant_privileges_to_role(
+                privileges=["read"],
+                object_type=ObjectType.STAGE,
+                object_identifier=stage_fqn,
+                role_to_grant=self.role,
+                role_to_use=package.role,
             )
 
         return get_snowflake_facade().create_application(

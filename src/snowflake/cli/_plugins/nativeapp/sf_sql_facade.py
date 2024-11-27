@@ -28,6 +28,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
 )
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
+    CREATE_OR_UPGRADE_APPLICATION_EXPECTED_USER_ERROR_CODES,
     UPGRADE_RESTRICTION_CODES,
     CouldNotUseObjectError,
     InsufficientPrivilegesError,
@@ -49,7 +50,6 @@ from snowflake.cli.api.errno import (
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.util import (
-    extract_schema,
     identifier_to_show_like_pattern,
     is_valid_unquoted_identifier,
     to_identifier,
@@ -155,7 +155,7 @@ class SnowflakeSQLFacade:
         """
         return self._use_object_optional(UseObjectType.SCHEMA, schema_name)
 
-    def _grant_privileges_to_role(
+    def grant_privileges_to_role(
         self,
         privileges: list[str],
         object_type: ObjectType,
@@ -176,9 +176,15 @@ class SnowflakeSQLFacade:
         object_type_and_name = f"{object_type.value.sf_name} {object_identifier}"
 
         with self._use_role_optional(role_to_use):
-            self._sql_executor.execute_query(
-                f"grant {comma_separated_privileges} on {object_type_and_name} to role {role_to_grant}"
-            )
+            try:
+                self._sql_executor.execute_query(
+                    f"grant {comma_separated_privileges} on {object_type_and_name} to role {role_to_grant}"
+                )
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to grant {comma_separated_privileges} on {object_type_and_name} to role {role_to_grant}.",
+                )
 
     def execute_user_script(
         self,
@@ -588,6 +594,14 @@ class SnowflakeSQLFacade:
     ) -> list[tuple[str]]:
         """
         Upgrades an application object using the provided clauses
+
+        @param name: Name of the application object
+        @param install_method: Method of installing the application
+        @param stage_fqn: FQN of the stage housing the application artifacts
+        @param role: Role to use when creating the application and provider-side objects
+        @param warehouse: Warehouse which is required to create an application object
+        @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
+        @param should_authorize_event_sharing: Whether to enable event sharing; None means not explicitly enabled or disabled
         """
         install_method.ensure_app_usable(
             app_name=name,
@@ -612,10 +626,14 @@ class SnowflakeSQLFacade:
             except ProgrammingError as err:
                 if err.errno in UPGRADE_RESTRICTION_CODES:
                     raise UpgradeApplicationRestrictionError(err.msg) from err
-                raise UserInputError(
-                    f"Failed to upgrade application {name} with the following error message:\n"
-                    f"{err.msg}"
-                ) from err
+                elif (
+                    err.errno in CREATE_OR_UPGRADE_APPLICATION_EXPECTED_USER_ERROR_CODES
+                ):
+                    raise UserInputError(
+                        f"Failed to upgrade application {name} with the following error message:\n"
+                        f"{err.msg}"
+                    ) from err
+                handle_unclassified_error(err, f"Failed to upgrade application {name}.")
             except Exception as err:
                 handle_unclassified_error(err, f"Failed to upgrade application {name}.")
 
@@ -647,11 +665,10 @@ class SnowflakeSQLFacade:
                     raise UserInputError(
                         "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
                     ) from err
-
-                raise UserInputError(
-                    f"Failed to set AUTHORIZE_TELEMETRY_EVENT_SHARING when upgrading application {name} with the following error message:\n"
-                    f"{err.msg}"
-                ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to set AUTHORIZE_TELEMETRY_EVENT_SHARING when upgrading application {name}.",
+                )
             except Exception as err:
                 handle_unclassified_error(
                     err,
@@ -659,48 +676,6 @@ class SnowflakeSQLFacade:
                 )
 
             return upgrade_cursor.fetchall()
-
-    def grant_privileges_for_create_application(
-        self, package_role: str, package_name: str, stage_fqn: str, app_role: str
-    ) -> None:
-        """
-        Grants the required privileges to create an application to an
-        app role when the package role and the app role are not the same
-        """
-        try:
-            self._grant_privileges_to_role(
-                privileges=["install", "develop"],
-                object_type=ObjectType.APPLICATION_PACKAGE,
-                object_identifier=package_name,
-                role_to_grant=app_role,
-                role_to_use=package_role,
-            )
-
-            stage_schema = extract_schema(stage_fqn)
-            self._grant_privileges_to_role(
-                privileges=["usage"],
-                object_type=ObjectType.SCHEMA,
-                object_identifier=f"{package_name}.{stage_schema}",
-                role_to_grant=app_role,
-                role_to_use=package_role,
-            )
-
-            self._grant_privileges_to_role(
-                privileges=["read"],
-                object_type=ObjectType.STAGE,
-                object_identifier=stage_fqn,
-                role_to_grant=app_role,
-                role_to_use=package_role,
-            )
-        except ProgrammingError as err:
-            raise UserInputError(
-                f"Failed to grant the required privileges to create an application with the following error message:\n"
-                f"{err.msg}"
-            ) from err
-        except Exception as err:
-            handle_unclassified_error(
-                err, "Failed to grant the required privileges to create an application"
-            )
 
     def create_application(
         self,
@@ -716,6 +691,15 @@ class SnowflakeSQLFacade:
         """
         Creates a new application object using an application package,
         running the setup script of the application package
+
+        @param name: Name of the application object
+        @param package_name: Name of the application package to install the application from
+        @param install_method: Method of installing the application
+        @param stage_fqn: FQN of the stage housing the application artifacts
+        @param role: Role to use when creating the application and provider-side objects
+        @param warehouse: Warehouse which is required to create an application object
+        @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
+        @param should_authorize_event_sharing: Whether to enable event sharing; None means not explicitly enabled or disabled
         """
 
         # by default, applications are created in debug mode when possible;
@@ -753,13 +737,17 @@ class SnowflakeSQLFacade:
                     raise UserInputError(
                         "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
                     ) from err
-
-                raise UserInputError(
-                    f"Failed to create application {name} with the following error message:\n"
-                    f"{err.msg}"
-                ) from err
+                elif (
+                    err.errno in CREATE_OR_UPGRADE_APPLICATION_EXPECTED_USER_ERROR_CODES
+                ):
+                    raise UserInputError(
+                        f"Failed to create application {name} with the following error message:\n"
+                        f"{err.msg}"
+                    ) from err
+                handle_unclassified_error(err, f"Failed to create application {name}.")
             except Exception as err:
                 handle_unclassified_error(err, f"Failed to create application {name}.")
+
             return create_cursor.fetchall()
 
 
