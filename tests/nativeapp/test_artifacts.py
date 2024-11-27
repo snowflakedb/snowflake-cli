@@ -29,6 +29,7 @@ from snowflake.cli._plugins.nativeapp.artifacts import (
     NotInDeployRootError,
     SourceNotFoundError,
     TooManyFilesError,
+    VersionInfo,
     build_bundle,
     find_events_definitions_in_manifest_file,
     find_version_info_in_manifest_file,
@@ -1439,6 +1440,32 @@ def test_bad_version_info_in_manifest_file_throws_error(version_info):
         assert (
             err.value.message
             == "Error occurred while reading manifest.yml. Received unexpected version format."
+        )
+
+
+def test_read_empty_version_info_in_manifest_file():
+    manifest_contents = ManifestFactory(
+        version={"name": None, "patch": None, "label": None}
+    )
+
+    deploy_root_structure = {"manifest.yml": manifest_contents}
+    with temp_local_dir(deploy_root_structure) as deploy_root:
+
+        version_info = find_version_info_in_manifest_file(deploy_root=deploy_root)
+        assert version_info == VersionInfo(
+            version_name=None, patch_number=None, label=None
+        )
+
+
+def test_read_empty_version_in_manifest_file():
+    manifest_contents = ManifestFactory(version=None)
+
+    deploy_root_structure = {"manifest.yml": manifest_contents}
+    with temp_local_dir(deploy_root_structure) as deploy_root:
+
+        version_info = find_version_info_in_manifest_file(deploy_root=deploy_root)
+        assert version_info == VersionInfo(
+            version_name=None, patch_number=None, label=None
         )
 
 
