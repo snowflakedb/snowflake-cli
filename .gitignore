@@ -18,5 +18,6 @@ gen_docs/
 .env
 .vscode
 tmp/
+
 ^app.zip
 ^snowflake.yml
