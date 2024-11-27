@@ -232,8 +232,8 @@
       meta:
         role: pkg_role
       identifier: <% fn.concat_ids('myapp', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>
-      type: application package
       artifacts: []
+      type: application package
     app:
       identifier: myapp_app
       type: application
@@ -300,7 +300,6 @@
         post_deploy:
         - sql_script: scripts/post_pkg_deploy.sql
       identifier: my_app_package
-      type: application package
       artifacts:
       - src: app/*
         dest: ./
@@ -311,8 +310,9 @@
         - name: templates
           properties:
             foo: bar
-      bundle_root: my_output/my_bundle
       deploy_root: my_output/my_deploy
+      type: application package
+      bundle_root: my_output/my_bundle
       generated_root: __my_generated_files
       stage: app_src.my_stage
       scratch_stage: app_src.my_scratch
@@ -432,10 +432,10 @@
       meta:
         role: pkg_role
       identifier: <% fn.concat_ids('myapp', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>
-      type: application package
       artifacts:
       - src: app/*
         dest: ./
+      type: application package
     app:
       identifier: myapp_app
       type: application

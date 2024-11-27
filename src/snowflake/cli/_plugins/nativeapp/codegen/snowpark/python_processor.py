@@ -51,7 +51,7 @@ from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.metrics import CLICounterField
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
+from snowflake.cli.api.project.schemas.entities.common import (
     PathMapping,
     ProcessorMapping,
 )
