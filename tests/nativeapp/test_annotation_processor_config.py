@@ -14,9 +14,7 @@
 
 import pytest
 from snowflake.cli.api.project.definition import load_project
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
-    ProcessorMapping,
-)
+from snowflake.cli.api.project.schemas.entities.common import ProcessorMapping
 
 
 @pytest.mark.parametrize(
