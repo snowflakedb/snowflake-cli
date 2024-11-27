@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Union
 
 import pytest
+from click import ClickException
 from snowflake.cli._plugins.nativeapp.artifacts import (
     ArtifactError,
     ArtifactPredicate,
@@ -39,6 +40,7 @@ from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMap
 from snowflake.cli.api.project.util import to_identifier
 from yaml import safe_dump
 
+from tests.nativeapp.factories import ManifestFactory
 from tests.nativeapp.utils import (
     assert_dir_snapshot,
     touch,
@@ -1424,6 +1426,20 @@ def test_find_version_info_in_manifest_file(version_name, patch_name, label):
             assert l is None
         else:
             assert l == label
+
+
+@pytest.mark.parametrize("version_info", ["some_name", ["li1", "li2"], "", 4])
+def test_bad_version_info_in_manifest_file_throws_error(version_info):
+    manifest_contents = ManifestFactory(version=version_info)
+
+    deploy_root_structure = {"manifest.yml": manifest_contents}
+    with temp_local_dir(deploy_root_structure) as deploy_root:
+        with pytest.raises(ClickException) as err:
+            find_version_info_in_manifest_file(deploy_root=deploy_root)
+        assert (
+            err.value.message
+            == "Error occurred while reading manifest.yml. Received unexpected version format."
+        )
 
 
 @pytest.mark.parametrize(

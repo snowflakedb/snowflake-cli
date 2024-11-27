@@ -777,7 +777,7 @@ def find_version_info_in_manifest_file(
     label: Optional[str] = None
 
     version_info = manifest_content.get("version", None)
-    if version_info:
+    if version_info is not None:
         if not isinstance(version_info, dict):
             raise ClickException(
                 "Error occurred while reading manifest.yml. Received unexpected version format."
