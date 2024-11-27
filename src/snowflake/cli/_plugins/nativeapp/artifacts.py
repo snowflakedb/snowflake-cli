@@ -782,11 +782,11 @@ def find_version_info_in_manifest_file(
             raise ClickException(
                 "Error occurred while reading manifest.yml. Received unexpected version format."
             )
-        if name_field in version_info and version_info[name_field] is not None:
+        if version_info.get(name_field) is not None:
             version_name = to_identifier(str(version_info[name_field]))
-        if patch_field in version_info and version_info[patch_field] is not None:
+        if version_info.get(patch_field) is not None:
             patch_number = int(version_info[patch_field])
-        if label_field in version_info and version_info[label_field] is not None:
+        if version_info.get(label_field) is not None:
             label = str(version_info[label_field])
 
     return VersionInfo(version_name, patch_number, label)
