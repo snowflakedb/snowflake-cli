@@ -571,11 +571,6 @@ class SnowflakeSQLFacade:
                     show_obj_cursor,
                     lambda row: row[NAME_COL] == unquote_identifier(name),
                 )
-            except ProgrammingError as err:
-                raise UserInputError(
-                    f"Unable to fetch information on application {name} with the following error message:"
-                    f"{err.msg}"
-                )
             except Exception as err:
                 handle_unclassified_error(
                     err, f"Unable to fetch information on application {name}."
