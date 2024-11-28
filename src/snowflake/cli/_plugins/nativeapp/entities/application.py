@@ -704,7 +704,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 interactive=interactive,
             )
 
-        # 3. If no existing application found or we performed a drop before the upgrade, we proceed to create
+        # 3. If no existing application found, or we performed a drop before the upgrade, we proceed to create
         if create_or_upgrade_result is None:
             create_or_upgrade_result = self._create_app(
                 stage_fqn=stage_fqn,

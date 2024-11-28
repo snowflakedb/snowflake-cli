@@ -20,6 +20,7 @@ import pytest
 from snowflake.cli._plugins.nativeapp.constants import (
     AUTHORIZE_TELEMETRY_COL,
     COMMENT_COL,
+    NAME_COL,
     SPECIAL_COMMENT,
 )
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
@@ -38,6 +39,7 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
 from snowflake.cli._plugins.nativeapp.sf_sql_facade import (
     SnowflakeSQLFacade,
 )
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import (
     APPLICATION_INSTANCE_FAILED_TO_RUN_SETUP_SCRIPT,
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
@@ -45,6 +47,7 @@ from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
+    SQL_COMPILATION_ERROR,
 )
 from snowflake.connector import DatabaseError, DictCursor, Error
 from snowflake.connector.errors import (
@@ -56,9 +59,7 @@ from snowflake.connector.errors import (
 from tests.nativeapp.utils import (
     SQL_EXECUTOR_EXECUTE,
     SQL_EXECUTOR_EXECUTE_QUERIES,
-    SQL_FACADE__USE_ROLE_OPTIONAL,
-    SQL_FACADE__USE_WAREHOUSE_OPTIONAL,
-    SQL_FACADE_GET_APP_PROPERTIES,
+    assert_programmingerror_cause_with_errno,
     mock_execute_helper,
 )
 
@@ -99,6 +100,22 @@ def mock_use_database():
 def mock_use_schema():
     with mock.patch.object(sql_facade, "_use_schema_optional") as mock_use_schema:
         yield mock_use_schema
+
+
+@pytest.fixture
+def mock_get_app_properties():
+    with mock.patch.object(sql_facade, "get_app_properties") as mock_get_app_properties:
+        mock_get_app_properties.return_value = {AUTHORIZE_TELEMETRY_COL: "false"}
+        yield mock_get_app_properties
+
+
+@pytest.fixture
+def mock_get_existing_app_info():
+    with mock.patch.object(
+        sql_facade, "get_existing_app_info"
+    ) as mock_get_existing_app_info:
+        mock_get_existing_app_info.return_value = {COMMENT_COL: SPECIAL_COMMENT}
+        yield mock_get_existing_app_info
 
 
 @contextmanager
@@ -152,7 +169,7 @@ def assert_in_context(
         # and add the return value's __exit__ method to the list of expected post-calls (in reverse order)
         expected_call = reparent_mock(mock_instance, expected_call)
         pre += [expected_call, expected_call.__enter__()]
-        post.insert(0, expected_call.__exit__(None, None, None))
+        post.insert(0, expected_call.__exit__(mock.ANY, mock.ANY, mock.ANY))
 
     for mock_instance, expected_call in inner_mocks:
         # Just add the modified expected_call to the list of assertions to be made within the context managers
@@ -1654,18 +1671,110 @@ def test_create_stage_raises_insufficient_privileges_error(
     mock_execute_query.assert_has_calls(expected)
 
 
-@mock.patch(SQL_FACADE__USE_ROLE_OPTIONAL)
-@mock.patch(SQL_FACADE__USE_WAREHOUSE_OPTIONAL)
-@mock.patch(SQL_FACADE_GET_APP_PROPERTIES)
+@pytest.mark.parametrize(
+    "args,expected_query",
+    [
+        (
+            {
+                "privileges": ["install", "develop"],
+                "object_type": ObjectType.APPLICATION_PACKAGE,
+                "object_identifier": "package_name",
+                "role_to_grant": "app_role",
+                "role_to_use": "package_role",
+            },
+            "grant install, develop on application package package_name to role app_role",
+        ),
+        (
+            {
+                "privileges": ["usage"],
+                "object_type": ObjectType.SCHEMA,
+                "object_identifier": "package_name.stage_schema",
+                "role_to_grant": "app_role",
+                "role_to_use": "package_role",
+            },
+            "grant usage on schema package_name.stage_schema to role app_role",
+        ),
+        (
+            {
+                "privileges": ["read"],
+                "object_type": ObjectType.STAGE,
+                "object_identifier": "stage_fqn",
+                "role_to_grant": "app_role",
+                "role_to_use": None,
+            },
+            "grant read on stage stage_fqn to role app_role",
+        ),
+    ],
+)
+def test_grant_privileges_to_role(
+    mock_use_role,
+    mock_execute_query,
+    args,
+    expected_query,
+):
+    expected_use_objects = [(mock_use_role, mock.call(args["role_to_use"]))]
+    expected_execute_query = [(mock_execute_query, mock.call(expected_query))]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.grant_privileges_to_role(**args)
+
+
+@pytest.mark.parametrize(
+    "args,expected_query",
+    [
+        (
+            {"name": "example_app", "role": "example_role"},
+            r"show applications like 'EXAMPLE\\_APP'",
+        ),
+        (
+            {"name": "nounderscores", "role": None},
+            r"show applications like 'NOUNDERSCORES'",
+        ),
+    ],
+)
+def test_get_existing_app_info(
+    mock_use_role, mock_execute_query, args, expected_query, mock_cursor
+):
+    expected_use_objects = [(mock_use_role, mock.call(args["role"]))]
+
+    mock_cursor_results = [
+        {
+            NAME_COL: "NOT_NAME",
+        },
+        {
+            NAME_COL: args["name"].upper(),
+        },
+    ]
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(mock_cursor_results, []),
+                mock.call(expected_query),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+    expected_execute_query = [
+        (mock_execute_query, mock.call(expected_query, cursor_class=DictCursor))
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        result = sql_facade.get_existing_app_info(**args)
+
+    assert result == {NAME_COL: args["name"].upper()}
+
+
 def test_upgrade_application_unversioned(
-    mock_get_app_properties,
-    mock__use_warehouse_optional,
-    mock__use_role_optional,
+    mock_get_existing_app_info,
+    mock_use_warehouse,
+    mock_use_role,
     mock_execute_query,
     mock_cursor,
 ):
     app_name = "test_app"
     stage_fqn = "app_pkg.app_src.stage"
+    role = "test_role"
+    warehouse = "test_warehouse"
 
     side_effects, expected = mock_execute_helper(
         [
@@ -1677,36 +1786,36 @@ def test_upgrade_application_unversioned(
     )
     mock_execute_query.side_effect = side_effects
 
-    sql_facade.upgrade_application(
-        name=app_name,
-        current_app_row={COMMENT_COL: SPECIAL_COMMENT},
-        install_method=SameAccountInstallMethod.unversioned_dev(),
-        stage_fqn=stage_fqn,
-        debug_mode=None,
-        should_authorize_event_sharing=None,
-    )
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
 
-    mock_execute_query.assert_has_calls(expected)
-    mock_get_app_properties.assert_not_called()
-    mock__use_role_optional.assert_called_once_with(None)
-    mock__use_warehouse_optional.assert_called_once_with(None)
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.upgrade_application(
+            name=app_name,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=stage_fqn,
+            debug_mode=None,
+            should_authorize_event_sharing=None,
+            role=role,
+            warehouse=warehouse,
+        )
 
 
-@mock.patch(SQL_FACADE__USE_ROLE_OPTIONAL)
-@mock.patch(SQL_FACADE__USE_WAREHOUSE_OPTIONAL)
-@mock.patch(SQL_FACADE_GET_APP_PROPERTIES)
 def test_upgrade_application_version_and_patch(
+    mock_get_existing_app_info,
+    mock_use_role,
+    mock_use_warehouse,
     mock_get_app_properties,
-    mock__use_warehouse_optional,
-    mock__use_role_optional,
     mock_execute_query,
     mock_cursor,
 ):
     app_name = "test_app"
     stage_fqn = "app_pkg.app_src.stage"
-    role = "mock_role"
-    wh = "mock_wh"
-    mock_get_app_properties.return_value = {AUTHORIZE_TELEMETRY_COL: "false"}
+    role = "test_role"
+    warehouse = "test_warehouse"
 
     side_effects, expected = mock_execute_helper(
         [
@@ -1728,38 +1837,40 @@ def test_upgrade_application_version_and_patch(
     )
     mock_execute_query.side_effect = side_effects
 
-    sql_facade.upgrade_application(
-        name=app_name,
-        current_app_row={COMMENT_COL: SPECIAL_COMMENT},
-        install_method=SameAccountInstallMethod.versioned_dev("3", 2),
-        stage_fqn=stage_fqn,
-        debug_mode=True,
-        should_authorize_event_sharing=True,
-        role=role,
-        warehouse=wh,
-    )
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
 
-    mock_execute_query.assert_has_calls(expected)
-    mock_get_app_properties.assert_called_once_with(app_name, role)
-    mock__use_role_optional.assert_called_once_with(role)
-    mock__use_warehouse_optional.assert_called_once_with(wh)
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.upgrade_application(
+            name=app_name,
+            install_method=SameAccountInstallMethod.versioned_dev("3", 2),
+            stage_fqn=stage_fqn,
+            debug_mode=True,
+            should_authorize_event_sharing=True,
+            role=role,
+            warehouse=warehouse,
+        )
 
 
-@mock.patch(SQL_FACADE__USE_ROLE_OPTIONAL)
-@mock.patch(SQL_FACADE__USE_WAREHOUSE_OPTIONAL)
-@mock.patch(SQL_FACADE_GET_APP_PROPERTIES)
 def test_upgrade_application_from_release_directive(
     mock_get_app_properties,
-    mock__use_warehouse_optional,
-    mock__use_role_optional,
+    mock_get_existing_app_info,
+    mock_use_warehouse,
+    mock_use_role,
     mock_execute_query,
     mock_cursor,
 ):
     app_name = "test_app"
     stage_fqn = "app_pkg.app_src.stage"
-    role = "mock_role"
-    wh = "mock_wh"
-    mock_get_app_properties.return_value = {AUTHORIZE_TELEMETRY_COL: "true"}
+    role = "test_role"
+    warehouse = "test_warehouse"
+    mock_get_app_properties.return_value = {
+        COMMENT_COL: SPECIAL_COMMENT,
+        AUTHORIZE_TELEMETRY_COL: "true",
+    }
 
     side_effects, expected = mock_execute_helper(
         [
@@ -1773,34 +1884,34 @@ def test_upgrade_application_from_release_directive(
     )
     mock_execute_query.side_effect = side_effects
 
-    sql_facade.upgrade_application(
-        name=app_name,
-        current_app_row={COMMENT_COL: SPECIAL_COMMENT},
-        install_method=SameAccountInstallMethod.release_directive(),
-        stage_fqn=stage_fqn,
-        debug_mode=True,
-        should_authorize_event_sharing=True,
-        role=role,
-        warehouse=wh,
-    )
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
 
-    mock_execute_query.assert_has_calls(expected)
-    mock_get_app_properties.assert_called_once_with(app_name, role)
-    mock__use_role_optional.assert_called_once_with(role)
-    mock__use_warehouse_optional.assert_called_once_with(wh)
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.upgrade_application(
+            name=app_name,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=stage_fqn,
+            debug_mode=True,
+            should_authorize_event_sharing=True,
+            role=role,
+            warehouse=warehouse,
+        )
 
 
-@mock.patch(SQL_FACADE__USE_ROLE_OPTIONAL)
-@mock.patch(SQL_FACADE__USE_WAREHOUSE_OPTIONAL)
-@mock.patch(SQL_FACADE_GET_APP_PROPERTIES)
-def test_upgrade_application_converts_programmingerrors(
-    mock_get_app_properties,
-    mock__use_warehouse_optional,
-    mock__use_role_optional,
+def test_upgrade_application_converts_expected_programmingerrors_to_user_errors(
+    mock_get_existing_app_info,
+    mock_use_warehouse,
+    mock_use_role,
     mock_execute_query,
 ):
     app_name = "test_app"
     stage_fqn = "app_pkg.app_src.stage"
+    role = "test_role"
+    warehouse = "test_warehouse"
     programming_error_message = "programming error message"
 
     side_effects, expected = mock_execute_helper(
@@ -1816,84 +1927,154 @@ def test_upgrade_application_converts_programmingerrors(
     )
     mock_execute_query.side_effect = side_effects
 
-    with pytest.raises(UserInputError) as err:
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with (
+        assert_in_context(expected_use_objects, expected_execute_query),
+        pytest.raises(UserInputError) as err,
+    ):
         sql_facade.upgrade_application(
             name=app_name,
-            current_app_row={COMMENT_COL: SPECIAL_COMMENT},
             install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
+            role=role,
+            warehouse=warehouse,
         )
 
+    assert_programmingerror_cause_with_errno(
+        err, APPLICATION_INSTANCE_FAILED_TO_RUN_SETUP_SCRIPT
+    )
     assert err.match(
         f"Failed to upgrade application {app_name} with the following error message:\n"
     )
     assert err.match(programming_error_message)
-    assert err.value.__cause__.errno == APPLICATION_INSTANCE_FAILED_TO_RUN_SETUP_SCRIPT
-
-    mock_execute_query.assert_has_calls(expected)
-    mock_get_app_properties.assert_not_called()
-    mock__use_role_optional.assert_called_once_with(None)
-    mock__use_warehouse_optional.assert_called_once_with(None)
 
 
-@mock.patch(SQL_FACADE__USE_ROLE_OPTIONAL)
-@mock.patch(SQL_FACADE__USE_WAREHOUSE_OPTIONAL)
-@mock.patch(SQL_FACADE_GET_APP_PROPERTIES)
 def test_upgrade_application_special_message_for_event_sharing_error(
+    mock_get_existing_app_info,
     mock_get_app_properties,
-    mock__use_warehouse_optional,
-    mock__use_role_optional,
+    mock_use_warehouse,
+    mock_use_role,
+    mock_execute_query,
+    mock_cursor,
+):
+    app_name = "test_app"
+    stage_fqn = "app_pkg.app_src.stage"
+    role = "test_role"
+    warehouse = "test_warehouse"
+    mock_get_app_properties.return_value = {
+        COMMENT_COL: SPECIAL_COMMENT,
+        AUTHORIZE_TELEMETRY_COL: "true",
+    }
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([], []),
+                mock.call(f"alter application {app_name} upgrade using version v1 "),
+            ),
+            (None, mock.call(f"alter application {app_name} set debug_mode = False")),
+            (
+                ProgrammingError(
+                    errno=CANNOT_DISABLE_MANDATORY_TELEMETRY,
+                ),
+                mock.call(
+                    f"alter application {app_name} set AUTHORIZE_TELEMETRY_EVENT_SHARING = FALSE"
+                ),
+            ),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with (
+        assert_in_context(expected_use_objects, expected_execute_query),
+        pytest.raises(UserInputError) as err,
+    ):
+        sql_facade.upgrade_application(
+            name=app_name,
+            install_method=SameAccountInstallMethod.versioned_dev("v1"),
+            stage_fqn=stage_fqn,
+            debug_mode=False,
+            should_authorize_event_sharing=False,
+            role=role,
+            warehouse=warehouse,
+        )
+
+    assert_programmingerror_cause_with_errno(err, CANNOT_DISABLE_MANDATORY_TELEMETRY)
+    assert err.match(
+        "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+    )
+
+
+def test_upgrade_application_converts_unexpected_programmingerrors_to_unclassified_errors(
+    mock_get_existing_app_info,
+    mock_use_warehouse,
+    mock_use_role,
     mock_execute_query,
 ):
     app_name = "test_app"
     stage_fqn = "app_pkg.app_src.stage"
+    role = "test_role"
+    warehouse = "test_warehouse"
 
     side_effects, expected = mock_execute_helper(
         [
             (
                 ProgrammingError(
-                    errno=CANNOT_DISABLE_MANDATORY_TELEMETRY,
+                    errno=SQL_COMPILATION_ERROR,
                 ),
-                mock.call(f"alter application {app_name} upgrade using version v1 "),
+                mock.call(f"alter application {app_name} upgrade using @{stage_fqn}"),
             )
         ]
     )
     mock_execute_query.side_effect = side_effects
 
-    with pytest.raises(UserInputError) as err:
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with (
+        assert_in_context(expected_use_objects, expected_execute_query),
+        pytest.raises(InvalidSQLError) as err,
+    ):
         sql_facade.upgrade_application(
             name=app_name,
-            current_app_row={COMMENT_COL: SPECIAL_COMMENT},
-            install_method=SameAccountInstallMethod.versioned_dev("v1"),
+            install_method=SameAccountInstallMethod.unversioned_dev(),
             stage_fqn=stage_fqn,
-            debug_mode=False,
-            should_authorize_event_sharing=False,
+            debug_mode=True,
+            should_authorize_event_sharing=True,
+            role=role,
+            warehouse=warehouse,
         )
 
-    assert err.match(
-        "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
-    )
-    assert err.value.__cause__.errno == CANNOT_DISABLE_MANDATORY_TELEMETRY
-
-    mock_execute_query.assert_has_calls(expected)
-    mock_get_app_properties.assert_not_called()
-    mock__use_role_optional.assert_called_once_with(None)
-    mock__use_warehouse_optional.assert_called_once_with(None)
+    assert_programmingerror_cause_with_errno(err, SQL_COMPILATION_ERROR)
 
 
-@mock.patch(SQL_FACADE__USE_ROLE_OPTIONAL)
-@mock.patch(SQL_FACADE__USE_WAREHOUSE_OPTIONAL)
 def test_create_application_with_minimal_clauses(
-    mock__use_warehouse_optional,
-    mock__use_role_optional,
+    mock_use_warehouse,
+    mock_use_role,
     mock_execute_query,
     mock_cursor,
 ):
     app_name = "test_app"
     pkg_name = "test_pkg"
     stage_fqn = "app_pkg.app_src.stage"
+    role = "test_role"
+    warehouse = "test_warehouse"
 
     side_effects, expected = mock_execute_helper(
         [
@@ -1913,33 +2094,36 @@ def test_create_application_with_minimal_clauses(
     )
     mock_execute_query.side_effect = side_effects
 
-    sql_facade.create_application(
-        name=app_name,
-        package_name=pkg_name,
-        install_method=SameAccountInstallMethod.release_directive(),
-        stage_fqn=stage_fqn,
-        debug_mode=None,
-        should_authorize_event_sharing=None,
-    )
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
 
-    mock_execute_query.assert_has_calls(expected)
-    mock__use_role_optional.assert_called_once_with(None)
-    mock__use_warehouse_optional.assert_called_once_with(None)
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.create_application(
+            name=app_name,
+            package_name=pkg_name,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=stage_fqn,
+            debug_mode=None,
+            should_authorize_event_sharing=None,
+            role=role,
+            warehouse=warehouse,
+        )
 
 
-@mock.patch(SQL_FACADE__USE_ROLE_OPTIONAL)
-@mock.patch(SQL_FACADE__USE_WAREHOUSE_OPTIONAL)
 def test_create_application_with_all_clauses(
-    mock__use_warehouse_optional,
-    mock__use_role_optional,
+    mock_use_warehouse,
+    mock_use_role,
     mock_execute_query,
     mock_cursor,
 ):
     app_name = "test_app"
     pkg_name = "test_pkg"
     stage_fqn = "app_pkg.app_src.stage"
-    role = "mock_role"
-    wh = "mock_wh"
+    role = "test_role"
+    warehouse = "test_warehouse"
 
     side_effects, expected = mock_execute_helper(
         [
@@ -1959,30 +2143,33 @@ def test_create_application_with_all_clauses(
     )
     mock_execute_query.side_effect = side_effects
 
-    sql_facade.create_application(
-        name=app_name,
-        package_name=pkg_name,
-        install_method=SameAccountInstallMethod.unversioned_dev(),
-        stage_fqn=stage_fqn,
-        debug_mode=True,
-        should_authorize_event_sharing=True,
-        role=role,
-        warehouse=wh,
-    )
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
 
-    mock_execute_query.assert_has_calls(expected)
-    mock__use_role_optional.assert_called_once_with(role)
-    mock__use_warehouse_optional.assert_called_once_with(wh)
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.create_application(
+            name=app_name,
+            package_name=pkg_name,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=stage_fqn,
+            debug_mode=True,
+            should_authorize_event_sharing=True,
+            role=role,
+            warehouse=warehouse,
+        )
 
 
-@mock.patch(SQL_FACADE__USE_ROLE_OPTIONAL)
-@mock.patch(SQL_FACADE__USE_WAREHOUSE_OPTIONAL)
-def test_create_application_converts_programmingerrors(
-    mock__use_warehouse_optional, mock__use_role_optional, mock_execute_query
+def test_create_application_converts_expected_programmingerrors_to_user_errors(
+    mock_use_warehouse, mock_use_role, mock_execute_query
 ):
     app_name = "test_app"
     pkg_name = "test_pkg"
     stage_fqn = "app_pkg.app_src.stage"
+    role = "test_role"
+    warehouse = "test_warehouse"
     programming_error_message = "programming error message"
 
     side_effects, expected = mock_execute_helper(
@@ -2006,7 +2193,16 @@ def test_create_application_converts_programmingerrors(
     )
     mock_execute_query.side_effect = side_effects
 
-    with pytest.raises(UserInputError) as err:
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with (
+        assert_in_context(expected_use_objects, expected_execute_query),
+        pytest.raises(UserInputError) as err,
+    ):
         sql_facade.create_application(
             name=app_name,
             package_name=pkg_name,
@@ -2014,28 +2210,27 @@ def test_create_application_converts_programmingerrors(
             stage_fqn=stage_fqn,
             debug_mode=None,
             should_authorize_event_sharing=None,
+            role=role,
+            warehouse=warehouse,
         )
 
+    assert_programmingerror_cause_with_errno(
+        err, APPLICATION_INSTANCE_FAILED_TO_RUN_SETUP_SCRIPT
+    )
     assert err.match(
         f"Failed to create application {app_name} with the following error message:\n"
     )
     assert err.match(programming_error_message)
-    assert err.value.__cause__.errno == APPLICATION_INSTANCE_FAILED_TO_RUN_SETUP_SCRIPT
-
-    mock_execute_query.assert_has_calls(expected)
-    mock__use_role_optional.assert_called_with(None)
-    mock__use_warehouse_optional.assert_called_with(None)
 
 
-@mock.patch(SQL_FACADE__USE_ROLE_OPTIONAL)
-@mock.patch(SQL_FACADE__USE_WAREHOUSE_OPTIONAL)
 def test_create_application_special_message_for_event_sharing_error(
-    mock__use_warehouse_optional, mock__use_role_optional, mock_execute_query
+    mock_use_warehouse, mock_use_role, mock_execute_query
 ):
     app_name = "test_app"
     pkg_name = "test_pkg"
     stage_fqn = "app_pkg.app_src.stage"
-    role = "role"
+    role = "test_role"
+    warehouse = "test_warehouse"
 
     side_effects, expected = mock_execute_helper(
         [
@@ -2057,7 +2252,16 @@ def test_create_application_special_message_for_event_sharing_error(
     )
     mock_execute_query.side_effect = side_effects
 
-    with pytest.raises(UserInputError) as err:
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with (
+        assert_in_context(expected_use_objects, expected_execute_query),
+        pytest.raises(UserInputError) as err,
+    ):
         sql_facade.create_application(
             name=app_name,
             package_name=pkg_name,
@@ -2066,13 +2270,65 @@ def test_create_application_special_message_for_event_sharing_error(
             debug_mode=False,
             should_authorize_event_sharing=False,
             role=role,
+            warehouse=warehouse,
         )
 
+    assert_programmingerror_cause_with_errno(
+        err, APPLICATION_REQUIRES_TELEMETRY_SHARING
+    )
     assert err.match(
         "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
     )
-    assert err.value.__cause__.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING
 
-    mock_execute_query.assert_has_calls(expected)
-    mock__use_role_optional.assert_called_with(role)
-    mock__use_warehouse_optional.assert_called_with(None)
+
+def test_create_application_converts_unexpected_programmingerrors_to_unclassified_errors(
+    mock_use_warehouse, mock_use_role, mock_execute_query
+):
+    app_name = "test_app"
+    pkg_name = "test_pkg"
+    stage_fqn = "app_pkg.app_src.stage"
+    role = "test_role"
+    warehouse = "test_warehouse"
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                ProgrammingError(
+                    errno=SQL_COMPILATION_ERROR,
+                ),
+                mock.call(
+                    dedent(
+                        f"""\
+                        create application {app_name}
+                            from application package {pkg_name}  
+                            comment = {SPECIAL_COMMENT}
+                        """
+                    )
+                ),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with (
+        assert_in_context(expected_use_objects, expected_execute_query),
+        pytest.raises(InvalidSQLError) as err,
+    ):
+        sql_facade.create_application(
+            name=app_name,
+            package_name=pkg_name,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=stage_fqn,
+            debug_mode=None,
+            should_authorize_event_sharing=None,
+            role=role,
+            warehouse=warehouse,
+        )
+
+    assert_programmingerror_cause_with_errno(err, SQL_COMPILATION_ERROR)

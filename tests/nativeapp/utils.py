@@ -20,6 +20,7 @@ from textwrap import dedent
 from typing import List, Set
 
 import pytest
+from snowflake.connector import ProgrammingError
 
 from tests.nativeapp.factories import ProjectV10Factory
 
@@ -70,10 +71,7 @@ GET_UI_PARAMETERS = f"{PLUGIN_UTIL_MODULE}.get_ui_parameters"
 
 SQL_FACADE_MODULE = "snowflake.cli._plugins.nativeapp.sf_facade"
 SQL_FACADE = f"{SQL_FACADE_MODULE}.SnowflakeSQLFacade"
-SQL_FACADE__USE_ROLE_OPTIONAL = f"{SQL_FACADE}._use_role_optional"
-SQL_FACADE__USE_WAREHOUSE_OPTIONAL = f"{SQL_FACADE}._use_warehouse_optional"
 SQL_FACADE_GET_ACCOUNT_EVENT_TABLE = f"{SQL_FACADE}.get_account_event_table"
-SQL_FACADE_GET_APP_PROPERTIES = f"{SQL_FACADE}.get_app_properties"
 SQL_FACADE_EXECUTE_USER_SCRIPT = f"{SQL_FACADE}.execute_user_script"
 SQL_FACADE_STAGE_EXISTS = f"{SQL_FACADE}.stage_exists"
 SQL_FACADE_CREATE_SCHEMA = f"{SQL_FACADE}.create_schema"
@@ -322,3 +320,8 @@ def mock_side_effect_error_with_cause(err: Exception, cause: Exception):
         raise err from cause
 
     return side_effect.value
+
+
+def assert_programmingerror_cause_with_errno(err: pytest.ExceptionInfo, errno: int):
+    assert isinstance(err.value.__cause__, ProgrammingError)
+    assert err.value.__cause__.errno == errno
