@@ -32,7 +32,7 @@ dependencies = [
   "rich==13.9.4",
   "requests==2.32.3",
   "requirements-parser==0.11.0",
-  "setuptools==75.5.0",
+  "setuptools==75.6.0",
   'snowflake.core==0.12.1; python_version < "3.12"',
   "snowflake-connector-python[secure-local-storage]==3.12.3",
   'snowflake-snowpark-python>=1.15.0;python_version < "3.12"',
@@ -57,11 +57,11 @@ classifiers = [
 
 [project.optional-dependencies]
 development = [
-  "coverage==7.6.7",
+  "coverage==7.6.8",
   "pre-commit>=3.5.0",
   "pytest==8.3.3",
   "pytest-randomly==3.16.0",
-  "syrupy==4.7.2",
+  "syrupy==4.8.0",
   "factory-boy==3.3.1",
   "Faker==33.0.0",
 ]
