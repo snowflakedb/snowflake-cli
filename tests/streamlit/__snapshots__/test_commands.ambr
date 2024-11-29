@@ -1,15 +1,12 @@
 # serializer version: 1
-# name: test_artifacts_must_exists
+# name: test_artifacts_must_exist
   '''
   +- Error ----------------------------------------------------------------------+
   | During evaluation of DefinitionV20 in project definition following errors    |
   | were encountered:                                                            |
-  | For field entities.my_streamlit.streamlit you provided '{'artifacts':        |
-  | ['streamlit_app.py', 'foo_bar.py', 'pages/', 'environment.yml'],             |
-  | 'identifier': 'test_streamlit_deploy_snowcli', 'main_file':                  |
-  | 'streamlit_app.py', 'query_warehouse': 'xsmall', 'stage': 'streamlit',       |
-  | 'title': 'My Fancy Streamlit', 'type': 'streamlit'}'. This caused: Value     |
-  | error, Specified artifact foo_bar.py does not exist locally.                 |
+  | For field entities.my_streamlit you provided '{'artifacts': {'1':            |
+  | 'foo_bar.py'}}'. This caused: Unable to extract tag using discriminator      |
+  | 'type'                                                                       |
   +------------------------------------------------------------------------------+
   
   '''

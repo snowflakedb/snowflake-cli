@@ -1,6 +1,6 @@
 definition_version: 2
 entities:
-  my_streamlit:
+  test_streamlit:
     type: "streamlit"
     identifier: test_streamlit_deploy_snowcli
     title: "My Fancy Streamlit"

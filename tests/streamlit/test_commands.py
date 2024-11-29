@@ -281,7 +281,7 @@ def test_deploy_only_streamlit_file_replace(
     mock_typer.launch.assert_not_called()
 
 
-def test_artifacts_must_exists(
+def test_artifacts_must_exist(
     runner, mock_ctx, project_directory, alter_snowflake_yml, snapshot
 ):
     with project_directory("example_streamlit_v2") as pdir:
