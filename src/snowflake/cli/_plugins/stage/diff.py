@@ -83,18 +83,30 @@ def enumerate_files(path: Path) -> List[Path]:
     return paths
 
 
-def strip_stage_name(path: str) -> StagePathType:
-    """Returns the given stage path without the stage name as the first part."""
-    return StagePathType(*path.split("/")[1:])
+def relative_to_stage_subdir(path: str, subdir: str | None = None) -> StagePathType:
+    path_parts = path.split("/")
+    # Remove stage name
+    path_parts.pop(0)
+
+    path_wo_stage_name = StagePathType(*path_parts)
+    if subdir:
+        # Find file path relative to stage subdirectory
+        subdir_path = StagePathType(subdir)
+        return path_wo_stage_name.relative_to(subdir_path)
+
+    return path_wo_stage_name
 
 
-def build_md5_map(list_stage_cursor: DictCursor) -> Dict[StagePathType, Optional[str]]:
+def build_md5_map(
+    list_stage_cursor: DictCursor, stage_subdir: str | None = None
+) -> Dict[StagePathType, Optional[str]]:
     """
     Returns a mapping of relative stage paths to their md5sums.
     """
+    all_files = list_stage_cursor.fetchall()
     return {
-        strip_stage_name(file["name"]): file["md5"]
-        for file in list_stage_cursor.fetchall()
+        relative_to_stage_subdir(file["name"], stage_subdir): file["md5"]
+        for file in all_files
     }
 
 
@@ -118,13 +130,19 @@ def preserve_from_diff(
 def compute_stage_diff(
     local_root: Path,
     stage_fqn: str,
+    stage_subdirectory: str | None = None,
 ) -> DiffResult:
     """
     Diffs the files in a stage with a local folder.
     """
+    stage_fqn_with_subdir = (
+        f"{stage_fqn}/{stage_subdirectory}" if stage_subdirectory else stage_fqn
+    )
     stage_manager = StageManager()
     local_files = enumerate_files(local_root)
-    remote_md5 = build_md5_map(stage_manager.list_files(stage_fqn))
+    remote_files = stage_manager.list_files(stage_fqn_with_subdir)
+
+    remote_md5 = build_md5_map(remote_files, stage_subdirectory)
 
     result: DiffResult = DiffResult()
 

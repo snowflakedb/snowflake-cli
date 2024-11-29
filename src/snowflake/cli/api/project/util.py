@@ -194,6 +194,24 @@ def extract_schema(qualified_name: str):
     return None
 
 
+# def extract_schema_from_path_to_version_directory(path: str) -> str:
+#     """
+#     Extracts the schema from a path to a version directory.
+#     Path to version directory is a stage fqn with an optional subdirectory. It can take any of these forms:
+#     db.schema.stage
+#     db.schema.stage/subdirectory
+#     schema.stage
+#     schema.stage/subdirectory
+#     """
+#     DB_SCHEMA_AND_NAME = r"(?P<db>[^.]+)\.(?P<schema>[^.]+)\.(?P<stage>[^/]+)(?:/(?P<version>.+))?"
+#     SCHEMA_AND_NAME = r"(?P<schema>[^.]+)\.(?P<stage>[^/]+)(?:/(?P<version>.+))?"
+#
+#     match = re.match(DB_SCHEMA_AND_NAME, path) or re.match(SCHEMA_AND_NAME, path)
+#     if match:
+#         return match.groupdict()["schema"]
+#     return None
+
+
 def first_set_env(*keys: str):
     for k in keys:
         v = os.getenv(k)

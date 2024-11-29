@@ -87,6 +87,7 @@ def sync_deploy_root_with_stage(
     prune: bool,
     recursive: bool,
     stage_fqn: str,
+    stage_subdirectory: str | None = None,
     local_paths_to_sync: List[Path] | None = None,
     print_diff: bool = True,
 ) -> DiffResult:
@@ -107,7 +108,6 @@ def sync_deploy_root_with_stage(
     Returns:
         A `DiffResult` instance describing the changes that were performed.
     """
-
     sql_facade = get_snowflake_facade()
     # Does a stage already exist within the application package, or we need to create one?
     # Using "if not exists" should take care of either case.
@@ -119,12 +119,21 @@ def sync_deploy_root_with_stage(
         sql_facade.create_stage(stage_fqn)
 
     # Perform a diff operation and display results to the user for informational purposes
+    # PJ - TODO: make optional /
+    # PJ - rename this
+    stage_fqn_with_subdir = (
+        f"{stage_fqn}/{stage_subdirectory}" if stage_subdirectory else stage_fqn
+    )
     if print_diff:
         console.step(
-            "Performing a diff between the Snowflake stage and your local deploy_root ('%s') directory."
-            % deploy_root.resolve()
+            f"Performing a diff between the Snowflake stage {stage_fqn_with_subdir} and your local deploy_root {deploy_root.resolve()} directory."
         )
-    diff: DiffResult = compute_stage_diff(deploy_root, stage_fqn)
+
+    diff: DiffResult = compute_stage_diff(
+        local_root=deploy_root,
+        stage_fqn=stage_fqn,
+        stage_subdirectory=stage_subdirectory,
+    )
 
     if local_paths_to_sync:
         # Deploying specific files/directories
@@ -185,7 +194,7 @@ def sync_deploy_root_with_stage(
             role=role,
             deploy_root_path=deploy_root,
             diff_result=diff,
-            stage_fqn=stage_fqn,
+            stage_fqn=stage_fqn_with_subdir,
         )
     return diff
 

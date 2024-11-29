@@ -30,6 +30,7 @@ from snowflake.cli._plugins.nativeapp.constants import (
     COMMENT_COL,
     NAME_COL,
     OWNER_COL,
+    SOURCE_COL,
     SPECIAL_COMMENT,
 )
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
@@ -53,6 +54,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
+from snowflake.cli._plugins.nativeapp.sf_sql_facade import _same_identifier
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context, span
@@ -368,7 +370,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         recursive: bool,
         paths: List[Path],
         validate: bool = ValidateOption,
-        stage_fqn: Optional[str] = None,
         interactive: bool = InteractiveOption,
         version: Optional[str] = None,
         patch: Optional[int] = None,
@@ -383,7 +384,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         package_entity: ApplicationPackageEntity = action_ctx.get_entity(
             self.package_entity_id
         )
-        stage_fqn = stage_fqn or package_entity.stage_fqn
+        stage_fqn = package_entity.stage_fqn
 
         if force:
             policy = AllowAlwaysPolicy()
@@ -432,7 +433,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             recursive=True,
             paths=[],
             validate=validate,
-            stage_fqn=stage_fqn,
             interactive=interactive,
             force=force,
         )
@@ -646,10 +646,14 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         model = self._entity_model
         console = self._workspace_ctx.console
         debug_mode = model.debug
-
+        # PJ-TODO: in the future, the stage_fqn input to here could already have the subdir?
         stage_fqn = stage_fqn or package.stage_fqn
         stage_schema = extract_schema(stage_fqn)
-
+        path_to_artifacts = (
+            f"{stage_fqn}/{package.stage_subdirectory}"
+            if package.stage_subdirectory
+            else stage_fqn
+        )
         sql_executor = get_sql_executor()
         with sql_executor.use_role(self.role):
             event_sharing = EventSharingHandler(
@@ -672,13 +676,18 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                         app_role=self.role,
                         show_app_row=show_app_row,
                     )
+                    if not _same_identifier(show_app_row[SOURCE_COL], package.name):
+                        # PJ- TODO: change to: are you sure you want to proceed?
+                        raise ClickException(
+                            "This application was not originally created from this package"
+                        )
 
                     # If all the above checks are in order, proceed to upgrade
                     try:
                         console.step(
                             f"Upgrading existing application object {self.name}."
                         )
-                        using_clause = install_method.using_clause(stage_fqn)
+                        using_clause = install_method.using_clause(path_to_artifacts)
                         upgrade_cursor = sql_executor.execute_query(
                             f"alter application {self.name} upgrade {using_clause}",
                         )
@@ -775,7 +784,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                         )
                         authorize_telemetry_clause = f" AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(new_authorize_event_sharing_value).upper()}"
 
-                    using_clause = install_method.using_clause(stage_fqn)
+                    using_clause = install_method.using_clause(path_to_artifacts)
                     create_cursor = sql_executor.execute_query(
                         dedent(
                             f"""\

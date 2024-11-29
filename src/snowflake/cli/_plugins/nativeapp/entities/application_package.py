@@ -121,6 +121,10 @@ class ApplicationPackageEntityModel(EntityModelBase):
         title="Path to manifest.yml. Unused and deprecated starting with Snowflake CLI 3.2",
         default="",
     )
+    stage_subdirectory: Optional[str] = Field(
+        title="Subfolder in stage",
+        default="",
+    )
 
     @field_validator("identifier")
     @classmethod
@@ -162,6 +166,10 @@ class ApplicationPackageEntityModel(EntityModelBase):
         return input_value
 
 
+class SyncDataClass:
+    pass
+
+
 @attach_spans_to_entity_actions(entity_name="app_pkg")
 class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     """
@@ -173,8 +181,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         return self._workspace_ctx.project_root
 
     @property
+    def stage_subdirectory(self) -> str:
+        return self._entity_model.stage_subdirectory
+
+    @property
     def deploy_root(self) -> Path:
-        return self.project_root / self._entity_model.deploy_root
+        return (
+            self.project_root
+            / self._entity_model.deploy_root
+            / self._entity_model.stage_subdirectory
+        )
 
     @property
     def bundle_root(self) -> Path:
@@ -204,6 +220,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def stage_fqn(self) -> str:
         return f"{self.name}.{self._entity_model.stage}"
 
+    # @property
+    # def stage_root_path(self) -> str:
+    #     return f"{self.stage_fqn}/{self.stage_subdirectory}" if self.stage_subdirectory else self.stage_fqn
+
     @property
     def scratch_stage_fqn(self) -> str:
         return f"{self.name}.{self._entity_model.scratch_stage}"
@@ -225,7 +245,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         validate: bool,
         interactive: bool,
         force: bool,
-        stage_fqn: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -236,10 +255,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             paths=paths,
             print_diff=True,
             validate=validate,
-            stage_fqn=stage_fqn or self.stage_fqn,
+            stage_fqn=self.stage_fqn,
             interactive=interactive,
             force=force,
         )
+
+    def action_teardown(self, action_ctx: ActionContext, *args, **kwargs):
+
+        get_snowflake_facade().get_all_applications_for_package(self.name)
 
     def action_drop(self, action_ctx: ActionContext, force_drop: bool, *args, **kwargs):
         console = self._workspace_ctx.console
@@ -596,7 +619,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         with get_sql_executor().use_role(self.role):
             # 3. Upload files from deploy root local folder to the above stage
+            # PJ-TODO: move extract_schema in sync
             stage_schema = extract_schema(stage_fqn)
+            # PJ-TODO: refactor stage into some object so we don't have to pass parts of it around. schema, subdir, fqn blah blah. like bundlemap.
+            # There might already be something like that for it
             diff = sync_deploy_root_with_stage(
                 console=console,
                 deploy_root=self.deploy_root,
@@ -607,6 +633,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 prune=prune,
                 recursive=recursive,
                 stage_fqn=stage_fqn,
+                stage_subdirectory=self.stage_subdirectory,
                 local_paths_to_sync=paths,
                 print_diff=print_diff,
             )
@@ -926,11 +953,19 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 force=force,
                 run_post_deploy_hooks=False,
             )
-        prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
+        # prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
+        stage_fqn_with_subdir = (
+            f"{stage_fqn}/{self.stage_subdirectory}"
+            if self.stage_subdirectory
+            else stage_fqn
+        )
+        prefixed_stage_fqn_full = StageManager.get_standard_stage_prefix(
+            stage_fqn_with_subdir
+        )
         sql_executor = get_sql_executor()
         try:
             cursor = sql_executor.execute_query(
-                f"call system$validate_native_app_setup('{prefixed_stage_fqn}')"
+                f"call system$validate_native_app_setup('{prefixed_stage_fqn_full}')"
             )
         except ProgrammingError as err:
             if err.errno == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:

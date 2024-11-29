@@ -31,6 +31,7 @@ class WorkspaceManager:
         self._entities_cache: Dict[str, Entity] = {}
         self._project_definition: DefinitionV20 = project_definition
         self._project_root = project_root
+        self._entities_identifier_cache: Dict[str, list[Entity]] = {}
 
     def get_entity(self, entity_id: str):
         """
@@ -51,6 +52,23 @@ class WorkspaceManager:
         )
         self._entities_cache[entity_id] = entity_cls(entity_model, workspace_ctx)
         return self._entities_cache[entity_id]
+
+    # def get_entities_with_identifier(self, identifier: str):
+    #     if identifier in self._entities_identifier_cache:
+    #         return self._entities_cache[entity_id]
+    #     entity_model = self._project_definition.entities.get(entity_id, None)
+    #     if entity_model is None:
+    #         raise ValueError(f"No such entity ID: {entity_id}")
+    #     entity_model_cls = entity_model.__class__
+    #     entity_cls = v2_entity_model_to_entity_map[entity_model_cls]
+    #     workspace_ctx = WorkspaceContext(
+    #         console=cc,
+    #         project_root=self.project_root,
+    #         get_default_role=_get_default_role,
+    #         get_default_warehouse=_get_default_warehouse,
+    #     )
+    #     self._entities_cache[entity_id] = entity_cls(entity_model, workspace_ctx)
+    #     return self._entities_cache[entity_id]
 
     def perform_action(self, entity_id: str, action: EntityActions, *args, **kwargs):
         """
