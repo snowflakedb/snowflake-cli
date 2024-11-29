@@ -437,6 +437,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 self.get_existing_release_directive_info_for_version(resolved_version)
             )
         except InsufficientPrivilegesError:
+            # PJ - TODO: insufficient privileges error will still show the "are you sure you want to create a new patch? prompt. it shouldn't"
             warning = (
                 "Could not check for existing release directives due to insufficient privileges. "
                 "The MANAGE RELEASES privilege is required to check for existing release directives."
@@ -711,7 +712,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         get_snowflake_facade().create_version_in_package(
             role=self.role,
             package_name=self.name,
-            stage_fqn=self.stage_fqn,
+            stage_fqn_with_subdir=f"{self.stage_fqn}/{self.stage_subdirectory}" if self.stage_subdirectory else self.stage_fqn,
             version=version,
             label=label,
         )
@@ -735,7 +736,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         new_patch = get_snowflake_facade().add_patch_to_package_version(
             role=self.role,
             package_name=self.name,
-            stage_fqn=self.stage_fqn,
+            stage_fqn_with_subdir=f"{self.stage_fqn}/{self.stage_subdirectory}" if self.stage_subdirectory else self.stage_fqn,
             version=version,
             patch=patch,
             label=label,

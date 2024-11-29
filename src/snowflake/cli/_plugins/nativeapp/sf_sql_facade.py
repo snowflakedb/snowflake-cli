@@ -198,7 +198,7 @@ class SnowflakeSQLFacade:
     def create_version_in_package(
         self,
         package_name: str,
-        stage_fqn: str,
+        stage_fqn_with_subdir: str,
         version: str,
         label: str | None = None,
         role: str | None = None,
@@ -206,7 +206,7 @@ class SnowflakeSQLFacade:
         """
         Creates a new version in an existing application package.
         @param package_name: Name of the application package to alter.
-        @param stage_fqn: Stage fully qualified name.
+        @param stage_fqn_with_subdir: Stage fully qualified name.
         @param version: Version name to create.
         @param [Optional] role: Switch to this role while executing create version.
         @param [Optional] label: Label for this version, visible to consumers.
@@ -223,7 +223,7 @@ class SnowflakeSQLFacade:
             f"""\
                 alter application package {package_name}
                     add version {version}
-                    using @{stage_fqn}{with_label_cause}
+                    using @{stage_fqn_with_subdir}{with_label_cause}
             """
         )
         with self._use_role_optional(role):
@@ -235,10 +235,11 @@ class SnowflakeSQLFacade:
                     f"Failed to add version {version} to application package {package_name}.",
                 )
 
+    # PJ-TODO: rename stage_fqn_with_subdir everywhere to a better name like stage_path_to_artifacts
     def add_patch_to_package_version(
         self,
         package_name: str,
-        stage_fqn: str,
+        stage_fqn_with_subdir: str,
         version: str,
         patch: int | None = None,
         label: str | None = None,
@@ -247,7 +248,7 @@ class SnowflakeSQLFacade:
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
         @param package_name: Name of the application package to alter.
-        @param stage_fqn: Stage fully qualified name.
+        @param stage_fqn_with_subdir: Stage fully qualified name.
         @param version: Version name to create.
         @param [Optional] patch: Patch number to create.
         @param [Optional] label: Label for this patch, visible to consumers.
@@ -268,7 +269,7 @@ class SnowflakeSQLFacade:
             f"""\
                  alter application package {package_name}
                      add patch {patch_query} for version {version}
-                     using @{stage_fqn}{with_label_clause}
+                     using @{stage_fqn_with_subdir}{with_label_clause}
              """
         )
         with self._use_role_optional(role):
