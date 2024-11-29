@@ -446,7 +446,19 @@ def test_deploy_function_fully_qualified_name(
 
 
 @pytest.mark.parametrize(
-    "project_name", ["snowpark_functions", "snowpark_functions_v2"]
+    "project_name,signature_path,runtime_path",
+    [
+        (
+            "snowpark_functions",
+            "snowpark.functions.0.signature.0.",
+            "snowpark.functions.0.runtime",
+        ),
+        (
+            "snowpark_functions_v2",
+            "entities.func1.signature.0.",
+            "entities.func1.runtime",
+        ),
+    ],
 )
 @pytest.mark.parametrize(
     "parameter_type,default_value",
@@ -471,6 +483,8 @@ def test_deploy_function_with_empty_default_value(
     parameter_type,
     default_value,
     project_name,
+    signature_path,
+    runtime_path,
 ):
     mock_object_manager.return_value.describe.side_effect = ProgrammingError(
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
@@ -482,12 +496,12 @@ def test_deploy_function_with_empty_default_value(
         for param, value in [("type", parameter_type), ("default", default_value)]:
             alter_snowflake_yml(
                 snowflake_yml,
-                parameter_path=f"snowpark.functions.0.signature.0.{param}",
+                parameter_path=f"{signature_path}{param}",
                 value=value,
             )
         alter_snowflake_yml(
             snowflake_yml,
-            parameter_path=f"snowpark.functions.0.runtime",
+            parameter_path=runtime_path,
             value="3.10",
         )
         result = runner.invoke(

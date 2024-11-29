@@ -59,7 +59,6 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBase
             if "*" in artifact.name:
                 continue
             if not artifact.exists():
-
                 raise ValueError(
                     f"Specified artifact {artifact} does not exist locally."
                 )

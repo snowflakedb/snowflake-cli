@@ -512,7 +512,14 @@ def test_deploy_all_streamlit_files(
     [
         (
             "example_streamlit_v2",
-            {"entities": {"test_streamlit": {"stage": "streamlit_stage"}}},
+            {
+                "entities": {
+                    "test_streamlit": {
+                        "stage": "streamlit_stage",
+                        "artifacts": ["streamlit_app.py", "environment.yml", "pages"],
+                    }
+                }
+            },
         ),
         ("example_streamlit", {"streamlit": {"stage": "streamlit_stage"}}),
     ],
@@ -529,7 +536,7 @@ def test_deploy_put_files_on_stage(
     mock_cursor,
     runner,
     mock_ctx,
-    os_agnostic_snapshot,
+    alter_snowflake_yml,
     project_directory,
     project_name,
     merge_definition,
@@ -553,7 +560,23 @@ def test_deploy_put_files_on_stage(
 
     root_path = f"@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}"
     assert result.exit_code == 0, result.output
-    assert ctx.get_queries() == os_agnostic_snapshot
+    assert ctx.get_queries() == [
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit_stage')",
+        _put_query("streamlit_app.py", root_path),
+        _put_query("environment.yml", root_path),
+        _put_query("pages/*", f"{root_path}/pages"),
+        dedent(
+            f"""
+                CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
+                ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}'
+                MAIN_FILE = 'streamlit_app.py'
+                QUERY_WAREHOUSE = test_warehouse
+                TITLE = 'My Fancy Streamlit'
+                """
+        ).strip(),
+        f"select system$get_snowsight_host()",
+        f"select current_account_name()",
+    ]
 
 
 @pytest.mark.parametrize(
