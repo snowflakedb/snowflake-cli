@@ -765,50 +765,53 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         interactive: bool,
         cascade: bool = False,
     ):
-        if cascade:
-            try:
-                if application_objects := self.get_objects_owned_by_application():
-                    application_objects_str = _application_objects_to_str(
-                        application_objects
+        sql_executor = get_sql_executor()
+        with sql_executor.use_role(self.role):
+            if cascade:
+                try:
+                    if application_objects := self.get_objects_owned_by_application():
+                        application_objects_str = _application_objects_to_str(
+                            application_objects
+                        )
+                        self.console.message(
+                            f"The following objects are owned by application {self.name} and need to be dropped:\n{application_objects_str}"
+                        )
+                except ProgrammingError as err:
+                    if err.errno != APPLICATION_NO_LONGER_AVAILABLE:
+                        generic_sql_error_handler(err)
+                    self.console.warning(
+                        "The application owns other objects but they could not be determined."
                     )
-                    self.console.message(
-                        f"The following objects are owned by application {self.name} and need to be dropped:\n{application_objects_str}"
-                    )
-            except ProgrammingError as err:
-                if err.errno != APPLICATION_NO_LONGER_AVAILABLE:
-                    generic_sql_error_handler(err)
-                self.console.warning(
-                    "The application owns other objects but they could not be determined."
-                )
-            user_prompt = "Do you want the Snowflake CLI to drop these objects, then drop the existing application object and recreate it?"
-        else:
-            user_prompt = "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
+                user_prompt = "Do you want the Snowflake CLI to drop these objects, then drop the existing application object and recreate it?"
+            else:
+                user_prompt = "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
 
-        if not policy.should_proceed(user_prompt):
-            if interactive:
-                self.console.message("Not upgrading the application object.")
-                raise typer.Exit(0)
-            else:
-                self.console.message(
-                    "Cannot upgrade the application object non-interactively without --force."
+            if not policy.should_proceed(user_prompt):
+                if interactive:
+                    self.console.message("Not upgrading the application object.")
+                    raise typer.Exit(0)
+                else:
+                    self.console.message(
+                        "Cannot upgrade the application object non-interactively without --force."
+                    )
+                    raise typer.Exit(1)
+            try:
+                cascade_msg = " (cascade)" if cascade else ""
+                self.console.step(
+                    f"Dropping application object {self.name}{cascade_msg}."
                 )
-                raise typer.Exit(1)
-        try:
-            cascade_msg = " (cascade)" if cascade else ""
-            self.console.step(f"Dropping application object {self.name}{cascade_msg}.")
-            cascade_sql = " cascade" if cascade else ""
-            sql_executor = get_sql_executor()
-            sql_executor.execute_query(f"drop application {self.name}{cascade_sql}")
-        except ProgrammingError as err:
-            if err.errno == APPLICATION_OWNS_EXTERNAL_OBJECTS and not cascade:
-                # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
-                return self.drop_application_before_upgrade(
-                    policy=policy,
-                    interactive=interactive,
-                    cascade=True,
-                )
-            else:
-                generic_sql_error_handler(err)
+                cascade_sql = " cascade" if cascade else ""
+                sql_executor.execute_query(f"drop application {self.name}{cascade_sql}")
+            except ProgrammingError as err:
+                if err.errno == APPLICATION_OWNS_EXTERNAL_OBJECTS and not cascade:
+                    # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
+                    return self.drop_application_before_upgrade(
+                        policy=policy,
+                        interactive=interactive,
+                        cascade=True,
+                    )
+                else:
+                    generic_sql_error_handler(err)
 
     def get_events(
         self,

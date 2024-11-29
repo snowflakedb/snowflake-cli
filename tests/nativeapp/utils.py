@@ -78,6 +78,9 @@ SQL_FACADE_CREATE_SCHEMA = f"{SQL_FACADE}.create_schema"
 SQL_FACADE_CREATE_STAGE = f"{SQL_FACADE}.create_stage"
 SQL_FACADE_CREATE_APPLICATION = f"{SQL_FACADE}.create_application"
 SQL_FACADE_UPGRADE_APPLICATION = f"{SQL_FACADE}.upgrade_application"
+SQL_FACADE_GET_EVENT_DEFINITIONS = f"{SQL_FACADE}.get_event_definitions"
+SQL_FACADE_GET_EXISTING_APP_INFO = f"{SQL_FACADE}.get_existing_app_info"
+SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE = f"{SQL_FACADE}.grant_privileges_to_role"
 
 mock_snowflake_yml_file = dedent(
     """\
