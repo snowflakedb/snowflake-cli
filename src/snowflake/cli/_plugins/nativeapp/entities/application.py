@@ -721,7 +721,9 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         events_to_share = event_sharing.events_to_share(events_definitions)
         if events_to_share is not None:
-            get_snowflake_facade().share_telemetry_events(self.name, events_to_share)
+            get_snowflake_facade().share_telemetry_events(
+                self.name, events_to_share, self.role
+            )
 
         # hooks always executed after a create or upgrade
         self.execute_post_deploy_hooks()

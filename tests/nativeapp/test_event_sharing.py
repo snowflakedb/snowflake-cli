@@ -61,6 +61,7 @@ from tests.nativeapp.utils import (
     GET_UI_PARAMETERS,
     SQL_EXECUTOR_EXECUTE,
     SQL_FACADE_CREATE_APPLICATION,
+    SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE,
     SQL_FACADE_UPGRADE_APPLICATION,
     mock_execute_helper,
     mock_side_effect_error_with_cause,
@@ -252,35 +253,6 @@ def _setup_mocks_for_create_app(
         ),
         (None, mock.call("use role app_role")),
         (
-            mock_cursor([("old_wh",)], []),
-            mock.call("select current_warehouse()"),
-        ),
-        (None, mock.call("use warehouse app_warehouse")),
-        (
-            mock_cursor([("app_role",)], []),
-            mock.call("select current_role()"),
-        ),
-        (None, mock.call("use role package_role")),
-        (
-            None,
-            mock.call(
-                "grant install, develop on application package app_pkg to role app_role"
-            ),
-        ),
-        (
-            None,
-            mock.call("grant usage on schema app_pkg.app_src to role app_role"),
-        ),
-        (
-            None,
-            mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
-        ),
-        (None, mock.call("use role app_role")),
-        (
-            mock_cursor([("app_role",)], []),
-            mock.call("select current_role()"),
-        ),
-        (
             mock_cursor(
                 events_definitions_in_app or [], ["name", "type", "sharing", "status"]
             ),
@@ -289,24 +261,27 @@ def _setup_mocks_for_create_app(
                 cursor_class=DictCursor,
             ),
         ),
+        (None, mock.call("use role old_role")),
     ]
 
     if expected_shared_events is not None:
-        calls.append(
-            (
-                None,
-                mock.call(
-                    f"""alter application myapp set shared telemetry events ({", ".join([f"'SNOWFLAKE${x}'" for x in expected_shared_events])})"""
+        calls.extend(
+            [
+                (
+                    mock_cursor([("old_role",)], []),
+                    mock.call("select current_role()"),
                 ),
-            ),
+                (None, mock.call("use role app_role")),
+                (
+                    None,
+                    mock.call(
+                        f"""alter application myapp set shared telemetry events ({", ".join([f"'SNOWFLAKE${x}'" for x in expected_shared_events])})"""
+                    ),
+                ),
+                (None, mock.call("use role old_role")),
+            ]
         )
 
-    calls.extend(
-        [
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
     side_effects, mock_execute_query_expected = mock_execute_helper(calls)
     mock_execute_query.side_effect = side_effects
 
@@ -355,15 +330,6 @@ def _setup_mocks_for_upgrade_app(
         ),
         (None, mock.call("use role app_role")),
         (
-            mock_cursor([("old_wh",)], []),
-            mock.call("select current_warehouse()"),
-        ),
-        (None, mock.call("use warehouse app_warehouse")),
-        (
-            mock_cursor([("app_role",)], []),
-            mock.call("select current_role()"),
-        ),
-        (
             mock_cursor(
                 events_definitions_in_app or [], ["name", "type", "sharing", "status"]
             ),
@@ -372,24 +338,27 @@ def _setup_mocks_for_upgrade_app(
                 cursor_class=DictCursor,
             ),
         ),
+        (None, mock.call("use role old_role")),
     ]
 
     if expected_shared_events is not None:
-        calls.append(
-            (
-                None,
-                mock.call(
-                    f"""alter application myapp set shared telemetry events ({", ".join([f"'SNOWFLAKE${x}'" for x in expected_shared_events])})"""
+        calls.extend(
+            [
+                (
+                    mock_cursor([("old_role",)], []),
+                    mock.call("select current_role()"),
                 ),
-            ),
+                (None, mock.call("use role app_role")),
+                (
+                    None,
+                    mock.call(
+                        f"""alter application myapp set shared telemetry events ({", ".join([f"'SNOWFLAKE${x}'" for x in expected_shared_events])})"""
+                    ),
+                ),
+                (None, mock.call("use role old_role")),
+            ],
         )
 
-    calls.extend(
-        [
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
     side_effects, mock_execute_query_expected = mock_execute_helper(calls)
     mock_execute_query.side_effect = side_effects
 
@@ -399,7 +368,6 @@ def _setup_mocks_for_upgrade_app(
     mock_sql_facade_upgrade_application_expected = [
         mock.call(
             name=DEFAULT_APP_ID,
-            current_app_row=mock_get_existing_app_info_result,
             install_method=SameAccountInstallMethod.release_directive()
             if is_prod
             else SameAccountInstallMethod.unversioned_dev(),
@@ -416,6 +384,7 @@ def _setup_mocks_for_upgrade_app(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -454,6 +423,7 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -498,6 +468,7 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -527,6 +498,7 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -577,6 +549,7 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -605,6 +578,7 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -651,6 +625,7 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -679,6 +654,7 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_get_event_definitions,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -725,6 +701,7 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -751,6 +728,7 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_get_event_definitions,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -805,6 +783,7 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -831,6 +810,7 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_get_event_definitions,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -890,6 +870,7 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -916,6 +897,7 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_get_event_definitions,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -962,6 +944,7 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -988,6 +971,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -1034,6 +1018,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -1060,6 +1045,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -1118,6 +1104,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -1144,6 +1131,7 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -1202,6 +1190,7 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -1227,6 +1216,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -1276,6 +1266,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -1301,6 +1292,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -1359,6 +1351,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -1384,6 +1377,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -1437,6 +1431,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -1462,6 +1457,7 @@ def test_shared_events_with_no_enabled_mandatory_events_then_error(
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -1507,6 +1503,7 @@ def test_shared_events_with_no_enabled_mandatory_events_then_error(
 @mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
@@ -1533,6 +1530,7 @@ def test_shared_events_with_authorization_then_success(
     mock_param,
     mock_conn,
     mock_execute_query,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
