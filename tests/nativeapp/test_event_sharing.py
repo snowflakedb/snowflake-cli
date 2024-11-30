@@ -40,6 +40,7 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import UserInputError
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.abc import AbstractConsole
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import (
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
@@ -304,7 +305,35 @@ def _setup_mocks_for_create_app(
         )
     ]
 
-    return [*mock_execute_query_expected, *mock_sql_facade_create_application_expected]
+    mock_sql_facade_grant_privileges_to_role_expected = [
+        mock.call(
+            privileges=["install", "develop"],
+            object_type=ObjectType.APPLICATION_PACKAGE,
+            object_identifier="app_pkg",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["usage"],
+            object_type=ObjectType.SCHEMA,
+            object_identifier="app_pkg.app_src",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["read"],
+            object_type=ObjectType.STAGE,
+            object_identifier="app_pkg.app_src.stage",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+    ]
+
+    return [
+        *mock_execute_query_expected,
+        *mock_sql_facade_create_application_expected,
+        *mock_sql_facade_grant_privileges_to_role_expected,
+    ]
 
 
 def _setup_mocks_for_upgrade_app(
@@ -460,6 +489,7 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
         *mock_execute_query.mock_calls,
         *mock_sql_facade_upgrade_application.mock_calls,
         *mock_sql_facade_create_application.mock_calls,
+        *mock_sql_facade_grant_privileges_to_role.mock_calls,
     ] == expected
 
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
@@ -536,6 +566,7 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
         *mock_execute_query.mock_calls,
         *mock_sql_facade_upgrade_application.mock_calls,
         *mock_sql_facade_create_application.mock_calls,
+        *mock_sql_facade_grant_privileges_to_role.mock_calls,
     ] == expected
 
     assert mock_console.warning.mock_calls == [
@@ -617,6 +648,7 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
         *mock_execute_query.mock_calls,
         *mock_sql_facade_upgrade_application.mock_calls,
         *mock_sql_facade_create_application.mock_calls,
+        *mock_sql_facade_grant_privileges_to_role.mock_calls,
     ] == expected
 
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
@@ -654,7 +686,7 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
     mock_param,
     mock_conn,
     mock_execute_query,
-    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -693,6 +725,7 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
         *mock_execute_query.mock_calls,
         *mock_sql_facade_upgrade_application.mock_calls,
         *mock_sql_facade_create_application.mock_calls,
+        *mock_sql_facade_grant_privileges_to_role.mock_calls,
     ] == expected
 
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
@@ -728,7 +761,7 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
     mock_param,
     mock_conn,
     mock_execute_query,
-    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -775,6 +808,7 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
         *mock_execute_query.mock_calls,
         *mock_sql_facade_upgrade_application.mock_calls,
         *mock_sql_facade_create_application.mock_calls,
+        *mock_sql_facade_grant_privileges_to_role.mock_calls,
     ]
 
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
@@ -810,7 +844,7 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
     mock_param,
     mock_conn,
     mock_execute_query,
-    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -857,6 +891,7 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
         *mock_execute_query.mock_calls,
         *mock_sql_facade_upgrade_application.mock_calls,
         *mock_sql_facade_create_application.mock_calls,
+        *mock_sql_facade_grant_privileges_to_role.mock_calls,
     ] == expected
 
     assert mock_console.warning.mock_calls == [
@@ -897,7 +932,7 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
     mock_param,
     mock_conn,
     mock_execute_query,
-    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
@@ -936,6 +971,7 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
         *mock_execute_query.mock_calls,
         *mock_sql_facade_upgrade_application.mock_calls,
         *mock_sql_facade_create_application.mock_calls,
+        *mock_sql_facade_grant_privileges_to_role.mock_calls,
     ] == expected
 
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
@@ -1010,6 +1046,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
         *mock_execute_query.mock_calls,
         *mock_sql_facade_create_application.mock_calls,
         *mock_sql_facade_upgrade_application.mock_calls,
+        *mock_sql_facade_grant_privileges_to_role.mock_calls,
     ] == expected
 
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
@@ -1255,6 +1292,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
         *mock_execute_query.mock_calls,
         *mock_sql_facade_upgrade_application.mock_calls,
         *mock_sql_facade_create_application.mock_calls,
+        *mock_sql_facade_grant_privileges_to_role.mock_calls,
     ] == expected
     expected_warning = "WARNING: Mandatory events are present in the manifest file. Automatically authorizing event sharing in dev mode. To suppress this warning, please add 'share_mandatory_events: true' in the application telemetry section."
     assert mock_console.warning.mock_calls == [
@@ -1423,6 +1461,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
         *mock_execute_query.mock_calls,
         *mock_sql_facade_upgrade_application.mock_calls,
         *mock_sql_facade_create_application.mock_calls,
+        *mock_sql_facade_grant_privileges_to_role.mock_calls,
     ] == expected
 
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
@@ -1585,6 +1624,7 @@ def test_shared_events_with_authorization_then_success(
         *mock_execute_query.mock_calls,
         *mock_sql_facade_upgrade_application.mock_calls,
         *mock_sql_facade_create_application.mock_calls,
+        *mock_sql_facade_grant_privileges_to_role.mock_calls,
     ] == expected
 
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
