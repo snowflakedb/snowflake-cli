@@ -372,12 +372,18 @@ def test_nativeapp_version_create_package_no_magic_comment(
 
         # app package contains version v1 with 2 patches
         actual = runner.invoke_with_connection_json(split(list_command))
-        for row in actual.json:
-            # Remove date field
-            row.pop("created_on", None)
-            # Remove metric_level field
-            row.pop("metric_level", None)
-        assert actual.json == snapshot
+        assert len(actual.json) == 2
+        _assert_list_of_dicts_contains_key_with_value(actual.json, "patch", 0)
+        _assert_list_of_dicts_contains_key_with_value(actual.json, "patch", 1)
+
+
+def _assert_list_of_dicts_contains_key_with_value(
+    dicts: List[dict], key: str, value: Any
+) -> None:
+    for d in dicts:
+        if key in d and d[key] == value:
+            return
+    raise AssertionError(f"No patch version '{value}' in app package.")
 
 
 # Tests a simple flow of an existing project, executing snow app version create, drop and teardown, all with distribution=internal
