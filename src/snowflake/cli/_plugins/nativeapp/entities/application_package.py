@@ -712,7 +712,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         get_snowflake_facade().create_version_in_package(
             role=self.role,
             package_name=self.name,
-            stage_fqn_with_subdir=f"{self.stage_fqn}/{self.stage_subdirectory}" if self.stage_subdirectory else self.stage_fqn,
+            stage_fqn_with_subdir=f"{self.stage_fqn}/{self.stage_subdirectory}"
+            if self.stage_subdirectory
+            else self.stage_fqn,
             version=version,
             label=label,
         )
@@ -736,7 +738,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         new_patch = get_snowflake_facade().add_patch_to_package_version(
             role=self.role,
             package_name=self.name,
-            stage_fqn_with_subdir=f"{self.stage_fqn}/{self.stage_subdirectory}" if self.stage_subdirectory else self.stage_fqn,
+            stage_fqn_with_subdir=f"{self.stage_fqn}/{self.stage_subdirectory}"
+            if self.stage_subdirectory
+            else self.stage_fqn,
             version=version,
             patch=patch,
             label=label,
