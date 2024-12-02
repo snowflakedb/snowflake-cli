@@ -55,7 +55,6 @@ from snowflake.cli.api.project.util import (
     to_identifier,
     to_quoted_identifier,
     to_string_literal,
-    unquote_identifier,
 )
 from snowflake.cli.api.sql_execution import BaseSqlExecutor
 from snowflake.cli.api.utils.cursor import find_first_row
@@ -568,8 +567,7 @@ class SnowflakeSQLFacade:
                 )
 
                 show_obj_row = find_first_row(
-                    show_obj_cursor,
-                    lambda row: row[NAME_COL] == unquote_identifier(name),
+                    show_obj_cursor, lambda row: _same_identifier(row[NAME_COL], name)
                 )
             except Exception as err:
                 handle_unclassified_error(
