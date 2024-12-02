@@ -73,7 +73,11 @@ class ObjectType(Enum):
 
 
 OBJECT_TO_NAMES = {o.value.cli_name: o.value for o in ObjectType}
-SUPPORTED_OBJECTS = sorted(OBJECT_TO_NAMES.keys())
+UNSUPPORTED_OBJECTS = {
+    ObjectType.APPLICATION.value.cli_name,
+    ObjectType.APPLICATION_PACKAGE.value.cli_name,
+}
+SUPPORTED_OBJECTS = sorted(OBJECT_TO_NAMES.keys() - UNSUPPORTED_OBJECTS)
 
 # Scope names here must replace spaces with '-'. For example 'compute pool' is 'compute-pool'.
 VALID_SCOPES = ["database", "schema", "compute-pool"]
