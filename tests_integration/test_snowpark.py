@@ -45,11 +45,14 @@ def test_snowpark_flow(
 ):
     database = test_database.upper()
     with project_directory("snowpark") as tmp_dir:
+        deploy_root = Path("output") / "deploy" / "snowpark"
         _test_steps.snowpark_build_should_zip_files(
             additional_files=[
                 Path("output"),
-                Path("output") / "my_snowpark_project",
-                Path("output") / "my_snowpark_project" / "app.zip",
+                Path("output") / "deploy",
+                deploy_root,
+                deploy_root / "my_snowpark_project",
+                deploy_root / "my_snowpark_project" / "app.zip",
             ]
         )
 
@@ -1245,12 +1248,15 @@ def test_snowpark_flow_v2(
 ):
     database = test_database.upper()
     with project_directory("snowpark_v2") as tmp_dir:
+        deploy_root = Path("output") / "deploy" / "snowpark"
         _test_steps.snowpark_build_should_zip_files(
             additional_files=[
                 Path("output"),
-                Path("output") / "app_1.zip",
-                Path("output") / "app_2.zip",
-                Path("output") / "c.py",
+                Path("output") / "deploy",
+                deploy_root,
+                deploy_root / "app_1.zip",
+                deploy_root / "app_2.zip",
+                deploy_root / "c.py",
             ]
         )
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
@@ -1392,12 +1398,15 @@ def test_snowpark_with_glob_patterns(
 ):
     database = test_database.upper()
     with project_directory("snowpark_glob_patterns"):
+        deploy_root = Path("output") / "deploy" / "snowpark"
         _test_steps.snowpark_build_should_zip_files(
             additional_files=[
                 Path("output"),
-                Path("output") / "app_1.zip",
-                Path("output") / "app_2.zip",
-                Path("output") / "e.py",
+                Path("output") / "deploy",
+                deploy_root,
+                deploy_root / "app_1.zip",
+                deploy_root / "app_2.zip",
+                deploy_root / "e.py",
             ]
         )
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(

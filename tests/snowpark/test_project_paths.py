@@ -4,6 +4,9 @@ from unittest import mock
 import pytest
 from snowflake.cli._plugins.snowpark.snowpark_project_paths import Artefact
 
+deploy_path = Path("output") / "deploy" / "snowpark"
+absolute_deploy_path = Path.cwd().absolute() / "output" / "deploy" / "snowpark"
+
 
 @pytest.mark.parametrize(
     "path, dest, is_file, expected_path",
@@ -31,7 +34,9 @@ def test_artifact_import_path(mock_ctx_context, path, dest, is_file, expected_pa
     stage = "stage"
 
     with mock.patch.object(Path, "is_file" if is_file else "is_dir", return_value=True):
-        import_path = Artefact(Path(), Path(path), dest).import_path(stage)
+        import_path = Artefact(
+            Path(), Path("output") / "deploy" / "snowpark", Path(path), dest
+        ).import_path(stage)
 
     assert import_path == expected_path
 
@@ -61,7 +66,9 @@ def test_artifact_upload_path(mock_ctx_context, path, dest, is_file, expected_pa
     mock_ctx_context.return_value.connection = mock_connection
 
     with mock.patch.object(Path, "is_file" if is_file else "is_dir", return_value=True):
-        upload_path = Artefact(Path(), Path(path), dest).upload_path("stage")
+        upload_path = Artefact(
+            Path(), Path("output") / "deploy" / "snowpark", Path(path), dest
+        ).upload_path("stage")
 
     assert upload_path == expected_path
 
@@ -69,39 +76,41 @@ def test_artifact_upload_path(mock_ctx_context, path, dest, is_file, expected_pa
 @pytest.mark.parametrize(
     "path, dest, is_file, expected_path",
     [
-        ("src", None, False, Path("output") / "src.zip"),
-        ("src/", None, False, Path("output") / "src.zip"),
-        ("src", "source", False, Path("output") / "source" / "src.zip"),
-        ("src/app.py", None, True, Path("output") / "src" / "app.py"),
+        ("src", None, False, deploy_path / "src.zip"),
+        ("src/", None, False, deploy_path / "src.zip"),
+        ("src", "source", False, deploy_path / "source" / "src.zip"),
+        ("src/app.py", None, True, deploy_path / "src" / "app.py"),
         (
             "src/app.py",
             "source/new_app.py",
             True,
-            Path("output") / "source" / "new_app.py",
+            deploy_path / "source" / "new_app.py",
         ),
-        ("src/*", "source/new_app.py", True, Path("output") / "source" / "new_app.py"),
+        ("src/*", "source/new_app.py", True, deploy_path / "source" / "new_app.py"),
         (
             "src/dir/dir2/app.py",
             None,
             True,
-            Path("output") / "src" / "dir" / "dir2" / "app.py",
+            deploy_path / "src" / "dir" / "dir2" / "app.py",
         ),
         (
             "src/dir/dir2/app.py",
             "source/",
             True,
-            Path("output") / "source" / "app.py",
+            deploy_path / "source" / "app.py",
         ),
-        ("src/*", "source/", False, Path("output") / "source" / "src.zip"),
-        ("src/**/*.py", None, False, Path("output") / "src.zip"),
-        ("src/**/*.py", "source/", False, Path("output") / "source" / "src.zip"),
-        ("src/app*", None, False, Path("output") / "src.zip"),
-        ("src/app[1-5].py", None, False, Path("output") / "src.zip"),
+        ("src/*", "source/", False, deploy_path / "source" / "src.zip"),
+        ("src/**/*.py", None, False, deploy_path / "src.zip"),
+        ("src/**/*.py", "source/", False, deploy_path / "source" / "src.zip"),
+        ("src/app*", None, False, deploy_path / "src.zip"),
+        ("src/app[1-5].py", None, False, deploy_path / "src.zip"),
     ],
 )
 def test_artifact_post_build_path(path, dest, is_file, expected_path):
     with mock.patch.object(Path, "is_file" if is_file else "is_dir", return_value=True):
-        post_build_path = Artefact(Path(), Path(path), dest).post_build_path
+        post_build_path = Artefact(
+            Path(), Path("output") / "deploy" / "snowpark", Path(path), dest
+        ).post_build_path
 
     assert post_build_path == expected_path
 
@@ -134,7 +143,12 @@ def test_artifact_import_path_from_other_directory(
     stage = "stage"
 
     with mock.patch.object(Path, "is_file" if is_file else "is_dir", return_value=True):
-        import_path = Artefact(Path("/tmp"), Path(path), dest).import_path(stage)
+        import_path = Artefact(
+            Path("/tmp"),
+            Path("/tmp") / "output" / "deploy" / "snowpark",
+            Path(path),
+            dest,
+        ).import_path(stage)
 
     assert import_path == expected_path
 
@@ -166,7 +180,9 @@ def test_artifact_upload_path_from_other_directory(
     mock_ctx_context.return_value.connection = mock_connection
 
     with mock.patch.object(Path, "is_file" if is_file else "is_dir", return_value=True):
-        upload_path = Artefact(Path("/tmp"), Path(path), dest).upload_path("stage")
+        upload_path = Artefact(
+            Path("/tmp"), Path("/tmp") / "output" / "deploy", Path(path), dest
+        ).upload_path("stage")
 
     assert upload_path == expected_path
 
@@ -174,48 +190,48 @@ def test_artifact_upload_path_from_other_directory(
 @pytest.mark.parametrize(
     "path, dest, is_file, expected_path",
     [
-        ("src", None, False, Path.cwd().absolute() / "output" / "src.zip"),
-        ("src/", None, False, Path.cwd().absolute() / "output" / "src.zip"),
+        ("src", None, False, absolute_deploy_path / "src.zip"),
+        ("src/", None, False, absolute_deploy_path / "src.zip"),
         (
             "src",
             "source",
             False,
-            Path.cwd().absolute() / "output" / "source" / "src.zip",
+            absolute_deploy_path / "source" / "src.zip",
         ),
-        ("src/app.py", None, True, Path.cwd().absolute() / "output" / "src" / "app.py"),
+        ("src/app.py", None, True, absolute_deploy_path / "src" / "app.py"),
         (
             "src/app.py",
             "source/new_app.py",
             True,
-            Path.cwd().absolute() / "output" / "source" / "new_app.py",
+            absolute_deploy_path / "source" / "new_app.py",
         ),
         (
             "src/dir/dir2/app.py",
             None,
             True,
-            Path.cwd().absolute() / "output" / "src" / "dir" / "dir2" / "app.py",
+            absolute_deploy_path / "src" / "dir" / "dir2" / "app.py",
         ),
         (
             "src/dir/dir2/app.py",
             "source/",
             True,
-            Path.cwd().absolute() / "output" / "source" / "app.py",
+            absolute_deploy_path / "source" / "app.py",
         ),
         (
             "src/*",
             "source/",
             False,
-            Path.cwd().absolute() / "output" / "source" / "src.zip",
+            absolute_deploy_path / "source" / "src.zip",
         ),
-        ("src/**/*.py", None, False, Path.cwd().absolute() / "output" / "src.zip"),
+        ("src/**/*.py", None, False, absolute_deploy_path / "src.zip"),
         (
             "src/**/*.py",
             "source/",
             False,
-            Path.cwd().absolute() / "output" / "source" / "src.zip",
+            absolute_deploy_path / "source" / "src.zip",
         ),
-        ("src/app*", None, False, Path.cwd().absolute() / "output" / "src.zip"),
-        ("src/app[1-5].py", None, False, Path.cwd().absolute() / "output" / "src.zip"),
+        ("src/app*", None, False, absolute_deploy_path / "src.zip"),
+        ("src/app[1-5].py", None, False, absolute_deploy_path / "src.zip"),
     ],
 )
 def test_artifact_post_build_path_from_other_directory(
@@ -223,7 +239,10 @@ def test_artifact_post_build_path_from_other_directory(
 ):
     with mock.patch.object(Path, "is_file" if is_file else "is_dir", return_value=True):
         post_build_path = Artefact(
-            Path.cwd().absolute(), Path(path), dest
+            Path.cwd().absolute(),
+            Path.cwd().absolute() / "output" / "deploy" / "snowpark",
+            Path(path),
+            dest,
         ).post_build_path
 
     assert post_build_path == expected_path

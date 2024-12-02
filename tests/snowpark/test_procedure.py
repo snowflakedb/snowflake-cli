@@ -109,7 +109,7 @@ def test_deploy_procedure(
     )
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(tmp).resolve()}/output/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
+        f"put file://{Path(tmp).resolve()}/output/deploy/snowpark/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace procedure IDENTIFIER('MockDatabase.MockSchema.procedureName')(name string)
@@ -199,7 +199,7 @@ def test_deploy_procedure_with_external_access(
     )
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/output/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
+        f"put file://{Path(project_dir).resolve()}/output/deploy/snowpark/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\

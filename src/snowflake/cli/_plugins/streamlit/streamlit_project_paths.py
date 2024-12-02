@@ -14,8 +14,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
-from snowflake.cli.api.project.project_paths import ProjectPaths
+from snowflake.cli.api.project.project_paths import ProjectPaths, deploy_root
 
 
 @dataclass
@@ -23,3 +24,7 @@ class StreamlitProjectPaths(ProjectPaths):
     """
     This class allows you to manage files paths related to given project.
     """
+
+    @property
+    def deploy_root(self) -> Path:
+        return deploy_root(self.project_root, "streamlit")

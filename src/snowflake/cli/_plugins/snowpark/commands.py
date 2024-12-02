@@ -220,19 +220,19 @@ def build_artifacts_mappings(
 ) -> Tuple[EntityToImportPathsMapping, StageToArtefactMapping]:
     stages_to_artifact_map: StageToArtefactMapping = defaultdict(set)
     entities_to_imports_map: EntityToImportPathsMapping = defaultdict(set)
-    for entity_id, entity in snowpark_entities.items():
+    for name, entity in snowpark_entities.items():
         stage = entity.stage
         required_artifacts = set()
         for artefact in entity.artifacts:
             artefact_dto = project_paths.get_artefact_dto(artefact)
             required_artifacts.add(artefact_dto)
-            entities_to_imports_map[entity_id].add(artefact_dto.import_path(stage))
+            entities_to_imports_map[name].add(artefact_dto.import_path(stage))
         stages_to_artifact_map[stage].update(required_artifacts)
 
         deps_artefact = project_paths.get_dependencies_artefact()
         if deps_artefact.post_build_path.exists():
             stages_to_artifact_map[stage].add(deps_artefact)
-            entities_to_imports_map[entity_id].add(deps_artefact.import_path(stage))
+            entities_to_imports_map[name].add(deps_artefact.import_path(stage))
     return entities_to_imports_map, stages_to_artifact_map
 
 

@@ -25,7 +25,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEPLOYMENT_STAGE
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.project_paths import ProjectPaths
+from snowflake.cli.api.project.project_paths import ProjectPaths, deploy_root
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -45,6 +45,7 @@ class SnowparkProjectPaths(ProjectPaths):
         if FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled():
             return Artefact(
                 project_root=self.project_root,
+                deploy_root=self.deploy_root,
                 dest=artifact_path.dest,
                 path=Path(artifact_path.src),
             )
@@ -57,7 +58,10 @@ class SnowparkProjectPaths(ProjectPaths):
     def get_dependencies_artefact(self) -> Artefact:
         if FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled():
             return Artefact(
-                project_root=self.project_root, dest=None, path=Path("dependencies.zip")
+                project_root=self.project_root,
+                deploy_root=self.deploy_root,
+                dest=None,
+                path=Path("dependencies.zip"),
             )
         else:
             return ArtefactOldBuild(
@@ -74,19 +78,29 @@ class SnowparkProjectPaths(ProjectPaths):
     def requirements(self) -> SecurePath:
         return SecurePath(self.path_relative_to_root(Path("requirements.txt")))
 
+    @property
+    def deploy_root(self) -> Path:
+        return deploy_root(self.project_root, "snowpark")
+
 
 @dataclass(unsafe_hash=True)
 class Artefact:
     """Helper for getting paths related to given artefact."""
 
     project_root: Path
+    deploy_root: Path
     path: Path
     dest: str | None = None
 
     def __init__(
-        self, project_root: Path, path: Path, dest: Optional[str] = None
+        self,
+        project_root: Path,
+        deploy_root: Path,
+        path: Path,
+        dest: Optional[str] = None,
     ) -> None:
         self.project_root = project_root
+        self.deploy_root = deploy_root
         self.path = path
         self.dest = dest
         if self.dest and not self._is_dest_a_file() and not self.dest.endswith("/"):
@@ -117,7 +131,7 @@ class Artefact:
         """
         Returns post-build artefact path. Directories are mapped to corresponding .zip files.
         """
-        deploy_root = self.deploy_root()
+        deploy_root = self.deploy_root
         path = (
             self._path_until_asterisk()
             if glob.has_magic(str(self.path))
@@ -153,9 +167,6 @@ class Artefact:
         """Path for UDF/sproc imports clause."""
         return self.upload_path(stage) + self._artefact_name
 
-    def deploy_root(self) -> Path:
-        return self.project_root / "output"
-
     def _is_dest_a_file(self) -> bool:
         if not self.dest:
             return False
@@ -183,7 +194,7 @@ class ArtefactOldBuild(Artefact):
     dest: str | None = None
 
     def __init__(self, path: Path, dest: Optional[str] = None) -> None:
-        super().__init__(project_root=Path(), path=path, dest=dest)
+        super().__init__(project_root=Path(), deploy_root=Path(), path=path, dest=dest)
 
     @property
     def _artefact_name(self) -> str:

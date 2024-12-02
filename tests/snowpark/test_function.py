@@ -236,7 +236,7 @@ def test_deploy_function_no_changes(
     ]
     assert queries == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/output/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
+        f"put file://{Path(project_dir).resolve()}/output/deploy/snowpark/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
     ]
 
 
@@ -279,7 +279,7 @@ def test_deploy_function_needs_update_because_packages_changes(
     ]
     assert queries == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/output/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
+        f"put file://{Path(project_dir).resolve()}/output/deploy/snowpark/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
             create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a string default 'default value', b variant)
@@ -334,7 +334,7 @@ def test_deploy_function_needs_update_because_handler_changes(
     ]
     assert queries == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/output/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
+        f"put file://{Path(project_dir).resolve()}/output/deploy/snowpark/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
         f" auto_compress=false parallel=4 overwrite=True",
         dedent(
             """\
