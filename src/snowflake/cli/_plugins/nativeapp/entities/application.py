@@ -428,7 +428,9 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         needs_confirm = True
 
         # 1. If existing application is not found, exit gracefully
-        show_obj_row = self.get_existing_app_info()
+        show_obj_row = get_snowflake_facade().get_existing_app_info(
+            self.name, self.role
+        )
         if show_obj_row is None:
             self.console.warning(
                 f"Role {self.role} does not own any application object with the name {self.name}, or the application object does not exist."
@@ -689,7 +691,9 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         )
 
         # 1. Check for an existing application by the same name
-        show_app_row = self.get_existing_app_info()
+        show_app_row = get_snowflake_facade().get_existing_app_info(
+            self.name, self.role
+        )
 
         stage_fqn = stage_fqn or package.stage_fqn
 
@@ -753,13 +757,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 """
                 )
             )
-
-    def get_existing_app_info(self) -> Optional[dict]:
-        """
-        Check for an existing application object by the same name as in project definition, in account.
-        It executes a 'show applications like' query and returns the result as single row, if one exists.
-        """
-        return get_snowflake_facade().get_existing_app_info(self.name, self.role)
 
     def drop_application_before_upgrade(
         self,
