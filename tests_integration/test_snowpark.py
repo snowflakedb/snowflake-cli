@@ -33,6 +33,7 @@ from zipfile import ZipFile
 
 STAGE_NAME = "dev_deployment"
 RETURN_TYPE = "VARCHAR" if IS_QA else "VARCHAR(16777216)"
+bundle_root = Path("output") / "bundle" / "snowpark"
 
 
 @pytest.mark.integration
@@ -48,8 +49,10 @@ def test_snowpark_flow(
         _test_steps.snowpark_build_should_zip_files(
             additional_files=[
                 Path("output"),
-                Path("output") / "my_snowpark_project",
-                Path("output") / "my_snowpark_project" / "app.zip",
+                Path("output") / "bundle",
+                bundle_root,
+                bundle_root / "my_snowpark_project",
+                bundle_root / "my_snowpark_project" / "app.zip",
             ]
         )
 
@@ -1248,9 +1251,11 @@ def test_snowpark_flow_v2(
         _test_steps.snowpark_build_should_zip_files(
             additional_files=[
                 Path("output"),
-                Path("output") / "app_1.zip",
-                Path("output") / "app_2.zip",
-                Path("output") / "c.py",
+                Path("output") / "bundle",
+                bundle_root,
+                bundle_root / "app_1.zip",
+                bundle_root / "app_2.zip",
+                bundle_root / "c.py",
             ]
         )
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
@@ -1395,9 +1400,11 @@ def test_snowpark_with_glob_patterns(
         _test_steps.snowpark_build_should_zip_files(
             additional_files=[
                 Path("output"),
-                Path("output") / "app_1.zip",
-                Path("output") / "app_2.zip",
-                Path("output") / "e.py",
+                Path("output") / "bundle",
+                bundle_root,
+                bundle_root / "app_1.zip",
+                bundle_root / "app_2.zip",
+                bundle_root / "e.py",
             ]
         )
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
