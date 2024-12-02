@@ -9,6 +9,7 @@ from typing import List, Literal, Optional, Union
 import typer
 from click import BadOptionUsage, ClickException
 from pydantic import Field, field_validator
+from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
     VersionInfo,
@@ -25,7 +26,6 @@ from snowflake.cli._plugins.nativeapp.constants import (
     NAME_COL,
     OWNER_COL,
     PATCH_COL,
-    SPECIAL_COMMENT,
     VERSION_COL,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
@@ -35,6 +35,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ObjectPropertyNotFoundError,
     SetupScriptFailedValidation,
 )
+from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli._plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
     AskAlwaysPolicy,
@@ -824,6 +825,28 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             return False
         return True
 
+    def _get_enable_release_channels_flag(self) -> Optional[bool]:
+        """
+        Returns the requested value of enable_release_channels flag for the application package.
+        It retrieves the value from the configuration file and checks that the feature is enabled in the account.
+        If return value is None, it means do not explicitly set the flag.
+        """
+        feature_flag_from_config = FeatureFlag.ENABLE_RELEASE_CHANNELS.get_flag_value()
+        feature_enabled_in_account = (
+            get_snowflake_facade()
+            .get_ui_parameter(UIParameter.NA_FEATURE_RELEASE_CHANNELS, "enabled")
+            .lower()
+            == "enabled"
+        )
+
+        if feature_flag_from_config is not None and not feature_enabled_in_account:
+            self._workspace_ctx.console.warning(
+                f"Cannot use feature flag {FeatureFlag.ENABLE_RELEASE_CHANNELS.name} because release channels are not enabled in the current account."
+            )
+            return None
+
+        return feature_flag_from_config
+
     def create_app_package(self) -> None:
         """
         Creates the application package with our up-to-date stage if none exists.
@@ -851,21 +874,23 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 if row_comment not in ALLOWED_SPECIAL_COMMENTS:
                     raise ApplicationPackageAlreadyExistsError(self.name)
 
+            # 4. Update the application package with setting enable_release_channels if necessary
+            get_snowflake_facade().alter_application_package_properties(
+                package_name=self.name,
+                enable_release_channels=self._get_enable_release_channels_flag(),
+                role=self.role,
+            )
+
             return
 
         # If no application package pre-exists, create an application package, with the specified distribution in the project definition file.
-        sql_executor = get_sql_executor()
-        with sql_executor.use_role(self.role):
-            console.step(f"Creating new application package {self.name} in account.")
-            sql_executor.execute_query(
-                dedent(
-                    f"""\
-                    create application package {self.name}
-                        comment = {SPECIAL_COMMENT}
-                        distribution = {model.distribution}
-                """
-                )
-            )
+        console.step(f"Creating new application package {self.name} in account.")
+        get_snowflake_facade().create_application_package(
+            role=self.role,
+            enable_release_channels=self._get_enable_release_channels_flag(),
+            distribution=model.distribution,
+            package_name=self.name,
+        )
 
     def execute_post_deploy_hooks(self):
         execute_post_deploy_hooks(

@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from textwrap import dedent
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TypeVar
 
 from snowflake.cli._plugins.nativeapp.constants import (
     AUTHORIZE_TELEMETRY_COL,
@@ -26,6 +26,8 @@ from snowflake.cli._plugins.nativeapp.constants import (
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
+from snowflake.cli._plugins.connection.util import UIParameter, get_ui_parameter
+from snowflake.cli._plugins.nativeapp.constants import SPECIAL_COMMENT
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CREATE_OR_UPGRADE_APPLICATION_EXPECTED_USER_ERROR_CODES,
@@ -49,6 +51,7 @@ from snowflake.cli.api.errno import (
 )
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLICounterField
+from snowflake.cli.api.project.schemas.v1.native_app.package import DistributionOptions
 from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
     is_valid_unquoted_identifier,
@@ -743,6 +746,102 @@ class SnowflakeSQLFacade:
 
             return create_cursor.fetchall()
 
+    def create_application_package(
+        self,
+        package_name: str,
+        distribution: DistributionOptions,
+        enable_release_channels: bool | None = None,
+        role: str | None = None,
+    ) -> None:
+        """
+        Creates a new application package.
+        @param package_name: Name of the application package to create.
+        @param [Optional] enable_release_channels: Enable/Disable release channels if not None.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+        package_name = to_identifier(package_name)
+
+        enable_release_channels_clause = ""
+        if enable_release_channels is not None:
+            enable_release_channels_clause = (
+                f"enable_release_channels = {str(enable_release_channels).lower()}"
+            )
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    dedent(
+                        _strip_empty_lines(
+                            f"""\
+                            create application package {package_name}
+                                comment = {SPECIAL_COMMENT}
+                                distribution = {distribution}
+                                {enable_release_channels_clause}
+                            """
+                        )
+                    )
+                )
+            except ProgrammingError as err:
+                if err.errno == INSUFFICIENT_PRIVILEGES:
+                    raise InsufficientPrivilegesError(
+                        f"Insufficient privileges to create application package {package_name}",
+                        role=role,
+                    ) from err
+                handle_unclassified_error(
+                    err, f"Failed to create application package {package_name}."
+                )
+
+    def alter_application_package_properties(
+        self,
+        package_name: str,
+        enable_release_channels: bool | None = None,
+        role: str | None = None,
+    ) -> None:
+        """
+        Alters the properties of an existing application package.
+        @param package_name: Name of the application package to alter.
+        @param [Optional] enable_release_channels: Enable/Disable release channels if not None.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+
+        if enable_release_channels is not None:
+            with self._use_role_optional(role):
+                try:
+                    self._sql_executor.execute_query(
+                        dedent(
+                            f"""\
+                            alter application package {package_name}
+                                set enable_release_channels = {str(enable_release_channels).lower()}
+                        """
+                        )
+                    )
+                except ProgrammingError as err:
+                    if err.errno == INSUFFICIENT_PRIVILEGES:
+                        raise InsufficientPrivilegesError(
+                            f"Insufficient privileges update enable_release_channels for application package {package_name}",
+                            role=role,
+                        ) from err
+                    handle_unclassified_error(
+                        err,
+                        f"Failed to update enable_release_channels for application package {package_name}.",
+                    )
+
+    T = TypeVar("T")
+
+    def get_ui_parameter(self, parameter: UIParameter, default: T) -> str | T:
+        """
+        Returns the value of a single UI parameter.
+        If the parameter is not found, the default value is returned.
+
+        @param parameter: UIParameter, the parameter to get the value of.
+        @param default: Default value to return if the parameter is not found.
+        """
+        connection = self._sql_executor._conn  # noqa SLF001
+
+        return get_ui_parameter(connection, parameter, default)
+
 
 # TODO move this to src/snowflake/cli/api/project/util.py in a separate
 # PR since it's codeowned by the CLI team
@@ -763,3 +862,10 @@ def _same_identifier(id1: str, id2: str) -> bool:
     # The canonical identifiers are equal if they are equal when both are quoted
     # (if they are already quoted, this is a no-op)
     return to_quoted_identifier(canonical_id1) == to_quoted_identifier(canonical_id2)
+
+
+def _strip_empty_lines(text: str) -> str:
+    """
+    Strips empty lines from the input string.
+    """
+    return "\n".join(line for line in text.splitlines() if line.strip())

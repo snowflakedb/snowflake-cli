@@ -293,12 +293,13 @@ def test_get_host_region(host, expected):
     assert get_host_region(host) == expected
 
 
+ui_parameters_str = ", ".join(sorted([f"'{param.value}'" for param in UIParameter]))
 expected_ui_params_query = dedent(
     f"""
     select value['value']::string as PARAM_VALUE, value['name']::string as PARAM_NAME from table(flatten(
         input => parse_json(SYSTEM$BOOTSTRAP_DATA_REQUEST()),
         path => 'clientParamsInfo'
-    )) where value['name'] in ('ENABLE_EVENT_SHARING_V2_IN_THE_SAME_ACCOUNT', 'ENFORCE_MANDATORY_FILTERS_FOR_SAME_ACCOUNT_INSTALLATION', 'UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT');
+    )) where value['name'] in ({ui_parameters_str});
     """
 )
 

@@ -17,6 +17,7 @@ from pathlib import Path
 from unittest import mock
 
 import yaml
+from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
@@ -32,6 +33,7 @@ from tests.nativeapp.utils import (
     APP_PACKAGE_ENTITY,
     APPLICATION_PACKAGE_ENTITY_MODULE,
     SQL_EXECUTOR_EXECUTE,
+    SQL_FACADE_GET_UI_PARAMETER,
     mock_execute_helper,
 )
 
@@ -75,7 +77,9 @@ def test_bundle(project_directory):
 @mock.patch(f"{APP_PACKAGE_ENTITY}.execute_post_deploy_hooks")
 @mock.patch(f"{APP_PACKAGE_ENTITY}.validate_setup_script")
 @mock.patch(f"{APPLICATION_PACKAGE_ENTITY_MODULE}.sync_deploy_root_with_stage")
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="enabled")
 def test_deploy(
+    mock_get_parameter,
     mock_sync,
     mock_validate,
     mock_execute_post_deploy_hooks,
@@ -164,6 +168,9 @@ def test_deploy(
     )
     mock_validate.assert_called_once()
     mock_execute_post_deploy_hooks.assert_called_once_with()
+    mock_get_parameter.assert_called_once_with(
+        UIParameter.NA_FEATURE_RELEASE_CHANNELS, "enabled"
+    )
     assert mock_execute.mock_calls == expected
 
 

@@ -20,7 +20,7 @@ import os
 from enum import Enum
 from functools import lru_cache
 from textwrap import dedent
-from typing import Any, Dict, Optional
+from typing import Dict, Optional, TypeVar
 
 from click.exceptions import ClickException
 from snowflake.connector import SnowflakeConnection
@@ -57,11 +57,15 @@ class UIParameter(Enum):
     NA_ENFORCE_MANDATORY_FILTERS = (
         "ENFORCE_MANDATORY_FILTERS_FOR_SAME_ACCOUNT_INSTALLATION"
     )
+    NA_FEATURE_RELEASE_CHANNELS = "FEATURE_RELEASE_CHANNELS"
+
+
+T = TypeVar("T")
 
 
 def get_ui_parameter(
-    conn: SnowflakeConnection, parameter: UIParameter, default: Any
-) -> str:
+    conn: SnowflakeConnection, parameter: UIParameter, default: T
+) -> str | T:
     """
     Returns the value of a single UI parameter.
     If the parameter is not found, the default value is returned.
@@ -72,7 +76,7 @@ def get_ui_parameter(
 
 
 @lru_cache()
-def get_ui_parameters(conn: SnowflakeConnection) -> Dict[UIParameter, Any]:
+def get_ui_parameters(conn: SnowflakeConnection) -> Dict[UIParameter, str]:
     """
     Returns the UI parameters from the SYSTEM$BOOTSTRAP_DATA_REQUEST function
     """

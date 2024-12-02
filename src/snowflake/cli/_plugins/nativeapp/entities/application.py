@@ -13,7 +13,6 @@ from click import ClickException, UsageError
 from pydantic import Field, field_validator
 from snowflake.cli._plugins.connection.util import (
     UIParameter,
-    get_ui_parameter,
     make_snowsight_url,
 )
 from snowflake.cli._plugins.nativeapp.artifacts import (
@@ -126,15 +125,15 @@ class EventSharingHandler:
         self._console = console
         connection = get_sql_executor()._conn  # noqa: SLF001
         self._event_sharing_enabled = (
-            get_ui_parameter(
-                connection, UIParameter.NA_EVENT_SHARING_V2, "true"
-            ).lower()
+            get_snowflake_facade()
+            .get_ui_parameter(UIParameter.NA_EVENT_SHARING_V2, "true")
+            .lower()
             == "true"
         )
         self._event_sharing_enforced = (
-            get_ui_parameter(
-                connection, UIParameter.NA_ENFORCE_MANDATORY_FILTERS, "true"
-            ).lower()
+            get_snowflake_facade()
+            .get_ui_parameter(UIParameter.NA_ENFORCE_MANDATORY_FILTERS, "true")
+            .lower()
             == "true"
         )
 
