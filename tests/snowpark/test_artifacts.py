@@ -12,42 +12,44 @@ mock_session_has_warehouse = mock.patch(
     lambda _: True,
 )
 
+bundle_root = Path("output") / "bundle" / "snowpark"
+
 
 @pytest.mark.parametrize(
     "artifacts, local_path, stage_path",
     [
-        ("src", Path("output") / "src.zip", "/"),
-        ("src/", Path("output") / "src.zip", "/"),
-        ("src/*", Path("output") / "src.zip", "/"),
-        ("src/*.py", Path("output") / "src.zip", "/"),
+        ("src", bundle_root / "src.zip", "/"),
+        ("src/", bundle_root / "src.zip", "/"),
+        ("src/*", bundle_root / "src.zip", "/"),
+        ("src/*.py", bundle_root / "src.zip", "/"),
         (
             "src/dir/dir_app.py",
-            Path("output") / "src" / "dir" / "dir_app.py",
+            bundle_root / "src" / "dir" / "dir_app.py",
             "/src/dir/",
         ),
         (
             {"src": "src/**/*", "dest": "source/"},
-            Path("output") / "source" / "src.zip",
+            bundle_root / "source" / "src.zip",
             "/source/",
         ),
         (
             {"src": "src", "dest": "source/"},
-            Path("output") / "source" / "src.zip",
+            bundle_root / "source" / "src.zip",
             "/source/",
         ),
         (
             {"src": "src/", "dest": "source/"},
-            Path("output") / "source" / "src.zip",
+            bundle_root / "source" / "src.zip",
             "/source/",
         ),
         (
             {"src": "src/*", "dest": "source/"},
-            Path("output") / "source" / "src.zip",
+            bundle_root / "source" / "src.zip",
             "/source/",
         ),
         (
             {"src": "src/dir/dir_app.py", "dest": "source/dir/apps/"},
-            "output/source/dir/apps/dir_app.py",
+            bundle_root / "source" / "dir" / "apps" / "dir_app.py",
             "/source/dir/apps/",
         ),
     ],
@@ -111,38 +113,38 @@ def test_build_and_deploy_with_artifacts(
 @pytest.mark.parametrize(
     "artifact, local_path, stage_path",
     [
-        ("src", Path("output") / "src.zip", "/"),
-        ("src/", Path("output") / "src.zip", "/"),
-        ("src/*", Path("output") / "src.zip", "/"),
-        ("src/*.py", Path("output") / "src.zip", "/"),
+        ("src", bundle_root / "src.zip", "/"),
+        ("src/", bundle_root / "src.zip", "/"),
+        ("src/*", bundle_root / "src.zip", "/"),
+        ("src/*.py", bundle_root / "src.zip", "/"),
         (
             "src/dir/dir_app.py",
-            Path("output") / "src" / "dir" / "dir_app.py",
+            bundle_root / "src" / "dir" / "dir_app.py",
             "/src/dir/",
         ),
         (
             {"src": "src/**/*", "dest": "source/"},
-            Path("output") / "source" / "src.zip",
+            bundle_root / "source" / "src.zip",
             "/source/",
         ),
         (
             {"src": "src", "dest": "source/"},
-            Path("output") / "source" / "src.zip",
+            bundle_root / "source" / "src.zip",
             "/source/",
         ),
         (
             {"src": "src/", "dest": "source/"},
-            Path("output") / "source" / "src.zip",
+            bundle_root / "source" / "src.zip",
             "/source/",
         ),
         (
             {"src": "src/*", "dest": "source/"},
-            Path("output") / "source" / "src.zip",
+            bundle_root / "source" / "src.zip",
             "/source/",
         ),
         (
             {"src": "src/dir/dir_app.py", "dest": "source/dir/apps/"},
-            Path("output") / "source" / "dir" / "apps" / "dir_app.py",
+            bundle_root / "source" / "dir" / "apps" / "dir_app.py",
             "/source/dir/apps/",
         ),
     ],

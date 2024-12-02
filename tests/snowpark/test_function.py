@@ -236,7 +236,11 @@ def test_deploy_function_no_changes(
     ]
     assert queries == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/output/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
+        _put_query(
+            Path(project_dir),
+            "my_snowpark_project/app.py",
+            "@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/",
+        ),
     ]
 
 
@@ -286,7 +290,11 @@ def test_deploy_function_needs_update_because_packages_changes(
     ]
     assert queries == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/output/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
+        _put_query(
+            Path(project_dir),
+            "my_snowpark_project/app.py",
+            "@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/",
+        ),
         dedent(
             """\
             create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a string default 'default value', b variant)
@@ -348,8 +356,11 @@ def test_deploy_function_needs_update_because_handler_changes(
     ]
     assert queries == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/output/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
-        f" auto_compress=false parallel=4 overwrite=True",
+        _put_query(
+            Path(project_dir),
+            "my_snowpark_project/app.py",
+            "@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/",
+        ),
         dedent(
             """\
             create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a string default 'default value', b variant)
@@ -712,3 +723,9 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
 
     queries = ctx.get_queries()
     assert queries[0] == queries[1]
+
+
+def _put_query(project_root: Path, source: str, dest: str):
+    return dedent(
+        f"put file://{project_root.resolve() / 'output' / 'bundle' / 'snowpark' / source} {dest} auto_compress=false parallel=4 overwrite=True"
+    )
