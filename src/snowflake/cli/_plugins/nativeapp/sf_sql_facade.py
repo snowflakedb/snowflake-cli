@@ -18,12 +18,6 @@ from contextlib import contextmanager
 from textwrap import dedent
 from typing import Any, Dict, List
 
-from snowflake.cli._plugins.nativeapp.constants import (
-    APPLICATION_PACKAGE,
-    NAME_COL,
-    SOURCE_COL,
-    SOURCE_TYPE_COL,
-)
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
@@ -509,24 +503,6 @@ class SnowflakeSQLFacade:
                     f"Failed to show release directives for package {package_name}.",
                 )
             return cursor.fetchall()
-
-    def get_all_applications_for_package(self, package_name, role: str | None = None):
-        # TODO: break lines
-        show_apps_query = "SHOW APPLICATIONS"
-        select_column_from_result_clause = f"SELECT {to_quoted_identifier(NAME_COL)} FROM table(result_scan(last_query_id()))"
-        filter_type_package_clause = f"{to_quoted_identifier(SOURCE_TYPE_COL)} = {to_string_literal(APPLICATION_PACKAGE)}"
-        filter_package_name_clause = f"{to_quoted_identifier(SOURCE_COL)} = {to_string_literal(package_name.upper())}"
-        filter_applications_query = f"{select_column_from_result_clause} where {filter_type_package_clause} and {filter_package_name_clause}"
-
-        with self._use_role_optional(role):
-            self._sql_executor.execute_query(show_apps_query)
-            app_names = [
-                app_row[0]
-                for app_row in self._sql_executor.execute_query(
-                    filter_applications_query
-                ).fetchall()
-            ]
-            return app_names
 
 
 # TODO move this to src/snowflake/cli/api/project/util.py in a separate

@@ -242,20 +242,8 @@ def app_teardown(
         project_root=cli_context.project_root,
     )
 
-    ## PJ-TODO for this PR maybe for dropping remote apps
-    # 0. create a quoted package with lower case (in snowsight or in yml)
-    # 1. make sure logic can get the applications and filter them right
-    # 2. create apps with quotes and lowercase and uppercase or without quotes and try the comparison between yml and remote
-    # 3. write a robust diff logic based on above
-
-    # 0. encapsulate the application drop stuff so we can use it outside an app entity
-
-    ## GET ALL APPS FILTERED
-    # app_names = get_snowflake_facade().get_all_applications_for_package(
-    #     app_package_entity.identifier
-    # )
-
-    # PJ-TODO: add messaging here for extra packages found
+    # TODO: get all apps created from this application package from snowflake, compare, confirm and drop.
+    # TODO: add messaging/confirmation here for extra apps found as part of above
     all_packages_with_id = [
         package_entity.entity_id
         for package_entity in project.get_entities_by_type(
@@ -264,7 +252,7 @@ def app_teardown(
         if package_entity.identifier == app_package_entity.identifier
     ]
 
-    # PJ-TODO: fix messaging for all apps about to be dropped. we only show the one's that we could get with get_existing_app_info
+
     for app_entity in project.get_entities_by_type(
         ApplicationEntityModel.get_type()
     ).values():

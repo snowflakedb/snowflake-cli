@@ -276,10 +276,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             force=force,
         )
 
-    def action_teardown(self, action_ctx: ActionContext, *args, **kwargs):
-
-        get_snowflake_facade().get_all_applications_for_package(self.name)
-
     def action_drop(self, action_ctx: ActionContext, force_drop: bool, *args, **kwargs):
         console = self._workspace_ctx.console
         sql_executor = get_sql_executor()
