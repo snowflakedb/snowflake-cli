@@ -19,8 +19,7 @@ import logging
 import os
 from enum import Enum
 from functools import lru_cache
-from textwrap import dedent
-from typing import Dict, Optional, TypeVar
+from typing import Any, Dict, Optional
 
 from click.exceptions import ClickException
 from snowflake.connector import SnowflakeConnection
@@ -60,12 +59,9 @@ class UIParameter(Enum):
     NA_FEATURE_RELEASE_CHANNELS = "FEATURE_RELEASE_CHANNELS"
 
 
-T = TypeVar("T")
-
-
 def get_ui_parameter(
-    conn: SnowflakeConnection, parameter: UIParameter, default: T
-) -> str | T:
+    conn: SnowflakeConnection, parameter: UIParameter, default: Any
+) -> Any:
     """
     Returns the value of a single UI parameter.
     If the parameter is not found, the default value is returned.
@@ -76,26 +72,22 @@ def get_ui_parameter(
 
 
 @lru_cache()
-def get_ui_parameters(conn: SnowflakeConnection) -> Dict[UIParameter, str]:
+def get_ui_parameters(conn: SnowflakeConnection) -> Dict[UIParameter, Any]:
     """
     Returns the UI parameters from the SYSTEM$BOOTSTRAP_DATA_REQUEST function
     """
 
-    parameters_to_fetch = sorted([param.value for param in UIParameter])
+    parameters_to_fetch = [param.value for param in UIParameter]
 
-    query = dedent(
-        f"""
-        select value['value']::string as PARAM_VALUE, value['name']::string as PARAM_NAME from table(flatten(
-            input => parse_json(SYSTEM$BOOTSTRAP_DATA_REQUEST()),
-            path => 'clientParamsInfo'
-        )) where value['name'] in ('{"', '".join(parameters_to_fetch)}');
-        """
-    )
+    query = "call system$bootstrap_data_request('CLIENT_PARAMS_INFO')"
+    *_, cursor = conn.execute_string(query)
 
-    *_, cursor = conn.execute_string(query, cursor_class=DictCursor)
+    json_map = json.loads(cursor.fetchone()[0])
 
     return {
-        UIParameter(row["PARAM_NAME"]): row["PARAM_VALUE"] for row in cursor.fetchall()
+        UIParameter(row["name"]): row["value"]
+        for row in json_map["clientParamsInfo"]
+        if row["name"] in parameters_to_fetch
     }
 
 
@@ -107,12 +99,7 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
     assume it's regionless, as this is true for most production deployments.
     """
     try:
-        return (
-            get_ui_parameter(
-                conn, UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, "true"
-            ).lower()
-            == "true"
-        )
+        return get_ui_parameter(conn, UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, True)
     except:
         log.warning(
             "Cannot determine regionless redirect; assuming True.", exc_info=True

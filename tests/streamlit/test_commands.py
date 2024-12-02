@@ -66,7 +66,7 @@ def _put_query(source: str, dest: str):
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_only_streamlit_file(
@@ -121,7 +121,7 @@ def test_deploy_only_streamlit_file(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_only_streamlit_file_no_stage(
@@ -175,7 +175,7 @@ def test_deploy_only_streamlit_file_no_stage(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_with_empty_pages(
@@ -231,7 +231,7 @@ def test_deploy_with_empty_pages(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_only_streamlit_file_replace(
@@ -302,7 +302,7 @@ def test_artifacts_must_exists(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_launch_browser(
@@ -337,7 +337,7 @@ def test_deploy_launch_browser(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_streamlit_and_environment_files(
@@ -382,7 +382,7 @@ def test_deploy_streamlit_and_environment_files(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_streamlit_and_pages_files(
@@ -426,7 +426,7 @@ def test_deploy_streamlit_and_pages_files(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_all_streamlit_files(
@@ -471,7 +471,7 @@ def test_deploy_all_streamlit_files(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_put_files_on_stage(
@@ -518,7 +518,7 @@ def test_deploy_put_files_on_stage(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_all_streamlit_files_not_defaults(
@@ -563,7 +563,7 @@ def test_deploy_all_streamlit_files_not_defaults(
 @pytest.mark.parametrize("enable_streamlit_no_checkouts", [True, False])
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental(
@@ -640,7 +640,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
@@ -707,7 +707,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
 @pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
@@ -769,7 +769,7 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_replace(
@@ -862,7 +862,7 @@ def test_drop_streamlit(mock_connector, runner, mock_ctx):
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 def test_get_streamlit_url(mock_param, mock_connector, mock_cursor, runner, mock_ctx):
     ctx = mock_ctx(
@@ -944,7 +944,7 @@ def test_multiple_streamlit_raise_error_if_multiple_entities(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 def test_deploy_streamlit_with_comment_v2(
     mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory

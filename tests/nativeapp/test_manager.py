@@ -777,9 +777,9 @@ def test_get_snowsight_url_without_pdf_warehouse(
 
 # Test create_app_package() with no existing package available
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO, return_value=None)
-@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="enabled")
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
 @mock.patch(SQL_FACADE_CREATE_APP_PKG)
-@mock.patch("snowflake.cli._plugins.nativeapp.feature_flags.get_config_value")
+@mock.patch("snowflake.cli.api.config.get_config_value")
 @pytest.mark.parametrize("feature_flag", [True, False, None])
 def test_given_no_existing_pkg_when_create_app_pkg_then_success_and_respect_release_channels_flag(
     mock_get_config_value,
@@ -820,9 +820,9 @@ def test_given_no_existing_pkg_when_create_app_pkg_then_success_and_respect_rele
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
-@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="enabled")
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
 @mock.patch(SQL_FACADE_ALTER_APP_PKG_PROPERTIES)
-@mock.patch("snowflake.cli._plugins.nativeapp.feature_flags.get_config_value")
+@mock.patch("snowflake.cli.api.config.get_config_value")
 @pytest.mark.parametrize("feature_flag", [True, False, None])
 def test_given_existing_app_package_with_feature_flag_set_when_create_pkg_then_set_pkg_property_to_same_value(
     mock_get_config_value,
@@ -873,7 +873,7 @@ def test_given_existing_app_package_with_feature_flag_set_when_create_pkg_then_s
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME, return_value=True)
-@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="enabled")
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
 def test_create_app_pkg_different_owner(
     mock_get_ui_parameter,
     mock_is_distribution_same,
@@ -918,7 +918,7 @@ def test_create_app_pkg_different_owner(
     "is_pkg_distribution_same",
     [False, True],
 )
-@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="enabled")
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
 def test_create_app_pkg_external_distribution(
     mock_get_ui_parameter,
     mock_is_distribution_same,
@@ -968,7 +968,7 @@ def test_create_app_pkg_external_distribution(
         (True, SPECIAL_COMMENT_OLD),
     ],
 )
-@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="enabled")
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
 def test_create_app_pkg_internal_distribution_special_comment(
     mock_get_ui_parameter,
     mock_is_distribution_same,

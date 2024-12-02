@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from textwrap import dedent
-from typing import Any, Dict, List, TypeVar
+from typing import Any, Dict, List
 
 from snowflake.cli._plugins.nativeapp.constants import (
     AUTHORIZE_TELEMETRY_COL,
@@ -828,9 +828,7 @@ class SnowflakeSQLFacade:
                         f"Failed to update enable_release_channels for application package {package_name}.",
                     )
 
-    T = TypeVar("T")
-
-    def get_ui_parameter(self, parameter: UIParameter, default: T) -> str | T:
+    def get_ui_parameter(self, parameter: UIParameter, default: Any) -> Any:
         """
         Returns the value of a single UI parameter.
         If the parameter is not found, the default value is returned.

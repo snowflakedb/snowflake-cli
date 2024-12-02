@@ -123,18 +123,12 @@ class EventSharingHandler:
         self._is_dev_mode = install_method.is_dev_mode
         self._metrics = get_cli_context().metrics
         self._console = console
-        connection = get_sql_executor()._conn  # noqa: SLF001
-        self._event_sharing_enabled = (
-            get_snowflake_facade()
-            .get_ui_parameter(UIParameter.NA_EVENT_SHARING_V2, "true")
-            .lower()
-            == "true"
+
+        self._event_sharing_enabled = get_snowflake_facade().get_ui_parameter(
+            UIParameter.NA_EVENT_SHARING_V2, True
         )
-        self._event_sharing_enforced = (
-            get_snowflake_facade()
-            .get_ui_parameter(UIParameter.NA_ENFORCE_MANDATORY_FILTERS, "true")
-            .lower()
-            == "true"
+        self._event_sharing_enforced = get_snowflake_facade().get_ui_parameter(
+            UIParameter.NA_ENFORCE_MANDATORY_FILTERS, True
         )
 
         self._share_mandatory_events = (

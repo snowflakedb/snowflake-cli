@@ -831,17 +831,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         It retrieves the value from the configuration file and checks that the feature is enabled in the account.
         If return value is None, it means do not explicitly set the flag.
         """
-        feature_flag_from_config = FeatureFlag.ENABLE_RELEASE_CHANNELS.get_flag_value()
+        feature_flag_from_config = FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value()
         feature_enabled_in_account = (
-            get_snowflake_facade()
-            .get_ui_parameter(UIParameter.NA_FEATURE_RELEASE_CHANNELS, "enabled")
-            .lower()
-            == "enabled"
+            get_snowflake_facade().get_ui_parameter(
+                UIParameter.NA_FEATURE_RELEASE_CHANNELS, "ENABLED"
+            )
+            == "ENABLED"
         )
 
         if feature_flag_from_config is not None and not feature_enabled_in_account:
             self._workspace_ctx.console.warning(
-                f"Cannot use feature flag {FeatureFlag.ENABLE_RELEASE_CHANNELS.name} because release channels are not enabled in the current account."
+                f"Ignoring feature flag {FeatureFlag.ENABLE_RELEASE_CHANNELS.name} because release channels are not enabled in the current account."
             )
             return None
 

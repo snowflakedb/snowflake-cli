@@ -17,7 +17,6 @@ from unittest import mock
 from unittest.mock import _Call as Call
 
 import pytest
-
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.constants import (
     AUTHORIZE_TELEMETRY_COL,
@@ -57,6 +56,7 @@ from snowflake.connector.errors import (
     ProgrammingError,
     ServiceUnavailableError,
 )
+
 from tests.nativeapp.utils import (
     SQL_EXECUTOR_EXECUTE,
     SQL_EXECUTOR_EXECUTE_QUERIES,
@@ -2559,15 +2559,7 @@ def test_given_privilege_exception_when_update_application_package_then_raise_pr
     )
 
 
-ui_parameters_str = ", ".join(sorted([f"'{param.value}'" for param in UIParameter]))
-expected_ui_params_query = dedent(
-    f"""
-    select value['value']::string as PARAM_VALUE, value['name']::string as PARAM_NAME from table(flatten(
-        input => parse_json(SYSTEM$BOOTSTRAP_DATA_REQUEST()),
-        path => 'clientParamsInfo'
-    )) where value['name'] in ({ui_parameters_str});
-    """
-)
+expected_ui_params_query = "call system$bootstrap_data_request('CLIENT_PARAMS_INFO')"
 
 
 def test_get_ui_parameter_with_value(mock_cursor):
@@ -2577,25 +2569,27 @@ def test_get_ui_parameter_with_value(mock_cursor):
             None,
             mock_cursor(
                 [
-                    {
-                        "PARAM_NAME": UIParameter.NA_FEATURE_RELEASE_CHANNELS.value,
-                        "PARAM_VALUE": "true",
-                    }
+                    (
+                        """\
+                        {
+                            "clientParamsInfo": [{
+                                "name": "FEATURE_RELEASE_CHANNELS",
+                                "value": true
+                            }]
+                        }
+                        """,
+                    )
                 ],
                 [],
             ),
         )
 
         assert (
-            sql_facade.get_ui_parameter(
-                UIParameter.NA_FEATURE_RELEASE_CHANNELS, "false"
-            )
-            == "true"
+            sql_facade.get_ui_parameter(UIParameter.NA_FEATURE_RELEASE_CHANNELS, False)
+            is True
         )
 
-        execute_str_mock.assert_called_once_with(
-            expected_ui_params_query, cursor_class=DictCursor
-        )
+        execute_str_mock.assert_called_once_with(expected_ui_params_query)
 
 
 def test_get_ui_parameter_with_empty_value_then_use_empty_value(mock_cursor):
@@ -2605,25 +2599,27 @@ def test_get_ui_parameter_with_empty_value_then_use_empty_value(mock_cursor):
             None,
             mock_cursor(
                 [
-                    {
-                        "PARAM_NAME": UIParameter.NA_FEATURE_RELEASE_CHANNELS.value,
-                        "PARAM_VALUE": "",
-                    }
+                    (
+                        """\
+                        {
+                            "clientParamsInfo": [{
+                                "name": "FEATURE_RELEASE_CHANNELS",
+                                "value": ""
+                            }]
+                        }
+                        """,
+                    )
                 ],
                 [],
             ),
         )
 
         assert (
-            sql_facade.get_ui_parameter(
-                UIParameter.NA_FEATURE_RELEASE_CHANNELS, "false"
-            )
+            sql_facade.get_ui_parameter(UIParameter.NA_FEATURE_RELEASE_CHANNELS, False)
             == ""
         )
 
-        execute_str_mock.assert_called_once_with(
-            expected_ui_params_query, cursor_class=DictCursor
-        )
+        execute_str_mock.assert_called_once_with(expected_ui_params_query)
 
 
 def test_get_ui_parameter_with_no_value_then_use_default(mock_cursor):
@@ -2632,18 +2628,22 @@ def test_get_ui_parameter_with_no_value_then_use_default(mock_cursor):
         execute_str_mock.return_value = (
             None,
             mock_cursor(
-                [],
+                [
+                    (
+                        """\
+                        {
+                            "clientParamsInfo": []
+                        }
+                        """,
+                    )
+                ],
                 [],
             ),
         )
 
         assert (
-            sql_facade.get_ui_parameter(
-                UIParameter.NA_FEATURE_RELEASE_CHANNELS, "false"
-            )
-            == "false"
+            sql_facade.get_ui_parameter(UIParameter.NA_FEATURE_RELEASE_CHANNELS, "any")
+            == "any"
         )
 
-        execute_str_mock.assert_called_once_with(
-            expected_ui_params_query, cursor_class=DictCursor
-        )
+        execute_str_mock.assert_called_once_with(expected_ui_params_query)

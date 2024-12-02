@@ -15,7 +15,6 @@
 import json
 import os
 from pathlib import Path
-from textwrap import dedent
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -37,7 +36,6 @@ from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
 from snowflake.connector import SnowflakeConnection
-from snowflake.connector.cursor import DictCursor
 
 from tests.test_data import test_data
 
@@ -293,110 +291,153 @@ def test_get_host_region(host, expected):
     assert get_host_region(host) == expected
 
 
-ui_parameters_str = ", ".join(sorted([f"'{param.value}'" for param in UIParameter]))
-expected_ui_params_query = dedent(
-    f"""
-    select value['value']::string as PARAM_VALUE, value['name']::string as PARAM_NAME from table(flatten(
-        input => parse_json(SYSTEM$BOOTSTRAP_DATA_REQUEST()),
-        path => 'clientParamsInfo'
-    )) where value['name'] in ({ui_parameters_str});
-    """
-)
+expected_ui_params_query = "call system$bootstrap_data_request('CLIENT_PARAMS_INFO')"
 
 
-def test_get_ui_parameters_no_param():
+def test_get_ui_parameters_no_param(mock_cursor):
     connection = MagicMock()
-    cursor = MagicMock()
-    connection.execute_string.return_value = (None, cursor)
-    cursor.fetchall.return_value = []
+    connection.execute_string.return_value = (
+        None,
+        mock_cursor([('{"clientParamsInfo": []}',)], []),
+    )
+
     assert get_ui_parameters(connection) == {}
 
-    connection.execute_string.assert_called_with(
-        expected_ui_params_query, cursor_class=DictCursor
+    connection.execute_string.assert_called_with(expected_ui_params_query)
+
+
+def test_get_ui_parameters_one_param(mock_cursor):
+    connection = MagicMock()
+    connection.execute_string.return_value = (
+        None,
+        mock_cursor(
+            [
+                (
+                    """\
+                    {
+                        "clientParamsInfo": [{
+                            "name": "UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT",
+                            "value": true
+                        }]
+                    }
+                    """,
+                )
+            ],
+            [],
+        ),
     )
 
-
-def test_get_ui_parameters_one_param():
-    connection = MagicMock()
-    cursor = MagicMock()
-    connection.execute_string.return_value = (None, cursor)
-    cursor.fetchall.return_value = [
-        {
-            "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
-            "PARAM_VALUE": "true",
-        }
-    ]
     assert get_ui_parameters(connection) == {
-        UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "true"
+        UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: True
     }
 
-    connection.execute_string.assert_called_with(
-        expected_ui_params_query, cursor_class=DictCursor
+    connection.execute_string.assert_called_with(expected_ui_params_query)
+
+
+def test_get_ui_parameters_multiple_params(mock_cursor):
+    connection = MagicMock()
+    connection.execute_string.return_value = (
+        None,
+        mock_cursor(
+            [
+                (
+                    """\
+                    {
+                        "clientParamsInfo": [{
+                            "name": "UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT",
+                            "value": true
+                        },
+                        {
+                            "name": "ENABLE_EVENT_SHARING_V2_IN_THE_SAME_ACCOUNT",
+                            "value": false
+                        }]
+                    }
+                    """,
+                )
+            ],
+            [],
+        ),
     )
 
-
-def test_get_ui_parameters_multiple_params():
-    connection = MagicMock()
-    cursor = MagicMock()
-    connection.execute_string.return_value = (None, cursor)
-    cursor.fetchall.return_value = [
-        {
-            "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
-            "PARAM_VALUE": "true",
-        },
-        {
-            "PARAM_NAME": UIParameter.NA_EVENT_SHARING_V2.value,
-            "PARAM_VALUE": "false",
-        },
-    ]
     assert get_ui_parameters(connection) == {
-        UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "true",
-        UIParameter.NA_EVENT_SHARING_V2: "false",
+        UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: True,
+        UIParameter.NA_EVENT_SHARING_V2: False,
     }
 
-    connection.execute_string.assert_called_with(
-        expected_ui_params_query, cursor_class=DictCursor
-    )
+    connection.execute_string.assert_called_with(expected_ui_params_query)
 
 
-def test_get_ui_parameter_with_value():
+def test_get_ui_parameter_with_value(mock_cursor):
     connection = MagicMock()
-    cursor = MagicMock()
-    connection.execute_string.return_value = (None, cursor)
-    cursor.fetchall.return_value = [
-        {
-            "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
-            "PARAM_VALUE": "true",
-        }
-    ]
+    connection.execute_string.return_value = (
+        None,
+        mock_cursor(
+            [
+                (
+                    """\
+                    {
+                        "clientParamsInfo": [{
+                            "name": "UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT",
+                            "value": true
+                        }]
+                    }
+                    """,
+                )
+            ],
+            [],
+        ),
+    )
     assert (
-        get_ui_parameter(connection, UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, "false")
-        == "true"
+        get_ui_parameter(connection, UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, False)
+        is True
     )
 
 
-def test_get_ui_parameter_with_empty_value_then_use_empty_value():
+def test_get_ui_parameter_with_empty_value_then_use_empty_value(mock_cursor):
     connection = MagicMock()
-    cursor = MagicMock()
-    connection.execute_string.return_value = (None, cursor)
-    cursor.fetchall.return_value = [
-        {
-            "PARAM_NAME": UIParameter.NA_ENABLE_REGIONLESS_REDIRECT.value,
-            "PARAM_VALUE": "",
-        }
-    ]
+    connection.execute_string.return_value = (
+        None,
+        mock_cursor(
+            [
+                (
+                    """\
+                    {
+                        "clientParamsInfo": [{
+                            "name": "UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT",
+                            "value": ""
+                        }]
+                    }
+                    """,
+                )
+            ],
+            [],
+        ),
+    )
     assert (
         get_ui_parameter(connection, UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, "false")
         == ""
     )
 
 
-def test_get_ui_parameter_with_no_value_then_use_default():
+def test_get_ui_parameter_with_no_value_then_use_default(mock_cursor):
     connection = MagicMock()
-    cursor = MagicMock()
-    connection.execute_string.return_value = (None, cursor)
-    cursor.fetchall.return_value = []
+    connection.execute_string.return_value = (
+        None,
+        mock_cursor(
+            [
+                (
+                    """\
+                    {
+                        "clientParamsInfo": []
+                    }
+                    """,
+                )
+            ],
+            [],
+        ),
+    )
+
     assert (
-        get_ui_parameter(connection, UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, "false")
-        == "false"
+        get_ui_parameter(connection, UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, "any")
+        == "any"
     )

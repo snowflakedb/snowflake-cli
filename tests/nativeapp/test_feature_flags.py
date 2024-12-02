@@ -18,16 +18,14 @@ import pytest
 from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 
 
-@mock.patch("snowflake.cli._plugins.nativeapp.feature_flags.get_config_value")
+@mock.patch("snowflake.cli.api.config.get_config_value")
 @pytest.mark.parametrize("value_from_config", [True, False])
 def test_feature_setup_script_generation_enabled(
     mock_get_config_value, value_from_config
 ):
     mock_get_config_value.return_value = value_from_config
 
-    assert (
-        FeatureFlag.ENABLE_NATIVE_APP_PYTHON_SETUP.get_flag_value() == value_from_config
-    )
+    assert FeatureFlag.ENABLE_NATIVE_APP_PYTHON_SETUP.is_enabled() is value_from_config
     mock_get_config_value.assert_called_once_with(
         "cli", "features", key="enable_native_app_python_setup", default=None
     )

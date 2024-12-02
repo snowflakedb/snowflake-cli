@@ -155,5 +155,5 @@ class NativeAppCompiler:
 
     def _is_enabled(self, processor: ProcessorMapping) -> bool:
         if processor.name.lower() == NA_SETUP_PROCESSOR:
-            return FeatureFlag.ENABLE_NATIVE_APP_PYTHON_SETUP.get_flag_value() is True
+            return FeatureFlag.ENABLE_NATIVE_APP_PYTHON_SETUP.is_enabled()
         return True
