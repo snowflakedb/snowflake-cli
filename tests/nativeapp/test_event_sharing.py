@@ -58,10 +58,10 @@ from tests.nativeapp.patch_utils import (
     mock_connection,
 )
 from tests.nativeapp.utils import (
-    APP_ENTITY_GET_EXISTING_APP_INFO,
     GET_UI_PARAMETERS,
     SQL_EXECUTOR_EXECUTE,
     SQL_FACADE_CREATE_APPLICATION,
+    SQL_FACADE_GET_EXISTING_APP_INFO,
     SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE,
     SQL_FACADE_UPGRADE_APPLICATION,
     mock_execute_helper,
@@ -410,7 +410,7 @@ def _setup_mocks_for_upgrade_app(
     return [*mock_execute_query_expected, *mock_sql_facade_upgrade_application_expected]
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -495,7 +495,7 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -577,7 +577,7 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
     ]
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -654,7 +654,7 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -731,7 +731,7 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -814,7 +814,7 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -902,7 +902,7 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
     ]
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -977,7 +977,7 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -1052,7 +1052,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -1138,7 +1138,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused
     mock_console.warning.assert_not_called()
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -1224,7 +1224,7 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
     mock_console.warning.assert_not_called()
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -1301,7 +1301,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
     ]
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -1386,7 +1386,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     mock_console.warning.assert_not_called()
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -1467,7 +1467,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     mock_console.warning.assert_called_once_with(DEFAULT_SUCCESS_MESSAGE)
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
@@ -1539,7 +1539,7 @@ def test_shared_events_with_no_enabled_mandatory_events_then_error(
     mock_console.warning.assert_not_called()
 
 
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)

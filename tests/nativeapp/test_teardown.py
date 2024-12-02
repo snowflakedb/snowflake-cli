@@ -50,13 +50,13 @@ from snowflake.connector.cursor import DictCursor
 from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
 from tests.nativeapp.utils import (
     APP_ENTITY_DROP_GENERIC_OBJECT,
-    APP_ENTITY_GET_EXISTING_APP_INFO,
     APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION,
     APP_ENTITY_MODULE,
     APP_PACKAGE_ENTITY_DROP_GENERIC_OBJECT,
     APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
     SQL_EXECUTOR_EXECUTE,
+    SQL_FACADE_GET_EXISTING_APP_INFO,
     TYPER_CONFIRM,
     TYPER_PROMPT,
     mock_execute_helper,
@@ -195,7 +195,7 @@ def test_drop_generic_object_failure_w_exception(
 
 
 # Test drop_application() when no application exists
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @pytest.mark.parametrize(
     "auto_yes_param",
     [True, False],  # This should have no effect on the test
@@ -219,7 +219,7 @@ def test_drop_application_no_existing_application(
 
 
 # Test drop_application() when the current role is not allowed to drop it
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(
     APP_ENTITY_DROP_GENERIC_OBJECT,
     side_effect=ProgrammingError(
@@ -258,7 +258,7 @@ def test_drop_application_current_role_is_not_owner(
 
 
 # Test drop_application() successfully when it has special comment
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(APP_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
 @mock.patch(APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
 @pytest.mark.parametrize(
@@ -370,7 +370,7 @@ def test_drop_application_has_special_comment_and_quoted_name(
 
 
 # Test drop_application() without special comment AND auto_yes is False AND should_drop is False
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(APP_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
 @mock.patch(f"{APP_ENTITY_MODULE}.{TYPER_CONFIRM}", return_value=False)
 def test_drop_application_user_prohibits_drop(
@@ -408,7 +408,7 @@ def test_drop_application_user_prohibits_drop(
 
 # Test drop_application() without special comment AND auto_yes is False AND should_drop is True
 # Test drop_application() without special comment AND auto_yes is True
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(APP_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
 @mock.patch(f"{APP_ENTITY_MODULE}.{TYPER_CONFIRM}", return_value=True)
 @mock.patch(APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
@@ -448,7 +448,7 @@ def test_drop_application_user_allows_drop(
 
 
 # Test idempotent drop_application()
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(APP_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
 @mock.patch(APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION, return_value=[])
 @pytest.mark.parametrize(
@@ -496,7 +496,6 @@ def test_drop_application_idempotent(
 def test_drop_package_no_existing_application(
     mock_get_existing_app_pkg_info, auto_yes_param, temp_dir
 ):
-
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -1096,7 +1095,7 @@ def test_drop_package_idempotent(
 
 
 @mock.patch(f"{APP_ENTITY_MODULE}.{TYPER_PROMPT}")
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(APP_ENTITY_DROP_GENERIC_OBJECT, return_value=None)
 @mock.patch(APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION)
 @pytest.mark.parametrize(

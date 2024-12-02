@@ -77,7 +77,6 @@ from tests.nativeapp.patch_utils import (
     mock_connection,
 )
 from tests.nativeapp.utils import (
-    APP_ENTITY_GET_EXISTING_APP_INFO,
     APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
     GET_UI_PARAMETERS,
     SQL_EXECUTOR_EXECUTE,
@@ -227,7 +226,7 @@ def setup_project_file(current_working_directory: str, pdf=None):
 
 # Test create_dev_app with exception thrown trying to use the warehouse
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock_connection()
 @mock.patch(
@@ -302,7 +301,7 @@ def test_create_dev_app_w_warehouse_access_exception(
 
 
 # Test create_dev_app with no existing application AND create succeeds AND app role == package role
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock_connection()
@@ -354,7 +353,7 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
 
 
 # Test create_dev_app with no existing application AND create returns a warning
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
@@ -443,7 +442,7 @@ def test_create_or_upgrade_dev_app_with_warning(
 
 
 # Test create_dev_app with no existing application AND create succeeds AND app role != package role
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
@@ -518,7 +517,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
 
 
 # Test create_dev_app with no existing application AND create throws an exception
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock_connection()
 @mock.patch(
@@ -622,7 +621,7 @@ def test_create_dev_app_incorrect_properties(
 
 
 # Test create_dev_app with existing application AND incorrect owner
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock_connection()
 @mock.patch(
@@ -680,7 +679,7 @@ def test_create_dev_app_incorrect_owner(
 
 
 # Test create_dev_app with existing application AND diff has no changes
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock.patch(
@@ -736,7 +735,7 @@ def test_create_dev_app_no_diff_changes(
 
 
 # Test create_dev_app with existing application AND diff has changes
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock_connection()
@@ -792,7 +791,7 @@ def test_create_dev_app_w_diff_changes(
 
 
 # Test create_dev_app with existing application AND alter throws an error
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock_connection()
 @mock.patch(
@@ -837,7 +836,7 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
 
 
 # Test create_dev_app with no existing application AND quoted name scenario 1
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock_connection()
@@ -916,7 +915,7 @@ def test_create_dev_app_create_new_quoted(
 
 
 # Test create_dev_app with no existing application AND quoted name scenario 2
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS, return_value=[])
 @mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock_connection()
@@ -981,7 +980,7 @@ def test_create_dev_app_create_new_quoted_override(
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
@@ -1101,7 +1100,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
@@ -1243,7 +1242,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
@@ -1426,7 +1425,7 @@ def test_upgrade_app_warehouse_error(
 # Test upgrade app method for release directives AND existing app info AND bad owner
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
@@ -1487,7 +1486,7 @@ def test_upgrade_app_incorrect_owner(
 # Test upgrade app method for release directives AND existing app info AND upgrade succeeds
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
@@ -1543,7 +1542,7 @@ def test_upgrade_app_succeeds(
 
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to generic error
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
@@ -1602,7 +1601,7 @@ def test_upgrade_app_fails_generic_error(
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is False AND --interactive is True AND  user does not want to proceed
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is True AND user does not want to proceed
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
@@ -1685,7 +1684,7 @@ def test_upgrade_app_fails_upgrade_restriction_error(
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS, return_value=[])
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
@@ -1800,7 +1799,7 @@ def test_versioned_app_upgrade_to_unversioned(
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is True AND user wants to proceed AND drop fails
 @mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
@@ -1884,7 +1883,7 @@ def test_upgrade_app_fails_drop_fails(
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
@@ -2055,7 +2054,7 @@ def test_upgrade_app_from_version_throws_usage_error_two(
 @mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
