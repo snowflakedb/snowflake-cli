@@ -46,8 +46,9 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     InsufficientPrivilegesError,
 )
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
-from snowflake.cli._plugins.stage.diff import DiffResult
+from snowflake.cli._plugins.stage.diff import DiffResult, compute_stage_diff
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.entities.common import (
@@ -235,6 +236,21 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     def action_bundle(self, action_ctx: ActionContext, *args, **kwargs):
         return self._bundle()
+
+    def action_diff(
+        self, action_ctx: ActionContext, print_to_console: bool, *args, **kwargs
+    ):
+        bundle_map = self._bundle()
+        diff = compute_stage_diff(
+            local_root=self.deploy_root,
+            stage_fqn=self.stage_fqn,
+            stage_subdirectory=self.stage_subdirectory,
+        )
+
+        if print_to_console:
+            print_diff_to_console(diff, bundle_map)
+
+        return diff
 
     def action_deploy(
         self,

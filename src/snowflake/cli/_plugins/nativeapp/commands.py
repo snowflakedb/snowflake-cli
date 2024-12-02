@@ -37,11 +37,6 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     force_project_definition_v2,
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
-from snowflake.cli._plugins.stage.diff import (
-    DiffResult,
-    compute_stage_diff,
-)
-from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
@@ -113,22 +108,15 @@ def app_diff(
         project_root=cli_context.project_root,
     )
     package_id = options["package_entity_id"]
-    package = cli_context.project_definition.entities[package_id]
-    bundle_map = ws.perform_action(
+    diff = ws.perform_action(
         package_id,
-        EntityActions.BUNDLE,
-    )
-    stage_fqn = f"{package.fqn.name}.{package.stage}"
-    diff: DiffResult = compute_stage_diff(
-        local_root=Path(package.deploy_root) / Path(package.stage_subdirectory),
-        stage_fqn=stage_fqn,
-        stage_subdirectory=package.stage_subdirectory,
+        EntityActions.DIFF,
+        print_to_console=cli_context.output_format != OutputFormat.JSON,
     )
     if cli_context.output_format == OutputFormat.JSON:
         return ObjectResult(diff.to_dict())
-    else:
-        print_diff_to_console(diff, bundle_map)
-        return None  # don't print any output
+
+    return None
 
 
 @app.command("run", requires_connection=True)
