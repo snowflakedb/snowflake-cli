@@ -252,7 +252,6 @@ def app_teardown(
         if package_entity.identifier == app_package_entity.identifier
     ]
 
-
     for app_entity in project.get_entities_by_type(
         ApplicationEntityModel.get_type()
     ).values():
