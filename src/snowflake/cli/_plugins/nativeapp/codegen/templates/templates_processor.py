@@ -57,9 +57,17 @@ class TemplatesProcessor(ArtifactProcessor):
         """
         if src.is_dir():
             return
+
         src_file_name = src.relative_to(self._bundle_ctx.project_root)
+
         try:
-            with self.edit_file(dest) as file:
+            file = self.edit_file(dest)
+        except UnicodeDecodeError as err:
+            cc.warning(
+                f"Could not read file {src_file_name}, error: {err.reason}. Skipping this file."
+            )
+        else:
+            with file:
                 if not has_client_side_templates(file.contents) and not (
                     _is_sql_file(dest) and has_sql_templates(file.contents)
                 ):
@@ -91,10 +99,6 @@ class TemplatesProcessor(ArtifactProcessor):
 
                     if expanded_template != file.contents:
                         file.edited_contents = expanded_template
-        except UnicodeDecodeError as err:
-            cc.warning(
-                f"Could not read file {src_file_name}, error: {err.reason}. Skipping this file."
-            )
 
     @span("templates_processor")
     def process(
