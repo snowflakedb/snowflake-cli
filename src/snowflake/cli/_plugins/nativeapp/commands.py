@@ -250,6 +250,7 @@ def app_teardown(
     for app_entity in project.get_entities_by_type(
         ApplicationEntityModel.get_type()
     ).values():
+        # Drop each app
         if app_entity.from_.target in all_packages_with_id:
             ws.perform_action(
                 app_entity.entity_id,
@@ -258,7 +259,6 @@ def app_teardown(
                 interactive=interactive,
                 cascade=cascade,
             )
-
     # Then drop the package
     ws.perform_action(
         app_package_entity.entity_id,
