@@ -21,7 +21,6 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
-import pydevd_pycharm
 import typer
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
@@ -56,10 +55,6 @@ from snowflake.cli.api.output.types import (
     StreamResult,
 )
 from typing_extensions import Annotated
-
-pydevd_pycharm.settrace(
-    "localhost", port=12345, stdoutToServer=True, stderrToServer=True, suspend=False
-)
 
 app = SnowTyperFactory(
     name="app",
