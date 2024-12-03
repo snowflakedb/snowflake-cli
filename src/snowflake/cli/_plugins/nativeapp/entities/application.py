@@ -382,7 +382,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         package_entity: ApplicationPackageEntity = action_ctx.get_entity(
             self.package_entity_id
         )
-        # For now, from CLI's perspective, package owns the stage. This can change in the future.
+
         stage_path = package_entity.stage_path
 
         if force:

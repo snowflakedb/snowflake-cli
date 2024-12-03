@@ -229,7 +229,6 @@ class SnowflakeSQLFacade:
                     f"Failed to add version {version} to application package {package_name}.",
                 )
 
-    # PJ-TODO: rename stage_fqn_with_subdir everywhere to a better name like stage_path_to_artifacts
     def add_patch_to_package_version(
         self,
         package_name: str,
@@ -242,7 +241,7 @@ class SnowflakeSQLFacade:
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
         @param package_name: Name of the application package to alter.
-        @param stage_path_to_artifacts: Stage fully qualified name.
+        @param stage_path_to_artifacts: Path to artifacts on the stage to create a version from.
         @param version: Version name to create.
         @param [Optional] patch: Patch number to create.
         @param [Optional] label: Label for this patch, visible to consumers.

@@ -9,7 +9,6 @@ from snowflake.cli._plugins.stage.diff import (
 from snowflake.cli.api.console import cli_console as cc
 
 
-# PJ-TODO: update to add subdirectory to print
 def print_diff_to_console(
     diff: DiffResult,
     bundle_map: Optional[BundleMap] = None,
