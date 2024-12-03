@@ -30,7 +30,6 @@ from snowflake.cli._plugins.nativeapp.constants import (
     COMMENT_COL,
     NAME_COL,
     OWNER_COL,
-    SOURCE_COL,
     SPECIAL_COMMENT,
 )
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
@@ -54,8 +53,8 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
-from snowflake.cli._plugins.nativeapp.sf_sql_facade import _same_identifier
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
+from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console.abc import AbstractConsole
@@ -91,7 +90,6 @@ from snowflake.cli.api.project.schemas.entities.common import (
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 from snowflake.cli.api.project.util import (
     append_test_resource_suffix,
-    extract_schema,
     identifier_for_url,
     to_identifier,
     unquote_identifier,
@@ -384,7 +382,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         package_entity: ApplicationPackageEntity = action_ctx.get_entity(
             self.package_entity_id
         )
-        stage_fqn = package_entity.stage_fqn
+        # For now, from CLI's perspective, package owns the stage. This can change in the future.
+        stage_path = package_entity.stage_path
 
         if force:
             policy = AllowAlwaysPolicy()
@@ -397,7 +396,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         if from_release_directive:
             self.create_or_upgrade_app(
                 package=package_entity,
-                stage_fqn=stage_fqn,
+                stage_path=stage_path,
                 install_method=SameAccountInstallMethod.release_directive(),
                 policy=policy,
                 interactive=interactive,
@@ -419,7 +418,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
             self.create_or_upgrade_app(
                 package=package_entity,
-                stage_fqn=stage_fqn,
+                stage_path=stage_path,
                 install_method=SameAccountInstallMethod.versioned_dev(version, patch),
                 policy=policy,
                 interactive=interactive,
@@ -438,7 +437,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         )
         self.create_or_upgrade_app(
             package=package_entity,
-            stage_fqn=stage_fqn,
+            stage_path=stage_path,
             install_method=SameAccountInstallMethod.unversioned_dev(),
             policy=policy,
             interactive=interactive,
@@ -638,7 +637,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
     def create_or_upgrade_app(
         self,
         package: ApplicationPackageEntity,
-        stage_fqn: str,
+        stage_path: DefaultStagePathParts,
         install_method: SameAccountInstallMethod,
         policy: PolicyBase,
         interactive: bool,
@@ -646,14 +645,10 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         model = self._entity_model
         console = self._workspace_ctx.console
         debug_mode = model.debug
-        # PJ-TODO: in the future, the stage_fqn input to here could already have the subdir?
-        stage_fqn = stage_fqn or package.stage_fqn
-        stage_schema = extract_schema(stage_fqn)
-        path_to_artifacts = (
-            f"{stage_fqn}/{package.stage_subdirectory}"
-            if package.stage_subdirectory
-            else stage_fqn
-        )
+
+        stage_fqn = stage_path.stage
+        stage_schema = stage_path.schema
+
         sql_executor = get_sql_executor()
         with sql_executor.use_role(self.role):
             event_sharing = EventSharingHandler(
@@ -676,18 +671,13 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                         app_role=self.role,
                         show_app_row=show_app_row,
                     )
-                    if not _same_identifier(show_app_row[SOURCE_COL], package.name):
-                        # PJ- TODO: change to: are you sure you want to proceed?
-                        raise ClickException(
-                            "This application was not originally created from this package"
-                        )
 
                     # If all the above checks are in order, proceed to upgrade
                     try:
                         console.step(
                             f"Upgrading existing application object {self.name}."
                         )
-                        using_clause = install_method.using_clause(path_to_artifacts)
+                        using_clause = install_method.using_clause(stage_path.full_path)
                         upgrade_cursor = sql_executor.execute_query(
                             f"alter application {self.name} upgrade {using_clause}",
                         )
@@ -784,7 +774,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                         )
                         authorize_telemetry_clause = f" AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(new_authorize_event_sharing_value).upper()}"
 
-                    using_clause = install_method.using_clause(path_to_artifacts)
+                    using_clause = install_method.using_clause(stage_path.full_path)
                     create_cursor = sql_executor.execute_query(
                         dedent(
                             f"""\

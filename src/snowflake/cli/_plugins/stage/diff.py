@@ -25,7 +25,7 @@ from snowflake.cli.api.exceptions import (
 )
 from snowflake.connector.cursor import DictCursor
 
-from .manager import StageManager
+from .manager import DefaultStagePathParts, StageManager
 from .md5 import UnknownMD5FormatError, file_matches_md5sum
 
 log = logging.getLogger(__name__)
@@ -83,29 +83,24 @@ def enumerate_files(path: Path) -> List[Path]:
     return paths
 
 
-def relative_to_stage_subdir(path: str, subdir: str | None = None) -> StagePathType:
-    path_parts = path.split("/")
-    # Remove stage name
-    path_parts.pop(0)
-
-    path_wo_stage_name = StagePathType(*path_parts)
-    if subdir:
-        # Find file path relative to stage subdirectory
-        subdir_path = StagePathType(subdir)
-        return path_wo_stage_name.relative_to(subdir_path)
-
-    return path_wo_stage_name
+def relative_to_stage_path(path: str, stage_path: str) -> StagePathType:
+    """
+    @param path: file path on the stage.
+    @param stage_path: root of stage. stage_name/[optionally/other/directories]
+    @return: path of file relative to the stage_path
+    """
+    return StagePathType(path).relative_to(stage_path)
 
 
 def build_md5_map(
-    list_stage_cursor: DictCursor, stage_subdir: str | None = None
+    list_stage_cursor: DictCursor, stage_path: str
 ) -> Dict[StagePathType, Optional[str]]:
     """
-    Returns a mapping of relative stage paths to their md5sums.
+    Returns a mapping of file paths to their md5sums. File paths are relative to the stage_path.
     """
     all_files = list_stage_cursor.fetchall()
     return {
-        relative_to_stage_subdir(file["name"], stage_subdir): file["md5"]
+        relative_to_stage_path(file["name"], stage_path): file["md5"]
         for file in all_files
     }
 
@@ -128,55 +123,51 @@ def preserve_from_diff(
 
 
 def compute_stage_diff(
-    local_root: Path,
-    stage_fqn: str,
-    stage_subdirectory: str | None = None,
+    local_root: Path, stage_path: DefaultStagePathParts
 ) -> DiffResult:
     """
-    Diffs the files in a stage with a local folder.
+    Diffs the files in the local_root with files in the stage path that is stage_path_parts's full_path.
     """
-    stage_fqn_with_subdir = (
-        f"{stage_fqn}/{stage_subdirectory}" if stage_subdirectory else stage_fqn
-    )
     stage_manager = StageManager()
     local_files = enumerate_files(local_root)
-    remote_files = stage_manager.list_files(stage_fqn_with_subdir)
+    remote_files = stage_manager.list_files(stage_path.full_path)
 
-    remote_md5 = build_md5_map(remote_files, stage_subdirectory)
+    # Create a mapping from remote_file path to file's md5sum. Path is relative to stage_name/directory.
+    remote_md5 = build_md5_map(remote_files, stage_path.path)
 
     result: DiffResult = DiffResult()
 
     for local_file in local_files:
         relpath = local_file.relative_to(local_root)
-        stage_path = to_stage_path(relpath)
-        if stage_path not in remote_md5:
+        rel_stage_path = to_stage_path(relpath)
+        if rel_stage_path not in remote_md5:
             # doesn't exist on the stage
-            result.only_local.append(stage_path)
+            result.only_local.append(rel_stage_path)
         else:
             # N.B. file size on stage is not always accurate, so cannot fail fast
             try:
-                if file_matches_md5sum(local_file, remote_md5[stage_path]):
+                if file_matches_md5sum(local_file, remote_md5[rel_stage_path]):
                     # We are assuming that we will not get accidental collisions here due to the
                     # large space of the md5sum (32 * 4 = 128 bits means 1-in-9-trillion chance)
                     # combined with the fact that the file name + path must also match elsewhere.
-                    result.identical.append(stage_path)
+                    result.identical.append(rel_stage_path)
                 else:
                     # either the file has changed, or we can't tell if it has
-                    result.different.append(stage_path)
+                    result.different.append(rel_stage_path)
             except UnknownMD5FormatError:
                 log.warning(
                     "Could not compare md5 for %s, assuming file has changed",
                     local_file,
                     exc_info=True,
                 )
-                result.different.append(stage_path)
+                result.different.append(rel_stage_path)
 
             # mark this file as seen
-            del remote_md5[stage_path]
+            del remote_md5[rel_stage_path]
 
     # every entry here is a file we never saw locally
-    for stage_path in remote_md5.keys():
-        result.only_on_stage.append(stage_path)
+    for rel_stage_path in remote_md5.keys():
+        result.only_on_stage.append(rel_stage_path)
 
     return result
 

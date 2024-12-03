@@ -20,6 +20,8 @@ import re
 from typing import List, Optional
 from urllib.parse import quote
 
+# from snowflake.cli._plugins.stage.manager import StagePathParts
+
 IDENTIFIER = r'((?:"[^"]*(?:""[^"]*)*")|(?:[A-Za-z_][\w$]{0,254}))'
 IDENTIFIER_NO_LENGTH = r'((?:"[^"]*(?:""[^"]*)*")|(?:[A-Za-z_][\w$]*))'
 DB_SCHEMA_AND_NAME = f"{IDENTIFIER}[.]{IDENTIFIER}[.]{IDENTIFIER}"
@@ -194,19 +196,19 @@ def extract_schema(qualified_name: str):
     return None
 
 
-# def extract_schema_from_path_to_version_directory(path: str) -> str:
+# def extract_schema_from_full_stage_path(path: str) -> str:
 #     """
-#     Extracts the schema from a path to a version directory.
-#     Path to version directory is a stage fqn with an optional subdirectory. It can take any of these forms:
+#     Extracts the schema from a full stage path.
+#     Full stage path is a stage fqn with optional subdirectories:
 #     db.schema.stage
 #     db.schema.stage/subdirectory
 #     schema.stage
 #     schema.stage/subdirectory
 #     """
-#     DB_SCHEMA_AND_NAME = r"(?P<db>[^.]+)\.(?P<schema>[^.]+)\.(?P<stage>[^/]+)(?:/(?P<version>.+))?"
-#     SCHEMA_AND_NAME = r"(?P<schema>[^.]+)\.(?P<stage>[^/]+)(?:/(?P<version>.+))?"
+#     DB_SCHEMA_STAGE_PATTERN = r"(?P<db>[^.]+)\.(?P<schema>[^.]+)\.(?P<stage>[^/]+)(?:/(?P<version>.+))?"
+#     SCHEMA_STAGE_PATTERN = r"(?P<schema>[^.]+)\.(?P<stage>[^/]+)(?:/(?P<version>.+))?"
 #
-#     match = re.match(DB_SCHEMA_AND_NAME, path) or re.match(SCHEMA_AND_NAME, path)
+#     match = re.match(DB_SCHEMA_STAGE_PATTERN, path) or re.match(SCHEMA_STAGE_PATTERN, path)
 #     if match:
 #         return match.groupdict()["schema"]
 #     return None
