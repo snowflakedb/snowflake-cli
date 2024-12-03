@@ -219,9 +219,7 @@ def put_files_on_stage(
     for _stage_path in stage_paths:
         stage_sub_path = get_stage_subpath(_stage_path)
         full_stage_path = (
-            f"{stage_root.rstrip('/')}/{stage_sub_path}"
-            if stage_sub_path
-            else stage_root
+            f"{stage_root}/{stage_sub_path}" if stage_sub_path else stage_root
         )
         stage_manager.put(
             local_path=deploy_root_path / to_local_path(_stage_path),

@@ -590,7 +590,7 @@ class SnowflakeSQLFacade:
 
         @param name: Name of the application object
         @param install_method: Method of installing the application
-        @param stage_path_to_artifacts: FQN of the stage housing the application artifacts
+        @param stage_path_to_artifacts: Path to directory in stage housing the application artifacts
         @param role: Role to use when creating the application and provider-side objects
         @param warehouse: Warehouse which is required to create an application object
         @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
@@ -675,7 +675,7 @@ class SnowflakeSQLFacade:
         name: str,
         package_name: str,
         install_method: SameAccountInstallMethod,
-        stage_fqn: str,
+        stage_path_to_artifacts: str,
         role: str,
         warehouse: str,
         debug_mode: bool | None,
@@ -688,7 +688,7 @@ class SnowflakeSQLFacade:
         @param name: Name of the application object
         @param package_name: Name of the application package to install the application from
         @param install_method: Method of installing the application
-        @param stage_fqn: FQN of the stage housing the application artifacts
+        @param stage_path_to_artifacts: Path to directory in stage housing the application artifacts
         @param role: Role to use when creating the application and provider-side objects
         @param warehouse: Warehouse which is required to create an application object
         @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
@@ -710,7 +710,7 @@ class SnowflakeSQLFacade:
             )
             authorize_telemetry_clause = f" AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(should_authorize_event_sharing).upper()}"
 
-        using_clause = install_method.using_clause(stage_fqn)
+        using_clause = install_method.using_clause(stage_path_to_artifacts)
         with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
             try:
                 create_cursor = self._sql_executor.execute_query(

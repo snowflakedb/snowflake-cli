@@ -34,7 +34,7 @@ from snowflake.cli._plugins.stage.diff import (
     put_files_on_stage,
     sync_local_diff_with_stage,
 )
-from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.stage.manager import DefaultStagePathParts, StageManager
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
@@ -89,12 +89,13 @@ def stage_contents(
     ]
 
 
+# PJ - TODO add tests for following cases with subdir
 @mock.patch(f"{STAGE_MANAGER}.list_files")
 def test_empty_stage(mock_list, mock_cursor):
     mock_list.return_value = mock_cursor(rows=[], columns=STAGE_LS_COLUMNS)
 
     with temp_local_dir(FILE_CONTENTS) as local_path:
-        diff_result = compute_stage_diff(local_path, "a.b.c")
+        diff_result = compute_stage_diff(local_path, DefaultStagePathParts("a.b.c"))
         assert len(diff_result.only_on_stage) == 0
         assert len(diff_result.different) == 0
         assert len(diff_result.identical) == 0
@@ -111,7 +112,7 @@ def test_empty_dir(mock_list, mock_cursor):
     )
 
     with temp_local_dir({}) as local_path:
-        diff_result = compute_stage_diff(local_path, "a.b.c")
+        diff_result = compute_stage_diff(local_path, DefaultStagePathParts("a.b.stage"))
         assert sorted(diff_result.only_on_stage) == sorted(
             as_stage_paths(FILE_CONTENTS.keys())
         )
@@ -128,7 +129,7 @@ def test_identical_stage(mock_list, mock_cursor):
     )
 
     with temp_local_dir(FILE_CONTENTS) as local_path:
-        diff_result = compute_stage_diff(local_path, "a.b.c")
+        diff_result = compute_stage_diff(local_path, DefaultStagePathParts("a.b.stage"))
         assert len(diff_result.only_on_stage) == 0
         assert len(diff_result.different) == 0
         assert sorted(diff_result.identical) == sorted(
@@ -147,7 +148,7 @@ def test_new_local_file(mock_list, mock_cursor):
     with temp_local_dir(
         {**FILE_CONTENTS, "a/new/README.md": "### I am a new markdown readme"}
     ) as local_path:
-        diff_result = compute_stage_diff(local_path, "a.b.c")
+        diff_result = compute_stage_diff(local_path, DefaultStagePathParts("a.b.stage"))
         assert len(diff_result.only_on_stage) == 0
         assert len(diff_result.different) == 0
         assert sorted(diff_result.identical) == sorted(
@@ -169,7 +170,7 @@ def test_modified_file(mock_list, mock_cursor):
             "README.md": "This is a modification to the existing README",
         }
     ) as local_path:
-        diff_result = compute_stage_diff(local_path, "a.b.c")
+        diff_result = compute_stage_diff(local_path, DefaultStagePathParts("a.b.stage"))
         assert len(diff_result.only_on_stage) == 0
         assert sorted(diff_result.different) == as_stage_paths(["README.md"])
         assert sorted(diff_result.identical) == as_stage_paths(
@@ -195,7 +196,7 @@ def test_unmodified_file_no_remote_md5sum(mock_list, mock_cursor):
     )
 
     with temp_local_dir(FILE_CONTENTS) as local_path:
-        diff_result = compute_stage_diff(local_path, "a.b.c")
+        diff_result = compute_stage_diff(local_path, DefaultStagePathParts("a.b.stage"))
         assert len(diff_result.only_on_stage) == 0
         assert sorted(diff_result.different) == as_stage_paths(["README.md"])
         assert sorted(diff_result.identical) == as_stage_paths(
@@ -275,12 +276,14 @@ def test_put_files_on_stage(mock_put, overwrite_param):
         assert mock_put.mock_calls == expected
 
 
+# PJ - TODO add test here
 def test_build_md5_map(mock_cursor):
     actual = build_md5_map(
         mock_cursor(
             rows=stage_contents(FILE_CONTENTS),
             columns=STAGE_LS_COLUMNS,
-        )
+        ),
+        "stage",
     )
 
     expected = {

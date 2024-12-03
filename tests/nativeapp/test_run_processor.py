@@ -54,6 +54,7 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     UserInputError,
 )
 from snowflake.cli._plugins.stage.diff import DiffResult
+from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.console import cli_console as cc
@@ -165,7 +166,7 @@ def _create_or_upgrade_app(
 
     return app.create_or_upgrade_app(
         package=pkg,
-        stage_fqn=stage_fqn,
+        stage_path=DefaultStagePathParts(stage_fqn),
         install_method=install_method,
         policy=policy,
         interactive=interactive,
@@ -269,7 +270,7 @@ def test_create_dev_app_w_warehouse_access_exception(
         name=DEFAULT_APP_ID,
         package_name=DEFAULT_PKG_ID,
         install_method=SameAccountInstallMethod.unversioned_dev(),
-        stage_fqn=DEFAULT_STAGE_FQN,
+        stage_path_to_artifacts=DEFAULT_STAGE_FQN,
         debug_mode=True,
         should_authorize_event_sharing=None,
         role=DEFAULT_ROLE,
@@ -340,7 +341,7 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
             name=DEFAULT_APP_ID,
             package_name=DEFAULT_PKG_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -413,7 +414,7 @@ def test_create_or_upgrade_dev_app_with_warning(
                 name=DEFAULT_APP_ID,
                 package_name=DEFAULT_PKG_ID,
                 install_method=SameAccountInstallMethod.unversioned_dev(),
-                stage_fqn=DEFAULT_STAGE_FQN,
+                stage_path_to_artifacts=DEFAULT_STAGE_FQN,
                 debug_mode=True,
                 should_authorize_event_sharing=None,
                 role=DEFAULT_ROLE,
@@ -427,7 +428,7 @@ def test_create_or_upgrade_dev_app_with_warning(
             mock.call(
                 name=DEFAULT_APP_ID,
                 install_method=SameAccountInstallMethod.unversioned_dev(),
-                stage_fqn=DEFAULT_STAGE_FQN,
+                stage_path_to_artifacts=DEFAULT_STAGE_FQN,
                 debug_mode=True,
                 should_authorize_event_sharing=None,
                 role=DEFAULT_ROLE,
@@ -481,7 +482,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
             name=DEFAULT_APP_ID,
             package_name=DEFAULT_PKG_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -558,7 +559,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
             name=DEFAULT_APP_ID,
             package_name=DEFAULT_PKG_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -669,7 +670,7 @@ def test_create_dev_app_incorrect_owner(
         mock.call(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -722,7 +723,7 @@ def test_create_dev_app_no_diff_changes(
         mock.call(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -778,7 +779,7 @@ def test_create_dev_app_w_diff_changes(
         mock.call(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -902,7 +903,7 @@ def test_create_dev_app_create_new_quoted(
             name='"My Application"',
             package_name='"My Package"',
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn='"My Package".app_src.stage',
+            stage_path_to_artifacts='"My Package".app_src.stage',
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -959,7 +960,7 @@ def test_create_dev_app_create_new_quoted_override(
         name='"My Application"',
         package_name='"My Package"',
         install_method=SameAccountInstallMethod.unversioned_dev(),
-        stage_fqn='"My Package".app_src.stage',
+        stage_path_to_artifacts='"My Package".app_src.stage',
         debug_mode=True,
         should_authorize_event_sharing=None,
         role=DEFAULT_ROLE,
@@ -1041,7 +1042,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
         mock.call(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -1053,7 +1054,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
             name=DEFAULT_APP_ID,
             package_name=DEFAULT_PKG_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -1180,7 +1181,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
         mock.call(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -1193,7 +1194,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
             name=DEFAULT_APP_ID,
             package_name=DEFAULT_PKG_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -1317,7 +1318,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
         mock.call(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -1329,7 +1330,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
             name=DEFAULT_APP_ID,
             package_name=DEFAULT_PKG_ID,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -1474,7 +1475,7 @@ def test_upgrade_app_incorrect_owner(
         mock.call(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -1529,7 +1530,7 @@ def test_upgrade_app_succeeds(
     mock_sql_facade_upgrade_application.assert_called_once_with(
         name=DEFAULT_APP_ID,
         install_method=SameAccountInstallMethod.release_directive(),
-        stage_fqn=DEFAULT_STAGE_FQN,
+        stage_path_to_artifacts=DEFAULT_STAGE_FQN,
         debug_mode=True,
         should_authorize_event_sharing=None,
         role=DEFAULT_ROLE,
@@ -1588,7 +1589,7 @@ def test_upgrade_app_fails_generic_error(
         mock.call(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -1669,7 +1670,7 @@ def test_upgrade_app_fails_upgrade_restriction_error(
         mock.call(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -1749,7 +1750,7 @@ def test_versioned_app_upgrade_to_unversioned(
     mock_sql_facade_upgrade_application.assert_called_once_with(
         name=DEFAULT_APP_ID,
         install_method=SameAccountInstallMethod.unversioned_dev(),
-        stage_fqn=DEFAULT_STAGE_FQN,
+        stage_path_to_artifacts=DEFAULT_STAGE_FQN,
         debug_mode=True,
         should_authorize_event_sharing=None,
         role=DEFAULT_ROLE,
@@ -1760,7 +1761,7 @@ def test_versioned_app_upgrade_to_unversioned(
         name=DEFAULT_APP_ID,
         package_name=DEFAULT_PKG_ID,
         install_method=SameAccountInstallMethod.unversioned_dev(),
-        stage_fqn=DEFAULT_STAGE_FQN,
+        stage_path_to_artifacts=DEFAULT_STAGE_FQN,
         debug_mode=True,
         should_authorize_event_sharing=None,
         role=DEFAULT_ROLE,
@@ -1868,7 +1869,7 @@ def test_upgrade_app_fails_drop_fails(
         mock.call(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -1949,7 +1950,7 @@ def test_upgrade_app_recreate_app(
         mock.call(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -1961,7 +1962,7 @@ def test_upgrade_app_recreate_app(
             name=DEFAULT_APP_ID,
             package_name=DEFAULT_PKG_ID,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -2130,7 +2131,7 @@ def test_upgrade_app_recreate_app_from_version(
         mock.call(
             name=DEFAULT_APP_ID,
             install_method=SameAccountInstallMethod.versioned_dev("v1"),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
@@ -2142,7 +2143,7 @@ def test_upgrade_app_recreate_app_from_version(
             name=DEFAULT_APP_ID,
             package_name=DEFAULT_PKG_ID,
             install_method=SameAccountInstallMethod.versioned_dev("v1"),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=True,
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,

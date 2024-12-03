@@ -37,6 +37,7 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import UserInputError
+from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.abc import AbstractConsole
@@ -151,7 +152,7 @@ def _create_or_upgrade_app(
 
     return app.create_or_upgrade_app(
         package=pkg,
-        stage_fqn=stage_fqn,
+        stage_path=DefaultStagePathParts(stage_fqn),
         install_method=install_method,
         policy=policy,
         interactive=is_interactive,
@@ -297,7 +298,7 @@ def _setup_mocks_for_create_app(
             install_method=SameAccountInstallMethod.release_directive()
             if is_prod
             else SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=None,
             should_authorize_event_sharing=expected_authorize_telemetry_flag,
             role="app_role",
@@ -400,7 +401,7 @@ def _setup_mocks_for_upgrade_app(
             install_method=SameAccountInstallMethod.release_directive()
             if is_prod
             else SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            stage_path_to_artifacts=DEFAULT_STAGE_FQN,
             debug_mode=None,
             should_authorize_event_sharing=expected_authorize_telemetry_flag,
             role="app_role",

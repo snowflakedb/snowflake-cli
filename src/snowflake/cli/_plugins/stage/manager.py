@@ -143,11 +143,11 @@ class DefaultStagePathParts(StagePathParts):
 
     @property
     def path(self) -> str:
-        return f"{self.stage_name.rstrip('/')}/{self.directory}"
+        return f"{self.stage_name.rstrip('/')}/{self.directory}".rstrip("/")
 
     @property
     def full_path(self) -> str:
-        return f"{self.stage.rstrip('/')}/{self.directory}"
+        return f"{self.stage.rstrip('/')}/{self.directory}".rstrip("/")
 
     @property
     def schema(self) -> str | None:

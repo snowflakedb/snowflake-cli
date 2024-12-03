@@ -25,6 +25,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
     ApplicationPackageEntityModel,
 )
+from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.connector.cursor import DictCursor
 
@@ -153,12 +154,11 @@ def test_deploy(
             app_pkg._workspace_ctx.project_root / Path("output/deploy")  # noqa SLF001
         ),
         package_name="pkg",
-        stage_schema="app_src",
         bundle_map=mock.ANY,
         role="app_role",
         prune=False,
         recursive=False,
-        stage_fqn="pkg.app_src.stage",
+        stage_path=DefaultStagePathParts("pkg.app_src.stage"),
         local_paths_to_sync=["a/b", "c"],
         print_diff=True,
     )
