@@ -31,6 +31,7 @@ from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEnt
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     find_entity,
     force_project_definition_v2,
@@ -198,7 +199,7 @@ def app_open(
     )
     app_id = options["app_entity_id"]
     app = ws.get_entity(app_id)
-    if app.get_existing_app_info():
+    if get_snowflake_facade().get_existing_app_info(app.name, app.role):
         typer.launch(app.get_snowsight_url())
         return MessageResult(f"Snowflake Native App opened in browser.")
     else:
