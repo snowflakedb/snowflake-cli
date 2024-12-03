@@ -46,6 +46,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ObjectPropertyNotFoundError,
     SetupScriptFailedValidation,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePathType,
@@ -521,7 +522,7 @@ def test_get_existing_app_info_app_exists(
     dm = _get_dm()
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
     app = ApplicationEntity(app_model, workspace_context)
-    show_obj_row = app.get_existing_app_info()
+    show_obj_row = get_snowflake_facade().get_existing_app_info(app.name, app.role)
     assert show_obj_row is not None
     assert show_obj_row[NAME_COL] == "MYAPP"
     assert mock_execute.mock_calls == expected
@@ -557,7 +558,7 @@ def test_get_existing_app_info_app_does_not_exist(
     dm = _get_dm()
     app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
     app = ApplicationEntity(app_model, workspace_context)
-    show_obj_row = app.get_existing_app_info()
+    show_obj_row = get_snowflake_facade().get_existing_app_info(app.name, app.role)
     assert show_obj_row is None
     assert mock_execute.mock_calls == expected
 

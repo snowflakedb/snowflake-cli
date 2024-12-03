@@ -62,6 +62,10 @@ class ObjectType(Enum):
         "image-repository", "image repository", "image repositories"
     )
     GIT_REPOSITORY = ObjectNames("git-repository", "git repository", "git repositories")
+    APPLICATION = ObjectNames("application", "application", "applications")
+    APPLICATION_PACKAGE = ObjectNames(
+        "application-package", "application package", "application packages"
+    )
 
     def __str__(self):
         """This makes using this Enum easier in formatted string"""
@@ -69,7 +73,11 @@ class ObjectType(Enum):
 
 
 OBJECT_TO_NAMES = {o.value.cli_name: o.value for o in ObjectType}
-SUPPORTED_OBJECTS = sorted(OBJECT_TO_NAMES.keys())
+UNSUPPORTED_OBJECTS = {
+    ObjectType.APPLICATION.value.cli_name,
+    ObjectType.APPLICATION_PACKAGE.value.cli_name,
+}
+SUPPORTED_OBJECTS = sorted(OBJECT_TO_NAMES.keys() - UNSUPPORTED_OBJECTS)
 
 # Scope names here must replace spaces with '-'. For example 'compute pool' is 'compute-pool'.
 VALID_SCOPES = ["database", "schema", "compute-pool"]
