@@ -18,6 +18,7 @@ from contextlib import contextmanager
 from textwrap import dedent
 from typing import Any, Dict, List
 
+from snowflake.cli._plugins.connection.util import UIParameter, get_ui_parameter
 from snowflake.cli._plugins.nativeapp.constants import (
     AUTHORIZE_TELEMETRY_COL,
     NAME_COL,
@@ -26,8 +27,6 @@ from snowflake.cli._plugins.nativeapp.constants import (
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
-from snowflake.cli._plugins.connection.util import UIParameter, get_ui_parameter
-from snowflake.cli._plugins.nativeapp.constants import SPECIAL_COMMENT
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CREATE_OR_UPGRADE_APPLICATION_EXPECTED_USER_ERROR_CODES,

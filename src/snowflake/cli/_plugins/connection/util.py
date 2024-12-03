@@ -79,6 +79,8 @@ def get_ui_parameters(conn: SnowflakeConnection) -> Dict[UIParameter, Any]:
 
     parameters_to_fetch = [param.value for param in UIParameter]
 
+    # Parsing of the Json and the filtering is happening here in Snowflake CLI
+    # in order to avoid requiring a warehouse in Snowflake
     query = "call system$bootstrap_data_request('CLIENT_PARAMS_INFO')"
     *_, cursor = conn.execute_string(query)
 
