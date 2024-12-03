@@ -1796,7 +1796,7 @@ def test_upgrade_application_unversioned(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=stage_fqn,
+            stage_path_to_artifacts=stage_fqn,
             debug_mode=None,
             should_authorize_event_sharing=None,
             role=role,
@@ -1847,7 +1847,7 @@ def test_upgrade_application_version_and_patch(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.versioned_dev("3", 2),
-            stage_fqn=stage_fqn,
+            stage_path_to_artifacts=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -1894,7 +1894,7 @@ def test_upgrade_application_from_release_directive(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            stage_path_to_artifacts=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -1940,7 +1940,7 @@ def test_upgrade_application_converts_expected_programmingerrors_to_user_errors(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=stage_fqn,
+            stage_path_to_artifacts=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2005,7 +2005,7 @@ def test_upgrade_application_special_message_for_event_sharing_error(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.versioned_dev("v1"),
-            stage_fqn=stage_fqn,
+            stage_path_to_artifacts=stage_fqn,
             debug_mode=False,
             should_authorize_event_sharing=False,
             role=role,
@@ -2054,7 +2054,7 @@ def test_upgrade_application_converts_unexpected_programmingerrors_to_unclassifi
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=stage_fqn,
+            stage_path_to_artifacts=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,

@@ -579,7 +579,7 @@ class SnowflakeSQLFacade:
         self,
         name: str,
         install_method: SameAccountInstallMethod,
-        stage_fqn: str,
+        stage_path_to_artifacts: str,
         role: str,
         warehouse: str,
         debug_mode: bool | None,
@@ -590,7 +590,7 @@ class SnowflakeSQLFacade:
 
         @param name: Name of the application object
         @param install_method: Method of installing the application
-        @param stage_fqn: FQN of the stage housing the application artifacts
+        @param stage_path_to_artifacts: FQN of the stage housing the application artifacts
         @param role: Role to use when creating the application and provider-side objects
         @param warehouse: Warehouse which is required to create an application object
         @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
@@ -605,7 +605,7 @@ class SnowflakeSQLFacade:
 
         with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
             try:
-                using_clause = install_method.using_clause(stage_fqn)
+                using_clause = install_method.using_clause(stage_path_to_artifacts)
                 upgrade_cursor = self._sql_executor.execute_query(
                     f"alter application {name} upgrade {using_clause}",
                 )
