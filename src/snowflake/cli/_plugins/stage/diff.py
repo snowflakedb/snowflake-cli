@@ -194,7 +194,7 @@ def to_local_path(stage_path: StagePathType) -> Path:
 
 def delete_only_on_stage_files(
     stage_manager: StageManager,
-    stage_fqn: str,
+    stage_root: str,
     only_on_stage: List[StagePathType],
     role: Optional[str] = None,
 ):
@@ -202,12 +202,12 @@ def delete_only_on_stage_files(
     Deletes all files from a Snowflake stage according to the input list of filenames, using a custom role.
     """
     for _stage_path in only_on_stage:
-        stage_manager.remove(stage_name=stage_fqn, path=str(_stage_path), role=role)
+        stage_manager.remove(stage_name=stage_root, path=str(_stage_path), role=role)
 
 
 def put_files_on_stage(
     stage_manager: StageManager,
-    stage_fqn: str,
+    stage_root: str,
     deploy_root_path: Path,
     stage_paths: List[StagePathType],
     role: Optional[str] = None,
@@ -219,7 +219,9 @@ def put_files_on_stage(
     for _stage_path in stage_paths:
         stage_sub_path = get_stage_subpath(_stage_path)
         full_stage_path = (
-            f"{stage_fqn}/{stage_sub_path}" if stage_sub_path else stage_fqn
+            f"{stage_root.rstrip('/')}/{stage_sub_path}"
+            if stage_sub_path
+            else stage_root
         )
         stage_manager.put(
             local_path=deploy_root_path / to_local_path(_stage_path),
@@ -230,7 +232,10 @@ def put_files_on_stage(
 
 
 def sync_local_diff_with_stage(
-    role: str | None, deploy_root_path: Path, diff_result: DiffResult, stage_fqn: str
+    role: str | None,
+    deploy_root_path: Path,
+    diff_result: DiffResult,
+    stage_full_path: str,
 ):
     """
     Syncs a given local directory's contents with a Snowflake stage, including removing old files, and re-uploading modified and new files.
@@ -243,18 +248,22 @@ def sync_local_diff_with_stage(
 
     try:
         delete_only_on_stage_files(
-            stage_manager, stage_fqn, diff_result.only_on_stage, role
+            stage_manager, stage_full_path, diff_result.only_on_stage, role
         )
         put_files_on_stage(
-            stage_manager,
-            stage_fqn,
-            deploy_root_path,
-            diff_result.different,
-            role,
+            stage_manager=stage_manager,
+            stage_root=stage_full_path,
+            deploy_root_path=deploy_root_path,
+            stage_paths=diff_result.different,
+            role=role,
             overwrite=True,
         )
         put_files_on_stage(
-            stage_manager, stage_fqn, deploy_root_path, diff_result.only_local, role
+            stage_manager=stage_manager,
+            stage_root=stage_full_path,
+            deploy_root_path=deploy_root_path,
+            stage_paths=diff_result.only_local,
+            role=role,
         )
     except Exception as err:
         # Could be ProgrammingError or IntegrityError from SnowflakeCursor

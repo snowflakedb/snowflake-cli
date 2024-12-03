@@ -252,7 +252,7 @@ def test_put_files_on_stage(mock_put, overwrite_param):
     ) as local_path:
         put_files_on_stage(
             stage_manager=StageManager(),
-            stage_fqn=stage_name,
+            stage_root=stage_name,
             deploy_root_path=local_path,
             stage_paths=as_stage_paths(["ui/nested/environment.yml", "README.md"]),
             role="some_role",
@@ -306,7 +306,7 @@ def test_sync_local_diff_with_stage(mock_remove, other_directory):
             role="some_role",
             deploy_root_path=temp_dir,
             diff_result=diff,
-            stage_fqn=stage_name,
+            stage_full_path=stage_name,
         )
 
 

@@ -190,7 +190,7 @@ def sync_deploy_root_with_stage(
             role=role,
             deploy_root_path=deploy_root,
             diff_result=diff,
-            stage_fqn=stage_fqn,
+            stage_full_path=stage_path.full_path,
         )
     return diff
 

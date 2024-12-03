@@ -31,7 +31,6 @@ class WorkspaceManager:
         self._entities_cache: Dict[str, Entity] = {}
         self._project_definition: DefinitionV20 = project_definition
         self._project_root = project_root
-        self._entities_identifier_cache: Dict[str, list[Entity]] = {}
 
     def get_entity(self, entity_id: str):
         """
