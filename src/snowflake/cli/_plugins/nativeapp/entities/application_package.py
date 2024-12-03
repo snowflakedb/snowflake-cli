@@ -235,7 +235,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def action_diff(
         self, action_ctx: ActionContext, print_to_console: bool, *args, **kwargs
     ):
-
+        """
+        Compute the diff between the local artifacts and the remote ones on the stage.
+        """
         bundle_map = self._bundle()
         diff = compute_stage_diff(
             local_root=self.deploy_root,
