@@ -3,24 +3,18 @@
   list([
     dict({
       'comment': None,
-      'dropped_on': None,
       'label': '',
-      'log_level': 'OFF',
       'patch': 0,
       'review_status': 'NOT_REVIEWED',
       'state': 'READY',
-      'trace_level': 'OFF',
       'version': 'V1',
     }),
     dict({
       'comment': None,
-      'dropped_on': None,
       'label': '',
-      'log_level': 'OFF',
       'patch': 1,
       'review_status': 'NOT_REVIEWED',
       'state': 'READY',
-      'trace_level': 'OFF',
       'version': 'V1',
     }),
   ])
