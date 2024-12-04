@@ -66,7 +66,7 @@ def _put_query(source: str, dest: str):
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_only_streamlit_file(
@@ -121,7 +121,7 @@ def test_deploy_only_streamlit_file(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_only_streamlit_file_no_stage(
@@ -175,7 +175,7 @@ def test_deploy_only_streamlit_file_no_stage(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_with_empty_pages(
@@ -231,7 +231,7 @@ def test_deploy_with_empty_pages(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_only_streamlit_file_replace(
@@ -298,11 +298,12 @@ def test_artifacts_must_exists(
         assert result.output == snapshot
 
 
+@pytest.mark.parametrize("project_name", ["example_streamlit_v2", "example_streamlit"])
 @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_launch_browser(
@@ -313,6 +314,7 @@ def test_deploy_launch_browser(
     runner,
     mock_ctx,
     project_directory,
+    project_name,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -324,7 +326,7 @@ def test_deploy_launch_browser(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit"):
+    with project_directory(project_name):
         result = runner.invoke(["streamlit", "deploy", "--open"])
 
     assert result.exit_code == 0, result.output
@@ -334,14 +336,22 @@ def test_deploy_launch_browser(
     )
 
 
+@pytest.mark.parametrize("project_name", ["example_streamlit_v2", "example_streamlit"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_streamlit_and_environment_files(
-    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_param,
+    mock_connector,
+    mock_cursor,
+    runner,
+    mock_ctx,
+    alter_snowflake_yml,
+    project_directory,
+    project_name,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -354,8 +364,14 @@ def test_deploy_streamlit_and_environment_files(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit") as pdir:
+    with project_directory(project_name) as pdir:
         shutil.rmtree(pdir / "pages")
+        if project_name == "example_streamlit_v2":
+            alter_snowflake_yml(
+                pdir / "snowflake.yml",
+                parameter_path="entities.test_streamlit.artifacts",
+                value=["streamlit_app.py", "environment.yml"],
+            )
 
         result = runner.invoke(["streamlit", "deploy"])
 
@@ -379,14 +395,22 @@ def test_deploy_streamlit_and_environment_files(
     ]
 
 
+@pytest.mark.parametrize("project_name", ["example_streamlit_v2", "example_streamlit"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_streamlit_and_pages_files(
-    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_param,
+    mock_connector,
+    mock_cursor,
+    runner,
+    mock_ctx,
+    alter_snowflake_yml,
+    project_directory,
+    project_name,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -399,8 +423,14 @@ def test_deploy_streamlit_and_pages_files(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit") as pdir:
+    with project_directory(project_name) as pdir:
         (pdir / "environment.yml").unlink()
+        if project_name == "example_streamlit_v2":
+            alter_snowflake_yml(
+                pdir / "snowflake.yml",
+                parameter_path="entities.test_streamlit.artifacts",
+                value=["streamlit_app.py", "pages/"],
+            )
         result = runner.invoke(["streamlit", "deploy"])
 
     root_path = f"@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}"
@@ -423,14 +453,23 @@ def test_deploy_streamlit_and_pages_files(
     ]
 
 
+@pytest.mark.parametrize(
+    "project_name", ["streamlit_full_definition_v2", "streamlit_full_definition"]
+)
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_all_streamlit_files(
-    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_param,
+    mock_connector,
+    mock_cursor,
+    runner,
+    mock_ctx,
+    project_directory,
+    project_name,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -443,7 +482,7 @@ def test_deploy_all_streamlit_files(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("streamlit_full_definition"):
+    with project_directory(project_name):
         result = runner.invoke(["streamlit", "deploy"])
 
     root_path = f"@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}"
@@ -468,14 +507,39 @@ def test_deploy_all_streamlit_files(
     ]
 
 
+@pytest.mark.parametrize(
+    "project_name, merge_definition",
+    [
+        (
+            "example_streamlit_v2",
+            {
+                "entities": {
+                    "test_streamlit": {
+                        "stage": "streamlit_stage",
+                        "artifacts": ["streamlit_app.py", "environment.yml", "pages"],
+                    }
+                }
+            },
+        ),
+        ("example_streamlit", {"streamlit": {"stage": "streamlit_stage"}}),
+    ],
+)
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_put_files_on_stage(
-    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_param,
+    mock_connector,
+    mock_cursor,
+    runner,
+    mock_ctx,
+    alter_snowflake_yml,
+    project_directory,
+    project_name,
+    merge_definition,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -489,8 +553,8 @@ def test_deploy_put_files_on_stage(
     mock_connector.return_value = ctx
 
     with project_directory(
-        "example_streamlit",
-        merge_project_definition={"streamlit": {"stage": "streamlit_stage"}},
+        project_name,
+        merge_project_definition=merge_definition,
     ):
         result = runner.invoke(["streamlit", "deploy"])
 
@@ -503,26 +567,36 @@ def test_deploy_put_files_on_stage(
         _put_query("pages/*", f"{root_path}/pages"),
         dedent(
             f"""
-            CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
-            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}'
-            MAIN_FILE = 'streamlit_app.py'
-            QUERY_WAREHOUSE = test_warehouse
-            TITLE = 'My Fancy Streamlit'
-            """
+                CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
+                ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}'
+                MAIN_FILE = 'streamlit_app.py'
+                QUERY_WAREHOUSE = test_warehouse
+                TITLE = 'My Fancy Streamlit'
+                """
         ).strip(),
         f"select system$get_snowsight_host()",
         f"select current_account_name()",
     ]
 
 
+@pytest.mark.parametrize(
+    "project_name",
+    ["example_streamlit_no_defaults", "example_streamlit_no_defaults_v2"],
+)
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_all_streamlit_files_not_defaults(
-    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_param,
+    mock_connector,
+    mock_cursor,
+    runner,
+    mock_ctx,
+    project_directory,
+    project_name,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -535,7 +609,7 @@ def test_deploy_all_streamlit_files_not_defaults(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit_no_defaults"):
+    with project_directory(project_name):
         result = runner.invoke(["streamlit", "deploy"])
 
     root_path = f"@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}"
@@ -558,12 +632,13 @@ def test_deploy_all_streamlit_files_not_defaults(
     ]
 
 
+@pytest.mark.parametrize("project_name", ["example_streamlit", "example_streamlit_v2"])
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
 @pytest.mark.parametrize("enable_streamlit_no_checkouts", [True, False])
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental(
@@ -572,9 +647,12 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     mock_cursor,
     runner,
     mock_ctx,
+    alter_snowflake_yml,
     project_directory,
+    os_agnostic_snapshot,
     enable_streamlit_versioned_stage,
     enable_streamlit_no_checkouts,
+    project_name,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -597,7 +675,13 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
             return_value=enable_streamlit_no_checkouts,
         ),
     ):
-        with project_directory("example_streamlit"):
+        with project_directory(project_name) as pdir:
+            if project_name == "example_streamlit_v2":
+                alter_snowflake_yml(
+                    pdir / "snowflake.yml",
+                    parameter_path="entities.test_streamlit.artifacts",
+                    value=["streamlit_app.py", "environment.yml", "pages"],
+                )
             result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     if enable_streamlit_versioned_stage:
@@ -620,11 +704,11 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
         for cmd in [
             dedent(
                 f"""
-            CREATE STREAMLIT IF NOT EXISTS IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
-            MAIN_FILE = 'streamlit_app.py'
-            QUERY_WAREHOUSE = test_warehouse
-            TITLE = 'My Fancy Streamlit'
-            """
+               CREATE STREAMLIT IF NOT EXISTS IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
+               MAIN_FILE = 'streamlit_app.py'
+               QUERY_WAREHOUSE = test_warehouse
+               TITLE = 'My Fancy Streamlit'
+               """
             ).strip(),
             post_create_command,
             _put_query("streamlit_app.py", root_path),
@@ -637,10 +721,11 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     ]
 
 
+@pytest.mark.parametrize("project_name", ["example_streamlit", "example_streamlit_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
@@ -649,7 +734,9 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
     mock_cursor,
     runner,
     mock_ctx,
+    alter_snowflake_yml,
     project_directory,
+    project_name,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -662,7 +749,13 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit"):
+    with project_directory(project_name) as pdir:
+        if project_name == "example_streamlit_v2":
+            alter_snowflake_yml(
+                pdir / "snowflake.yml",
+                parameter_path="entities.test_streamlit.artifacts",
+                value=["streamlit_app.py", "environment.yml", "pages"],
+            )
         result1 = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     assert result1.exit_code == 0, result1.output
@@ -678,7 +771,13 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
     )
     ctx.queries = []
 
-    with project_directory("example_streamlit"):
+    with project_directory(project_name) as pdir:
+        if project_name == "example_streamlit_v2":
+            alter_snowflake_yml(
+                pdir / "snowflake.yml",
+                parameter_path="entities.test_streamlit.artifacts",
+                value=["streamlit_app.py", "environment.yml", "pages"],
+            )
         result2 = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     assert result2.exit_code == 0, result2.output
@@ -703,11 +802,14 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
     ]
 
 
+@pytest.mark.parametrize(
+    "project_name", ["example_streamlit_no_stage", "example_streamlit_no_stage_v2"]
+)
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
@@ -716,8 +818,10 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
     mock_cursor,
     runner,
     mock_ctx,
+    alter_snowflake_yml,
     project_directory,
     enable_streamlit_versioned_stage,
+    project_name,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -734,7 +838,8 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
         "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
         return_value=enable_streamlit_versioned_stage,
     ):
-        with project_directory("example_streamlit_no_stage"):
+        with project_directory(project_name):
+
             result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     if enable_streamlit_versioned_stage:
@@ -766,14 +871,22 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
     ]
 
 
+@pytest.mark.parametrize("project_name", ["example_streamlit", "example_streamlit_v2"])
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_replace(
-    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_param,
+    mock_connector,
+    mock_cursor,
+    runner,
+    mock_ctx,
+    alter_snowflake_yml,
+    project_directory,
+    project_name,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -786,7 +899,13 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
     )
     mock_connector.return_value = ctx
 
-    with project_directory("example_streamlit"):
+    with project_directory(project_name) as pdir:
+        if project_name == "example_streamlit_v2":
+            alter_snowflake_yml(
+                pdir / "snowflake.yml",
+                parameter_path="entities.test_streamlit.artifacts",
+                value=["streamlit_app.py", "environment.yml", "pages/"],
+            )
         result = runner.invoke(["streamlit", "deploy", "--experimental", "--replace"])
 
     root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
@@ -810,27 +929,32 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
 
 
 @pytest.mark.parametrize(
-    "opts",
+    "project_name,opts",
     [
-        ("pages_dir", "foo/bar"),
-        ("env_file", "foo.yml"),
+        ("example_streamlit", {"streamlit": {"pages_dir": "foo.bar"}}),
+        ("example_streamlit", {"streamlit": {"env_file": "foo.bar"}}),
+        (
+            "example_streamlit_v2",
+            {"entities": {"test_streamlit": {"pages_dir": "foo.bar"}}},
+        ),
+        (
+            "example_streamlit_v2",
+            {"entities": {"test_streamlit": {"artifacts": ["foo.bar"]}}},
+        ),
     ],
 )
 @mock.patch("snowflake.connector.connect")
 def test_deploy_streamlit_nonexisting_file(
-    mock_connector, runner, mock_ctx, project_directory, opts
+    mock_connector, runner, mock_ctx, snapshot, project_directory, opts, project_name
 ):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    with project_directory(
-        "example_streamlit", merge_project_definition={"streamlit": {opts[0]: opts[1]}}
-    ):
+    with project_directory(project_name, merge_project_definition=opts):
         result = runner.invoke(["streamlit", "deploy"])
 
-        assert f"Provided file {opts[1]} does not exist" in result.output.replace(
-            "\\", "/"
-        )
+        assert result.exit_code == 1
+        assert result.output == snapshot
 
 
 @mock.patch("snowflake.connector.connect")
@@ -862,7 +986,7 @@ def test_drop_streamlit(mock_connector, runner, mock_ctx):
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 def test_get_streamlit_url(mock_param, mock_connector, mock_cursor, runner, mock_ctx):
     ctx = mock_ctx(
@@ -944,7 +1068,7 @@ def test_multiple_streamlit_raise_error_if_multiple_entities(
 @mock.patch("snowflake.connector.connect")
 @mock.patch(
     GET_UI_PARAMETERS,
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 def test_deploy_streamlit_with_comment_v2(
     mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory

@@ -1,0 +1,127 @@
+definition_version: '2'
+entities:
+  custom_db_custom_schema_fqn_function:
+    imports: []
+    external_access_integrations: []
+    secrets: {}
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: custom_db.custom_schema.fqn_function
+    handler: app.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    stage: dev_deployment
+    artifacts:
+    - src: app
+      dest: my_snowpark_project
+    type: function
+  custom_schema_fqn_function_only_schema:
+    imports: []
+    external_access_integrations: []
+    secrets: {}
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: custom_schema.fqn_function_only_schema
+    handler: app.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    stage: dev_deployment
+    artifacts:
+    - src: app
+      dest: my_snowpark_project
+    type: function
+  schema_function:
+    imports: []
+    external_access_integrations: []
+    secrets: {}
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: schema_function
+      schema: custom_schema
+    handler: app.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    stage: dev_deployment
+    artifacts:
+    - src: app
+      dest: my_snowpark_project
+    type: function
+  database_function:
+    imports: []
+    external_access_integrations: []
+    secrets: {}
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: database_function
+      database: custom_db
+    handler: app.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    stage: dev_deployment
+    artifacts:
+    - src: app
+      dest: my_snowpark_project
+    type: function
+  custom_schema_database_function:
+    imports: []
+    external_access_integrations: []
+    secrets: {}
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: custom_schema.database_function
+      database: custom_db
+    handler: app.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    stage: dev_deployment
+    artifacts:
+    - src: app
+      dest: my_snowpark_project
+    type: function
+  custom_database_custom_schema_fqn_function_error:
+    imports: []
+    external_access_integrations: []
+    secrets: {}
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: custom_database.custom_schema.fqn_function_error
+      schema: custom_schema
+      database: custom_database
+    handler: app.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    stage: dev_deployment
+    artifacts:
+    - src: app
+      dest: my_snowpark_project
+    type: function
+mixins:
+  snowpark_shared:
+    stage: dev_deployment
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project
