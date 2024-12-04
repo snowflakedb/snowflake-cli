@@ -4,9 +4,11 @@ entities:
     identifier:
       name: test_streamlit
     type: streamlit
-    title: My Fancy Streamlit
     query_warehouse: test_warehouse
     main_file: streamlit_app.py
+    pages_dir: None
     stage: streamlit
     artifacts:
-      - streamlit_app.py
+    - streamlit_app.py
+    - environment.yml
+    - pages
