@@ -30,6 +30,9 @@ from snowflake.cli._plugins.nativeapp.constants import (
     PATCH_COL,
     VERSION_COL,
 )
+from snowflake.cli._plugins.nativeapp.entities.application_package_child_interface import (
+    ApplicationPackageChildInterface,
+)
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
     ApplicationPackageDoesNotExistError,
@@ -55,7 +58,6 @@ from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
 )
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
@@ -623,7 +625,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     children_artifacts_dir / child.target
                 )  # TODO Sanitize dir name
                 os.makedirs(children_artifacts_dir)
-                child_entity = action_ctx.get_entity(child.target)
+                child_entity: ApplicationPackageChildInterface = action_ctx.get_entity(
+                    child.target
+                )
                 child_entity.bundle(children_artifacts_dir)
                 app_role = to_identifier(
                     child.application_roles.pop()
@@ -635,10 +639,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
                 children_sql.append(
                     child_entity.get_deploy_sql(
-                        schema=child_schema,
-                        from_=Path(
+                        artifacts_dir=Path(
                             self._entity_model.children_artifacts_dir, child.target
                         ),
+                        schema=child_schema,
                     )
                 )
                 if app_role:
@@ -649,14 +653,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                         children_sql.append(
                             f"GRANT USAGE ON SCHEMA {child_schema} TO APPLICATION ROLE {app_role};"
                         )
-                if isinstance(child_entity, StreamlitEntity) and app_role:
-                    streamlit_name = (
-                        f"{child_schema}.{child_entity.entity_id}"
-                        if child_schema
-                        else child_entity.entity_id
-                    )
                     children_sql.append(
-                        f"GRANT USAGE ON STREAMLIT {streamlit_name} TO APPLICATION ROLE {app_role};"
+                        child_entity.get_grants_sql(
+                            app_role=app_role, schema=child_schema
+                        )
                     )
 
         bundle_context = BundleContext(
