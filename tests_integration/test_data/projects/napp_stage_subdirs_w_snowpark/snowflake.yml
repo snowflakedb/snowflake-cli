@@ -1,0 +1,38 @@
+definition_version: 2
+entities:
+  pkg_v1:
+    type: application package
+    identifier: <% fn.concat_ids('stage_w_subdirs_pkg', ctx.env.suffix) %>
+    stage_subdirectory: v1
+    manifest: ""
+    artifacts:
+      - src: app/v1/*
+        dest: ./
+        processors:
+          - snowpark
+
+  pkg_v2:
+    type: application package
+    identifier: <% fn.concat_ids('stage_w_subdirs_pkg', ctx.env.suffix) %>
+    stage_subdirectory: v2
+    manifest: ""
+    artifacts:
+      - src: app/v2/*
+        dest: ./
+        processors:
+          - snowpark
+
+  app_v1:
+    type: application
+    from:
+      target: pkg_v1
+    identifier: <% fn.concat_ids('stage_w_subdirs_app_v1', ctx.env.suffix) %>
+
+  app_v2:
+    type: application
+    from:
+      target: pkg_v2
+    identifier: <% fn.concat_ids('stage_w_subdirs_app_v2', ctx.env.suffix) %>
+
+env:
+  suffix: <% fn.concat_ids('_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>

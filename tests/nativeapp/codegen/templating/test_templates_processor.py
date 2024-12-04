@@ -91,6 +91,19 @@ def test_templates_processor_valid_files_no_templates():
         assert bundle_result.output_files[0].read_text() == file_contents[0]
 
 
+@mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, {})
+def test_templates_processor_cant_read_file():
+    file_names = ["test_file.txt"]
+    file_contents = ["This is a test file\n with some content"]
+    with TemporaryDirectory() as tmp_dir:
+        bundle_result = bundle_files(tmp_dir, file_names, file_contents)
+        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor.process(bundle_result.artifact_to_process, None)
+
+        assert bundle_result.output_files[0].is_symlink()
+        assert bundle_result.output_files[0].read_text() == file_contents[0]
+
+
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, {"ctx": {"env": {"TEST_VAR": "test_value"}}})
 def test_one_file_with_template_and_one_without():
     file_names = ["test_file.txt", "test_file_with_template.txt"]

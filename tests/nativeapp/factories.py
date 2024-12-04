@@ -132,6 +132,7 @@ class ApplicationPackageEntityModelFactory(EntityModelBaseFactory):
     artifacts = factory.List(
         ["setup.sql", "README.md", "manifest.yml"], list_factory=ArtifactFactory
     )
+    stage_subdirectory = None
 
 
 class ApplicationEntityModelFactory(EntityModelBaseFactory):
