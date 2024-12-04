@@ -31,6 +31,17 @@ from tests.project.fixtures import *
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
 
 
+# A minimal set of fields to compare when checking version output
+VERSION_FIELDS_TO_OUTPUT = [
+    "comment",
+    "label",
+    "patch",
+    "review_status",
+    "state",
+    "version",
+]
+
+
 def set_version_in_app_manifest(manifest_path: Path, version: Any, patch: Any = None):
     with open(manifest_path, "r") as f:
         manifest = safe_load(f)
@@ -373,10 +384,10 @@ def test_nativeapp_version_create_package_no_magic_comment(
         # app package contains version v1 with 2 patches
         actual = runner.invoke_with_connection_json(split(list_command))
         for row in actual.json:
-            # Remove date field
-            row.pop("created_on", None)
-            # Remove metric_level field
-            row.pop("metric_level", None)
+            keys_to_remove = row.keys() - VERSION_FIELDS_TO_OUTPUT
+            for key in keys_to_remove:
+                del row[key]
+
         assert actual.json == snapshot
 
 
