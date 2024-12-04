@@ -419,8 +419,8 @@ def _setup_mocks_for_upgrade_app(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -504,8 +504,8 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -586,8 +586,8 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: True,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -663,8 +663,8 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
+        UIParameter.NA_EVENT_SHARING_V2: True,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: True,
     },
 )
 @pytest.mark.parametrize(
@@ -740,8 +740,8 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: True,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -823,8 +823,8 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: True,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -911,8 +911,8 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
+        UIParameter.NA_EVENT_SHARING_V2: True,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: True,
     },
 )
 @pytest.mark.parametrize(
@@ -986,8 +986,8 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
+        UIParameter.NA_EVENT_SHARING_V2: True,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: True,
     },
 )
 @pytest.mark.parametrize(
@@ -1061,8 +1061,8 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
+        UIParameter.NA_EVENT_SHARING_V2: True,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: True,
     },
 )
 @pytest.mark.parametrize(
@@ -1147,8 +1147,8 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
+        UIParameter.NA_EVENT_SHARING_V2: True,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: True,
     },
 )
 @pytest.mark.parametrize(
@@ -1233,8 +1233,8 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
+        UIParameter.NA_EVENT_SHARING_V2: True,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: True,
     },
 )
 @pytest.mark.parametrize(
@@ -1310,8 +1310,8 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
+        UIParameter.NA_EVENT_SHARING_V2: True,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: True,
     },
 )
 @pytest.mark.parametrize(
@@ -1395,8 +1395,8 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
+        UIParameter.NA_EVENT_SHARING_V2: True,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: True,
     },
 )
 @pytest.mark.parametrize(
@@ -1476,8 +1476,8 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
+        UIParameter.NA_EVENT_SHARING_V2: True,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: True,
     },
 )
 @pytest.mark.parametrize(
@@ -1548,8 +1548,8 @@ def test_shared_events_with_no_enabled_mandatory_events_then_error(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "true",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "true",
+        UIParameter.NA_EVENT_SHARING_V2: True,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: True,
     },
 )
 @pytest.mark.parametrize(

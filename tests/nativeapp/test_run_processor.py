@@ -232,8 +232,8 @@ def setup_project_file(current_working_directory: str, pdf=None):
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_w_warehouse_access_exception(
@@ -308,8 +308,8 @@ def test_create_dev_app_w_warehouse_access_exception(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_create_new_w_no_additional_privileges(
@@ -361,8 +361,8 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -450,8 +450,8 @@ def test_create_or_upgrade_dev_app_with_warning(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_create_new_with_additional_privileges(
@@ -523,8 +523,8 @@ def test_create_dev_app_create_new_with_additional_privileges(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_create_new_w_missing_warehouse_exception(
@@ -575,8 +575,8 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -627,8 +627,8 @@ def test_create_dev_app_incorrect_properties(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_incorrect_owner(
@@ -685,8 +685,8 @@ def test_create_dev_app_incorrect_owner(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @mock_connection()
@@ -742,8 +742,8 @@ def test_create_dev_app_no_diff_changes(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_w_diff_changes(
@@ -797,8 +797,8 @@ def test_create_dev_app_w_diff_changes(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_recreate_w_missing_warehouse_exception(
@@ -843,8 +843,8 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_create_new_quoted(
@@ -922,8 +922,8 @@ def test_create_dev_app_create_new_quoted(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_create_new_quoted_override(
@@ -985,8 +985,8 @@ def test_create_dev_app_create_new_quoted_override(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_recreate_app_when_orphaned(
@@ -1105,8 +1105,8 @@ def test_create_dev_app_recreate_app_when_orphaned(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
@@ -1247,8 +1247,8 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_objects(
@@ -1374,8 +1374,8 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -1430,8 +1430,8 @@ def test_upgrade_app_warehouse_error(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -1491,8 +1491,8 @@ def test_upgrade_app_incorrect_owner(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -1547,8 +1547,8 @@ def test_upgrade_app_succeeds(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -1610,8 +1610,8 @@ def test_upgrade_app_fails_generic_error(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -1689,8 +1689,8 @@ def test_upgrade_app_fails_upgrade_restriction_error(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_versioned_app_upgrade_to_unversioned(
@@ -1807,8 +1807,8 @@ def test_versioned_app_upgrade_to_unversioned(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -1891,8 +1891,8 @@ def test_upgrade_app_fails_drop_fails(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize("policy_param", [allow_always_policy, ask_always_policy])
@@ -2062,8 +2062,8 @@ def test_upgrade_app_from_version_throws_usage_error_two(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize("policy_param", [allow_always_policy, ask_always_policy])

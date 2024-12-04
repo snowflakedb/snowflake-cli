@@ -80,6 +80,11 @@ SQL_FACADE_UPGRADE_APPLICATION = f"{SQL_FACADE}.upgrade_application"
 SQL_FACADE_GET_EVENT_DEFINITIONS = f"{SQL_FACADE}.get_event_definitions"
 SQL_FACADE_GET_EXISTING_APP_INFO = f"{SQL_FACADE}.get_existing_app_info"
 SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE = f"{SQL_FACADE}.grant_privileges_to_role"
+SQL_FACADE_GET_UI_PARAMETER = f"{SQL_FACADE}.get_ui_parameter"
+SQL_FACADE_ALTER_APP_PKG_PROPERTIES = (
+    f"{SQL_FACADE}.alter_application_package_properties"
+)
+SQL_FACADE_CREATE_APP_PKG = f"{SQL_FACADE}.create_application_package"
 
 mock_snowflake_yml_file = dedent(
     """\
