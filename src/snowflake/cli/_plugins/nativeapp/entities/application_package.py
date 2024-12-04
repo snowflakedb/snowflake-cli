@@ -79,7 +79,6 @@ from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
     Identifier,
     PostDeployHook,
-    TargetField,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
@@ -144,7 +143,7 @@ class ApplicationPackageEntityModel(EntityModelBase):
         title="Folder at the root of your project where the build step copies the artifacts",
         default="output/deploy/",
     )
-    child_artifacts_dir: Optional[str] = Field(
+    children_artifacts_dir: Optional[str] = Field(
         title="Folder under deploy_root where the child artifacts will be stored",
         default="_children/",
     )
@@ -173,14 +172,14 @@ class ApplicationPackageEntityModel(EntityModelBase):
         default=[],
     )
 
-    @field_validator("children")
+    @field_validator("children", mode="before")
     @classmethod
     def verify_children_behind_flag(
-        cls, input_value: List[TargetField[ApplicationPackageChildrenTypes]]
-    ) -> List[TargetField[ApplicationPackageChildrenTypes]]:
-        if FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
-            return input_value
-        raise AttributeError("Application package children are not supported yet")
+        cls, input_value: Optional[List[ApplicationPackageChildField]]
+    ) -> Optional[List[ApplicationPackageChildField]]:
+        if input_value and not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
+            raise AttributeError("Application package children are not supported yet")
+        return input_value
 
     @field_validator("identifier")
     @classmethod
@@ -237,8 +236,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         return self.project_root / self._entity_model.deploy_root
 
     @property
-    def entities_deploy_root(self) -> Path:
-        return self.deploy_root / self._entity_model.child_artifacts_dir
+    def children_artifacts_deploy_root(self) -> Path:
+        return self.deploy_root / self._entity_model.children_artifacts_dir
 
     @property
     def bundle_root(self) -> Path:
@@ -615,17 +614,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         bundle_map = build_bundle(self.project_root, self.deploy_root, model.artifacts)
         if self._entity_model.children:
             # Create _children directory
-            child_artifacts_dir = self.entities_deploy_root
-            os.makedirs(child_artifacts_dir)
+            children_artifacts_dir = self.children_artifacts_deploy_root
+            os.makedirs(children_artifacts_dir)
             children_sql = []
             for child in self._entity_model.children:
                 # Create child sub directory
-                child_artifacts_dir = (
-                    child_artifacts_dir / child.target
+                children_artifacts_dir = (
+                    children_artifacts_dir / child.target
                 )  # TODO Sanitize dir name
-                os.makedirs(child_artifacts_dir)
+                os.makedirs(children_artifacts_dir)
                 child_entity = action_ctx.get_entity(child.target)
-                child_entity.bundle(child_artifacts_dir)
+                child_entity.bundle(children_artifacts_dir)
                 app_role = to_identifier(
                     child.application_roles.pop()
                 )  # TODO Support more than one application role
@@ -638,7 +637,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     child_entity.get_deploy_sql(
                         schema=child_schema,
                         from_=Path(
-                            self._entity_model.child_artifacts_dir, child.target
+                            self._entity_model.children_artifacts_dir, child.target
                         ),
                     )
                 )
