@@ -297,10 +297,7 @@ def txt_file_in_a_subdir(temp_dir: str) -> Generator:
 def project_directory(temp_dir, test_projects_path):
     @contextmanager
     def _temporary_project_directory(
-        project_name,
-        merge_project_definition: Optional[
-            dict
-        ] = None,  # TODO: does merge definitions work for v2?
+        project_name, merge_project_definition: Optional[dict] = None
     ):
         test_data_file = test_projects_path / project_name
         shutil.copytree(test_data_file, temp_dir, dirs_exist_ok=True)
