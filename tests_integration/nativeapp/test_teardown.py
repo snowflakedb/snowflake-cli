@@ -261,6 +261,7 @@ def test_nativeapp_teardown_pkg_versions(
         assert result.exit_code == 0
 
 
+@pytest.mark.integration
 def test_nativeapp_teardown_multiple_apps_using_snow_app(
     runner,
     nativeapp_project_directory,
@@ -322,6 +323,7 @@ def test_nativeapp_teardown_multiple_apps_using_snow_app(
             )
 
 
+@pytest.mark.integration
 def test_nativeapp_teardown_multiple_packages_using_snow_app_must_choose(
     runner,
     nativeapp_project_directory,

@@ -1,0 +1,31 @@
+definition_version: '2'
+entities:
+  func1:
+    imports: []
+    external_access_integrations: []
+    secrets: {}
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: func1
+    handler: app.func1_handler
+    returns: string
+    signature:
+    - name: a
+      type: string
+      default: default value
+    - name: b
+      type: variant
+    runtime: '3.10'
+    stage: dev_deployment
+    artifacts:
+    - src: app.py
+      dest: my_snowpark_project
+    type: function
+mixins:
+  snowpark_shared:
+    stage: dev_deployment
+    artifacts:
+    - src: app.py
+      dest: my_snowpark_project

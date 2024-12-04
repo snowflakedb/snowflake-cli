@@ -81,9 +81,12 @@ from tests.nativeapp.utils import (
     APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
     ENTITIES_UTILS_MODULE,
     SQL_EXECUTOR_EXECUTE,
+    SQL_FACADE_ALTER_APP_PKG_PROPERTIES,
+    SQL_FACADE_CREATE_APP_PKG,
     SQL_FACADE_CREATE_SCHEMA,
     SQL_FACADE_CREATE_STAGE,
     SQL_FACADE_GET_ACCOUNT_EVENT_TABLE,
+    SQL_FACADE_GET_UI_PARAMETER,
     SQL_FACADE_STAGE_EXISTS,
     mock_execute_helper,
     mock_snowflake_yml_file_v2,
@@ -773,38 +776,21 @@ def test_get_snowsight_url_without_pdf_warehouse(
 
 
 # Test create_app_package() with no existing package available
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO, return_value=None)
-def test_create_app_pkg_no_existing_package(
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
+@mock.patch(SQL_FACADE_CREATE_APP_PKG)
+@mock.patch("snowflake.cli.api.config.get_config_value")
+@pytest.mark.parametrize("feature_flag", [True, False, None])
+def test_given_no_existing_pkg_when_create_app_pkg_then_success_and_respect_release_channels_flag(
+    mock_get_config_value,
+    mock_create_app_pkg,
+    mock_get_ui_parameter,
     mock_get_existing_app_pkg_info,
-    mock_execute,
     temp_dir,
-    mock_cursor,
     workspace_context,
+    feature_flag,
 ):
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                None,
-                mock.call(
-                    dedent(
-                        f"""\
-                        create application package app_pkg
-                            comment = {SPECIAL_COMMENT}
-                            distribution = internal
-                    """
-                    )
-                ),
-            ),
-            (None, mock.call("use role old_role")),
-        ]
-    )
-    mock_execute.side_effect = side_effects
+    mock_get_config_value.return_value = feature_flag
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -816,9 +802,70 @@ def test_create_app_pkg_no_existing_package(
     dm = _get_dm()
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
     pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+
     pkg.create_app_package()
-    assert mock_execute.mock_calls == expected
+
     mock_get_existing_app_pkg_info.assert_called_once()
+    mock_create_app_pkg.assert_called_once_with(
+        package_name="app_pkg",
+        distribution="internal",
+        enable_release_channels=feature_flag,
+        role="package_role",
+    )
+    mock_get_config_value.assert_called_once_with(
+        "cli", "features", key="enable_release_channels", default=None
+    )
+
+
+@mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
+@mock_get_app_pkg_distribution_in_sf()
+@mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME)
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
+@mock.patch(SQL_FACADE_ALTER_APP_PKG_PROPERTIES)
+@mock.patch("snowflake.cli.api.config.get_config_value")
+@pytest.mark.parametrize("feature_flag", [True, False, None])
+def test_given_existing_app_package_with_feature_flag_set_when_create_pkg_then_set_pkg_property_to_same_value(
+    mock_get_config_value,
+    mock_alter_app_pkg_properties,
+    mock_get_ui_parameter,
+    mock_is_distribution_same,
+    mock_get_distribution,
+    mock_get_existing_app_pkg_info,
+    temp_dir,
+    workspace_context,
+    feature_flag,
+):
+    mock_get_config_value.return_value = feature_flag
+    mock_is_distribution_same.return_value = True
+    mock_get_distribution.return_value = "internal"
+    mock_get_existing_app_pkg_info.return_value = {
+        "name": "APP_PKG",
+        "comment": SPECIAL_COMMENT,
+        "version": LOOSE_FILES_MAGIC_VERSION,
+        "owner": "PACKAGE_ROLE",
+    }
+
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file_v2],
+    )
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    pkg = ApplicationPackageEntity(pkg_model, workspace_context)
+    workspace_context.console = mock.MagicMock()
+
+    pkg.create_app_package()
+
+    mock_alter_app_pkg_properties.assert_called_once_with(
+        package_name="app_pkg",
+        enable_release_channels=feature_flag,
+        role="package_role",
+    )
+    mock_get_config_value.assert_called_once_with(
+        "cli", "features", key="enable_release_channels", default=None
+    )
 
 
 # Test create_app_package() with a different owner
@@ -826,7 +873,9 @@ def test_create_app_pkg_no_existing_package(
 @mock.patch(APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO)
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME, return_value=True)
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
 def test_create_app_pkg_different_owner(
+    mock_get_ui_parameter,
     mock_is_distribution_same,
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
@@ -869,7 +918,9 @@ def test_create_app_pkg_different_owner(
     "is_pkg_distribution_same",
     [False, True],
 )
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
 def test_create_app_pkg_external_distribution(
+    mock_get_ui_parameter,
     mock_is_distribution_same,
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
@@ -917,7 +968,9 @@ def test_create_app_pkg_external_distribution(
         (True, SPECIAL_COMMENT_OLD),
     ],
 )
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
 def test_create_app_pkg_internal_distribution_special_comment(
+    mock_get_ui_parameter,
     mock_is_distribution_same,
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
