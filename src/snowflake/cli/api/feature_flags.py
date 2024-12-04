@@ -24,20 +24,31 @@ from snowflake.cli.api.config import (
 
 class BooleanFlag(NamedTuple):
     name: str
-    default: bool = False
+    default: bool | None = False
 
 
 @unique
 class FeatureFlagMixin(Enum):
-    def is_enabled(self) -> bool:
+    def get_value(self) -> bool | None:
         return get_config_bool_value(
             *FEATURE_FLAGS_SECTION_PATH,
             key=self.value.name.lower(),
             default=self.value.default,
         )
 
-    def is_disabled(self):
-        return not self.is_enabled()
+    def is_enabled(self) -> bool:
+        return self.get_value() is True
+
+    def is_disabled(self) -> bool:
+        return self.get_value() is False
+
+    def is_set(self) -> bool:
+        return (
+            get_config_bool_value(
+                *FEATURE_FLAGS_SECTION_PATH, key=self.value.name.lower(), default=None
+            )
+            is not None
+        )
 
     def env_variable(self):
         return get_env_variable_name(*FEATURE_FLAGS_SECTION_PATH, key=self.value.name)

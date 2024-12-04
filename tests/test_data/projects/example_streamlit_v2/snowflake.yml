@@ -1,14 +1,12 @@
-definition_version: 2
+definition_version: '2'
 entities:
-  my_streamlit:
-    type: "streamlit"
-    identifier: test_streamlit_deploy_snowcli
-    title: "My Fancy Streamlit"
-    stage: streamlit
-    query_warehouse: xsmall
+  test_streamlit:
+    identifier:
+      name: test_streamlit
+    type: streamlit
+    title: My Fancy Streamlit
+    query_warehouse: test_warehouse
     main_file: streamlit_app.py
+    stage: streamlit
     artifacts:
       - streamlit_app.py
-      - utils/utils.py
-      - pages/
-      - environment.yml
