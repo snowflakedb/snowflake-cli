@@ -201,7 +201,7 @@ class UserStagePathParts(StagePathParts):
 
     @property
     def full_path(self) -> str:
-        return f"{self.stage}/{self.directory}"
+        return f"{self.stage}/{self.directory}".rstrip("/")
 
     def replace_stage_prefix(self, file_path: str) -> str:
         if Path(file_path).parts[0] == self.stage_name:
