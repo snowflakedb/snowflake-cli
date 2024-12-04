@@ -122,7 +122,7 @@ def sync_deploy_root_with_stage(
     # Perform a diff operation and display results to the user for informational purposes
     if print_diff:
         console.step(
-            f"Performing a diff between the Snowflake stage {stage_path.path} and your local deploy_root {deploy_root.resolve()} directory."
+            f"Performing a diff between the Snowflake stage: {stage_path.path} and your local deploy_root: {deploy_root.resolve()}."
         )
 
     diff: DiffResult = compute_stage_diff(

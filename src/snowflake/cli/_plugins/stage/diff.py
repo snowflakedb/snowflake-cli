@@ -25,7 +25,7 @@ from snowflake.cli.api.exceptions import (
 )
 from snowflake.connector.cursor import DictCursor
 
-from .manager import DefaultStagePathParts, StageManager
+from .manager import StageManager, StagePathParts
 from .md5 import UnknownMD5FormatError, file_matches_md5sum
 
 log = logging.getLogger(__name__)
@@ -122,9 +122,7 @@ def preserve_from_diff(
     return preserved_diff
 
 
-def compute_stage_diff(
-    local_root: Path, stage_path: DefaultStagePathParts
-) -> DiffResult:
+def compute_stage_diff(local_root: Path, stage_path: StagePathParts) -> DiffResult:
     """
     Diffs the files in the local_root with files in the stage path that is stage_path_parts's full_path.
     """
