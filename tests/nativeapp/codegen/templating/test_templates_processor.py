@@ -28,7 +28,11 @@ from snowflake.cli._plugins.nativeapp.exceptions import InvalidTemplateInFileErr
 from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 
-from tests.nativeapp.utils import CLI_GLOBAL_TEMPLATE_CONTEXT
+from tests.nativeapp.utils import (
+    ARTIFACT_PROCESSOR,
+    CLI_GLOBAL_TEMPLATE_CONTEXT,
+    TEMPLATE_PROCESSOR,
+)
 
 
 @dataclass
@@ -213,3 +217,21 @@ def test_file_with_undefined_variable():
         assert "does not contain a valid template" in str(e.value)
         assert bundle_result.output_files[0].is_symlink()
         assert bundle_result.output_files[0].read_text() == file_contents[0]
+
+
+@mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, {})
+@mock.patch(f"{TEMPLATE_PROCESSOR}.cc.warning")
+def test_expand_templates_in_file_unicode_decode_error(mock_cc_warning):
+    file_name = ["test_file.txt"]
+    file_contents = ["This is a test file"]
+    with TemporaryDirectory() as tmp_dir:
+        bundle_result = bundle_files(tmp_dir, file_name, file_contents)
+        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        with mock.patch(
+            f"{ARTIFACT_PROCESSOR}.ProjectFileContextManager.__enter__",
+            side_effect=UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte"),
+        ):
+            templates_processor.process(bundle_result.artifact_to_process, None)
+            mock_cc_warning.assert_called_once_with(
+                f"Could not read file src/test_file.txt, error: invalid start byte. Skipping this file."
+            )
