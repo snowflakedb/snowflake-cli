@@ -16,6 +16,7 @@ repos:
     hooks:
       - id: ruff
         args: [--fix, --exclude, "**/tests_common/,**/tests_integration/"]
+        verbose: true
   - repo: https://github.com/psf/black
     rev: 22.12.0
     hooks:
