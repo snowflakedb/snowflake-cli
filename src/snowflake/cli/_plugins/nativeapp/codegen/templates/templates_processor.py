@@ -58,45 +58,38 @@ class TemplatesProcessor(ArtifactProcessor):
         if src.is_dir():
             return
 
-        src_file_name = src.relative_to(self._bundle_ctx.project_root)
+        with self.edit_file(dest) as file:
+            if not has_client_side_templates(file.contents) and not (
+                _is_sql_file(dest) and has_sql_templates(file.contents)
+            ):
+                return
 
-        try:
-            with self.edit_file(dest) as file:
-                if not has_client_side_templates(file.contents) and not (
-                    _is_sql_file(dest) and has_sql_templates(file.contents)
-                ):
-                    return
-                cc.step(f"Expanding templates in {src_file_name}")
-                with cc.indented():
-                    try:
-                        jinja_env = (
-                            choose_sql_jinja_env_based_on_template_syntax(
-                                file.contents, reference_name=src_file_name
-                            )
-                            if _is_sql_file(dest)
-                            else get_client_side_jinja_env()
+            src_file_name = src.relative_to(self._bundle_ctx.project_root)
+            cc.step(f"Expanding templates in {src_file_name}")
+            with cc.indented():
+                try:
+                    jinja_env = (
+                        choose_sql_jinja_env_based_on_template_syntax(
+                            file.contents, reference_name=src_file_name
                         )
-                        expanded_template = jinja_env.from_string(file.contents).render(
-                            template_context or get_cli_context().template_context
-                        )
+                        if _is_sql_file(dest)
+                        else get_client_side_jinja_env()
+                    )
+                    expanded_template = jinja_env.from_string(file.contents).render(
+                        template_context or get_cli_context().template_context
+                    )
 
-                    # For now, we are printing the source file path in the error message
-                    # instead of the destination file path to make it easier for the user
-                    # to identify the file that has the error, and edit the correct file.
-                    except jinja2.TemplateSyntaxError as e:
-                        raise InvalidTemplateInFileError(
-                            src_file_name, e, e.lineno
-                        ) from e
+                # For now, we are printing the source file path in the error message
+                # instead of the destination file path to make it easier for the user
+                # to identify the file that has the error, and edit the correct file.
+                except jinja2.TemplateSyntaxError as e:
+                    raise InvalidTemplateInFileError(src_file_name, e, e.lineno) from e
 
-                    except jinja2.UndefinedError as e:
-                        raise InvalidTemplateInFileError(src_file_name, e) from e
+                except jinja2.UndefinedError as e:
+                    raise InvalidTemplateInFileError(src_file_name, e) from e
 
-                    if expanded_template != file.contents:
-                        file.edited_contents = expanded_template
-        except UnicodeDecodeError as err:
-            cc.warning(
-                f"Could not read file {src_file_name}, error: {err.reason}. Skipping this file."
-            )
+                if expanded_template != file.contents:
+                    file.edited_contents = expanded_template
 
     @span("templates_processor")
     def process(
