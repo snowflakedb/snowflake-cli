@@ -229,3 +229,8 @@ class ShowSpecificObjectMultipleRowsError(RuntimeError):
         super().__init__(
             f"Received multiple rows from result of SQL statement: {show_obj_query}. Usage of 'show_specific_object' may not be properly scoped."
         )
+
+
+class FeatureNotEnabledError(RuntimeError):
+    def __init__(self, feature_name: str):
+        super().__init__(f"The feature '{feature_name}' is not enabled.")
