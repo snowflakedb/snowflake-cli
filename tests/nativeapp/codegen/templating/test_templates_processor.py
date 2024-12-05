@@ -231,7 +231,10 @@ def test_expand_templates_in_file_unicode_decode_error(mock_cc_warning):
             f"{ARTIFACT_PROCESSOR}.ProjectFileContextManager.__enter__",
             side_effect=UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte"),
         ):
+            src_path = Path(
+                bundle_result.bundle_ctx.project_root / "src" / file_name[0]
+            ).relative_to(bundle_result.bundle_ctx.project_root)
             templates_processor.process(bundle_result.artifact_to_process, None)
             mock_cc_warning.assert_called_once_with(
-                f"Could not read file src/test_file.txt, error: invalid start byte. Skipping this file."
+                f"Could not read file {src_path}, error: invalid start byte. Skipping this file."
             )
