@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest import mock
 
+import pytest
 import yaml
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.constants import (
@@ -30,6 +31,11 @@ from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.connector.cursor import DictCursor
 
+from tests.nativeapp.factories import (
+    ApplicationEntityModelFactory,
+    ApplicationPackageEntityModelFactory,
+    ProjectV2Factory,
+)
 from tests.nativeapp.utils import (
     APP_PACKAGE_ENTITY,
     APPLICATION_PACKAGE_ENTITY_MODULE,
@@ -39,10 +45,14 @@ from tests.nativeapp.utils import (
 )
 
 
-def _get_app_pkg_entity(project_directory):
+def _get_app_pkg_entity(project_directory, package_overrides=None):
     with project_directory("workspaces_simple") as project_root:
         with Path(project_root / "snowflake.yml").open() as definition_file_path:
             project_definition = yaml.safe_load(definition_file_path)
+            # project_definition["entities"]["pkg"]["stage_subdirectory"] = None
+            project_definition["entities"]["pkg"] = dict(
+                project_definition["entities"]["pkg"], **(package_overrides or {})
+            )
             model = ApplicationPackageEntityModel(
                 **project_definition["entities"]["pkg"]
             )
@@ -61,6 +71,39 @@ def _get_app_pkg_entity(project_directory):
                 action_ctx,
                 mock_console,
             )
+
+
+def package_with_subdir_factory():
+    ProjectV2Factory(
+        pdf__entities=dict(
+            pkg=ApplicationPackageEntityModelFactory(
+                identifier="myapp_pkg", stage_subdirectory="v1"
+            ),
+            app=ApplicationEntityModelFactory(
+                identifier="myapp",
+                fromm__target="pkg",
+            ),
+        ),
+        files={
+            "setup.sql": "SELECT 1;",
+            "README.md": "Hello!",
+            "manifest.yml": "\n",
+        },
+    )
+
+
+def test_bundle_with_subdir(project_directory):
+    package_with_subdir_factory()
+    app_pkg, bundle_ctx, mock_console = _get_app_pkg_entity(
+        project_directory, {"stage_subdirectory": "v1"}
+    )
+
+    bundle_result = app_pkg.action_bundle(bundle_ctx)
+
+    deploy_root = bundle_result.deploy_root()
+    assert (deploy_root / "README.md").exists()
+    assert (deploy_root / "manifest.yml").exists()
+    assert (deploy_root / "setup_script.sql").exists()
 
 
 def test_bundle(project_directory):
@@ -175,6 +218,107 @@ def test_deploy(
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(f"{APP_PACKAGE_ENTITY}.execute_post_deploy_hooks")
+@mock.patch(f"{APP_PACKAGE_ENTITY}.validate_setup_script")
+@mock.patch(f"{APPLICATION_PACKAGE_ENTITY_MODULE}.sync_deploy_root_with_stage")
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
+def test_deploy_w_stage_subdir(
+    mock_get_parameter,
+    mock_sync,
+    mock_validate,
+    mock_execute_post_deploy_hooks,
+    mock_execute,
+    project_directory,
+    mock_cursor,
+):
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (None, mock.call("use role app_role")),
+            (
+                mock_cursor(
+                    [
+                        {
+                            "name": "PKG",
+                            "comment": SPECIAL_COMMENT,
+                            "version": LOOSE_FILES_MAGIC_VERSION,
+                            "owner": "app_role",
+                        }
+                    ],
+                    [],
+                ),
+                mock.call(
+                    r"show application packages like 'PKG'",
+                    cursor_class=DictCursor,
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+            (
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (None, mock.call("use role app_role")),
+            (
+                mock_cursor(
+                    [
+                        ("name", "pkg"),
+                        ["owner", "app_role"],
+                        ["distribution", "internal"],
+                    ],
+                    [],
+                ),
+                mock.call("describe application package pkg"),
+            ),
+            (None, mock.call("use role old_role")),
+            (
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (None, mock.call("use role app_role")),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+
+    app_pkg, bundle_ctx, mock_console = _get_app_pkg_entity(
+        project_directory, {"stage_subdirectory": "v1"}
+    )
+
+    app_pkg.action_deploy(
+        bundle_ctx,
+        prune=False,
+        recursive=False,
+        paths=["a/b", "c"],
+        validate=True,
+        interactive=False,
+        force=False,
+    )
+
+    project_root = app_pkg._workspace_ctx.project_root  # noqa SLF001
+    mock_sync.assert_called_once_with(
+        console=mock_console,
+        deploy_root=(project_root / Path("output/deploy") / "v1"),
+        package_name="pkg",
+        bundle_map=mock.ANY,
+        role="app_role",
+        prune=False,
+        recursive=False,
+        stage_path=DefaultStagePathParts("pkg.app_src.stage/v1"),
+        local_paths_to_sync=["a/b", "c"],
+        print_diff=True,
+    )
+    mock_validate.assert_called_once()
+    mock_execute_post_deploy_hooks.assert_called_once_with()
+    mock_get_parameter.assert_called_once_with(
+        UIParameter.NA_FEATURE_RELEASE_CHANNELS, "ENABLED"
+    )
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_version_list(
     mock_execute, application_package_entity, action_context, mock_cursor
 ):
@@ -189,7 +333,39 @@ def test_version_list(
             (None, mock.call(f"use role {pkg_model.meta.role}")),
             (
                 mock_cursor([], []),
-                mock.call(f"show versions in application package {pkg_model.fqn.name}"),
+                mock.call(
+                    f"show versions in application package {application_package_entity.name}"
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_execute.side_effect = side_effects
+    application_package_entity.action_version_list(action_context)
+    assert mock_execute.mock_calls == expected
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@pytest.mark.parametrize(
+    "application_package_entity", [{"stage_subdirectory": "v1"}], indirect=True
+)
+def test_version_list_w_subdir(
+    mock_execute, application_package_entity, action_context, mock_cursor
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (None, mock.call(f"use role {pkg_model.meta.role}")),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    f"show versions in application package {application_package_entity.name}"
+                ),
             ),
             (None, mock.call("use role old_role")),
         ]

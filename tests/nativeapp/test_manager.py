@@ -171,6 +171,70 @@ def test_sync_deploy_root_with_stage(
 
 
 @mock.patch(SQL_FACADE_STAGE_EXISTS)
+@mock.patch(SQL_FACADE_CREATE_SCHEMA)
+@mock.patch(SQL_FACADE_CREATE_STAGE)
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
+@pytest.mark.parametrize("stage_exists", [True, False])
+def test_sync_deploy_root_with_stage_subdir(
+    mock_local_diff_with_stage,
+    mock_compute_stage_diff,
+    mock_create_stage,
+    mock_create_schema,
+    mock_stage_exists,
+    temp_dir,
+    mock_cursor,
+    stage_exists,
+):
+    mock_stage_exists.return_value = stage_exists
+    mock_diff_result = DiffResult(different=[StagePathType("setup.sql")])
+    mock_compute_stage_diff.return_value = mock_diff_result
+    mock_local_diff_with_stage.return_value = None
+    current_working_directory = os.getcwd()
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=current_working_directory,
+        contents=[mock_snowflake_yml_file_v2],
+    )
+    dm = _get_dm()
+    # add subdir replace
+    dm.project_definition.entities["app_pkg"].stage_subdirectory = "v1"
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+
+    assert mock_diff_result.has_changes()
+    mock_bundle_map = mock.Mock(spec=BundleMap)
+    package_name = pkg_model.fqn.name
+    stage_fqn = f"{package_name}.{pkg_model.stage}"
+    stage_full_path = f"{stage_fqn}/v1"
+    stage_schema = extract_schema(stage_fqn)
+    sync_deploy_root_with_stage(
+        console=cc,
+        deploy_root=dm.project_root / pkg_model.deploy_root,
+        package_name=package_name,
+        bundle_map=mock_bundle_map,
+        role="new_role",
+        prune=True,
+        recursive=True,
+        stage_path=DefaultStagePathParts(stage_full_path),
+    )
+
+    mock_stage_exists.assert_called_once_with(stage_fqn)
+    if not stage_exists:
+        mock_create_schema.assert_called_once_with(stage_schema, database=package_name)
+        mock_create_stage.assert_called_once_with(stage_fqn)
+    mock_compute_stage_diff.assert_called_once_with(
+        local_root=dm.project_root / pkg_model.deploy_root,
+        stage_path=DefaultStagePathParts(stage_full_path),
+    )
+    mock_local_diff_with_stage.assert_called_once_with(
+        role="new_role",
+        deploy_root_path=dm.project_root / pkg_model.deploy_root,
+        diff_result=mock_diff_result,
+        stage_full_path=stage_full_path,
+    )
+
+
+@mock.patch(SQL_FACADE_STAGE_EXISTS)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
 @mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
