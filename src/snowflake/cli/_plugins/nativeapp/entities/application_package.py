@@ -112,14 +112,10 @@ class ApplicationPackageChildIdentifier(UpdatableModel):
     )
 
 
-class ApplicationPackageChildField(UpdatableModel):
-    target: str = Field(title="The key of the entity to include in this package")
+class GrantUsageField(UpdatableModel):
     application_roles: Optional[Union[str, Set[str]]] = Field(
-        title="The application role to be granted usage on this child entity",
+        title="One or more application roles",
         default=None,
-    )
-    identifier: ApplicationPackageChildIdentifier = Field(
-        title="Entity identifier", default=None
     )
 
     @field_validator("application_roles", mode="before")
@@ -130,6 +126,21 @@ class ApplicationPackageChildField(UpdatableModel):
         if isinstance(application_roles, str):
             return set(application_roles)
         return application_roles
+
+
+class ApplicationPackageChildField(UpdatableModel):
+    target: str = Field(title="The key of the entity to include in this package")
+    grant_usage: Optional[GrantUsageField] = Field(
+        title="Use to automatically grant USAGE privilege on the child object",
+        default=None,
+    )
+    application_roles: Optional[Union[str, Set[str]]] = Field(
+        title="The application role to be granted usage on this child entity",
+        default=None,
+    )
+    identifier: ApplicationPackageChildIdentifier = Field(
+        title="Entity identifier", default=None
+    )
 
 
 class ApplicationPackageEntityModel(EntityModelBase):
@@ -629,9 +640,13 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     child.target
                 )
                 child_entity.bundle(children_artifacts_dir)
-                app_role = to_identifier(
-                    child.application_roles.pop()
-                )  # TODO Support more than one application role
+                app_role = (
+                    to_identifier(
+                        child.grant_usage.application_roles.pop()  # TODO Support more than one application role
+                    )
+                    if child.grant_usage and child.grant_usage.application_roles
+                    else None
+                )
                 child_schema = (
                     to_identifier(child.identifier.schema_)
                     if child.identifier and child.identifier.schema_
