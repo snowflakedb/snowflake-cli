@@ -623,12 +623,12 @@ def test_logs_incompatible_flags(mock_is_enabled, mock_execute_query, runner):
             "0",
             "--follow",
             "--num-lines",
-            "200",
+            "100",
         ]
     )
     assert (
         result.exit_code != 0
-    ), "Expected a non-zero exit code due to incompatible parameters"
+    ), "Expected a non-zero exit code due to incompatible flags"
     assert "Parameters '--follow' and '--num-lines' are incompatible" in result.output
 
 
@@ -685,7 +685,10 @@ def test_logs_streaming_disabled(mock_is_enabled, runner):
                 "100",
             ]
         )
-    assert "The feature 'Log Streaming' is not enabled" in str(exc_info.value)
+    assert (
+        "Streaming logs from spcs containers is disabled. Set the following field in your configuration to enable it: 'ENABLE_SPCS_LOG_STREAMING'."
+        in str(exc_info.value)
+    )
 
 
 def test_read_yaml(other_directory):
