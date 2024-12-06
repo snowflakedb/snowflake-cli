@@ -49,6 +49,8 @@ class TemplatesProcessor(ArtifactProcessor):
     Processor class to perform template expansion on all relevant artifacts (specified in the project definition file).
     """
 
+    NAME = "templates"
+
     def expand_templates_in_file(
         self, src: Path, dest: Path, template_context: dict[str, Any] | None = None
     ) -> None:

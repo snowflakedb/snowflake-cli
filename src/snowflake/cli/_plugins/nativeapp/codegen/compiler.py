@@ -33,7 +33,6 @@ from snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor import (
 from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor import (
     TemplatesProcessor,
 )
-from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.metrics import CLICounterField
@@ -41,15 +40,7 @@ from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
     ProcessorMapping,
 )
 
-SNOWPARK_PROCESSOR = "snowpark"
-NA_SETUP_PROCESSOR = "native app setup"
-TEMPLATES_PROCESSOR = "templates"
-
-_REGISTERED_PROCESSORS_BY_NAME = {
-    SNOWPARK_PROCESSOR: SnowparkAnnotationProcessor,
-    NA_SETUP_PROCESSOR: NativeAppSetupProcessor,
-    TEMPLATES_PROCESSOR: TemplatesProcessor,
-}
+ProcessorClassType = type[ArtifactProcessor]
 
 
 class NativeAppCompiler:
@@ -66,9 +57,27 @@ class NativeAppCompiler:
         bundle_ctx: BundleContext,
     ):
         self._assert_absolute_paths(bundle_ctx)
+        self._processor_classes_by_name: Dict[str, ProcessorClassType] = {}
         self._bundle_ctx = bundle_ctx
         # dictionary of all processors created and shared between different artifact objects.
         self.cached_processors: Dict[str, ArtifactProcessor] = {}
+
+        self._register(SnowparkAnnotationProcessor)
+        self._register(NativeAppSetupProcessor)
+        self._register(TemplatesProcessor)
+
+    def _register(self, processor_cls: ProcessorClassType):
+        """
+        Registers a processor class to enable.
+        """
+
+        name = getattr(processor_cls, "NAME", None)
+        assert name is not None
+
+        if name in self._processor_classes_by_name:
+            raise ValueError(f"Processor {name} is already registered")
+
+        self._processor_classes_by_name[str(name)] = processor_cls
 
     @staticmethod
     def _assert_absolute_paths(bundle_ctx: BundleContext):
@@ -128,8 +137,8 @@ class NativeAppCompiler:
         if current_processor is not None:
             return current_processor
 
-        processor_factory = _REGISTERED_PROCESSORS_BY_NAME.get(processor_name)
-        if processor_factory is None:
+        processor_cls = self._processor_classes_by_name.get(processor_name)
+        if processor_cls is None:
             # No registered processor with the specified name
             return None
 
@@ -141,7 +150,7 @@ class NativeAppCompiler:
         processor_ctx.generated_root = (
             self._bundle_ctx.generated_root / processor_subdirectory
         )
-        current_processor = processor_factory(processor_ctx)
+        current_processor = processor_cls(processor_ctx)
         self.cached_processors[processor_name] = current_processor
 
         return current_processor
@@ -154,6 +163,22 @@ class NativeAppCompiler:
         return False
 
     def _is_enabled(self, processor: ProcessorMapping) -> bool:
-        if processor.name.lower() == NA_SETUP_PROCESSOR:
-            return FeatureFlag.ENABLE_NATIVE_APP_PYTHON_SETUP.is_enabled()
-        return True
+        """
+        Determines is a process is enabled. All processors are considered enabled
+        unless they are explicitly disabled, typically via a feature flag.
+        """
+        processor_name = processor.name.lower()
+        processor_cls = self._processor_classes_by_name.get(processor_name)
+        if processor_cls is None:
+            # Unknown processor, consider it enabled, even though trying to
+            # invoke it later will raise an exception
+            return True
+
+        # if the processor class defines a static method named "is_enabled", then
+        # call it. Otherwise, it's considered enabled by default.
+        is_enabled_fn = getattr(processor_cls, "is_enabled", None)
+        if is_enabled_fn is None:
+            # No custom static method provided, enabled by default
+            return True
+
+        return is_enabled_fn()
