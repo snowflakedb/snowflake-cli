@@ -16,7 +16,6 @@ import unittest.mock as mock
 
 import factory
 import pytest
-from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.nativeapp.entities.application import (
     ApplicationEntity,
     ApplicationEntityModel,
@@ -25,6 +24,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
     ApplicationPackageEntityModel,
 )
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 
 from tests.nativeapp.factories import (
     ApplicationEntityModelFactory,
