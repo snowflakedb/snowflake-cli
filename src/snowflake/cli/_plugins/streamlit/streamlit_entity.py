@@ -68,7 +68,7 @@ class StreamlitEntity(
         else:
             return f"CREATE OR REPLACE STREAMLIT {entity_id} MAIN_FILE='{self._entity_model.main_file}';"
 
-    def get_grants_sql(self, app_role: str, schema: Optional[str] = None):
+    def get_usage_grant_sql(self, app_role: str, schema: Optional[str] = None):
         self._verify_feature_flag_enabled()
         entity_id = self.entity_id
         streamlit_name = f"{schema}.{entity_id}" if schema else entity_id

@@ -669,7 +669,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                             f"GRANT USAGE ON SCHEMA {child_schema} TO APPLICATION ROLE {app_role};"
                         )
                     children_sql.append(
-                        child_entity.get_grants_sql(
+                        child_entity.get_usage_grant_sql(
                             app_role=app_role, schema=child_schema
                         )
                     )

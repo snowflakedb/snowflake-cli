@@ -28,7 +28,7 @@ class ApplicationPackageChildInterface(ABC):
         pass
 
     @abstractmethod
-    def get_grants_sql(
+    def get_usage_grant_sql(
         self,
         app_role: str,
         schema: Optional[str],
@@ -36,7 +36,8 @@ class ApplicationPackageChildInterface(ABC):
         **kwargs,
     ) -> str:
         """
-        Returns the SQL that would grant the required privileges to the provided application role on the entity object. Must not execute the SQL or have any other side-effects.
-        @param role: The application role to grant the privileges to.
+        Returns the SQL that would grant the required USAGE privilege to the provided application role on the entity object. Must not execute the SQL or have any other side-effects.
+        @param app_role: The application role to grant the privileges to.
+        @param [Optional] schema: The schema where the object was created.
         """
         pass
