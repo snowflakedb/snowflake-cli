@@ -13,7 +13,6 @@ from snowflake.cli._plugins.nativeapp.artifacts import (
     bundle_artifacts,
 )
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
-from snowflake.cli._plugins.nativeapp.codegen.compiler import TEMPLATES_PROCESSOR
 from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor import (
     TemplatesProcessor,
 )
@@ -458,7 +457,7 @@ def _convert_templates_in_files(
             artifact
             for artifact in pkg_model.artifacts
             for processor in artifact.processors
-            if processor.name == TEMPLATES_PROCESSOR
+            if processor.name.lower() == TemplatesProcessor.NAME
         ]
         if not in_memory and artifacts_to_template:
             metrics.set_counter(CLICounterField.TEMPLATES_PROCESSOR, 1)
