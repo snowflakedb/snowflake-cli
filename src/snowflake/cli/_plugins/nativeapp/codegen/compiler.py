@@ -176,9 +176,5 @@ class NativeAppCompiler:
 
         # if the processor class defines a static method named "is_enabled", then
         # call it. Otherwise, it's considered enabled by default.
-        is_enabled_fn = getattr(processor_cls, "is_enabled", None)
-        if is_enabled_fn is None:
-            # No custom static method provided, enabled by default
-            return True
-
+        is_enabled_fn = getattr(processor_cls, "is_enabled", lambda: True)
         return is_enabled_fn()
