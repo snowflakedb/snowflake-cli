@@ -184,8 +184,8 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         get_cli_context().metrics.set_counter(CLICounterField.SNOWPARK_PROCESSOR, 1)
 
         bundle_map = BundleMap(
-            project_root=self._bundle_ctx.project_root,
-            deploy_root=self._bundle_ctx.deploy_root,
+            project_root=self._processor_ctx.project_root,
+            deploy_root=self._processor_ctx.deploy_root,
         )
         bundle_map.add(artifact_to_process)
 
@@ -233,7 +233,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
             edit_setup_script_with_exec_imm_sql(
                 collected_sql_files=collected_sql_files,
                 deploy_root=bundle_map.deploy_root(),
-                generated_root=self._bundle_ctx.generated_root,
+                generated_root=self._processor_ctx.generated_root,
             )
 
     def _normalize_imports(
@@ -314,7 +314,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         self, bundle_map: BundleMap, processor_mapping: Optional[ProcessorMapping]
     ) -> Dict[Path, List[NativeAppExtensionFunction]]:
         kwargs = (
-            _determine_virtual_env(self._bundle_ctx.project_root, processor_mapping)
+            _determine_virtual_env(self._processor_ctx.project_root, processor_mapping)
             if processor_mapping is not None
             else {}
         )
@@ -330,11 +330,11 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                 predicate=is_python_file_artifact,
             )
         ):
-            src_file_name = src_file.relative_to(self._bundle_ctx.project_root)
+            src_file_name = src_file.relative_to(self._processor_ctx.project_root)
             cc.step(f"Processing Snowpark annotations from {src_file_name}")
             collected_extension_function_json = _execute_in_sandbox(
                 py_file=str(dest_file.resolve()),
-                deploy_root=self._bundle_ctx.deploy_root,
+                deploy_root=self._processor_ctx.deploy_root,
                 kwargs=kwargs,
             )
 
@@ -365,9 +365,9 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         """
         Generates a SQL filename for the generated root from the Python file, and creates its parent directories.
         """
-        relative_py_file = py_file.relative_to(self._bundle_ctx.deploy_root)
+        relative_py_file = py_file.relative_to(self._processor_ctx.deploy_root)
         sql_file = Path(
-            self._bundle_ctx.generated_root, relative_py_file.with_suffix(".sql")
+            self._processor_ctx.generated_root, relative_py_file.with_suffix(".sql")
         )
         if sql_file.exists():
             cc.warning(

@@ -10,13 +10,17 @@ import typer
 from click import BadOptionUsage, ClickException
 from pydantic import Field, field_validator
 from snowflake.cli._plugins.connection.util import UIParameter
+from snowflake.cli._plugins.nativeapp.artifact_processor_context import (
+    ArtifactProcessorContext,
+)
 from snowflake.cli._plugins.nativeapp.artifacts import (
     VersionInfo,
     build_bundle,
     find_version_info_in_manifest_file,
 )
-from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
-from snowflake.cli._plugins.nativeapp.codegen.compiler import NativeAppCompiler
+from snowflake.cli._plugins.nativeapp.codegen.artifact_processor_registrar import (
+    ArtifactProcessorRegistrar,
+)
 from snowflake.cli._plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
@@ -522,7 +526,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def _bundle(self):
         model = self._entity_model
         bundle_map = build_bundle(self.project_root, self.deploy_root, model.artifacts)
-        bundle_context = BundleContext(
+        bundle_context = ArtifactProcessorContext(
             package_name=self.name,
             artifacts=model.artifacts,
             project_root=self.project_root,
@@ -530,7 +534,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             deploy_root=self.deploy_root,
             generated_root=self.generated_root,
         )
-        compiler = NativeAppCompiler(bundle_context)
+        compiler = ArtifactProcessorRegistrar(bundle_context)
         compiler.compile_artifacts()
         return bundle_map
 
