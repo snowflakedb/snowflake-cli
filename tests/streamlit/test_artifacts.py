@@ -112,7 +112,7 @@ from snowflake.connector.compat import IS_WINDOWS
 @mock.patch("snowflake.cli._plugins.snowpark.commands.StageManager.put")
 @mock.patch(
     "snowflake.cli._plugins.connection.util.get_ui_parameters",
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 def test_deploy_with_artifacts(
     mock_param,
@@ -252,7 +252,7 @@ def test_deploy_with_artifacts(
 @mock.patch("snowflake.cli._plugins.snowpark.commands.StageManager.put")
 @mock.patch(
     "snowflake.cli._plugins.connection.util.get_ui_parameters",
-    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: "false"},
+    return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
 def test_deploy_with_artifacts_from_other_directory(
     mock_param,
