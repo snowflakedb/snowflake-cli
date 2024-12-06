@@ -164,6 +164,8 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
     and generate SQL code for creation of extension functions based on those discovered objects.
     """
 
+    NAME = "snowpark"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
