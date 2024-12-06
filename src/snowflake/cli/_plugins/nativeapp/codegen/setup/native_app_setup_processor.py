@@ -94,8 +94,8 @@ class NativeAppSetupProcessor(ArtifactProcessor):
         Processes a Python setup script and generates the corresponding SQL commands.
         """
         bundle_map = BundleMap(
-            project_root=self._bundle_ctx.project_root,
-            deploy_root=self._bundle_ctx.deploy_root,
+            project_root=self._processor_ctx.project_root,
+            deploy_root=self._processor_ctx.deploy_root,
         )
         bundle_map.add(artifact_to_process)
 
@@ -108,7 +108,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
             absolute=True, expand_directories=True, predicate=is_python_file_artifact
         ):
             cc.message(
-                f"Found Python setup file: {src_file.relative_to(self._bundle_ctx.project_root)}"
+                f"Found Python setup file: {src_file.relative_to(self._processor_ctx.project_root)}"
             )
             files_to_process.append(src_file)
 
@@ -150,15 +150,15 @@ class NativeAppSetupProcessor(ArtifactProcessor):
         file_count = len(py_files)
         cc.step(f"Processing {file_count} setup file{'s' if file_count > 1 else ''}")
 
-        manifest_path = find_manifest_file(deploy_root=self._bundle_ctx.deploy_root)
+        manifest_path = find_manifest_file(deploy_root=self._processor_ctx.deploy_root)
 
-        generated_root = self._bundle_ctx.generated_root
+        generated_root = self._processor_ctx.generated_root
         generated_root.mkdir(exist_ok=True, parents=True)
 
         env_vars = {
-            "_SNOWFLAKE_CLI_PROJECT_PATH": str(self._bundle_ctx.project_root),
+            "_SNOWFLAKE_CLI_PROJECT_PATH": str(self._processor_ctx.project_root),
             "_SNOWFLAKE_CLI_SETUP_FILES": os.pathsep.join(map(str, py_files)),
-            "_SNOWFLAKE_CLI_APP_NAME": str(self._bundle_ctx.package_name),
+            "_SNOWFLAKE_CLI_APP_NAME": str(self._processor_ctx.package_name),
             "_SNOWFLAKE_CLI_SQL_DEST_DIR": str(generated_root),
             "_SNOWFLAKE_CLI_MANIFEST_PATH": str(manifest_path),
         }
@@ -167,7 +167,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
             result = execute_script_in_sandbox(
                 script_source=DRIVER_PATH.read_text(),
                 env_type=ExecutionEnvironmentType.VENV,
-                cwd=self._bundle_ctx.bundle_root,
+                cwd=self._processor_ctx.bundle_root,
                 timeout=DEFAULT_TIMEOUT,
                 path=self.sandbox_root,
                 env_vars=env_vars,
@@ -187,7 +187,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
     def _edit_setup_sql(self, modifications: List[dict]) -> None:
         cc.step("Patching setup script")
         setup_file_path = find_setup_script_file(
-            deploy_root=self._bundle_ctx.deploy_root
+            deploy_root=self._processor_ctx.deploy_root
         )
 
         with self.edit_file(setup_file_path) as f:
@@ -208,7 +208,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
 
     def _edit_manifest(self, modifications: List[dict]) -> None:
         cc.step("Patching manifest")
-        manifest_path = find_manifest_file(deploy_root=self._bundle_ctx.deploy_root)
+        manifest_path = find_manifest_file(deploy_root=self._processor_ctx.deploy_root)
 
         with self.edit_file(manifest_path) as f:
             manifest = yaml.safe_load(f.contents)
@@ -232,14 +232,14 @@ class NativeAppSetupProcessor(ArtifactProcessor):
         if payload_type == "execute immediate":
             file_path = payload.get("file_path")
             if file_path:
-                sql_file_path = self._bundle_ctx.generated_root / file_path
-                return f"EXECUTE IMMEDIATE FROM '/{to_stage_path(sql_file_path.relative_to(self._bundle_ctx.deploy_root))}';"
+                sql_file_path = self._processor_ctx.generated_root / file_path
+                return f"EXECUTE IMMEDIATE FROM '/{to_stage_path(sql_file_path.relative_to(self._processor_ctx.deploy_root))}';"
 
         raise ClickException(f"Unsupported instruction type received: {payload_type}")
 
     @property
     def sandbox_root(self):
-        return self._bundle_ctx.bundle_root / "venv"
+        return self._processor_ctx.bundle_root / "venv"
 
     def _create_or_update_sandbox(self):
         sandbox_root = self.sandbox_root
@@ -248,7 +248,7 @@ class NativeAppSetupProcessor(ArtifactProcessor):
             cc.step("Virtual environment found")
         else:
             cc.step(
-                f"Creating virtual environment in {sandbox_root.relative_to(self._bundle_ctx.project_root)}"
+                f"Creating virtual environment in {sandbox_root.relative_to(self._processor_ctx.project_root)}"
             )
         env_builder.ensure_created()
 

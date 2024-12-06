@@ -21,7 +21,9 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
+from snowflake.cli._plugins.nativeapp.artifact_processor_context import (
+    ArtifactProcessorContext,
+)
 from snowflake.cli._plugins.nativeapp.codegen.sandbox import (
     ExecutionEnvironmentType,
     SandboxExecutionError,
@@ -54,7 +56,7 @@ def _get_bundle_context(
     pkg_model: ApplicationPackageEntityModel, project_root: Path | None = None
 ):
     project_root = project_root or Path().resolve()
-    return BundleContext(
+    return ArtifactProcessorContext(
         package_name=pkg_model.fqn.name,
         artifacts=pkg_model.artifacts,
         project_root=project_root,

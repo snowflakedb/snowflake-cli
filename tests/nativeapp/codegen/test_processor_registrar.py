@@ -16,12 +16,16 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
-from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
+from snowflake.cli._plugins.nativeapp.artifact_processor_context import (
+    ArtifactProcessorContext,
+)
 from snowflake.cli._plugins.nativeapp.codegen.artifact_processor import (
     ArtifactProcessor,
     UnsupportedArtifactProcessorError,
 )
-from snowflake.cli._plugins.nativeapp.codegen.compiler import NativeAppCompiler
+from snowflake.cli._plugins.nativeapp.codegen.artifact_processor_registrar import (
+    ArtifactProcessorRegistrar,
+)
 from snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor import (
     SnowparkAnnotationProcessor,
 )
@@ -61,7 +65,7 @@ def test_proj_def():
 
 def _get_bundle_context(pkg_model: ApplicationPackageEntityModel):
     project_root = Path().resolve()
-    return BundleContext(
+    return ArtifactProcessorContext(
         package_name=pkg_model.fqn.name,
         artifacts=pkg_model.artifacts,
         project_root=project_root,
@@ -75,7 +79,9 @@ def _get_bundle_context(pkg_model: ApplicationPackageEntityModel):
 
 @pytest.fixture()
 def test_compiler(test_proj_def):
-    return NativeAppCompiler(_get_bundle_context(test_proj_def.entities["pkg"]))
+    return ArtifactProcessorRegistrar(
+        _get_bundle_context(test_proj_def.entities["pkg"])
+    )
 
 
 @pytest.mark.parametrize("name", ["Project", "Deploy", "Bundle", "Generated"])
@@ -88,7 +94,7 @@ def test_compiler_requires_absolute_paths(test_proj_def, name):
         AssertionError,
         match=re.escape(rf"{name} root {path} must be an absolute path."),
     ):
-        NativeAppCompiler(bundle_context)
+        ArtifactProcessorRegistrar(bundle_context)
 
 
 def test_try_create_processor_returns_none(test_proj_def, test_compiler):
@@ -116,7 +122,7 @@ def test_try_create_processor_returns_processor(
 def test_find_and_execute_processors_exception(test_proj_def, test_compiler):
     pkg_model = test_proj_def.entities["pkg"]
     pkg_model.artifacts = [{"dest": "./", "src": "app/*", "processors": ["DUMMY"]}]
-    test_compiler = NativeAppCompiler(_get_bundle_context(pkg_model))
+    test_compiler = ArtifactProcessorRegistrar(_get_bundle_context(pkg_model))
 
     with pytest.raises(UnsupportedArtifactProcessorError):
         test_compiler.compile_artifacts()
@@ -147,7 +153,7 @@ def test_skips_disabled_processors(test_proj_def, test_compiler):
     pkg_model.artifacts = [
         {"dest": "./", "src": "app/*", "processors": ["test_processor"]}
     ]
-    test_compiler = NativeAppCompiler(_get_bundle_context(pkg_model))
+    test_compiler = ArtifactProcessorRegistrar(_get_bundle_context(pkg_model))
     test_compiler.register(TestProcessor)
 
     # TestProcessor is never invoked, otherwise calling its methods will make the test fail

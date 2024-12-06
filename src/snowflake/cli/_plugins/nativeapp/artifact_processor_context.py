@@ -22,7 +22,7 @@ from snowflake.cli.api.project.schemas.entities.common import PathMapping
 
 
 @dataclass
-class BundleContext:
+class ArtifactProcessorContext:
     package_name: str
     artifacts: List[PathMapping]
     project_root: Path
