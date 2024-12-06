@@ -28,6 +28,8 @@ jobs:
         with:
           python-version: '3.x'
       - name: Install pre-commit
-        run: python -m pip install pre-commit tomlkit
+        run: python -m pip install pre-commit tomlkit ruff==0.1.7
+      - name: Ruff
+        run: ruff check --exclude "**/tests_common/,**/tests_integration/"
       - name: Run pre-commit
         run: pre-commit run --all-files

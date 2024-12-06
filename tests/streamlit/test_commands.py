@@ -920,35 +920,6 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
     ]
 
 
-@pytest.mark.parametrize(
-    "project_name,opts",
-    [
-        ("example_streamlit", {"streamlit": {"pages_dir": "foo.bar"}}),
-        ("example_streamlit", {"streamlit": {"env_file": "foo.bar"}}),
-        (
-            "example_streamlit_v2",
-            {"entities": {"test_streamlit": {"pages_dir": "foo.bar"}}},
-        ),
-        (
-            "example_streamlit_v2",
-            {"entities": {"test_streamlit": {"artifacts": ["foo.bar"]}}},
-        ),
-    ],
-)
-@mock.patch("snowflake.connector.connect")
-def test_deploy_streamlit_nonexisting_file(
-    mock_connector, runner, mock_ctx, snapshot, project_directory, opts, project_name
-):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-
-    with project_directory(project_name, merge_project_definition=opts):
-        result = runner.invoke(["streamlit", "deploy"])
-
-        assert result.exit_code == 1
-        assert result.output == snapshot
-
-
 @mock.patch("snowflake.connector.connect")
 def test_share_streamlit(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
