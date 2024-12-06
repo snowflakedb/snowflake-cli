@@ -699,7 +699,7 @@ def test_manifest_version_info_not_used(
     mock_create_version.assert_called_with(
         role=role,
         package_name="app_pkg",
-        stage_path_to_artifacts=f"app_pkg.{stage}",
+        path_to_version_directory=f"app_pkg.{stage}",
         version=version_cli,
         label="",
     )
@@ -765,7 +765,7 @@ def test_manifest_patch_is_not_used(
     mock_create_patch.assert_called_with(
         role=role,
         package_name="app_pkg",
-        stage_path_to_artifacts=f"app_pkg.{stage}",
+        path_to_version_directory=f"app_pkg.{stage}",
         version=version_cli,
         patch=patch,
         # ensure empty label is used to replace label from manifest.yml
@@ -840,7 +840,7 @@ def test_version_from_manifest(
     mock_create_patch.assert_called_with(
         role=role,
         package_name="app_pkg",
-        stage_path_to_artifacts=f"app_pkg.{stage}",
+        path_to_version_directory=f"app_pkg.{stage}",
         version="manifest_version",
         patch=manifest_patch,
         label=cli_label if cli_label is not None else manifest_label,
@@ -914,7 +914,7 @@ def test_patch_from_manifest(
     mock_create_patch.assert_called_with(
         role=role,
         package_name="app_pkg",
-        stage_path_to_artifacts=f"app_pkg.{stage}",
+        path_to_version_directory=f"app_pkg.{stage}",
         version="manifest_version",
         # cli patch overrides the manifest
         patch=cli_patch,

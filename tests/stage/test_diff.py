@@ -89,7 +89,6 @@ def stage_contents(
     ]
 
 
-# PJ - TODO add tests for following cases with subdir
 @mock.patch(f"{STAGE_MANAGER}.list_files")
 def test_empty_stage(mock_list, mock_cursor):
     mock_list.return_value = mock_cursor(rows=[], columns=STAGE_LS_COLUMNS)
@@ -276,7 +275,6 @@ def test_put_files_on_stage(mock_put, overwrite_param):
         assert mock_put.mock_calls == expected
 
 
-# PJ - TODO add test here
 def test_build_md5_map(mock_cursor):
     actual = build_md5_map(
         mock_cursor(

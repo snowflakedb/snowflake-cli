@@ -609,7 +609,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             return get_snowflake_facade().upgrade_application(
                 name=self.name,
                 install_method=install_method,
-                stage_path_to_artifacts=stage_path.full_path,
+                path_to_version_directory=stage_path.full_path,
                 debug_mode=self.debug,
                 should_authorize_event_sharing=event_sharing.should_authorize_event_sharing(),
                 role=self.role,
@@ -659,7 +659,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             name=self.name,
             package_name=package.name,
             install_method=install_method,
-            stage_path_to_artifacts=stage_path.full_path,
+            path_to_version_directory=stage_path.full_path,
             debug_mode=self.debug,
             should_authorize_event_sharing=event_sharing.should_authorize_event_sharing(),
             role=self.role,

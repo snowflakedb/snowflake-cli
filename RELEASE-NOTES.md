@@ -19,7 +19,7 @@
 ## Deprecations
 
 ## New additions
-* Added an optional `stage_subdirectory` field to `application package` entity. This field specifies a subdirectory on the stage where the artifacts are to be found. The `manifest.yml` is at the root of this subdirectory.
+* Added an optional `stage_subdirectory` field to `application package` entity. When specified, application artifacts are uploaded to this subdirectory instead of the root of the application package's stage.
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.
 

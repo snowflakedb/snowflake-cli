@@ -302,7 +302,7 @@ def _setup_mocks_for_create_app(
             install_method=SameAccountInstallMethod.release_directive()
             if is_prod
             else SameAccountInstallMethod.unversioned_dev(),
-            stage_path_to_artifacts=stage_path_to_artifacts,
+            path_to_version_directory=stage_path_to_artifacts,
             debug_mode=None,
             should_authorize_event_sharing=expected_authorize_telemetry_flag,
             role="app_role",
@@ -406,7 +406,7 @@ def _setup_mocks_for_upgrade_app(
             install_method=SameAccountInstallMethod.release_directive()
             if is_prod
             else SameAccountInstallMethod.unversioned_dev(),
-            stage_path_to_artifacts=stage_path_to_artifacts,
+            path_to_version_directory=stage_path_to_artifacts,
             debug_mode=None,
             should_authorize_event_sharing=expected_authorize_telemetry_flag,
             role="app_role",

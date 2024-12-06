@@ -49,7 +49,6 @@ def _get_app_pkg_entity(project_directory, package_overrides=None):
     with project_directory("workspaces_simple") as project_root:
         with Path(project_root / "snowflake.yml").open() as definition_file_path:
             project_definition = yaml.safe_load(definition_file_path)
-            # project_definition["entities"]["pkg"]["stage_subdirectory"] = None
             project_definition["entities"]["pkg"] = dict(
                 project_definition["entities"]["pkg"], **(package_overrides or {})
             )

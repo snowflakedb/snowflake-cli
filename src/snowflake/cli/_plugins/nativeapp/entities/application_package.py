@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Literal, Optional, Union
@@ -126,7 +127,7 @@ class ApplicationPackageEntityModel(EntityModelBase):
         title="Path to manifest.yml. Unused and deprecated starting with Snowflake CLI 3.2",
         default="",
     )
-    # PJ-TODO: does it need sanitation?
+
     stage_subdirectory: Optional[str] = Field(
         title="Subfolder in stage",
         default="",
@@ -218,7 +219,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def scratch_stage_path(self) -> DefaultStagePathParts:
         return DefaultStagePathParts(f"{self.name}.{self._entity_model.scratch_stage}")
 
-    @property
+    @cached_property
     def stage_path(self) -> DefaultStagePathParts:
         stage_fqn = f"{self.name}.{self._entity_model.stage}"
         subdir = self._entity_model.stage_subdirectory
@@ -715,7 +716,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         get_snowflake_facade().create_version_in_package(
             role=self.role,
             package_name=self.name,
-            stage_path_to_artifacts=self.stage_path.full_path,
+            path_to_version_directory=self.stage_path.full_path,
             version=version,
             label=label,
         )
@@ -739,7 +740,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         new_patch = get_snowflake_facade().add_patch_to_package_version(
             role=self.role,
             package_name=self.name,
-            stage_path_to_artifacts=self.stage_path.full_path,
+            path_to_version_directory=self.stage_path.full_path,
             version=version,
             patch=patch,
             label=label,
