@@ -62,11 +62,11 @@ class NativeAppCompiler:
         # dictionary of all processors created and shared between different artifact objects.
         self.cached_processors: Dict[str, ArtifactProcessor] = {}
 
-        self._register(SnowparkAnnotationProcessor)
-        self._register(NativeAppSetupProcessor)
-        self._register(TemplatesProcessor)
+        self.register(SnowparkAnnotationProcessor)
+        self.register(NativeAppSetupProcessor)
+        self.register(TemplatesProcessor)
 
-    def _register(self, processor_cls: ProcessorClassType):
+    def register(self, processor_cls: ProcessorClassType):
         """
         Registers a processor class to enable.
         """
