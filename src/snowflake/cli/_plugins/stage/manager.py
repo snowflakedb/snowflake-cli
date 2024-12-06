@@ -41,7 +41,7 @@ from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import PYTHON_3_12
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.util import extract_schema, to_string_literal
+from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -65,6 +65,7 @@ EXECUTE_SUPPORTED_FILES_FORMATS = (
 
 # Replace magic numbers with constants
 OMIT_FIRST = slice(1, None)
+STAGE_PATH_REGEX = rf"(?P<prefix>@)?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
 
 
 @dataclass
@@ -132,9 +133,14 @@ class DefaultStagePathParts(StagePathParts):
     """
 
     def __init__(self, stage_path: str):
-        self.directory = self.get_directory(stage_path)
-        self.stage = StageManager.get_stage_from_path(stage_path)
-        stage_name = self.stage.split(".")[-1]
+        match = re.fullmatch(STAGE_PATH_REGEX, stage_path)
+        if match is None:
+            raise ClickException("Invalid stage path")
+        self.directory = match.group("directory")
+        self._schema = match.group("second_qualifier") or match.group("first_qualifier")
+        self.stage = stage_path.removesuffix(self.directory).rstrip("/")
+
+        stage_name = FQN.from_stage(self.stage).name
         stage_name = (
             stage_name[OMIT_FIRST] if stage_name.startswith("@") else stage_name
         )
@@ -151,7 +157,7 @@ class DefaultStagePathParts(StagePathParts):
 
     @property
     def schema(self) -> str | None:
-        return extract_schema(self.stage)
+        return self._schema
 
     def replace_stage_prefix(self, file_path: str) -> str:
         stage = Path(self.stage).parts[0]
