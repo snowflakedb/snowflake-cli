@@ -36,6 +36,7 @@ from snowflake.cli._plugins.nativeapp.codegen.sandbox import (
     SandboxEnvBuilder,
     execute_script_in_sandbox,
 )
+from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli._plugins.stage.diff import to_stage_path
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
@@ -74,8 +75,14 @@ def safe_set(d: dict, *keys: str, **kwargs) -> None:
 
 
 class NativeAppSetupProcessor(ArtifactProcessor):
+    NAME = "native app setup"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    @staticmethod
+    def is_enabled() -> bool:
+        return FeatureFlag.ENABLE_NATIVE_APP_PYTHON_SETUP.is_enabled()
 
     def process(
         self,

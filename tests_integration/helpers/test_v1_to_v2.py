@@ -2,7 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from snowflake.cli._plugins.nativeapp.codegen.compiler import TEMPLATES_PROCESSOR
+from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor import (
+    TemplatesProcessor,
+)
 from tests.nativeapp.factories import ProjectV11Factory
 
 
@@ -44,10 +46,10 @@ def test_v1_to_v2_converts_templates_in_files(temp_dir, runner):
         pdf__native_app__package__name="my_pkg",
         pdf__native_app__application__name="my_app",
         pdf__native_app__artifacts=[
-            dict(src="templated.txt", processors=[TEMPLATES_PROCESSOR]),
+            dict(src="templated.txt", processors=[TemplatesProcessor.NAME]),
             dict(src="untemplated.txt"),
-            dict(src="app/*", processors=[TEMPLATES_PROCESSOR]),
-            dict(src="nested/*", processors=[TEMPLATES_PROCESSOR]),
+            dict(src="app/*", processors=[TemplatesProcessor.NAME]),
+            dict(src="nested/*", processors=[TemplatesProcessor.NAME]),
         ],
         files={
             filename: source_contents

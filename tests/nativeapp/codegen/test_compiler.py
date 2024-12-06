@@ -13,10 +13,12 @@
 # limitations under the License.
 import re
 from pathlib import Path
+from typing import Optional
 
 import pytest
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli._plugins.nativeapp.codegen.artifact_processor import (
+    ArtifactProcessor,
     UnsupportedArtifactProcessorError,
 )
 from snowflake.cli._plugins.nativeapp.codegen.compiler import NativeAppCompiler
@@ -28,6 +30,10 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 )
 from snowflake.cli.api.project.schemas.project_definition import (
     build_project_definition,
+)
+from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
+    PathMapping,
+    ProcessorMapping,
 )
 
 
@@ -114,3 +120,35 @@ def test_find_and_execute_processors_exception(test_proj_def, test_compiler):
 
     with pytest.raises(UnsupportedArtifactProcessorError):
         test_compiler.compile_artifacts()
+
+
+class TestProcessor(ArtifactProcessor):
+    NAME = "test_processor"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert False  # never invoked
+
+    @staticmethod
+    def is_enabled():
+        return False
+
+    def process(
+        self,
+        artifact_to_process: PathMapping,
+        processor_mapping: Optional[ProcessorMapping],
+        **kwargs,
+    ) -> None:
+        assert False  # never invoked
+
+
+def test_skips_disabled_processors(test_proj_def, test_compiler):
+    pkg_model = test_proj_def.entities["pkg"]
+    pkg_model.artifacts = [
+        {"dest": "./", "src": "app/*", "processors": ["test_processor"]}
+    ]
+    test_compiler = NativeAppCompiler(_get_bundle_context(pkg_model))
+    test_compiler.register(TestProcessor)
+
+    # TestProcessor is never invoked, otherwise calling its methods will make the test fail
+    test_compiler.compile_artifacts()
