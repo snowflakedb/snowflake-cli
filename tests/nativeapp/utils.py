@@ -62,6 +62,10 @@ APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME = (
     f"{APP_PACKAGE_ENTITY}.verify_project_distribution"
 )
 
+CODE_GEN = "snowflake.cli._plugins.nativeapp.codegen"
+TEMPLATE_PROCESSOR = f"{CODE_GEN}.templates.templates_processor"
+ARTIFACT_PROCESSOR = f"{CODE_GEN}.artifact_processor"
+
 SQL_EXECUTOR_EXECUTE = f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_query"
 SQL_EXECUTOR_EXECUTE_QUERIES = (
     f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_queries"
