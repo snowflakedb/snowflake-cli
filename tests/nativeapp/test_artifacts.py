@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.artifacts import (
+    VersionInfo,
     build_bundle,
     find_events_definitions_in_manifest_file,
     find_version_info_in_manifest_file,
@@ -29,7 +30,6 @@ from snowflake.cli.api.artifacts.common import (
     NotInDeployRootError,
     SourceNotFoundError,
     TooManyFilesError,
-    VersionInfo,
 )
 from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
