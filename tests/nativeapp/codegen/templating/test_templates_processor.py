@@ -29,7 +29,6 @@ from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 
 from tests.nativeapp.utils import (
-    ARTIFACT_PROCESSOR,
     CLI_GLOBAL_TEMPLATE_CONTEXT,
     TEMPLATE_PROCESSOR,
 )
@@ -228,7 +227,7 @@ def test_expand_templates_in_file_unicode_decode_error(mock_cc_warning):
         bundle_result = bundle_files(tmp_dir, file_name, file_contents)
         templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
         with mock.patch(
-            f"{ARTIFACT_PROCESSOR}.ProjectFileContextManager.__enter__",
+            f"{TEMPLATE_PROCESSOR}.TemplatesProcessor.edit_file",
             side_effect=UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte"),
         ):
             src_path = Path(
