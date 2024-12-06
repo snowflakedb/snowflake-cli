@@ -232,5 +232,10 @@ class ShowSpecificObjectMultipleRowsError(RuntimeError):
 
 
 class FeatureNotEnabledError(RuntimeError):
-    def __init__(self, feature_name: str):
-        super().__init__(f"The feature '{feature_name}' is not enabled.")
+    def __init__(self, feature_name: str, custom_message: Optional[str] = None):
+        base_message = f"Set the following field in your configuration to enable it: '{feature_name}'."
+        if custom_message:
+            message = f"{custom_message} {base_message}"
+        else:
+            message = base_message
+        super().__init__(message)

@@ -255,7 +255,10 @@ def logs(
     """
     if follow:
         if not FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_enabled():
-            raise FeatureNotEnabledError("Log Streaming")
+            raise FeatureNotEnabledError(
+                "ENABLE_SPCS_LOG_STREAMING",
+                "Streaming logs from spcs containers is disabled.",
+            )
         if num_lines != DEFAULT_NUM_LINES:
             raise IncompatibleParametersError(["--follow", "--num-lines"])
         if previous_logs:
