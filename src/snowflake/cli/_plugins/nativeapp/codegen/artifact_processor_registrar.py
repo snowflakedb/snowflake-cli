@@ -83,9 +83,9 @@ class ArtifactProcessorRegistrar:
             path = getattr(processor_ctx, f"{name.lower()}_root")
             assert path.is_absolute(), f"{name} root {path} must be an absolute path."
 
-    def compile_artifacts(self):
+    def process_artifacts(self):
         """
-        Go through every artifact object in the project definition of a native app, and execute processors in order of specification for each of the artifact object.
+        Go through every artifact object in the project definition of an entity, and execute processors in order of specification for each of the artifact object.
         May have side-effects on the filesystem by either directly editing source files or the deploy root.
         """
         metrics = get_cli_context().metrics

@@ -71,7 +71,7 @@ def bundle_files(
 
     artifact_to_process = PathMapping(src="src/*", dest="./", processors=["templates"])
 
-    bundle_context = ArtifactProcessorContext(
+    processor_context = ArtifactProcessorContext(
         package_name="test_package_name",
         project_root=project_root,
         artifacts=[artifact_to_process],
@@ -80,7 +80,7 @@ def bundle_files(
         deploy_root=deploy_root,
     )
 
-    return BundleResult(artifact_to_process, bundle_context, output_files)
+    return BundleResult(artifact_to_process, processor_context, output_files)
 
 
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, {})

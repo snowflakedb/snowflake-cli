@@ -63,7 +63,7 @@ def test_proj_def():
     )
 
 
-def _get_bundle_context(pkg_model: ApplicationPackageEntityModel):
+def _get_processor_context(pkg_model: ApplicationPackageEntityModel):
     project_root = Path().resolve()
     return ArtifactProcessorContext(
         package_name=pkg_model.fqn.name,
@@ -78,28 +78,28 @@ def _get_bundle_context(pkg_model: ApplicationPackageEntityModel):
 
 
 @pytest.fixture()
-def test_compiler(test_proj_def):
+def test_registrar(test_proj_def):
     return ArtifactProcessorRegistrar(
-        _get_bundle_context(test_proj_def.entities["pkg"])
+        _get_processor_context(test_proj_def.entities["pkg"])
     )
 
 
 @pytest.mark.parametrize("name", ["Project", "Deploy", "Bundle", "Generated"])
-def test_compiler_requires_absolute_paths(test_proj_def, name):
-    bundle_context = _get_bundle_context(test_proj_def.entities["pkg"])
+def test_requires_absolute_paths(test_proj_def, name):
+    processor_context = _get_processor_context(test_proj_def.entities["pkg"])
 
     path = Path()
-    setattr(bundle_context, f"{name.lower()}_root", path)
+    setattr(processor_context, f"{name.lower()}_root", path)
     with pytest.raises(
         AssertionError,
         match=re.escape(rf"{name} root {path} must be an absolute path."),
     ):
-        ArtifactProcessorRegistrar(bundle_context)
+        ArtifactProcessorRegistrar(processor_context)
 
 
-def test_try_create_processor_returns_none(test_proj_def, test_compiler):
+def test_try_create_processor_returns_none(test_proj_def, test_registrar):
     artifact_to_process = test_proj_def.entities["pkg"].artifacts[2]
-    result = test_compiler._try_create_processor(  # noqa: SLF001
+    result = test_registrar._try_create_processor(  # noqa: SLF001
         processor_mapping=artifact_to_process.processors[0],
     )
     assert result is None
@@ -110,22 +110,22 @@ def test_try_create_processor_returns_none(test_proj_def, test_compiler):
     [3, 4],
 )
 def test_try_create_processor_returns_processor(
-    artifact_index, test_proj_def, test_compiler
+    artifact_index, test_proj_def, test_registrar
 ):
     mapping = test_proj_def.entities["pkg"].artifacts[artifact_index]
-    result = test_compiler._try_create_processor(  # noqa: SLF001
+    result = test_registrar._try_create_processor(  # noqa: SLF001
         processor_mapping=mapping.processors[0],
     )
     assert isinstance(result, SnowparkAnnotationProcessor)
 
 
-def test_find_and_execute_processors_exception(test_proj_def, test_compiler):
+def test_find_and_execute_processors_exception(test_proj_def, test_registrar):
     pkg_model = test_proj_def.entities["pkg"]
     pkg_model.artifacts = [{"dest": "./", "src": "app/*", "processors": ["DUMMY"]}]
-    test_compiler = ArtifactProcessorRegistrar(_get_bundle_context(pkg_model))
+    test_registrar = ArtifactProcessorRegistrar(_get_processor_context(pkg_model))
 
     with pytest.raises(UnsupportedArtifactProcessorError):
-        test_compiler.compile_artifacts()
+        test_registrar.process_artifacts()
 
 
 class TestProcessor(ArtifactProcessor):
@@ -148,13 +148,13 @@ class TestProcessor(ArtifactProcessor):
         assert False  # never invoked
 
 
-def test_skips_disabled_processors(test_proj_def, test_compiler):
+def test_skips_disabled_processors(test_proj_def, test_registrar):
     pkg_model = test_proj_def.entities["pkg"]
     pkg_model.artifacts = [
         {"dest": "./", "src": "app/*", "processors": ["test_processor"]}
     ]
-    test_compiler = ArtifactProcessorRegistrar(_get_bundle_context(pkg_model))
-    test_compiler.register(TestProcessor)
+    test_registrar = ArtifactProcessorRegistrar(_get_processor_context(pkg_model))
+    test_registrar.register(TestProcessor)
 
     # TestProcessor is never invoked, otherwise calling its methods will make the test fail
-    test_compiler.compile_artifacts()
+    test_registrar.process_artifacts()

@@ -526,7 +526,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def _bundle(self):
         model = self._entity_model
         bundle_map = build_bundle(self.project_root, self.deploy_root, model.artifacts)
-        bundle_context = ArtifactProcessorContext(
+        processor_ctx = ArtifactProcessorContext(
             package_name=self.name,
             artifacts=model.artifacts,
             project_root=self.project_root,
@@ -534,8 +534,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             deploy_root=self.deploy_root,
             generated_root=self.generated_root,
         )
-        compiler = ArtifactProcessorRegistrar(bundle_context)
-        compiler.compile_artifacts()
+        registrar = ArtifactProcessorRegistrar(processor_ctx)
+        registrar.process_artifacts()
         return bundle_map
 
     def _deploy(
