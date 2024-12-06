@@ -63,9 +63,9 @@ def _get_app_pkg_entity(project_directory):
 
 
 def test_bundle(project_directory):
-    app_pkg, bundle_ctx, mock_console = _get_app_pkg_entity(project_directory)
+    app_pkg, action_ctx, mock_console = _get_app_pkg_entity(project_directory)
 
-    bundle_result = app_pkg.action_bundle(bundle_ctx)
+    bundle_result = app_pkg.action_bundle(action_ctx)
 
     deploy_root = bundle_result.deploy_root()
     assert (deploy_root / "README.md").exists()
@@ -139,10 +139,10 @@ def test_deploy(
     )
     mock_execute.side_effect = side_effects
 
-    app_pkg, bundle_ctx, mock_console = _get_app_pkg_entity(project_directory)
+    app_pkg, action_ctx, mock_console = _get_app_pkg_entity(project_directory)
 
     app_pkg.action_deploy(
-        bundle_ctx,
+        action_ctx,
         prune=False,
         recursive=False,
         paths=["a/b", "c"],

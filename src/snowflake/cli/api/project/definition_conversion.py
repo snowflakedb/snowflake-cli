@@ -9,10 +9,12 @@ from tempfile import TemporaryDirectory, mkstemp
 from typing import Any, Dict, Literal, Optional
 
 from click import ClickException
+from snowflake.cli._plugins.nativeapp.artifact_processor_context import (
+    ArtifactProcessorContext,
+)
 from snowflake.cli._plugins.nativeapp.artifacts import (
     bundle_artifacts,
 )
-from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
 from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor import (
     TemplatesProcessor,
 )
@@ -467,7 +469,7 @@ def _convert_templates_in_files(
             # files on disk outside of the artifacts we want to convert
             with tempfile.TemporaryDirectory() as d:
                 deploy_root = Path(d)
-                bundle_ctx = BundleContext(
+                processor_ctx = ArtifactProcessorContext(
                     package_name=pkg_model.identifier,
                     artifacts=pkg_model.artifacts,
                     project_root=project_root,
@@ -477,7 +479,7 @@ def _convert_templates_in_files(
                         project_root / deploy_root / pkg_model.generated_root
                     ),
                 )
-                template_processor = TemplatesProcessor(bundle_ctx)
+                template_processor = TemplatesProcessor(processor_ctx)
                 bundle_map = bundle_artifacts(
                     project_root, deploy_root, artifacts_to_template
                 )

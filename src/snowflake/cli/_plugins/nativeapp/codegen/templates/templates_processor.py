@@ -66,7 +66,7 @@ class TemplatesProcessor(ArtifactProcessor):
             ):
                 return
 
-            src_file_name = src.relative_to(self._bundle_ctx.project_root)
+            src_file_name = str(src.relative_to(self._processor_ctx.project_root))
             cc.step(f"Expanding templates in {src_file_name}")
             with cc.indented():
                 try:
@@ -107,8 +107,8 @@ class TemplatesProcessor(ArtifactProcessor):
         get_cli_context().metrics.set_counter(CLICounterField.TEMPLATES_PROCESSOR, 1)
 
         bundle_map = BundleMap(
-            project_root=self._bundle_ctx.project_root,
-            deploy_root=self._bundle_ctx.deploy_root,
+            project_root=self._processor_ctx.project_root,
+            deploy_root=self._processor_ctx.deploy_root,
         )
         bundle_map.add(artifact_to_process)
 
