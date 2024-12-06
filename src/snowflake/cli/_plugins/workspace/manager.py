@@ -1,3 +1,4 @@
+from functools import cached_property
 from pathlib import Path
 from typing import Dict
 
@@ -58,16 +59,19 @@ class WorkspaceManager:
         """
         entity = self.get_entity(entity_id)
         if entity.supports(action):
-            action_ctx = ActionContext(
-                get_entity=self.get_entity,
-            )
-            return entity.perform(action, action_ctx, *args, **kwargs)
+            return entity.perform(action, self.action_ctx, *args, **kwargs)
         else:
             raise ValueError(f'This entity type does not support "{action.value}"')
 
     @property
     def project_root(self) -> Path:
         return self._project_root
+
+    @cached_property
+    def action_ctx(self) -> ActionContext:
+        return ActionContext(
+            get_entity=self.get_entity,
+        )
 
 
 def _get_default_role() -> str:
