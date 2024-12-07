@@ -33,6 +33,7 @@ class ProjectDefinitionProperty:
     required: bool
     name: str
     description: str
+    examples: List[str]
     add_types: bool
     types: str
 
@@ -81,25 +82,64 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
         self._remapped_definitions = json_schema["$defs"]
         return {"result": self._get_definition_sections(json_schema)}
 
+    def _get_current_definition_sections(
+        self, current_definition_properties: Dict[str, Any]
+    ):
+        result = {}
+        if "entities" in current_definition_properties:
+            entities_mapping = current_definition_properties["entities"][
+                "additionalProperties"
+            ]["discriminator"]["mapping"]
+            for entity_name, entity_model in entities_mapping.items():
+                entity_name = entity_name.replace(" ", "_")
+                result["entities_" + entity_name] = {
+                    **current_definition_properties["entities"],
+                    "properties": {
+                        entity_name
+                        + "_name": {"$ref": entity_model, "title": "Entity name"}
+                    },
+                }
+
+        for property_name, property_model in current_definition_properties.items():
+            if property_name == "entities":
+                continue
+            result[property_name] = property_model
+        return result
+
     def _get_definition_sections(
         self, current_definition: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         required_properties: List[Dict[str, Any]] = []
         sections: List[Dict[str, Any]] = []
 
-        for property_name, property_model in current_definition["properties"].items():
+        for property_name, property_model in self._get_current_definition_sections(
+            current_definition["properties"]
+        ).items():
+            section_name = property_name
             is_required = (
                 "required" in current_definition
                 and property_name in current_definition["required"]
             )
-            children_properties = self._get_children_properties(
-                property_model, property_name
-            )
+
+            if "entities" in property_name:
+                property_name = "entities"
+                children_properties = self._get_section_properties(
+                    property_model,
+                    property_name,
+                    1,
+                    False,
+                )
+
+            else:
+                children_properties = self._get_children_properties(
+                    property_model, property_name
+                )
 
             new_property = ProjectDefinitionProperty(
                 path=property_name,
                 title=property_model.get("title", ""),
                 description=property_model.get("description", ""),
+                examples=property_model.get("examples", []),
                 indents=0,
                 item_index=0,
                 required=is_required,
@@ -116,7 +156,7 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
                     {
                         "properties": properties,
                         "title": property_model["title"],
-                        "name": property_name,
+                        "name": section_name,
                     }
                 )
 
@@ -150,10 +190,12 @@ class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
             children_properties = self._get_children_properties(
                 property_model, new_current_path, depth
             )
+
             new_property = ProjectDefinitionProperty(
                 path=new_current_path,
                 title=property_model.get("title", ""),
                 description=property_model.get("description", ""),
+                examples=property_model.get("examples", []),
                 indents=depth,
                 item_index=item_index,
                 required=is_required,
