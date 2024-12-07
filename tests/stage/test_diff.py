@@ -281,7 +281,7 @@ def test_build_md5_map(mock_cursor):
             rows=stage_contents(FILE_CONTENTS),
             columns=STAGE_LS_COLUMNS,
         ),
-        "stage",
+        "",
     )
 
     expected = {

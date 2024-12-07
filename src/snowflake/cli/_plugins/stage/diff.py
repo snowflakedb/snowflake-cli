@@ -83,24 +83,26 @@ def enumerate_files(path: Path) -> List[Path]:
     return paths
 
 
-def relative_to_stage_path(path: str, stage_path: str) -> StagePathType:
+def relative_to_stage_path(path: str, stage_subirectory: str) -> StagePathType:
     """
     @param path: file path on the stage.
-    @param stage_path: root of stage. stage_name/[optionally/other/directories]
+    @param stage_subirectory: subdirectory of stage.
     @return: path of file relative to the stage_path
     """
-    return StagePathType(path).relative_to(stage_path)
+    wo_stage_name = StagePathType(*path.split("/")[1:])
+    relative_path = str(wo_stage_name).removeprefix(stage_subirectory).lstrip("/")
+    return StagePathType(relative_path)
 
 
 def build_md5_map(
-    list_stage_cursor: DictCursor, stage_path: str
+    list_stage_cursor: DictCursor, stage_subirectory: str
 ) -> Dict[StagePathType, Optional[str]]:
     """
     Returns a mapping of file paths to their md5sums. File paths are relative to the stage_path.
     """
     all_files = list_stage_cursor.fetchall()
     return {
-        relative_to_stage_path(file["name"], stage_path): file["md5"]
+        relative_to_stage_path(file["name"], stage_subirectory): file["md5"]
         for file in all_files
     }
 
@@ -131,7 +133,7 @@ def compute_stage_diff(local_root: Path, stage_path: StagePathParts) -> DiffResu
     remote_files = stage_manager.list_files(stage_path.full_path)
 
     # Create a mapping from remote_file path to file's md5sum. Path is relative to stage_name/directory.
-    remote_md5 = build_md5_map(remote_files, stage_path.path)
+    remote_md5 = build_md5_map(remote_files, stage_path.directory)
 
     result: DiffResult = DiffResult()
 
