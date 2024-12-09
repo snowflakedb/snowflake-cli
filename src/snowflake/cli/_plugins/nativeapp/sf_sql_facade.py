@@ -21,6 +21,7 @@ from typing import Any, Dict, List
 from snowflake.cli._plugins.connection.util import UIParameter, get_ui_parameter
 from snowflake.cli._plugins.nativeapp.constants import (
     AUTHORIZE_TELEMETRY_COL,
+    DEFAULT_DIRECTIVE,
     NAME_COL,
     SPECIAL_COMMENT,
 )
@@ -881,12 +882,15 @@ class SnowflakeSQLFacade:
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
         """
 
-        if same_identifiers(release_directive, "DEFAULT") and target_accounts:
+        if same_identifiers(release_directive, DEFAULT_DIRECTIVE) and target_accounts:
             raise UserInputError(
                 "Default release directive does not support target accounts."
             )
 
-        if not same_identifiers(release_directive, "DEFAULT") and not target_accounts:
+        if (
+            not same_identifiers(release_directive, DEFAULT_DIRECTIVE)
+            and not target_accounts
+        ):
             raise UserInputError(
                 "Non-default release directives require target accounts to be specified."
             )
@@ -898,7 +902,7 @@ class SnowflakeSQLFacade:
 
         release_directive_statement = (
             "set default release directive"
-            if same_identifiers(release_directive, "DEFAULT")
+            if same_identifiers(release_directive, DEFAULT_DIRECTIVE)
             else f"set release directive {release_directive}"
         )
 
@@ -974,7 +978,7 @@ class SnowflakeSQLFacade:
 
         release_directive_statement = (
             "modify default release directive"
-            if same_identifiers(release_directive, "DEFAULT")
+            if same_identifiers(release_directive, DEFAULT_DIRECTIVE)
             else f"modify release directive {release_directive}"
         )
 
@@ -1034,7 +1038,7 @@ class SnowflakeSQLFacade:
         release_channel = to_identifier(release_channel) if release_channel else None
         release_directive = to_identifier(release_directive)
 
-        if same_identifiers(release_directive, "DEFAULT"):
+        if same_identifiers(release_directive, DEFAULT_DIRECTIVE):
             raise UserInputError(
                 "Cannot unset default release directive. Please specify a non-default release directive."
             )

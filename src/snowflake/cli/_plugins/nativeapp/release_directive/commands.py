@@ -18,6 +18,7 @@ import logging
 from typing import Optional
 
 import typer
+from snowflake.cli._plugins.nativeapp.constants import DEFAULT_CHANNEL
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     force_project_definition_v2,
 )
@@ -88,7 +89,7 @@ def release_directive_set(
         help="Name of the release directive to set",
     ),
     channel: str = typer.Option(
-        "DEFAULT",
+        DEFAULT_CHANNEL,
         help="Name of the release channel to use",
     ),
     target_accounts: Optional[list[str]] = typer.Option(
@@ -140,7 +141,7 @@ def release_directive_unset(
         help="Name of the release directive",
     ),
     channel: Optional[str] = typer.Option(
-        "DEFAULT",
+        DEFAULT_CHANNEL,
         help="Name of the release channel to use",
     ),
     **options,
