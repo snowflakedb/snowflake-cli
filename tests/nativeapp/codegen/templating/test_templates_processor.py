@@ -243,14 +243,16 @@ def test_expand_templates_in_file_unicode_decode_error(mock_cc_warning):
     file_contents = ["This is a test file"]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_name, file_contents)
-        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor = TemplatesProcessor(
+            processor_ctx=bundle_result.processor_ctx
+        )
         with mock.patch(
             f"{TEMPLATE_PROCESSOR}.TemplatesProcessor.edit_file",
             side_effect=UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte"),
         ):
             src_path = Path(
-                bundle_result.bundle_ctx.project_root / "src" / file_name[0]
-            ).relative_to(bundle_result.bundle_ctx.project_root)
+                bundle_result.processor_ctx.project_root / "src" / file_name[0]
+            ).relative_to(bundle_result.processor_ctx.project_root)
             templates_processor.process(bundle_result.artifact_to_process, None)
             mock_cc_warning.assert_called_once_with(
                 f"Could not read file {src_path}, error: invalid start byte. Skipping this file."
