@@ -24,6 +24,7 @@ from zipfile import ZipFile
 
 from syrupy import SnapshotAssertion
 
+from snowflake.cli.api.feature_flags import FeatureFlag
 from tests_integration.conftest import SnowCLIRunner
 from tests_integration.testing_utils import assert_that_result_is_error
 from tests_integration.testing_utils.assertions.test_file_assertions import (
@@ -170,7 +171,10 @@ class SnowparkTestSteps:
             additional_files = []
 
         if not no_dependencies:
-            additional_files.append(Path("dependencies.zip"))
+            if FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled():
+                additional_files.append(Path("output") / "dependencies.zip")
+            else:
+                additional_files.append(Path("dependencies.zip"))
 
         current_files = set(Path(".").glob("**/*"))
         result = self._setup.runner.invoke_with_connection_json(
