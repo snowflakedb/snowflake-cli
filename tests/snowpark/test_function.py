@@ -249,7 +249,14 @@ def test_deploy_function_no_changes(
 )
 @mock_session_has_warehouse
 def test_deploy_function_needs_update_because_packages_changes(
-        mock_download, mock_connector, runner, mock_ctx, mock_cursor, project_directory, project_name, enable_snowpark_glob_support_feature_flag
+    mock_download,
+    mock_connector,
+    runner,
+    mock_ctx,
+    mock_cursor,
+    project_directory,
+    project_name,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     rows = [
@@ -304,7 +311,14 @@ def test_deploy_function_needs_update_because_packages_changes(
 )
 @mock_session_has_warehouse
 def test_deploy_function_needs_update_because_handler_changes(
-        mock_download, mock_connector, runner, mock_ctx, mock_cursor, project_directory, project_name, enable_snowpark_glob_support_feature_flag
+    mock_download,
+    mock_connector,
+    runner,
+    mock_ctx,
+    mock_cursor,
+    project_directory,
+    project_name,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_download.return_value = DownloadUnavailablePackagesResult()
     rows = [
