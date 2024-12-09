@@ -53,6 +53,7 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     UpgradeApplicationRestrictionError,
 )
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
+from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console.abc import AbstractConsole
@@ -83,7 +84,6 @@ from snowflake.cli.api.project.schemas.entities.common import (
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 from snowflake.cli.api.project.util import (
     append_test_resource_suffix,
-    extract_schema,
     identifier_for_url,
     to_identifier,
     unquote_identifier,
@@ -330,7 +330,6 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         recursive: bool,
         paths: List[Path],
         validate: bool = ValidateOption,
-        stage_fqn: Optional[str] = None,
         interactive: bool = InteractiveOption,
         version: Optional[str] = None,
         patch: Optional[int] = None,
@@ -345,7 +344,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         package_entity: ApplicationPackageEntity = action_ctx.get_entity(
             self.package_entity_id
         )
-        stage_fqn = stage_fqn or package_entity.stage_fqn
+
+        stage_path = package_entity.stage_path
 
         if force:
             policy = AllowAlwaysPolicy()
@@ -358,7 +358,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         if from_release_directive:
             self.create_or_upgrade_app(
                 package=package_entity,
-                stage_fqn=stage_fqn,
+                stage_path=stage_path,
                 install_method=SameAccountInstallMethod.release_directive(),
                 policy=policy,
                 interactive=interactive,
@@ -380,7 +380,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
             self.create_or_upgrade_app(
                 package=package_entity,
-                stage_fqn=stage_fqn,
+                stage_path=stage_path,
                 install_method=SameAccountInstallMethod.versioned_dev(version, patch),
                 policy=policy,
                 interactive=interactive,
@@ -394,13 +394,12 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             recursive=True,
             paths=[],
             validate=validate,
-            stage_fqn=stage_fqn,
             interactive=interactive,
             force=force,
         )
         self.create_or_upgrade_app(
             package=package_entity,
-            stage_fqn=stage_fqn,
+            stage_path=stage_path,
             install_method=SameAccountInstallMethod.unversioned_dev(),
             policy=policy,
             interactive=interactive,
@@ -598,7 +597,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
     def _upgrade_app(
         self,
-        stage_fqn: str,
+        stage_path: DefaultStagePathParts,
         install_method: SameAccountInstallMethod,
         event_sharing: EventSharingHandler,
         policy: PolicyBase,
@@ -610,7 +609,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             return get_snowflake_facade().upgrade_application(
                 name=self.name,
                 install_method=install_method,
-                stage_fqn=stage_fqn,
+                path_to_version_directory=stage_path.full_path,
                 debug_mode=self.debug,
                 should_authorize_event_sharing=event_sharing.should_authorize_event_sharing(),
                 role=self.role,
@@ -623,7 +622,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
     def _create_app(
         self,
-        stage_fqn: str,
+        stage_path: DefaultStagePathParts,
         install_method: SameAccountInstallMethod,
         event_sharing: EventSharingHandler,
         package: ApplicationPackageEntity,
@@ -639,7 +638,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 role_to_use=package.role,
             )
 
-            stage_schema = extract_schema(stage_fqn)
+            stage_schema = stage_path.schema
             get_snowflake_facade().grant_privileges_to_role(
                 privileges=["usage"],
                 object_type=ObjectType.SCHEMA,
@@ -651,7 +650,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             get_snowflake_facade().grant_privileges_to_role(
                 privileges=["read"],
                 object_type=ObjectType.STAGE,
-                object_identifier=stage_fqn,
+                object_identifier=stage_path.stage,
                 role_to_grant=self.role,
                 role_to_use=package.role,
             )
@@ -660,7 +659,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             name=self.name,
             package_name=package.name,
             install_method=install_method,
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_path.full_path,
             debug_mode=self.debug,
             should_authorize_event_sharing=event_sharing.should_authorize_event_sharing(),
             role=self.role,
@@ -671,7 +670,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
     def create_or_upgrade_app(
         self,
         package: ApplicationPackageEntity,
-        stage_fqn: str,
+        stage_path: DefaultStagePathParts,
         install_method: SameAccountInstallMethod,
         policy: PolicyBase,
         interactive: bool,
@@ -688,13 +687,11 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             self.name, self.role
         )
 
-        stage_fqn = stage_fqn or package.stage_fqn
-
         # 2. If existing application is found, try to upgrade the application object.
         create_or_upgrade_result = None
         if show_app_row:
             create_or_upgrade_result = self._upgrade_app(
-                stage_fqn=stage_fqn,
+                stage_path=stage_path,
                 install_method=install_method,
                 event_sharing=event_sharing,
                 policy=policy,
@@ -704,7 +701,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         # 3. If no existing application found, or we performed a drop before the upgrade, we proceed to create
         if create_or_upgrade_result is None:
             create_or_upgrade_result = self._create_app(
-                stage_fqn=stage_fqn,
+                stage_path=stage_path,
                 install_method=install_method,
                 event_sharing=event_sharing,
                 package=package,
