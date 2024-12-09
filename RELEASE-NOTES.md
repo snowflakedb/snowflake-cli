@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Add Release Directives support, through `snow app release-directive` commands.
 
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.

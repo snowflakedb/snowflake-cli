@@ -276,3 +276,44 @@ def append_test_resource_suffix(identifier: str) -> str:
     # Otherwise just append the string, don't add quotes
     # in case the user doesn't want them
     return f"{identifier}{suffix}"
+
+
+def same_identifiers(id1: str, id2: str) -> bool:
+    """
+    Returns whether two identifiers refer to the same object.
+
+    Two unquoted identifiers are considered the same if they are equal when both are converted to uppercase
+    Two quoted identifiers are considered the same if they are exactly equal
+    An unquoted identifier and a quoted identifier are considered the same
+      if the quoted identifier is equal to the uppercase version of the unquoted identifier
+    """
+    # Canonicalize the identifiers by converting unquoted identifiers to uppercase and leaving quoted identifiers as is
+    canonical_id1 = id1.upper() if is_valid_unquoted_identifier(id1) else id1
+    canonical_id2 = id2.upper() if is_valid_unquoted_identifier(id2) else id2
+
+    # The canonical identifiers are equal if they are equal when both are quoted
+    # (if they are already quoted, this is a no-op)
+    return to_quoted_identifier(canonical_id1) == to_quoted_identifier(canonical_id2)
+
+
+def sql_match(*, pattern: str, value: str) -> bool:
+    """
+    Returns whether the value matches the pattern when used with LIKE in Snowflake.
+    Compares the 2 input and ignores the case.
+    """
+    value = unquote_identifier(value)
+    return (
+        re.fullmatch(
+            pattern.replace(r"%", ".*").replace(r"_", "."), value, re.IGNORECASE
+        )
+        is not None
+    )
+
+
+def identifier_in_list(identifier: str, identifier_list: list[str]) -> bool:
+    """
+    Returns whether the identifier is in the list of identifiers.
+    """
+    return any(
+        same_identifiers(identifier, id_from_list) for id_from_list in identifier_list
+    )

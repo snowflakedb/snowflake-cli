@@ -42,20 +42,26 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import (
+    ACCOUNT_DOES_NOT_EXIST,
+    ACCOUNT_HAS_TOO_MANY_QUALIFIERS,
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
+    CANNOT_DISABLE_RELEASE_CHANNELS,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
+    RELEASE_DIRECTIVE_DOES_NOT_EXIST,
+    RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND,
+    VERSION_DOES_NOT_EXIST,
+    VERSION_NOT_ADDED_TO_RELEASE_CHANNEL,
 )
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.v1.native_app.package import DistributionOptions
 from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
-    is_valid_unquoted_identifier,
+    same_identifiers,
     to_identifier,
-    to_quoted_identifier,
     to_string_literal,
 )
 from snowflake.cli.api.sql_execution import BaseSqlExecutor
@@ -111,7 +117,7 @@ class SnowflakeSQLFacade:
         except IndexError:
             prev_obj = None
 
-        if prev_obj is not None and _same_identifier(prev_obj, name):
+        if prev_obj is not None and same_identifiers(prev_obj, name):
             yield
             return
 
@@ -528,7 +534,10 @@ class SnowflakeSQLFacade:
                 handle_unclassified_error(err, f"Failed to create stage {name}.")
 
     def show_release_directives(
-        self, package_name: str, role: str | None = None
+        self,
+        package_name: str,
+        release_channel: str | None = None,
+        role: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Show release directives for a package
@@ -536,10 +545,15 @@ class SnowflakeSQLFacade:
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
         """
         package_identifier = to_identifier(package_name)
+
+        query = f"show release directives in application package {package_identifier}"
+        if release_channel:
+            query += f" for release channel {to_identifier(release_channel)}"
+
         with self._use_role_optional(role):
             try:
                 cursor = self._sql_executor.execute_query(
-                    f"show release directives in application package {package_identifier}",
+                    query,
                     cursor_class=DictCursor,
                 )
             except ProgrammingError as err:
@@ -569,7 +583,7 @@ class SnowflakeSQLFacade:
                 )
 
                 show_obj_row = find_first_row(
-                    show_obj_cursor, lambda row: _same_identifier(row[NAME_COL], name)
+                    show_obj_cursor, lambda row: same_identifiers(row[NAME_COL], name)
                 )
             except Exception as err:
                 handle_unclassified_error(
@@ -822,6 +836,10 @@ class SnowflakeSQLFacade:
                             f"Insufficient privileges update enable_release_channels for application package {package_name}",
                             role=role,
                         ) from err
+                    if err.errno == CANNOT_DISABLE_RELEASE_CHANNELS:
+                        raise UserInputError(
+                            f"Cannot disable release channels for application package {package_name} after it is enabled. Try recreating the application package."
+                        ) from err
                     handle_unclassified_error(
                         err,
                         f"Failed to update enable_release_channels for application package {package_name}.",
@@ -839,26 +857,235 @@ class SnowflakeSQLFacade:
 
         return get_ui_parameter(connection, parameter, default)
 
+    def set_release_directive(
+        self,
+        package_name: str,
+        release_directive: str,
+        release_channel: str | None,
+        target_accounts: List[str] | None,
+        version: str,
+        patch: int,
+        role: str | None = None,
+    ):
+        """
+        Sets a release directive for an application package.
+        Default release directive does not support target accounts.
+        Non-default release directives require target accounts to be specified.
 
-# TODO move this to src/snowflake/cli/api/project/util.py in a separate
-# PR since it's codeowned by the CLI team
-def _same_identifier(id1: str, id2: str) -> bool:
-    """
-    Returns whether two identifiers refer to the same object.
+        @param package_name: Name of the application package to alter.
+        @param release_directive: Name of the release directive to set.
+        @param release_channel: Name of the release channel to set the release directive for.
+        @param target_accounts: List of target accounts for the release directive.
+        @param version: Version to set the release directive for.
+        @param patch: Patch number to set the release directive for.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
 
-    Two unquoted identifiers are considered the same if they are equal when both are converted to uppercase
-    Two quoted identifiers are considered the same if they are exactly equal
-    An unquoted identifier and a quoted identifier are considered the same
-      if the quoted identifier is equal to the unquoted identifier
-      when the unquoted identifier is converted to uppercase and quoted
-    """
-    # Canonicalize the identifiers by converting unquoted identifiers to uppercase and leaving quoted identifiers as is
-    canonical_id1 = id1.upper() if is_valid_unquoted_identifier(id1) else id1
-    canonical_id2 = id2.upper() if is_valid_unquoted_identifier(id2) else id2
+        if same_identifiers(release_directive, "DEFAULT") and target_accounts:
+            raise UserInputError(
+                "Default release directive does not support target accounts."
+            )
 
-    # The canonical identifiers are equal if they are equal when both are quoted
-    # (if they are already quoted, this is a no-op)
-    return to_quoted_identifier(canonical_id1) == to_quoted_identifier(canonical_id2)
+        if not same_identifiers(release_directive, "DEFAULT") and not target_accounts:
+            raise UserInputError(
+                "Non-default release directives require target accounts to be specified."
+            )
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel) if release_channel else None
+        release_directive = to_identifier(release_directive)
+        version = to_identifier(version)
+
+        release_directive_statement = (
+            "set default release directive"
+            if same_identifiers(release_directive, "DEFAULT")
+            else f"set release directive {release_directive}"
+        )
+
+        release_channel_statement = (
+            f"modify release channel {release_channel}" if release_channel else ""
+        )
+
+        accounts_statement = (
+            f"accounts = ({','.join(target_accounts)})" if target_accounts else ""
+        )
+
+        full_query = dedent(
+            _strip_empty_lines(
+                f"""\
+                    alter application package {package_name}
+                        {release_channel_statement}
+                        {release_directive_statement}
+                        {accounts_statement}
+                        version = {version} patch = {patch}
+                """
+            )
+        )
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(full_query)
+            except ProgrammingError as err:
+                if (
+                    err.errno == ACCOUNT_DOES_NOT_EXIST
+                    or err.errno == ACCOUNT_HAS_TOO_MANY_QUALIFIERS
+                ):
+                    raise UserInputError(
+                        f"Invalid account passed in.\n{str(err.msg)}"
+                    ) from err
+                _handle_release_directive_version_error(
+                    err,
+                    package_name=package_name,
+                    release_channel=release_channel,
+                    version=version,
+                    patch=patch,
+                )
+                handle_unclassified_error(
+                    err,
+                    f"Failed to set release directive {release_directive} for package {package_name}.",
+                )
+
+    def modify_release_directive(
+        self,
+        package_name: str,
+        release_directive: str,
+        release_channel: str | None,
+        version: str,
+        patch: int,
+        role: str | None = None,
+    ):
+        """
+        Modifies a release directive for an application package.
+        Release directive must already exist in the application package.
+        Accepts both default and non-default release directives.
+
+        @param package_name: Name of the application package to alter.
+        @param release_directive: Name of the release directive to modify.
+        @param release_channel: Name of the release channel to modify the release directive for.
+        @param version: Version to modify the release directive for.
+        @param patch: Patch number to modify the release directive for.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel) if release_channel else None
+        release_directive = to_identifier(release_directive)
+        version = to_identifier(version)
+
+        release_directive_statement = (
+            "modify default release directive"
+            if same_identifiers(release_directive, "DEFAULT")
+            else f"modify release directive {release_directive}"
+        )
+
+        release_channel_statement = (
+            f"modify release channel {release_channel}" if release_channel else ""
+        )
+
+        full_query = dedent(
+            _strip_empty_lines(
+                f"""\
+                    alter application package {package_name}
+                        {release_channel_statement}
+                        {release_directive_statement}
+                        version = {version} patch = {patch}
+                """
+            )
+        )
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(full_query)
+            except ProgrammingError as err:
+                if err.errno == RELEASE_DIRECTIVE_DOES_NOT_EXIST:
+                    raise UserInputError(
+                        f"Release directive {release_directive} does not exist in application package {package_name}. Please create it first by specifying the target accounts."
+                    ) from err
+                _handle_release_directive_version_error(
+                    err,
+                    package_name=package_name,
+                    release_channel=release_channel,
+                    version=version,
+                    patch=patch,
+                )
+                handle_unclassified_error(
+                    err,
+                    f"Failed to modify release directive {release_directive} for package {package_name}.",
+                )
+
+    def unset_release_directive(
+        self,
+        package_name: str,
+        release_directive: str,
+        release_channel: str | None,
+        role: str | None = None,
+    ):
+        """
+        Unsets a release directive for an application package.
+        Release directive must already exist in the application package.
+        Does not accept default release directive.
+
+        @param package_name: Name of the application package to alter.
+        @param release_directive: Name of the release directive to unset.
+        @param release_channel: Name of the release channel to unset the release directive for.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel) if release_channel else None
+        release_directive = to_identifier(release_directive)
+
+        if same_identifiers(release_directive, "DEFAULT"):
+            raise UserInputError(
+                "Cannot unset default release directive. Please specify a non-default release directive."
+            )
+
+        release_channel_statement = ""
+        if release_channel:
+            release_channel_statement = f" modify release channel {release_channel}"
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    f"alter application package {package_name}{release_channel_statement} unset release directive {release_directive}"
+                )
+            except ProgrammingError as err:
+                if err.errno == RELEASE_DIRECTIVE_DOES_NOT_EXIST:
+                    raise UserInputError(
+                        f"Release directive {release_directive} does not exist in application package {package_name}."
+                    ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to unset release directive {release_directive} for package {package_name}.",
+                )
+
+    def show_release_channels(
+        self, package_name: str, role: str | None = None
+    ) -> list[dict[str, Any]]:
+        """
+        Show release channels in a package.
+        @param package_name: Name of the package
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        if (
+            self.get_ui_parameter(UIParameter.NA_FEATURE_RELEASE_CHANNELS, True)
+            is False
+        ):
+            return []
+
+        package_identifier = to_identifier(package_name)
+        with self._use_role_optional(role):
+            try:
+                cursor = self._sql_executor.execute_query(
+                    f"show release channels in application package {package_identifier}",
+                    cursor_class=DictCursor,
+                )
+            except ProgrammingError as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to show release channels for application package {package_name}.",
+                )
+            return cursor.fetchall()
 
 
 def _strip_empty_lines(text: str) -> str:
@@ -866,3 +1093,26 @@ def _strip_empty_lines(text: str) -> str:
     Strips empty lines from the input string.
     """
     return "\n".join(line for line in text.splitlines() if line.strip())
+
+
+def _handle_release_directive_version_error(
+    err: ProgrammingError,
+    *,
+    package_name: str,
+    release_channel: str | None,
+    version: str,
+    patch: int,
+) -> None:
+
+    if err.errno == VERSION_NOT_ADDED_TO_RELEASE_CHANNEL:
+        raise UserInputError(
+            f"Version {version} is not added to release channel {release_channel}. Please add it to the release channel first."
+        ) from err
+    if err.errno == RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND:
+        raise UserInputError(
+            f"Patch {patch} for version {version} not found in application package {package_name}."
+        ) from err
+    if err.errno == VERSION_DOES_NOT_EXIST:
+        raise UserInputError(
+            f"Version {version} does not exist in application package {package_name}."
+        ) from err
