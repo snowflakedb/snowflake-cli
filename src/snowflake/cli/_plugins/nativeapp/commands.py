@@ -358,7 +358,10 @@ def app_validate(
     if cli_context.output_format == OutputFormat.JSON:
         return ObjectResult(
             package.get_validation_result(
-                use_scratch_stage=True, interactive=False, force=True
+                action_ctx=ws.action_ctx,
+                use_scratch_stage=True,
+                interactive=False,
+                force=True,
             )
         )
 
