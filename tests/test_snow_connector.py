@@ -58,6 +58,8 @@ def test_command_context_is_passed_to_snowflake_connection(
 
     mock_connect.assert_called_once_with(
         application=expected,
+        internal_application_name="Snowflake_CLI",
+        internal_application_version="0.0.0-test_patched",
         database="db_for_test",
         schema="test_public",
         role="test_role",
@@ -141,6 +143,8 @@ def test_private_key_loading_and_aliases(
         )
         mock_connect.assert_called_once_with(
             application=mock_command_info.return_value,
+            internal_application_name="Snowflake_CLI",
+            internal_application_version="0.0.0-test_patched",
             authenticator="SNOWFLAKE_JWT",
             application_name="snowcli",
             **expected_private_key_args,
