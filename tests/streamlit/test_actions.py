@@ -11,6 +11,8 @@ CONNECTOR = "snowflake.connector.connect"
 CONTEXT = ""
 EXECUTE_QUERY = "snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query"
 
+GET_UI_PARAMETERS = "snowflake.cli._plugins.connection.util.get_ui_parameters"
+
 
 @pytest.fixture
 def example_streamlit_workspace(project_directory):
@@ -57,9 +59,33 @@ def test_drop(mock_execute, example_streamlit_workspace):
 
 
 @mock.patch(CONNECTOR)
-def test_get_url(mock_connect, example_streamlit_workspace, mock_ctx):
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={"UI_SNOWSIGHT_ENABLE_REGIONLESS_REDIRECT": "false"},
+)
+@mock.patch("click.get_current_context")
+def test_get_url(
+    mock_get_ctx,
+    mock_param,
+    mock_connect,
+    mock_cursor,
+    example_streamlit_workspace,
+    mock_ctx,
+):
+    ctx = mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"SYSTEM$RETURN_CURRENT_ORG_NAME()": "FOOBARBAZ"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
+    mock_connect.return_value = ctx
+    mock_get_ctx.return_value = ctx
+
     entity, action_ctx = example_streamlit_workspace
-    cli_c
     result = entity.action_get_url(action_ctx)
 
     mock_connect.assert_called()
@@ -75,13 +101,13 @@ def test_execute(mock_execute, example_streamlit_workspace):
 
 def test_get_execute_sql(example_streamlit_workspace):
     entity, action_ctx = example_streamlit_workspace
-    execute_sql = entity.action_get_execute_sql()
+    execute_sql = entity.action_get_execute_sql(action_ctx)
 
     assert execute_sql == "EXECUTE STREAMLIT test_streamlit_deploy_snowcli()"
 
 
 def test_get_drop_sql(example_streamlit_workspace):
     entity, action_ctx = example_streamlit_workspace
-    drop_sql = entity.action_get_drop_sql()
+    drop_sql = entity.action_get_drop_sql(action_ctx)
 
     assert drop_sql == "DROP STREAMLIT test_streamlit_deploy_snowcli"
