@@ -18,7 +18,6 @@ from unittest import mock
 
 from click import Command
 from pydantic.json_schema import GenerateJsonSchema, model_json_schema
-from snowflake.cli._app.cli_app import app_context_holder
 from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
 
 
@@ -128,13 +127,11 @@ def test_files_generated_for_each_optional_project_definition_property(
     assert len(errors) == 0, "\n".join(errors)
 
 
-def test_all_commands_have_generated_files(runner, temp_dir):
+def test_all_commands_have_generated_files(runner, temp_dir, get_click_context):
     runner.invoke(["--docs"])
 
     # invoke help command to populate app context (plugins registration)
     runner.invoke(["--help"])
-
-    ctx = app_context_holder.app_context
 
     commands_path = Path(temp_dir) / "gen_docs" / "commands"
 
@@ -159,7 +156,7 @@ def test_all_commands_have_generated_files(runner, temp_dir):
                     f"Command `{' '.join(command_path)}` documentation was not properly generated"
                 )
 
-    _check(ctx.command, commands_path)
+    _check(get_click_context().command, commands_path)
 
     assert len(errors) == 0, "\n".join(errors)
 

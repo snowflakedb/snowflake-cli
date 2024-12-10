@@ -18,13 +18,12 @@ import logging
 import os
 import platform
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 import click
 import typer
-from click import Context
+from click import Context as ClickContext
 from snowflake.cli import __about__
 from snowflake.cli._app.api_impl.plugin.plugin_config_provider_impl import (
     PluginConfigProviderImpl,
@@ -53,15 +52,6 @@ from snowflake.connector.config_manager import CONFIG_MANAGER
 log = logging.getLogger(__name__)
 
 
-@dataclass
-class AppContextHolder:
-    # needed to access the context from tests
-    app_context: Optional[Context] = None
-
-
-app_context_holder = AppContextHolder()
-
-
 def _do_not_execute_on_completion(callback):
     def enriched_callback(value):
         if click.get_current_context().resilient_parsing:
@@ -71,7 +61,7 @@ def _do_not_execute_on_completion(callback):
     return enriched_callback
 
 
-class AppFactory:
+class CliAppFactory:
     def __init__(self):
         api = Api(plugin_config_provider=PluginConfigProviderImpl())
         self._api = api
@@ -79,6 +69,8 @@ class AppFactory:
             api.plugin_config_provider
         )
         api_provider.register_api(api)
+        self._app: Optional[SnowCliMainTyper] = None
+        self._click_context: Optional[ClickContext] = None
 
     def _exit_with_cleanup(self):
         self._commands_registration.reset_running_instance_registration_state()
@@ -91,7 +83,7 @@ class AppFactory:
             # required to make the tests working
             # because a single test can execute multiple commands using always the same "app" instance
             self._commands_registration.reset_running_instance_registration_state()
-            app_context_holder.app_context = click.get_current_context()
+            self._click_context = click.get_current_context()
 
         return callback
 
@@ -165,7 +157,10 @@ class AppFactory:
 
         return callback
 
-    def create_app(self) -> SnowCliMainTyper:
+    def create_or_get_app(self) -> SnowCliMainTyper:
+        if self._app:
+            return self._app
+
         app = SnowCliMainTyper()
         new_version_msg = get_new_version_msg()
 
@@ -268,4 +263,8 @@ class AppFactory:
                 pycharm_debug_server_port=pycharm_debug_server_port,
             )
 
+        self._app = app
         return app
+
+    def get_click_context(self):
+        return self._click_context
