@@ -9,7 +9,6 @@ from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
-from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.entities.common import EntityBase
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 
@@ -23,6 +22,11 @@ class StreamlitEntity(
     A Streamlit app.
     """
 
+    def __init__(self, *args, **kwargs):
+        if not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
+            raise NotImplementedError("Streamlit entity is not implemented yet")
+        super().__init__(*args, **kwargs)
+
     @property
     def project_root(self) -> Path:
         return self._workspace_ctx.project_root
@@ -31,21 +35,14 @@ class StreamlitEntity(
     def deploy_root(self) -> Path:
         return self.project_root / "output" / "deploy"
 
-    def _verify_feature_flag_enabled(self):
-        if not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
-            raise NotImplementedError("Streamlit entity is not implemented yet")
-
     def action_bundle(
         self,
-        action_ctx: ActionContext,
         *args,
         **kwargs,
     ):
-        self._verify_feature_flag_enabled()
         return self.bundle()
 
     def bundle(self, bundle_root=None):
-        self._verify_feature_flag_enabled()
         return build_bundle(
             self.project_root,
             bundle_root or self.deploy_root,
@@ -60,7 +57,6 @@ class StreamlitEntity(
         artifacts_dir: Optional[Path] = None,
         schema: Optional[str] = None,
     ):
-        self._verify_feature_flag_enabled()
         entity_id = self.entity_id
         if artifacts_dir:
             streamlit_name = f"{schema}.{entity_id}" if schema else entity_id
@@ -69,7 +65,6 @@ class StreamlitEntity(
             return f"CREATE OR REPLACE STREAMLIT {entity_id} MAIN_FILE='{self._entity_model.main_file}';"
 
     def get_usage_grant_sql(self, app_role: str, schema: Optional[str] = None):
-        self._verify_feature_flag_enabled()
         entity_id = self.entity_id
         streamlit_name = f"{schema}.{entity_id}" if schema else entity_id
         return (

@@ -96,3 +96,11 @@ def verify_no_directories(paths_to_sync: Iterable[Path]):
 def verify_exists(path: Path):
     if not path.exists():
         raise ClickException(f"The following path does not exist: {path}")
+
+
+def sanitize_dir_name(dir_name: str) -> str:
+    """
+    Strips non alphanumeric characters, unless listed in the allow list
+    """
+    allowed_chars = [" ", "_"]
+    return "".join(char for char in dir_name if char in allowed_chars or char.isalnum())

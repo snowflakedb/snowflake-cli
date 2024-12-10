@@ -1,24 +1,16 @@
-# Copyright (c) 2024 Snowflake Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 from __future__ import annotations
 
+from pathlib import Path
+from textwrap import dedent
+
 import pytest
+import yaml
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
+from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.project_definition import (
@@ -26,6 +18,25 @@ from snowflake.cli.api.project.schemas.project_definition import (
 )
 
 from tests.testing_utils.mock_config import mock_config_key
+
+
+def _get_app_pkg_entity(project_directory):
+    with project_directory("napp_children") as project_root:
+        with Path(project_root / "snowflake.yml").open() as definition_file_path:
+            project_definition = DefinitionV20(**yaml.safe_load(definition_file_path))
+            wm = WorkspaceManager(
+                project_definition=project_definition,
+                project_root=project_root,
+            )
+            pkg_entity = wm.get_entity("pkg")
+            streamlit_entity = wm.get_entity("my_streamlit")
+            action_ctx = ActionContext(
+                get_entity=lambda entity_id: streamlit_entity,
+            )
+            return (
+                pkg_entity,
+                action_ctx,
+            )
 
 
 def test_children_feature_flag_is_disabled():
@@ -106,3 +117,35 @@ def test_valid_children():
         child_entity_id = project_definition.entities["pkg"].children[0]
         child_entity = wm.get_entity(child_entity_id.target)
         assert child_entity.__class__ == StreamlitEntity
+
+
+def test_children_bundle_with_custom_dir(project_directory):
+    with mock_config_key("enable_native_app_children", True):
+        app_pkg, action_ctx = _get_app_pkg_entity(project_directory)
+        bundle_result = app_pkg.action_bundle(action_ctx)
+        deploy_root = bundle_result.deploy_root()
+
+        # Application package artifacts
+        assert (deploy_root / "README.md").exists()
+        assert (deploy_root / "manifest.yml").exists()
+        assert (deploy_root / "setup_script.sql").exists()
+
+        # Child artifacts
+        assert (
+            deploy_root / "_entities" / "my_streamlit" / "streamlit_app.py"
+        ).exists()
+
+        # Generated setup script section
+        with open(deploy_root / "setup_script.sql", "r") as f:
+            setup_script_content = f.read()
+            assert setup_script_content.endswith(
+                dedent(
+                    """
+                    -- AUTO GENERATED CHILDREN SECTION
+                    CREATE OR REPLACE STREAMLIT v_schema.my_streamlit FROM '_entities/my_streamlit' MAIN_FILE='streamlit_app.py';
+                    CREATE APPLICATION ROLE IF NOT EXISTS my_app_role;
+                    GRANT USAGE ON SCHEMA v_schema TO APPLICATION ROLE my_app_role;
+                    GRANT USAGE ON STREAMLIT v_schema.my_streamlit TO APPLICATION ROLE my_app_role;
+                    """
+                )
+            )

@@ -51,7 +51,7 @@ from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     InsufficientPrivilegesError,
 )
-from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
+from snowflake.cli._plugins.nativeapp.utils import needs_confirmation, sanitize_dir_name
 from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     FunctionEntityModel,
     ProcedureEntityModel,
@@ -112,7 +112,7 @@ class ApplicationPackageChildIdentifier(UpdatableModel):
     )
 
 
-class GrantUsageField(UpdatableModel):
+class EnsureUsableByField(UpdatableModel):
     application_roles: Optional[Union[str, Set[str]]] = Field(
         title="One or more application roles",
         default=None,
@@ -130,7 +130,7 @@ class GrantUsageField(UpdatableModel):
 
 class ApplicationPackageChildField(UpdatableModel):
     target: str = Field(title="The key of the entity to include in this package")
-    grant_usage: Optional[GrantUsageField] = Field(
+    ensure_usable_by: Optional[EnsureUsableByField] = Field(
         title="Use to automatically grant USAGE privilege on the child object",
         default=None,
     )
@@ -625,55 +625,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def _bundle(self, action_ctx: ActionContext = None):
         model = self._entity_model
         bundle_map = build_bundle(self.project_root, self.deploy_root, model.artifacts)
-        if self._entity_model.children:
-            # Create _children directory
-            children_artifacts_dir = self.children_artifacts_deploy_root
-            os.makedirs(children_artifacts_dir)
-            children_sql = []
-            for child in self._entity_model.children:
-                # Create child sub directory
-                children_artifacts_dir = (
-                    children_artifacts_dir / child.target
-                )  # TODO Sanitize dir name
-                os.makedirs(children_artifacts_dir)
-                child_entity: ApplicationPackageChildInterface = action_ctx.get_entity(
-                    child.target
-                )
-                child_entity.bundle(children_artifacts_dir)
-                app_role = (
-                    to_identifier(
-                        child.grant_usage.application_roles.pop()  # TODO Support more than one application role
-                    )
-                    if child.grant_usage and child.grant_usage.application_roles
-                    else None
-                )
-                child_schema = (
-                    to_identifier(child.identifier.schema_)
-                    if child.identifier and child.identifier.schema_
-                    else None
-                )
-                children_sql.append(
-                    child_entity.get_deploy_sql(
-                        artifacts_dir=Path(
-                            self._entity_model.children_artifacts_dir, child.target
-                        ),
-                        schema=child_schema,
-                    )
-                )
-                if app_role:
-                    children_sql.append(
-                        f"CREATE APPLICATION ROLE IF NOT EXISTS {app_role};"
-                    )
-                    if child_schema:
-                        children_sql.append(
-                            f"GRANT USAGE ON SCHEMA {child_schema} TO APPLICATION ROLE {app_role};"
-                        )
-                    children_sql.append(
-                        child_entity.get_usage_grant_sql(
-                            app_role=app_role, schema=child_schema
-                        )
-                    )
-
         bundle_context = BundleContext(
             package_name=self.name,
             artifacts=model.artifacts,
@@ -686,7 +637,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         compiler.compile_artifacts()
 
         if self._entity_model.children:
-            # Append children SQL to setup script
+            # Bundle children and append their SQL to setup script
+            children_sql = self._bundle_children(action_ctx=action_ctx)
             setup_file_path = find_setup_script_file(deploy_root=self.deploy_root)
             with open(setup_file_path, "r", encoding="utf-8") as file:
                 existing_setup_script = file.read()
@@ -696,8 +648,59 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 file.write(existing_setup_script)
                 file.write("\n-- AUTO GENERATED CHILDREN SECTION\n")
                 file.write("\n".join(children_sql))
+                file.write("\n")
 
         return bundle_map
+
+    def _bundle_children(self, action_ctx: ActionContext) -> List[str]:
+        # Create _children directory
+        children_artifacts_dir = self.children_artifacts_deploy_root
+        os.makedirs(children_artifacts_dir)
+        children_sql = []
+        for child in self._entity_model.children:
+            # Create child sub directory
+            children_artifacts_dir = children_artifacts_dir / sanitize_dir_name(
+                child.target
+            )
+            os.makedirs(children_artifacts_dir)
+            child_entity: ApplicationPackageChildInterface = action_ctx.get_entity(
+                child.target
+            )
+            child_entity.bundle(children_artifacts_dir)
+            app_role = (
+                to_identifier(
+                    child.ensure_usable_by.application_roles.pop()  # TODO Support more than one application role
+                )
+                if child.ensure_usable_by and child.ensure_usable_by.application_roles
+                else None
+            )
+            child_schema = (
+                to_identifier(child.identifier.schema_)
+                if child.identifier and child.identifier.schema_
+                else None
+            )
+            children_sql.append(
+                child_entity.get_deploy_sql(
+                    artifacts_dir=Path(
+                        self._entity_model.children_artifacts_dir, child.target
+                    ),
+                    schema=child_schema,
+                )
+            )
+            if app_role:
+                children_sql.append(
+                    f"CREATE APPLICATION ROLE IF NOT EXISTS {app_role};"
+                )
+                if child_schema:
+                    children_sql.append(
+                        f"GRANT USAGE ON SCHEMA {child_schema} TO APPLICATION ROLE {app_role};"
+                    )
+                children_sql.append(
+                    child_entity.get_usage_grant_sql(
+                        app_role=app_role, schema=child_schema
+                    )
+                )
+        return children_sql
 
     def _deploy(
         self,
