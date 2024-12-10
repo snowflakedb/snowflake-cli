@@ -194,15 +194,6 @@ class ApplicationPackageEntityModel(EntityModelBase):
             raise AttributeError("Application package children are not supported yet")
         return input_value
 
-    @field_validator("children_artifacts_dir", mode="before")
-    @classmethod
-    def verify_children_artifacts_dir_behind_flag(
-        cls, input_value: Optional[str]
-    ) -> Optional[str]:
-        if input_value and not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
-            raise AttributeError("Application package children are not supported yet")
-        return input_value
-
     @field_validator("identifier")
     @classmethod
     def append_test_resource_suffix_to_identifier(
