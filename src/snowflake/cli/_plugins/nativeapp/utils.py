@@ -100,7 +100,10 @@ def verify_exists(path: Path):
 
 def sanitize_dir_name(dir_name: str) -> str:
     """
-    Strips non alphanumeric characters, unless listed in the allow list
+    Returns a string that is safe to use as a directory name.
+    For simplicity, this function is over restricitive: it strips non alphanumeric characters,
+    unless listed in the allow list. Additional characters can be allowed in the future, but
+    we need to be careful to consider both Unix/Windows directory naming rules.
     """
     allowed_chars = [" ", "_"]
     return "".join(char for char in dir_name if char in allowed_chars or char.isalnum())
