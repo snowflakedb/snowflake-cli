@@ -20,7 +20,9 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
+from snowflake.cli._plugins.nativeapp.artifact_processor_context import (
+    ArtifactProcessorContext,
+)
 from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor import (
     TemplatesProcessor,
 )
@@ -41,7 +43,7 @@ class BundleResult:
     """
 
     artifact_to_process: PathMapping
-    bundle_ctx: BundleContext
+    processor_ctx: ArtifactProcessorContext
     output_files: list[Path]
 
 
@@ -69,7 +71,7 @@ def bundle_files(
 
     artifact_to_process = PathMapping(src="src/*", dest="./", processors=["templates"])
 
-    bundle_context = BundleContext(
+    processor_context = ArtifactProcessorContext(
         package_name="test_package_name",
         project_root=project_root,
         artifacts=[artifact_to_process],
@@ -78,7 +80,7 @@ def bundle_files(
         deploy_root=deploy_root,
     )
 
-    return BundleResult(artifact_to_process, bundle_context, output_files)
+    return BundleResult(artifact_to_process, processor_context, output_files)
 
 
 @mock.patch(CLI_GLOBAL_TEMPLATE_CONTEXT, {})
@@ -87,7 +89,9 @@ def test_templates_processor_valid_files_no_templates():
     file_contents = ["This is a test file\n with some content"]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_names, file_contents)
-        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor = TemplatesProcessor(
+            processor_ctx=bundle_result.processor_ctx
+        )
         templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert bundle_result.output_files[0].is_symlink()
@@ -103,7 +107,9 @@ def test_one_file_with_template_and_one_without():
     ]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_names, file_contents)
-        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor = TemplatesProcessor(
+            processor_ctx=bundle_result.processor_ctx
+        )
         templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert bundle_result.output_files[0].is_symlink()
@@ -124,7 +130,9 @@ def test_templates_with_sql_and_non_sql_files_and_mix_syntax():
     ]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_names, file_contents)
-        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor = TemplatesProcessor(
+            processor_ctx=bundle_result.processor_ctx
+        )
         templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert not bundle_result.output_files[0].is_symlink()
@@ -145,7 +153,9 @@ def test_templates_with_sql_new_syntax():
 
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_names, file_contents)
-        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor = TemplatesProcessor(
+            processor_ctx=bundle_result.processor_ctx
+        )
         templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert not bundle_result.output_files[0].is_symlink()
@@ -160,7 +170,9 @@ def test_templates_with_sql_old_syntax():
     file_contents = ["This is a sql file with &{ ctx.env.name }"]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_names, file_contents)
-        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor = TemplatesProcessor(
+            processor_ctx=bundle_result.processor_ctx
+        )
         templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert not bundle_result.output_files[0].is_symlink()
@@ -175,7 +187,9 @@ def test_templates_with_sql_both_old_and_new_syntax():
     file_contents = ["This is a sql file with &{ ctx.env.name } and <% ctx.env.name %>"]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_names, file_contents)
-        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor = TemplatesProcessor(
+            processor_ctx=bundle_result.processor_ctx
+        )
 
         with pytest.raises(InvalidTemplate) as e:
             templates_processor.process(bundle_result.artifact_to_process, None)
@@ -191,7 +205,9 @@ def test_file_with_syntax_error():
     file_contents = ["This is a test file with invalid <% ctx.env.TEST_VAR"]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_name, file_contents)
-        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor = TemplatesProcessor(
+            processor_ctx=bundle_result.processor_ctx
+        )
 
         with pytest.raises(InvalidTemplateInFileError) as e:
             templates_processor.process(bundle_result.artifact_to_process, None)
@@ -207,7 +223,9 @@ def test_file_with_undefined_variable():
     file_contents = ["This is a test file with invalid <% ctx.env.TEST_VAR %>"]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_name, file_contents)
-        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor = TemplatesProcessor(
+            processor_ctx=bundle_result.processor_ctx
+        )
 
         with pytest.raises(InvalidTemplateInFileError) as e:
             templates_processor.process(bundle_result.artifact_to_process, None)
@@ -225,14 +243,16 @@ def test_expand_templates_in_file_unicode_decode_error(mock_cc_warning):
     file_contents = ["This is a test file"]
     with TemporaryDirectory() as tmp_dir:
         bundle_result = bundle_files(tmp_dir, file_name, file_contents)
-        templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
+        templates_processor = TemplatesProcessor(
+            processor_ctx=bundle_result.processor_ctx
+        )
         with mock.patch(
             f"{TEMPLATE_PROCESSOR}.TemplatesProcessor.edit_file",
             side_effect=UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte"),
         ):
             src_path = Path(
-                bundle_result.bundle_ctx.project_root / "src" / file_name[0]
-            ).relative_to(bundle_result.bundle_ctx.project_root)
+                bundle_result.processor_ctx.project_root / "src" / file_name[0]
+            ).relative_to(bundle_result.processor_ctx.project_root)
             templates_processor.process(bundle_result.artifact_to_process, None)
             mock_cc_warning.assert_called_once_with(
                 f"Could not read file {src_path}, error: invalid start byte. Skipping this file."

@@ -21,7 +21,9 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
+from snowflake.cli._plugins.nativeapp.artifact_processor_context import (
+    ArtifactProcessorContext,
+)
 from snowflake.cli._plugins.nativeapp.codegen.sandbox import (
     ExecutionEnvironmentType,
     SandboxExecutionError,
@@ -50,11 +52,11 @@ PROJECT_ROOT = Path("/path/to/project")
 # --------------------------------------------------------
 
 
-def _get_bundle_context(
+def _get_processor_context(
     pkg_model: ApplicationPackageEntityModel, project_root: Path | None = None
 ):
     project_root = project_root or Path().resolve()
-    return BundleContext(
+    return ArtifactProcessorContext(
         package_name=pkg_model.fqn.name,
         artifacts=pkg_model.artifacts,
         project_root=project_root,
@@ -370,7 +372,7 @@ def test_process_no_collected_functions(
                 {"src": "a/b/c/*.py", "dest": "stagepath/", "processors": ["SNOWPARK"]}
             ]
             mock_sandbox.side_effect = [None, []]
-            project_context = _get_bundle_context(pkg_model, local_path)
+            project_context = _get_processor_context(pkg_model, local_path)
             processor = SnowparkAnnotationProcessor(project_context)
             processor.process(
                 artifact_to_process=pkg_model.artifacts[0],
@@ -421,7 +423,7 @@ def test_process_with_collected_functions(
                 [native_app_extension_function_raw_data],
                 [imports_variation],
             ]
-            project_context = _get_bundle_context(pkg_model, local_path)
+            project_context = _get_processor_context(pkg_model, local_path)
             processor_context = copy.copy(project_context)
             processor_context.generated_root = (
                 project_context.generated_root / "snowpark"
@@ -485,7 +487,7 @@ def test_package_normalization(
             ]
             native_app_extension_function_raw_data["packages"] = package_decl
             mock_sandbox.side_effect = [[native_app_extension_function_raw_data]]
-            project_context = _get_bundle_context(pkg_model)
+            project_context = _get_processor_context(pkg_model)
             processor_context = copy.copy(project_context)
             processor_context.generated_root = (
                 project_context.generated_root / "snowpark"
