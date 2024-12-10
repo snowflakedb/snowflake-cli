@@ -25,7 +25,6 @@ from snowflake.cli._plugins.spcs.common import NoPropertiesProvidedError
 from snowflake.cli._plugins.spcs.services.commands import _service_name_callback
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.exceptions import FeatureNotEnabledError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.connector.cursor import SnowflakeCursor
@@ -607,10 +606,10 @@ def test_stream_logs_with_include_timestamps_true(mock_sleep, mock_logs):
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 @patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_enabled"
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled"
 )
-def test_logs_incompatible_flags(mock_is_enabled, mock_execute_query, runner):
-    mock_is_enabled.return_value = True
+def test_logs_incompatible_flags(mock_is_disabled, mock_execute_query, runner):
+    mock_is_disabled.return_value = False
     result = runner.invoke(
         [
             "spcs",
@@ -634,12 +633,12 @@ def test_logs_incompatible_flags(mock_is_enabled, mock_execute_query, runner):
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 @patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_enabled"
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled"
 )
 def test_logs_incompatible_flags_follow_previous_logs(
-    mock_is_enabled, mock_execute_query, runner
+    mock_is_disabled, mock_execute_query, runner
 ):
-    mock_is_enabled.return_value = True
+    mock_is_disabled.return_value = False
     result = runner.invoke(
         [
             "spcs",
@@ -665,30 +664,39 @@ def test_logs_incompatible_flags_follow_previous_logs(
 
 
 @patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_enabled"
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled"
 )
-def test_logs_streaming_disabled(mock_is_enabled, runner):
-    mock_is_enabled.return_value = False
-    with pytest.raises(FeatureNotEnabledError) as exc_info:
-        runner.invoke(
-            [
-                "spcs",
-                "service",
-                "logs",
-                "test_service",
-                "--container-name",
-                "test_container",
-                "--instance-id",
-                "0",
-                "--follow",
-                "--num-lines",
-                "100",
-            ]
-        )
-    assert (
-        "Streaming logs from spcs containers is disabled. Set the following field in your configuration to enable it: 'ENABLE_SPCS_LOG_STREAMING'."
-        in str(exc_info.value)
+def test_logs_streaming_disabled(mock_is_disabled, runner):
+    mock_is_disabled.return_value = True
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "logs",
+            "test_service",
+            "--container-name",
+            "test_container",
+            "--instance-id",
+            "0",
+            "--follow",
+            "--num-lines",
+            "100",
+        ]
     )
+    assert (
+        result.exit_code != 0
+    ), "Expected a non-zero exit code due to feature flag disabled"
+
+    expected_output = (
+        "+- Error ----------------------------------------------------------------------+\n"
+        "| Streaming logs from spcs containers is disabled. To enable it, add           |\n"
+        "| 'ENABLE_SPCS_LOG_STREAMING = true' to '[cli.features]' section of your       |\n"
+        "| configuration file.                                                          |\n"
+        "+------------------------------------------------------------------------------+\n"
+    )
+    assert (
+        result.output == expected_output
+    ), f"Expected formatted output not found: {result.output}"
 
 
 def test_read_yaml(other_directory):

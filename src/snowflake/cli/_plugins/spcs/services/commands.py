@@ -254,7 +254,7 @@ def logs(
     Retrieves local logs from a service container.
     """
     if follow:
-        if not FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_enabled():
+        if FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled():
             raise FeatureNotEnabledError(
                 "ENABLE_SPCS_LOG_STREAMING",
                 "Streaming logs from spcs containers is disabled.",

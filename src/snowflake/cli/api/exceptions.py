@@ -231,9 +231,9 @@ class ShowSpecificObjectMultipleRowsError(RuntimeError):
         )
 
 
-class FeatureNotEnabledError(RuntimeError):
+class FeatureNotEnabledError(ClickException):
     def __init__(self, feature_name: str, custom_message: Optional[str] = None):
-        base_message = f"Set the following field in your configuration to enable it: '{feature_name}'."
+        base_message = f"To enable it, add '{feature_name} = true' to '[cli.features]' section of your configuration file."
         if custom_message:
             message = f"{custom_message} {base_message}"
         else:
