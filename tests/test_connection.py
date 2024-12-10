@@ -1219,16 +1219,22 @@ def test_generate_jwt_with_passphrase(
         result.output
         == "Enter private key file password (press enter for empty) []: \nfunny token\n"
     )
-    mocked_get_token.has_calls(
-        mock.call(
-            user="FooBar", account="account1", privatekey_path=str(f), key_password=None
-        ),
-        mock.call(
-            user="FooBar",
-            account="account1",
-            privatekey_path=str(f),
-            key_password=passphrase,
-        ),
+    mocked_get_token.assert_has_calls(
+        [
+            mock.call(
+                user="FooBar",
+                account="account1",
+                privatekey_path=str(f),
+                key_password=None,
+            ),
+            mock.call(
+                user="FooBar",
+                account="account1",
+                privatekey_path=str(f),
+                key_password=passphrase,
+            ),
+        ],
+        any_order=True,
     )
 
 
