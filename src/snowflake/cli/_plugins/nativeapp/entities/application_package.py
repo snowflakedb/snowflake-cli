@@ -638,6 +638,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         if self._entity_model.children:
             # Bundle children and append their SQL to setup script
+            # TODO Consider re-writing the logic below as a processor
             children_sql = self._bundle_children(action_ctx=action_ctx)
             setup_file_path = find_setup_script_file(deploy_root=self.deploy_root)
             with open(setup_file_path, "r", encoding="utf-8") as file:
