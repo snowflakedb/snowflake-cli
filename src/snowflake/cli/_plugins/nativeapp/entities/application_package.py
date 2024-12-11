@@ -120,28 +120,24 @@ class ApplicationPackageChildIdentifier(UpdatableModel):
 
 class EnsureUsableByField(UpdatableModel):
     application_roles: Optional[Union[str, Set[str]]] = Field(
-        title="One or more application roles",
+        title="One or more application roles to be granted with the required privileges",
         default=None,
     )
 
-    @field_validator("application_roles", mode="before")
+    @field_validator("application_roles")
     @classmethod
     def ensure_app_roles_is_a_set(
         cls, application_roles: Optional[Union[str, Set[str]]]
-    ) -> Optional[Union[str, Set[str]]]:
+    ) -> Optional[Union[Set[str]]]:
         if isinstance(application_roles, str):
-            return set(application_roles)
+            return set([application_roles])
         return application_roles
 
 
 class ApplicationPackageChildField(UpdatableModel):
     target: str = Field(title="The key of the entity to include in this package")
     ensure_usable_by: Optional[EnsureUsableByField] = Field(
-        title="Use to automatically grant USAGE privilege on the child object",
-        default=None,
-    )
-    application_roles: Optional[Union[str, Set[str]]] = Field(
-        title="The application role to be granted usage on this child entity",
+        title="Use to automatically grant the required privileges on the child object and its schema",
         default=None,
     )
     identifier: ApplicationPackageChildIdentifier = Field(
@@ -191,7 +187,7 @@ class ApplicationPackageEntityModel(EntityModelBase):
         default=[],
     )
 
-    @field_validator("children", mode="before")
+    @field_validator("children")
     @classmethod
     def verify_children_behind_flag(
         cls, input_value: Optional[List[ApplicationPackageChildField]]
