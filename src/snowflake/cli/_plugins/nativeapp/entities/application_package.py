@@ -5,7 +5,7 @@ import os
 import re
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Literal, Optional, Set, Union
+from typing import Any, List, Literal, Optional, Set, Union
 
 import typer
 from click import BadOptionUsage, ClickException
@@ -23,6 +23,8 @@ from snowflake.cli._plugins.nativeapp.codegen.compiler import NativeAppCompiler
 from snowflake.cli._plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
+    DEFAULT_CHANNEL,
+    DEFAULT_DIRECTIVE,
     EXTERNAL_DISTRIBUTION,
     INTERNAL_DISTRIBUTION,
     NAME_COL,
@@ -91,9 +93,13 @@ from snowflake.cli.api.project.schemas.v1.native_app.package import Distribution
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     SCHEMA_AND_NAME,
+    VALID_IDENTIFIER_REGEX,
     append_test_resource_suffix,
     extract_schema,
+    identifier_in_list,
     identifier_to_show_like_pattern,
+    same_identifiers,
+    sql_match,
     to_identifier,
     unquote_identifier,
 )
@@ -622,6 +628,151 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             f"Version {version} in application package {self.name} dropped successfully."
         )
 
+    def action_release_directive_list(
+        self,
+        action_ctx: ActionContext,
+        release_channel: Optional[str],
+        like: str,
+        *args,
+        **kwargs,
+    ) -> list[dict[str, Any]]:
+        """
+        Get all existing release directives for an application package.
+        Limit the results to a specific release channel, if provided.
+
+        If `like` is provided, only release directives matching the SQL LIKE pattern are listed.
+        """
+        available_release_channels = get_snowflake_facade().show_release_channels(
+            self.name, self.role
+        )
+
+        # assume no release channel used if user selects default channel and release channels are not enabled
+        if (
+            release_channel
+            and same_identifiers(release_channel, DEFAULT_CHANNEL)
+            and not available_release_channels
+        ):
+            release_channel = None
+
+        release_channel_names = [c.get("name") for c in available_release_channels]
+        if release_channel and not identifier_in_list(
+            release_channel, release_channel_names
+        ):
+            raise ClickException(
+                f"Release channel {release_channel} does not exist in application package {self.name}."
+            )
+
+        release_directives = get_snowflake_facade().show_release_directives(
+            package_name=self.name,
+            role=self.role,
+            release_channel=release_channel,
+        )
+
+        return [
+            directive
+            for directive in release_directives
+            if sql_match(pattern=like, value=directive.get("name", ""))
+        ]
+
+    def action_release_directive_set(
+        self,
+        action_ctx: ActionContext,
+        version: str,
+        patch: int,
+        release_directive: str,
+        release_channel: str,
+        target_accounts: Optional[list[str]],
+        *args,
+        **kwargs,
+    ):
+        """
+        Sets a release directive to the specified version and patch using the specified release channel.
+        Target accounts can only be specified for non-default release directives.
+
+        For non-default release directives, update the existing release directive if target accounts are not provided.
+        """
+        if target_accounts:
+            for account in target_accounts:
+                if not re.fullmatch(
+                    f"{VALID_IDENTIFIER_REGEX}\\.{VALID_IDENTIFIER_REGEX}", account
+                ):
+                    raise ClickException(
+                        f"Target account {account} is not in a valid format. Make sure you provide the target account in the format 'org.account'."
+                    )
+
+        if target_accounts and same_identifiers(release_directive, DEFAULT_DIRECTIVE):
+            raise BadOptionUsage(
+                "target_accounts",
+                "Target accounts can only be specified for non-default named release directives.",
+            )
+
+        available_release_channels = get_snowflake_facade().show_release_channels(
+            self.name, self.role
+        )
+
+        release_channel_names = [c.get("name") for c in available_release_channels]
+
+        if not same_identifiers(
+            release_channel, DEFAULT_CHANNEL
+        ) and not identifier_in_list(release_channel, release_channel_names):
+            raise ClickException(
+                f"Release channel {release_channel} does not exist in application package {self.name}."
+            )
+
+        if (
+            not same_identifiers(release_directive, DEFAULT_DIRECTIVE)
+            and not target_accounts
+        ):
+            # if it is a non-default release directive with no target accounts specified,
+            # it means that the user wants to modify existing release directive
+            get_snowflake_facade().modify_release_directive(
+                package_name=self.name,
+                release_directive=release_directive,
+                release_channel=release_channel,
+                version=version,
+                patch=patch,
+                role=self.role,
+            )
+        else:
+            get_snowflake_facade().set_release_directive(
+                package_name=self.name,
+                release_directive=release_directive,
+                release_channel=release_channel if available_release_channels else None,
+                target_accounts=target_accounts,
+                version=version,
+                patch=patch,
+                role=self.role,
+            )
+
+    def action_release_directive_unset(
+        self, action_ctx: ActionContext, release_directive: str, release_channel: str
+    ):
+        """
+        Unsets a release directive from the specified release channel.
+        """
+        if same_identifiers(release_directive, DEFAULT_DIRECTIVE):
+            raise ClickException(
+                "Cannot unset default release directive. Please specify a non-default release directive."
+            )
+
+        available_release_channels = get_snowflake_facade().show_release_channels(
+            self.name, self.role
+        )
+        release_channel_names = [c.get("name") for c in available_release_channels]
+        if not same_identifiers(
+            release_channel, DEFAULT_CHANNEL
+        ) and not identifier_in_list(release_channel, release_channel_names):
+            raise ClickException(
+                f"Release channel {release_channel} does not exist in application package {self.name}."
+            )
+
+        get_snowflake_facade().unset_release_directive(
+            package_name=self.name,
+            release_directive=release_directive,
+            release_channel=release_channel if available_release_channels else None,
+            role=self.role,
+        )
+
     def _bundle(self, action_ctx: ActionContext = None):
         model = self._entity_model
         bundle_map = build_bundle(self.project_root, self.deploy_root, model.artifacts)
@@ -810,7 +961,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         It executes a 'show release directives in application package' query and returns the filtered results, if they exist.
         """
         release_directives = get_snowflake_facade().show_release_directives(
-            self.name, self.role
+            package_name=self.name, role=self.role
         )
         return [
             directive
@@ -1216,7 +1367,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         # Check if patch needs to throw a bad option error, either if application package does not exist or if version does not exist
         if resolved_patch is not None:
             try:
-                if not self.get_existing_version_info(resolved_version):
+                if not self.get_existing_version_info(to_identifier(resolved_version)):
                     raise BadOptionUsage(
                         option_name="patch",
                         message=f"Cannot create patch {resolved_patch} when version {resolved_version} is not defined in the application package {self.name}. Try again without specifying a patch.",

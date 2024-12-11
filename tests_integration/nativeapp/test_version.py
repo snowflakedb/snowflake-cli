@@ -517,3 +517,53 @@ def test_version_create_with_manage_versions_only(
         ]
     )
     assert result.exit_code == 0, result.output
+
+
+@pytest.mark.integration
+def test_nativeapp_version_create_quoted_identifiers(
+    runner,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+    nativeapp_project_directory,
+):
+    project_name = "myapp"
+    with nativeapp_project_directory("napp_init_v2"):
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+
+        # create version
+        result = runner.invoke_with_connection_json(
+            ["app", "version", "create", "v1.0"]
+        )
+        assert result.exit_code == 0
+
+        # create another patch
+        result = runner.invoke_with_connection_json(
+            ["app", "version", "create", "v1.0"]
+        )
+        assert result.exit_code == 0
+
+        # create custom patch
+        result = runner.invoke_with_connection_json(
+            ["app", "version", "create", "v1.0", "--patch", "4"]
+        )
+        assert result.exit_code == 0
+
+        # app package contains 3 patches for version v1.0
+        expect = row_from_snowflake_session(
+            snowflake_session.execute_string(
+                f"show versions in application package {package_name}"
+            )
+        )
+        assert contains_row_with(expect, {"version": "v1.0", "patch": 0})
+        assert contains_row_with(expect, {"version": "v1.0", "patch": 1})
+        assert contains_row_with(expect, {"version": "v1.0", "patch": 4})
+
+        # drop the version
+        result_drop = runner.invoke_with_connection_json(
+            ["app", "version", "drop", "v1.0", "--force"]
+        )
+        assert result_drop.exit_code == 0
+
+        actual = runner.invoke_with_connection_json(["app", "version", "list"])
+        assert len(actual.json) == 0
