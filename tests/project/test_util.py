@@ -19,13 +19,16 @@ from snowflake.cli.api.project.util import (
     append_to_identifier,
     concat_identifiers,
     escape_like_pattern,
+    identifier_in_list,
     identifier_to_str,
     is_valid_identifier,
     is_valid_object_name,
     is_valid_quoted_identifier,
     is_valid_string_literal,
     is_valid_unquoted_identifier,
+    same_identifiers,
     sanitize_identifier,
+    sql_match,
     to_identifier,
     to_quoted_identifier,
     to_string_literal,
@@ -336,6 +339,82 @@ def test_identifier_to_str(identifier, expected_value):
 )
 def test_sanitize_identifier(identifier, expected_value):
     assert sanitize_identifier(identifier) == expected_value
+
+
+def test_same_identifiers():
+    # both unquoted, same case:
+    assert same_identifiers("abc", "abc")
+
+    # both unquoted, different case:
+    assert same_identifiers("abc", "ABC")
+
+    # both quoted, same case:
+    assert same_identifiers('"abc"', '"abc"')
+
+    # both quoted, different case:
+    assert not same_identifiers('"abc"', '"ABC"')
+
+    # one quoted, one unquoted - unquoted is lowercase:
+    assert not same_identifiers("abc", '"abc"')
+
+    # one quoted, one unquoted - unquoted is uppercase:
+    assert same_identifiers("abc", '"ABC"')
+
+    # one quoted, one unquoted - unquoted has special characters, so treat it as quoted:
+    assert same_identifiers("a.bc", '"a.bc"')
+
+    # blank strings:
+    assert same_identifiers("", '""')
+
+
+def test_sql_match():
+    # simple case with a match:
+    assert sql_match(pattern="abc", value="abc")
+
+    # simple case that does not match:
+    assert not sql_match(pattern="abc", value="def")
+
+    # case with a match but uses '_' as a wildcard:
+    assert sql_match(pattern="a_c", value="abc")
+
+    # case with wildcard '_' but does not match due to different length:
+    assert not sql_match(pattern="a_c", value="abcd")
+
+    # case that match with wildcard '%':
+    assert sql_match(pattern="a%b", value="a123b")
+
+    # case that match with wildcard '%' but 0 characters:
+    assert sql_match(pattern="a%b", value="ab")
+
+    # case that does not match because '%' is in the wrong place:
+    assert not sql_match(pattern="a%b", value="ab123")
+
+    # case with '%%' that matches everything:
+    assert sql_match(pattern="%%", value="abc")
+
+    # case with quoted identifier:
+    assert sql_match(pattern="a_c", value='"a_c"')
+
+
+def test_identifier_in_list():
+    # one ID matching:
+    assert identifier_in_list("abc", ["def", "abc", "ghi"])
+
+    # id not matching:
+    assert not identifier_in_list("abc", ["def", "ghi"])
+
+    # id matching with case insensitivity:
+    assert identifier_in_list("AbC", ["dEf", "aBc", "gHi"])
+
+    # id with quotes matching:
+    assert identifier_in_list('"ABC"', ["def", "abc", "ghi"])
+
+    # id with quotes not matching due to case:
+    assert not identifier_in_list('"abc"', ["DEF", "ABC", "GHI"])
+    assert not identifier_in_list('"abc"', ["def", "abc", "ghi"])
+
+    # test with empty list:
+    assert not identifier_in_list("abc", [])
 
 
 @pytest.mark.parametrize(
