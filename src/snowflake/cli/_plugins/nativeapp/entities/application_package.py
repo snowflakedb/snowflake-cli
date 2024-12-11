@@ -137,7 +137,7 @@ class EnsureUsableByField(UpdatableModel):
 class ApplicationPackageChildField(UpdatableModel):
     target: str = Field(title="The key of the entity to include in this package")
     ensure_usable_by: Optional[EnsureUsableByField] = Field(
-        title="Use to automatically grant the required privileges on the child object and its schema",
+        title="Automatically grant the required privileges on the child object and its schema",
         default=None,
     )
     identifier: ApplicationPackageChildIdentifier = Field(
@@ -807,14 +807,19 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         children_sql = []
         for child in self._entity_model.children:
             # Create child sub directory
-            children_artifacts_dir = children_artifacts_dir / sanitize_dir_name(
+            child_artifacts_dir = children_artifacts_dir / sanitize_dir_name(
                 child.target
             )
-            os.makedirs(children_artifacts_dir)
+            try:
+                os.makedirs(child_artifacts_dir)
+            except FileExistsError:
+                raise ClickException(
+                    f"Could not create sub-directory at {child_artifacts_dir}. Make sure child entity names do not collide with each other."
+                )
             child_entity: ApplicationPackageChildInterface = action_ctx.get_entity(
                 child.target
             )
-            child_entity.bundle(children_artifacts_dir)
+            child_entity.bundle(child_artifacts_dir)
             app_role = (
                 to_identifier(
                     child.ensure_usable_by.application_roles.pop()  # TODO Support more than one application role
@@ -829,8 +834,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
             children_sql.append(
                 child_entity.get_deploy_sql(
-                    artifacts_dir=Path(
-                        self._entity_model.children_artifacts_dir, child.target
+                    artifacts_dir=Path(child_artifacts_dir, child.target).relative_to(
+                        self.deploy_root
                     ),
                     schema=child_schema,
                 )
