@@ -3,7 +3,7 @@
   list([
     dict({
       'comment': None,
-      'label': '',
+      'label': None,
       'patch': 0,
       'review_status': 'NOT_REVIEWED',
       'state': 'READY',
@@ -11,7 +11,7 @@
     }),
     dict({
       'comment': None,
-      'label': '',
+      'label': None,
       'patch': 1,
       'review_status': 'NOT_REVIEWED',
       'state': 'READY',
