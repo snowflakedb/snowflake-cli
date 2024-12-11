@@ -23,10 +23,13 @@
   * `snow app release-directive list`
   * `snow app release-directive set`
   * `snow app release-directive unset`
+* Add support for release channels feature in native app version creation/drop.
+* `snow app version create` now returns version, patch, and label in JSON format.
 
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.
 * Fixed inability to add patches to lowercase quoted versions
+* Fixes label being set to blank instead of None when not provided.
 
 # v3.2.0
 

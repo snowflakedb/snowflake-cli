@@ -370,7 +370,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         force: bool,
         *args,
         **kwargs,
-    ):
+    ) -> VersionInfo:
         """
         Create a version and/or patch for a new or existing application package.
         Always performs a deploy action before creating version or patch.
@@ -453,12 +453,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         # Define a new version in the application package
         if not self.get_existing_version_info(resolved_version):
             self.add_new_version(version=resolved_version, label=resolved_label)
-            return  # A new version created automatically has patch 0, we do not need to further increment the patch.
+            # A new version created automatically has patch 0, we do not need to further increment the patch.
+            return VersionInfo(resolved_version, 0, resolved_label)
 
         # Add a new patch to an existing (old) version
-        self.add_new_patch_to_version(
+        patch = self.add_new_patch_to_version(
             version=resolved_version, patch=resolved_patch, label=resolved_label
         )
+        return VersionInfo(resolved_version, patch, resolved_label)
 
     def action_version_drop(
         self,
@@ -537,14 +539,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 raise typer.Exit(1)
 
         # Drop the version
-        sql_executor = get_sql_executor()
-        with sql_executor.use_role(self.role):
-            try:
-                sql_executor.execute_query(
-                    f"alter application package {self.name} drop version {version}"
-                )
-            except ProgrammingError as err:
-                raise err  # e.g. version is referenced in a release directive(s)
+        get_snowflake_facade().drop_version_from_package(
+            package_name=self.name, version=version, role=self.role
+        )
 
         console.message(
             f"Version {version} in application package {self.name} dropped successfully."
@@ -846,9 +843,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     def add_new_patch_to_version(
         self, version: str, patch: int | None = None, label: str | None = None
-    ):
+    ) -> int:
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
+        Returns the patch number of the newly created patch.
         """
         console = self._workspace_ctx.console
 
@@ -868,6 +866,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         console.message(
             f"Patch {new_patch}{with_label_prompt} created for version {version} defined in application package {self.name}."
         )
+        return new_patch
 
     def check_index_changes_in_git_repo(
         self, policy: PolicyBase, interactive: bool
@@ -1134,7 +1133,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         bundle_map: BundleMap | None,
         policy: PolicyBase,
         interactive: bool,
-    ):
+    ) -> VersionInfo:
         """Determine version name, patch number, and label from CLI provided values and manifest.yml version entry.
         @param [Optional] version: version name as specified in the command
         @param [Optional] patch: patch number as specified in the command
@@ -1142,12 +1141,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         @param [Optional] bundle_map: bundle_map if a deploy_root is prepared. _bundle() is performed otherwise.
         @param policy: CLI policy
         @param interactive: True if command is run in interactive mode, otherwise False
+
+        @return VersionInfo: version_name, patch_number, label resolved from CLI and manifest.yml
         """
         console = self._workspace_ctx.console
 
         resolved_version = None
         resolved_patch = None
-        resolved_label = ""
+        resolved_label = None
 
         # If version is specified in CLI, no version information from manifest.yml is used (except for comment, we can't control comment as of now).
         if version is not None:
@@ -1155,7 +1156,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 "Ignoring version information from the application manifest since a version was explicitly specified with the command."
             )
             resolved_patch = patch
-            resolved_label = label if label is not None else ""
+            resolved_label = label
             resolved_version = version
 
         # When version is not set by CLI, version name is read from manifest.yml. patch and label from CLI will be used, if provided.

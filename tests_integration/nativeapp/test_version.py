@@ -567,3 +567,73 @@ def test_nativeapp_version_create_quoted_identifiers(
 
         actual = runner.invoke_with_connection_json(["app", "version", "list"])
         assert len(actual.json) == 0
+
+
+@pytest.mark.integration
+def test_version_create_with_json_result(runner, nativeapp_project_directory):
+    with nativeapp_project_directory("napp_init_v2"):
+        result = runner.invoke_with_connection_json(
+            ["app", "version", "create", "v1", "--force", "--skip-git-check"]
+        )
+        assert result.exit_code == 0
+        assert result.json == {
+            "version": "v1",
+            "patch": 0,
+            "label": None,
+            "message": "Version create is now complete.",
+        }
+
+        result = runner.invoke_with_connection_json(
+            [
+                "app",
+                "version",
+                "create",
+                "v1",
+                "--force",
+                "--skip-git-check",
+                "--label",
+                "test",
+            ]
+        )
+        assert result.exit_code == 0
+        assert result.json == {
+            "version": "v1",
+            "patch": 1,
+            "label": "test",
+            "message": "Version create is now complete.",
+        }
+
+        # try with custom patch:
+        result = runner.invoke_with_connection_json(
+            [
+                "app",
+                "version",
+                "create",
+                "v1",
+                "--force",
+                "--skip-git-check",
+                "--patch",
+                3,
+                "--label",
+                "",
+            ]
+        )
+        assert result.exit_code == 0
+        assert result.json == {
+            "version": "v1",
+            "patch": 3,
+            "label": "",
+            "message": "Version create is now complete.",
+        }
+
+        # create version with special characters:
+        result = runner.invoke_with_connection_json(
+            ["app", "version", "create", "v1.1", "--force", "--skip-git-check"]
+        )
+        assert result.exit_code == 0
+        assert result.json == {
+            "version": '"v1.1"',
+            "patch": 0,
+            "label": None,
+            "message": "Version create is now complete.",
+        }
