@@ -29,6 +29,7 @@ from snowflake.cli.api.project.util import (
     to_identifier,
     to_quoted_identifier,
     to_string_literal,
+    unquote_identifier,
 )
 
 VALID_UNQUOTED_IDENTIFIERS = (
@@ -335,3 +336,24 @@ def test_identifier_to_str(identifier, expected_value):
 )
 def test_sanitize_identifier(identifier, expected_value):
     assert sanitize_identifier(identifier) == expected_value
+
+
+@pytest.mark.parametrize(
+    "identifier, expected",
+    [
+        # valid unquoted id -> return upper case version
+        ("Id_1", "ID_1"),
+        # valid quoted id -> remove quotes and keep case
+        ('"Id""1"', 'Id"1'),
+        # unquoted id with special characters -> treat it as quoted ID and reserve case
+        ("Id.aBc", "Id.aBc"),
+        # unquoted id with double quotes inside -> treat is quoted ID
+        ('Id"1', 'Id"1'),
+        # quoted id with escaped double quotes -> unescape and keep case
+        ('"Id""1"', 'Id"1'),
+        # empty string -> return the same
+        ("", ""),
+    ],
+)
+def test_unquote_identifier(identifier, expected):
+    assert unquote_identifier(identifier) == expected

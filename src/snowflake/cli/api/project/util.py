@@ -148,6 +148,10 @@ def unquote_identifier(identifier: str) -> str:
     string for a LIKE clause, or to match an identifier passed back as
     a value from a SQL statement.
     """
+    # ensure input is a valid identifier - otherwise, it could accidentally uppercase
+    # a quoted identifier
+    identifier = to_identifier(identifier)
+
     if match := re.fullmatch(QUOTED_IDENTIFIER_REGEX, identifier):
         return match.group(1).replace('""', '"')
     # unquoted identifiers are internally represented as uppercase

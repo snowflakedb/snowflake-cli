@@ -22,6 +22,7 @@
 
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.
+* Fixed inability to add patches to lowercase quoted versions
 
 # v3.2.0
 
