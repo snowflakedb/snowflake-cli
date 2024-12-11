@@ -165,7 +165,7 @@ def test_path_resolver(mock_system, argument, expected):
         ("my_app", "MY_APP"),
         ('"My App"', "My%20App"),
         ("SYSTEM$GET", "SYSTEM%24GET"),
-        ("mailorder_!@#$%^&*()/_app", "MAILORDER_!%40%23%24%25%5E%26*()%2F_APP"),
+        ("mailorder_!@#$%^&*()/_app", "mailorder_!%40%23%24%25%5E%26*()%2F_app"),
         ('"Mailorder *App* is /cool/"', "Mailorder%20*App*%20is%20%2Fcool%2F"),
     ],
 )
