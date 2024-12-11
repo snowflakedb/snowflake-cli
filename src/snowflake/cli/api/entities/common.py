@@ -17,6 +17,14 @@ class EntityActions(str, Enum):
     VERSION_CREATE = "action_version_create"
     VERSION_DROP = "action_version_drop"
 
+    RELEASE_DIRECTIVE_UNSET = "action_release_directive_unset"
+    RELEASE_DIRECTIVE_SET = "action_release_directive_set"
+    RELEASE_DIRECTIVE_LIST = "action_release_directive_list"
+
+    RELEASE_CHANNEL_LIST = "action_release_channel_list"
+    RELEASE_CHANNEL_ADD_VERSION = "action_release_channel_add_version"
+    RELEASE_CHANNEL_REMOVE_VERSION = "action_release_channel_remove_version"
+
 
 T = TypeVar("T")
 
@@ -30,7 +38,7 @@ def attach_spans_to_entity_actions(entity_name: str):
         entity_name (str): Custom name for entity type to be displayed in metrics
     """
 
-    def decorator(cls: type[EntityBase]) -> type[EntityBase]:
+    def decorator(cls: type[T]) -> type[T]:
         for attr_name, attr_value in vars(cls).items():
             is_entity_action = attr_name in [
                 enum_member for enum_member in EntityActions

@@ -19,9 +19,14 @@
 ## Deprecations
 
 ## New additions
+* Add Release Directives support by introducing the following commands:
+  * `snow app release-directive list`
+  * `snow app release-directive set`
+  * `snow app release-directive unset`
 
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.
+* Fixed inability to add patches to lowercase quoted versions
 * Added a feature flag for log streaming to support staged rollouts
 
 # v3.2.0
