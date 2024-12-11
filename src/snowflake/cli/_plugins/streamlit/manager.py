@@ -68,29 +68,31 @@ class StreamlitManager(SqlExecutionMixin):
         if not artifacts:
             return
         stage_manager = StageManager()
+        # We treat the bundle root as deploy root
         bundle_map = BundleMap(
             project_root=streamlit_project_paths.project_root,
-            deploy_root=streamlit_project_paths.deploy_root,
+            deploy_root=streamlit_project_paths.bundle_root,
         )
         for artifact in artifacts:
             bundle_map.add(PathMapping(src=str(artifact.src), dest=artifact.dest))
 
         # Clean up deploy root
-        streamlit_project_paths.remove_up_deploy_root()
+        streamlit_project_paths.remove_up_bundle_root()
 
         for (absolute_src, absolute_dest) in bundle_map.all_mappings(
             absolute=True, expand_directories=True
         ):
             if absolute_src.is_file():
+                # We treat the bundle root as deploy root
                 symlink_or_copy(
                     absolute_src,
                     absolute_dest,
-                    deploy_root=streamlit_project_paths.deploy_root,
+                    deploy_root=streamlit_project_paths.bundle_root,
                 )
                 # Temporary solution, will be replaced with diff
                 stage_path = (
                     PurePosixPath(absolute_dest)
-                    .relative_to(streamlit_project_paths.deploy_root)
+                    .relative_to(streamlit_project_paths.bundle_root)
                     .parent
                 )
                 full_stage_path = f"{stage_root}/{stage_path}".rstrip("/")

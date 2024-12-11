@@ -8,9 +8,15 @@ class ProjectPaths:
     project_root: Path
 
     @property
-    def deploy_root(self) -> Path:
-        return self.project_root / "output"
+    def bundle_root(self) -> Path:
+        return bundle_root(self.project_root)
 
-    def remove_up_deploy_root(self) -> None:
-        if self.deploy_root.exists():
-            rmtree(self.deploy_root)
+    def remove_up_bundle_root(self) -> None:
+        if self.bundle_root.exists():
+            rmtree(self.bundle_root)
+
+
+def bundle_root(root: Path, app_type: str | None = None) -> Path:
+    if app_type:
+        return root / "output" / "bundle" / app_type
+    return root / "output" / "bundle"
