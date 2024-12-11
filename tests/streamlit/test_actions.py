@@ -7,6 +7,7 @@ from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import StreamlitEntityModel
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 
+STREAMLIT_NAME = "test_streamlit"
 CONNECTOR = "snowflake.connector.connect"
 CONTEXT = ""
 EXECUTE_QUERY = "snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query"
@@ -19,7 +20,6 @@ def example_streamlit_workspace(project_directory):
     with project_directory("example_streamlit_v2") as pdir:
         with Path(pdir / "snowflake.yml").open() as definition_file:
             definition = yaml.safe_load(definition_file)
-            print(definition)
             model = StreamlitEntityModel(
                 **definition.get("entities", {}).get("test_streamlit")
             )
@@ -50,13 +50,19 @@ def test_bundle(example_streamlit_workspace):
     assert (output / "environment.yml").exists()
     assert (output / "pages" / "my_page.py").exists()
 
+@mock.patch(EXECUTE_QUERY)
+def test_deploy(mock_execute, example_streamlit_workspace):
+    entity, action_ctx = example_streamlit_workspace
+    entity.action_deploy(action_ctx)
+
+    mock_execute.assert_called_with(f"CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') \n MAIN_FILE = 'streamlit_app.py' \n QUERY_WAREHOUSE = 'test_warehouse' \n TITLE = 'My Fancy Streamlit' \n")
 
 @mock.patch(EXECUTE_QUERY)
 def test_drop(mock_execute, example_streamlit_workspace):
     entity, action_ctx = example_streamlit_workspace
     entity.action_drop(action_ctx)
 
-    mock_execute.assert_called_with("DROP STREAMLIT test_streamlit_deploy_snowcli")
+    mock_execute.assert_called_with(f"DROP STREAMLIT {STREAMLIT_NAME}")
 
 
 @mock.patch(CONNECTOR)
@@ -97,18 +103,28 @@ def test_execute(mock_execute, example_streamlit_workspace):
     entity, action_ctx = example_streamlit_workspace
     entity.action_execute(action_ctx)
 
-    mock_execute.assert_called_with("EXECUTE STREAMLIT test_streamlit_deploy_snowcli()")
+    mock_execute.assert_called_with(f"EXECUTE STREAMLIT {STREAMLIT_NAME}()")
 
 
 def test_get_execute_sql(example_streamlit_workspace):
     entity, action_ctx = example_streamlit_workspace
-    execute_sql = entity.action_get_execute_sql(action_ctx)
+    execute_sql = entity.get_execute_sql(action_ctx)
 
-    assert execute_sql == "EXECUTE STREAMLIT test_streamlit_deploy_snowcli()"
+    assert execute_sql == f"EXECUTE STREAMLIT {STREAMLIT_NAME}()"
 
 
 def test_get_drop_sql(example_streamlit_workspace):
     entity, action_ctx = example_streamlit_workspace
-    drop_sql = entity.action_get_drop_sql(action_ctx)
+    drop_sql = entity.get_drop_sql(action_ctx)
 
-    assert drop_sql == "DROP STREAMLIT test_streamlit_deploy_snowcli"
+    assert drop_sql == f"DROP STREAMLIT {STREAMLIT_NAME}"
+
+def test_get_deploy_sql(example_streamlit_workspace):
+    entity, action_ctx = example_streamlit_workspace
+    deploy_sql = entity.get_deploy_sql(action_ctx)
+
+    assert deploy_sql == f"""CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') 
+ MAIN_FILE = 'streamlit_app.py' 
+ QUERY_WAREHOUSE = 'test_warehouse' 
+ TITLE = 'My Fancy Streamlit' 
+"""

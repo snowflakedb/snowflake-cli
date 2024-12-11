@@ -7,51 +7,16 @@
   | For field entities.my_streamlit you provided '{'artifacts': {'1':            |
   | 'foo_bar.py'}}'. This caused: Unable to extract tag using discriminator      |
   | 'type'                                                                       |
-  | For field entities.my_streamlit you provided '{'artifacts': {'1':            |
-  | 'foo_bar.py'}}'. This caused: Unable to extract tag using discriminator      |
-  | 'type'                                                                       |
   +------------------------------------------------------------------------------+
-
+  
   '''
-# ---
-# name: test_deploy_put_files_on_stage[example_streamlit-merge_definition1]
-  list([
-    "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit_stage')",
-    'put file://streamlit_app.py @MockDatabase.MockSchema.streamlit_stage/test_streamlit auto_compress=false parallel=4 overwrite=True',
-    'put file://environment.yml @MockDatabase.MockSchema.streamlit_stage/test_streamlit auto_compress=false parallel=4 overwrite=True',
-    'put file://pages/* @MockDatabase.MockSchema.streamlit_stage/test_streamlit/pages auto_compress=false parallel=4 overwrite=True',
-    '''
-      CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.test_streamlit')
-      ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit_stage/test_streamlit'
-      MAIN_FILE = 'streamlit_app.py'
-      QUERY_WAREHOUSE = test_warehouse
-      TITLE = 'My Fancy Streamlit'
-    ''',
-    'select system$get_snowsight_host()',
-    'select current_account_name()',
-  ])
-# ---
-# name: test_deploy_put_files_on_stage[example_streamlit_v2-merge_definition0]
-  list([
-    "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit_stage')",
-    'put file://streamlit_app.py @MockDatabase.MockSchema.streamlit_stage/test_streamlit auto_compress=false parallel=4 overwrite=True',
-    '''
-      CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.test_streamlit')
-      ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit_stage/test_streamlit'
-      MAIN_FILE = 'streamlit_app.py'
-      QUERY_WAREHOUSE = test_warehouse
-      TITLE = 'My Fancy Streamlit'
-    ''',
-    'select system$get_snowsight_host()',
-    'select current_account_name()',
-  ])
 # ---
 # name: test_deploy_streamlit_nonexisting_file[example_streamlit-opts0]
   '''
   +- Error ----------------------------------------------------------------------+
   | Provided file foo.bar does not exist                                         |
   +------------------------------------------------------------------------------+
-
+  
   '''
 # ---
 # name: test_deploy_streamlit_nonexisting_file[example_streamlit-opts1]
@@ -59,7 +24,7 @@
   +- Error ----------------------------------------------------------------------+
   | Provided file foo.bar does not exist                                         |
   +------------------------------------------------------------------------------+
-
+  
   '''
 # ---
 # name: test_deploy_streamlit_nonexisting_file[example_streamlit_v2-opts2]
@@ -68,7 +33,7 @@
   | Streamlit test_streamlit already exist. If you want to replace it use        |
   | --replace flag.                                                              |
   +------------------------------------------------------------------------------+
-
+  
   '''
 # ---
 # name: test_deploy_streamlit_nonexisting_file[example_streamlit_v2-opts3]
@@ -77,7 +42,7 @@
   | During evaluation of DefinitionV20 in project definition following errors    |
   | were encountered:                                                            |
   | For field entities.test_streamlit.streamlit you provided '{'artifacts':      |
-  | ['foo.bar'], 'identifier': {'name': 'test_streamlit'}, 'main_file':          |
+  | ['foo.bar'], 'identifier': 'test_streamlit', 'main_file':                    |
   | 'streamlit_app.py', 'query_warehouse': 'test_warehouse', 'stage':            |
   | 'streamlit', 'title': 'My Fancy Streamlit', 'type': 'streamlit'}'. This      |
   | caused: Value error, Specified artifact foo.bar does not exist locally.      |
