@@ -22,6 +22,7 @@ import typer
 from click import UsageError
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.constants import (
+    COMMENT_COL,
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
 )
@@ -46,6 +47,12 @@ from snowflake.cli._plugins.nativeapp.policy import (
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
+from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
+    CouldNotUseObjectError,
+    UpgradeApplicationRestrictionError,
+    UserInputError,
+)
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
@@ -57,11 +64,10 @@ from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
     CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
+    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
+    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     INSUFFICIENT_PRIVILEGES,
-)
-from snowflake.cli.api.exceptions import (
-    CouldNotUseObjectError,
-    NoWarehouseSelectedInSessionError,
+    NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
@@ -71,12 +77,17 @@ from tests.nativeapp.patch_utils import (
     mock_connection,
 )
 from tests.nativeapp.utils import (
-    APP_ENTITY_GET_EXISTING_APP_INFO,
     APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
     GET_UI_PARAMETERS,
     SQL_EXECUTOR_EXECUTE,
+    SQL_FACADE_CREATE_APPLICATION,
+    SQL_FACADE_GET_EVENT_DEFINITIONS,
+    SQL_FACADE_GET_EXISTING_APP_INFO,
+    SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE,
+    SQL_FACADE_UPGRADE_APPLICATION,
     TYPER_CONFIRM,
     mock_execute_helper,
+    mock_side_effect_error_with_cause,
     quoted_override_yml_file_v2,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
@@ -113,12 +124,27 @@ def _get_wm():
     )
 
 
+DEFAULT_APP_ID = "myapp"
+DEFAULT_PKG_ID = "app_pkg"
+DEFAULT_STAGE_FQN = "app_pkg.app_src.stage"
+DEFAULT_UPGRADE_SUCCESS_MESSAGE = "Application successfully upgraded."
+DEFAULT_CREATE_SUCCESS_MESSAGE = f"Application '{DEFAULT_APP_ID}' created successfully."
+DEFAULT_USER_INPUT_ERROR_MESSAGE = "User input error message."
+DEFAULT_GET_EXISTING_APP_INFO_RESULT = {
+    "name": "myapp",
+    "comment": SPECIAL_COMMENT,
+    "owner": "app_role",
+}
+DEFAULT_ROLE = "app_role"
+DEFAULT_WAREHOUSE = "app_warehouse"
+
+
 def _create_or_upgrade_app(
     policy: PolicyBase,
     install_method: SameAccountInstallMethod,
     interactive: bool = False,
-    package_id: str = "app_pkg",
-    app_id: str = "myapp",
+    package_id: str = DEFAULT_PKG_ID,
+    app_id: str = DEFAULT_APP_ID,
     console: AbstractConsole | None = None,
 ):
     dm = DefinitionManager()
@@ -199,44 +225,30 @@ def setup_project_file(current_working_directory: str, pdf=None):
 
 
 # Test create_dev_app with exception thrown trying to use the warehouse
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_w_warehouse_access_exception(
-    mock_param, mock_conn, mock_execute, temp_dir, mock_cursor
+    mock_param,
+    mock_conn,
+    mock_sql_facade_grant_privileges_to_role,
+    mock_get_existing_app_info,
+    mock_sql_facade_create_application,
+    temp_dir,
+    mock_cursor,
 ):
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (
-                CouldNotUseObjectError(
-                    object_type=ObjectType.WAREHOUSE, name="app_warehouse"
-                ),
-                mock.call("use warehouse app_warehouse"),
-            ),
-            (
-                None,
-                mock.call("use warehouse old_wh"),
-            ),
-            (None, mock.call("use role old_role")),
-        ]
-    )
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
+    mock_sql_facade_create_application.side_effect = CouldNotUseObjectError(
+        object_type=UseObjectType.WAREHOUSE, name="app_warehouse"
+    )
 
     mock_diff_result = DiffResult()
     setup_project_file(os.getcwd())
@@ -249,73 +261,70 @@ def test_create_dev_app_w_warehouse_access_exception(
             install_method=SameAccountInstallMethod.unversioned_dev(),
         )
 
-    assert mock_execute.mock_calls == expected
     assert (
         "Could not use warehouse app_warehouse. Object does not exist, or operation cannot be performed."
         in err.value.message
     )
+    mock_sql_facade_create_application.assert_called_once_with(
+        name=DEFAULT_APP_ID,
+        package_name=DEFAULT_PKG_ID,
+        install_method=SameAccountInstallMethod.unversioned_dev(),
+        stage_fqn=DEFAULT_STAGE_FQN,
+        debug_mode=True,
+        should_authorize_event_sharing=None,
+        role=DEFAULT_ROLE,
+        warehouse=DEFAULT_WAREHOUSE,
+    )
+    assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
+        mock.call(
+            privileges=["install", "develop"],
+            object_type=ObjectType.APPLICATION_PACKAGE,
+            object_identifier="app_pkg",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["usage"],
+            object_type=ObjectType.SCHEMA,
+            object_identifier="app_pkg.app_src",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["read"],
+            object_type=ObjectType.STAGE,
+            object_identifier="app_pkg.app_src.stage",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+    ]
 
 
 # Test create_dev_app with no existing application AND create succeeds AND app role == package role
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_create_new_w_no_additional_privileges(
     mock_param,
     mock_conn,
-    mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     temp_dir,
     mock_cursor,
 ):
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                None,
-                mock.call(
-                    dedent(
-                        f"""\
-                    create application myapp
-                        from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
-                        comment = {SPECIAL_COMMENT}
-                    """
-                    )
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
 
     mock_diff_result = DiffResult()
 
@@ -326,18 +335,34 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
         policy=MagicMock(),
         install_method=SameAccountInstallMethod.unversioned_dev(),
     )
-    assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_create_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            package_name=DEFAULT_PKG_ID,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        DEFAULT_APP_ID, DEFAULT_ROLE
+    )
 
 
 # Test create_dev_app with no existing application AND create returns a warning
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -355,97 +380,21 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
 def test_create_or_upgrade_dev_app_with_warning(
     mock_param,
     mock_conn,
-    mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     temp_dir,
     mock_cursor,
     existing_app_info,
 ):
     status_messages = ["App created/upgraded", "Warning: some warning"]
-    status_cursor = mock_cursor(
-        [(msg,) for msg in status_messages],
-        ["status"],
-    )
-    create_or_upgrade_calls = (
-        [
-            (
-                status_cursor,
-                mock.call(
-                    dedent(
-                        f"""\
-                create application myapp
-                    from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
-                    comment = {SPECIAL_COMMENT}
-                """
-                    )
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-        ]
-        if existing_app_info is None
-        else [
-            (
-                status_cursor,
-                mock.call(
-                    "alter application myapp upgrade using @app_pkg.app_src.stage"
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "desc application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("alter application myapp set debug_mode = True")),
-        ]
-    )
+    status_cursor_results = [(msg,) for msg in status_messages]
 
     mock_get_existing_app_info.return_value = existing_app_info
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            *create_or_upgrade_calls,
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
+    mock_sql_facade_create_application.return_value = status_cursor_results
+    mock_sql_facade_upgrade_application.return_value = status_cursor_results
 
     mock_diff_result = DiffResult()
     setup_project_file(os.getcwd(), test_pdf.replace("package_role", "app_role"))
@@ -457,91 +406,68 @@ def test_create_or_upgrade_dev_app_with_warning(
         install_method=SameAccountInstallMethod.unversioned_dev(),
         console=mock_console,
     )
-    assert mock_execute.mock_calls == expected
 
+    if existing_app_info is None:
+        assert mock_sql_facade_create_application.mock_calls == [
+            mock.call(
+                name=DEFAULT_APP_ID,
+                package_name=DEFAULT_PKG_ID,
+                install_method=SameAccountInstallMethod.unversioned_dev(),
+                stage_fqn=DEFAULT_STAGE_FQN,
+                debug_mode=True,
+                should_authorize_event_sharing=None,
+                role=DEFAULT_ROLE,
+                warehouse=DEFAULT_WAREHOUSE,
+            )
+        ]
+        mock_sql_facade_upgrade_application.assert_not_called()
+    else:
+        mock_sql_facade_create_application.assert_not_called()
+        assert mock_sql_facade_upgrade_application.mock_calls == [
+            mock.call(
+                name=DEFAULT_APP_ID,
+                install_method=SameAccountInstallMethod.unversioned_dev(),
+                stage_fqn=DEFAULT_STAGE_FQN,
+                debug_mode=True,
+                should_authorize_event_sharing=None,
+                role=DEFAULT_ROLE,
+                warehouse=DEFAULT_WAREHOUSE,
+            )
+        ]
+
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        DEFAULT_APP_ID, DEFAULT_ROLE
+    )
     mock_console.warning.assert_has_calls([mock.call(msg) for msg in status_messages])
 
 
 # Test create_dev_app with no existing application AND create succeeds AND app role != package role
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_create_new_with_additional_privileges(
     mock_param,
     mock_conn,
-    mock_execute_query,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     temp_dir,
     mock_cursor,
 ):
-    side_effects, mock_execute_query_expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                None,
-                mock.call(
-                    "grant install, develop on application package app_pkg to role app_role"
-                ),
-            ),
-            (
-                None,
-                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
-            ),
-            (
-                None,
-                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                None,
-                mock.call(
-                    dedent(
-                        f"""\
-                    create application myapp
-                        from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
-                        comment = {SPECIAL_COMMENT}
-                    """
-                    )
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute_query.side_effect = side_effects
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
 
     mock_diff_result = DiffResult()
     setup_project_file(os.getcwd())
@@ -550,87 +476,107 @@ def test_create_dev_app_create_new_with_additional_privileges(
     _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
-    assert mock_execute_query.mock_calls == mock_execute_query_expected
+    assert mock_sql_facade_create_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            package_name=DEFAULT_PKG_ID,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+    assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
+        mock.call(
+            privileges=["install", "develop"],
+            object_type=ObjectType.APPLICATION_PACKAGE,
+            object_identifier="app_pkg",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["usage"],
+            object_type=ObjectType.SCHEMA,
+            object_identifier="app_pkg.app_src",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["read"],
+            object_type=ObjectType.STAGE,
+            object_identifier="app_pkg.app_src.stage",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+    ]
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        DEFAULT_APP_ID, DEFAULT_ROLE
+    )
 
 
 # Test create_dev_app with no existing application AND create throws an exception
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_create_new_w_missing_warehouse_exception(
     mock_param,
     mock_conn,
-    mock_execute,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     temp_dir,
     mock_cursor,
 ):
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                NoWarehouseSelectedInSessionError(
-                    msg="No active warehouse selected in the current session"
-                ),
-                mock.call(
-                    dedent(
-                        f"""\
-                    create application myapp
-                        from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
-                        comment = {SPECIAL_COMMENT}
-                    """
-                    )
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
-
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
+    mock_sql_facade_create_application.side_effect = mock_side_effect_error_with_cause(
+        err=UserInputError("No active warehouse selected in the current session"),
+        cause=ProgrammingError(errno=NO_WAREHOUSE_SELECTED_IN_SESSION),
+    )
 
     mock_diff_result = DiffResult()
     setup_project_file(os.getcwd(), test_pdf.replace("package_role", "app_role"))
 
     assert not mock_diff_result.has_changes()
 
-    with pytest.raises(NoWarehouseSelectedInSessionError) as err:
+    with pytest.raises(UserInputError) as err:
         _create_or_upgrade_app(
             policy=MagicMock(),
             install_method=SameAccountInstallMethod.unversioned_dev(),
         )
 
-    assert "Please provide a warehouse for the active session role" in err.value.message
-    assert mock_execute.mock_calls == expected
+    assert err.match("No active warehouse selected in the current session")
+    assert mock_sql_facade_create_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            package_name=DEFAULT_PKG_ID,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
 
 
 # Test create_dev_app with existing application AND bad comment AND good version
 # Test create_dev_app with existing application AND bad comment AND bad version
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -656,24 +602,7 @@ def test_create_dev_app_incorrect_properties(
         "version": version,
         "owner": "APP_ROLE",
     }
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
 
     mock_diff_result = DiffResult()
     setup_project_file(os.getcwd())
@@ -685,24 +614,27 @@ def test_create_dev_app_incorrect_properties(
             install_method=SameAccountInstallMethod.unversioned_dev(),
         )
 
-    assert mock_execute.mock_calls == expected
+    assert mock_get_existing_app_info.mock_calls == [
+        mock.call(DEFAULT_APP_ID, DEFAULT_ROLE),
+        mock.call(DEFAULT_APP_ID, DEFAULT_ROLE),
+    ]
 
 
 # Test create_dev_app with existing application AND incorrect owner
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_incorrect_owner(
     mock_param,
     mock_conn,
-    mock_execute,
+    mock_sql_facade_upgrade_application,
     mock_get_existing_app_info,
     temp_dir,
     mock_cursor,
@@ -713,62 +645,56 @@ def test_create_dev_app_incorrect_owner(
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "wrong_owner",
     }
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                ProgrammingError(
-                    msg="Insufficient privileges to operate on database",
-                    errno=INSUFFICIENT_PRIVILEGES,
-                ),
-                mock.call(
-                    "alter application myapp upgrade using @app_pkg.app_src.stage"
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
+
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UserInputError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(
+            msg="Insufficient privileges to operate on database",
+            errno=INSUFFICIENT_PRIVILEGES,
+        ),
+    )
 
     mock_diff_result = DiffResult()
     setup_project_file(os.getcwd())
 
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(UserInputError):
         assert not mock_diff_result.has_changes()
         _create_or_upgrade_app(
             policy=MagicMock(),
             install_method=SameAccountInstallMethod.unversioned_dev(),
         )
 
-    assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
 
 
 # Test create_dev_app with existing application AND diff has no changes
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @mock_connection()
 def test_create_dev_app_no_diff_changes(
     mock_param,
     mock_conn,
-    mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_upgrade_application,
     mock_get_existing_app_info,
     temp_dir,
     mock_cursor,
@@ -779,53 +705,11 @@ def test_create_dev_app_no_diff_changes(
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "APP_ROLE",
     }
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                None,
-                mock.call(
-                    "alter application myapp upgrade using @app_pkg.app_src.stage"
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "desc application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("alter application myapp set debug_mode = True")),
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
+
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = mock_cursor(
+        [[(DEFAULT_UPGRADE_SUCCESS_MESSAGE,)]], []
+    )
 
     mock_diff_result = DiffResult()
     setup_project_file(os.getcwd())
@@ -834,24 +718,39 @@ def test_create_dev_app_no_diff_changes(
     _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
-    assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        DEFAULT_APP_ID, DEFAULT_ROLE
+    )
 
 
 # Test create_dev_app with existing application AND diff has changes
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_w_diff_changes(
     mock_param,
     mock_conn,
-    mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_upgrade_application,
     mock_get_existing_app_info,
     temp_dir,
     mock_cursor,
@@ -862,53 +761,11 @@ def test_create_dev_app_w_diff_changes(
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "APP_ROLE",
     }
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                None,
-                mock.call(
-                    "alter application myapp upgrade using @app_pkg.app_src.stage"
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "desc application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("alter application myapp set debug_mode = True")),
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
+
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = mock_cursor(
+        [[(DEFAULT_UPGRADE_SUCCESS_MESSAGE,)]], []
+    )
 
     mock_diff_result = DiffResult(different=["setup.sql"])
     setup_project_file(os.getcwd())
@@ -917,24 +774,37 @@ def test_create_dev_app_w_diff_changes(
     _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
-    assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        DEFAULT_APP_ID, DEFAULT_ROLE
+    )
 
 
 # Test create_dev_app with existing application AND alter throws an error
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_recreate_w_missing_warehouse_exception(
     mock_param,
     mock_conn,
-    mock_execute,
+    mock_sql_facade_upgrade_application,
     mock_get_existing_app_info,
     temp_dir,
     mock_cursor,
@@ -945,108 +815,51 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
         "version": LOOSE_FILES_MAGIC_VERSION,
         "owner": "APP_ROLE",
     }
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                NoWarehouseSelectedInSessionError(
-                    msg="No active warehouse selected in the current session"
-                ),
-                mock.call(
-                    "alter application myapp upgrade using @app_pkg.app_src.stage"
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UserInputError("No active warehouse selected in the current session"),
+        cause=ProgrammingError(errno=NO_WAREHOUSE_SELECTED_IN_SESSION),
+    )
 
     mock_diff_result = DiffResult(different=["setup.sql"])
     setup_project_file(os.getcwd())
 
     assert mock_diff_result.has_changes()
 
-    with pytest.raises(NoWarehouseSelectedInSessionError) as err:
+    with pytest.raises(UserInputError) as err:
         _create_or_upgrade_app(
             policy=MagicMock(),
             install_method=SameAccountInstallMethod.unversioned_dev(),
         )
 
-    assert mock_execute.mock_calls == expected
-    assert "Please provide a warehouse for the active session role" in err.value.message
+    assert err.match("No active warehouse selected in the current session")
 
 
 # Test create_dev_app with no existing application AND quoted name scenario 1
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_create_new_quoted(
     mock_param,
     mock_conn,
-    mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_create_application,
     mock_get_existing_app_info,
     temp_dir,
     mock_cursor,
 ):
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                None,
-                mock.call(
-                    dedent(
-                        f"""\
-                    create application "My Application"
-                        from application package "My Package" using '@"My Package".app_src.stage' debug_mode = True
-                        comment = {SPECIAL_COMMENT}
-                    """
-                    )
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    'show telemetry event definitions in application "My Application"',
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
 
     mock_diff_result = DiffResult()
     pdf_content = dedent(
@@ -1084,69 +897,48 @@ def test_create_dev_app_create_new_quoted(
     _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
-    assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_create_application.mock_calls == [
+        mock.call(
+            name='"My Application"',
+            package_name='"My Package"',
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn='"My Package".app_src.stage',
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        '"My Application"', DEFAULT_ROLE
+    )
 
 
 # Test create_dev_app with no existing application AND quoted name scenario 2
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO, return_value=None)
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO, return_value=None)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS, return_value=[])
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_create_new_quoted_override(
     mock_param,
     mock_conn,
-    mock_execute,
+    mock_sql_facade_create_application,
+    mock_sql_facade_get_event_definitions,
     mock_get_existing_app_info,
     temp_dir,
     mock_cursor,
 ):
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                None,
-                mock.call(
-                    dedent(
-                        f"""\
-                    create application "My Application"
-                        from application package "My Package" using '@"My Package".app_src.stage' debug_mode = True
-                        comment = {SPECIAL_COMMENT}
-                    """
-                    )
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    'show telemetry event definitions in application "My Application"',
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
 
     mock_diff_result = DiffResult()
     current_working_directory = os.getcwd()
@@ -1163,7 +955,19 @@ def test_create_dev_app_create_new_quoted_override(
     _create_or_upgrade_app(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
-    assert mock_execute.mock_calls == expected
+    mock_sql_facade_create_application.assert_called_once_with(
+        name='"My Application"',
+        package_name='"My Package"',
+        install_method=SameAccountInstallMethod.unversioned_dev(),
+        stage_fqn='"My Package".app_src.stage',
+        debug_mode=True,
+        should_authorize_event_sharing=None,
+        role=DEFAULT_ROLE,
+        warehouse=DEFAULT_WAREHOUSE,
+    )
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        '"My Application"', DEFAULT_ROLE
+    )
 
 
 # Test run existing app info
@@ -1171,14 +975,18 @@ def test_create_dev_app_create_new_quoted_override(
 # AND user wants to drop app
 # AND drop succeeds
 # AND app is created successfully.
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_recreate_app_when_orphaned(
@@ -1186,6 +994,10 @@ def test_create_dev_app_recreate_app_when_orphaned(
     mock_conn,
     mock_get_existing_app_info,
     mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     temp_dir,
     mock_cursor,
 ):
@@ -1195,6 +1007,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
         "owner": "app_role",
         "version": LOOSE_FILES_MAGIC_VERSION,
     }
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1202,67 +1015,21 @@ def test_create_dev_app_recreate_app_when_orphaned(
                 mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
-                mock.call(
-                    "alter application myapp upgrade using @app_pkg.app_src.stage"
-                ),
-            ),
             (None, mock.call("drop application myapp")),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                None,
-                mock.call(
-                    "grant install, develop on application package app_pkg to role app_role"
-                ),
-            ),
-            (
-                None,
-                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
-            ),
-            (
-                None,
-                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                None,
-                mock.call(
-                    dedent(
-                        f"""\
-                    create application myapp
-                        from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
-                        comment = {SPECIAL_COMMENT}
-                    """
-                    )
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
+
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
+    )
+
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
 
     setup_project_file(os.getcwd())
 
@@ -1270,6 +1037,56 @@ def test_create_dev_app_recreate_app_when_orphaned(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+    assert mock_sql_facade_create_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            package_name=DEFAULT_PKG_ID,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+    assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
+        mock.call(
+            privileges=["install", "develop"],
+            object_type=ObjectType.APPLICATION_PACKAGE,
+            object_identifier="app_pkg",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["usage"],
+            object_type=ObjectType.SCHEMA,
+            object_identifier="app_pkg.app_src",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["read"],
+            object_type=ObjectType.STAGE,
+            object_identifier="app_pkg.app_src.stage",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+    ]
+
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        DEFAULT_APP_ID, DEFAULT_ROLE
+    )
 
 
 # Test run existing app info
@@ -1278,14 +1095,18 @@ def test_create_dev_app_recreate_app_when_orphaned(
 # AND drop requires cascade
 # AND drop succeeds
 # AND app is created successfully.
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
@@ -1293,6 +1114,10 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
     mock_conn,
     mock_get_existing_app_info,
     mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     temp_dir,
     mock_cursor,
 ):
@@ -1302,7 +1127,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
         "owner": "app_role",
         "version": LOOSE_FILES_MAGIC_VERSION,
     }
-    # side_effects, expected = mock_execute_helper(
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1311,19 +1136,12 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
-                mock.call(
-                    "alter application myapp upgrade using @app_pkg.app_src.stage"
-                ),
-            ),
-            (
                 ProgrammingError(errno=APPLICATION_OWNS_EXTERNAL_OBJECTS),
                 mock.call("drop application myapp"),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
             ),
             (
                 mock_cursor([("app_role",)], []),
@@ -1339,55 +1157,18 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
                 mock.call("show objects owned by application myapp"),
             ),
             (None, mock.call("drop application myapp cascade")),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                None,
-                mock.call(
-                    "grant install, develop on application package app_pkg to role app_role"
-                ),
-            ),
-            (
-                None,
-                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
-            ),
-            (
-                None,
-                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                None,
-                mock.call(
-                    dedent(
-                        f"""\
-                    create application myapp
-                        from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
-                        comment = {SPECIAL_COMMENT}
-                    """
-                    )
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
+    )
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
 
     setup_project_file(os.getcwd())
 
@@ -1395,6 +1176,58 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+
+    assert mock_sql_facade_create_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            package_name=DEFAULT_PKG_ID,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+
+    assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
+        mock.call(
+            privileges=["install", "develop"],
+            object_type=ObjectType.APPLICATION_PACKAGE,
+            object_identifier="app_pkg",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["usage"],
+            object_type=ObjectType.SCHEMA,
+            object_identifier="app_pkg.app_src",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["read"],
+            object_type=ObjectType.STAGE,
+            object_identifier="app_pkg.app_src.stage",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+    ]
+
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        DEFAULT_APP_ID, DEFAULT_ROLE
+    )
 
 
 # Test run existing app info
@@ -1404,14 +1237,18 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
 # AND we can't see which objects are owned by the app
 # AND drop succeeds
 # AND app is created successfully.
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_objects(
@@ -1419,6 +1256,10 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
     mock_conn,
     mock_get_existing_app_info,
     mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     temp_dir,
     mock_cursor,
 ):
@@ -1428,6 +1269,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
         "owner": "app_role",
         "version": LOOSE_FILES_MAGIC_VERSION,
     }
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1436,19 +1278,12 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
-                mock.call(
-                    "alter application myapp upgrade using @app_pkg.app_src.stage"
-                ),
-            ),
-            (
                 ProgrammingError(errno=APPLICATION_OWNS_EXTERNAL_OBJECTS),
                 mock.call("drop application myapp"),
+            ),
+            (
+                mock_cursor([("app_role",)], []),
+                mock.call("select current_role()"),
             ),
             (
                 mock_cursor([("app_role",)], []),
@@ -1459,55 +1294,18 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
                 mock.call("show objects owned by application myapp"),
             ),
             (None, mock.call("drop application myapp cascade")),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                None,
-                mock.call(
-                    "grant install, develop on application package app_pkg to role app_role"
-                ),
-            ),
-            (
-                None,
-                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
-            ),
-            (
-                None,
-                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                None,
-                mock.call(
-                    dedent(
-                        f"""\
-                    create application myapp
-                        from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
-                        comment = {SPECIAL_COMMENT}
-                    """
-                    )
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
+    )
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
 
     setup_project_file(os.getcwd())
 
@@ -1515,23 +1313,82 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
         policy=MagicMock(), install_method=SameAccountInstallMethod.unversioned_dev()
     )
     assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+    assert mock_sql_facade_create_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            package_name=DEFAULT_PKG_ID,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+    assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
+        mock.call(
+            privileges=["install", "develop"],
+            object_type=ObjectType.APPLICATION_PACKAGE,
+            object_identifier="app_pkg",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["usage"],
+            object_type=ObjectType.SCHEMA,
+            object_identifier="app_pkg.app_src",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["read"],
+            object_type=ObjectType.STAGE,
+            object_identifier="app_pkg.app_src.stage",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+    ]
+
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        DEFAULT_APP_ID, DEFAULT_ROLE
+    )
 
 
 # Test upgrade app method for release directives AND throws warehouse error
 @mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(
+    SQL_FACADE_GET_EXISTING_APP_INFO, return_value={COMMENT_COL: SPECIAL_COMMENT}
+)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
     "policy_param", [allow_always_policy, ask_always_policy, deny_always_policy]
 )
 def test_upgrade_app_warehouse_error(
-    mock_param, mock_conn, mock_execute, policy_param, temp_dir, mock_cursor
+    mock_param,
+    mock_conn,
+    mock_get_existing_app_info,
+    mock_execute,
+    policy_param,
+    temp_dir,
+    mock_cursor,
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -1545,14 +1402,8 @@ def test_upgrade_app_warehouse_error(
                 mock.call("select current_warehouse()"),
             ),
             (
-                CouldNotUseObjectError(
-                    object_type=ObjectType.WAREHOUSE, name="app_warehouse"
-                ),
+                ProgrammingError(errno=DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED),
                 mock.call("use warehouse app_warehouse"),
-            ),
-            (
-                None,
-                mock.call("use warehouse old_wh"),
             ),
             (None, mock.call("use role old_role")),
         ]
@@ -1572,14 +1423,15 @@ def test_upgrade_app_warehouse_error(
 
 
 # Test upgrade app method for release directives AND existing app info AND bad owner
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -1590,6 +1442,7 @@ def test_upgrade_app_incorrect_owner(
     mock_conn,
     mock_get_existing_app_info,
     mock_execute,
+    mock_sql_facade_upgrade_application,
     policy_param,
     temp_dir,
     mock_cursor,
@@ -1599,52 +1452,47 @@ def test_upgrade_app_incorrect_owner(
         "comment": SPECIAL_COMMENT,
         "owner": "wrong_owner",
     }
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                ProgrammingError(
-                    msg="Insufficient privileges to operate on database",
-                    errno=INSUFFICIENT_PRIVILEGES,
-                ),
-                mock.call("alter application myapp upgrade "),
-            ),
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
+
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UserInputError("Insufficient privileges to operate on database"),
+        cause=ProgrammingError(
+            errno=INSUFFICIENT_PRIVILEGES, msg="Some error message."
+        ),
+    )
 
     setup_project_file(os.getcwd())
 
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(UserInputError) as err:
         _create_or_upgrade_app(
             policy=policy_param,
             interactive=True,
             install_method=SameAccountInstallMethod.release_directive(),
         )
-    assert mock_execute.mock_calls == expected
+    err.match("Insufficient privileges to operate on database")
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
 
 
 # Test upgrade app method for release directives AND existing app info AND upgrade succeeds
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -1654,7 +1502,8 @@ def test_upgrade_app_succeeds(
     mock_param,
     mock_conn,
     mock_get_existing_app_info,
-    mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_upgrade_application,
     policy_param,
     temp_dir,
     mock_cursor,
@@ -1664,47 +1513,11 @@ def test_upgrade_app_succeeds(
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
     }
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (None, mock.call("alter application myapp upgrade ")),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "desc application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
+
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = mock_cursor(
+        [[(DEFAULT_UPGRADE_SUCCESS_MESSAGE,)]], []
+    )
 
     setup_project_file(os.getcwd())
 
@@ -1713,18 +1526,29 @@ def test_upgrade_app_succeeds(
         interactive=True,
         install_method=SameAccountInstallMethod.release_directive(),
     )
-    assert mock_execute.mock_calls == expected
+    mock_sql_facade_upgrade_application.assert_called_once_with(
+        name=DEFAULT_APP_ID,
+        install_method=SameAccountInstallMethod.release_directive(),
+        stage_fqn=DEFAULT_STAGE_FQN,
+        debug_mode=True,
+        should_authorize_event_sharing=None,
+        role=DEFAULT_ROLE,
+        warehouse=DEFAULT_WAREHOUSE,
+    )
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        DEFAULT_APP_ID, DEFAULT_ROLE
+    )
 
 
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to generic error
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -1734,7 +1558,7 @@ def test_upgrade_app_fails_generic_error(
     mock_param,
     mock_conn,
     mock_get_existing_app_info,
-    mock_execute,
+    mock_sql_facade_upgrade_application,
     policy_param,
     temp_dir,
     mock_cursor,
@@ -1744,47 +1568,41 @@ def test_upgrade_app_fails_generic_error(
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
     }
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                ProgrammingError(
-                    errno=1234,
-                ),
-                mock.call("alter application myapp upgrade "),
-            ),
-            (None, mock.call("use warehouse old_wh")),
-            (None, mock.call("use role old_role")),
-        ]
-    )
     mock_conn.return_value = MockConnectionCtx()
-    mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UserInputError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(
+            errno=1234,
+        ),
+    )
 
     setup_project_file(os.getcwd())
 
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(UserInputError):
         _create_or_upgrade_app(
             policy=policy_param,
             interactive=True,
             install_method=SameAccountInstallMethod.release_directive(),
         )
-    assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
 
 
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is False AND --interactive is False
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is False AND --interactive is True AND  user does not want to proceed
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is True AND user does not want to proceed
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=False
 )
@@ -1792,8 +1610,8 @@ def test_upgrade_app_fails_generic_error(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -1804,8 +1622,9 @@ def test_upgrade_app_fails_upgrade_restriction_error(
     mock_param,
     mock_conn,
     mock_typer_confirm,
-    mock_get_existing_app_info,
     mock_execute,
+    mock_get_existing_app_info,
+    mock_sql_facade_upgrade_application,
     policy_param,
     interactive,
     expected_code,
@@ -1817,6 +1636,13 @@ def test_upgrade_app_fails_upgrade_restriction_error(
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
     }
+
+    mock_conn.return_value = MockConnectionCtx()
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION),
+    )
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1824,22 +1650,9 @@ def test_upgrade_app_fails_upgrade_restriction_error(
                 mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                ProgrammingError(
-                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
-                ),
-                mock.call("alter application myapp upgrade "),
-            ),
-            (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
     )
-    mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
 
     setup_project_file(os.getcwd())
@@ -1851,17 +1664,33 @@ def test_upgrade_app_fails_upgrade_restriction_error(
             install_method=SameAccountInstallMethod.release_directive(),
         )
         assert result.exit_code == expected_code
+
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
     assert mock_execute.mock_calls == expected
 
 
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS, return_value=[])
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock_connection()
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 def test_versioned_app_upgrade_to_unversioned(
@@ -1869,6 +1698,10 @@ def test_versioned_app_upgrade_to_unversioned(
     mock_conn,
     mock_get_existing_app_info,
     mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     temp_dir,
     mock_cursor,
 ):
@@ -1882,6 +1715,7 @@ def test_versioned_app_upgrade_to_unversioned(
         "owner": "app_role",
         "version": "v1",
     }
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -1889,70 +1723,19 @@ def test_versioned_app_upgrade_to_unversioned(
                 mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                ProgrammingError(
-                    msg="Some Error Message.",
-                    errno=93045,
-                ),
-                mock.call(
-                    "alter application myapp upgrade using @app_pkg.app_src.stage"
-                ),
-            ),
             (None, mock.call("drop application myapp")),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                None,
-                mock.call(
-                    "grant install, develop on application package app_pkg to role app_role"
-                ),
-            ),
-            (
-                None,
-                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
-            ),
-            (
-                None,
-                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                None,
-                mock.call(
-                    dedent(
-                        f"""\
-            create application myapp
-                from application package app_pkg using @app_pkg.app_src.stage debug_mode = True
-                comment = {SPECIAL_COMMENT}
-            """
-                    )
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(errno=CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES),
+    )
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
 
     setup_project_file(os.getcwd())
 
@@ -1963,12 +1746,60 @@ def test_versioned_app_upgrade_to_unversioned(
     )
     assert mock_execute.mock_calls == expected
 
+    mock_sql_facade_upgrade_application.assert_called_once_with(
+        name=DEFAULT_APP_ID,
+        install_method=SameAccountInstallMethod.unversioned_dev(),
+        stage_fqn=DEFAULT_STAGE_FQN,
+        debug_mode=True,
+        should_authorize_event_sharing=None,
+        role=DEFAULT_ROLE,
+        warehouse=DEFAULT_WAREHOUSE,
+    )
+
+    mock_sql_facade_create_application.assert_called_with(
+        name=DEFAULT_APP_ID,
+        package_name=DEFAULT_PKG_ID,
+        install_method=SameAccountInstallMethod.unversioned_dev(),
+        stage_fqn=DEFAULT_STAGE_FQN,
+        debug_mode=True,
+        should_authorize_event_sharing=None,
+        role=DEFAULT_ROLE,
+        warehouse=DEFAULT_WAREHOUSE,
+    )
+
+    assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
+        mock.call(
+            privileges=["install", "develop"],
+            object_type=ObjectType.APPLICATION_PACKAGE,
+            object_identifier="app_pkg",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["usage"],
+            object_type=ObjectType.SCHEMA,
+            object_identifier="app_pkg.app_src",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["read"],
+            object_type=ObjectType.STAGE,
+            object_identifier="app_pkg.app_src.stage",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+    ]
+
+    mock_sql_facade_get_event_definitions.assert_called_once_with("myapp", DEFAULT_ROLE)
+
 
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is True AND drop fails
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is False AND --interactive is True AND user wants to proceed AND drop fails
 # Test upgrade app method for release directives AND existing app info AND upgrade fails due to upgrade restriction error AND --force is False AND interactive mode is True AND user wants to proceed AND drop fails
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
@@ -1976,8 +1807,8 @@ def test_versioned_app_upgrade_to_unversioned(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize(
@@ -1990,6 +1821,7 @@ def test_upgrade_app_fails_drop_fails(
     mock_typer_confirm,
     mock_get_existing_app_info,
     mock_execute,
+    mock_sql_facade_upgrade_application,
     policy_param,
     interactive,
     temp_dir,
@@ -2000,6 +1832,7 @@ def test_upgrade_app_fails_drop_fails(
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
     }
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -2008,29 +1841,20 @@ def test_upgrade_app_fails_drop_fails(
             ),
             (None, mock.call("use role app_role")),
             (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                ProgrammingError(
-                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
-                ),
-                mock.call("alter application myapp upgrade "),
-            ),
-            (
                 ProgrammingError(
                     errno=1234,
                 ),
                 mock.call("drop application myapp"),
             ),
-            (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
-
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION),
+    )
     setup_project_file(os.getcwd())
 
     with pytest.raises(ProgrammingError):
@@ -2040,11 +1864,26 @@ def test_upgrade_app_fails_drop_fails(
             install_method=SameAccountInstallMethod.release_directive(),
         )
     assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
 
 
 # Test upgrade app method for release directives AND existing app info AND user wants to drop app AND drop succeeds AND app is created successfully.
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
@@ -2052,8 +1891,8 @@ def test_upgrade_app_fails_drop_fails(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize("policy_param", [allow_always_policy, ask_always_policy])
@@ -2063,6 +1902,10 @@ def test_upgrade_app_recreate_app(
     mock_typer_confirm,
     mock_get_existing_app_info,
     mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     policy_param,
     temp_dir,
     mock_cursor,
@@ -2072,6 +1915,7 @@ def test_upgrade_app_recreate_app(
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
     }
+
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -2079,67 +1923,19 @@ def test_upgrade_app_recreate_app(
                 mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                ProgrammingError(
-                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
-                ),
-                mock.call("alter application myapp upgrade "),
-            ),
             (None, mock.call("drop application myapp")),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                None,
-                mock.call(
-                    "grant install, develop on application package app_pkg to role app_role"
-                ),
-            ),
-            (
-                None,
-                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
-            ),
-            (
-                None,
-                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                None,
-                mock.call(
-                    dedent(
-                        f"""\
-            create application myapp
-                from application package app_pkg  
-                comment = {SPECIAL_COMMENT}
-            """
-                    )
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = mock_side_effect_error_with_cause(
+        err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
+        cause=ProgrammingError(errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION),
+    )
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
 
     setup_project_file(os.getcwd())
 
@@ -2149,6 +1945,56 @@ def test_upgrade_app_recreate_app(
         install_method=SameAccountInstallMethod.release_directive(),
     )
     assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+    assert mock_sql_facade_create_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            package_name=DEFAULT_PKG_ID,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+    assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
+        mock.call(
+            privileges=["install", "develop"],
+            object_type=ObjectType.APPLICATION_PACKAGE,
+            object_identifier="app_pkg",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["usage"],
+            object_type=ObjectType.SCHEMA,
+            object_identifier="app_pkg.app_src",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["read"],
+            object_type=ObjectType.STAGE,
+            object_identifier="app_pkg.app_src.stage",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+    ]
+
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        DEFAULT_APP_ID, DEFAULT_ROLE
+    )
 
 
 # Test upgrade app method for version AND no existing version info
@@ -2203,8 +2049,12 @@ def test_upgrade_app_from_version_throws_usage_error_two(
     APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
     return_value={"key": "val"},
 )
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-@mock.patch(APP_ENTITY_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
@@ -2212,8 +2062,8 @@ def test_upgrade_app_from_version_throws_usage_error_two(
 @mock.patch(
     GET_UI_PARAMETERS,
     return_value={
-        UIParameter.NA_EVENT_SHARING_V2: "false",
-        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: "false",
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
     },
 )
 @pytest.mark.parametrize("policy_param", [allow_always_policy, ask_always_policy])
@@ -2223,6 +2073,10 @@ def test_upgrade_app_recreate_app_from_version(
     mock_typer_confirm,
     mock_get_existing_app_info,
     mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
     mock_existing,
     policy_param,
     temp_dir,
@@ -2241,67 +2095,18 @@ def test_upgrade_app_recreate_app_from_version(
                 mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
-            (
-                mock_cursor([("old_wh",)], []),
-                mock.call("select current_warehouse()"),
-            ),
-            (None, mock.call("use warehouse app_warehouse")),
-            (
-                ProgrammingError(
-                    errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
-                ),
-                mock.call("alter application myapp upgrade using version v1 "),
-            ),
             (None, mock.call("drop application myapp")),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                None,
-                mock.call(
-                    "grant install, develop on application package app_pkg to role app_role"
-                ),
-            ),
-            (
-                None,
-                mock.call("grant usage on schema app_pkg.app_src to role app_role"),
-            ),
-            (
-                None,
-                mock.call("grant read on stage app_pkg.app_src.stage to role app_role"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                None,
-                mock.call(
-                    dedent(
-                        f"""\
-            create application myapp
-                from application package app_pkg using version v1  debug_mode = True
-                comment = {SPECIAL_COMMENT}
-            """
-                    )
-                ),
-            ),
-            (
-                mock_cursor([("app_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (
-                mock_cursor([], []),
-                mock.call(
-                    "show telemetry event definitions in application myapp",
-                    cursor_class=DictCursor,
-                ),
-            ),
-            (None, mock.call("use warehouse old_wh")),
             (None, mock.call("use role old_role")),
         ]
     )
     mock_conn.return_value = MockConnectionCtx()
     mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = (
+        UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
+    )
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
 
     setup_project_file(os.getcwd())
 
@@ -2321,6 +2126,57 @@ def test_upgrade_app_recreate_app_from_version(
         version="v1",
     )
     assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.versioned_dev("v1"),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+    assert mock_sql_facade_create_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            package_name=DEFAULT_PKG_ID,
+            install_method=SameAccountInstallMethod.versioned_dev("v1"),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+        )
+    ]
+
+    assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
+        mock.call(
+            privileges=["install", "develop"],
+            object_type=ObjectType.APPLICATION_PACKAGE,
+            object_identifier="app_pkg",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["usage"],
+            object_type=ObjectType.SCHEMA,
+            object_identifier="app_pkg.app_src",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["read"],
+            object_type=ObjectType.STAGE,
+            object_identifier="app_pkg.app_src.stage",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+    ]
+
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        DEFAULT_APP_ID, DEFAULT_ROLE
+    )
 
 
 # Test get_existing_version_info returns version info correctly

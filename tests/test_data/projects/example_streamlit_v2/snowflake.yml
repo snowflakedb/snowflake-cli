@@ -1,4 +1,4 @@
-definition_version: 2
+definition_version: '2'
 entities:
   test_streamlit:
     type: "streamlit"
@@ -7,8 +7,6 @@ entities:
     stage: streamlit
     query_warehouse: xsmall
     main_file: streamlit_app.py
+    stage: streamlit
     artifacts:
       - streamlit_app.py
-      - utils/utils.py
-      - pages/
-      - environment.yml

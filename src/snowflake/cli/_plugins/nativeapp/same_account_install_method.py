@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Optional
 
 from snowflake.cli._plugins.nativeapp.constants import (
@@ -8,25 +9,15 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationCreatedExternallyError,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.project.util import to_identifier
 
 
+@dataclass
 class SameAccountInstallMethod:
     _requires_created_by_cli: bool
-    _from_release_directive: bool
-    version: Optional[str]
-    patch: Optional[int]
-
-    def __init__(
-        self,
-        requires_created_by_cli: bool,
-        version: Optional[str] = None,
-        patch: Optional[int] = None,
-        from_release_directive: bool = False,
-    ):
-        self._requires_created_by_cli = requires_created_by_cli
-        self.version = version
-        self.patch = patch
-        self._from_release_directive = from_release_directive
+    version: Optional[str] = None
+    patch: Optional[int] = None
+    _from_release_directive: bool = False
 
     @classmethod
     def unversioned_dev(cls):
@@ -39,7 +30,7 @@ class SameAccountInstallMethod:
 
     @classmethod
     def release_directive(cls):
-        return cls(False, from_release_directive=True)
+        return cls(False, _from_release_directive=True)
 
     @property
     def is_dev_mode(self) -> bool:
@@ -53,8 +44,9 @@ class SameAccountInstallMethod:
             return ""
 
         if self.version:
+            version_clause = f"version {to_identifier(self.version)}"
             patch_clause = f"patch {self.patch}" if self.patch else ""
-            return f"using version {self.version} {patch_clause}"
+            return f"using {version_clause} {patch_clause}"
 
         stage_name = StageManager.quote_stage_name(stage_fqn)
         return f"using {stage_name}"

@@ -18,20 +18,39 @@ from contextlib import contextmanager
 from textwrap import dedent
 from typing import Any, Dict, List
 
+from snowflake.cli._plugins.connection.util import UIParameter, get_ui_parameter
+from snowflake.cli._plugins.nativeapp.constants import (
+    AUTHORIZE_TELEMETRY_COL,
+    NAME_COL,
+    SPECIAL_COMMENT,
+)
+from snowflake.cli._plugins.nativeapp.same_account_install_method import (
+    SameAccountInstallMethod,
+)
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
+    CREATE_OR_UPGRADE_APPLICATION_EXPECTED_USER_ERROR_CODES,
+    UPGRADE_RESTRICTION_CODES,
     CouldNotUseObjectError,
     InsufficientPrivilegesError,
     UnexpectedResultError,
+    UpgradeApplicationRestrictionError,
+    UserInputError,
     UserScriptError,
     handle_unclassified_error,
 )
+from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import (
+    APPLICATION_REQUIRES_TELEMETRY_SHARING,
+    CANNOT_DISABLE_MANDATORY_TELEMETRY,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
 )
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.metrics import CLICounterField
+from snowflake.cli.api.project.schemas.v1.native_app.package import DistributionOptions
 from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
     is_valid_unquoted_identifier,
@@ -39,12 +58,13 @@ from snowflake.cli.api.project.util import (
     to_quoted_identifier,
     to_string_literal,
 )
-from snowflake.cli.api.sql_execution import BaseSqlExecutor, SqlExecutor
+from snowflake.cli.api.sql_execution import BaseSqlExecutor
+from snowflake.cli.api.utils.cursor import find_first_row
 from snowflake.connector import DictCursor, ProgrammingError
 
 
 class SnowflakeSQLFacade:
-    def __init__(self, sql_executor: SqlExecutor | None = None):
+    def __init__(self, sql_executor: BaseSqlExecutor | None = None):
         self._sql_executor = (
             sql_executor if sql_executor is not None else BaseSqlExecutor()
         )
@@ -135,6 +155,37 @@ class SnowflakeSQLFacade:
         @param schema_name: Name of the schema to use. If not a valid Snowflake identifier, will be converted before use.
         """
         return self._use_object_optional(UseObjectType.SCHEMA, schema_name)
+
+    def grant_privileges_to_role(
+        self,
+        privileges: list[str],
+        object_type: ObjectType,
+        object_identifier: str,
+        role_to_grant: str,
+        role_to_use: str | None = None,
+    ) -> None:
+        """
+        Grants one or more access privileges on a securable object to a role
+
+        @param privileges: List of privileges to grant to a role
+        @param object_type: Type of snowflake object to grant to a role
+        @param object_identifier: Valid identifier of the snowflake object to grant to a role
+        @param role_to_grant: Name of the role to grant privileges to
+        @param [Optional] role_to_use: Name of the role to use to grant privileges
+        """
+        comma_separated_privileges = ", ".join(privileges)
+        object_type_and_name = f"{object_type.value.sf_name} {object_identifier}"
+
+        with self._use_role_optional(role_to_use):
+            try:
+                self._sql_executor.execute_query(
+                    f"grant {comma_separated_privileges} on {object_type_and_name} to role {role_to_grant}"
+                )
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to grant {comma_separated_privileges} on {object_type_and_name} to role {role_to_grant}.",
+                )
 
     def execute_user_script(
         self,
@@ -503,6 +554,291 @@ class SnowflakeSQLFacade:
                 )
             return cursor.fetchall()
 
+    def get_existing_app_info(self, name: str, role: str) -> dict | None:
+        """
+        Check for an existing application object by the same name as in project definition, in account.
+        It executes a 'show applications like' query and returns the result as single row, if one exists.
+        """
+        with self._use_role_optional(role):
+            try:
+                object_type_plural = ObjectType.APPLICATION.value.sf_plural_name
+                show_obj_query = f"show {object_type_plural} like {identifier_to_show_like_pattern(name)}".strip()
+
+                show_obj_cursor = self._sql_executor.execute_query(
+                    show_obj_query, cursor_class=DictCursor
+                )
+
+                show_obj_row = find_first_row(
+                    show_obj_cursor, lambda row: _same_identifier(row[NAME_COL], name)
+                )
+            except Exception as err:
+                handle_unclassified_error(
+                    err, f"Unable to fetch information on application {name}."
+                )
+            return show_obj_row
+
+    def upgrade_application(
+        self,
+        name: str,
+        install_method: SameAccountInstallMethod,
+        stage_fqn: str,
+        role: str,
+        warehouse: str,
+        debug_mode: bool | None,
+        should_authorize_event_sharing: bool | None,
+    ) -> list[tuple[str]]:
+        """
+        Upgrades an application object using the provided clauses
+
+        @param name: Name of the application object
+        @param install_method: Method of installing the application
+        @param stage_fqn: FQN of the stage housing the application artifacts
+        @param role: Role to use when creating the application and provider-side objects
+        @param warehouse: Warehouse which is required to create an application object
+        @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
+        @param should_authorize_event_sharing: Whether to enable event sharing; None means not explicitly enabled or disabled
+        """
+        install_method.ensure_app_usable(
+            app_name=name,
+            app_role=role,
+            show_app_row=self.get_existing_app_info(name, role),
+        )
+        # If all the above checks are in order, proceed to upgrade
+
+        with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
+            try:
+                using_clause = install_method.using_clause(stage_fqn)
+                upgrade_cursor = self._sql_executor.execute_query(
+                    f"alter application {name} upgrade {using_clause}",
+                )
+
+                # if debug_mode is present (controlled), ensure it is up-to-date
+                if install_method.is_dev_mode:
+                    if debug_mode is not None:
+                        self._sql_executor.execute_query(
+                            f"alter application {name} set debug_mode = {debug_mode}"
+                        )
+            except ProgrammingError as err:
+                if err.errno in UPGRADE_RESTRICTION_CODES:
+                    raise UpgradeApplicationRestrictionError(err.msg) from err
+                elif (
+                    err.errno in CREATE_OR_UPGRADE_APPLICATION_EXPECTED_USER_ERROR_CODES
+                ):
+                    raise UserInputError(
+                        f"Failed to upgrade application {name} with the following error message:\n"
+                        f"{err.msg}"
+                    ) from err
+                handle_unclassified_error(err, f"Failed to upgrade application {name}.")
+            except Exception as err:
+                handle_unclassified_error(err, f"Failed to upgrade application {name}.")
+
+            try:
+                # Only update event sharing if the current value is different as the one we want to set
+                if should_authorize_event_sharing is not None:
+                    current_authorize_event_sharing = (
+                        self.get_app_properties(name, role)
+                        .get(AUTHORIZE_TELEMETRY_COL, "false")
+                        .lower()
+                        == "true"
+                    )
+                    if (
+                        current_authorize_event_sharing
+                        != should_authorize_event_sharing
+                    ):
+                        self._log.info(
+                            "Setting telemetry sharing authorization to %s",
+                            should_authorize_event_sharing,
+                        )
+                        self._sql_executor.execute_query(
+                            f"alter application {name} set AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(should_authorize_event_sharing).upper()}"
+                        )
+            except ProgrammingError as err:
+                if err.errno == CANNOT_DISABLE_MANDATORY_TELEMETRY:
+                    get_cli_context().metrics.set_counter(
+                        CLICounterField.EVENT_SHARING_ERROR, 1
+                    )
+                    raise UserInputError(
+                        "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+                    ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to set AUTHORIZE_TELEMETRY_EVENT_SHARING when upgrading application {name}.",
+                )
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to set AUTHORIZE_TELEMETRY_EVENT_SHARING when upgrading application {name}.",
+                )
+
+            return upgrade_cursor.fetchall()
+
+    def create_application(
+        self,
+        name: str,
+        package_name: str,
+        install_method: SameAccountInstallMethod,
+        stage_fqn: str,
+        role: str,
+        warehouse: str,
+        debug_mode: bool | None,
+        should_authorize_event_sharing: bool | None,
+    ) -> list[tuple[str]]:
+        """
+        Creates a new application object using an application package,
+        running the setup script of the application package
+
+        @param name: Name of the application object
+        @param package_name: Name of the application package to install the application from
+        @param install_method: Method of installing the application
+        @param stage_fqn: FQN of the stage housing the application artifacts
+        @param role: Role to use when creating the application and provider-side objects
+        @param warehouse: Warehouse which is required to create an application object
+        @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
+        @param should_authorize_event_sharing: Whether to enable event sharing; None means not explicitly enabled or disabled
+        """
+
+        # by default, applications are created in debug mode when possible;
+        # this can be overridden in the project definition
+        debug_mode_clause = ""
+        if install_method.is_dev_mode:
+            initial_debug_mode = debug_mode if debug_mode is not None else True
+            debug_mode_clause = f"debug_mode = {initial_debug_mode}"
+
+        authorize_telemetry_clause = ""
+        if should_authorize_event_sharing is not None:
+            self._log.info(
+                "Setting AUTHORIZE_TELEMETRY_EVENT_SHARING to %s",
+                should_authorize_event_sharing,
+            )
+            authorize_telemetry_clause = f" AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(should_authorize_event_sharing).upper()}"
+
+        using_clause = install_method.using_clause(stage_fqn)
+        with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
+            try:
+                create_cursor = self._sql_executor.execute_query(
+                    dedent(
+                        f"""\
+                    create application {name}
+                        from application package {package_name} {using_clause} {debug_mode_clause}{authorize_telemetry_clause}
+                        comment = {SPECIAL_COMMENT}
+                    """
+                    ),
+                )
+            except ProgrammingError as err:
+                if err.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
+                    get_cli_context().metrics.set_counter(
+                        CLICounterField.EVENT_SHARING_ERROR, 1
+                    )
+                    raise UserInputError(
+                        "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+                    ) from err
+                elif (
+                    err.errno in CREATE_OR_UPGRADE_APPLICATION_EXPECTED_USER_ERROR_CODES
+                ):
+                    raise UserInputError(
+                        f"Failed to create application {name} with the following error message:\n"
+                        f"{err.msg}"
+                    ) from err
+                handle_unclassified_error(err, f"Failed to create application {name}.")
+            except Exception as err:
+                handle_unclassified_error(err, f"Failed to create application {name}.")
+
+            return create_cursor.fetchall()
+
+    def create_application_package(
+        self,
+        package_name: str,
+        distribution: DistributionOptions,
+        enable_release_channels: bool | None = None,
+        role: str | None = None,
+    ) -> None:
+        """
+        Creates a new application package.
+        @param package_name: Name of the application package to create.
+        @param [Optional] enable_release_channels: Enable/Disable release channels if not None.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+        package_name = to_identifier(package_name)
+
+        enable_release_channels_clause = ""
+        if enable_release_channels is not None:
+            enable_release_channels_clause = (
+                f"enable_release_channels = {str(enable_release_channels).lower()}"
+            )
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    dedent(
+                        _strip_empty_lines(
+                            f"""\
+                            create application package {package_name}
+                                comment = {SPECIAL_COMMENT}
+                                distribution = {distribution}
+                                {enable_release_channels_clause}
+                            """
+                        )
+                    )
+                )
+            except ProgrammingError as err:
+                if err.errno == INSUFFICIENT_PRIVILEGES:
+                    raise InsufficientPrivilegesError(
+                        f"Insufficient privileges to create application package {package_name}",
+                        role=role,
+                    ) from err
+                handle_unclassified_error(
+                    err, f"Failed to create application package {package_name}."
+                )
+
+    def alter_application_package_properties(
+        self,
+        package_name: str,
+        enable_release_channels: bool | None = None,
+        role: str | None = None,
+    ) -> None:
+        """
+        Alters the properties of an existing application package.
+        @param package_name: Name of the application package to alter.
+        @param [Optional] enable_release_channels: Enable/Disable release channels if not None.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+
+        if enable_release_channels is not None:
+            with self._use_role_optional(role):
+                try:
+                    self._sql_executor.execute_query(
+                        dedent(
+                            f"""\
+                            alter application package {package_name}
+                                set enable_release_channels = {str(enable_release_channels).lower()}
+                        """
+                        )
+                    )
+                except ProgrammingError as err:
+                    if err.errno == INSUFFICIENT_PRIVILEGES:
+                        raise InsufficientPrivilegesError(
+                            f"Insufficient privileges update enable_release_channels for application package {package_name}",
+                            role=role,
+                        ) from err
+                    handle_unclassified_error(
+                        err,
+                        f"Failed to update enable_release_channels for application package {package_name}.",
+                    )
+
+    def get_ui_parameter(self, parameter: UIParameter, default: Any) -> Any:
+        """
+        Returns the value of a single UI parameter.
+        If the parameter is not found, the default value is returned.
+
+        @param parameter: UIParameter, the parameter to get the value of.
+        @param default: Default value to return if the parameter is not found.
+        """
+        connection = self._sql_executor._conn  # noqa SLF001
+
+        return get_ui_parameter(connection, parameter, default)
+
 
 # TODO move this to src/snowflake/cli/api/project/util.py in a separate
 # PR since it's codeowned by the CLI team
@@ -523,3 +859,10 @@ def _same_identifier(id1: str, id2: str) -> bool:
     # The canonical identifiers are equal if they are equal when both are quoted
     # (if they are already quoted, this is a no-op)
     return to_quoted_identifier(canonical_id1) == to_quoted_identifier(canonical_id2)
+
+
+def _strip_empty_lines(text: str) -> str:
+    """
+    Strips empty lines from the input string.
+    """
+    return "\n".join(line for line in text.splitlines() if line.strip())

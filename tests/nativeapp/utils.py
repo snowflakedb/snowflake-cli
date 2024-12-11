@@ -19,6 +19,9 @@ from pathlib import Path
 from textwrap import dedent
 from typing import List, Set
 
+import pytest
+from snowflake.connector import ProgrammingError
+
 from tests.nativeapp.factories import ProjectV10Factory
 
 TYPER_CONFIRM = "typer.confirm"
@@ -36,7 +39,6 @@ CLI_GLOBAL_TEMPLATE_CONTEXT = (
 
 APP_ENTITY_MODULE = "snowflake.cli._plugins.nativeapp.entities.application"
 APP_ENTITY = f"{APP_ENTITY_MODULE}.ApplicationEntity"
-APP_ENTITY_GET_EXISTING_APP_INFO = f"{APP_ENTITY}.get_existing_app_info"
 APP_ENTITY_DROP_GENERIC_OBJECT = f"{APP_ENTITY_MODULE}.drop_generic_object"
 APP_ENTITY_GET_OBJECTS_OWNED_BY_APPLICATION = (
     f"{APP_ENTITY}.get_objects_owned_by_application"
@@ -60,6 +62,10 @@ APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME = (
     f"{APP_PACKAGE_ENTITY}.verify_project_distribution"
 )
 
+CODE_GEN = "snowflake.cli._plugins.nativeapp.codegen"
+TEMPLATE_PROCESSOR = f"{CODE_GEN}.templates.templates_processor"
+ARTIFACT_PROCESSOR = f"{CODE_GEN}.artifact_processor"
+
 SQL_EXECUTOR_EXECUTE = f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_query"
 SQL_EXECUTOR_EXECUTE_QUERIES = (
     f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_queries"
@@ -73,6 +79,16 @@ SQL_FACADE_EXECUTE_USER_SCRIPT = f"{SQL_FACADE}.execute_user_script"
 SQL_FACADE_STAGE_EXISTS = f"{SQL_FACADE}.stage_exists"
 SQL_FACADE_CREATE_SCHEMA = f"{SQL_FACADE}.create_schema"
 SQL_FACADE_CREATE_STAGE = f"{SQL_FACADE}.create_stage"
+SQL_FACADE_CREATE_APPLICATION = f"{SQL_FACADE}.create_application"
+SQL_FACADE_UPGRADE_APPLICATION = f"{SQL_FACADE}.upgrade_application"
+SQL_FACADE_GET_EVENT_DEFINITIONS = f"{SQL_FACADE}.get_event_definitions"
+SQL_FACADE_GET_EXISTING_APP_INFO = f"{SQL_FACADE}.get_existing_app_info"
+SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE = f"{SQL_FACADE}.grant_privileges_to_role"
+SQL_FACADE_GET_UI_PARAMETER = f"{SQL_FACADE}.get_ui_parameter"
+SQL_FACADE_ALTER_APP_PKG_PROPERTIES = (
+    f"{SQL_FACADE}.alter_application_package_properties"
+)
+SQL_FACADE_CREATE_APP_PKG = f"{SQL_FACADE}.create_application_package"
 
 mock_snowflake_yml_file = dedent(
     """\
@@ -308,3 +324,15 @@ def use_integration_project():
             "app/manifest.yml": manifest_contents,
         },
     )
+
+
+def mock_side_effect_error_with_cause(err: Exception, cause: Exception):
+    with pytest.raises(type(err)) as side_effect:
+        raise err from cause
+
+    return side_effect.value
+
+
+def assert_programmingerror_cause_with_errno(err: pytest.ExceptionInfo, errno: int):
+    assert isinstance(err.value.__cause__, ProgrammingError)
+    assert err.value.__cause__.errno == errno

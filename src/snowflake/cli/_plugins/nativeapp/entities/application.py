@@ -13,7 +13,6 @@ from click import ClickException, UsageError
 from pydantic import Field, field_validator
 from snowflake.cli._plugins.connection.util import (
     UIParameter,
-    get_ui_parameter,
     make_snowsight_url,
 )
 from snowflake.cli._plugins.nativeapp.artifacts import (
@@ -26,11 +25,8 @@ from snowflake.cli._plugins.nativeapp.common_flags import (
 )
 from snowflake.cli._plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
-    AUTHORIZE_TELEMETRY_COL,
     COMMENT_COL,
-    NAME_COL,
     OWNER_COL,
-    SPECIAL_COMMENT,
 )
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
@@ -53,10 +49,14 @@ from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
+from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
+    UpgradeApplicationRestrictionError,
+)
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console.abc import AbstractConsole
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.entities.common import (
     EntityBase,
     attach_spans_to_entity_actions,
@@ -71,13 +71,7 @@ from snowflake.cli.api.entities.utils import (
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
     APPLICATION_OWNS_EXTERNAL_OBJECTS,
-    APPLICATION_REQUIRES_TELEMETRY_SHARING,
-    CANNOT_DISABLE_MANDATORY_TELEMETRY,
-    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
-    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
-    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
-    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
 )
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
@@ -97,15 +91,6 @@ from snowflake.cli.api.project.util import (
 from snowflake.connector import DictCursor, ProgrammingError
 
 log = logging.getLogger(__name__)
-
-# Reasons why an `alter application ... upgrade` might fail
-UPGRADE_RESTRICTION_CODES = {
-    CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION,
-    CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES,
-    ONLY_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
-    NOT_SUPPORTED_ON_DEV_MODE_APPLICATIONS,
-    APPLICATION_NO_LONGER_AVAILABLE,
-}
 
 ApplicationOwnedObject = TypedDict("ApplicationOwnedObject", {"name": str, "type": str})
 
@@ -138,18 +123,12 @@ class EventSharingHandler:
         self._is_dev_mode = install_method.is_dev_mode
         self._metrics = get_cli_context().metrics
         self._console = console
-        connection = get_sql_executor()._conn  # noqa: SLF001
-        self._event_sharing_enabled = (
-            get_ui_parameter(
-                connection, UIParameter.NA_EVENT_SHARING_V2, "true"
-            ).lower()
-            == "true"
+
+        self._event_sharing_enabled = get_snowflake_facade().get_ui_parameter(
+            UIParameter.NA_EVENT_SHARING_V2, True
         )
-        self._event_sharing_enforced = (
-            get_ui_parameter(
-                connection, UIParameter.NA_ENFORCE_MANDATORY_FILTERS, "true"
-            ).lower()
-            == "true"
+        self._event_sharing_enforced = get_snowflake_facade().get_ui_parameter(
+            UIParameter.NA_ENFORCE_MANDATORY_FILTERS, True
         )
 
         self._share_mandatory_events = (
@@ -191,11 +170,11 @@ class EventSharingHandler:
     def _contains_mandatory_events(self, events_definitions: List[Dict[str, str]]):
         return any(event["sharing"] == "MANDATORY" for event in events_definitions)
 
-    def should_authorize_event_sharing_during_create(
+    def should_authorize_event_sharing(
         self,
     ) -> Optional[bool]:
         """
-        Determines whether event sharing should be authorized during the creation of the application object.
+        Determines whether event sharing should be authorized.
 
         Outputs:
         - None: Event sharing should not be updated or explicitly set.
@@ -204,35 +183,6 @@ class EventSharingHandler:
         """
 
         if not self._event_sharing_enabled:
-            return None
-
-        return self._share_mandatory_events
-
-    def should_authorize_event_sharing_after_upgrade(
-        self,
-        upgraded_app_properties: Dict[str, str],
-    ) -> Optional[bool]:
-        """
-        Determines whether event sharing should be authorized after upgrading the application object.
-
-        :param upgraded_app_properties: The properties of the application after upgrading.
-
-        Outputs:
-        - None: Event sharing should not be updated or explicitly set.
-        - True: Event sharing should be authorized.
-        - False: Event sharing should be disabled.
-        """
-
-        if not self._event_sharing_enabled:
-            return None
-
-        current_app_authorization = (
-            upgraded_app_properties.get(AUTHORIZE_TELEMETRY_COL, "false").lower()
-            == "true"
-        )
-
-        # Skip the update if the current value is the same as the one we want to set
-        if current_app_authorization == self._share_mandatory_events:
             return None
 
         return self._share_mandatory_events
@@ -360,6 +310,18 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         model = self._entity_model
         return model.meta and model.meta.post_deploy
 
+    @property
+    def console(self) -> AbstractConsole:
+        return self._workspace_ctx.console
+
+    @property
+    def debug(self) -> bool | None:
+        return self._entity_model.debug
+
+    @property
+    def telemetry(self) -> EventSharingTelemetry | None:
+        return self._entity_model.telemetry
+
     def action_deploy(
         self,
         action_ctx: ActionContext,
@@ -456,14 +418,14 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         """
         Attempts to drop the application object if all validations and user prompts allow so.
         """
-        console = self._workspace_ctx.console
-
         needs_confirm = True
 
         # 1. If existing application is not found, exit gracefully
-        show_obj_row = self.get_existing_app_info()
+        show_obj_row = get_snowflake_facade().get_existing_app_info(
+            self.name, self.role
+        )
         if show_obj_row is None:
-            console.warning(
+            self.console.warning(
                 f"Role {self.role} does not own any application object with the name {self.name}, or the application object does not exist."
             )
             return
@@ -490,7 +452,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 )
             )
             if not should_drop_object:
-                console.message(f"Did not drop application object {self.name}.")
+                self.console.message(f"Did not drop application object {self.name}.")
                 # The user desires to keep the app, therefore we can't proceed since it would
                 # leave behind an orphan app when we get to dropping the package
                 raise typer.Abort()
@@ -529,22 +491,22 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         if has_objects_to_drop:
             if cascade is True:
                 # If the user explicitly passed the --cascade flag
-                console.message(cascade_true_message)
-                with console.indented():
+                self.console.message(cascade_true_message)
+                with self.console.indented():
                     for obj in application_objects:
-                        console.message(_application_object_to_str(obj))
+                        self.console.message(_application_object_to_str(obj))
             elif cascade is False:
                 # If the user explicitly passed the --no-cascade flag
-                console.message(cascade_false_message)
-                with console.indented():
+                self.console.message(cascade_false_message)
+                with self.console.indented():
                     for obj in application_objects:
-                        console.message(_application_object_to_str(obj))
+                        self.console.message(_application_object_to_str(obj))
             elif interactive:
                 # If the user didn't pass any cascade flag and the session is interactive
-                console.message(message_prefix)
-                with console.indented():
+                self.console.message(message_prefix)
+                with self.console.indented():
                     for obj in application_objects:
-                        console.message(_application_object_to_str(obj))
+                        self.console.message(_application_object_to_str(obj))
                 user_response = typer.prompt(
                     interactive_prompt,
                     show_default=False,
@@ -558,11 +520,11 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                     raise typer.Abort()
             else:
                 # Else abort since we don't know what to do and can't ask the user
-                console.message(message_prefix)
-                with console.indented():
+                self.console.message(message_prefix)
+                with self.console.indented():
                     for obj in application_objects:
-                        console.message(_application_object_to_str(obj))
-                console.message(non_interactive_abort)
+                        self.console.message(_application_object_to_str(obj))
+                self.console.message(non_interactive_abort)
                 raise typer.Abort()
         elif cascade is None:
             # If there's nothing to drop, set cascade to an explicit False value
@@ -570,7 +532,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         # 4. All validations have passed, drop object
         drop_generic_object(
-            console=console,
+            console=self.console,
             object_type="application",
             object_name=self.name,
             role=self.role,
@@ -634,6 +596,77 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             ).fetchall()
             return [{"name": row[1], "type": row[2]} for row in results]
 
+    def _upgrade_app(
+        self,
+        stage_fqn: str,
+        install_method: SameAccountInstallMethod,
+        event_sharing: EventSharingHandler,
+        policy: PolicyBase,
+        interactive: bool,
+    ) -> list[tuple[str]] | None:
+        self.console.step(f"Upgrading existing application object {self.name}.")
+
+        try:
+            return get_snowflake_facade().upgrade_application(
+                name=self.name,
+                install_method=install_method,
+                stage_fqn=stage_fqn,
+                debug_mode=self.debug,
+                should_authorize_event_sharing=event_sharing.should_authorize_event_sharing(),
+                role=self.role,
+                warehouse=self.warehouse,
+            )
+        except UpgradeApplicationRestrictionError as err:
+            self.console.warning(err.message)
+            self.drop_application_before_upgrade(policy=policy, interactive=interactive)
+            return None
+
+    def _create_app(
+        self,
+        stage_fqn: str,
+        install_method: SameAccountInstallMethod,
+        event_sharing: EventSharingHandler,
+        package: ApplicationPackageEntity,
+    ) -> list[tuple[str]]:
+        self.console.step(f"Creating new application object {self.name} in account.")
+
+        if package.role != self.role:
+            get_snowflake_facade().grant_privileges_to_role(
+                privileges=["install", "develop"],
+                object_type=ObjectType.APPLICATION_PACKAGE,
+                object_identifier=package.name,
+                role_to_grant=self.role,
+                role_to_use=package.role,
+            )
+
+            stage_schema = extract_schema(stage_fqn)
+            get_snowflake_facade().grant_privileges_to_role(
+                privileges=["usage"],
+                object_type=ObjectType.SCHEMA,
+                object_identifier=f"{package.name}.{stage_schema}",
+                role_to_grant=self.role,
+                role_to_use=package.role,
+            )
+
+            get_snowflake_facade().grant_privileges_to_role(
+                privileges=["read"],
+                object_type=ObjectType.STAGE,
+                object_identifier=stage_fqn,
+                role_to_grant=self.role,
+                role_to_use=package.role,
+            )
+
+        return get_snowflake_facade().create_application(
+            name=self.name,
+            package_name=package.name,
+            install_method=install_method,
+            stage_fqn=stage_fqn,
+            debug_mode=self.debug,
+            should_authorize_event_sharing=event_sharing.should_authorize_event_sharing(),
+            role=self.role,
+            warehouse=self.warehouse,
+        )
+
     @span("update_app_object")
     def create_or_upgrade_app(
         self,
@@ -643,173 +676,58 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         policy: PolicyBase,
         interactive: bool,
     ):
-        model = self._entity_model
-        console = self._workspace_ctx.console
-        debug_mode = model.debug
+        event_sharing = EventSharingHandler(
+            telemetry_definition=self.telemetry,
+            deploy_root=package.deploy_root,
+            install_method=install_method,
+            console=self.console,
+        )
+
+        # 1. Check for an existing application by the same name
+        show_app_row = get_snowflake_facade().get_existing_app_info(
+            self.name, self.role
+        )
 
         stage_fqn = stage_fqn or package.stage_fqn
-        stage_schema = extract_schema(stage_fqn)
 
-        sql_executor = get_sql_executor()
-        with sql_executor.use_role(self.role):
-            event_sharing = EventSharingHandler(
-                telemetry_definition=model.telemetry,
-                deploy_root=package.deploy_root,
+        # 2. If existing application is found, try to upgrade the application object.
+        create_or_upgrade_result = None
+        if show_app_row:
+            create_or_upgrade_result = self._upgrade_app(
+                stage_fqn=stage_fqn,
                 install_method=install_method,
-                console=console,
+                event_sharing=event_sharing,
+                policy=policy,
+                interactive=interactive,
             )
 
-            # 1. Need to use a warehouse to create an application object
-            with sql_executor.use_warehouse(self.warehouse):
+        # 3. If no existing application found, or we performed a drop before the upgrade, we proceed to create
+        if create_or_upgrade_result is None:
+            create_or_upgrade_result = self._create_app(
+                stage_fqn=stage_fqn,
+                install_method=install_method,
+                event_sharing=event_sharing,
+                package=package,
+            )
 
-                # 2. Check for an existing application by the same name
-                show_app_row = self.get_existing_app_info()
+        print_messages(self.console, create_or_upgrade_result)
 
-                # 3. If existing application is found, perform a few validations and upgrade the application object.
-                if show_app_row:
-                    install_method.ensure_app_usable(
-                        app_name=self.name,
-                        app_role=self.role,
-                        show_app_row=show_app_row,
-                    )
+        events_definitions = get_snowflake_facade().get_event_definitions(
+            self.name, self.role
+        )
 
-                    # If all the above checks are in order, proceed to upgrade
-                    try:
-                        console.step(
-                            f"Upgrading existing application object {self.name}."
-                        )
-                        using_clause = install_method.using_clause(stage_fqn)
-                        upgrade_cursor = sql_executor.execute_query(
-                            f"alter application {self.name} upgrade {using_clause}",
-                        )
-                        print_messages(console, upgrade_cursor)
+        events_to_share = event_sharing.events_to_share(events_definitions)
+        if events_to_share is not None:
+            get_snowflake_facade().share_telemetry_events(
+                self.name, events_to_share, self.role
+            )
 
-                        events_definitions = (
-                            get_snowflake_facade().get_event_definitions(
-                                self.name, self.role
-                            )
-                        )
-
-                        app_properties = get_snowflake_facade().get_app_properties(
-                            self.name, self.role
-                        )
-                        new_authorize_event_sharing_value = (
-                            event_sharing.should_authorize_event_sharing_after_upgrade(
-                                app_properties,
-                            )
-                        )
-                        if new_authorize_event_sharing_value is not None:
-                            log.info(
-                                "Setting telemetry sharing authorization to %s",
-                                new_authorize_event_sharing_value,
-                            )
-                            sql_executor.execute_query(
-                                f"alter application {self.name} set AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(new_authorize_event_sharing_value).upper()}"
-                            )
-                        events_to_share = event_sharing.events_to_share(
-                            events_definitions
-                        )
-                        if events_to_share is not None:
-                            get_snowflake_facade().share_telemetry_events(
-                                self.name, events_to_share
-                            )
-
-                        if install_method.is_dev_mode:
-                            # if debug_mode is present (controlled), ensure it is up-to-date
-                            if debug_mode is not None:
-                                sql_executor.execute_query(
-                                    f"alter application {self.name} set debug_mode = {debug_mode}"
-                                )
-
-                        # hooks always executed after a create or upgrade
-                        self.execute_post_deploy_hooks()
-                        return
-
-                    except ProgrammingError as err:
-                        if err.errno == CANNOT_DISABLE_MANDATORY_TELEMETRY:
-                            event_sharing.event_sharing_error(
-                                "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file.",
-                                err,
-                            )
-                        elif err.errno in UPGRADE_RESTRICTION_CODES:
-                            console.warning(err.msg)
-                            self.drop_application_before_upgrade(
-                                policy=policy, interactive=interactive
-                            )
-                        else:
-                            generic_sql_error_handler(err=err)
-
-                # 4. With no (more) existing application objects, create an application object using the release directives
-                console.step(f"Creating new application object {self.name} in account.")
-
-                if self.role != package.role:
-                    with sql_executor.use_role(package.role):
-                        sql_executor.execute_query(
-                            f"grant install, develop on application package {package.name} to role {self.role}"
-                        )
-                        sql_executor.execute_query(
-                            f"grant usage on schema {package.name}.{stage_schema} to role {self.role}"
-                        )
-                        sql_executor.execute_query(
-                            f"grant read on stage {stage_fqn} to role {self.role}"
-                        )
-
-                try:
-                    # by default, applications are created in debug mode when possible;
-                    # this can be overridden in the project definition
-                    debug_mode_clause = ""
-                    if install_method.is_dev_mode:
-                        initial_debug_mode = (
-                            debug_mode if debug_mode is not None else True
-                        )
-                        debug_mode_clause = f"debug_mode = {initial_debug_mode}"
-
-                    authorize_telemetry_clause = ""
-                    new_authorize_event_sharing_value = (
-                        event_sharing.should_authorize_event_sharing_during_create()
-                    )
-                    if new_authorize_event_sharing_value is not None:
-                        log.info(
-                            "Setting AUTHORIZE_TELEMETRY_EVENT_SHARING to %s",
-                            new_authorize_event_sharing_value,
-                        )
-                        authorize_telemetry_clause = f" AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(new_authorize_event_sharing_value).upper()}"
-
-                    using_clause = install_method.using_clause(stage_fqn)
-                    create_cursor = sql_executor.execute_query(
-                        dedent(
-                            f"""\
-                        create application {self.name}
-                            from application package {package.name} {using_clause} {debug_mode_clause}{authorize_telemetry_clause}
-                            comment = {SPECIAL_COMMENT}
-                        """
-                        ),
-                    )
-                    print_messages(console, create_cursor)
-                    events_definitions = get_snowflake_facade().get_event_definitions(
-                        self.name, self.role
-                    )
-
-                    events_to_share = event_sharing.events_to_share(events_definitions)
-                    if events_to_share is not None:
-                        get_snowflake_facade().share_telemetry_events(
-                            self.name, events_to_share
-                        )
-
-                    # hooks always executed after a create or upgrade
-                    self.execute_post_deploy_hooks()
-
-                except ProgrammingError as err:
-                    if err.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
-                        event_sharing.event_sharing_error(
-                            "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file.",
-                            err,
-                        )
-                    generic_sql_error_handler(err)
+        # hooks always executed after a create or upgrade
+        self.execute_post_deploy_hooks()
 
     def execute_post_deploy_hooks(self):
         execute_post_deploy_hooks(
-            console=self._workspace_ctx.console,
+            console=self.console,
             project_root=self.project_root,
             post_deploy_hooks=self.post_deploy_hooks,
             deployed_object_type="application",
@@ -833,69 +751,59 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 )
             )
 
-    def get_existing_app_info(self) -> Optional[dict]:
-        """
-        Check for an existing application object by the same name as in project definition, in account.
-        It executes a 'show applications like' query and returns the result as single row, if one exists.
-        """
-        sql_executor = get_sql_executor()
-        with sql_executor.use_role(self.role):
-            return sql_executor.show_specific_object(
-                "applications", self.name, name_col=NAME_COL
-            )
-
     def drop_application_before_upgrade(
         self,
         policy: PolicyBase,
         interactive: bool,
         cascade: bool = False,
     ):
-        console = self._workspace_ctx.console
+        sql_executor = get_sql_executor()
+        with sql_executor.use_role(self.role):
+            if cascade:
+                try:
+                    if application_objects := self.get_objects_owned_by_application():
+                        application_objects_str = _application_objects_to_str(
+                            application_objects
+                        )
+                        self.console.message(
+                            f"The following objects are owned by application {self.name} and need to be dropped:\n{application_objects_str}"
+                        )
+                except ProgrammingError as err:
+                    if err.errno != APPLICATION_NO_LONGER_AVAILABLE:
+                        generic_sql_error_handler(err)
+                    self.console.warning(
+                        "The application owns other objects but they could not be determined."
+                    )
+                user_prompt = "Do you want the Snowflake CLI to drop these objects, then drop the existing application object and recreate it?"
+            else:
+                user_prompt = "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
 
-        if cascade:
+            if not policy.should_proceed(user_prompt):
+                if interactive:
+                    self.console.message("Not upgrading the application object.")
+                    raise typer.Exit(0)
+                else:
+                    self.console.message(
+                        "Cannot upgrade the application object non-interactively without --force."
+                    )
+                    raise typer.Exit(1)
             try:
-                if application_objects := self.get_objects_owned_by_application():
-                    application_objects_str = _application_objects_to_str(
-                        application_objects
-                    )
-                    console.message(
-                        f"The following objects are owned by application {self.name} and need to be dropped:\n{application_objects_str}"
-                    )
+                cascade_msg = " (cascade)" if cascade else ""
+                self.console.step(
+                    f"Dropping application object {self.name}{cascade_msg}."
+                )
+                cascade_sql = " cascade" if cascade else ""
+                sql_executor.execute_query(f"drop application {self.name}{cascade_sql}")
             except ProgrammingError as err:
-                if err.errno != APPLICATION_NO_LONGER_AVAILABLE:
+                if err.errno == APPLICATION_OWNS_EXTERNAL_OBJECTS and not cascade:
+                    # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
+                    return self.drop_application_before_upgrade(
+                        policy=policy,
+                        interactive=interactive,
+                        cascade=True,
+                    )
+                else:
                     generic_sql_error_handler(err)
-                console.warning(
-                    "The application owns other objects but they could not be determined."
-                )
-            user_prompt = "Do you want the Snowflake CLI to drop these objects, then drop the existing application object and recreate it?"
-        else:
-            user_prompt = "Do you want the Snowflake CLI to drop the existing application object and recreate it?"
-
-        if not policy.should_proceed(user_prompt):
-            if interactive:
-                console.message("Not upgrading the application object.")
-                raise typer.Exit(0)
-            else:
-                console.message(
-                    "Cannot upgrade the application object non-interactively without --force."
-                )
-                raise typer.Exit(1)
-        try:
-            cascade_msg = " (cascade)" if cascade else ""
-            console.step(f"Dropping application object {self.name}{cascade_msg}.")
-            cascade_sql = " cascade" if cascade else ""
-            sql_executor = get_sql_executor()
-            sql_executor.execute_query(f"drop application {self.name}{cascade_sql}")
-        except ProgrammingError as err:
-            if err.errno == APPLICATION_OWNS_EXTERNAL_OBJECTS and not cascade:
-                # We need to cascade the deletion, let's try again (only if we didn't try with cascade already)
-                return self.drop_application_before_upgrade(
-                    policy=policy,
-                    interactive=interactive,
-                    cascade=True,
-                )
-            else:
-                generic_sql_error_handler(err)
 
     def get_events(
         self,

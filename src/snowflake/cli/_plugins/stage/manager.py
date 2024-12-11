@@ -41,7 +41,7 @@ from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import PYTHON_3_12
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.util import to_string_literal
+from snowflake.cli.api.project.util import extract_schema, to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -84,6 +84,10 @@ class StagePathParts:
 
     @property
     def full_path(self) -> str:
+        raise NotImplementedError
+
+    @property
+    def schema(self) -> str | None:
         raise NotImplementedError
 
     def replace_stage_prefix(self, file_path: str) -> str:
@@ -139,11 +143,15 @@ class DefaultStagePathParts(StagePathParts):
 
     @property
     def path(self) -> str:
-        return f"{self.stage_name.rstrip('/')}/{self.directory}"
+        return f"{self.stage_name.rstrip('/')}/{self.directory}".rstrip("/")
 
     @property
     def full_path(self) -> str:
-        return f"{self.stage.rstrip('/')}/{self.directory}"
+        return f"{self.stage.rstrip('/')}/{self.directory}".rstrip("/")
+
+    @property
+    def schema(self) -> str | None:
+        return extract_schema(self.stage)
 
     def replace_stage_prefix(self, file_path: str) -> str:
         stage = Path(self.stage).parts[0]
@@ -193,7 +201,7 @@ class UserStagePathParts(StagePathParts):
 
     @property
     def full_path(self) -> str:
-        return f"{self.stage}/{self.directory}"
+        return f"{self.stage}/{self.directory}".rstrip("/")
 
     def replace_stage_prefix(self, file_path: str) -> str:
         if Path(file_path).parts[0] == self.stage_name:

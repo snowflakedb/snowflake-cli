@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_deploy_procedure_fails_if_integration_does_not_exists
+# name: test_deploy_procedure_fails_if_integration_does_not_exists[snowpark_procedure_external_access]
   '''
   Performing initial validation
   Checking remote state
@@ -10,7 +10,18 @@
   
   '''
 # ---
-# name: test_deploy_procedure_fails_if_object_exists_and_no_replace
+# name: test_deploy_procedure_fails_if_integration_does_not_exists[snowpark_procedure_external_access_v2]
+  '''
+  Performing initial validation
+  Checking remote state
+  +- Error ----------------------------------------------------------------------+
+  | Following external access integration does not exists in Snowflake:          |
+  | external_2                                                                   |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_procedure_fails_if_object_exists_and_no_replace[snowpark_procedures]
   '''
   Performing initial validation
   Checking remote state
@@ -22,7 +33,19 @@
   
   '''
 # ---
-# name: test_deploy_procedure_fully_qualified_name[database error]
+# name: test_deploy_procedure_fails_if_object_exists_and_no_replace[snowpark_procedures_v2]
+  '''
+  Performing initial validation
+  Checking remote state
+  +- Error ----------------------------------------------------------------------+
+  | Following objects already exists. Consider using --replace.                  |
+  | procedure: procedureName                                                     |
+  | procedure: test                                                              |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_procedure_fully_qualified_name[snowpark_procedure_fully_qualified_name][database error]
   '''
   Performing initial validation
   Checking remote state
@@ -33,7 +56,18 @@
   
   '''
 # ---
-# name: test_deploy_procedure_fully_qualified_name_duplicated_schema[schema error]
+# name: test_deploy_procedure_fully_qualified_name[snowpark_procedure_fully_qualified_name_v2][database error]
+  '''
+  Performing initial validation
+  Checking remote state
+  +- Error ----------------------------------------------------------------------+
+  | Database provided but name                                                   |
+  | 'custom_database.custom_schema.fqn_procedure_error' is fully qualified name. |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_procedure_fully_qualified_name_duplicated_schema[snowpark_procedure_fully_qualified_name-snowpark.procedures.5.name][schema error]
   '''
   Performing initial validation
   Checking remote state
@@ -44,7 +78,28 @@
   
   '''
 # ---
-# name: test_deploy_procedure_secrets_without_external_access
+# name: test_deploy_procedure_fully_qualified_name_duplicated_schema[snowpark_procedure_fully_qualified_name_v2-entities.custom_database_custom_schema_fqn_procedure_error.identifier.name][schema error]
+  '''
+  Performing initial validation
+  Checking remote state
+  +- Error ----------------------------------------------------------------------+
+  | Schema provided but name 'custom_schema.fqn_procedure_error' is fully        |
+  | qualified name.                                                              |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_procedure_secrets_without_external_access[snowpark_procedure_secrets_without_external_access]
+  '''
+  Performing initial validation
+  Checking remote state
+  +- Error ----------------------------------------------------------------------+
+  | procedureName defined with secrets but without external integration.         |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_procedure_secrets_without_external_access[snowpark_procedure_secrets_without_external_access_v2]
   '''
   Performing initial validation
   Checking remote state

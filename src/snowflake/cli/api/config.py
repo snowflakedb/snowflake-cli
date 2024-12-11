@@ -286,8 +286,12 @@ def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
         raise
 
 
-def get_config_bool_value(*path, key: str, default: Optional[Any] = Empty) -> bool:
-    value = get_config_value(*path, key=key, default=default)
+def get_config_bool_value(*path, key: str, default: Optional[bool]) -> Optional[bool]:
+    value = get_config_value(*path, key=key, default=None)
+
+    if value is None:
+        return default
+
     try:
         return try_cast_to_bool(value)
     except ValueError:

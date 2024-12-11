@@ -1,0 +1,32 @@
+definition_version: '2'
+entities:
+  procedureName:
+    imports: []
+    external_access_integrations:
+    - external_1
+    - external_2
+    secrets:
+      cred: cred_name
+      other: other_name
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: procedureName
+    handler: app.hello
+    returns: string
+    signature:
+    - name: name
+      type: string
+    stage: dev_deployment
+    artifacts:
+    - src: app.py
+      dest: my_snowpark_project
+    type: procedure
+    execute_as_caller: false
+mixins:
+  snowpark_shared:
+    stage: dev_deployment
+    artifacts:
+    - src: app.py
+      dest: my_snowpark_project

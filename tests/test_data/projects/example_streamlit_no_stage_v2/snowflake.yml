@@ -1,0 +1,14 @@
+definition_version: '2'
+entities:
+  test_streamlit:
+    identifier:
+      name: test_streamlit
+    type: streamlit
+    query_warehouse: test_warehouse
+    main_file: streamlit_app.py
+    pages_dir: None
+    stage: streamlit
+    artifacts:
+    - streamlit_app.py
+    - environment.yml
+    - pages
