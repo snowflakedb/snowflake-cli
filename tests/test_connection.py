@@ -1162,6 +1162,7 @@ def test_new_connection_is_added_to_connections_toml(
 @mock.patch(
     "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
 )
+@mock.patch.dict(os.environ, {}, clear=True)
 def test_generate_jwt_without_passphrase(
     mocked_get_token, runner, named_temporary_file
 ):
@@ -1193,6 +1194,7 @@ def test_generate_jwt_without_passphrase(
 @mock.patch(
     "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
 )
+@mock.patch.dict(os.environ, {}, clear=True)
 def test_generate_jwt_with_passphrase(
     mocked_get_token, runner, named_temporary_file, passphrase
 ):
@@ -1272,6 +1274,7 @@ def test_generate_jwt_with_pass_phrase_from_env(
 @mock.patch(
     "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
 )
+@mock.patch.dict(os.environ, {}, clear=True)
 def test_generate_jwt_uses_config(mocked_get_token, runner, named_temporary_file):
     mocked_get_token.return_value = "funny token"
 

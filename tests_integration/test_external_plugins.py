@@ -31,21 +31,9 @@ def install_plugins():
     subprocess.check_call(["pip", "install", path / "snowpark_hello_single_command"])
 
 
-@pytest.fixture()
-def reset_command_registration_state():
-    def _reset_command_registration_state():
-        from snowflake.cli._app.cli_app import _commands_registration
-
-        _commands_registration.reset_running_instance_registration_state()
-
-    yield _reset_command_registration_state
-
-    _reset_command_registration_state()
-
-
 @pytest.mark.integration
 def test_loading_of_installed_plugins_if_all_plugins_enabled(
-    runner, install_plugins, caplog, reset_command_registration_state
+    runner, install_plugins, caplog
 ):
     runner.use_config("config_with_enabled_all_external_plugins.toml")
 
@@ -110,7 +98,6 @@ def test_loading_of_installed_plugins_if_only_one_plugin_is_enabled(
     runner,
     install_plugins,
     caplog,
-    reset_command_registration_state,
 ):
     runner.use_config("config_with_enabled_only_one_external_plugin.toml")
 
@@ -141,7 +128,6 @@ def test_enabled_value_must_be_boolean(
     config_value,
     runner,
     snowflake_home,
-    reset_command_registration_state,
 ):
     def _use_config_with_value(value):
         config = Path(snowflake_home) / "config.toml"
@@ -162,8 +148,6 @@ enabled = {value}"""
         in second
     ), second
     assert "boolean" in third, third
-
-    reset_command_registration_state()
 
 
 def _assert_that_no_error_logs(caplog):
