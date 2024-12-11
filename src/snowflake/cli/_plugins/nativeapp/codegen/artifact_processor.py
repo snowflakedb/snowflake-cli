@@ -19,7 +19,9 @@ from pathlib import Path
 from typing import Optional
 
 from click import ClickException
-from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
+from snowflake.cli._plugins.nativeapp.artifact_processor_context import (
+    ArtifactProcessorContext,
+)
 from snowflake.cli.api.project.schemas.entities.common import (
     PathMapping,
     ProcessorMapping,
@@ -74,9 +76,9 @@ class ProjectFileContextManager:
 class ArtifactProcessor(ABC):
     def __init__(
         self,
-        bundle_ctx: BundleContext,
+        processor_ctx: ArtifactProcessorContext,
     ) -> None:
-        self._bundle_ctx = bundle_ctx
+        self._processor_ctx = processor_ctx
 
     @abstractmethod
     def process(
