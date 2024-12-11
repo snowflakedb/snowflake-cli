@@ -6,6 +6,8 @@ import pytest
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.connector.compat import IS_WINDOWS
 
+bundle_root = Path("output") / "bundle" / "streamlit"
+
 
 @pytest.mark.parametrize(
     "artifacts, paths",
@@ -13,9 +15,9 @@ from snowflake.connector.compat import IS_WINDOWS
         (
             "src",
             [
-                {"local": Path("output") / "src" / "app.py", "stage": "/src"},
+                {"local": bundle_root / "src" / "app.py", "stage": "/src"},
                 {
-                    "local": Path("output") / "src" / "dir" / "dir_app.py",
+                    "local": bundle_root / "src" / "dir" / "dir_app.py",
                     "stage": "/src/dir",
                 },
             ],
@@ -23,9 +25,9 @@ from snowflake.connector.compat import IS_WINDOWS
         (
             "src/",
             [
-                {"local": Path("output") / "src" / "app.py", "stage": "/src"},
+                {"local": bundle_root / "src" / "app.py", "stage": "/src"},
                 {
-                    "local": Path("output") / "src" / "dir" / "dir_app.py",
+                    "local": bundle_root / "src" / "dir" / "dir_app.py",
                     "stage": "/src/dir",
                 },
             ],
@@ -33,19 +35,19 @@ from snowflake.connector.compat import IS_WINDOWS
         (
             "src/*",
             [
-                {"local": Path("output") / "src" / "app.py", "stage": "/src"},
+                {"local": bundle_root / "src" / "app.py", "stage": "/src"},
                 {
-                    "local": Path("output") / "src" / "dir" / "dir_app.py",
+                    "local": bundle_root / "src" / "dir" / "dir_app.py",
                     "stage": "/src/dir",
                 },
             ],
         ),
-        ("src/*.py", [{"local": Path("output") / "src" / "app.py", "stage": "/src"}]),
+        ("src/*.py", [{"local": bundle_root / "src" / "app.py", "stage": "/src"}]),
         (
             "src/dir/dir_app.py",
             [
                 {
-                    "local": Path("output") / "src" / "dir" / "dir_app.py",
+                    "local": bundle_root / "src" / "dir" / "dir_app.py",
                     "stage": "/src/dir",
                 }
             ],
@@ -53,10 +55,10 @@ from snowflake.connector.compat import IS_WINDOWS
         (
             {"src": "src/**/*", "dest": "source/"},
             [
-                {"local": Path("output") / "source" / "app.py", "stage": "/source"},
-                {"local": Path("output") / "source" / "dir_app.py", "stage": "/source"},
+                {"local": bundle_root / "source" / "app.py", "stage": "/source"},
+                {"local": bundle_root / "source" / "dir_app.py", "stage": "/source"},
                 {
-                    "local": Path("output") / "source" / "dir" / "dir_app.py",
+                    "local": bundle_root / "source" / "dir" / "dir_app.py",
                     "stage": "/source/dir",
                 },
             ],
@@ -65,11 +67,11 @@ from snowflake.connector.compat import IS_WINDOWS
             {"src": "src", "dest": "source/"},
             [
                 {
-                    "local": Path("output") / "source" / "src" / "app.py",
+                    "local": bundle_root / "source" / "src" / "app.py",
                     "stage": "/source/src",
                 },
                 {
-                    "local": Path("output") / "source" / "src" / "dir" / "dir_app.py",
+                    "local": bundle_root / "source" / "src" / "dir" / "dir_app.py",
                     "stage": "/source/src/dir",
                 },
             ],
@@ -78,11 +80,11 @@ from snowflake.connector.compat import IS_WINDOWS
             {"src": "src/", "dest": "source/"},
             [
                 {
-                    "local": Path("output") / "source" / "src" / "app.py",
+                    "local": bundle_root / "source" / "src" / "app.py",
                     "stage": "/source/src",
                 },
                 {
-                    "local": Path("output") / "source" / "src" / "dir" / "dir_app.py",
+                    "local": bundle_root / "source" / "src" / "dir" / "dir_app.py",
                     "stage": "/source/src/dir",
                 },
             ],
@@ -90,9 +92,9 @@ from snowflake.connector.compat import IS_WINDOWS
         (
             {"src": "src/*", "dest": "source/"},
             [
-                {"local": Path("output") / "source" / "app.py", "stage": "/source"},
+                {"local": bundle_root / "source" / "app.py", "stage": "/source"},
                 {
-                    "local": Path("output") / "source" / "dir" / "dir_app.py",
+                    "local": bundle_root / "source" / "dir" / "dir_app.py",
                     "stage": "/source/dir",
                 },
             ],
@@ -101,7 +103,7 @@ from snowflake.connector.compat import IS_WINDOWS
             {"src": "src/dir/dir_app.py", "dest": "source/dir/apps/"},
             [
                 {
-                    "local": Path("output") / "source" / "dir" / "apps" / "dir_app.py",
+                    "local": bundle_root / "source" / "dir" / "apps" / "dir_app.py",
                     "stage": "/source/dir/apps",
                 }
             ],
@@ -179,43 +181,63 @@ def test_deploy_with_artifacts(
         (
             "src",
             [
-                {"local": "output/src/app.py", "stage": "/src"},
-                {"local": "output/src/dir/dir_app.py", "stage": "/src/dir"},
+                {"local": bundle_root / "src" / "app.py", "stage": "/src"},
+                {
+                    "local": bundle_root / "src" / "dir" / "dir_app.py",
+                    "stage": "/src/dir",
+                },
             ],
         ),
         (
             "src/",
             [
-                {"local": "output/src/app.py", "stage": "/src"},
-                {"local": "output/src/dir/dir_app.py", "stage": "/src/dir"},
+                {"local": bundle_root / "src" / "app.py", "stage": "/src"},
+                {
+                    "local": bundle_root / "src" / "dir" / "dir_app.py",
+                    "stage": "/src/dir",
+                },
             ],
         ),
         (
             "src/*",
             [
-                {"local": "output/src/app.py", "stage": "/src"},
-                {"local": "output/src/dir/dir_app.py", "stage": "/src/dir"},
+                {"local": bundle_root / "src" / "app.py", "stage": "/src"},
+                {
+                    "local": bundle_root / "src" / "dir" / "dir_app.py",
+                    "stage": "/src/dir",
+                },
             ],
         ),
-        ("src/*.py", [{"local": "output/src/app.py", "stage": "/src"}]),
+        ("src/*.py", [{"local": bundle_root / "src" / "app.py", "stage": "/src"}]),
         (
             "src/dir/dir_app.py",
-            [{"local": "output/src/dir/dir_app.py", "stage": "/src/dir"}],
+            [
+                {
+                    "local": bundle_root / "src" / "dir" / "dir_app.py",
+                    "stage": "/src/dir",
+                }
+            ],
         ),
         (
             {"src": "src/**/*", "dest": "source/"},
             [
-                {"local": "output/source/app.py", "stage": "/source"},
-                {"local": "output/source/dir_app.py", "stage": "/source"},
-                {"local": "output/source/dir/dir_app.py", "stage": "/source/dir"},
+                {"local": bundle_root / "source" / "app.py", "stage": "/source"},
+                {"local": bundle_root / "source" / "dir_app.py", "stage": "/source"},
+                {
+                    "local": bundle_root / "source" / "dir" / "dir_app.py",
+                    "stage": "/source/dir",
+                },
             ],
         ),
         (
             {"src": "src", "dest": "source/"},
             [
-                {"local": "output/source/src/app.py", "stage": "/source/src"},
                 {
-                    "local": "output/source/src/dir/dir_app.py",
+                    "local": bundle_root / "source" / "src" / "app.py",
+                    "stage": "/source/src",
+                },
+                {
+                    "local": bundle_root / "source" / "src" / "dir" / "dir_app.py",
                     "stage": "/source/src/dir",
                 },
             ],
@@ -223,9 +245,12 @@ def test_deploy_with_artifacts(
         (
             {"src": "src/", "dest": "source/"},
             [
-                {"local": "output/source/src/app.py", "stage": "/source/src"},
                 {
-                    "local": "output/source/src/dir/dir_app.py",
+                    "local": bundle_root / "source" / "src" / "app.py",
+                    "stage": "/source/src",
+                },
+                {
+                    "local": bundle_root / "source" / "src" / "dir" / "dir_app.py",
                     "stage": "/source/src/dir",
                 },
             ],
@@ -233,15 +258,18 @@ def test_deploy_with_artifacts(
         (
             {"src": "src/*", "dest": "source/"},
             [
-                {"local": "output/source/app.py", "stage": "/source"},
-                {"local": "output/source/dir/dir_app.py", "stage": "/source/dir"},
+                {"local": bundle_root / "source" / "app.py", "stage": "/source"},
+                {
+                    "local": bundle_root / "source" / "dir" / "dir_app.py",
+                    "stage": "/source/dir",
+                },
             ],
         ),
         (
             {"src": "src/dir/dir_app.py", "dest": "source/dir/apps/"},
             [
                 {
-                    "local": "output/source/dir/apps/dir_app.py",
+                    "local": bundle_root / "source" / "dir" / "apps" / "dir_app.py",
                     "stage": "/source/dir/apps",
                 }
             ],

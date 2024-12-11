@@ -109,7 +109,11 @@ def test_deploy_procedure(
     )
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(tmp).resolve()}/output/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
+        _put_query(
+            Path(tmp),
+            "my_snowpark_project/app.py",
+            "@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/",
+        ),
         dedent(
             """\
             create or replace procedure IDENTIFIER('MockDatabase.MockSchema.procedureName')(name string)
@@ -199,8 +203,11 @@ def test_deploy_procedure_with_external_access(
     )
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/output/my_snowpark_project/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
-        f" auto_compress=false parallel=4 overwrite=True",
+        _put_query(
+            Path(project_dir),
+            "my_snowpark_project/app.py",
+            "@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/",
+        ),
         dedent(
             """\
             create or replace procedure IDENTIFIER('MockDatabase.MockSchema.procedureName')(name string)
@@ -834,4 +841,10 @@ def test_snowpark_fail_if_no_active_warehouse(runner, mock_ctx, project_director
     assert (
         "The command requires warehouse. No warehouse found in current connection."
         in result.output
+    )
+
+
+def _put_query(project_root: Path, source: str, dest: str):
+    return dedent(
+        f"put file://{project_root.resolve() / 'output' / 'bundle' / 'snowpark' / source} {dest} auto_compress=false parallel=4 overwrite=True"
     )

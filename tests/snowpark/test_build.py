@@ -58,7 +58,9 @@ def test_build_with_glob_patterns_in_artifacts(
 
         result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
         assert result.exit_code == 0, result.output
-        _assert_zip_contains(tmp_dir / "output" / zip_name, expected_files)
+        _assert_zip_contains(
+            tmp_dir / "output" / "bundle" / "snowpark" / zip_name, expected_files
+        )
 
 
 def _assert_zip_contains(app_zip: str, expected_files: Set[str]):

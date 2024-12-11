@@ -172,7 +172,9 @@ class SnowparkTestSteps:
 
         if not no_dependencies:
             if FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled():
-                additional_files.append(Path("output") / "dependencies.zip")
+                additional_files.append(
+                    Path("output") / "bundle" / "snowpark" / "dependencies.zip"
+                )
             else:
                 additional_files.append(Path("dependencies.zip"))
 

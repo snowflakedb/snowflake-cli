@@ -57,7 +57,7 @@ def test_describe_streamlit(mock_connector, runner, mock_ctx):
 
 def _put_query(project_root: Path, source: str, dest: str):
     return dedent(
-        f"put file://{project_root.resolve() / 'output' / source} {dest} auto_compress=false parallel=4 overwrite=True"
+        f"put file://{project_root.resolve() / 'output' / 'bundle' / 'streamlit' / source} {dest} auto_compress=false parallel=4 overwrite=True"
     )
 
 
