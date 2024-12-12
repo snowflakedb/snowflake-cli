@@ -30,7 +30,7 @@
 ## New additions
 
 ## Fixes and improvements
-
+* Fix "No module named 'pandas'" warning
 
 # v3.2.1
 ## Backward incompatibility
