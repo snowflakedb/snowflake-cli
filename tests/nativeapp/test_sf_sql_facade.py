@@ -3318,7 +3318,7 @@ def test_create_version_in_package(
                 package_name=package_name,
                 version=version,
                 role=role,
-                stage_fqn=stage_fqn,
+                path_to_version_directory=stage_fqn,
             )
 
 
@@ -3358,7 +3358,7 @@ def test_create_version_in_package_with_label(
                 package_name=package_name,
                 version=version,
                 role=role,
-                stage_fqn=stage_fqn,
+                path_to_version_directory=stage_fqn,
                 label=label,
             )
 
@@ -3397,7 +3397,7 @@ def test_create_version_with_special_characters(
                 package_name=package_name,
                 version=version,
                 role=role,
-                stage_fqn=stage_fqn,
+                path_to_version_directory=stage_fqn,
             )
 
 
@@ -3418,7 +3418,7 @@ def test_create_version_in_package_with_error(
                 package_name=package_name,
                 version=version,
                 role=role,
-                stage_fqn=stage_fqn,
+                path_to_version_directory=stage_fqn,
             )
 
 

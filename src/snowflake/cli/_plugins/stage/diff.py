@@ -91,9 +91,10 @@ def relative_to_stage_path(path: str, stage_path: StagePathParts) -> StagePathTy
     @return: path of the file relative to the stage and subdirectory
     """
     # path is returned from a SQL call so it's unquoted. Unquote stage_path identifiers to match.
-    stage_name = unquote_identifier(stage_path.stage_name)
-    stage_subdirectory = unquote_identifier(stage_path.directory)
-    path_wo_stage_name = path.removeprefix(stage_name)
+    # Stage is always returned in lower-case from ls SQL request
+    stage_name = unquote_identifier(stage_path.stage_name).lower()
+    stage_subdirectory = stage_path.directory
+    path_wo_stage_name = path.removeprefix(stage_name).lstrip("/")
     relative_path = path_wo_stage_name.removeprefix(stage_subdirectory).lstrip("/")
     return StagePathType(relative_path)
 

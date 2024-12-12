@@ -163,7 +163,7 @@ def test_add_version(
     mock_create_version.assert_called_once_with(
         package_name="app_pkg",
         version=version,
-        stage_fqn=f"app_pkg.{pkg_model.stage}",
+        path_to_version_directory=f"app_pkg.{pkg_model.stage}",
         role="package_role",
         label=None,
     )
