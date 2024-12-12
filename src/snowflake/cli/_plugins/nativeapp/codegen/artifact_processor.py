@@ -20,7 +20,7 @@ from typing import Optional
 
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
+from snowflake.cli.api.project.schemas.entities.common import (
     PathMapping,
     ProcessorMapping,
 )

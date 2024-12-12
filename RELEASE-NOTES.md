@@ -25,6 +25,8 @@
   * `snow app release-directive unset`
 * Add support for release channels feature in native app version creation/drop.
 * `snow app version create` now returns version, patch, and label in JSON format.
+* Added support for glob pattern in artifact paths in snowflake.yml for Streamlit.
+* Added support for glob pattern in artifact paths in snowflake.yml for Snowpark, requires ENABLE_SNOWPARK_GLOB_SUPPORT feature flag.
 
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.

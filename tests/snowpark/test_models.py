@@ -86,3 +86,17 @@ def test_wheel_metadata_parsing(test_root_path):
         assert meta.name == "zendesk"
         assert meta.wheel_path == wheel_path.path
         assert meta.dependencies == ["httplib2", "simplejson"]
+
+
+def test_raise_error_when_artifact_contains_asterix(
+    runner, project_directory, alter_snowflake_yml, os_agnostic_snapshot
+):
+    with project_directory("glob_patterns") as tmp_dir:
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml", "entities.hello_procedure.artifacts", ["src/*"]
+        )
+
+        result = runner.invoke(["snowpark", "build"])
+
+        assert result.exit_code == 1
+        assert result.output == os_agnostic_snapshot
