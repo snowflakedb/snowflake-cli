@@ -833,6 +833,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 child_entity.get_deploy_sql(
                     artifacts_dir=child_artifacts_dir.relative_to(self.deploy_root),
                     schema=child_schema,
+                    replace=True,
                 )
             )
             if app_role:
