@@ -80,11 +80,71 @@ def test_nativeapp_validate_v2(command, nativeapp_teardown, runner, temp_dir):
 
 
 @pytest.mark.integration
+def test_nativeapp_validate_subdirs(nativeapp_teardown, runner, temp_dir):
+    ProjectV2Factory(
+        pdf__entities=dict(
+            pkg=ApplicationPackageEntityModelFactory(
+                identifier="myapp_pkg",
+                stage_subdirectory="v1",
+            ),
+            app=ApplicationEntityModelFactory(
+                identifier="myapp",
+                fromm__target="pkg",
+            ),
+        ),
+        files={
+            "setup.sql": "CREATE OR ALTER VERSIONED SCHEMA core;",
+            "README.md": "\n",
+            "manifest.yml": "\n",
+        },
+    )
+    with nativeapp_teardown(project_dir=Path(temp_dir)):
+        # validate the app's setup script
+        result = runner.invoke_with_connection(split("app validate"))
+        assert result.exit_code == 0, result.output
+        assert "Native App validation succeeded." in result.output
+
+
+@pytest.mark.integration
 def test_nativeapp_validate_failing(nativeapp_teardown, runner, temp_dir):
     ProjectV2Factory(
         pdf__entities=dict(
             pkg=ApplicationPackageEntityModelFactory(
                 identifier="myapp_pkg",
+            ),
+            app=ApplicationEntityModelFactory(
+                identifier="myapp",
+                fromm__target="pkg",
+            ),
+        ),
+        files={
+            # Create invalid SQL file
+            "setup.sql": dedent(
+                """\
+                CREATE OR ALTER VERSIONED SCHEMA core;
+                Lorem ipsum dolor sit amet
+                """
+            ),
+            "README.md": "\n",
+            "manifest.yml": "\n",
+        },
+    )
+    with nativeapp_teardown(project_dir=Path(temp_dir)):
+        # validate the app's setup script, this will fail
+        # because we include an empty file
+        result = runner.invoke_with_connection(["app", "validate"])
+        assert result.exit_code == 1, result.output
+        assert "Snowflake Native App setup script failed validation." in result.output
+        assert "syntax error" in result.output
+
+
+@pytest.mark.integration
+def test_nativeapp_validate_failing_w_subdir(nativeapp_teardown, runner, temp_dir):
+    ProjectV2Factory(
+        pdf__entities=dict(
+            pkg=ApplicationPackageEntityModelFactory(
+                identifier="myapp_pkg",
+                stage_subdirectory="v1",
             ),
             app=ApplicationEntityModelFactory(
                 identifier="myapp",
