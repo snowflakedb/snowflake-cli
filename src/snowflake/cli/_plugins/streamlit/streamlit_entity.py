@@ -10,7 +10,7 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 from snowflake.cli.api.entities.common import EntityBase
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 
 
 # WARNING: This entity is not implemented yet. The logic below is only for demonstrating the
