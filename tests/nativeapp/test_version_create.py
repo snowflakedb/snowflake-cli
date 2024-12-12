@@ -45,6 +45,7 @@ from tests.nativeapp.utils import (
     APPLICATION_PACKAGE_ENTITY_MODULE,
     SQL_EXECUTOR_EXECUTE,
     SQL_FACADE,
+    SQL_FACADE_CREATE_VERSION,
     mock_execute_helper,
     mock_snowflake_yml_file_v2,
 )
@@ -134,38 +135,18 @@ def test_get_existing_release_direction_info(
 
 
 # Test add_new_version adds a new version to an app pkg correctly
-@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_CREATE_VERSION)
 @pytest.mark.parametrize(
-    ["version", "version_identifier"],
-    [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
+    "version",
+    ["V1", "1.0.0", '"1.0.0"'],
 )
 def test_add_version(
-    mock_execute, temp_dir, mock_cursor, version, version_identifier, workspace_context
+    mock_create_version,
+    temp_dir,
+    mock_cursor,
+    version,
+    workspace_context,
 ):
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                None,
-                mock.call(
-                    dedent(
-                        f"""\
-                        alter application package app_pkg
-                            add version {version_identifier}
-                            using @app_pkg.app_src.stage
-                    """
-                    ),
-                ),
-            ),
-            (None, mock.call("use role old_role")),
-        ]
-    )
-    mock_execute.side_effect = side_effects
-
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -178,7 +159,14 @@ def test_add_version(
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
     pkg = ApplicationPackageEntity(pkg_model, workspace_context)
     pkg.add_new_version(version=version)
-    assert mock_execute.mock_calls == expected
+
+    mock_create_version.assert_called_once_with(
+        package_name="app_pkg",
+        version=version,
+        stage_fqn=f"app_pkg.{pkg_model.stage}",
+        role="package_role",
+        label=None,
+    )
 
 
 # Test add_new_patch_to_version adds an "auto-increment" patch to an existing version
@@ -226,7 +214,9 @@ def test_add_new_patch_auto(
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
     pkg = ApplicationPackageEntity(pkg_model, workspace_context)
-    pkg.add_new_patch_to_version(version=version)
+    result_patch = pkg.add_new_patch_to_version(version=version)
+    assert result_patch == 12
+
     assert mock_execute.mock_calls == expected
 
 
@@ -275,7 +265,8 @@ def test_add_new_patch_custom(
     pd = dm.project_definition
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
     pkg = ApplicationPackageEntity(pkg_model, workspace_context)
-    pkg.add_new_patch_to_version(version=version, patch=12)
+    result_patch = pkg.add_new_patch_to_version(version=version, patch=12)
+    assert result_patch == 12
     assert mock_execute.mock_calls == expected
 
 
@@ -429,13 +420,16 @@ def test_process_no_existing_release_directives_or_versions(
         contents=[mock_snowflake_yml_file_v2],
     )
 
-    _version_create(
+    result = _version_create(
         version=version,
         patch=None,
         force=force,
         interactive=interactive,
         skip_git_check=False,
     )  # last three parameters do not matter here
+
+    assert result == VersionInfo(version, 0, None)
+
     mock_find_version.assert_not_called()
     mock_check_git.assert_called_once()
     mock_rd.assert_called_once()
@@ -460,9 +454,7 @@ def test_process_no_existing_release_directives_or_versions(
 )
 @mock.patch.object(ApplicationPackageEntity, "get_existing_version_info")
 @mock.patch.object(ApplicationPackageEntity, "add_new_version")
-@mock.patch.object(
-    ApplicationPackageEntity, "add_new_patch_to_version", return_value=None
-)
+@mock.patch.object(ApplicationPackageEntity, "add_new_patch_to_version")
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize("interactive", [True, False])
 def test_process_no_existing_release_directives_w_existing_version(
@@ -493,14 +485,18 @@ def test_process_no_existing_release_directives_w_existing_version(
         dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
+    mock_add_patch.return_value = 12
 
-    _version_create(
+    result = _version_create(
         version=version,
         patch=12,
         force=force,
         interactive=interactive,
         skip_git_check=False,
     )  # last three parameters do not matter here
+
+    assert result == VersionInfo(version, 12, None)
+
     mock_find_version.assert_not_called()
     mock_check_git.assert_called_once()
     mock_rd.assert_called_once()
@@ -587,9 +583,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
 @mock.patch.object(
     ApplicationPackageEntity, "get_existing_version_info", return_value=None
 )
-@mock.patch.object(
-    ApplicationPackageEntity, "add_new_patch_to_version", return_value=None
-)
+@mock.patch.object(ApplicationPackageEntity, "add_new_patch_to_version")
 @mock.patch.object(typer, "confirm", return_value=True)
 @pytest.mark.parametrize(
     "force, interactive",
@@ -629,14 +623,18 @@ def test_process_existing_release_directives_w_existing_version_two(
         dir_name=current_working_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
+    mock_add_patch.return_value = 12
 
-    _version_create(
+    result = _version_create(
         version=version,
         patch=12,
         force=force,
         interactive=interactive,
         skip_git_check=False,
     )
+
+    assert result == VersionInfo(version, 12, None)
+
     mock_check_git.assert_called_once()
     mock_rd.assert_called_once()
     mock_deploy.assert_called_once()
@@ -687,7 +685,7 @@ def test_manifest_version_info_not_used(
         )
     )
 
-    _version_create(
+    result = _version_create(
         version=version_cli,
         patch=None,
         label=None,
@@ -696,12 +694,14 @@ def test_manifest_version_info_not_used(
         force=False,
     )
 
+    assert result == VersionInfo(version_cli, 0, None)
+
     mock_create_version.assert_called_with(
         role=role,
         package_name="app_pkg",
         path_to_version_directory=f"app_pkg.{stage}",
         version=version_cli,
-        label="",
+        label=None,
     )
     mock_find_info_manifest.assert_not_called()
 
@@ -724,7 +724,6 @@ def test_manifest_version_info_not_used(
 )
 @mock.patch(
     f"{SQL_FACADE}.add_patch_to_package_version",
-    return_value=None,
 )
 @pytest.mark.parametrize("label", [None, "some label"])
 @pytest.mark.parametrize("patch", [None, 2, 7])
@@ -752,8 +751,9 @@ def test_manifest_patch_is_not_used(
             ),
         )
     )
+    mock_create_patch.return_value = patch or 0
 
-    _version_create(
+    result = _version_create(
         version=version_cli,
         patch=patch,
         label=label,
@@ -762,6 +762,8 @@ def test_manifest_patch_is_not_used(
         force=False,
     )
 
+    assert result == VersionInfo(version_cli, patch or 0, label)
+
     mock_create_patch.assert_called_with(
         role=role,
         package_name="app_pkg",
@@ -769,7 +771,7 @@ def test_manifest_patch_is_not_used(
         version=version_cli,
         patch=patch,
         # ensure empty label is used to replace label from manifest.yml
-        label=label or "",
+        label=label,
     )
     mock_find_info_manifest.assert_not_called()
 
@@ -791,7 +793,6 @@ def test_manifest_patch_is_not_used(
 )
 @mock.patch(
     f"{SQL_FACADE}.add_patch_to_package_version",
-    return_value=None,
 )
 @pytest.mark.parametrize("manifest_label", [None, "some label", ""])
 @pytest.mark.parametrize("manifest_patch", [None, 4])
@@ -826,9 +827,10 @@ def test_version_from_manifest(
             ),
         )
     )
+    mock_create_patch.return_value = manifest_patch
 
     # no version or patch through cli
-    _version_create(
+    result = _version_create(
         version=None,
         patch=None,
         label=cli_label,
@@ -836,6 +838,9 @@ def test_version_from_manifest(
         interactive=True,
         force=False,
     )
+    expected_label = cli_label if cli_label is not None else manifest_label
+
+    assert result == VersionInfo("manifest_version", manifest_patch, expected_label)
 
     mock_create_patch.assert_called_with(
         role=role,
@@ -843,7 +848,7 @@ def test_version_from_manifest(
         path_to_version_directory=f"app_pkg.{stage}",
         version="manifest_version",
         patch=manifest_patch,
-        label=cli_label if cli_label is not None else manifest_label,
+        label=expected_label,
     )
 
 
@@ -864,7 +869,6 @@ def test_version_from_manifest(
 )
 @mock.patch(
     f"{SQL_FACADE}.add_patch_to_package_version",
-    return_value=None,
 )
 @pytest.mark.parametrize("manifest_label", [None, "some label", ""])
 @pytest.mark.parametrize("cli_label", [None, "", "cli label"])
@@ -898,9 +902,10 @@ def test_patch_from_manifest(
             ),
         )
     )
+    mock_create_patch.return_value = cli_patch
 
     # patch through cli, but no version
-    _version_create(
+    result = _version_create(
         version=None,
         patch=cli_patch,
         label=cli_label,
@@ -911,6 +916,9 @@ def test_patch_from_manifest(
         console=mock_console,
     )
 
+    expected_label = cli_label if cli_label is not None else manifest_label
+    assert result == VersionInfo("manifest_version", cli_patch, expected_label)
+
     mock_create_patch.assert_called_with(
         role=role,
         package_name="app_pkg",
@@ -918,7 +926,7 @@ def test_patch_from_manifest(
         version="manifest_version",
         # cli patch overrides the manifest
         patch=cli_patch,
-        label=cli_label if cli_label is not None else manifest_label,
+        label=expected_label,
     )
     mock_console.warning.assert_called_with(
         f"Cannot resolve version. Found patch: {manifest_patch} in manifest.yml which is different from provided patch {cli_patch}."

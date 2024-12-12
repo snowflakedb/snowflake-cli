@@ -39,9 +39,8 @@ from tests.nativeapp.patch_utils import mock_get_app_pkg_distribution_in_sf
 from tests.nativeapp.utils import (
     APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     APPLICATION_PACKAGE_ENTITY_MODULE,
-    SQL_EXECUTOR_EXECUTE,
+    SQL_FACADE_DROP_VERSION,
     TYPER_CONFIRM,
-    mock_execute_helper,
     mock_snowflake_yml_file_v2,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
@@ -199,41 +198,23 @@ def test_process_drop_cannot_complete(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.find_version_info_in_manifest_file",
     return_value=VersionInfo("manifest_version", None, None),
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
+@mock.patch(SQL_FACADE_DROP_VERSION)
 @pytest.mark.parametrize("force", [True, False])
 def test_process_drop_from_manifest(
+    mock_drop_version,
     mock_typer_confirm,
-    mock_execute,
     mock_version_info_in_manifest,
     mock_build_bundle,
     mock_distribution,
     mock_get_existing,
     force,
     temp_dir,
-    mock_cursor,
 ):
 
     mock_distribution.return_value = "internal"
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                None,
-                mock.call(
-                    "alter application package app_pkg drop version manifest_version"
-                ),
-            ),
-            (None, mock.call("use role old_role")),
-        ]
-    )
-    mock_execute.side_effect = side_effects
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -243,7 +224,10 @@ def test_process_drop_from_manifest(
     )
 
     _drop_version(version=None, force=force, interactive=True)
-    assert mock_execute.mock_calls == expected
+
+    mock_drop_version.assert_called_once_with(
+        package_name="app_pkg", version="manifest_version", role="package_role"
+    )
 
 
 @mock.patch(
@@ -255,46 +239,28 @@ def test_process_drop_from_manifest(
     f"{APPLICATION_PACKAGE_ENTITY_MODULE}.ApplicationPackageEntity._bundle",
     return_value=None,
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
+@mock.patch(SQL_FACADE_DROP_VERSION)
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize(
     ["version", "version_identifier"],
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
 )
 def test_process_drop_specific_version(
+    mock_drop_version,
     mock_typer_confirm,
-    mock_execute,
     mock_build_bundle,
     mock_distribution,
     mock_get_existing,
     force,
     temp_dir,
-    mock_cursor,
     version,
     version_identifier,
 ):
 
     mock_distribution.return_value = "internal"
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role package_role")),
-            (
-                None,
-                mock.call(
-                    f"alter application package app_pkg drop version {version_identifier}"
-                ),
-            ),
-            (None, mock.call("use role old_role")),
-        ]
-    )
-    mock_execute.side_effect = side_effects
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -304,4 +270,7 @@ def test_process_drop_specific_version(
     )
 
     _drop_version(version=version, force=force, interactive=True)
-    assert mock_execute.mock_calls == expected
+
+    mock_drop_version.assert_called_once_with(
+        package_name="app_pkg", version=version_identifier, role="package_role"
+    )

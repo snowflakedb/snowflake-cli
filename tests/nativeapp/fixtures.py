@@ -38,7 +38,7 @@ def mock_bundle_map():
 
 
 @pytest.fixture()
-def application_package_entity(workspace_context, request):
+def application_package_entity(workspace_context, request) -> ApplicationPackageEntity:
     pkg_params = getattr(request, "param", {})
     data = ApplicationPackageEntityModelFactory(
         identifier=factory.Faker("word"), **pkg_params

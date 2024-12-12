@@ -356,7 +356,6 @@ class ManifestFactory(factory.DictFactory):
         {
             "log_level": "fatal",
             "trace_level": "always",
-            "telemetry_event_definitions": None,
         }
     )
 

@@ -19,9 +19,18 @@
 ## Deprecations
 
 ## New additions
-* Added an optional `stage_subdirectory` field to `application package` entity. When specified, application artifacts are uploaded to this subdirectory instead of the root of the application package's stage.
+* Add Release Directives support by introducing the following commands:
+  * `snow app release-directive list`
+  * `snow app release-directive set`
+  * `snow app release-directive unset`
+* Add support for release channels feature in native app version creation/drop.
+* `snow app version create` now returns version, patch, and label in JSON format.
+* Add an optional `stage_subdirectory` field to `application package` entity. When specified, application artifacts are uploaded to this subdirectory instead of the root of the application package's stage.
+
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.
+* Fixed inability to add patches to lowercase quoted versions
+* Fixes label being set to blank instead of None when not provided.
 
 # v3.2.0
 
