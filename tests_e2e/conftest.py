@@ -140,7 +140,7 @@ def _install_snowcli_with_external_plugin(
     )
 
     # Required by snowpark example tests
-    _pip_install(python, "snowflake-snowpark-python")
+    _pip_install(python, "snowflake-snowpark-python[pandas]==1.25.0")
 
 
 def _python_path(venv_path: Path) -> Path:
