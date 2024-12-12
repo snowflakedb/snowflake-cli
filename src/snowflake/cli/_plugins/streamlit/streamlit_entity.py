@@ -1,5 +1,4 @@
 import functools
-
 from typing import Optional
 
 from snowflake.cli._plugins.connection.util import make_snowsight_url
@@ -8,9 +7,8 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
 )
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
-from snowflake.connector.cursor import SnowflakeCursor
-
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 class StreamlitEntity(EntityBase[StreamlitEntityModel]):
@@ -36,7 +34,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
     @property
     def model(self):
-        return self._entity_model # noqa
+        return self._entity_model  # noqa
 
     def action_bundle(self, ctx: ActionContext, *args, **kwargs):
         # get all files from the model
@@ -84,7 +82,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             self._conn, f"/#/streamlit-apps/{name.url_identifier}"
         )
 
-    def get_deploy_sql(self, action_ctx: ActionContext, if_not_exists: bool = False, replace: bool = False, from_stage_name: Optional[str] = None, *args, **kwargs):
+    def get_deploy_sql(
+        self,
+        action_ctx: ActionContext,
+        if_not_exists: bool = False,
+        replace: bool = False,
+        from_stage_name: Optional[str] = None,
+        *args,
+        **kwargs,
+    ):
 
         if replace:
             query = "CREATE OR REPLACE "
@@ -120,11 +126,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         return query
 
-
     def action_share(
         self, action_ctx: ActionContext, to_role: str, *args, **kwargs
     ) -> SnowflakeCursor:
-        return self._sql_executor.execute_query(self.get_usage_grant_sql(action_ctx, to_role))
+        return self._sql_executor.execute_query(
+            self.get_usage_grant_sql(action_ctx, to_role)
+        )
 
     def get_drop_sql(self, action_ctx: ActionContext, *args, **kwargs):
         return f"DROP STREAMLIT {self._entity_model.fqn}"

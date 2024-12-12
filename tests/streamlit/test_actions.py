@@ -50,12 +50,16 @@ def test_bundle(example_streamlit_workspace):
     assert (output / "environment.yml").exists()
     assert (output / "pages" / "my_page.py").exists()
 
+
 @mock.patch(EXECUTE_QUERY)
 def test_deploy(mock_execute, example_streamlit_workspace):
     entity, action_ctx = example_streamlit_workspace
     entity.action_deploy(action_ctx)
 
-    mock_execute.assert_called_with(f"CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') \n MAIN_FILE = 'streamlit_app.py' \n QUERY_WAREHOUSE = 'test_warehouse' \n TITLE = 'My Fancy Streamlit' \n")
+    mock_execute.assert_called_with(
+        f"CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') \n MAIN_FILE = 'streamlit_app.py' \n QUERY_WAREHOUSE = 'test_warehouse' \n TITLE = 'My Fancy Streamlit' \n"
+    )
+
 
 @mock.patch(EXECUTE_QUERY)
 def test_drop(mock_execute, example_streamlit_workspace):
@@ -119,12 +123,16 @@ def test_get_drop_sql(example_streamlit_workspace):
 
     assert drop_sql == f"DROP STREAMLIT {STREAMLIT_NAME}"
 
+
 def test_get_deploy_sql(example_streamlit_workspace):
     entity, action_ctx = example_streamlit_workspace
     deploy_sql = entity.get_deploy_sql(action_ctx)
 
-    assert deploy_sql == f"""CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') 
+    assert (
+        deploy_sql
+        == f"""CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') 
  MAIN_FILE = 'streamlit_app.py' 
  QUERY_WAREHOUSE = 'test_warehouse' 
  TITLE = 'My Fancy Streamlit' 
 """
+    )
