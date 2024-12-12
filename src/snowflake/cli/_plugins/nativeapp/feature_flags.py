@@ -18,7 +18,9 @@ from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlagMixin
 
 
 @unique
-class FeatureFlag(FeatureFlagMixin):
+class FeatureFlag(
+    FeatureFlagMixin
+):  # TODO move this to snowflake.cli.api.feature_flags
     ENABLE_NATIVE_APP_PYTHON_SETUP = BooleanFlag(
         "ENABLE_NATIVE_APP_PYTHON_SETUP", False
     )
