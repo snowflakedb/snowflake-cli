@@ -217,7 +217,11 @@ def force_project_definition_v2(
                     entities_to_keep.add(app_definition.entity_id)
                     kwargs["app_entity_id"] = app_definition.entity_id
                 for entity_id in list(original_pdf.entities):
-                    if entity_id not in entities_to_keep:
+                    entity_type = original_pdf.entities[entity_id].type.lower()
+                    if (
+                        entity_type in ["application", "application package"]
+                        and entity_id not in entities_to_keep
+                    ):
                         # This happens after templates are rendered,
                         # so we can safely remove the entity
                         del original_pdf.entities[entity_id]

@@ -53,6 +53,7 @@ from snowflake.cli.api.errno import (
     NO_WAREHOUSE_SELECTED_IN_SESSION,
     RELEASE_DIRECTIVE_DOES_NOT_EXIST,
     RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND,
+    SQL_COMPILATION_ERROR,
     VERSION_DOES_NOT_EXIST,
     VERSION_NOT_ADDED_TO_RELEASE_CHANNEL,
 )
@@ -264,27 +265,62 @@ class SnowflakeSQLFacade:
         @param [Optional] label: Label for this version, visible to consumers.
         """
 
-        # Make the version a valid identifier, adding quotes if necessary
         version = to_identifier(version)
+        package_name = to_identifier(package_name)
+
+        available_release_channels = self.show_release_channels(package_name, role)
 
         # Label must be a string literal
-        with_label_cause = (
-            f"\nlabel={to_string_literal(label)}" if label is not None else ""
+        with_label_clause = (
+            f"label={to_string_literal(label)}" if label is not None else ""
         )
-        add_version_query = dedent(
-            f"""\
-                alter application package {package_name}
-                    add version {version}
-                    using @{stage_fqn}{with_label_cause}
-            """
+
+        action = "register" if available_release_channels else "add"
+
+        query = dedent(
+            _strip_empty_lines(
+                f"""\
+                    alter application package {package_name}
+                        {action} version {version}
+                        using @{stage_fqn}
+                        {with_label_clause}
+                """
+            )
         )
+
         with self._use_role_optional(role):
             try:
-                self._sql_executor.execute_query(add_version_query)
+                self._sql_executor.execute_query(query)
             except Exception as err:
                 handle_unclassified_error(
                     err,
-                    f"Failed to add version {version} to application package {package_name}.",
+                    f"Failed to {action} version {version} to application package {package_name}.",
+                )
+
+    def drop_version_from_package(
+        self, package_name: str, version: str, role: str | None = None
+    ):
+        """
+        Drops a version from an existing application package.
+        @param package_name: Name of the application package to alter.
+        @param version: Version name to drop.
+        @param [Optional] role: Switch to this role while executing drop version.
+        """
+
+        version = to_identifier(version)
+        package_name = to_identifier(package_name)
+
+        release_channels = self.show_release_channels(package_name, role)
+        action = "deregister" if release_channels else "drop"
+
+        query = f"alter application package {package_name} {action} version {version}"
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(query)
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to {action} version {version} from application package {package_name}.",
                 )
 
     def add_patch_to_package_version(
@@ -1085,6 +1121,10 @@ class SnowflakeSQLFacade:
                     cursor_class=DictCursor,
                 )
             except ProgrammingError as err:
+                # TODO: Temporary check for syntax until UI Parameter is available in production
+                if err.errno == SQL_COMPILATION_ERROR:
+                    # Release not out yet and param not out yet
+                    return []
                 handle_unclassified_error(
                     err,
                     f"Failed to show release channels for application package {package_name}.",
@@ -1095,8 +1135,15 @@ class SnowflakeSQLFacade:
 def _strip_empty_lines(text: str) -> str:
     """
     Strips empty lines from the input string.
+    Preserves the new line at the end of the string if it exists.
     """
-    return "\n".join(line for line in text.splitlines() if line.strip())
+    all_lines = text.splitlines()
+
+    # join all non-empty lines, but preserve the new line at the end if it exists
+    last_line = all_lines[-1]
+    other_lines = [line for line in all_lines[:-1] if line.strip()]
+
+    return "\n".join(other_lines) + "\n" + last_line
 
 
 def _handle_release_directive_version_error(

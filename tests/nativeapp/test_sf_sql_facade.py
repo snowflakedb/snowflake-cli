@@ -2355,7 +2355,7 @@ def test_given_basic_pkg_when_create_application_package_then_success(
                         comment = {SPECIAL_COMMENT}
                         distribution = {distribution}
                     """
-                ).strip()
+                )
             ),
         )
     ]
@@ -2384,7 +2384,7 @@ def test_given_release_channels_when_create_application_package_then_success(
                         distribution = {distribution}
                         enable_release_channels = {str(enable_release_channels).lower()}
                     """
-                ).strip()
+                )
             ),
         )
     ]
@@ -2416,7 +2416,7 @@ def test_given_programming_error_when_create_application_package_then_error(
                             comment = {SPECIAL_COMMENT}
                             distribution = {distribution}
                         """
-                    ).strip()
+                    )
                 ),
             )
         ]
@@ -2448,7 +2448,7 @@ def test_given_privilege_error_when_create_application_package_then_raise_priv_e
                             comment = {SPECIAL_COMMENT}
                             distribution = {distribution}
                         """
-                    ).strip()
+                    )
                 ),
             )
         ]
@@ -2902,7 +2902,7 @@ def test_set_release_directive_with_non_default_directive(
                 accounts = ({",".join(target_accounts)})
                 version = "{version}" patch = {patch}
         """
-    ).strip()
+    )
 
     sql_facade.set_release_directive(
         package_name,
@@ -2932,7 +2932,7 @@ def test_set_default_release_directive(
                 set default release directive
                 version = "{version}" patch = {patch}
         """
-    ).strip()
+    )
 
     sql_facade.set_release_directive(
         package_name,
@@ -2963,7 +2963,7 @@ def test_set_release_directive_with_special_chars_in_names(
                 accounts = ({",".join(target_accounts)})
                 version = "{version}" patch = {patch}
         """
-    ).strip()
+    )
 
     sql_facade.set_release_directive(
         package_name,
@@ -2992,7 +2992,7 @@ def test_set_release_directive_no_release_channel(
                 accounts = ({",".join(target_accounts)})
                 version = "{version}" patch = {patch}
         """
-    ).strip()
+    )
 
     sql_facade.set_release_directive(
         package_name,
@@ -3020,7 +3020,7 @@ def test_set_default_release_directive_no_release_channel(
                 set default release directive
                 version = "{version}" patch = {patch}
         """
-    ).strip()
+    )
 
     sql_facade.set_release_directive(
         package_name,
@@ -3104,7 +3104,7 @@ def test_modify_release_directive_with_non_default_directive(
                 modify release directive {release_directive}
                 version = "{version}" patch = {patch}
         """
-    ).strip()
+    )
 
     sql_facade.modify_release_directive(
         package_name,
@@ -3132,7 +3132,7 @@ def test_modify_release_directive_with_default_directive(
                 modify default release directive
                 version = "{version}" patch = {patch}
         """
-    ).strip()
+    )
 
     sql_facade.modify_release_directive(
         package_name,
@@ -3160,7 +3160,7 @@ def test_modify_release_directive_with_special_chars_in_names(
                 modify release directive "{release_directive}"
                 version = "{version}" patch = {patch}
         """
-    ).strip()
+    )
 
     sql_facade.modify_release_directive(
         package_name,
@@ -3186,7 +3186,7 @@ def test_modify_release_directive_no_release_channel(
                 modify release directive {release_directive}
                 version = "{version}" patch = {patch}
         """
-    ).strip()
+    )
 
     sql_facade.modify_release_directive(
         package_name,
@@ -3212,7 +3212,7 @@ def test_modify_default_release_directive_no_release_channel(
                 modify default release directive
                 version = "{version}" patch = {patch}
         """
-    ).strip()
+    )
 
     sql_facade.modify_release_directive(
         package_name,
@@ -3271,3 +3271,226 @@ def test_modify_release_directive_errors(
         )
 
     assert error_message in str(err)
+
+
+@contextmanager
+def mock_release_channels(facade, enabled):
+    with mock.patch.object(
+        facade, "show_release_channels"
+    ) as mock_show_release_channels:
+        mock_show_release_channels.return_value = (
+            [{"name": "test_channel"}] if enabled else []
+        )
+        yield
+
+
+@pytest.mark.parametrize("release_channels_enabled", [True, False])
+def test_create_version_in_package(
+    release_channels_enabled, mock_use_role, mock_execute_query
+):
+    action = "register" if release_channels_enabled else "add"
+    package_name = "test_package"
+    version = "v1"
+    role = "test_role"
+    stage_fqn = f"{package_name}.app_src.stage"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                dedent(
+                    f"""\
+                        alter application package {package_name}
+                            {action} version {version}
+                            using @{stage_fqn}
+                    """
+                )
+            ),
+        ),
+    ]
+
+    with mock_release_channels(sql_facade, release_channels_enabled):
+        with assert_in_context(expected_use_objects, expected_execute_query):
+            sql_facade.create_version_in_package(
+                package_name=package_name,
+                version=version,
+                role=role,
+                stage_fqn=stage_fqn,
+            )
+
+
+@pytest.mark.parametrize("release_channels_enabled", [True, False])
+@pytest.mark.parametrize("label", ["test_label", ""])
+def test_create_version_in_package_with_label(
+    label, release_channels_enabled, mock_use_role, mock_execute_query
+):
+    action = "register" if release_channels_enabled else "add"
+    package_name = "test_package"
+    version = "v1"
+    role = "test_role"
+    stage_fqn = f"{package_name}.app_src.stage"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                dedent(
+                    f"""\
+                        alter application package {package_name}
+                            {action} version {version}
+                            using @{stage_fqn}
+                            label='{label}'
+                    """
+                )
+            ),
+        ),
+    ]
+
+    with mock_release_channels(sql_facade, release_channels_enabled):
+        with assert_in_context(expected_use_objects, expected_execute_query):
+            sql_facade.create_version_in_package(
+                package_name=package_name,
+                version=version,
+                role=role,
+                stage_fqn=stage_fqn,
+                label=label,
+            )
+
+
+@pytest.mark.parametrize("release_channels_enabled", [True, False])
+def test_create_version_with_special_characters(
+    release_channels_enabled, mock_use_role, mock_execute_query
+):
+    action = "register" if release_channels_enabled else "add"
+    package_name = "test.package"
+    version = "v1.0"
+    role = "test_role"
+    stage_fqn = f"{package_name}.app_src.stage"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                dedent(
+                    f"""\
+                        alter application package "{package_name}"
+                            {action} version "{version}"
+                            using @{stage_fqn}
+                    """
+                )
+            ),
+        ),
+    ]
+
+    with mock_release_channels(sql_facade, release_channels_enabled):
+        with assert_in_context(expected_use_objects, expected_execute_query):
+            sql_facade.create_version_in_package(
+                package_name=package_name,
+                version=version,
+                role=role,
+                stage_fqn=stage_fqn,
+            )
+
+
+@pytest.mark.parametrize("release_channels_enabled", [True, False])
+def test_create_version_in_package_with_error(
+    release_channels_enabled, mock_use_role, mock_execute_query
+):
+    package_name = "test_package"
+    version = "v1"
+    role = "test_role"
+    stage_fqn = f"{package_name}.app_src.stage"
+
+    mock_execute_query.side_effect = ProgrammingError()
+
+    with mock_release_channels(sql_facade, release_channels_enabled):
+        with pytest.raises(InvalidSQLError):
+            sql_facade.create_version_in_package(
+                package_name=package_name,
+                version=version,
+                role=role,
+                stage_fqn=stage_fqn,
+            )
+
+
+@pytest.mark.parametrize("release_channels_enabled", [True, False])
+def test_drop_version_from_package(
+    release_channels_enabled, mock_use_role, mock_execute_query
+):
+    action = "deregister" if release_channels_enabled else "drop"
+    package_name = "test_package"
+    version = "v1"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f"alter application package {package_name} {action} version {version}"
+            ),
+        ),
+    ]
+
+    with mock_release_channels(sql_facade, release_channels_enabled):
+        with assert_in_context(expected_use_objects, expected_execute_query):
+            sql_facade.drop_version_from_package(
+                package_name=package_name, version=version, role=role
+            )
+
+
+@pytest.mark.parametrize("release_channels_enabled", [True, False])
+def test_drop_version_from_package_with_special_characters(
+    release_channels_enabled, mock_use_role, mock_execute_query
+):
+    action = "deregister" if release_channels_enabled else "drop"
+    package_name = "test.package"
+    version = "v1.0"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f'alter application package "{package_name}" {action} version "{version}"'
+            ),
+        ),
+    ]
+
+    with mock_release_channels(sql_facade, release_channels_enabled):
+        with assert_in_context(expected_use_objects, expected_execute_query):
+            sql_facade.drop_version_from_package(
+                package_name=package_name, version=version, role=role
+            )
+
+
+@pytest.mark.parametrize("available_release_channels", [[], [{"name": "test_channel"}]])
+def test_drop_version_from_package_with_error(
+    available_release_channels, mock_use_role, mock_execute_query
+):
+    package_name = "test_package"
+    version = "v1"
+    role = "test_role"
+
+    mock_execute_query.side_effect = ProgrammingError()
+
+    with mock_release_channels(sql_facade, bool(available_release_channels)):
+
+        with pytest.raises(InvalidSQLError):
+            sql_facade.drop_version_from_package(
+                package_name=package_name, version=version, role=role
+            )

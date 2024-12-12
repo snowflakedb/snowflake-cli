@@ -96,3 +96,14 @@ def verify_no_directories(paths_to_sync: Iterable[Path]):
 def verify_exists(path: Path):
     if not path.exists():
         raise ClickException(f"The following path does not exist: {path}")
+
+
+def sanitize_dir_name(dir_name: str) -> str:
+    """
+    Returns a string that is safe to use as a directory name.
+    For simplicity, this function is over restricitive: it strips non alphanumeric characters,
+    unless listed in the allow list. Additional characters can be allowed in the future, but
+    we need to be careful to consider both Unix/Windows directory naming rules.
+    """
+    allowed_chars = [" ", "_"]
+    return "".join(char for char in dir_name if char in allowed_chars or char.isalnum())
