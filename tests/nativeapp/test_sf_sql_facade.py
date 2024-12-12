@@ -2146,7 +2146,7 @@ def test_upgrade_application_with_release_channel_not_same_as_app_properties_the
 
     assert (
         str(err.value)
-        == f"Cannot upgrade application {app_name} from release channel {release_channel} because application is already on a different channel."
+        == f"Application {app_name} is currently on release channel different_channel. Cannot upgrade to release channel {release_channel}."
     )
 
 

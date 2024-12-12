@@ -23,6 +23,7 @@ from snowflake.cli._plugins.connection.util import UIParameter, get_ui_parameter
 from snowflake.cli._plugins.nativeapp.constants import (
     AUTHORIZE_TELEMETRY_COL,
     CHANNEL_COL,
+    DEFAULT_CHANNEL,
     DEFAULT_DIRECTIVE,
     NAME_COL,
     SPECIAL_COMMENT,
@@ -674,11 +675,11 @@ class SnowflakeSQLFacade:
                 using_clause = install_method.using_clause(stage_fqn)
                 if release_channel:
                     current_release_channel = get_app_properties().get(
-                        CHANNEL_COL, "DEFAULT"
+                        CHANNEL_COL, DEFAULT_CHANNEL
                     )
                     if not same_identifiers(release_channel, current_release_channel):
                         raise UpgradeApplicationRestrictionError(
-                            f"Cannot upgrade application {name} from release channel {release_channel} because application is already on a different channel."
+                            f"Application {name} is currently on release channel {current_release_channel}. Cannot upgrade to release channel {release_channel}."
                         )
 
                 upgrade_cursor = self._sql_executor.execute_query(
