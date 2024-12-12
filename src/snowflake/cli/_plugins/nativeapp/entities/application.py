@@ -26,6 +26,7 @@ from snowflake.cli._plugins.nativeapp.common_flags import (
 from snowflake.cli._plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
+    DEFAULT_CHANNEL,
     OWNER_COL,
 )
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
@@ -85,6 +86,8 @@ from snowflake.cli.api.project.util import (
     append_test_resource_suffix,
     extract_schema,
     identifier_for_url,
+    identifier_in_list,
+    same_identifiers,
     to_identifier,
     unquote_identifier,
 )
@@ -329,6 +332,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         prune: bool,
         recursive: bool,
         paths: List[Path],
+        release_channel: Optional[str] = None,
         validate: bool = ValidateOption,
         stage_fqn: Optional[str] = None,
         interactive: bool = InteractiveOption,
@@ -356,14 +360,24 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         # same-account release directive
         if from_release_directive:
+            release_channel = _get_verified_release_channel(
+                package_entity, release_channel
+            )
+
             self.create_or_upgrade_app(
                 package=package_entity,
                 stage_fqn=stage_fqn,
                 install_method=SameAccountInstallMethod.release_directive(),
+                release_channel=release_channel,
                 policy=policy,
                 interactive=interactive,
             )
             return
+
+        if release_channel:
+            raise UsageError(
+                f"Release channel is only supported when --from-release-directive is used."
+            )
 
         # versioned dev
         if version:
@@ -603,6 +617,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         event_sharing: EventSharingHandler,
         policy: PolicyBase,
         interactive: bool,
+        release_channel: Optional[str] = None,
     ) -> list[tuple[str]] | None:
         self.console.step(f"Upgrading existing application object {self.name}.")
 
@@ -613,6 +628,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 stage_fqn=stage_fqn,
                 debug_mode=self.debug,
                 should_authorize_event_sharing=event_sharing.should_authorize_event_sharing(),
+                release_channel=release_channel,
                 role=self.role,
                 warehouse=self.warehouse,
             )
@@ -627,6 +643,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         install_method: SameAccountInstallMethod,
         event_sharing: EventSharingHandler,
         package: ApplicationPackageEntity,
+        release_channel: Optional[str] = None,
     ) -> list[tuple[str]]:
         self.console.step(f"Creating new application object {self.name} in account.")
 
@@ -665,6 +682,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             should_authorize_event_sharing=event_sharing.should_authorize_event_sharing(),
             role=self.role,
             warehouse=self.warehouse,
+            release_channel=release_channel,
         )
 
     @span("update_app_object")
@@ -675,6 +693,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
         install_method: SameAccountInstallMethod,
         policy: PolicyBase,
         interactive: bool,
+        release_channel: Optional[str] = None,
     ):
         event_sharing = EventSharingHandler(
             telemetry_definition=self.telemetry,
@@ -699,6 +718,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 event_sharing=event_sharing,
                 policy=policy,
                 interactive=interactive,
+                release_channel=release_channel,
             )
 
         # 3. If no existing application found, or we performed a drop before the upgrade, we proceed to create
@@ -708,6 +728,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 install_method=install_method,
                 event_sharing=event_sharing,
                 package=package,
+                release_channel=release_channel,
             )
 
         print_messages(self.console, create_or_upgrade_result)
@@ -1004,3 +1025,28 @@ def _application_objects_to_str(
 
 def _application_object_to_str(obj: ApplicationOwnedObject) -> str:
     return f"({obj['type']}) {obj['name']}"
+
+
+def _get_verified_release_channel(
+    package_entity: ApplicationPackageEntity,
+    release_channel: Optional[str],
+) -> Optional[str]:
+    release_channel = release_channel or DEFAULT_CHANNEL
+    available_release_channels = get_snowflake_facade().show_release_channels(
+        package_entity.name, role=package_entity.role
+    )
+    if available_release_channels:
+        release_channel_names = [c["name"] for c in available_release_channels]
+        if not identifier_in_list(release_channel, release_channel_names):
+            raise UsageError(
+                f"Release channel '{release_channel}' is not available for application package {package_entity.name}. Available release channels: ({', '.join(release_channel_names)})."
+            )
+    else:
+        if same_identifiers(release_channel, DEFAULT_CHANNEL):
+            return None
+        else:
+            raise UsageError(
+                f"Release channels are not enabled for application package {package_entity.name}."
+            )
+
+    return release_channel

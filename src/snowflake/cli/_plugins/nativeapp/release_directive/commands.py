@@ -140,7 +140,7 @@ def release_directive_unset(
         show_default=False,
         help="Name of the release directive",
     ),
-    channel: Optional[str] = typer.Option(
+    channel: str = typer.Option(
         DEFAULT_CHANNEL,
         help="Name of the release channel to use",
     ),

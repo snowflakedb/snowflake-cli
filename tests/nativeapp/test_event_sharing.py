@@ -294,14 +294,17 @@ def _setup_mocks_for_create_app(
         mock.call(
             name=DEFAULT_APP_ID,
             package_name=DEFAULT_PKG_ID,
-            install_method=SameAccountInstallMethod.release_directive()
-            if is_prod
-            else SameAccountInstallMethod.unversioned_dev(),
+            install_method=(
+                SameAccountInstallMethod.release_directive()
+                if is_prod
+                else SameAccountInstallMethod.unversioned_dev()
+            ),
             stage_fqn=DEFAULT_STAGE_FQN,
             debug_mode=None,
             should_authorize_event_sharing=expected_authorize_telemetry_flag,
             role="app_role",
             warehouse="app_warehouse",
+            release_channel=None,
         )
     ]
 
@@ -397,14 +400,17 @@ def _setup_mocks_for_upgrade_app(
     mock_sql_facade_upgrade_application_expected = [
         mock.call(
             name=DEFAULT_APP_ID,
-            install_method=SameAccountInstallMethod.release_directive()
-            if is_prod
-            else SameAccountInstallMethod.unversioned_dev(),
+            install_method=(
+                SameAccountInstallMethod.release_directive()
+                if is_prod
+                else SameAccountInstallMethod.unversioned_dev()
+            ),
             stage_fqn=DEFAULT_STAGE_FQN,
             debug_mode=None,
             should_authorize_event_sharing=expected_authorize_telemetry_flag,
             role="app_role",
             warehouse="app_warehouse",
+            release_channel=None,
         )
     ]
     return [*mock_execute_query_expected, *mock_sql_facade_upgrade_application_expected]

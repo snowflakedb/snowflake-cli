@@ -983,6 +983,18 @@
   |                                                        determined from the   |
   |                                                        project definition    |
   |                                                        file. Default: unset. |
+  | --channel                                     TEXT     The name of the       |
+  |                                                        release channel to    |
+  |                                                        use when creating or  |
+  |                                                        upgrading an          |
+  |                                                        application instance  |
+  |                                                        from a release        |
+  |                                                        directive. Requires   |
+  |                                                        the                   |
+  |                                                        --from-release-direc… |
+  |                                                        flag to be set. If    |
+  |                                                        unset, the default    |
+  |                                                        channel will be used. |
   | --interactive             --no-interactive             When enabled, this    |
   |                                                        option displays       |
   |                                                        prompts even if the   |
