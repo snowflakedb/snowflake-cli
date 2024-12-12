@@ -151,7 +151,7 @@ def test_sync_deploy_root_with_stage(
         role="new_role",
         prune=True,
         recursive=True,
-        stage_path=DefaultStagePathParts(stage_fqn),
+        stage_path=DefaultStagePathParts.from_fqn(stage_fqn),
     )
 
     mock_stage_exists.assert_called_once_with(stage_fqn)
@@ -160,7 +160,7 @@ def test_sync_deploy_root_with_stage(
         mock_create_stage.assert_called_once_with(stage_fqn)
     mock_compute_stage_diff.assert_called_once_with(
         local_root=dm.project_root / pkg_model.deploy_root,
-        stage_path=DefaultStagePathParts("app_pkg.app_src.stage"),
+        stage_path=DefaultStagePathParts.from_fqn("app_pkg.app_src.stage"),
     )
     mock_local_diff_with_stage.assert_called_once_with(
         role="new_role",
@@ -215,7 +215,7 @@ def test_sync_deploy_root_with_stage_subdir(
         role="new_role",
         prune=True,
         recursive=True,
-        stage_path=DefaultStagePathParts(stage_full_path),
+        stage_path=DefaultStagePathParts.from_fqn(stage_fqn, "v1"),
     )
 
     mock_stage_exists.assert_called_once_with(stage_fqn)
@@ -224,7 +224,7 @@ def test_sync_deploy_root_with_stage_subdir(
         mock_create_stage.assert_called_once_with(stage_fqn)
     mock_compute_stage_diff.assert_called_once_with(
         local_root=dm.project_root / pkg_model.deploy_root,
-        stage_path=DefaultStagePathParts(stage_full_path),
+        stage_path=DefaultStagePathParts.from_fqn(stage_fqn, "v1"),
     )
     mock_local_diff_with_stage.assert_called_once_with(
         role="new_role",
@@ -285,7 +285,7 @@ def test_sync_deploy_root_with_stage_prune(
         role="new_role",
         prune=prune,
         recursive=True,
-        stage_path=DefaultStagePathParts(stage_fqn),
+        stage_path=DefaultStagePathParts.from_fqn(stage_fqn),
     )
 
     if expected_warn:
@@ -1446,7 +1446,7 @@ def test_validate_use_scratch_stage(mock_execute, mock_deploy, temp_dir, mock_cu
         paths=[],
         print_diff=False,
         validate=False,
-        stage_path=DefaultStagePathParts(
+        stage_path=DefaultStagePathParts.from_fqn(
             f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}"
         ),
         interactive=False,
@@ -1524,7 +1524,7 @@ def test_validate_failing_drops_scratch_stage(
         paths=[],
         print_diff=False,
         validate=False,
-        stage_path=DefaultStagePathParts(
+        stage_path=DefaultStagePathParts.from_fqn(
             f"{pkg_model.fqn.name}.{pkg_model.scratch_stage}"
         ),
         interactive=False,

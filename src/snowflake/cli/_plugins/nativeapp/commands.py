@@ -58,6 +58,7 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
     StreamResult,
 )
+from snowflake.cli.api.project.util import same_identifiers
 from typing_extensions import Annotated
 
 app = SnowTyperFactory(
@@ -249,7 +250,7 @@ def app_teardown(
         for package_entity in project.get_entities_by_type(
             ApplicationPackageEntityModel.get_type()
         ).values()
-        if package_entity.identifier == app_package_entity.identifier
+        if same_identifiers(package_entity.identifier, app_package_entity.identifier)
     ]
 
     for app_entity in project.get_entities_by_type(

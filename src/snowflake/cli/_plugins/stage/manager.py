@@ -147,6 +147,13 @@ class DefaultStagePathParts(StagePathParts):
         self.stage_name = stage_name
         self.is_directory = True if stage_path.endswith("/") else False
 
+    @classmethod
+    def from_fqn(
+        cls, stage_fqn: str, subdir: str | None = None
+    ) -> DefaultStagePathParts:
+        full_path = f"{stage_fqn}/{subdir}" if subdir else stage_fqn
+        return cls(full_path)
+
     @property
     def path(self) -> str:
         return f"{self.stage_name.rstrip('/')}/{self.directory}".rstrip("/")

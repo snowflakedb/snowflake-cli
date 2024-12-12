@@ -166,7 +166,7 @@ def _create_or_upgrade_app(
 
     return app.create_or_upgrade_app(
         package=pkg,
-        stage_path=DefaultStagePathParts(stage_fqn),
+        stage_path=DefaultStagePathParts.from_fqn(stage_fqn),
         install_method=install_method,
         policy=policy,
         interactive=interactive,

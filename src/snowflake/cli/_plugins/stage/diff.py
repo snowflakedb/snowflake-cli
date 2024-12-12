@@ -23,6 +23,7 @@ from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
+from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.connector.cursor import DictCursor
 
 from .manager import StageManager, StagePathParts
@@ -83,26 +84,29 @@ def enumerate_files(path: Path) -> List[Path]:
     return paths
 
 
-def relative_to_stage_path(path: str, stage_subirectory: str) -> StagePathType:
+def relative_to_stage_path(path: str, stage_path: StagePathParts) -> StagePathType:
     """
     @param path: file path on the stage.
-    @param stage_subirectory: subdirectory of stage.
-    @return: path of file relative to the stage_path
+    @param stage_path: stage path object.
+    @return: path of the file relative to the stage and subdirectory
     """
-    wo_stage_name = StagePathType(*path.split("/")[1:])
-    relative_path = str(wo_stage_name).removeprefix(stage_subirectory).lstrip("/")
+    # path is returned from a SQL call so it's unquoted. Unquote stage_path identifiers to match.
+    stage_name = unquote_identifier(stage_path.stage_name)
+    stage_subdirectory = unquote_identifier(stage_path.directory)
+    path_wo_stage_name = path.removeprefix(stage_name)
+    relative_path = path_wo_stage_name.removeprefix(stage_subdirectory).lstrip("/")
     return StagePathType(relative_path)
 
 
 def build_md5_map(
-    list_stage_cursor: DictCursor, stage_subirectory: str
+    list_stage_cursor: DictCursor, stage_path: StagePathParts
 ) -> Dict[StagePathType, Optional[str]]:
     """
-    Returns a mapping of file paths to their md5sums. File paths are relative to the stage_path.
+    Returns a mapping of file paths to their md5sums. File paths are relative to the stage and subdirectory.
     """
     all_files = list_stage_cursor.fetchall()
     return {
-        relative_to_stage_path(file["name"], stage_subirectory): file["md5"]
+        relative_to_stage_path(file["name"], stage_path): file["md5"]
         for file in all_files
     }
 
@@ -126,14 +130,14 @@ def preserve_from_diff(
 
 def compute_stage_diff(local_root: Path, stage_path: StagePathParts) -> DiffResult:
     """
-    Diffs the files in the local_root with files in the stage path that is stage_path_parts's full_path.
+    Diffs the files in the local_root with files in the stage path that is stage_path's full_path.
     """
     stage_manager = StageManager()
     local_files = enumerate_files(local_root)
     remote_files = stage_manager.list_files(stage_path.full_path)
 
     # Create a mapping from remote_file path to file's md5sum. Path is relative to stage_name/directory.
-    remote_md5 = build_md5_map(remote_files, stage_path.directory)
+    remote_md5 = build_md5_map(remote_files, stage_path)
 
     result: DiffResult = DiffResult()
 

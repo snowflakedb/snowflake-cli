@@ -135,7 +135,7 @@ class ApplicationPackageEntityModel(EntityModelBase):
     )
 
     stage_subdirectory: Optional[str] = Field(
-        title="Subfolder in stage",
+        title="Subfolder in stage to upload the artifacts to, instead of the root of the application package's stage",
         default="",
     )
 
@@ -223,14 +223,15 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     @property
     def scratch_stage_path(self) -> DefaultStagePathParts:
-        return DefaultStagePathParts(f"{self.name}.{self._entity_model.scratch_stage}")
+        return DefaultStagePathParts.from_fqn(
+            f"{self.name}.{self._entity_model.scratch_stage}"
+        )
 
     @cached_property
     def stage_path(self) -> DefaultStagePathParts:
         stage_fqn = f"{self.name}.{self._entity_model.stage}"
         subdir = self._entity_model.stage_subdirectory
-        full_path = f"{stage_fqn}/{subdir}" if subdir else stage_fqn
-        return DefaultStagePathParts(full_path)
+        return DefaultStagePathParts.from_fqn(stage_fqn, subdir)
 
     @property
     def post_deploy_hooks(self) -> list[PostDeployHook] | None:
