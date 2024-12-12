@@ -18,6 +18,7 @@ import logging
 from typing import Optional
 
 import typer
+from snowflake.cli._plugins.nativeapp.artifacts import VersionInfo
 from snowflake.cli._plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     force_project_definition_v2,
@@ -29,7 +30,14 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.common import EntityActions
-from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
+from snowflake.cli.api.output.formats import OutputFormat
+from snowflake.cli.api.output.types import (
+    CommandResult,
+    MessageResult,
+    ObjectResult,
+    QueryResult,
+)
+from snowflake.cli.api.project.util import to_identifier
 
 app = SnowTyperFactory(
     name="version",
@@ -78,7 +86,7 @@ def create(
         project_root=cli_context.project_root,
     )
     package_id = options["package_entity_id"]
-    ws.perform_action(
+    result: VersionInfo = ws.perform_action(
         package_id,
         EntityActions.VERSION_CREATE,
         version=version,
@@ -88,7 +96,19 @@ def create(
         interactive=interactive,
         skip_git_check=skip_git_check,
     )
-    return MessageResult(f"Version create is now complete.")
+
+    message = "Version create is now complete."
+    if cli_context.output_format == OutputFormat.JSON:
+        return ObjectResult(
+            {
+                "message": message,
+                "version": to_identifier(result.version_name),
+                "patch": result.patch_number,
+                "label": result.label,
+            }
+        )
+    else:
+        return MessageResult(message)
 
 
 @app.command("list", requires_connection=True)

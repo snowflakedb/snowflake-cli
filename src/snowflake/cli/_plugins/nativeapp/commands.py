@@ -31,6 +31,9 @@ from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEnt
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
+from snowflake.cli._plugins.nativeapp.release_directive.commands import (
+    app as release_directives_app,
+)
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     find_entity,
@@ -67,6 +70,7 @@ app = SnowTyperFactory(
     help="Manages a Snowflake Native App",
 )
 app.add_typer(versions_app)
+app.add_typer(release_directives_app)
 
 log = logging.getLogger(__name__)
 
@@ -358,7 +362,10 @@ def app_validate(
     if cli_context.output_format == OutputFormat.JSON:
         return ObjectResult(
             package.get_validation_result(
-                use_scratch_stage=True, interactive=False, force=True
+                action_ctx=ws.action_ctx,
+                use_scratch_stage=True,
+                interactive=False,
+                force=True,
             )
         )
 
