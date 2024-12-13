@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -31,7 +32,7 @@ from snowflake.cli._plugins.spcs.common import (
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
-from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
 
@@ -198,6 +199,146 @@ class ServiceManager(SqlExecutionMixin):
 
         except KeyboardInterrupt:
             return
+
+    def get_account_event_table(self) -> str:
+        query = "show parameters like 'event_table' in account"
+        results = self.execute_query(query, cursor_class=DictCursor)
+        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
+
+    def get_events(
+        self,
+        service_name: str,
+        instance_id: str,
+        container_name: str,
+        since: str | datetime | None = None,
+        until: str | datetime | None = None,
+        first: int = -1,
+        last: int = -1,
+    ):
+
+        account_event_table = self.get_account_event_table()
+        if not account_event_table:
+            return []
+
+        resource_filters = []
+        if service_name:
+            resource_filters.append(
+                f"resource_attributes:\"snow.service.name\" = '{service_name}'"
+            )
+        if instance_id:
+            resource_filters.append(
+                f"(resource_attributes:\"snow.service.instance\" = '{instance_id}' OR resource_attributes:\"snow.service.container.instance\" = '{instance_id}')"
+            )
+        if container_name:
+            resource_filters.append(
+                f"resource_attributes:\"snow.service.container.name\" = '{container_name}'"
+            )
+
+        resource_clause = " and ".join(resource_filters) if resource_filters else "1=1"
+
+        if isinstance(since, datetime):
+            since_clause = f"and timestamp >= '{since}'"
+        elif isinstance(since, str) and since:
+            since_clause = f"and timestamp >= sysdate() - interval '{since}'"
+        else:
+            since_clause = ""
+
+        if isinstance(until, datetime):
+            until_clause = f"and timestamp <= '{until}'"
+        elif isinstance(until, str) and until:
+            until_clause = f"and timestamp <= sysdate() - interval '{until}'"
+        else:
+            until_clause = ""
+
+        first_clause = f"limit {first}" if first >= 0 else ""
+        last_clause = f"limit {last}" if last >= 0 else ""
+
+        query = self.execute_query(
+            f"""\
+                select * from (
+                    select *
+                    from {account_event_table}
+                    where (
+                        {resource_clause}
+                        {since_clause}
+                        {until_clause}
+                    )
+                    AND RECORD_TYPE = 'LOG'
+                    AND SCOPE['name'] = 'snow.spcs.platform'
+                    order by timestamp desc
+                    {last_clause}
+                ) order by timestamp asc
+                {first_clause}
+                """
+        )
+        return query
+
+    def get_metrics(
+        self,
+        service_name: str,
+        instance_id: str,
+        container_name: str,
+        since: str | datetime | None = None,
+        until: str | datetime | None = None,
+        first: int = -1,
+        last: int = -1,
+    ):
+        account_event_table = self.get_account_event_table()
+        if not account_event_table:
+            return []
+
+        resource_filters = []
+        if service_name:
+            resource_filters.append(
+                f"resource_attributes:\"snow.service.name\" = '{service_name}'"
+            )
+        if instance_id:
+            resource_filters.append(
+                f"(resource_attributes:\"snow.service.instance\" = '{instance_id}' OR resource_attributes:\"snow.service.container.instance\" = '{instance_id}')"
+            )
+        if container_name:
+            resource_filters.append(
+                f"resource_attributes:\"snow.service.container.name\" = '{container_name}'"
+            )
+
+        resource_clause = " and ".join(resource_filters) if resource_filters else "1=1"
+
+        if isinstance(since, datetime):
+            since_clause = f"and timestamp >= '{since}'"
+        elif isinstance(since, str) and since:
+            since_clause = f"and timestamp >= sysdate() - interval '{since}'"
+        else:
+            since_clause = ""
+
+        if isinstance(until, datetime):
+            until_clause = f"and timestamp <= '{until}'"
+        elif isinstance(until, str) and until:
+            until_clause = f"and timestamp <= sysdate() - interval '{until}'"
+        else:
+            until_clause = ""
+
+        first_clause = f"limit {first}" if first >= 0 else ""
+        last_clause = f"limit {last}" if last >= 0 else ""
+
+        query = self.execute_query(
+            f"""\
+                select * from (
+                    select *
+                    from {account_event_table}
+                    where (
+                        {resource_clause}
+                        {since_clause}
+                        {until_clause}
+                    )
+                    AND RECORD_TYPE = 'METRIC'
+                    AND SCOPE['name'] = 'snow.spcs.platform'
+                    order by timestamp desc
+                    {last_clause}
+                ) order by timestamp asc
+                {first_clause}
+                """
+        )
+        return query
 
     def upgrade_spec(self, service_name: str, spec_path: Path):
         spec = self._read_yaml(spec_path)
