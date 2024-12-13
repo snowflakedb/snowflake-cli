@@ -60,7 +60,7 @@ def test_nativeapp_children_interface(example_streamlit_workspace, snapshot):
     sl, action_context = example_streamlit_workspace
 
     sl.bundle()
-    bundle_artifact = sl.root / "output" / sl.model.stage / "streamlit_app.py"
+    bundle_artifact = sl.root / "output" / "bundle" / sl.model.stage / "streamlit_app.py"
     deploy_sql_str = sl.get_deploy_sql()
     grant_sql_str = sl.get_usage_grant_sql(app_role="app_role")
 
